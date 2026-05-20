@@ -298,6 +298,8 @@ T = {
         "Sobald das Screening-Gespräch abgeschlossen ist, kann dein Profil freigegeben werden und du kannst dich für Events anmelden!",
         "Une fois l'appel de vérification terminé, ton profil pourra être approuvé et tu pourras t'inscrire aux événements !",
     ),
+    "No rules — just a natural, free-flowing conversation!": ("Keine Regeln — einfach ein natürliches, freies Gespräch genießen!", "Pas de règles — profitez simplement d'une conversation naturelle et libre !"),
+    "Open Conversation": ("Freies Gespräch", "Conversation libre"),
     "Open in Crush.lu App": ("In der Crush.lu-App öffnen", "Ouvrir dans l'application Crush.lu"),
     "Opening login...": ("Anmeldung wird geöffnet …", "Ouverture de la connexion…"),
     "Option 2: Delete Entire PowerUp Account": ("Option 2: Gesamtes PowerUp-Konto löschen", "Option 2 : supprimer l'intégralité du compte PowerUp"),
@@ -431,7 +433,9 @@ T = {
     "Step 5 of 5 - Review and submit": ("Schritt 5 von 5 – Prüfen und absenden", "Étape 5 sur 5 – Relis et envoie"),
     "Submitted %(time)s ago": ("Eingereicht vor %(time)s", "Soumis il y a %(time)s"),
     "Subscription not active": ("Abo nicht aktiv", "Abonnement non actif"),
+    "Each pair gets a theme to guide and inspire their chat!": ("Jedes Paar erhält ein Thema, das ihr Gespräch leitet und inspiriert!", "Chaque duo reçoit un thème pour guider et inspirer leur échange !"),
     "Templates": ("Vorlagen", "Modèles"),
+    "Theme Based Conversation": ("Themenbasiertes Gespräch", "Conversation à thème"),
     "Thanks for being part of the Crush.lu community!": ("Danke, dass du Teil der Crush.lu-Community bist!", "Merci de faire partie de la communauté Crush.lu !"),
     "The Results!": ("Die Ergebnisse!", "Les résultats !"),
     "The following email addresses are associated with your account:": (

@@ -202,7 +202,10 @@
                             <strong class="text-gray-900 dark:text-white text-sm">{% trans "Forbidden Word Game" %}</strong>
                         </div>
                         <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-3">
-                            <strong class="text-gray-900 dark:text-white text-sm">{% trans "Algorithm Extended" %}</strong>
+                            <strong class="text-gray-900 dark:text-white text-sm">{% trans "Open Conversation" %}</strong>
+                        </div>
+                        <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-3">
+                            <strong class="text-gray-900 dark:text-white text-sm">{% trans "Theme Based Conversation" %}</strong>
                         </div>
                         {% endfor %}
                     </div>
@@ -358,11 +361,20 @@
                                     </label>
                                 </div>
                                 <div class="variant-option-item group relative bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl p-3 md:p-4 cursor-pointer hover:border-crush-pink dark:hover:border-pink-500 transition-all duration-300 has-[:checked]:border-crush-pink dark:has-[:checked]:border-pink-500 has-[:checked]:bg-pink-50 dark:has-[:checked]:bg-pink-950/30 has-[:checked]:shadow-md">
-                                    <label class="flex items-start gap-4 cursor-pointer" for="demo-twist-algorithm">
-                                        <input class="variant-radio mt-1 w-5 h-5 text-crush-pink focus:ring-crush-pink cursor-pointer" type="radio" name="demo_twist" id="demo-twist-algorithm" value="algorithm">
+                                    <label class="flex items-start gap-4 cursor-pointer" for="demo-twist-open">
+                                        <input class="variant-radio mt-1 w-5 h-5 text-crush-pink focus:ring-crush-pink cursor-pointer" type="radio" name="demo_twist" id="demo-twist-open" value="open_conversation">
                                         <div class="flex-1">
-                                            <strong class="text-gray-900 dark:text-white block mb-1">{% trans "Algorithm Extended" %}</strong>
-                                            <span class="text-gray-600 dark:text-gray-400 text-sm">{% trans "Top matches get extended 8-min conversations!" %}</span>
+                                            <strong class="text-gray-900 dark:text-white block mb-1">{% trans "Open Conversation" %}</strong>
+                                            <span class="text-gray-600 dark:text-gray-400 text-sm">{% trans "No rules — just a natural, free-flowing conversation!" %}</span>
+                                        </div>
+                                    </label>
+                                </div>
+                                <div class="variant-option-item group relative bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl p-3 md:p-4 cursor-pointer hover:border-crush-pink dark:hover:border-pink-500 transition-all duration-300 has-[:checked]:border-crush-pink dark:has-[:checked]:border-pink-500 has-[:checked]:bg-pink-50 dark:has-[:checked]:bg-pink-950/30 has-[:checked]:shadow-md">
+                                    <label class="flex items-start gap-4 cursor-pointer" for="demo-twist-theme">
+                                        <input class="variant-radio mt-1 w-5 h-5 text-crush-pink focus:ring-crush-pink cursor-pointer" type="radio" name="demo_twist" id="demo-twist-theme" value="theme_based">
+                                        <div class="flex-1">
+                                            <strong class="text-gray-900 dark:text-white block mb-1">{% trans "Theme Based Conversation" %}</strong>
+                                            <span class="text-gray-600 dark:text-gray-400 text-sm">{% trans "Each pair gets a theme to guide and inspire their chat!" %}</span>
                                         </div>
                                     </label>
                                 </div>
@@ -524,11 +536,20 @@
                     </div>
                     <div>
                         <div class="flex items-center justify-between mb-1">
-                            <span class="text-gray-700 dark:text-gray-300 text-sm">{% trans "Algorithm Extended" %}</span>
-                            <span class="text-gray-500 dark:text-gray-400 font-bold text-sm">20%</span>
+                            <span class="text-gray-700 dark:text-gray-300 text-sm">{% trans "Open Conversation" %}</span>
+                            <span class="text-gray-500 dark:text-gray-400 font-bold text-sm">15%</span>
                         </div>
                         <div class="h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                            <div class="h-full bg-gray-400 dark:bg-gray-500 rounded-full" style="width: 20%;"></div>
+                            <div class="h-full bg-gray-400 dark:bg-gray-500 rounded-full" style="width: 15%;"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-gray-700 dark:text-gray-300 text-sm">{% trans "Theme Based Conversation" %}</span>
+                            <span class="text-gray-500 dark:text-gray-400 font-bold text-sm">5%</span>
+                        </div>
+                        <div class="h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                            <div class="h-full bg-gray-400 dark:bg-gray-500 rounded-full" style="width: 5%;"></div>
                         </div>
                     </div>
                 </div>

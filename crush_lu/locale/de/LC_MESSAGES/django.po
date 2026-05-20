@@ -31347,10 +31347,20 @@ msgid "Forbidden Word Game"
 msgstr "Verbotenes-Wort-Spiel"
 
 #: .\crush_lu\templates\crush_lu\voting_demo.html:205
+msgid "Open Conversation"
+msgstr "Freies Gespräch"
+
+#: .\crush_lu\templates\crush_lu\voting_demo.html:209
+msgid "Theme Based Conversation"
+msgstr "Themenbasiertes Gespräch"
+
 #: .\crush_lu\templates\crush_lu\voting_demo.html:364
-#: .\crush_lu\templates\crush_lu\voting_demo.html:527
-msgid "Algorithm Extended"
-msgstr "Algorithmus erweitert"
+msgid "No rules — just a natural, free-flowing conversation!"
+msgstr "Keine Regeln — einfach ein natürliches, freies Gespräch genießen!"
+
+#: .\crush_lu\templates\crush_lu\voting_demo.html:374
+msgid "Each pair gets a theme to guide and inspire their chat!"
+msgstr "Jedes Paar erhält ein Thema, das ihr Gespräch leitet und inspiriert!"
 
 #: .\crush_lu\templates\crush_lu\voting_demo.html:215
 #, fuzzy
