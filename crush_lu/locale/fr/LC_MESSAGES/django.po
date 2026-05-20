@@ -21891,6 +21891,18 @@ msgstr "Rappel :"
 msgid "You can change your votes at any time before the voting period ends!"
 msgstr "Tu peux changer tes votes à tout moment avant la fin de la période de vote !"
 
+#: .\crush_lu\templates\crush_lu\event_activity_vote.html:62
+msgid ""
+"Choose how everyone will introduce themselves — or vote to skip straight to "
+"speed dating!"
+msgstr ""
+"Choisis comment tout le monde se présentera — ou vote pour passer "
+"directement au speed dating !"
+
+#: .\crush_lu\templates\crush_lu\event_activity_vote.html:68
+msgid "— or skip it entirely —"
+msgstr "— ou passer complètement —"
+
 #: .\crush_lu\templates\crush_lu\event_attendees.html:57
 #, fuzzy
 #| msgid "Registration is closed for this event."
@@ -22649,16 +22661,12 @@ msgid "Check-In Required"
 msgstr "Enregistrement requis"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:33
-#, fuzzy
-#| msgid ""
-#| "Voting has ended. You did not vote, but you can still participate in "
-#| "presentations!"
 msgid ""
 "Voting has ended. You were not checked in so you could not participate in "
 "the vote."
 msgstr ""
-"Le vote est terminé. Vous n'avez pas voté, mais vous pouvez toujours "
-"participer aux présentations !"
+"Le vote est terminé. Tu n'étais pas enregistré(e), tu n'as donc pas pu "
+"participer au vote."
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:35
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:38
@@ -22682,10 +22690,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:47
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:70
-#, fuzzy
-#| msgid "Voting Closed"
 msgid "Voting Has Ended"
-msgstr "Vote fermé"
+msgstr "Le vote est terminé"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:48
 msgid ""
@@ -22759,16 +22765,12 @@ msgid "What You'll Vote On"
 msgstr "Sur quoi tu vas voter"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:126
-#, fuzzy
-#| msgid ""
-#| "Unlike simple polls, you'll vote on TWO separate things. Each category "
-#| "affects a different phase of the event!"
 msgid ""
 "You'll vote on TWO categories. The most voted option in each shapes a "
 "different phase of the event!"
 msgstr ""
-"Contrairement aux simples sondages, vous votez sur DEUX choses différentes. "
-"Chaque catégorie affecte une phase différente de l'événement !"
+"Tu votes sur DEUX catégories. L'option la plus votée dans chacune façonne "
+"une phase différente de l'événement !"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:133
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:52
@@ -22781,10 +22783,8 @@ msgid "Presentation Style"
 msgstr "Style de présentation"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:135
-#, fuzzy
-#| msgid "How will everyone introduce themselves in Phase 2?"
 msgid "How will everyone introduce themselves in 90 seconds?"
-msgstr "Comment chacun se présentera-t-il en phase 2 ?"
+msgstr "Comment chacun se présentera-t-il en 90 secondes ?"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:150
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:60
@@ -22797,10 +22797,8 @@ msgid "Speed Dating Twist"
 msgstr "Twist du Speed Dating"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:152
-#, fuzzy
-#| msgid "What fun twist will spice up Phase 3?"
 msgid "What fun twist will spice up the speed dating phase?"
-msgstr "Quelle touche amusante pimentera la phase 3 ?"
+msgstr "Quelle touche amusante pimentera la phase de speed dating ?"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:166
 msgid "How It Works:"
@@ -22811,21 +22809,16 @@ msgid "Voting opens <strong>15 minutes after the event starts</strong>"
 msgstr "Le vote ouvre <strong>15 minutes après le début de l'événement</strong>"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:169
-#, fuzzy
-#| msgid "You have <strong>30 minutes</strong> to cast your vote"
 msgid "You have <strong>30 minutes</strong> to cast your votes"
 msgstr "Tu as <strong>30 minutes</strong> pour voter"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:170
-#, fuzzy
-#| msgid ""
-#| "Please vote on BOTH categories: Presentation Style AND Speed Dating Twist."
 msgid ""
 "Vote on <strong>TWO categories</strong>: Presentation Style and Speed Dating "
 "Twist"
 msgstr ""
-"Veuillez voter pour les DEUX catégories : Style de présentation ET Variante "
-"Speed Dating."
+"Vote sur <strong>DEUX catégories</strong> : Style de présentation et Variante "
+"Speed Dating"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:171
 msgid "The most voted options shape phases 2 and 3 of the event!"
@@ -22839,10 +22832,8 @@ msgstr "Résultats du vote"
 
 # Coach Dashboard translations
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:16
-#, fuzzy
-#| msgid "Back to Dashboard"
 msgid "Back to Event Dashboard"
-msgstr "Retour au tableau de bord"
+msgstr "Retour au tableau de bord de l'événement"
 
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:36
 #: .\crush_lu\templates\crush_lu\quiz_live.html:58
@@ -22850,10 +22841,8 @@ msgid "Coach View"
 msgstr "Vue coach"
 
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:39
-#, fuzzy
-#| msgid "Voting Still Open"
 msgid "Voting Open"
-msgstr "Vote toujours ouvert"
+msgstr "Vote ouvert"
 
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:41
 msgid "Voting Closed"
@@ -22882,23 +22871,17 @@ msgstr "Temps restant :"
 
 # Coach Dashboard translations
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:112
-#, fuzzy
-#| msgid "Coach Notes:"
 msgid "Have Voted"
-msgstr "Notes du Coach :"
+msgstr "Ont voté"
 
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:116
-#, fuzzy
-#| msgid "Total Votes"
 msgid "Not Yet Voted"
-msgstr "Total des votes"
+msgstr "Pas encore voté"
 
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:122
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:324
-#, fuzzy
-#| msgid "Presentation Style"
 msgid "Presentation Style Results"
-msgstr "Style de présentation"
+msgstr "Résultats : Style de présentation"
 
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:134
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:170
@@ -22909,23 +22892,17 @@ msgstr "Le plus voté"
 
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:158
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:363
-#, fuzzy
-#| msgid "Speed Dating Twist"
 msgid "Speed Dating Twist Results"
-msgstr "Twist du Speed Dating"
+msgstr "Résultats : Variante Speed Dating"
 
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:197
-#, fuzzy
-#| msgid "Presentation Control"
 msgid "Go to Presentation Control"
-msgstr "Contrôle de présentation"
+msgstr "Aller au contrôle des présentations"
 
 # Coach Dashboard translations
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:201
-#, fuzzy
-#| msgid "Dashboard"
 msgid "Event Dashboard"
-msgstr "Tableau de bord"
+msgstr "Tableau de bord de l'événement"
 
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:213
 #, python-format
