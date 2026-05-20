@@ -2458,19 +2458,21 @@ def coach_event_sms_invite(request, event_id):
         )
         if not template:
             template = config.sms_event_invite_template_en
-        event_date_str = date_format(
-            event.date_time, format="SHORT_DATE_FORMAT", use_l10n=True
-        )
-        # Build the event URL in the recipient's language, not the coach's
+        first_name = profile.user.first_name or ""
+        # Activate recipient's language so event.title (modeltranslation) and
+        # the URL prefix both use their language, not the coach's.
         with _translation.override(lang):
             profile_event_url = request.build_absolute_uri(
                 reverse("crush_lu:event_detail", args=[event.id])
             )
-        first_name = profile.user.first_name or ""
+            event_title = event.title
+            event_date_str = date_format(
+                event.date_time, format="SHORT_DATE_FORMAT", use_l10n=True
+            )
         sms_body = template.format(
             first_name=first_name,
             coach_name=coach_name,
-            event_title=event.title,
+            event_title=event_title,
             event_date=event_date_str,
             event_url=profile_event_url,
         )
