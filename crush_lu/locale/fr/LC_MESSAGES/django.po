@@ -21885,14 +21885,11 @@ msgstr "Soumettre mes votes"
 
 #: .\crush_lu\templates\crush_lu\event_activity_vote.html:119
 msgid "Remember:"
-msgstr "Membre"
+msgstr "Rappel :"
 
 #: .\crush_lu\templates\crush_lu\event_activity_vote.html:119
 msgid "You can change your votes at any time before the voting period ends!"
-msgstr ""
-"Vous pouvez modifier vos votes à tout moment avant la fin de lapériode de "
-"vote !Tu peux changer tes votes à tout moment avant la finde la période de "
-"vote !"
+msgstr "Tu peux changer tes votes à tout moment avant la fin de la période de vote !"
 
 #: .\crush_lu\templates\crush_lu\event_attendees.html:57
 #, fuzzy
@@ -22648,10 +22645,8 @@ msgid "Waiting to Start"
 msgstr "En attente de démarrage"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:31
-#, fuzzy
-#| msgid "Consent Required"
 msgid "Check-In Required"
-msgstr "Consentement requis"
+msgstr "Enregistrement requis"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:33
 #, fuzzy
@@ -22711,10 +22706,8 @@ msgid "Time remaining to vote"
 msgstr "Temps restant pour voter"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:56
-#, fuzzy
-#| msgid "Checking..."
 msgid "Check In to Vote"
-msgstr "Vérification..."
+msgstr "S'enregistrer pour voter"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:59
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:98
@@ -22723,10 +22716,8 @@ msgstr "Le vote commence dans :"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:63
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:102
-#, fuzzy
-#| msgid "Get ready to choose your favorite activity!"
 msgid "Get ready to choose your favorite activities!"
-msgstr "Prépare-toi à choisir ton activité préférée !"
+msgstr "Prépare-toi à choisir tes activités préférées !"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:71
 msgid "The votes are in! Check out the results."
@@ -22737,16 +22728,14 @@ msgid "You've Voted on Both Categories!"
 msgstr "Vous avez voté pour les deux catégories !"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:80
-#, fuzzy, python-format
-#| msgid "Presentation Style: <strong>%(style)s</strong>"
+#, python-format
 msgid "Presentation Style: <strong>%(choice)s</strong>"
-msgstr "Style de présentation : <strong>%(style)s</strong>"
+msgstr "Style de présentation : <strong>%(choice)s</strong>"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:81
-#, fuzzy, python-format
-#| msgid "Speed Dating Twist: <strong>%(twist)s</strong>"
+#, python-format
 msgid "Speed Dating Twist: <strong>%(choice)s</strong>"
-msgstr "Variante Speed Dating : <strong>%(twist)s</strong>"
+msgstr "Variante Speed Dating : <strong>%(choice)s</strong>"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:95
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:405
@@ -22766,10 +22755,8 @@ msgid "Minutes to Vote"
 msgstr "Minutes pour voter"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:124
-#, fuzzy
-#| msgid "Cast Your Vote Now"
 msgid "What You'll Vote On"
-msgstr "Vote maintenant"
+msgstr "Sur quoi tu vas voter"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:126
 #, fuzzy
@@ -22821,9 +22808,7 @@ msgstr "Comment ça marche :"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:168
 msgid "Voting opens <strong>15 minutes after the event starts</strong>"
-msgstr ""
-"Le vote ouvre <strong>15 minutes après le début del'événement</strong>Le "
-"vote ouvre <strong>15 minutes après le débutde l'événement</strong>"
+msgstr "Le vote ouvre <strong>15 minutes après le début de l'événement</strong>"
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:169
 #, fuzzy
@@ -22861,10 +22846,8 @@ msgstr "Retour au tableau de bord"
 
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:36
 #: .\crush_lu\templates\crush_lu\quiz_live.html:58
-#, fuzzy
-#| msgid "Coach Review"
 msgid "Coach View"
-msgstr "Révision par le Coach"
+msgstr "Vue coach"
 
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:39
 #, fuzzy
@@ -22891,9 +22874,7 @@ msgstr "Vote en cours"
 
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:78
 msgid "Results will be final when voting closes. Keep checking back!"
-msgstr ""
-"Les résultats seront définitifs à la fermeture du vote. Continuez àvérifier !"
-"Les résultats seront définitifs à la fermeture du vote.Continue de vérifier !"
+msgstr "Les résultats seront définitifs à la fermeture du vote. Continue de vérifier !"
 
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:81
 msgid "Time Remaining:"
@@ -22923,10 +22904,8 @@ msgstr "Style de présentation"
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:170
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:336
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:375
-#, fuzzy
-#| msgid "Total Votes"
 msgid "Most Voted"
-msgstr "Total des votes"
+msgstr "Le plus voté"
 
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:158
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:363
@@ -22949,18 +22928,14 @@ msgid "Event Dashboard"
 msgstr "Tableau de bord"
 
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:213
-#, fuzzy, python-format
-#| msgid "Rejected (%(counter)s)"
-#| msgid_plural "Rejected (%(counter)s)"
+#, python-format
 msgid "Not Checked In (%(count)s)"
-msgstr "Rejeté (%(counter)s)"
+msgstr "Non enregistré (%(count)s)"
 
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:239
-#, fuzzy, python-format
-#| msgid "Rejected (%(counter)s)"
-#| msgid_plural "Rejected (%(counter)s)"
+#, python-format
 msgid "Haven't Voted Yet (%(count)s)"
-msgstr "Rejeté (%(counter)s)"
+msgstr "N'a pas encore voté (%(count)s)"
 
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:262
 msgid "All Attendees Have Voted"
@@ -22972,11 +22947,9 @@ msgid "%(count)s attendees have cast their votes."
 msgstr "%(count)s participants ont voté."
 
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:274
-#, fuzzy, python-format
-#| msgid "Rejected (%(counter)s)"
-#| msgid_plural "Rejected (%(counter)s)"
+#, python-format
 msgid "Checked In (%(count)s)"
-msgstr "Rejeté (%(counter)s)"
+msgstr "Enregistré (%(count)s)"
 
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:318
 msgid "Activity Options"
@@ -22984,20 +22957,16 @@ msgstr "Options d'activité"
 
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:339
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:378
-#, fuzzy
-#| msgid "Your Vote ✓"
 msgid "Your Vote"
-msgstr "Ton vote ✓"
+msgstr "Ton vote"
 
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:411
 msgid "Change Your Vote"
 msgstr "Changer ton vote"
 
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:419
-#, fuzzy
-#| msgid "Presentations"
 msgid "Go to Presentations"
-msgstr "Présentations"
+msgstr "Aller aux présentations"
 
 #: .\crush_lu\templates\crush_lu\event_voting_results.html:425
 #: .\crush_lu\templates\crush_lu\my_presentation_scores.html:99
@@ -33198,6 +33167,14 @@ msgstr "Vos votes ont été enregistrés pour les deux catégories !"
 #: .\crush_lu\views_voting.py:218
 msgid "Invalid activity option selected."
 msgstr "Option d'activité invalide sélectionnée."
+
+#: .\crush_lu\views_voting.py:585
+msgid "Response submitted anonymously!"
+msgstr "Réponse soumise anonymement !"
+
+#: .\crush_lu\views_voting.py:585
+msgid "Response updated!"
+msgstr "Réponse mise à jour !"
 
 #: .\crush_lu\views_voting.py:271
 msgid "Only confirmed attendees can view results."
