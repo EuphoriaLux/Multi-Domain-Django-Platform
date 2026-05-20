@@ -11425,10 +11425,8 @@ msgid "Open SMS"
 msgstr "Ouvrir SMS"
 
 #: .\crush_lu\templates\crush_lu\_sms_invite_profile_row.html:59
-#, fuzzy
-#| msgid "Log in"
 msgid "Log Sent"
-msgstr "Se connecter"
+msgstr "Journal envoyé"
 
 #: .\crush_lu\templates\crush_lu\_spark_sent_success.html:5
 #: .\crush_lu\templates\crush_lu\coach_event_sms_invite.html:69
@@ -13887,10 +13885,8 @@ msgstr ""
 "cette connexion."
 
 #: .\crush_lu\templates\crush_lu\coach_connection_review.html:182
-#, fuzzy
-#| msgid "Submit Review"
 msgid "Start Review"
-msgstr "Soumettre l'examen"
+msgstr "Démarrer l'examen"
 
 #: .\crush_lu\templates\crush_lu\coach_connection_review.html:193
 #: .\crush_lu\templates\crush_lu\connection_detail.html:207
@@ -14061,10 +14057,8 @@ msgid "Mutual connection"
 msgstr "Connexion mutuelle !"
 
 #: .\crush_lu\templates\crush_lu\coach_connections.html:158
-#, fuzzy
-#| msgid "Revision requested."
 msgid "also requested"
-msgstr "Révision demandée."
+msgstr "a aussi demandé"
 
 #: .\crush_lu\templates\crush_lu\coach_connections.html:159
 #, fuzzy
@@ -14550,7 +14544,7 @@ msgstr "Chapitre %(chapter)s : %(title)s"
 #: .\crush_lu\templates\crush_lu\coach_edit_journey.html:32
 #: .\crush_lu\templates\crush_lu\journey\chapter_view.html:28
 msgid "Story Introduction"
-msgstr "Production"
+msgstr "Introduction du récit"
 
 #: .\crush_lu\templates\crush_lu\coach_edit_journey.html:40
 #, python-format
@@ -16387,10 +16381,8 @@ msgid "Close"
 msgstr "Fermer"
 
 #: .\crush_lu\templates\crush_lu\coach_review_profile.html:407
-#, fuzzy
-#| msgid "Submit Review"
 msgid "Looks good, Submit Review"
-msgstr "Soumettre l'examen"
+msgstr "Tout va bien, soumettre l'examen"
 
 #: .\crush_lu\templates\crush_lu\coach_sessions.html:29
 #, python-format
