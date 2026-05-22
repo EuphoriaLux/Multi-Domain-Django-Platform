@@ -1747,9 +1747,13 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                 updated_fields = []
 
                 # Map birthdate (OIDC format: YYYY-MM-DD)
-                # LuxID is the authoritative source — always overwrite.
+                # For the dedicated 'luxid' provider, treat as authoritative
+                # and overwrite any existing value. For the generic
+                # 'openid_connect' fallback, only fill if empty — that path
+                # matches any OIDC app, so we stay conservative in case a
+                # second OIDC provider is ever configured on crush.lu.
                 birthdate = _claims.get("birthdate")
-                if birthdate:
+                if birthdate and (_prov == "luxid" or not profile.date_of_birth):
                     try:
                         profile.date_of_birth = datetime.strptime(
                             birthdate, "%Y-%m-%d"
@@ -1758,14 +1762,13 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                     except (ValueError, TypeError):
                         logger.warning("Invalid birthdate format from LuxID")
 
-                # Map gender
-                # LuxID is the authoritative source — always overwrite.
+                # Map gender — same overwrite policy as birthdate above.
                 # "Je préfère ne pas le dire" sends no gender claim; the
                 # empty-string guard below leaves the profile value intact.
                 gender = (_claims.get("gender") or "").lower()
                 if gender:
                     mapped = LUXID_GENDER_MAP.get(gender, "")
-                    if mapped:
+                    if mapped and (_prov == "luxid" or not profile.gender):
                         profile.gender = mapped
                         updated_fields.append("gender")
 
