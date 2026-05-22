@@ -1883,11 +1883,11 @@ def profile_submitted(request):
                     "provider", flat=True
                 )
             )
-            # Find the specific OIDC app configured for LuxID. Using
-            # provider_id="luxid" mirrors the account_settings scoping so we
-            # don't accidentally match other openid_connect providers on the site.
+            # Find the specific OIDC app configured for LuxID. Filtering by
+            # provider_id="luxid" ensures we don't bind to a different
+            # openid_connect app if multiple OIDC providers are configured.
             _oidc_app = SocialApp.objects.filter(
-                provider="openid_connect", sites=_current_site
+                provider="openid_connect", provider_id="luxid", sites=_current_site
             ).first()
 
             if not has_luxid_account and _oidc_app is not None:
