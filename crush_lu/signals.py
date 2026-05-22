@@ -2123,7 +2123,12 @@ def auto_approve_profile_on_luxid_connect(sender, request, sociallogin, **kwargs
     with transaction.atomic():
         submission.status = "approved"
         submission.reviewed_at = now
-        submission.coach_notes = "Auto-approved via LuxID identity verification"
+        _auto_note = "Auto-approved via LuxID identity verification"
+        submission.coach_notes = (
+            f"{submission.coach_notes}\n{_auto_note}".strip()
+            if submission.coach_notes
+            else _auto_note
+        )
         submission.save(update_fields=["status", "reviewed_at", "coach_notes"])
 
         profile.is_approved = True
