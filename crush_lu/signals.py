@@ -1456,6 +1456,8 @@ def create_crush_profile_from_microsoft(sender, instance, created, **kwargs):
 LUXID_GENDER_MAP = {
     "male": "M",
     "female": "F",
+    "diverse": "NB",  # OIDC standard spelling
+    "divers": "NB",   # French/German spelling used in LuxID UI
 }
 
 
@@ -1745,8 +1747,9 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                 updated_fields = []
 
                 # Map birthdate (OIDC format: YYYY-MM-DD)
+                # LuxID is the authoritative source — always overwrite.
                 birthdate = _claims.get("birthdate")
-                if birthdate and not profile.date_of_birth:
+                if birthdate:
                     try:
                         profile.date_of_birth = datetime.strptime(
                             birthdate, "%Y-%m-%d"
@@ -1756,8 +1759,11 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                         logger.warning("Invalid birthdate format from LuxID")
 
                 # Map gender
+                # LuxID is the authoritative source — always overwrite.
+                # "Je préfère ne pas le dire" sends no gender claim; the
+                # empty-string guard below leaves the profile value intact.
                 gender = (_claims.get("gender") or "").lower()
-                if gender and not profile.gender:
+                if gender:
                     mapped = LUXID_GENDER_MAP.get(gender, "")
                     if mapped:
                         profile.gender = mapped
@@ -2044,6 +2050,109 @@ def verify_email_on_social_account_connect(sender, request, sociallogin, **kwarg
             user.pk,
             sociallogin.account.provider,
         )
+
+
+@receiver(social_account_added)
+def auto_approve_profile_on_luxid_connect(sender, request, sociallogin, **kwargs):
+    """
+    Auto-approve a pending ProfileSubmission when an existing user connects
+    their LuxID government identity account, bypassing the coach review step.
+
+    Guards (all must pass):
+      1. Provider is LuxID ('luxid' or 'openid_connect').
+      2. Request is from a crush.lu domain.
+      3. sociallogin.user has a real pk (authenticated user).
+      4. The user has a CrushProfile.
+      5. The profile is NOT already approved.
+      6. There is a 'pending' ProfileSubmission.
+
+    By the time this signal fires, update_crush_profile_from_luxid (pre_social_login)
+    has already run and applied LuxID's authoritative DOB, gender, and phone to
+    the profile. The approval here is therefore based on clean, reconciled data.
+    """
+    if sociallogin.account.provider not in ("luxid", "openid_connect"):
+        return
+
+    if not _is_crush_domain(request):
+        return
+
+    user = sociallogin.user
+    if not (user and getattr(user, "pk", None)):
+        return
+
+    try:
+        profile = CrushProfile.objects.get(user=user)
+    except CrushProfile.DoesNotExist:
+        logger.info(
+            "[LUXID-AUTO-APPROVE] No CrushProfile for user pk=%s, skipping",
+            getattr(user, "pk", None),
+        )
+        return
+
+    if profile.is_approved:
+        logger.info(
+            "[LUXID-AUTO-APPROVE] Profile pk=%s already approved, skipping",
+            profile.pk,
+        )
+        return
+
+    try:
+        submission = ProfileSubmission.objects.filter(
+            profile=profile, status="pending"
+        ).latest("submitted_at")
+    except ProfileSubmission.DoesNotExist:
+        logger.info(
+            "[LUXID-AUTO-APPROVE] No pending submission for profile pk=%s, skipping",
+            profile.pk,
+        )
+        return
+
+    now = timezone.now()
+
+    with transaction.atomic():
+        submission.status = "approved"
+        submission.reviewed_at = now
+        submission.coach_notes = "Auto-approved via LuxID identity verification"
+        submission.save(update_fields=["status", "reviewed_at", "coach_notes"])
+
+        profile.is_approved = True
+        profile.approved_at = now
+        profile.save(update_fields=["is_approved", "approved_at"])
+
+    logger.info(
+        "[LUXID-AUTO-APPROVE] Auto-approved profile pk=%s for user pk=%s via LuxID connect",
+        profile.pk,
+        user.pk,
+    )
+
+    try:
+        from .referrals import check_and_apply_profile_approved_reward
+        check_and_apply_profile_approved_reward(profile)
+    except Exception as _e:
+        logger.error(
+            "[LUXID-AUTO-APPROVE] Reward step failed for profile pk=%s: %s", profile.pk, _e
+        )
+
+    try:
+        from .notification_service import notify_profile_approved
+        notify_profile_approved(user=user, profile=profile, coach_notes=None, request=request)
+    except Exception as _e:
+        logger.error(
+            "[LUXID-AUTO-APPROVE] Notification step failed for profile pk=%s: %s", profile.pk, _e
+        )
+
+    if request is not None:
+        try:
+            from django.utils.translation import gettext as _gt
+            messages.success(
+                request,
+                _gt(
+                    "Your identity has been verified with LuxID. "
+                    "Your profile is now approved!"
+                ),
+            )
+        except Exception:
+            pass
 
 
 # =============================================================================

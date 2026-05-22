@@ -1863,6 +1863,38 @@ def profile_submitted(request):
         "recontact_days_remaining": submission.recontact_days_remaining,
         "has_booking_token": bool(submission.booking_token),
     }
+    # --- LuxID fast-lane CTA ---
+    # Only compute for pending submissions; skips DB work for all other states.
+    has_luxid_account = False
+    luxid_connect_url = None
+    if submission.status == "pending":
+        try:
+            from allauth.socialaccount.models import SocialApp
+            from django.contrib.sites.models import Site
+
+            has_luxid_account = request.user.socialaccount_set.filter(
+                provider__in=("luxid", "openid_connect")
+            ).exists()
+
+            if not has_luxid_account:
+                _current_site = Site.objects.get_current(request)
+                _available_providers = set(
+                    SocialApp.objects.filter(sites=_current_site).values_list(
+                        "provider", flat=True
+                    )
+                )
+                _oidc_app = SocialApp.objects.filter(
+                    provider="openid_connect", sites=_current_site
+                ).first()
+                luxid_connect_url = _luxid_connect_url(
+                    _available_providers, oidc_app=_oidc_app
+                )
+        except Exception:
+            pass
+
+    context["has_luxid_account"] = has_luxid_account
+    context["luxid_connect_url"] = luxid_connect_url
+
     # Journey stepper context — this page IS step 5 "Under review" (queue
     # status, review time estimates, hybrid-coach banners). Hardcoding
     # current=5 keeps the stepper label aligned with the page content even

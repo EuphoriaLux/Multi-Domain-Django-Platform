@@ -317,7 +317,10 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
         The error message is displayed via Django messages framework.
         """
         if _is_crush_domain(request):
-            # Redirect back to Crush.lu account settings page
+            # After LuxID connect, send the user back to the submission status
+            # page so they immediately see their newly-approved profile state.
+            if socialaccount.provider in ("luxid", "openid_connect"):
+                return '/profile-submitted/'
             return '/account/settings/'
         elif _is_delegation_domain(request):
             return '/account/settings/'
