@@ -131,6 +131,34 @@
                         {% blocktrans with time=submission.submitted_at|timesince %}Submitted {{ time }} ago{% endblocktrans %}
                     </p>
 
+                    {# ── LuxID Fast-Lane CTA ── #}
+                    {# luxid_connect_url is only set when: status=pending AND no LuxID linked AND LuxID is configured for this site #}
+                    {% if luxid_connect_url %}
+                    <div class="mb-6 rounded-xl border border-indigo-200 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20 text-left overflow-hidden">
+                        <div class="px-5 py-4 flex items-start gap-3">
+                            <div class="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center flex-shrink-0">
+                                {% include "shared/icons/shield-check.html" with class="w-5 h-5 text-indigo-600 dark:text-indigo-400" %}
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="font-semibold text-indigo-900 dark:text-indigo-100 mb-1">{% trans "Skip the wait — verify instantly with LuxID" %}</h3>
+                                <p class="text-sm text-indigo-800/80 dark:text-indigo-200/80 mb-3">
+                                    {% trans "Connect your LuxID (Luxembourg government identity) and get your profile approved immediately — no screening call needed." %}
+                                </p>
+                                <a href="{{ luxid_connect_url }}"
+                                   class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors shadow-sm">
+                                    {% include "shared/icons/shield-check.html" with class="w-4 h-4" %}
+                                    {% trans "Connect LuxID & get verified" %}
+                                </a>
+                            </div>
+                        </div>
+                        <div class="px-5 py-2.5 border-t border-indigo-100 dark:border-indigo-800/40">
+                            <p class="text-xs text-indigo-600/70 dark:text-indigo-300/70 mb-0">
+                                {% trans "LuxID is Luxembourg's official digital identity service, operated by POST Luxembourg." %}
+                            </p>
+                        </div>
+                    </div>
+                    {% endif %}
+
                     {# ── Section 2: Estimated Time Card ── #}
                     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 shadow-sm mb-6 text-left overflow-hidden">
                         <div class="px-5 py-4">

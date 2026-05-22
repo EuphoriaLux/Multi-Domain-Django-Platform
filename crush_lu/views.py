@@ -1863,6 +1863,51 @@ def profile_submitted(request):
         "recontact_days_remaining": submission.recontact_days_remaining,
         "has_booking_token": bool(submission.booking_token),
     }
+    # --- LuxID fast-lane CTA ---
+    # Only compute for pending submissions; skips DB work for all other states.
+    has_luxid_account = False
+    luxid_connect_url = None
+    if submission.status == "pending":
+        try:
+            from allauth.socialaccount.models import SocialApp, SocialToken
+            from django.contrib.sites.models import Site
+
+            # Check custom LuxID provider first (unambiguous).
+            has_luxid_account = request.user.socialaccount_set.filter(
+                provider="luxid"
+            ).exists()
+
+            _current_site = Site.objects.get_current(request)
+            _available_providers = set(
+                SocialApp.objects.filter(sites=_current_site).values_list(
+                    "provider", flat=True
+                )
+            )
+            # Find the specific OIDC app configured for LuxID. Filtering by
+            # provider_id="luxid" ensures we don't bind to a different
+            # openid_connect app if multiple OIDC providers are configured.
+            _oidc_app = SocialApp.objects.filter(
+                provider="openid_connect", provider_id="luxid", sites=_current_site
+            ).first()
+
+            if not has_luxid_account and _oidc_app is not None:
+                # Scope to the specific app to avoid matching other OIDC providers.
+                has_luxid_account = SocialToken.objects.filter(
+                    account__user=request.user,
+                    account__provider="openid_connect",
+                    app=_oidc_app,
+                ).exists()
+
+            if not has_luxid_account:
+                luxid_connect_url = _luxid_connect_url(
+                    _available_providers, oidc_app=_oidc_app
+                )
+        except Exception:
+            pass
+
+    context["has_luxid_account"] = has_luxid_account
+    context["luxid_connect_url"] = luxid_connect_url
+
     # Journey stepper context — this page IS step 5 "Under review" (queue
     # status, review time estimates, hybrid-coach banners). Hardcoding
     # current=5 keeps the stepper label aligned with the page content even
