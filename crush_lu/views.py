@@ -1869,23 +1869,36 @@ def profile_submitted(request):
     luxid_connect_url = None
     if submission.status == "pending":
         try:
-            from allauth.socialaccount.models import SocialApp
+            from allauth.socialaccount.models import SocialApp, SocialToken
             from django.contrib.sites.models import Site
 
+            # Check custom LuxID provider first (unambiguous).
             has_luxid_account = request.user.socialaccount_set.filter(
-                provider__in=("luxid", "openid_connect")
+                provider="luxid"
             ).exists()
 
-            if not has_luxid_account:
-                _current_site = Site.objects.get_current(request)
-                _available_providers = set(
-                    SocialApp.objects.filter(sites=_current_site).values_list(
-                        "provider", flat=True
-                    )
+            _current_site = Site.objects.get_current(request)
+            _available_providers = set(
+                SocialApp.objects.filter(sites=_current_site).values_list(
+                    "provider", flat=True
                 )
-                _oidc_app = SocialApp.objects.filter(
-                    provider="openid_connect", sites=_current_site
-                ).first()
+            )
+            # Find the specific OIDC app configured for LuxID. Using
+            # provider_id="luxid" mirrors the account_settings scoping so we
+            # don't accidentally match other openid_connect providers on the site.
+            _oidc_app = SocialApp.objects.filter(
+                provider="openid_connect", sites=_current_site
+            ).first()
+
+            if not has_luxid_account and _oidc_app is not None:
+                # Scope to the specific app to avoid matching other OIDC providers.
+                has_luxid_account = SocialToken.objects.filter(
+                    account__user=request.user,
+                    account__provider="openid_connect",
+                    app=_oidc_app,
+                ).exists()
+
+            if not has_luxid_account:
                 luxid_connect_url = _luxid_connect_url(
                     _available_providers, oidc_app=_oidc_app
                 )

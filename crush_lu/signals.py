@@ -2073,6 +2073,14 @@ def auto_approve_profile_on_luxid_connect(sender, request, sociallogin, **kwargs
     if sociallogin.account.provider not in ("luxid", "openid_connect"):
         return
 
+    # Reuse the thread-local flag set by update_crush_profile_from_luxid
+    # (pre_social_login). That handler sets it True only when it has positively
+    # identified a genuine LuxID OIDC flow on crush.lu — which means we don't
+    # need to duplicate that detection here, and we won't accidentally trigger
+    # for other openid_connect providers (e.g. LinkedIn) configured on the site.
+    if not getattr(_thread_local, "is_crush_luxid_login", False):
+        return
+
     if not _is_crush_domain(request):
         return
 
