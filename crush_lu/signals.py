@@ -2123,13 +2123,14 @@ def auto_approve_profile_on_luxid_connect(sender, request, sociallogin, **kwargs
     with transaction.atomic():
         submission.status = "approved"
         submission.reviewed_at = now
+        submission.review_call_completed = True
         _auto_note = "Auto-approved via LuxID identity verification"
         submission.coach_notes = (
             f"{submission.coach_notes}\n{_auto_note}".strip()
             if submission.coach_notes
             else _auto_note
         )
-        submission.save(update_fields=["status", "reviewed_at", "coach_notes"])
+        submission.save(update_fields=["status", "reviewed_at", "coach_notes", "review_call_completed"])
 
         profile.is_approved = True
         profile.approved_at = now
@@ -2140,6 +2141,12 @@ def auto_approve_profile_on_luxid_connect(sender, request, sociallogin, **kwargs
         profile.pk,
         user.pk,
     )
+
+    # Signal to the adapter that auto-approval just happened so it redirects
+    # to /profile-submitted/ even though submission.status is now "approved"
+    # (the pending→approved transition happens before get_connect_redirect_url runs).
+    if request is not None and hasattr(request, "session"):
+        request.session["luxid_just_auto_approved"] = True
 
     try:
         from .referrals import check_and_apply_profile_approved_reward

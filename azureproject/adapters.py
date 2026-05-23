@@ -65,7 +65,8 @@ def _is_crush_domain(request):
     """Check if request is from crush.lu or localhost (dev default)."""
     domain = _get_domain(request)
     # crush.lu is the main domain, localhost/127.0.0.1 routes to crush.lu in development
-    return domain in ('crush.lu', 'localhost', '127.0.0.1')
+    # Subdomains like test.crush.lu are also crush domains
+    return domain in ('crush.lu', 'localhost', '127.0.0.1') or domain.endswith('.crush.lu')
 
 
 def _is_delegation_domain(request):
@@ -325,8 +326,14 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
             if socialaccount.provider in ("luxid", "openid_connect"):
                 try:
                     from crush_lu.models import CrushProfile, ProfileSubmission
+                    # The auto_approve signal runs before this method, so by the
+                    # time we check, status may already be "approved". The signal
+                    # sets a session flag to let us know approval just happened.
+                    _just_approved = False
+                    if hasattr(request, "session"):
+                        _just_approved = request.session.pop("luxid_just_auto_approved", False)
                     _profile = CrushProfile.objects.get(user=socialaccount.user)
-                    if ProfileSubmission.objects.filter(
+                    if _just_approved or ProfileSubmission.objects.filter(
                         profile=_profile, status="pending"
                     ).exists():
                         return '/profile-submitted/'

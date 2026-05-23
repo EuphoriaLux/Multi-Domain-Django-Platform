@@ -1,12 +1,12 @@
 # Translations for arborist app.
 # Copyright (C) 2024-2025 Entreprinder
 # This file is distributed under the same license as the project.
-# 
+#
 msgid ""
 msgstr ""
 "Project-Id-Version: arborist 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-29 14:17+0100\n"
+"POT-Creation-Date: 2026-05-23 01:24+0200\n"
 "PO-Revision-Date: 2026-01-21 20:29\n"
 "Last-Translator: \n"
 "Language-Team: FR\n"
@@ -29,11 +29,11 @@ msgstr "Numéro de porte (1-24)"
 #: .\arborist\forms.py:24 .\arborist\templates\arborist\contact.html:51
 #: .\arborist\templates\arborist\contact.html:96
 msgid "Email"
-msgstr ""
+msgstr "E-mail"
 
 #: .\arborist\forms.py:28
 msgid "your.email@example.com"
-msgstr ""
+msgstr "votre.email@exemple.com"
 
 #: .\arborist\forms.py:34 .\arborist\templates\arborist\contact.html:27
 #: .\arborist\templates\arborist\contact.html:88
@@ -43,7 +43,7 @@ msgstr "Téléphone"
 
 #: .\arborist\forms.py:40
 msgid "+352 ..."
-msgstr ""
+msgstr "+352 ..."
 
 #: .\arborist\forms.py:46 .\arborist\templates\arborist\contact.html:107
 msgid "Please select"
@@ -820,7 +820,7 @@ msgstr "Ville de Luxembourg"
 
 #: .\arborist\templates\arborist\home.html:169
 msgid "Echternach"
-msgstr ""
+msgstr "Echternach"
 
 #: .\arborist\templates\arborist\home.html:170
 msgid "Mullerthal Region"

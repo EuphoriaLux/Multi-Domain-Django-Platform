@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: entreprinder 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-09 23:58+0200\n"
+"POT-Creation-Date: 2026-05-23 01:24+0200\n"
 "PO-Revision-Date: 2026-01-21 20:29\n"
 "Last-Translator: \n"
 "Language-Team: DE\n"
@@ -18,7 +18,7 @@ msgstr ""
 
 #: .\entreprinder\templates\account\base_account.html:55
 msgid "All rights reserved."
-msgstr ""
+msgstr "Alle Rechte vorbehalten."
 
 #: .\entreprinder\templates\account\email_confirm.html:5
 #: .\entreprinder\templates\account\email_confirm.html:10
@@ -64,6 +64,8 @@ msgid ""
 "Unable to confirm %(email)s because it is already confirmed by a different "
 "account."
 msgstr ""
+"%(email)s kann nicht bestätigt werden, da diese E-Mail-Adresse bereits einem "
+"anderen Konto zugeordnet ist."
 
 #: .\entreprinder\templates\account\email_entreprinder.html:4
 #: .\entreprinder\templates\account\email_entreprinder.html:22
@@ -142,7 +144,7 @@ msgstr "Sind Sie sicher, dass Sie sich abmelden möchten?"
 #: .\entreprinder\templates\account\logout.html:20
 #: .\entreprinder\templates\account\logout_powerup.html:24
 msgid "Cancel"
-msgstr ""
+msgstr "Abbrechen"
 
 #: .\entreprinder\templates\account\password_reset.html:3
 #: .\entreprinder\templates\account\password_reset.html:9
@@ -224,6 +226,8 @@ msgid ""
 "your main inbox, check your spam folder. Please contact us if you do not "
 "receive the verification e-mail within a few minutes."
 msgstr ""
+"Wir haben Ihnen eine E-Mail zur Verifizierung gesendet. Folgen Sie dem Link, "
+"um die Registrierung abzuschließen."
 
 #: .\entreprinder\templates\account\verified_email_required_entreprinder.html:10
 msgid ""
@@ -231,6 +235,8 @@ msgid ""
 "be. For this purpose, we require that you verify ownership of your e-mail "
 "address."
 msgstr ""
+"Dieser Bereich der Website erfordert eine Verifizierung Ihrer Identität. "
+"Dazu müssen Sie die Inhaberschaft Ihrer E-Mail-Adresse bestätigen."
 
 #: .\entreprinder\templates\account\verified_email_required_entreprinder.html:12
 #, python-format
@@ -240,6 +246,10 @@ msgid ""
 "inbox, check your spam folder. Otherwise <a href=\"%(email_url)s\">request a "
 "new verification e-mail</a>."
 msgstr ""
+"Wir haben Ihnen eine E-Mail zur Verifizierung gesendet. Bitte klicken Sie "
+"auf den enthaltenen Link. Falls Sie die E-Mail nicht in Ihrem Posteingang "
+"sehen, überprüfen Sie Ihren Spam-Ordner. Andernfalls <a href=\"%(email_url)s"
+"\">fordern Sie eine neue Verifizierungs-E-Mail an</a>."
 
 #: .\entreprinder\templates\admin\base_site.html:4
 #: .\entreprinder\templates\admin\base_site.html:29
@@ -248,7 +258,7 @@ msgstr "Entreprinder-Verwaltung"
 
 #: .\entreprinder\templates\base.html:62
 msgid "Home"
-msgstr ""
+msgstr "Startseite"
 
 #: .\entreprinder\templates\base.html:67
 msgid "Vibe Coding"
@@ -256,7 +266,7 @@ msgstr "Vibe Coding"
 
 #: .\entreprinder\templates\base.html:72
 msgid "Contact"
-msgstr ""
+msgstr "Kontakt"
 
 #: .\entreprinder\templates\base.html:78
 #: .\entreprinder\templates\entreprinder\entrepreneur_list.html:8
@@ -265,7 +275,7 @@ msgstr "Unternehmer finden"
 
 #: .\entreprinder\templates\base.html:106
 msgid "Logout"
-msgstr ""
+msgstr "Abmelden"
 
 #: .\entreprinder\templates\base.html:126
 msgid "Login"
@@ -308,7 +318,7 @@ msgstr ""
 
 #: .\entreprinder\templates\entreprinder\about.html:12
 msgid "Our Mission"
-msgstr ""
+msgstr "Unsere Mission"
 
 #: .\entreprinder\templates\entreprinder\about.html:13
 #, fuzzy
@@ -393,7 +403,7 @@ msgstr "Entreprinder kontaktieren"
 
 #: .\entreprinder\templates\entreprinder\contact.html:9
 msgid "Contact Us"
-msgstr ""
+msgstr "Kontaktieren Sie uns"
 
 #: .\entreprinder\templates\entreprinder\contact.html:10
 msgid "We'd love to hear from you! Get in touch with the Entreprinder team."
@@ -403,7 +413,7 @@ msgstr ""
 
 #: .\entreprinder\templates\entreprinder\contact.html:14
 msgid "Name"
-msgstr ""
+msgstr "Name"
 
 #: .\entreprinder\templates\entreprinder\contact.html:18
 msgid "Email address"
@@ -601,7 +611,7 @@ msgstr "Dein Unternehmer-Profil"
 
 #: .\entreprinder\templates\entreprinder\profile.html:51
 msgid "Bio"
-msgstr ""
+msgstr "Bio"
 
 #: .\entreprinder\templates\entreprinder\profile.html:63
 msgid "Industry"
@@ -613,7 +623,7 @@ msgstr "Auf der Suche nach"
 
 #: .\entreprinder\templates\entreprinder\profile.html:74
 msgid "Location"
-msgstr ""
+msgstr "Standort"
 
 #: .\entreprinder\templates\entreprinder\profile.html:79
 msgid "Save Profile"
@@ -704,7 +714,7 @@ msgstr "Seine Antwort:"
 
 #: .\entreprinder\templates\entreprinder\road_trip_game.html:320
 msgid "Continue"
-msgstr ""
+msgstr "Weiter"
 
 #: .\entreprinder\templates\entreprinder\road_trip_game.html:331
 msgid "Phase Complete!"
@@ -779,7 +789,7 @@ msgstr "Registrierung abschließen"
 
 #: .\entreprinder\templates\socialaccount\signup_powerup.html:66
 msgid "Already have an account?"
-msgstr ""
+msgstr "Haben Sie bereits ein Konto?"
 
 #: .\entreprinder\templates\socialaccount\signup_powerup.html:67
 msgid "Login here"
@@ -863,7 +873,7 @@ msgstr "Pixel-Limits"
 
 #: .\entreprinder\templates\vibe_coding\pixel_war.html:107
 msgid "Member"
-msgstr ""
+msgstr "Mitglied"
 
 #: .\entreprinder\templates\vibe_coding\pixel_war.html:109
 #: .\entreprinder\templates\vibe_coding\pixel_war.html:115
@@ -988,8 +998,9 @@ msgstr "Road Trip Entdeckung mit Musik - 90 Minuten zur Verbindung"
 
 #: .\entreprinder\views.py:65
 msgid "Profile updated successfully."
-msgstr ""
+msgstr "Profil erfolgreich aktualisiert."
 
 #: .\entreprinder\views.py:68
 msgid "Error updating profile. Please check the form."
 msgstr ""
+"Fehler beim Aktualisieren des Profils. Bitte überprüfen Sie das Formular."

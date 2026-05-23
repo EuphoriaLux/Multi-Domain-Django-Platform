@@ -5,6 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import F, Count, Q
 from django.utils import timezone
+from django.utils.translation import gettext as _
 
 from .models import (
     MeetupEvent, EventRegistration, EventVotingSession,
@@ -19,17 +20,17 @@ def _require_attended_registration(request, event):
         reg = EventRegistration.objects.get(event=event, user=request.user)
     except EventRegistration.DoesNotExist:
         return None, JsonResponse(
-            {'success': False, 'error': 'You are not registered for this event'},
+            {'success': False, 'error': _('You are not registered for this event')},
             status=403,
         )
     if reg.status == 'confirmed':
         return None, JsonResponse(
-            {'success': False, 'error': 'You must check in at the event before you can vote'},
+            {'success': False, 'error': _('You must check in at the event before you can vote')},
             status=403,
         )
     if reg.status != 'attended':
         return None, JsonResponse(
-            {'success': False, 'error': 'Only confirmed attendees can access voting'},
+            {'success': False, 'error': _('Only confirmed attendees can access voting')},
             status=403,
         )
     return reg, None
@@ -57,13 +58,13 @@ def voting_status_api(request, event_id):
             if user_registration.status not in ['confirmed', 'attended']:
                 return JsonResponse({
                     'success': False,
-                    'error': 'Only confirmed attendees can access voting'
+                    'error': _('Only confirmed attendees can access voting')
                 }, status=403)
             needs_checkin = user_registration.status == 'confirmed'
         except EventRegistration.DoesNotExist:
             return JsonResponse({
                 'success': False,
-                'error': 'You are not registered for this event'
+                'error': _('You are not registered for this event')
             }, status=403)
     else:
         # Coaches/superusers bypass access control, but we still compute
@@ -81,7 +82,7 @@ def voting_status_api(request, event_id):
     except EventVotingSession.DoesNotExist:
         return JsonResponse({
             'success': False,
-            'error': 'No voting session found for this event'
+            'error': _('No voting session found for this event')
         }, status=404)
 
     # Check if user has voted (a user may vote once per activity_type/category)
@@ -156,14 +157,14 @@ def submit_vote_api(request, event_id):
     except EventVotingSession.DoesNotExist:
         return JsonResponse({
             'success': False,
-            'error': 'No voting session found'
+            'error': _('No voting session found')
         }, status=404)
 
     # Check if voting is open
     if not voting_session.is_voting_open:
         return JsonResponse({
             'success': False,
-            'error': 'Voting is not currently open'
+            'error': _('Voting is not currently open')
         }, status=400)
 
     # Parse request body
@@ -173,13 +174,13 @@ def submit_vote_api(request, event_id):
     except json.JSONDecodeError:
         return JsonResponse({
             'success': False,
-            'error': 'Invalid JSON'
+            'error': _('Invalid JSON')
         }, status=400)
 
     if not option_id:
         return JsonResponse({
             'success': False,
-            'error': 'option_id is required'
+            'error': _('option_id is required')
         }, status=400)
 
     # Get the selected option (GlobalActivityOption - shared across all events)
@@ -188,7 +189,7 @@ def submit_vote_api(request, event_id):
     except GlobalActivityOption.DoesNotExist:
         return JsonResponse({
             'success': False,
-            'error': 'Invalid activity option'
+            'error': _('Invalid activity option')
         }, status=400)
 
     # Atomic vote creation/update to prevent race conditions
@@ -269,7 +270,7 @@ def voting_results_api(request, event_id):
     except EventVotingSession.DoesNotExist:
         return JsonResponse({
             'success': False,
-            'error': 'No voting session found'
+            'error': _('No voting session found')
         }, status=404)
 
     # Get all options with vote counts in a single query (avoids N+1)

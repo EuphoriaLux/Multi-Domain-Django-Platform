@@ -12802,4 +12802,21 @@ document.addEventListener("alpine:init", function () {
             },
         };
     });
+
+    // Auto-redirect countdown shown on the profile-approved state of profile_submitted.html.
+    // Reads the destination URL from data-dashboard-url to stay language-prefix–safe.
+    Alpine.data("approvedCountdown", () => ({
+        countdown: 5,
+        init() {
+            const url = this.$el.dataset.dashboardUrl;
+            const t = setInterval(() => {
+                if (this.countdown <= 1) {
+                    clearInterval(t);
+                    window.location.href = url;
+                } else {
+                    this.countdown--;
+                }
+            }, 1000);
+        },
+    }));
 });

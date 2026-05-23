@@ -1914,7 +1914,8 @@ def profile_submitted(request):
     # when a coach has already claimed (state-step 6) or approved (state-
     # step 7) — those users are routed to meet_coach.html / screening_call.html
     # via onboarding_entry, not here.
-    context.update(onboarding.stepper_context(current=5))
+    stepper_step = 7 if submission.status == "approved" else 5
+    context.update(onboarding.stepper_context(current=stepper_step))
     return render(request, "crush_lu/profile_submitted.html", context)
 
 

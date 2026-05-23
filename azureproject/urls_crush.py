@@ -77,7 +77,11 @@ def quiz_display_language_redirect(request, event_id):
 
 # Language-neutral patterns (no /en/, /de/, /fr/ prefix)
 # These include health checks, API endpoints, authentication, SEO files, and PWA files
-urlpatterns = base_patterns + api_patterns + [
+urlpatterns = [
+    # Redirect bare allauth account pages to the styled crush.lu settings page
+    path('accounts/', lambda req: redirect('/account/settings/')),
+    path('accounts/email/', lambda req: redirect('/account/settings/')),
+] + base_patterns + api_patterns + [
     # Dev: Ghost SVG showcase (no auth needed)
     path('ghost-showcase/', TemplateView.as_view(template_name='crush_lu/ghost_showcase.html'), name='ghost_showcase'),
 

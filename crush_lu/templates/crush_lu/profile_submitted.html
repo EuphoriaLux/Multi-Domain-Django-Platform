@@ -534,8 +534,8 @@
 
                 {% elif submission.status == 'revision' %}
                     <div class="flex justify-center mb-4">
-                        <div class="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center text-3xl md:text-4xl shadow-lg">
-                            ✏️
+                        <div class="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center shadow-lg">
+                            {% include "shared/icons/pencil.html" with class="w-8 h-8 md:w-10 md:h-10 text-white" %}
                         </div>
                     </div>
                     <h2 class="mt-4 mb-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Almost There! A Few Tweaks Needed" %}</h2>
@@ -563,14 +563,20 @@
                     </div>
 
                 {% elif submission.status == 'approved' %}
+                    <div x-data="approvedCountdown"
+                         data-dashboard-url="{% url 'crush_lu:dashboard' %}">
                     <div class="flex justify-center mb-4">
-                        <div class="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center text-3xl md:text-4xl shadow-lg">
-                            ✅
+                        <div class="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center shadow-lg">
+                            {% include "shared/icons/check-circle.html" with class="w-8 h-8 md:w-10 md:h-10 text-white" %}
                         </div>
                     </div>
                     <h2 class="mt-4 mb-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Approved!" %}</h2>
                     <p class="text-base text-green-600 dark:text-green-300 mb-6 font-medium">
-                        {% trans "Congratulations! Your profile has been approved by our coaches." %}
+                        {% if has_luxid_account %}
+                            {% trans "Your identity was verified with LuxID — no screening call needed." %}
+                        {% else %}
+                            {% trans "Congratulations! Your profile has been approved by our coaches." %}
+                        {% endif %}
                     </p>
 
                     <div class="alert alert-success text-left">
@@ -581,11 +587,17 @@
                             <p class="mb-0">{% trans "You can now register for events and start making connections!" %}</p>
                         </div>
                     </div>
+                    <p class="text-sm text-gray-400 dark:text-gray-500 mt-4 mb-0">
+                        {% trans "Redirecting to your dashboard in" %}
+                        <span class="font-semibold" x-text="countdown"></span>
+                        {% trans "seconds…" %}
+                    </p>
+                    </div>{# end approvedCountdown #}
 
                 {% elif submission.status == 'rejected' %}
                     <div class="flex justify-center mb-4">
-                        <div class="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-3xl md:text-4xl shadow-lg">
-                            ❌
+                        <div class="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center shadow-lg">
+                            {% include "shared/icons/x-circle.html" with class="w-8 h-8 md:w-10 md:h-10 text-white" %}
                         </div>
                     </div>
                     <h2 class="mt-4 mb-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Needs Updates" %}</h2>
@@ -614,8 +626,8 @@
 
                 {% elif submission.status == 'recontact_coach' %}
                     <div class="flex justify-center mb-4">
-                        <div class="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-3xl md:text-4xl shadow-lg">
-                            📞
+                        <div class="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center shadow-lg">
+                            {% include "shared/icons/phone.html" with class="w-8 h-8 md:w-10 md:h-10 text-white" %}
                         </div>
                     </div>
                     <h2 class="mt-4 mb-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Coach Needs to Speak With You" %}</h2>
@@ -639,8 +651,8 @@
 
                 {% else %}
                     <div class="flex justify-center mb-4">
-                        <div class="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-3xl md:text-4xl shadow-lg">
-                            ✅
+                        <div class="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center shadow-lg">
+                            {% include "shared/icons/check-circle.html" with class="w-8 h-8 md:w-10 md:h-10 text-white" %}
                         </div>
                     </div>
                     <h2 class="mt-4 mb-3 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Submitted Successfully!" %}</h2>

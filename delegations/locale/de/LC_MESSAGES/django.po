@@ -1,12 +1,12 @@
 # Translations for delegations app.
 # Copyright (C) 2024-2025 Entreprinder
 # This file is distributed under the same license as the project.
-# 
+#
 msgid ""
 msgstr ""
 "Project-Id-Version: delegations 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-29 14:18+0100\n"
+"POT-Creation-Date: 2026-05-23 01:24+0200\n"
 "PO-Revision-Date: 2026-01-21 20:29\n"
 "Last-Translator: \n"
 "Language-Team: DE\n"
@@ -20,15 +20,15 @@ msgstr ""
 #: .\delegations\templates\account\logout_delegation.html:13
 #: .\delegations\templates\account\logout_delegation.html:23
 msgid "Sign Out"
-msgstr ""
+msgstr "Abmelden"
 
 #: .\delegations\templates\account\logout_delegation.html:14
 msgid "Are you sure you want to sign out?"
-msgstr ""
+msgstr "Möchten Sie sich wirklich abmelden?"
 
 #: .\delegations\templates\account\logout_delegation.html:24
 msgid "Cancel"
-msgstr ""
+msgstr "Abbrechen"
 
 #: .\delegations\templates\admin\base_site.html:4
 #: .\delegations\templates\admin\base_site.html:29

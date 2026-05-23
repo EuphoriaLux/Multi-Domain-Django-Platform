@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: arborist 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-09 23:57+0200\n"
+"POT-Creation-Date: 2026-05-23 01:24+0200\n"
 "PO-Revision-Date: 2026-01-21 20:29\n"
 "Last-Translator: \n"
 "Language-Team: DE\n"
@@ -27,11 +27,11 @@ msgstr "Ihr Name"
 #: .\arborist\forms.py:24 .\arborist\templates\arborist\contact.html:51
 #: .\arborist\templates\arborist\contact.html:96
 msgid "Email"
-msgstr ""
+msgstr "E-Mail"
 
 #: .\arborist\forms.py:28
 msgid "your.email@example.com"
-msgstr ""
+msgstr "ihre.email@beispiel.com"
 
 #: .\arborist\forms.py:34 .\arborist\templates\arborist\contact.html:27
 #: .\arborist\templates\arborist\contact.html:88
@@ -41,7 +41,7 @@ msgstr "Telefon"
 
 #: .\arborist\forms.py:40
 msgid "+352 ..."
-msgstr ""
+msgstr "+352 ..."
 
 #: .\arborist\forms.py:46 .\arborist\templates\arborist\contact.html:107
 msgid "Please select"
@@ -696,7 +696,7 @@ msgstr "Luxemburg-Stadt"
 
 #: .\arborist\templates\arborist\home.html:169
 msgid "Echternach"
-msgstr ""
+msgstr "Echternach"
 
 #: .\arborist\templates\arborist\home.html:170
 msgid "Mullerthal Region"
@@ -1689,6 +1689,8 @@ msgid ""
 "Sorry, there was an error sending your message. Please try calling or "
 "WhatsApp instead."
 msgstr ""
+"Es tut uns leid, beim Senden Ihrer Nachricht ist ein Fehler aufgetreten. "
+"Bitte rufen Sie uns an oder kontaktieren Sie uns über WhatsApp."
 
 #: .\arborist\views.py:250
 msgid "Contact - Arborist Tom Aakrann"

@@ -7,6 +7,7 @@ from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
 from django.conf import settings
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.translation import gettext as _
 from urllib.parse import quote
 
 
@@ -116,15 +117,15 @@ def ratelimit(key='ip', rate='5/15m', method='POST', block=True):
                         or request.content_type == "application/json"
                     ):
                         return JsonResponse(
-                            {"error": "Too many attempts. Please try again later.", "error_code": "rate_limited"},
+                            {"error": _("Too many attempts. Please try again later."), "error_code": "rate_limited"},
                             status=429,
                         )
                     messages.error(
                         request,
-                        'Too many attempts. Please try again later.'
+                        _('Too many attempts. Please try again later.')
                     )
                     return HttpResponse(
-                        'Rate limit exceeded. Please try again later.',
+                        _('Rate limit exceeded. Please try again later.'),
                         status=429
                     )
             else:
