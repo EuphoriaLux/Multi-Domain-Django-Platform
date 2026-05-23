@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 """
 Wonderland Journey content translations for all supported languages.
 
@@ -1009,7 +1013,7 @@ def get_text(language: str, key: str, fallback_to_en: bool = True, **kwargs) -> 
     if isinstance(value, str) and kwargs:
         try:
             value = value.format(**kwargs)
-        except KeyError:
-            pass  # Ignore missing format keys
+        except KeyError as e:
+            logger.warning("Journey translation format key missing for %r: %s", key, e)
 
     return value
