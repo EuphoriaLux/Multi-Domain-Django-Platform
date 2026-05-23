@@ -990,12 +990,23 @@ def event_register(request, event_id):
                 logger.error(f"Failed to send event registration email: {e}")
 
             if request.headers.get("HX-Request"):
+                waitlist_position = None
+                if registration.status == "waitlist":
+                    waitlist_position = (
+                        EventRegistration.objects.filter(
+                            event=event,
+                            status="waitlist",
+                            registered_at__lt=registration.registered_at,
+                        ).count()
+                        + 1
+                    )
                 return render(
                     request,
                     "crush_lu/_event_registration_success.html",
                     {
                         "event": event,
                         "registration": registration,
+                        "waitlist_position": waitlist_position,
                     },
                 )
             return redirect("crush_lu:dashboard")

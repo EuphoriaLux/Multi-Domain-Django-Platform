@@ -5,6 +5,9 @@
             {% include "shared/icons/clock.html" with class="w-16 h-16 text-yellow-500 mx-auto" %}
         </div>
         <h3 class="text-2xl font-bold mb-2">{% trans "You're on the Waitlist!" %}</h3>
+        {% if waitlist_position %}
+        <p class="text-2xl font-bold text-yellow-600 dark:text-yellow-400 mb-1">#{{ waitlist_position }}</p>
+        {% endif %}
         <p class="text-gray-600 dark:text-gray-300 mb-6">
             {% trans "The event is currently full, but we'll notify you if a spot opens up." %}
         </p>

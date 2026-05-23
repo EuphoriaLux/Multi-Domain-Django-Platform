@@ -841,9 +841,9 @@ def connection_detail(request, connection_id):
     other_user = connection.recipient if is_requester else connection.requester
     other_profile = getattr(other_user, "crushprofile", None)
 
-    # Get messages for this connection
+    # Get messages for this connection (exclude coach-hidden messages)
     connection_messages = (
-        ConnectionMessage.objects.filter(connection=connection)
+        ConnectionMessage.objects.filter(connection=connection, coach_approved=True)
         .select_related("sender")
         .order_by("sent_at")
     )
