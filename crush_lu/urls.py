@@ -477,3 +477,10 @@ urlpatterns = [
     path('api/advent/status/', views_advent.get_advent_status, name='api_advent_status'),
     path('api/advent/open-door/', views_advent.open_door_api, name='api_advent_open_door'),
 ]
+
+from django.conf import settings
+if settings.DEBUG:
+    from .views_account import dev_simulate_luxid_connect
+    urlpatterns += [
+        path('dev/luxid-connect/', dev_simulate_luxid_connect, name='dev_simulate_luxid_connect'),
+    ]
