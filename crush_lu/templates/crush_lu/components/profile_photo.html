@@ -8,18 +8,23 @@ Renders either the user's photo or one of two fallbacks:
   - "icon" — neutral user-circle on a gray background. Use for non-personal
     contexts (system messages, placeholder previews).
 
+When `is_blurred` is True the photo is heavily blurred (used by Crush Connect
+Drop cards before mutual interest reveals identity). Fallbacks render unchanged
+because there's nothing to hide.
+
 Sizing and shape are controlled by the caller via `css_class` (e.g.
 "w-14 h-14 rounded-full"). The partial only owns image/fallback rendering
 and the initial-text colour & weight.
 
 Args (resolved by the {% profile_photo %} inclusion_tag in crush_media):
-  has_photo, photo_url, alt_text, css_class, display_name, fallback
+  has_photo, photo_url, alt_text, css_class, display_name, fallback, is_blurred
 {% endcomment %}
 {% load i18n %}
 {% if has_photo %}
     <img src="{{ photo_url }}"
          alt="{{ alt_text }}"
-         class="{{ css_class }} object-cover"
+         class="{{ css_class }} object-cover{% if is_blurred %} blur-xl scale-110 select-none pointer-events-none{% endif %}"
+         {% if is_blurred %}aria-hidden="true"{% endif %}
          loading="lazy">
 {% elif fallback == "icon" %}
     <div class="{{ css_class }} flex items-center justify-center bg-gray-100 dark:bg-gray-700"
