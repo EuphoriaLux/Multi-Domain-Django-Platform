@@ -362,6 +362,15 @@ class TestGetConnectRedirectUrl(TestCase):
         url = self.adapter.get_connect_redirect_url(request, sa)
         self.assertEqual(url, "/profile-submitted/")
 
+    def test_mid_onboarding_no_submission_redirects_to_onboarding(self):
+        """Connecting LuxID during Step 2 (before submission) routes back to onboarding."""
+        self.submission.delete()  # simulate pre-submission state
+
+        request = _make_request(host="crush.lu")
+        sa = _make_social_account(self.user, provider="luxid")
+        url = self.adapter.get_connect_redirect_url(request, sa)
+        self.assertIn("/onboarding/", url)
+
 
 def _make_adapter():
     from azureproject.adapters import MultiDomainSocialAccountAdapter

@@ -337,6 +337,12 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
                         profile=_profile, status="pending"
                     ).exists():
                         return '/profile-submitted/'
+                    # No submission at all — user connected LuxID during onboarding
+                    # (e.g. Step 2 phone verification).  Route back to onboarding so
+                    # they see their verified phone and can continue to Step 3.
+                    if not ProfileSubmission.objects.filter(profile=_profile).exists():
+                        lang = getattr(request, "LANGUAGE_CODE", "en")[:2]
+                        return f"/{lang}/onboarding/"
                 except Exception:
                     pass
             return '/account/settings/'

@@ -1904,6 +1904,18 @@ def profile_submitted(request):
                 luxid_connect_url = _luxid_connect_url(
                     _available_providers, oidc_app=_oidc_app
                 )
+            elif not profile.is_approved:
+                # Lazy fix-up: user connected LuxID during Step 2 phone
+                # verification before this submission existed.  The
+                # social_account_added signal fired at that point but found no
+                # pending submission and silently skipped.  Approve now.
+                from .signals import _execute_luxid_auto_approval
+
+                _execute_luxid_auto_approval(
+                    request.user, profile, submission, request
+                )
+                submission.refresh_from_db()
+                profile.refresh_from_db()
         except Exception:
             pass
 
