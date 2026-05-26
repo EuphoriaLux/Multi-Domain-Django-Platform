@@ -1210,6 +1210,10 @@ def coach_review_profile(request, submission_id):
                 # keeps state consistent between request and resubmit.
                 submission.coach = None
 
+                # Unlock the profile wizard so the user can edit and resubmit.
+                submission.profile.completion_status = 'step4'
+                submission.profile.save()
+
                 # Send revision request to user (push first, email fallback)
                 try:
                     result = notify_profile_revision(

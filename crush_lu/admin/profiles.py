@@ -1441,6 +1441,8 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
             submission.status = 'rejected'
             submission.reviewed_at = now
             submission.save()
+            submission.profile.is_approved = False
+            submission.profile.save()
             count += 1
             try:
                 notify_profile_rejected(
@@ -1462,6 +1464,8 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
             submission.status = 'revision'
             submission.reviewed_at = now
             submission.save()
+            submission.profile.completion_status = 'step4'
+            submission.profile.save()
             count += 1
             try:
                 notify_profile_revision(
