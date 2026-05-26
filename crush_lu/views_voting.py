@@ -874,9 +874,23 @@ def speed_dating_tv_display_data(request, event_id):
     phase = "welcome"
     phase_data: dict = {}
 
-    # Phase 3 — Speed Dating (most advanced phase wins)
+    voting_session = (
+        EventVotingSession.objects.select_related(
+            "winning_presentation_style", "winning_speed_dating_twist"
+        )
+        .filter(event=event)
+        .first()
+    )
+
+    # Resolve the phase from the most-advanced state, with one ordering rule:
+    # an OPEN voting window always wins over a presentation queue. end_voting()
+    # seeds the queue the instant voting ends, and a queue can also be seeded
+    # early by the coach, so checking the queue first would make the TV jump to
+    # "presentations" while attendees are still voting.
     pairs_qs = SpeedDatingPair.objects.filter(event=event)
+
     if pairs_qs.exists():
+        # Phase 3 — Speed Dating (most advanced phase wins)
         phase = "speed_dating"
         agg = pairs_qs.aggregate(max_round=Max("round_number"))
         current_round = agg["max_round"] or 1
@@ -884,114 +898,103 @@ def speed_dating_tv_display_data(request, event_id):
             "current_round": current_round,
             "total_pairs": pairs_qs.filter(round_number=current_round).count(),
         }
-    else:
+    elif voting_session and voting_session.is_voting_open:
+        # Phase 1 — Voting (open window takes precedence over a seeded queue)
+        phase = "voting"
+        pres_votes = (
+            EventActivityVote.objects.filter(
+                event=event,
+                selected_option__activity_type="presentation_style",
+            )
+            .values("selected_option__display_name", "selected_option__activity_variant")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        )
+        twist_votes = (
+            EventActivityVote.objects.filter(
+                event=event,
+                selected_option__activity_type="speed_dating_twist",
+            )
+            .values("selected_option__display_name", "selected_option__activity_variant")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        )
+        phase_data = {
+            "total_votes": voting_session.total_votes,
+            "time_remaining": int(voting_session.time_remaining),
+            "presentation_votes": [
+                {
+                    "name": v["selected_option__display_name"],
+                    "variant": v["selected_option__activity_variant"],
+                    "count": v["count"],
+                }
+                for v in pres_votes
+            ],
+            "twist_votes": [
+                {
+                    "name": v["selected_option__display_name"],
+                    "variant": v["selected_option__activity_variant"],
+                    "count": v["count"],
+                }
+                for v in twist_votes
+            ],
+        }
+    elif PresentationQueue.objects.filter(event=event).exists():
         # Phase 2 — Presentations
         # Stay in this phase for the entire lifetime of the PresentationQueue —
         # from the moment end_voting() seeds waiting rows until SpeedDatingPair
         # rows appear. Checking only for un-finished rows would cause the TV to
         # regress to voting/welcome in the handoff window after the last presenter
         # finishes but before the coach creates pairs.
-        queue_exists = PresentationQueue.objects.filter(event=event).exists()
-
-        if queue_exists:
-            phase = "presentations"
-            # Prefer the currently presenting row; fall back to next waiting.
-            # Both can be None when all presentations are done (100 % progress).
-            current_presenter = (
-                PresentationQueue.objects.filter(event=event, status="presenting")
-                .select_related("user__crushprofile")
-                .first()
-            ) or (
-                PresentationQueue.objects.filter(event=event, status="waiting")
-                .select_related("user__crushprofile")
-                .order_by("presentation_order")
-                .first()
+        phase = "presentations"
+        # Prefer the currently presenting row; fall back to next waiting.
+        # Both can be None when all presentations are done (100 % progress).
+        current_presenter = (
+            PresentationQueue.objects.filter(event=event, status="presenting")
+            .select_related("user__crushprofile")
+            .first()
+        ) or (
+            PresentationQueue.objects.filter(event=event, status="waiting")
+            .select_related("user__crushprofile")
+            .order_by("presentation_order")
+            .first()
+        )
+        completed = PresentationQueue.objects.filter(event=event, status="completed").count()
+        total = PresentationQueue.objects.filter(event=event).exclude(status="skipped").count()
+        presenter_name = ""
+        if current_presenter:
+            profile = getattr(current_presenter.user, "crushprofile", None)
+            presenter_name = (
+                (profile.display_name if profile else None)
+                or current_presenter.user.first_name
+                or "Anonymous"
             )
-            completed = PresentationQueue.objects.filter(event=event, status="completed").count()
-            total = PresentationQueue.objects.filter(event=event).exclude(status="skipped").count()
-            presenter_name = ""
-            if current_presenter:
-                profile = getattr(current_presenter.user, "crushprofile", None)
-                presenter_name = (
-                    (profile.display_name if profile else None)
-                    or current_presenter.user.first_name
-                    or "Anonymous"
-                )
+        phase_data = {
+            "presenter_name": presenter_name,
+            "completed_count": completed,
+            "total_count": total,
+            "progress_pct": int(completed / total * 100) if total else 0,
+        }
+    elif voting_session:
+        # Voting window closed and no queue yet; lazily finalize if end_voting()
+        # was never called. Must use end_voting() (not just calculate_winner) to
+        # also mark the session inactive and initialize the presentation queue.
+        if (
+            not voting_session.winning_presentation_style_id
+            and timezone.now() > voting_session.voting_end_time
+        ):
+            voting_session.end_voting()
+        if voting_session.winning_presentation_style_id:
+            phase = "voting_results"
             phase_data = {
-                "presenter_name": presenter_name,
-                "completed_count": completed,
-                "total_count": total,
-                "progress_pct": int(completed / total * 100) if total else 0,
+                "winning_style": voting_session.winning_presentation_style.display_name,
+                "winning_twist": (
+                    voting_session.winning_speed_dating_twist.display_name
+                    if voting_session.winning_speed_dating_twist
+                    else None
+                ),
+                "total_votes": voting_session.total_votes,
             }
-        else:
-            # Phase 1 — Voting
-            try:
-                voting_session = EventVotingSession.objects.select_related(
-                    "winning_presentation_style", "winning_speed_dating_twist"
-                ).get(event=event)
-
-                if voting_session.is_voting_open:
-                    phase = "voting"
-                    pres_votes = (
-                        EventActivityVote.objects.filter(
-                            event=event,
-                            selected_option__activity_type="presentation_style",
-                        )
-                        .values("selected_option__display_name", "selected_option__activity_variant")
-                        .annotate(count=Count("id"))
-                        .order_by("-count")
-                    )
-                    twist_votes = (
-                        EventActivityVote.objects.filter(
-                            event=event,
-                            selected_option__activity_type="speed_dating_twist",
-                        )
-                        .values("selected_option__display_name", "selected_option__activity_variant")
-                        .annotate(count=Count("id"))
-                        .order_by("-count")
-                    )
-                    phase_data = {
-                        "total_votes": voting_session.total_votes,
-                        "time_remaining": int(voting_session.time_remaining),
-                        "presentation_votes": [
-                            {
-                                "name": v["selected_option__display_name"],
-                                "variant": v["selected_option__activity_variant"],
-                                "count": v["count"],
-                            }
-                            for v in pres_votes
-                        ],
-                        "twist_votes": [
-                            {
-                                "name": v["selected_option__display_name"],
-                                "variant": v["selected_option__activity_variant"],
-                                "count": v["count"],
-                            }
-                            for v in twist_votes
-                        ],
-                    }
-                else:
-                    # Voting window closed; lazily finalize if end_voting() was never called.
-                    # Must use end_voting() (not just calculate_winner) to also mark the
-                    # session inactive and initialize the presentation queue.
-                    if (
-                        not voting_session.winning_presentation_style_id
-                        and timezone.now() > voting_session.voting_end_time
-                    ):
-                        voting_session.end_voting()
-                    if voting_session.winning_presentation_style_id:
-                        phase = "voting_results"
-                        phase_data = {
-                            "winning_style": voting_session.winning_presentation_style.display_name,
-                            "winning_twist": (
-                                voting_session.winning_speed_dating_twist.display_name
-                                if voting_session.winning_speed_dating_twist
-                                else None
-                            ),
-                            "total_votes": voting_session.total_votes,
-                        }
-            except EventVotingSession.DoesNotExist:
-                pass
 
     return JsonResponse(
         {
