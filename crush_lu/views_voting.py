@@ -943,13 +943,14 @@ def speed_dating_tv_display_data(request, event_id):
                         ],
                     }
                 else:
-                    # Voting window closed; lazily persist winner if end_voting() was never called
+                    # Voting window closed; lazily finalize if end_voting() was never called.
+                    # Must use end_voting() (not just calculate_winner) to also mark the
+                    # session inactive and initialize the presentation queue.
                     if (
                         not voting_session.winning_presentation_style_id
                         and timezone.now() > voting_session.voting_end_time
                     ):
-                        voting_session.calculate_winner()
-                        voting_session.save()
+                        voting_session.end_voting()
                     if voting_session.winning_presentation_style_id:
                         phase = "voting_results"
                         phase_data = {
