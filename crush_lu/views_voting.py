@@ -3,7 +3,7 @@ from django.contrib import messages
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from django.http import JsonResponse
+from django.http import HttpResponseForbidden, JsonResponse
 from django.views.decorators.http import require_http_methods
 import logging
 
@@ -789,15 +789,20 @@ def _check_tv_display_access(request, event):
     """Return a redirect/403 response if the user cannot access a private-invitation event's TV display, else None."""
     if not event.is_private_invitation:
         return None
-    if request.user.is_authenticated and (
-        request.user.is_staff
-        or event.coaches.filter(user=request.user).exists()
-        or event.invited_users.filter(id=request.user.id).exists()
-        or EventInvitation.objects.filter(
-            event=event, created_user=request.user, approval_status="approved"
-        ).exists()
-    ):
-        return None
+    if request.user.is_authenticated:
+        if (
+            request.user.is_staff
+            or event.coaches.filter(user=request.user).exists()
+            or EventRegistration.objects.filter(
+                event=event, user=request.user
+            ).exclude(status="cancelled").exists()
+            or event.invited_users.filter(id=request.user.id).exists()
+            or EventInvitation.objects.filter(
+                event=event, created_user=request.user, approval_status="approved"
+            ).exists()
+        ):
+            return None
+        return HttpResponseForbidden("You are not authorised to view this event's display.")
     from django.contrib.auth.views import redirect_to_login
     return redirect_to_login(request.get_full_path())
 

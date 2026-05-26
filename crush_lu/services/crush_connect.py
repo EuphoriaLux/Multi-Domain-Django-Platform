@@ -112,9 +112,18 @@ def get_eligible_pool(user) -> "QuerySet[User]":
         qs = qs.filter(crushprofile__gender__in=user_pref_genders)
 
     if user_profile.gender:
-        qs = qs.filter(
-            Q(crushprofile__preferred_genders=[])
-            | Q(crushprofile__preferred_genders__contains=[user_profile.gender])
+        gender = user_profile.gender
+        # JSONField array-containment lookups are unreliable on SQLite across
+        # all supported versions. Evaluate in Python after select_related has
+        # already loaded crushprofile — no extra per-row queries needed.
+        eligible_pks = [
+            u.pk for u in qs
+            if not u.crushprofile.preferred_genders
+            or gender in u.crushprofile.preferred_genders
+        ]
+        qs = (
+            User.objects.filter(pk__in=eligible_pks)
+            .select_related("crushprofile", "crush_connect_membership")
         )
 
     # --- Mutual age range ----------------------------------------------------
