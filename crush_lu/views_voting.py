@@ -13,6 +13,7 @@ from django.db.models import Count, Max
 
 from .models import (
     CrushCoach,
+    EventInvitation,
     MeetupEvent,
     EventRegistration,
     EventActivityOption,
@@ -784,9 +785,29 @@ def voting_demo(request):
 
 # ── Speed Dating TV Display ──────────────────────────────────────────────────
 
+def _check_tv_display_access(request, event):
+    """Return a redirect/403 response if the user cannot access a private-invitation event's TV display, else None."""
+    if not event.is_private_invitation:
+        return None
+    if request.user.is_authenticated and (
+        request.user.is_staff
+        or event.invited_users.filter(id=request.user.id).exists()
+        or EventInvitation.objects.filter(
+            event=event, created_user=request.user, approval_status="approved"
+        ).exists()
+    ):
+        return None
+    from django.contrib.auth.views import redirect_to_login
+    return redirect_to_login(request.get_full_path())
+
+
 def speed_dating_tv_display(request, event_id):
-    """Full-screen TV/projector display for speed dating events. No auth required."""
+    """Full-screen TV/projector display for speed dating events."""
     event = get_object_or_404(MeetupEvent, id=event_id, is_published=True)
+
+    gate = _check_tv_display_access(request, event)
+    if gate is not None:
+        return gate
 
     attended_count = EventRegistration.objects.filter(
         event=event, status="attended"
@@ -809,6 +830,10 @@ def speed_dating_tv_display_data(request, event_id):
         event = MeetupEvent.objects.get(id=event_id, is_published=True)
     except MeetupEvent.DoesNotExist:
         return JsonResponse({"error": "Event not found"}, status=404)
+
+    gate = _check_tv_display_access(request, event)
+    if gate is not None:
+        return JsonResponse({"error": "Not authorized"}, status=403)
 
     attended_count = EventRegistration.objects.filter(
         event=event, status="attended"
