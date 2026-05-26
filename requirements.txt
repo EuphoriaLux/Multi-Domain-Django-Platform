@@ -1,8 +1,3 @@
-# Build dependencies (security-critical)
-pip>=26.1.1  # CVE-2025-8869 fix
-setuptools>=82.0.1  # CVE-2024-6345, PYSEC-2025-49 fixes
-wheel>=0.47.0
-
 # Core Django
 Django==6.0.5  # Major upgrade from 5.1.15 — requires Python 3.12+
 djangorestframework==3.17.1

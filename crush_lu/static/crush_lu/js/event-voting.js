@@ -14,7 +14,8 @@ class EventVotingManager {
         // Track whether this page was loaded for a user who still needs to check in.
         // When the API reports needs_checkin=false, the server has checked them in and
         // we reload so the template re-renders with the correct CTA.
-        this.pageLoadedWithCheckinRequired = needsCheckin === true || needsCheckin === 'true';
+        this.pageLoadedWithCheckinRequired =
+            needsCheckin === true || needsCheckin === "true";
         this.init();
     }
 
@@ -296,7 +297,11 @@ document.addEventListener("DOMContentLoaded", function () {
     if (eventIdElement) {
         var eventId = eventIdElement.dataset.eventId;
         var resultsUrl = eventIdElement.dataset.resultsUrl || null;
-        var needsCheckin = eventIdElement.dataset.needsCheckin === 'true';
-        window.votingManager = new EventVotingManager(eventId, resultsUrl, needsCheckin);
+        var needsCheckin = eventIdElement.dataset.needsCheckin === "true";
+        window.votingManager = new EventVotingManager(
+            eventId,
+            resultsUrl,
+            needsCheckin,
+        );
     }
 });

@@ -16,5 +16,8 @@ build/
 # ({% if %} inside attributes, {% blocktrans %} blocks, etc.)
 **/templates/**/*.html
 
+# Tailwind CSS build output — generated file, not hand-authored
+crush_lu/static/crush_lu/css/tailwind.css
+
 # JS files with syntax prettier cannot parse
 vinsdelux/static/vinsdelux/js/enhanced-map.js

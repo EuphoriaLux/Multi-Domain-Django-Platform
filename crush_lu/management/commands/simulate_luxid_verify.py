@@ -87,7 +87,7 @@ class Command(BaseCommand):
             defaults={
                 "name": "LuxID (Dev Stub)",
                 "client_id": "dev-stub-client-id",
-                "secret": "dev-stub-secret",
+                "secret": "dev-stub-secret",  # nosec B105 - intentional dev-only stub, not a real credential  # gitleaks:allow
                 "settings": {
                     "server_url": "https://luxid.gov.lu/.well-known/openid-configuration",
                 },

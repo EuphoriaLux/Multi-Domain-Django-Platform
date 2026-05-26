@@ -9,56 +9,66 @@
 document.addEventListener("alpine:init", function () {
     Alpine.data("speedDatingDisplay", function () {
         var el = this.$el;
-        var eventId    = parseInt(el.dataset.eventId)    || 0;
-        var eventTitle = el.dataset.eventTitle           || "";
-        var eventDate  = el.dataset.eventDate            || "";
-        var eventLocation = el.dataset.eventLocation     || "";
+        var eventId = parseInt(el.dataset.eventId) || 0;
+        var eventTitle = el.dataset.eventTitle || "";
+        var eventDate = el.dataset.eventDate || "";
+        var eventLocation = el.dataset.eventLocation || "";
 
         // Translated strings injected from template
-        var strCheckedIn    = el.dataset.strCheckedIn    || "checked in";
-        var strConfirmed    = el.dataset.strConfirmed    || "confirmed";
-        var strOf           = el.dataset.strOf           || "of";
-        var strMale         = el.dataset.strMale         || "Male";
-        var strFemale       = el.dataset.strFemale       || "Female";
-        var strNonBinary    = el.dataset.strNonBinary    || "Non-binary";
-        var strOther        = el.dataset.strOther        || "Other";
-        var strVotesFor     = el.dataset.strVotesFor     || "votes";
-        var strPresented    = el.dataset.strPresented    || "presented";
-        var strTotal        = el.dataset.strTotal        || "total";
-        var strPresenter    = el.dataset.strPresenter    || "Presenter";
-        var strRound        = el.dataset.strRound        || "Round";
+        var strCheckedIn = el.dataset.strCheckedIn || "checked in";
+        var strConfirmed = el.dataset.strConfirmed || "confirmed";
+        var strOf = el.dataset.strOf || "of";
+        var strMale = el.dataset.strMale || "Male";
+        var strFemale = el.dataset.strFemale || "Female";
+        var strNonBinary = el.dataset.strNonBinary || "Non-binary";
+        var strOther = el.dataset.strOther || "Other";
+        var strVotesFor = el.dataset.strVotesFor || "votes";
+        var strPresented = el.dataset.strPresented || "presented";
+        var strTotal = el.dataset.strTotal || "total";
+        var strPresenter = el.dataset.strPresenter || "Presenter";
+        var strRound = el.dataset.strRound || "Round";
         var strCouplesRound = el.dataset.strCouplesRound || "couples this round";
 
         // ─────────────────────────────────────────────────────────────────
         // GENDER HELPERS
         // ─────────────────────────────────────────────────────────────────
         var GENDER_SYMBOL = { M: "♂", F: "♀", NB: "⚧", O: "⚬" };
-        var GENDER_LABEL  = { M: strMale, F: strFemale, NB: strNonBinary, O: strOther };
-        var GENDER_COLOR  = { M: "#3B82F6", F: "#EC4899", NB: "#8B5CF6", O: "#6B7280" };
-        var GENDER_PILL   = {
-            M:  "bg-blue-900/50 text-blue-300 border border-blue-700/60",
-            F:  "bg-pink-900/50 text-pink-300 border border-pink-700/60",
+        var GENDER_LABEL = { M: strMale, F: strFemale, NB: strNonBinary, O: strOther };
+        var GENDER_COLOR = { M: "#3B82F6", F: "#EC4899", NB: "#8B5CF6", O: "#6B7280" };
+        var GENDER_PILL = {
+            M: "bg-blue-900/50 text-blue-300 border border-blue-700/60",
+            F: "bg-pink-900/50 text-pink-300 border border-pink-700/60",
             NB: "bg-purple-900/50 text-purple-300 border border-purple-700/60",
-            O:  "bg-gray-800 text-gray-300 border border-gray-600",
+            O: "bg-gray-800 text-gray-300 border border-gray-600",
         };
 
-        function genderSymbol(g) { return GENDER_SYMBOL[g && g.toUpperCase()] || "⚬"; }
-        function genderLabel(g)  { return GENDER_LABEL[g && g.toUpperCase()]  || g;   }
-        function genderColor(g)  { return GENDER_COLOR[g && g.toUpperCase()]  || "#6B7280"; }
-        function genderPill(g)   { return GENDER_PILL[g && g.toUpperCase()]   || GENDER_PILL.O; }
+        function genderSymbol(g) {
+            return GENDER_SYMBOL[g && g.toUpperCase()] || "⚬";
+        }
+        function genderLabel(g) {
+            return GENDER_LABEL[g && g.toUpperCase()] || g;
+        }
+        function genderColor(g) {
+            return GENDER_COLOR[g && g.toUpperCase()] || "#6B7280";
+        }
+        function genderPill(g) {
+            return GENDER_PILL[g && g.toUpperCase()] || GENDER_PILL.O;
+        }
 
         // ─────────────────────────────────────────────────────────────────
         // PHASE DISPLAY NAMES (for the top-bar phase indicator)
         // ─────────────────────────────────────────────────────────────────
-        var PHASE_ORDER  = ["welcome", "voting", "presentations", "speed_dating"];
-        var PHASE_GROUPS = { voting_results: "voting" };  // voting_results is part of "voting" step
+        var PHASE_ORDER = ["welcome", "voting", "presentations", "speed_dating"];
+        var PHASE_GROUPS = { voting_results: "voting" }; // voting_results is part of "voting" step
 
         // ─────────────────────────────────────────────────────────────────
         // IMPERATIVE RENDER HELPERS
         // ─────────────────────────────────────────────────────────────────
         function pct(count, list) {
             if (!list || !list.length) return 0;
-            var total = list.reduce(function (s, o) { return s + (o.count || 0); }, 0);
+            var total = list.reduce(function (s, o) {
+                return s + (o.count || 0);
+            }, 0);
             return total > 0 ? Math.round((count / total) * 100) : 0;
         }
 
@@ -74,15 +84,27 @@ document.addEventListener("alpine:init", function () {
                 html +=
                     '<div class="mb-5">' +
                     '  <div class="flex justify-between items-baseline mb-2">' +
-                    '    <span class="text-white font-semibold text-lg leading-tight" style="max-width:70%">' + _esc(opt.name) + '</span>' +
-                    '    <span class="text-gray-300 font-bold tabular-nums text-lg">' + opt.count + ' ' + strVotesFor + '</span>' +
-                    '  </div>' +
+                    '    <span class="text-white font-semibold text-lg leading-tight" style="max-width:70%">' +
+                    _esc(opt.name) +
+                    "</span>" +
+                    '    <span class="text-gray-300 font-bold tabular-nums text-lg">' +
+                    opt.count +
+                    " " +
+                    strVotesFor +
+                    "</span>" +
+                    "  </div>" +
                     '  <div class="h-9 bg-slate-700/70 rounded-xl overflow-hidden">' +
-                    '    <div class="h-full rounded-xl ' + gradientClass + ' flex items-center px-3 transition-all duration-1000 ease-out" style="width:' + p + '%">' +
-                    (p > 18 ? '<span class="text-white font-bold text-sm">' + p + '%</span>' : '') +
-                    '    </div>' +
-                    '  </div>' +
-                    '</div>';
+                    '    <div class="h-full rounded-xl ' +
+                    gradientClass +
+                    ' flex items-center px-3 transition-all duration-1000 ease-out" style="width:' +
+                    p +
+                    '%">' +
+                    (p > 18
+                        ? '<span class="text-white font-bold text-sm">' + p + "%</span>"
+                        : "") +
+                    "    </div>" +
+                    "  </div>" +
+                    "</div>";
             });
             ref.innerHTML = html;
         }
@@ -90,26 +112,40 @@ document.addEventListener("alpine:init", function () {
         function renderGenderBreakdown(ref, genderCounts, maxParticipants) {
             if (!ref) return;
             var keys = Object.keys(genderCounts || {});
-            if (!keys.length) { ref.innerHTML = ""; return; }
+            if (!keys.length) {
+                ref.innerHTML = "";
+                return;
+            }
             var html = "";
             keys.forEach(function (g) {
                 var count = genderCounts[g];
-                var barPct = maxParticipants > 0
-                    ? Math.min(100, Math.round((count / maxParticipants) * 200))  // ×2 so bars are visible
-                    : 50;
+                var barPct =
+                    maxParticipants > 0
+                        ? Math.min(100, Math.round((count / maxParticipants) * 200)) // ×2 so bars are visible
+                        : 50;
                 html +=
                     '<div class="flex items-center gap-5 py-2">' +
-                    '  <span class="text-4xl w-10 text-center">' + genderSymbol(g) + '</span>' +
+                    '  <span class="text-4xl w-10 text-center">' +
+                    genderSymbol(g) +
+                    "</span>" +
                     '  <div class="flex-1">' +
                     '    <div class="flex items-end gap-3 mb-1.5">' +
-                    '      <span class="text-4xl font-bold text-white tabular-nums">' + count + '</span>' +
-                    '      <span class="text-gray-400 text-lg pb-0.5">' + genderLabel(g) + '</span>' +
-                    '    </div>' +
+                    '      <span class="text-4xl font-bold text-white tabular-nums">' +
+                    count +
+                    "</span>" +
+                    '      <span class="text-gray-400 text-lg pb-0.5">' +
+                    genderLabel(g) +
+                    "</span>" +
+                    "    </div>" +
                     '    <div class="h-2.5 bg-slate-700 rounded-full overflow-hidden w-48">' +
-                    '      <div class="h-full rounded-full transition-all duration-1000 ease-out" style="width:' + barPct + '%;background-color:' + genderColor(g) + '"></div>' +
-                    '    </div>' +
-                    '  </div>' +
-                    '</div>';
+                    '      <div class="h-full rounded-full transition-all duration-1000 ease-out" style="width:' +
+                    barPct +
+                    "%;background-color:" +
+                    genderColor(g) +
+                    '"></div>' +
+                    "    </div>" +
+                    "  </div>" +
+                    "</div>";
             });
             ref.innerHTML = html;
         }
@@ -117,13 +153,20 @@ document.addEventListener("alpine:init", function () {
         function renderGenderPills(ref, genderCounts) {
             if (!ref) return;
             var keys = Object.keys(genderCounts || {});
-            if (!keys.length) { ref.innerHTML = ""; return; }
+            if (!keys.length) {
+                ref.innerHTML = "";
+                return;
+            }
             var html = "";
             keys.forEach(function (g) {
                 html +=
-                    '<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold ' + genderPill(g) + '">' +
-                    genderSymbol(g) + ' ' + genderCounts[g] +
-                    '</span>';
+                    '<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold ' +
+                    genderPill(g) +
+                    '">' +
+                    genderSymbol(g) +
+                    " " +
+                    genderCounts[g] +
+                    "</span>";
             });
             ref.innerHTML = html;
         }
@@ -138,9 +181,9 @@ document.addEventListener("alpine:init", function () {
 
         return {
             // ── Config ────────────────────────────────────────────────────
-            eventId:       eventId,
-            eventTitle:    eventTitle,
-            eventDate:     eventDate,
+            eventId: eventId,
+            eventTitle: eventTitle,
+            eventDate: eventDate,
             eventLocation: eventLocation,
 
             // ── Clock ─────────────────────────────────────────────────────
@@ -150,9 +193,9 @@ document.addEventListener("alpine:init", function () {
             screen: "welcome",
 
             // ── Attendance ────────────────────────────────────────────────
-            attendedCount:   parseInt(el.dataset.attended)   || 0,
-            confirmedCount:  parseInt(el.dataset.confirmed)  || 0,
-            maxParticipants: parseInt(el.dataset.max)        || 0,
+            attendedCount: parseInt(el.dataset.attended) || 0,
+            confirmedCount: parseInt(el.dataset.confirmed) || 0,
+            maxParticipants: parseInt(el.dataset.max) || 0,
 
             // ── Gender ────────────────────────────────────────────────────
             genderCounts: {},
@@ -162,10 +205,16 @@ document.addEventListener("alpine:init", function () {
 
             // ── Phase step labels (for top-bar dots) ─────────────────────
             phaseSteps: [
-                { key: "welcome",      label: el.dataset.strPhaseCheckin      || "Check-in"   },
-                { key: "voting",       label: el.dataset.strPhaseVoting       || "Voting"      },
-                { key: "presentations",label: el.dataset.strPhasePresents     || "Presentations"},
-                { key: "speed_dating", label: el.dataset.strPhaseDating       || "Speed Dating" },
+                { key: "welcome", label: el.dataset.strPhaseCheckin || "Check-in" },
+                { key: "voting", label: el.dataset.strPhaseVoting || "Voting" },
+                {
+                    key: "presentations",
+                    label: el.dataset.strPhasePresents || "Presentations",
+                },
+                {
+                    key: "speed_dating",
+                    label: el.dataset.strPhaseDating || "Speed Dating",
+                },
             ],
 
             // ── Computed ──────────────────────────────────────────────────
@@ -190,7 +239,8 @@ document.addEventListener("alpine:init", function () {
                 var ti = PHASE_ORDER.indexOf(stepKey);
                 if (ti < 0) return "bg-slate-600";
                 if (ti < ci) return "bg-emerald-400";
-                if (ti === ci) return "bg-gradient-to-r from-crush-purple to-crush-pink ring-2 ring-crush-purple/50";
+                if (ti === ci)
+                    return "bg-gradient-to-r from-crush-purple to-crush-pink ring-2 ring-crush-purple/50";
                 return "bg-slate-600";
             },
             phaseTextClass: function (stepKey) {
@@ -210,34 +260,49 @@ document.addEventListener("alpine:init", function () {
             init: function () {
                 var self = this;
                 self._updateClock();
-                setInterval(function () { self._updateClock(); }, 1000);
+                setInterval(function () {
+                    self._updateClock();
+                }, 1000);
                 self._fetchData();
-                setInterval(function () { self._fetchData(); }, 8000);
+                setInterval(function () {
+                    self._fetchData();
+                }, 8000);
 
                 // Kick off a second poll at 2s so first render is fast
-                setTimeout(function () { self._fetchData(); }, 2000);
+                setTimeout(function () {
+                    self._fetchData();
+                }, 2000);
             },
 
             _updateClock: function () {
                 var now = new Date();
-                this.currentTime = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                this.currentTime = now.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                });
             },
 
             _fetchData: function () {
                 var self = this;
                 fetch("/api/events/" + self.eventId + "/tv-display-data/")
-                    .then(function (r) { return r.ok ? r.json() : null; })
+                    .then(function (r) {
+                        return r.ok ? r.json() : null;
+                    })
                     .then(function (data) {
                         if (!data) return;
-                        self.attendedCount   = data.attended_count   ?? self.attendedCount;
-                        self.confirmedCount  = data.confirmed_count  ?? self.confirmedCount;
-                        self.maxParticipants = data.max_participants  ?? self.maxParticipants;
-                        self.genderCounts    = data.gender_counts     || {};
-                        self.phaseData       = data.phase_data        || {};
-                        self.screen          = data.phase             || "welcome";
+                        self.attendedCount = data.attended_count ?? self.attendedCount;
+                        self.confirmedCount =
+                            data.confirmed_count ?? self.confirmedCount;
+                        self.maxParticipants =
+                            data.max_participants ?? self.maxParticipants;
+                        self.genderCounts = data.gender_counts || {};
+                        self.phaseData = data.phase_data || {};
+                        self.screen = data.phase || "welcome";
                         self._renderDynamic();
                     })
-                    .catch(function (e) { console.warn("TV display poll failed:", e); });
+                    .catch(function (e) {
+                        console.warn("TV display poll failed:", e);
+                    });
             },
 
             // Imperative rendering for CSP-safe dynamic lists
@@ -248,7 +313,7 @@ document.addEventListener("alpine:init", function () {
                 renderGenderBreakdown(
                     self.$refs.genderBreakdown,
                     self.genderCounts,
-                    self.maxParticipants
+                    self.maxParticipants,
                 );
 
                 // Gender pills (footer)
@@ -259,12 +324,12 @@ document.addEventListener("alpine:init", function () {
                     renderVotingBars(
                         self.$refs.presVotes,
                         self.phaseData.presentation_votes,
-                        "bg-gradient-to-r from-violet-600 to-crush-purple"
+                        "bg-gradient-to-r from-violet-600 to-crush-purple",
                     );
                     renderVotingBars(
                         self.$refs.twistVotes,
                         self.phaseData.twist_votes,
-                        "bg-gradient-to-r from-crush-pink to-rose-500"
+                        "bg-gradient-to-r from-crush-pink to-rose-500",
                     );
                 }
             },

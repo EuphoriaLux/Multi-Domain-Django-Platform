@@ -64,7 +64,8 @@ document.addEventListener("alpine:init", function () {
             active: "Active",
             paused: "Paused",
             finished: "Finished",
-            consolidatePlan: "Reduce {from} → {to} tables. The moves below will run on confirm.",
+            consolidatePlan:
+                "Reduce {from} → {to} tables. The moves below will run on confirm.",
             consolidateNoOp: "Tables are already consolidated.",
             consolidateMove: "{name}: Table {from} → Table {to} ({role})",
             consolidateFailed: "Consolidation failed.",
@@ -995,11 +996,9 @@ document.addEventListener("alpine:init", function () {
                 if (this.consolidationPreview === null) return "";
                 var p = this.consolidationPreview;
                 if (p.changed) {
-                    return (
-                        this._i18n.consolidatePlan
-                            .replace("{from}", p.current_num_tables)
-                            .replace("{to}", p.new_num_tables)
-                    );
+                    return this._i18n.consolidatePlan
+                        .replace("{from}", p.current_num_tables)
+                        .replace("{to}", p.new_num_tables);
                 }
                 return this._i18n.consolidateNoOp;
             },
@@ -1482,24 +1481,25 @@ document.addEventListener("alpine:init", function () {
                 if (this.consolidationLoading) return;
                 this.consolidationLoading = true;
                 var payload = { apply: !!apply };
-                if (apply && this.consolidationPreview && this.consolidationPreview.moves) {
+                if (
+                    apply &&
+                    this.consolidationPreview &&
+                    this.consolidationPreview.moves
+                ) {
                     // Send the coach's (possibly edited) destination per user.
                     payload.moves = this.consolidationPreview.moves.map(function (m) {
                         return { user_id: m.user_id, to_table: m.to_table };
                     });
                 }
-                fetch(
-                    "/api/quiz/" + this.quizId + "/consolidate-tables/",
-                    {
-                        method: "POST",
-                        credentials: "same-origin",
-                        headers: {
-                            "Content-Type": "application/json",
-                            "X-CSRFToken": this._getCsrfToken(),
-                        },
-                        body: JSON.stringify(payload),
+                fetch("/api/quiz/" + this.quizId + "/consolidate-tables/", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": this._getCsrfToken(),
                     },
-                )
+                    body: JSON.stringify(payload),
+                })
                     .then(function (resp) {
                         return resp.json().then(function (data) {
                             return { ok: resp.ok, data: data };
@@ -1928,7 +1928,8 @@ document.addEventListener("alpine:init", function () {
                         cls =
                             "bg-green-900/30 text-green-300 ring-1 ring-green-700 cursor-not-allowed opacity-50";
                     } else {
-                        cls = "bg-slate-800 text-gray-500 cursor-not-allowed opacity-50";
+                        cls =
+                            "bg-slate-800 text-gray-500 cursor-not-allowed opacity-50";
                     }
                     var parts = cls.split(" ");
                     for (var k = 0; k < parts.length; k++) {
