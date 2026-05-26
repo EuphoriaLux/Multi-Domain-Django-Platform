@@ -150,6 +150,38 @@ document.addEventListener("alpine:init", function () {
             ref.innerHTML = html;
         }
 
+        function renderPhaseSteps(ref, screen, steps) {
+            if (!ref) return;
+            var norm = PHASE_GROUPS[screen] || screen;
+            var ci = PHASE_ORDER.indexOf(norm);
+            var html = "";
+            steps.forEach(function (step, idx) {
+                var ti = PHASE_ORDER.indexOf(step.key);
+                var dotClass = "bg-slate-600";
+                if (ti >= 0 && ti < ci) {
+                    dotClass = "bg-emerald-400";
+                } else if (ti >= 0 && ti === ci) {
+                    dotClass =
+                        "bg-gradient-to-r from-crush-purple to-crush-pink ring-2 ring-crush-purple/50";
+                }
+                var textClass =
+                    norm === step.key ? "text-white font-semibold" : "text-gray-500";
+                html +=
+                    '<div class="flex items-center gap-1">' +
+                    (idx > 0 ? '<div class="w-8 h-px bg-slate-700 mx-1"></div>' : "") +
+                    '<div class="w-3 h-3 rounded-full flex-shrink-0 transition-all duration-500 ' +
+                    dotClass +
+                    '"></div>' +
+                    '<span class="text-xs font-medium ml-1 transition-colors duration-300 hidden xl:block ' +
+                    textClass +
+                    '">' +
+                    _esc(step.label) +
+                    "</span>" +
+                    "</div>";
+            });
+            ref.innerHTML = html;
+        }
+
         function renderGenderPills(ref, genderCounts) {
             if (!ref) return;
             var keys = Object.keys(genderCounts || {});
@@ -232,20 +264,54 @@ document.addEventListener("alpine:init", function () {
                 return "text-white";
             },
 
-            // ── Phase dot CSS ─────────────────────────────────────────────
-            phaseDotClass: function (stepKey) {
-                var norm = PHASE_GROUPS[this.screen] || this.screen;
-                var ci = PHASE_ORDER.indexOf(norm);
-                var ti = PHASE_ORDER.indexOf(stepKey);
-                if (ti < 0) return "bg-slate-600";
-                if (ti < ci) return "bg-emerald-400";
-                if (ti === ci)
-                    return "bg-gradient-to-r from-crush-purple to-crush-pink ring-2 ring-crush-purple/50";
-                return "bg-slate-600";
+            // ── CSP-safe template bindings (no operators allowed in markup) ──
+            get isWelcome() {
+                return this.screen === "welcome";
             },
-            phaseTextClass: function (stepKey) {
-                var norm = PHASE_GROUPS[this.screen] || this.screen;
-                return norm === stepKey ? "text-white font-semibold" : "text-gray-500";
+            get isVoting() {
+                return this.screen === "voting";
+            },
+            get isVotingResults() {
+                return this.screen === "voting_results";
+            },
+            get isPresentations() {
+                return this.screen === "presentations";
+            },
+            get isSpeedDating() {
+                return this.screen === "speed_dating";
+            },
+            get ringOffset() {
+                return 100 - this.attendancePct;
+            },
+            get totalVotes() {
+                return this.phaseData.total_votes || 0;
+            },
+            get votingTimer() {
+                return this.formatTime(this.phaseData.time_remaining || 0);
+            },
+            get winningStyle() {
+                return this.phaseData.winning_style || "—";
+            },
+            get winningTwist() {
+                return this.phaseData.winning_twist || "—";
+            },
+            get presenterName() {
+                return this.phaseData.presenter_name || "";
+            },
+            get totalCount() {
+                return this.phaseData.total_count || 0;
+            },
+            get completedCount() {
+                return this.phaseData.completed_count || 0;
+            },
+            get progressStyle() {
+                return "width:" + (this.phaseData.progress_pct || 0) + "%";
+            },
+            get currentRound() {
+                return this.phaseData.current_round || 1;
+            },
+            get totalPairs() {
+                return this.phaseData.total_pairs || 0;
             },
 
             // ── Countdown formatter ───────────────────────────────────────
@@ -259,6 +325,9 @@ document.addEventListener("alpine:init", function () {
             // ── Init ──────────────────────────────────────────────────────
             init: function () {
                 var self = this;
+                self.$nextTick(function () {
+                    renderPhaseSteps(self.$refs.phaseSteps, self.screen, self.phaseSteps);
+                });
                 self._updateClock();
                 setInterval(function () {
                     self._updateClock();
@@ -308,6 +377,9 @@ document.addEventListener("alpine:init", function () {
             // Imperative rendering for CSP-safe dynamic lists
             _renderDynamic: function () {
                 var self = this;
+
+                // Phase step indicator (top bar)
+                renderPhaseSteps(self.$refs.phaseSteps, self.screen, self.phaseSteps);
 
                 // Gender breakdown (welcome screen)
                 renderGenderBreakdown(
