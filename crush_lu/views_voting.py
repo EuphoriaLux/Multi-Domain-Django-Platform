@@ -786,7 +786,7 @@ def voting_demo(request):
 
 def speed_dating_tv_display(request, event_id):
     """Full-screen TV/projector display for speed dating events. No auth required."""
-    event = get_object_or_404(MeetupEvent, id=event_id)
+    event = get_object_or_404(MeetupEvent, id=event_id, is_published=True)
 
     attended_count = EventRegistration.objects.filter(
         event=event, status="attended"
@@ -806,7 +806,7 @@ def speed_dating_tv_display(request, event_id):
 def speed_dating_tv_display_data(request, event_id):
     """JSON polling endpoint for the speed dating TV display."""
     try:
-        event = MeetupEvent.objects.get(id=event_id)
+        event = MeetupEvent.objects.get(id=event_id, is_published=True)
     except MeetupEvent.DoesNotExist:
         return JsonResponse({"error": "Event not found"}, status=404)
 

@@ -213,7 +213,10 @@ def get_or_create_daily_drop(user, drop_date: date | None = None):
     from crush_lu.models import ConnectDailyDrop
 
     if drop_date is None:
-        drop_date = timezone.localdate()
+        # Drops unlock at 06:00 local time. Visiting between 00:00–05:59 should
+        # show the previous day's drop, not the upcoming one hours early.
+        now = timezone.localtime()
+        drop_date = (now - timedelta(days=1)).date() if now.hour < 6 else now.date()
 
     try:
         return ConnectDailyDrop.objects.get(user=user, drop_date=drop_date)
