@@ -11,6 +11,9 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
+# View tests use /en/crush-connect/… URLs which only resolve under urls_crush.
+pytestmark = pytest.mark.urls("azureproject.urls_crush")
+
 from crush_lu.models import (
     ConnectDailyDrop,
     CrushConnectMembership,

@@ -18,6 +18,7 @@ The eligible pool defines who can appear in another user's Drop. To be in
 
 from __future__ import annotations
 
+import hashlib
 import math
 import random
 from datetime import date, timedelta
@@ -231,7 +232,10 @@ def get_or_create_daily_drop(user, drop_date: date | None = None):
 
     candidates = list(pool_qs)
     weights = [_weight_for(c, today=drop_date) for c in candidates]
-    seed = hash((int(user.pk), drop_date.isoformat()))
+    seed = int.from_bytes(
+        hashlib.sha256(f"{user.pk}:{drop_date.isoformat()}".encode()).digest()[:8],
+        "big",
+    )
 
     chosen = _seeded_weighted_pick(candidates, weights, DAILY_DROP_SIZE, seed)
 

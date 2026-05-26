@@ -82,10 +82,10 @@ def _connect_access_blocker(user):
         return redirect("crush_lu:crush_connect_teaser")
 
     membership = getattr(user, "crush_connect_membership", None)
+    if membership is not None and membership.excluded_by_coach:
+        return redirect("crush_lu:crush_connect_teaser")
     if membership is None or membership.onboarded_at is None:
         return redirect("crush_lu:crush_connect_onboarding")
-    if membership.excluded_by_coach:
-        return redirect("crush_lu:crush_connect_teaser")
 
     return None
 
