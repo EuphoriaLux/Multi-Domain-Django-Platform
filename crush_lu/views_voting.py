@@ -311,8 +311,8 @@ def event_voting_results(request, event_id):
 
         user_has_voted_both = presentation_vote and twist_vote
 
-        # If voting ended and user hasn't voted, redirect back to voting with message
-        if voting_session.has_ended and not user_has_voted_both:
+        # If voting concluded and user hasn't voted, redirect back to voting with message
+        if voting_session.has_concluded and not user_has_voted_both:
             messages.warning(
                 request,
                 _(
@@ -351,12 +351,15 @@ def event_voting_results(request, event_id):
         else:
             option.vote_percentage = 0
 
-    # If voting has ended, calculate winners and initialize presentation queue.
-    # Guard on has_ended (window actually closed) rather than `not is_voting_open`,
-    # which is also true before voting starts and would build the queue early.
-    if voting_session.has_ended:
-        # Calculate winners if not already done
-        if not voting_session.winning_presentation_style:
+    # Show post-voting UI once voting has concluded — either the window
+    # closed (has_ended) or a coach ended it early (end_voting records a
+    # winner). Only create the queue on first natural close; a manual end
+    # already initialized it via end_voting().
+    if voting_session.has_concluded:
+        # Calculate winners if not already done (natural close that was
+        # never finalized elsewhere). Guard on has_ended so this never runs
+        # before the window actually closes.
+        if not voting_session.winning_presentation_style and voting_session.has_ended:
             voting_session.calculate_winner()
             voting_session.initialize_presentation_queue()
             voting_session.save()
