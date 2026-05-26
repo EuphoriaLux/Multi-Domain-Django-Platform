@@ -248,6 +248,9 @@ urlpatterns = [
     path('events/<int:event_id>/calendar/', views.event_calendar_download, name='event_calendar_download'),
     path('events/<int:event_id>/ticket/', views_ticket.event_ticket, name='event_ticket'),
 
+    # Speed Dating TV Display (no auth required)
+    path('events/<int:event_id>/tv/', views.speed_dating_tv_display, name='speed_dating_tv_display'),
+
     # Event Activity Voting (Phase 1)
     path('events/<int:event_id>/voting/lobby/', views.event_voting_lobby, name='event_voting_lobby'),
     path('events/<int:event_id>/voting/', views.event_activity_vote, name='event_activity_vote'),

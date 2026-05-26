@@ -9,6 +9,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+from django.db.models import Count, Max
+
 from .models import (
     CrushCoach,
     MeetupEvent,
@@ -18,6 +20,7 @@ from .models import (
     EventVotingSession,
     PresentationQueue,
     PresentationRating,
+    SpeedDatingPair,
 )
 from .decorators import crush_login_required, coach_required
 
@@ -777,3 +780,158 @@ def voting_demo(request):
         "twist_options": twist_options,
     }
     return render(request, "crush_lu/voting_demo.html", context)
+
+
+# ── Speed Dating TV Display ──────────────────────────────────────────────────
+
+def speed_dating_tv_display(request, event_id):
+    """Full-screen TV/projector display for speed dating events. No auth required."""
+    event = get_object_or_404(MeetupEvent, id=event_id)
+
+    attended_count = EventRegistration.objects.filter(
+        event=event, status="attended"
+    ).count()
+    confirmed_count = EventRegistration.objects.filter(
+        event=event, status__in=["confirmed", "attended"]
+    ).count()
+
+    context = {
+        "event": event,
+        "attended_count": attended_count,
+        "confirmed_count": confirmed_count,
+    }
+    return render(request, "crush_lu/speed_dating_display.html", context)
+
+
+def speed_dating_tv_display_data(request, event_id):
+    """JSON polling endpoint for the speed dating TV display."""
+    try:
+        event = MeetupEvent.objects.get(id=event_id)
+    except MeetupEvent.DoesNotExist:
+        return JsonResponse({"error": "Event not found"}, status=404)
+
+    attended_count = EventRegistration.objects.filter(
+        event=event, status="attended"
+    ).count()
+    confirmed_count = EventRegistration.objects.filter(
+        event=event, status__in=["confirmed", "attended"]
+    ).count()
+
+    # Gender breakdown (exclude "Prefer not to say")
+    gender_counts: dict[str, int] = {}
+    for reg in (
+        EventRegistration.objects.filter(event=event, status__in=["confirmed", "attended"])
+        .select_related("user__crushprofile")
+    ):
+        profile = getattr(reg.user, "crushprofile", None)
+        gender = getattr(profile, "gender", "") or ""
+        if gender and gender not in ("P",):
+            gender_counts[gender] = gender_counts.get(gender, 0) + 1
+
+    phase = "welcome"
+    phase_data: dict = {}
+
+    # Phase 3 — Speed Dating (most advanced phase wins)
+    pairs_qs = SpeedDatingPair.objects.filter(event=event)
+    if pairs_qs.exists():
+        phase = "speed_dating"
+        agg = pairs_qs.aggregate(max_round=Max("round_number"))
+        current_round = agg["max_round"] or 1
+        phase_data = {
+            "current_round": current_round,
+            "total_pairs": pairs_qs.filter(round_number=current_round).count(),
+        }
+    else:
+        # Phase 2 — Presentations
+        current_presenter = (
+            PresentationQueue.objects.filter(event=event, status="presenting")
+            .select_related("user__crushprofile")
+            .first()
+        )
+        if current_presenter:
+            phase = "presentations"
+            completed = PresentationQueue.objects.filter(event=event, status="completed").count()
+            total = PresentationQueue.objects.filter(event=event).exclude(status="skipped").count()
+            profile = getattr(current_presenter.user, "crushprofile", None)
+            presenter_name = (
+                (profile.display_name if profile else None)
+                or current_presenter.user.first_name
+                or "Anonymous"
+            )
+            phase_data = {
+                "presenter_name": presenter_name,
+                "completed_count": completed,
+                "total_count": total,
+                "progress_pct": int(completed / total * 100) if total else 0,
+            }
+        else:
+            # Phase 1 — Voting
+            try:
+                voting_session = EventVotingSession.objects.select_related(
+                    "winning_presentation_style", "winning_speed_dating_twist"
+                ).get(event=event)
+
+                if voting_session.is_voting_open:
+                    phase = "voting"
+                    pres_votes = (
+                        EventActivityVote.objects.filter(
+                            event=event,
+                            selected_option__activity_type="presentation_style",
+                        )
+                        .values("selected_option__display_name", "selected_option__activity_variant")
+                        .annotate(count=Count("id"))
+                        .order_by("-count")
+                    )
+                    twist_votes = (
+                        EventActivityVote.objects.filter(
+                            event=event,
+                            selected_option__activity_type="speed_dating_twist",
+                        )
+                        .values("selected_option__display_name", "selected_option__activity_variant")
+                        .annotate(count=Count("id"))
+                        .order_by("-count")
+                    )
+                    phase_data = {
+                        "total_votes": voting_session.total_votes,
+                        "time_remaining": int(voting_session.time_remaining),
+                        "presentation_votes": [
+                            {
+                                "name": v["selected_option__display_name"],
+                                "variant": v["selected_option__activity_variant"],
+                                "count": v["count"],
+                            }
+                            for v in pres_votes
+                        ],
+                        "twist_votes": [
+                            {
+                                "name": v["selected_option__display_name"],
+                                "variant": v["selected_option__activity_variant"],
+                                "count": v["count"],
+                            }
+                            for v in twist_votes
+                        ],
+                    }
+                elif voting_session.winning_presentation_style_id:
+                    phase = "voting_results"
+                    phase_data = {
+                        "winning_style": voting_session.winning_presentation_style.display_name,
+                        "winning_twist": (
+                            voting_session.winning_speed_dating_twist.display_name
+                            if voting_session.winning_speed_dating_twist
+                            else None
+                        ),
+                        "total_votes": voting_session.total_votes,
+                    }
+            except EventVotingSession.DoesNotExist:
+                pass
+
+    return JsonResponse(
+        {
+            "phase": phase,
+            "attended_count": attended_count,
+            "confirmed_count": confirmed_count,
+            "max_participants": event.max_participants,
+            "gender_counts": gender_counts,
+            "phase_data": phase_data,
+        }
+    )

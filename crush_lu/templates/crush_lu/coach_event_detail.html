@@ -89,6 +89,17 @@
                 </div>
             </div>
         </a>
+        <a href="{% url 'crush_lu:speed_dating_tv_display' event.id %}" target="_blank" rel="noopener" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 hover:shadow-md dark:hover:shadow-gray-900/40 hover:ring-1 hover:ring-crush-purple/30 transition-all">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-lg">
+                    📺
+                </div>
+                <div>
+                    <p class="font-semibold dark:text-white">{% trans "TV Room Display" %}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{% trans "Open on the screen in the room" %}</p>
+                </div>
+            </div>
+        </a>
         {% if event.enable_activity_voting %}
         <a href="{% url 'crush_lu:event_voting_results' event.id %}" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 hover:shadow-md dark:hover:shadow-gray-900/40 hover:ring-1 hover:ring-crush-purple/30 transition-all">
             <div class="flex items-center gap-3">
