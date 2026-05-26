@@ -12621,7 +12621,11 @@ document.addEventListener("alpine:init", function () {
                     a.addEventListener("click", function () {
                         if (!item.is_unread || marking) return;
                         marking = true;
-                        self.markRead(item.id);
+                        self.markRead(item.id).catch(function (err) {
+                            // Release the lock so a failed request can be retried.
+                            marking = false;
+                            console.warn("notificationBell.markRead:", err);
+                        });
                     });
 
                     var row = document.createElement("div");
@@ -12700,24 +12704,23 @@ document.addEventListener("alpine:init", function () {
             markRead: function (id) {
                 var self = this;
                 var token = self.getCsrfToken();
-                fetch("/api/notifications/" + id + "/read/", {
+                // Returns the promise so callers can react to failure; rejects on
+                // non-ok responses (fetch only rejects on network errors).
+                return fetch("/api/notifications/" + id + "/read/", {
                     method: "POST",
                     credentials: "same-origin",
                     headers: { "X-CSRFToken": token, Accept: "application/json" },
-                })
-                    .then(function () {
-                        // Update local state — server is source of truth on next open
-                        self.items = self.items.map(function (it) {
-                            if (it.id === id) {
-                                return Object.assign({}, it, { is_unread: false });
-                            }
-                            return it;
-                        });
-                        self.unreadCount = Math.max(0, self.unreadCount - 1);
-                    })
-                    .catch(function (err) {
-                        console.warn("notificationBell.markRead:", err);
+                }).then(function (r) {
+                    if (!r.ok) throw new Error("mark read failed");
+                    // Update local state — server is source of truth on next open
+                    self.items = self.items.map(function (it) {
+                        if (it.id === id) {
+                            return Object.assign({}, it, { is_unread: false });
+                        }
+                        return it;
                     });
+                    self.unreadCount = Math.max(0, self.unreadCount - 1);
+                });
             },
 
             markAllRead: function () {
