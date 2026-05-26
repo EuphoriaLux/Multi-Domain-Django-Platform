@@ -585,7 +585,7 @@ def submit_presentation_rating(request, event_id, presenter_id):
     is_positive = impression == "true"
 
     # Create or update impression
-    _, created = PresentationRating.objects.update_or_create(
+    _rating, created = PresentationRating.objects.update_or_create(
         event=event,
         presenter=presenter,
         rater=request.user,
