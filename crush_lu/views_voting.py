@@ -791,6 +791,7 @@ def _check_tv_display_access(request, event):
         return None
     if request.user.is_authenticated and (
         request.user.is_staff
+        or event.coaches.filter(user=request.user).exists()
         or event.invited_users.filter(id=request.user.id).exists()
         or EventInvitation.objects.filter(
             event=event, created_user=request.user, approval_status="approved"
