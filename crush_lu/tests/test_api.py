@@ -486,6 +486,43 @@ class VotingAPITests(SiteTestMixin, TestCase):
 
         self.assertEqual(response.status_code, 403)
 
+    def test_tv_display_open_voting_wins_over_seeded_queue(self):
+        """TV display stays on 'voting' while voting is open, even if a
+        presentation queue row already exists (regression: it used to jump
+        straight to 'presentations')."""
+        from crush_lu.models import PresentationQueue
+
+        self.client.login(username='voter@example.com', password='testpass123')
+        PresentationQueue.objects.create(
+            event=self.event, user=self.user, presentation_order=1, status="waiting"
+        )
+
+        response = self.client.get(
+            reverse('speed_dating_tv_display_data', args=[self.event.id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['phase'], 'voting')
+
+    def test_tv_display_shows_presentations_once_voting_closed(self):
+        """When voting is no longer open, an existing queue drives the
+        'presentations' phase."""
+        from crush_lu.models import PresentationQueue
+
+        self.client.login(username='voter@example.com', password='testpass123')
+        PresentationQueue.objects.create(
+            event=self.event, user=self.user, presentation_order=1, status="presenting"
+        )
+        self.voting_session.is_active = False
+        self.voting_session.save()
+
+        response = self.client.get(
+            reverse('speed_dating_tv_display_data', args=[self.event.id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['phase'], 'presentations')
+
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
 class PushNotificationAPITests(SiteTestMixin, TestCase):
