@@ -874,21 +874,37 @@ def speed_dating_tv_display_data(request, event_id):
         }
     else:
         # Phase 2 — Presentations
-        current_presenter = (
-            PresentationQueue.objects.filter(event=event, status="presenting")
-            .select_related("user__crushprofile")
-            .first()
-        )
-        if current_presenter:
+        # Enter this phase as soon as the queue exists and has un-finished entries
+        # (waiting OR presenting), not only when someone is actively presenting.
+        # This prevents the TV from regressing to voting/welcome during handoff
+        # gaps between presenters or right after end_voting() seeds waiting rows.
+        queue_active = PresentationQueue.objects.filter(
+            event=event
+        ).exclude(status__in=["completed", "skipped"]).exists()
+
+        if queue_active:
             phase = "presentations"
+            # Prefer the currently presenting row; fall back to next waiting.
+            current_presenter = (
+                PresentationQueue.objects.filter(event=event, status="presenting")
+                .select_related("user__crushprofile")
+                .first()
+            ) or (
+                PresentationQueue.objects.filter(event=event, status="waiting")
+                .select_related("user__crushprofile")
+                .order_by("presentation_order")
+                .first()
+            )
             completed = PresentationQueue.objects.filter(event=event, status="completed").count()
             total = PresentationQueue.objects.filter(event=event).exclude(status="skipped").count()
-            profile = getattr(current_presenter.user, "crushprofile", None)
-            presenter_name = (
-                (profile.display_name if profile else None)
-                or current_presenter.user.first_name
-                or "Anonymous"
-            )
+            presenter_name = ""
+            if current_presenter:
+                profile = getattr(current_presenter.user, "crushprofile", None)
+                presenter_name = (
+                    (profile.display_name if profile else None)
+                    or current_presenter.user.first_name
+                    or "Anonymous"
+                )
             phase_data = {
                 "presenter_name": presenter_name,
                 "completed_count": completed,
