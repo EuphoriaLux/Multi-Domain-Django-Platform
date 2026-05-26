@@ -2055,6 +2055,74 @@ def verify_email_on_social_account_connect(sender, request, sociallogin, **kwarg
         )
 
 
+def _execute_luxid_auto_approval(user, profile, submission, request):
+    """
+    Core LuxID auto-approval: mark the submission approved, fire notifications.
+
+    Called from two places:
+    - ``auto_approve_profile_on_luxid_connect`` (signal) — LuxID connected after
+      submission existed (the normal fast-lane flow).
+    - ``profile_submitted`` view (lazy fix-up) — LuxID was connected during Step 2
+      phone verification *before* the submission existed, so the signal fired but
+      found nothing to approve. The view detects this on next load and calls here.
+    """
+    now = timezone.now()
+
+    with transaction.atomic():
+        submission.status = "approved"
+        submission.reviewed_at = now
+        submission.review_call_completed = True
+        _auto_note = "Auto-approved via LuxID identity verification"
+        submission.coach_notes = (
+            f"{submission.coach_notes}\n{_auto_note}".strip()
+            if submission.coach_notes
+            else _auto_note
+        )
+        submission.save(update_fields=["status", "reviewed_at", "coach_notes", "review_call_completed"])
+
+        profile.is_approved = True
+        profile.approved_at = now
+        profile.save(update_fields=["is_approved", "approved_at"])
+
+    logger.info(
+        "[LUXID-AUTO-APPROVE] Auto-approved profile pk=%s for user pk=%s via LuxID",
+        profile.pk,
+        user.pk,
+    )
+
+    if request is not None and hasattr(request, "session"):
+        request.session["luxid_just_auto_approved"] = True
+
+    try:
+        from .referrals import check_and_apply_profile_approved_reward
+        check_and_apply_profile_approved_reward(profile)
+    except Exception as _e:
+        logger.error(
+            "[LUXID-AUTO-APPROVE] Reward step failed for profile pk=%s: %s", profile.pk, _e
+        )
+
+    try:
+        from .notification_service import notify_profile_approved
+        notify_profile_approved(user=user, profile=profile, coach_notes=None, request=request)
+    except Exception as _e:
+        logger.error(
+            "[LUXID-AUTO-APPROVE] Notification step failed for profile pk=%s: %s", profile.pk, _e
+        )
+
+    if request is not None:
+        try:
+            from django.utils.translation import gettext
+            messages.success(
+                request,
+                gettext(
+                    "Your identity has been verified via LuxID. "
+                    "Your profile is now approved!"
+                ),
+            )
+        except Exception:
+            pass
+
+
 @receiver(social_account_added)
 def auto_approve_profile_on_luxid_connect(sender, request, sociallogin, **kwargs):
     """
@@ -2118,64 +2186,7 @@ def auto_approve_profile_on_luxid_connect(sender, request, sociallogin, **kwargs
         )
         return
 
-    now = timezone.now()
-
-    with transaction.atomic():
-        submission.status = "approved"
-        submission.reviewed_at = now
-        submission.review_call_completed = True
-        _auto_note = "Auto-approved via LuxID identity verification"
-        submission.coach_notes = (
-            f"{submission.coach_notes}\n{_auto_note}".strip()
-            if submission.coach_notes
-            else _auto_note
-        )
-        submission.save(update_fields=["status", "reviewed_at", "coach_notes", "review_call_completed"])
-
-        profile.is_approved = True
-        profile.approved_at = now
-        profile.save(update_fields=["is_approved", "approved_at"])
-
-    logger.info(
-        "[LUXID-AUTO-APPROVE] Auto-approved profile pk=%s for user pk=%s via LuxID connect",
-        profile.pk,
-        user.pk,
-    )
-
-    # Signal to the adapter that auto-approval just happened so it redirects
-    # to /profile-submitted/ even though submission.status is now "approved"
-    # (the pending→approved transition happens before get_connect_redirect_url runs).
-    if request is not None and hasattr(request, "session"):
-        request.session["luxid_just_auto_approved"] = True
-
-    try:
-        from .referrals import check_and_apply_profile_approved_reward
-        check_and_apply_profile_approved_reward(profile)
-    except Exception as _e:
-        logger.error(
-            "[LUXID-AUTO-APPROVE] Reward step failed for profile pk=%s: %s", profile.pk, _e
-        )
-
-    try:
-        from .notification_service import notify_profile_approved
-        notify_profile_approved(user=user, profile=profile, coach_notes=None, request=request)
-    except Exception as _e:
-        logger.error(
-            "[LUXID-AUTO-APPROVE] Notification step failed for profile pk=%s: %s", profile.pk, _e
-        )
-
-    if request is not None:
-        try:
-            from django.utils.translation import gettext
-            messages.success(
-                request,
-                gettext(
-                    "Your identity has been verified via LuxID. "
-                    "Your profile is now approved!"
-                ),
-            )
-        except Exception:
-            pass
+    _execute_luxid_auto_approval(user, profile, submission, request)
 
 
 # =============================================================================

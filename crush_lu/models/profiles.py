@@ -767,6 +767,12 @@ class CrushProfile(models.Model):
         """Check if all required fields are filled"""
         return len(self.get_missing_fields()) == 0
 
+    @property
+    def review_status(self):
+        """Status of the latest ProfileSubmission (pending/approved/rejected/revision/recontact_coach), or None."""
+        latest = self.profilesubmission_set.order_by('-submitted_at').first()
+        return latest.status if latest else None
+
     def save(self, *args, **kwargs):
         """
         Override save to:

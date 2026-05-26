@@ -315,15 +315,25 @@
             <div class="p-6">
                 {% if user.crushprofile %}
                 <p class="mb-4">
-                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium {% if user.crushprofile.is_approved %}bg-green-100 text-green-800{% elif user.crushprofile.completion_status == 'submitted' %}bg-amber-100 text-amber-800{% else %}bg-gray-100 dark:bg-gray-700 text-gray-800{% endif %}">
-                        {% if user.crushprofile.is_approved %}{% trans "Approved" %}{% elif user.crushprofile.completion_status == 'submitted' %}{% trans "Pending Review" %}{% else %}{% trans "Incomplete" %}{% endif %}
+                    {% with rs=user.crushprofile.review_status %}
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium {% if user.crushprofile.is_approved %}bg-green-100 text-green-800{% elif rs == 'rejected' %}bg-red-100 text-red-800{% elif rs == 'revision' %}bg-amber-100 text-amber-800{% elif rs == 'pending' or rs == 'recontact_coach' %}bg-amber-100 text-amber-800{% else %}bg-gray-100 dark:bg-gray-700 text-gray-800{% endif %}">
+                        {% if user.crushprofile.is_approved %}{% trans "Approved" %}{% elif rs == 'rejected' %}{% trans "Not Approved" %}{% elif rs == 'revision' %}{% trans "Revision Needed" %}{% elif rs == 'pending' or rs == 'recontact_coach' %}{% trans "Pending Review" %}{% else %}{% trans "Incomplete" %}{% endif %}
                     </span>
+                    {% endwith %}
                 </p>
                 {% if user.crushprofile.is_approved %}
                 <a href="{% url 'crush_lu:edit_profile' %}" class="border border-purple-300 text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-lg transition-colors inline-flex items-center">
                     {% include "shared/icons/pencil.html" with class="w-5 h-5" %}{% trans "Edit Profile" %}
                 </a>
-                {% elif user.crushprofile.completion_status == 'submitted' %}
+                {% elif user.crushprofile.review_status == 'rejected' %}
+                <a href="{% url 'crush_lu:profile_rejected' %}" class="text-red-600 hover:text-red-800 text-sm underline">
+                    {% trans "View rejection details" %}
+                </a>
+                {% elif user.crushprofile.review_status == 'revision' %}
+                <a href="{% url 'crush_lu:create_profile' %}" class="btn-crush-primary px-4 py-2 rounded-lg inline-flex items-center">
+                    {% include "shared/icons/pencil.html" with class="w-5 h-5" %}{% trans "Update Profile" %}
+                </a>
+                {% elif user.crushprofile.review_status == 'pending' or user.crushprofile.review_status == 'recontact_coach' %}
                 <span class="text-gray-400 dark:text-gray-500 text-sm">{% trans "Profile under review" %}</span>
                 {% else %}
                 <a href="{% url 'crush_lu:create_profile' %}" class="btn-crush-primary px-4 py-2 rounded-lg inline-flex items-center">
