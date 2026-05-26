@@ -911,17 +911,25 @@ def speed_dating_tv_display_data(request, event_id):
                             for v in twist_votes
                         ],
                     }
-                elif voting_session.winning_presentation_style_id:
-                    phase = "voting_results"
-                    phase_data = {
-                        "winning_style": voting_session.winning_presentation_style.display_name,
-                        "winning_twist": (
-                            voting_session.winning_speed_dating_twist.display_name
-                            if voting_session.winning_speed_dating_twist
-                            else None
-                        ),
-                        "total_votes": voting_session.total_votes,
-                    }
+                else:
+                    # Voting window closed; lazily persist winner if end_voting() was never called
+                    if (
+                        not voting_session.winning_presentation_style_id
+                        and timezone.now() > voting_session.voting_end_time
+                    ):
+                        voting_session.calculate_winner()
+                        voting_session.save()
+                    if voting_session.winning_presentation_style_id:
+                        phase = "voting_results"
+                        phase_data = {
+                            "winning_style": voting_session.winning_presentation_style.display_name,
+                            "winning_twist": (
+                                voting_session.winning_speed_dating_twist.display_name
+                                if voting_session.winning_speed_dating_twist
+                                else None
+                            ),
+                            "total_votes": voting_session.total_votes,
+                        }
             except EventVotingSession.DoesNotExist:
                 pass
 
