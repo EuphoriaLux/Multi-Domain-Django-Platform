@@ -224,7 +224,11 @@
 
                             {% if user_has_rated %}
                             <div class="rating-submitted">
-                                {% trans "✓ You've responded. Thanks!" %}
+                                {% if user_rating_is_positive %}
+                                    {% trans "✓ You chose ❤️ Yes! — Thanks!" %}
+                                {% else %}
+                                    {% trans "✓ You chose 👎 Pass — Thanks!" %}
+                                {% endif %}
                             </div>
                             {% else %}
                             <div id="impression-buttons" data-presenter-id="{{ current_presentation.user.id }}" class="flex justify-center gap-4">
@@ -372,7 +376,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     const data = await response.json();
 
                     if (data.success) {
-                        impressionContainer.outerHTML = `<div class="rating-submitted">✓ ${data.message}</div>`;
+                        const choiceLabel = data.is_positive
+                            ? '{% trans "❤️ Yes!" %}'
+                            : '{% trans "👎 Pass" %}';
+                        impressionContainer.outerHTML = `<div class="rating-submitted">✓ ${'{% trans "You chose" %}'} ${choiceLabel} — ${data.message}</div>`;
                     } else {
                         alert(data.error || 'Failed to submit response');
                         impressionContainer.querySelectorAll('.impression-btn').forEach(b => b.disabled = false);
