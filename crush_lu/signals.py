@@ -2166,11 +2166,11 @@ def auto_approve_profile_on_luxid_connect(sender, request, sociallogin, **kwargs
 
     if request is not None:
         try:
-            from django.utils.translation import gettext as _gt
+            from django.utils.translation import gettext
             messages.success(
                 request,
-                _gt(
-                    "Your identity has been verified with LuxID. "
+                gettext(
+                    "Your identity has been verified via LuxID. "
                     "Your profile is now approved!"
                 ),
             )
