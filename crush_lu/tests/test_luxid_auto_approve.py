@@ -394,7 +394,10 @@ class TestProfileSubmittedLuxidContext(_SiteMixin, TestCase):
     def setUp(self):
         self.client = Client()
         self.user, self.profile, self.submission = _make_user_with_pending_profile()
-        UserDataConsent.objects.filter(user=self.user).update(crushlu_consent_given=True)
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"crushlu_consent_given": True},
+        )
         self.client.force_login(self.user)
 
     def _get_profile_submitted(self):

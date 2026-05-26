@@ -580,7 +580,10 @@ def _grant_consent(user):
     """Grant the Crush.lu consent required by middleware. Idempotent."""
     from crush_lu.models import UserDataConsent
 
-    UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
+    UserDataConsent.objects.update_or_create(
+        user=user,
+        defaults={"crushlu_consent_given": True},
+    )
 
 
 @pytest.mark.django_db

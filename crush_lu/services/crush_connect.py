@@ -114,7 +114,7 @@ def get_eligible_pool(user) -> "QuerySet[User]":
     if user_profile.gender:
         qs = qs.filter(
             Q(crushprofile__preferred_genders=[])
-            | Q(crushprofile__preferred_genders__contains=user_profile.gender)
+            | Q(crushprofile__preferred_genders__contains=[user_profile.gender])
         )
 
     # --- Mutual age range ----------------------------------------------------
