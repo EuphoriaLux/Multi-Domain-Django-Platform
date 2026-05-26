@@ -981,6 +981,17 @@ class EventVotingSession(models.Model):
         return self.is_active and self.voting_start_time <= now <= self.voting_end_time
 
     @property
+    def has_ended(self):
+        """True only once the voting window has actually closed.
+
+        Distinct from ``not is_voting_open``, which is also true *before*
+        voting starts or while the session is inactive. Use this to gate
+        winner calculation and presentation queue creation so they never
+        run prematurely.
+        """
+        return timezone.now() > self.voting_end_time
+
+    @property
     def time_until_start(self):
         """Seconds until voting starts (negative if already started)"""
         return (self.voting_start_time - timezone.now()).total_seconds()
