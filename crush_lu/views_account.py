@@ -367,6 +367,17 @@ def _luxid_connect_url(available_providers, oidc_app=None):
     requires a provider_id path kwarg (allauth 0.61+), so the caller must pass
     the SocialApp object as oidc_app to supply it.
     """
+    # In local dev with the stub app, allauth would try to reach luxid.gov.lu to
+    # fetch the OIDC discovery document — which doesn't exist locally. Redirect
+    # to the dev simulation endpoint instead so the full approval flow can be
+    # tested without real LuxID credentials.
+    if settings.DEBUG and oidc_app is not None:
+        if getattr(oidc_app, "client_id", None) == "dev-stub-client-id":
+            try:
+                return reverse("crush_lu:dev_simulate_luxid_connect")
+            except Exception:
+                pass
+
     if "luxid" in available_providers:
         try:
             return reverse("luxid_login") + "?process=connect"
@@ -383,6 +394,68 @@ def _luxid_connect_url(available_providers, oidc_app=None):
         except Exception:
             pass
     return None
+
+
+@login_required
+def dev_simulate_luxid_connect(request):
+    """Dev-only: simulate LuxID OAuth callback and auto-approve a pending profile.
+
+    This view is only reachable when DEBUG=True. It replaces the real OIDC
+    redirect so the LuxID fast-lane can be tested locally without credentials.
+    """
+    from django.http import Http404
+
+    if not settings.DEBUG:
+        raise Http404
+
+    from unittest.mock import MagicMock
+
+    from allauth.socialaccount.models import SocialAccount
+    from allauth.socialaccount.signals import social_account_added
+
+    from crush_lu import signals as crush_signals
+    from crush_lu.models import CrushProfile
+    from crush_lu.models.profiles import ProfileSubmission
+
+    user = request.user
+
+    try:
+        profile = CrushProfile.objects.get(user=user)
+    except CrushProfile.DoesNotExist:
+        messages.warning(request, "No CrushProfile found for your account.")
+        return redirect("crush_lu:profile_submitted")
+
+    if profile.is_approved:
+        messages.info(request, "[Dev] Profile is already approved.")
+        return redirect("crush_lu:profile_submitted")
+
+    if not ProfileSubmission.objects.filter(profile=profile, status="pending").exists():
+        messages.warning(request, "[Dev] No pending submission found.")
+        return redirect("crush_lu:profile_submitted")
+
+    sa, _ = SocialAccount.objects.get_or_create(
+        user=user,
+        provider="openid_connect",
+        defaults={"uid": f"dev-luxid-{user.pk}"},
+    )
+
+    account_mock = MagicMock()
+    account_mock.provider = "openid_connect"
+    sociallogin = MagicMock()
+    sociallogin.user = user
+    sociallogin.account = account_mock
+
+    crush_signals._thread_local.is_crush_luxid_login = True
+    try:
+        social_account_added.send(
+            sender=SocialAccount,
+            request=request,
+            sociallogin=sociallogin,
+        )
+    finally:
+        crush_signals._thread_local.is_crush_luxid_login = False
+
+    return redirect("crush_lu:profile_submitted")
 
 
 @crush_login_required

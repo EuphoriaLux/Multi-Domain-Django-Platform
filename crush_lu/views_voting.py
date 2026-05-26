@@ -3,14 +3,17 @@ from django.contrib import messages
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from django.http import JsonResponse
+from django.http import HttpResponseForbidden, JsonResponse
 from django.views.decorators.http import require_http_methods
 import logging
 
 logger = logging.getLogger(__name__)
 
+from django.db.models import Count, Max
+
 from .models import (
     CrushCoach,
+    EventInvitation,
     MeetupEvent,
     EventRegistration,
     EventActivityOption,
@@ -18,6 +21,7 @@ from .models import (
     EventVotingSession,
     PresentationQueue,
     PresentationRating,
+    SpeedDatingPair,
 )
 from .decorators import crush_login_required, coach_required
 
@@ -777,3 +781,213 @@ def voting_demo(request):
         "twist_options": twist_options,
     }
     return render(request, "crush_lu/voting_demo.html", context)
+
+
+# ── Speed Dating TV Display ──────────────────────────────────────────────────
+
+def _check_tv_display_access(request, event):
+    """Return a redirect/403 response if the user cannot access a private-invitation event's TV display, else None."""
+    if not event.is_private_invitation:
+        return None
+    if request.user.is_authenticated:
+        if (
+            request.user.is_staff
+            or event.coaches.filter(user=request.user).exists()
+            or EventRegistration.objects.filter(
+                event=event, user=request.user
+            ).exclude(status="cancelled").exists()
+            or event.invited_users.filter(id=request.user.id).exists()
+            or EventInvitation.objects.filter(
+                event=event, created_user=request.user, approval_status="approved"
+            ).exists()
+        ):
+            return None
+        return HttpResponseForbidden("You are not authorised to view this event's display.")
+    from django.contrib.auth.views import redirect_to_login
+    return redirect_to_login(request.get_full_path())
+
+
+def speed_dating_tv_display(request, event_id):
+    """Full-screen TV/projector display for speed dating events."""
+    event = get_object_or_404(MeetupEvent, id=event_id, is_published=True)
+
+    gate = _check_tv_display_access(request, event)
+    if gate is not None:
+        return gate
+
+    attended_count = EventRegistration.objects.filter(
+        event=event, status="attended"
+    ).count()
+    confirmed_count = EventRegistration.objects.filter(
+        event=event, status__in=["confirmed", "attended"]
+    ).count()
+
+    context = {
+        "event": event,
+        "attended_count": attended_count,
+        "confirmed_count": confirmed_count,
+    }
+    return render(request, "crush_lu/speed_dating_display.html", context)
+
+
+def speed_dating_tv_display_data(request, event_id):
+    """JSON polling endpoint for the speed dating TV display."""
+    try:
+        event = MeetupEvent.objects.get(id=event_id, is_published=True)
+    except MeetupEvent.DoesNotExist:
+        return JsonResponse({"error": "Event not found"}, status=404)
+
+    gate = _check_tv_display_access(request, event)
+    if gate is not None:
+        return JsonResponse({"error": "Not authorized"}, status=403)
+
+    attended_count = EventRegistration.objects.filter(
+        event=event, status="attended"
+    ).count()
+    confirmed_count = EventRegistration.objects.filter(
+        event=event, status__in=["confirmed", "attended"]
+    ).count()
+
+    # Gender breakdown (exclude "Prefer not to say")
+    gender_counts: dict[str, int] = {}
+    for reg in (
+        EventRegistration.objects.filter(event=event, status__in=["confirmed", "attended"])
+        .select_related("user__crushprofile")
+    ):
+        profile = getattr(reg.user, "crushprofile", None)
+        gender = getattr(profile, "gender", "") or ""
+        if gender and gender not in ("P",):
+            gender_counts[gender] = gender_counts.get(gender, 0) + 1
+
+    phase = "welcome"
+    phase_data: dict = {}
+
+    # Phase 3 — Speed Dating (most advanced phase wins)
+    pairs_qs = SpeedDatingPair.objects.filter(event=event)
+    if pairs_qs.exists():
+        phase = "speed_dating"
+        agg = pairs_qs.aggregate(max_round=Max("round_number"))
+        current_round = agg["max_round"] or 1
+        phase_data = {
+            "current_round": current_round,
+            "total_pairs": pairs_qs.filter(round_number=current_round).count(),
+        }
+    else:
+        # Phase 2 — Presentations
+        # Stay in this phase for the entire lifetime of the PresentationQueue —
+        # from the moment end_voting() seeds waiting rows until SpeedDatingPair
+        # rows appear. Checking only for un-finished rows would cause the TV to
+        # regress to voting/welcome in the handoff window after the last presenter
+        # finishes but before the coach creates pairs.
+        queue_exists = PresentationQueue.objects.filter(event=event).exists()
+
+        if queue_exists:
+            phase = "presentations"
+            # Prefer the currently presenting row; fall back to next waiting.
+            # Both can be None when all presentations are done (100 % progress).
+            current_presenter = (
+                PresentationQueue.objects.filter(event=event, status="presenting")
+                .select_related("user__crushprofile")
+                .first()
+            ) or (
+                PresentationQueue.objects.filter(event=event, status="waiting")
+                .select_related("user__crushprofile")
+                .order_by("presentation_order")
+                .first()
+            )
+            completed = PresentationQueue.objects.filter(event=event, status="completed").count()
+            total = PresentationQueue.objects.filter(event=event).exclude(status="skipped").count()
+            presenter_name = ""
+            if current_presenter:
+                profile = getattr(current_presenter.user, "crushprofile", None)
+                presenter_name = (
+                    (profile.display_name if profile else None)
+                    or current_presenter.user.first_name
+                    or "Anonymous"
+                )
+            phase_data = {
+                "presenter_name": presenter_name,
+                "completed_count": completed,
+                "total_count": total,
+                "progress_pct": int(completed / total * 100) if total else 0,
+            }
+        else:
+            # Phase 1 — Voting
+            try:
+                voting_session = EventVotingSession.objects.select_related(
+                    "winning_presentation_style", "winning_speed_dating_twist"
+                ).get(event=event)
+
+                if voting_session.is_voting_open:
+                    phase = "voting"
+                    pres_votes = (
+                        EventActivityVote.objects.filter(
+                            event=event,
+                            selected_option__activity_type="presentation_style",
+                        )
+                        .values("selected_option__display_name", "selected_option__activity_variant")
+                        .annotate(count=Count("id"))
+                        .order_by("-count")
+                    )
+                    twist_votes = (
+                        EventActivityVote.objects.filter(
+                            event=event,
+                            selected_option__activity_type="speed_dating_twist",
+                        )
+                        .values("selected_option__display_name", "selected_option__activity_variant")
+                        .annotate(count=Count("id"))
+                        .order_by("-count")
+                    )
+                    phase_data = {
+                        "total_votes": voting_session.total_votes,
+                        "time_remaining": int(voting_session.time_remaining),
+                        "presentation_votes": [
+                            {
+                                "name": v["selected_option__display_name"],
+                                "variant": v["selected_option__activity_variant"],
+                                "count": v["count"],
+                            }
+                            for v in pres_votes
+                        ],
+                        "twist_votes": [
+                            {
+                                "name": v["selected_option__display_name"],
+                                "variant": v["selected_option__activity_variant"],
+                                "count": v["count"],
+                            }
+                            for v in twist_votes
+                        ],
+                    }
+                else:
+                    # Voting window closed; lazily finalize if end_voting() was never called.
+                    # Must use end_voting() (not just calculate_winner) to also mark the
+                    # session inactive and initialize the presentation queue.
+                    if (
+                        not voting_session.winning_presentation_style_id
+                        and timezone.now() > voting_session.voting_end_time
+                    ):
+                        voting_session.end_voting()
+                    if voting_session.winning_presentation_style_id:
+                        phase = "voting_results"
+                        phase_data = {
+                            "winning_style": voting_session.winning_presentation_style.display_name,
+                            "winning_twist": (
+                                voting_session.winning_speed_dating_twist.display_name
+                                if voting_session.winning_speed_dating_twist
+                                else None
+                            ),
+                            "total_votes": voting_session.total_votes,
+                        }
+            except EventVotingSession.DoesNotExist:
+                pass
+
+    return JsonResponse(
+        {
+            "phase": phase,
+            "attended_count": attended_count,
+            "confirmed_count": confirmed_count,
+            "max_participants": event.max_participants,
+            "gender_counts": gender_counts,
+            "phase_data": phase_data,
+        }
+    )

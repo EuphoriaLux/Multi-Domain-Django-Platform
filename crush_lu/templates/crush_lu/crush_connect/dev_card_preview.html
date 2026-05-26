@@ -1,0 +1,65 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "DEV — Crush Connect Card Preview" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-10">
+    <header class="mb-8">
+        <span class="inline-block text-xs font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400 mb-2">
+            {% trans "Staff preview — not visible to members" %}
+        </span>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
+            {% trans "Crush Connect — Drop card preview" %}
+        </h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            {% blocktrans with name=target.first_name|default:target.username pk=target.pk %}Previewing the card other members would see for {{ name }} (id={{ pk }}).{% endblocktrans %}
+        </p>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+        <div>
+            {% include "crush_lu/crush_connect/_drop_card.html" %}
+        </div>
+
+        <aside class="text-sm text-gray-600 dark:text-gray-300 space-y-3 bg-gray-50 dark:bg-slate-800/60 rounded-xl p-5 ring-1 ring-gray-200 dark:ring-slate-700">
+            <h2 class="text-base font-semibold text-gray-900 dark:text-white">
+                {% trans "Profile inputs feeding this card" %}
+            </h2>
+            <dl class="grid grid-cols-3 gap-y-1 gap-x-3">
+                <dt class="font-medium text-gray-500">{% trans "First name" %}</dt>
+                <dd class="col-span-2">{{ target.first_name|default:"—" }}</dd>
+
+                <dt class="font-medium text-gray-500">{% trans "Age range" %}</dt>
+                <dd class="col-span-2">{{ target_profile.age_range|default:"—" }}</dd>
+
+                <dt class="font-medium text-gray-500">{% trans "Gender" %}</dt>
+                <dd class="col-span-2">{{ target_profile.gender|default:"—" }}</dd>
+
+                <dt class="font-medium text-gray-500">{% trans "Approved" %}</dt>
+                <dd class="col-span-2">{{ target_profile.is_approved|yesno:_("yes,no,—") }}</dd>
+
+                <dt class="font-medium text-gray-500">{% trans "Onboarded to Connect" %}</dt>
+                <dd class="col-span-2">
+                    {% if target_membership and target_membership.is_onboarded %}{% trans "yes" %}{% else %}{% trans "no" %}{% endif %}
+                </dd>
+
+                <dt class="font-medium text-gray-500">{% trans "Story prompt" %}</dt>
+                <dd class="col-span-2">{{ target_membership.story_prompt.text|default:"—" }}</dd>
+
+                <dt class="font-medium text-gray-500">{% trans "Story answer" %}</dt>
+                <dd class="col-span-2">{{ target_membership.story_answer|default:"—" }}</dd>
+
+                <dt class="font-medium text-gray-500">{% trans "Languages" %}</dt>
+                <dd class="col-span-2">{{ target_profile.event_languages|join:", "|default:"—" }}</dd>
+
+                <dt class="font-medium text-gray-500">{% trans "Interests" %}</dt>
+                <dd class="col-span-2">{{ target_profile.interests|default:"—" }}</dd>
+            </dl>
+            <p class="text-xs text-gray-500 italic pt-2 border-t border-gray-200 dark:border-slate-700">
+                {% trans "Photo is intentionally blurred for all Drop cards until mutual interest reveals identity (M6)." %}
+            </p>
+        </aside>
+    </div>
+</div>
+{% endblock %}

@@ -384,6 +384,12 @@ WALLET_GOOGLE_EVENT_TICKET_ENABLED = _env_bool(
 # after all Phases have shipped and the Coach-facing rollout is ready.
 PRE_SCREENING_ENABLED = _env_bool("PRE_SCREENING_ENABLED", default=False)
 
+# Crush Connect (Crush.lu) — global launch flag. When False, all Crush Connect
+# routes fall back to the waitlist teaser; when True, eligible members see the
+# daily Drop. Per-user staged unlock is handled via CrushConnectWaitlistCohort
+# in M8, so this flag can stay True in production once beta finishes.
+CRUSH_CONNECT_LAUNCHED = _env_bool("CRUSH_CONNECT_LAUNCHED", default=False)
+
 # Event Check-In Configuration
 EVENT_CHECKIN_WINDOW_HOURS = int(os.getenv("EVENT_CHECKIN_WINDOW_HOURS", "12"))
 

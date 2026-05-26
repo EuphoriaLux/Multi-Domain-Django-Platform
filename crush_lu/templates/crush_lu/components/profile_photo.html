@@ -8,15 +8,26 @@ Renders either the user's photo or one of two fallbacks:
   - "icon" — neutral user-circle on a gray background. Use for non-personal
     contexts (system messages, placeholder previews).
 
+When `is_blurred` is True (Crush Connect Drop cards before mutual reveal) the
+real photo URL is never sent to the client — we render the gradient placeholder
+instead. CSS blur alone is bypassable via devtools; server-side suppression is
+the only safe approach until M6 adds a mutual-reveal gate to the media endpoint.
+
 Sizing and shape are controlled by the caller via `css_class` (e.g.
 "w-14 h-14 rounded-full"). The partial only owns image/fallback rendering
 and the initial-text colour & weight.
 
 Args (resolved by the {% profile_photo %} inclusion_tag in crush_media):
-  has_photo, photo_url, alt_text, css_class, display_name, fallback
+  has_photo, photo_url, alt_text, css_class, display_name, fallback, is_blurred
 {% endcomment %}
 {% load i18n %}
-{% if has_photo %}
+{% if is_blurred %}
+    {# Never serve the real photo URL for pre-reveal Drop cards. #}
+    <div class="{{ css_class }} flex items-center justify-center bg-gradient-to-br from-crush-purple to-crush-pink select-none"
+         aria-hidden="true">
+        <span class="text-white font-semibold opacity-0">?</span>
+    </div>
+{% elif has_photo %}
     <img src="{{ photo_url }}"
          alt="{{ alt_text }}"
          class="{{ css_class }} object-cover"

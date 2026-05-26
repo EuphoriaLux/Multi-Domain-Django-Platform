@@ -1,0 +1,524 @@
+{% load static i18n %}
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920">
+    <meta name="robots" content="noindex, nofollow">
+    <title>{{ event.title }} — {% trans "Live Display" %}</title>
+    <link rel="stylesheet" href="{% static 'crush_lu/css/tailwind.css' %}">
+    <style>
+        /* ── Beat animations ── */
+        @keyframes heartbeat {
+            0%, 100% { transform: scale(1); }
+            14%       { transform: scale(1.18); }
+            28%       { transform: scale(1); }
+            42%       { transform: scale(1.14); }
+            70%       { transform: scale(1); }
+        }
+        .animate-heartbeat { animation: heartbeat 1.8s ease-in-out infinite; }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50%       { transform: translateY(-14px); }
+        }
+        .animate-float { animation: float 4s ease-in-out infinite; }
+        .animate-float-slow { animation: float 6s ease-in-out infinite; }
+
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.35; }
+        }
+        .animate-pulse-slow { animation: pulse-slow 3s ease-in-out infinite; }
+
+        @keyframes slide-up {
+            from { opacity: 0; transform: translateY(28px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-up { animation: slide-up 0.7s cubic-bezier(.22,.61,.36,1) both; }
+
+        @keyframes scale-in {
+            from { opacity: 0; transform: scale(0.85); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+        .animate-scale-in { animation: scale-in 0.5s cubic-bezier(.22,.61,.36,1) both; }
+
+        /* ── Ambient floating particles ── */
+        .particle {
+            position: fixed;
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0.08;
+            animation: rise linear infinite;
+        }
+        @keyframes rise {
+            0%   { transform: translateY(110vh) rotate(0deg);   opacity: 0; }
+            5%   { opacity: 0.08; }
+            95%  { opacity: 0.08; }
+            100% { transform: translateY(-10vh) rotate(720deg); opacity: 0; }
+        }
+
+        /* ── Phase dot gradients ── */
+        .dot-active {
+            background: linear-gradient(135deg, #8B5CF6, #EC4899);
+            box-shadow: 0 0 10px rgba(139,92,246,0.6);
+        }
+        .dot-done     { background: #4ADE80; }
+        .dot-upcoming { background: #374151; }
+
+        /* ── Progress bar smooth fill ── */
+        .bar-fill { transition: width 1.2s cubic-bezier(.22,.61,.36,1); }
+
+        /* ── Attendance ring ── */
+        .ring-track { stroke: #1e293b; }
+        .ring-fill  { transition: stroke-dashoffset 1.2s cubic-bezier(.22,.61,.36,1); }
+
+        /* ── Gradient text helper ── */
+        .grad-text {
+            background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* ── Phase transition (Alpine x-transition) ── */
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="bg-crush-dark min-h-screen overflow-hidden select-none">
+
+    <!-- Ambient floating particles (decorative) -->
+    <div aria-hidden="true">
+        {% for i in "123456789" %}
+        <div class="particle"
+             style="left:{{ forloop.counter|add:7 }}%;background:#8B5CF6;animation-duration:{{ forloop.counter|add:12 }}s;animation-delay:-{{ forloop.counter|add:3 }}s;"></div>
+        <div class="particle"
+             style="left:{{ forloop.counter|add:53 }}%;background:#EC4899;animation-duration:{{ forloop.counter|add:9 }}s;animation-delay:-{{ forloop.counter|add:6 }}s;"></div>
+        {% endfor %}
+    </div>
+
+    {# ======================================================== #}
+    {#  Root Alpine component                                    #}
+    {# ======================================================== #}
+    <div x-data="speedDatingDisplay"
+         x-cloak
+         data-event-id="{{ event.id }}"
+         data-event-title="{{ event.title }}"
+         data-event-date="{{ event.date_time|date:'D, M j — g:i A' }}"
+         data-event-location="{{ event.location }}"
+         data-attended="{{ attended_count }}"
+         data-confirmed="{{ confirmed_count }}"
+         data-max="{{ event.max_participants }}"
+         data-str-checked-in="{% trans 'checked in' %}"
+         data-str-confirmed="{% trans 'confirmed' %}"
+         data-str-of="{% trans 'of' %}"
+         data-str-male="{% trans 'Male' %}"
+         data-str-female="{% trans 'Female' %}"
+         data-str-non-binary="{% trans 'Non-binary' %}"
+         data-str-other="{% trans 'Other' %}"
+         data-str-votes-for="{% trans 'votes' %}"
+         data-str-presented="{% trans 'presented' %}"
+         data-str-total="{% trans 'total' %}"
+         data-str-presenter="{% trans 'Presenter' %}"
+         data-str-round="{% trans 'Round' %}"
+         data-str-couples-round="{% trans 'couples this round' %}"
+         data-str-phase-checkin="{% trans 'Check-in' %}"
+         data-str-phase-voting="{% trans 'Voting' %}"
+         data-str-phase-presents="{% trans 'Presentations' %}"
+         data-str-phase-dating="{% trans 'Speed Dating' %}"
+         class="min-h-screen flex flex-col">
+
+        {# ──────────────────────────────────────────────── #}
+        {#  TOP BAR                                         #}
+        {# ──────────────────────────────────────────────── #}
+        <header class="relative z-10 flex items-center justify-between px-10 py-5
+                        bg-gradient-to-r from-slate-900/95 to-slate-800/90
+                        border-b border-white/5 backdrop-blur-sm flex-shrink-0">
+
+            <!-- Brand + Event Info -->
+            <div class="flex items-center gap-4 min-w-0">
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-crush-purple to-crush-pink
+                             flex items-center justify-center flex-shrink-0 shadow-lg shadow-crush-purple/30">
+                    <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191
+                                 1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447
+                                 2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/>
+                    </svg>
+                </div>
+                <div class="min-w-0">
+                    <h1 class="text-2xl font-bold text-white truncate" x-text="eventTitle"></h1>
+                    <p class="text-sm text-gray-400 truncate" x-text="eventDate"></p>
+                </div>
+            </div>
+
+            <!-- Phase step indicator -->
+            <div class="flex items-center gap-1 mx-8">
+                <template x-for="(step, idx) in phaseSteps" :key="step.key">
+                    <div class="flex items-center gap-1">
+                        <!-- Connector line -->
+                        <div x-show="idx > 0" class="w-8 h-px bg-slate-700 mx-1"></div>
+                        <!-- Dot -->
+                        <div class="w-3 h-3 rounded-full flex-shrink-0 transition-all duration-500"
+                             :class="phaseDotClass(step.key)"></div>
+                        <!-- Label -->
+                        <span class="text-xs font-medium ml-1 transition-colors duration-300 hidden xl:block"
+                              :class="phaseTextClass(step.key)"
+                              x-text="step.label"></span>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Live clock -->
+            <div class="text-right flex-shrink-0">
+                <p class="text-4xl font-bold tabular-nums text-white" x-text="currentTime"></p>
+                <div class="flex items-center justify-end gap-1.5 mt-0.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span class="text-xs text-gray-400">{% trans "Live" %} · {{ event.location|truncatechars:28 }}</span>
+                </div>
+            </div>
+        </header>
+
+        {# ──────────────────────────────────────────────── #}
+        {#  MAIN CONTENT AREA (phase screens)               #}
+        {# ──────────────────────────────────────────────── #}
+        <main class="flex-1 relative z-10 flex min-h-0">
+
+            {# ═══════════════════════════════════════════ #}
+            {#  SCREEN: WELCOME / CHECK-IN                 #}
+            {# ═══════════════════════════════════════════ #}
+            <div x-show="screen === 'welcome'"
+                 x-transition:enter="transition ease-out duration-500"
+                 x-transition:enter-start="opacity-0 scale-95"
+                 x-transition:enter-end="opacity-100 scale-100"
+                 x-transition:leave="transition ease-in duration-300"
+                 x-transition:leave-start="opacity-100 scale-100"
+                 x-transition:leave-end="opacity-0 scale-95"
+                 class="flex-1 flex items-center justify-around px-16 py-10 gap-12">
+
+                <!-- Left: Attendance ring -->
+                <div class="flex flex-col items-center gap-6">
+                    <div class="animate-scale-in relative" style="width:220px;height:220px;">
+                        <svg class="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                            <circle class="ring-track" cx="18" cy="18" r="15.9"
+                                    fill="none" stroke-width="2.5"/>
+                            <circle class="ring-fill" cx="18" cy="18" r="15.9"
+                                    fill="none"
+                                    stroke="url(#attendGrad)"
+                                    stroke-width="2.5"
+                                    stroke-dasharray="100"
+                                    :stroke-dashoffset="100 - attendancePct"
+                                    stroke-linecap="round"/>
+                            <defs>
+                                <linearGradient id="attendGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <stop offset="0%"   stop-color="#8B5CF6"/>
+                                    <stop offset="100%" stop-color="#EC4899"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                        <!-- Center text -->
+                        <div class="absolute inset-0 flex flex-col items-center justify-center">
+                            <span class="text-6xl font-black text-white tabular-nums" x-text="attendedCount"></span>
+                            <span class="text-sm text-gray-400 mt-1">{% trans "here" %}</span>
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-gray-400 text-lg">
+                            {% trans "of" %} <span class="text-white font-bold text-xl" x-text="confirmedCount"></span> {% trans "confirmed" %}
+                        </p>
+                    </div>
+
+                    <!-- Check-in live badge -->
+                    <div class="animate-pulse-slow inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full
+                                 bg-crush-purple/15 border border-crush-purple/40">
+                        <span class="w-2.5 h-2.5 rounded-full bg-crush-purple animate-pulse"></span>
+                        <span class="text-crush-purple font-semibold">{% trans "Check-in open" %}</span>
+                    </div>
+                </div>
+
+                <!-- Centre: Heart + Event name -->
+                <div class="flex flex-col items-center text-center gap-6">
+                    <div class="animate-float text-9xl">&#128149;</div>
+                    <h2 class="text-5xl font-black text-white leading-tight max-w-xl animate-slide-up">
+                        {% trans "Welcome!" %}
+                    </h2>
+                    <p class="text-2xl text-gray-300 max-w-md">{{ event.title }}</p>
+                    {% if event.location %}
+                    <div class="flex items-center gap-2 text-gray-500 text-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        </svg>
+                        <span>{{ event.location }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Right: Gender breakdown -->
+                <div class="flex flex-col gap-2 min-w-[240px]">
+                    <p class="text-gray-500 text-sm uppercase tracking-widest font-semibold mb-3">{% trans "Attendees" %}</p>
+                    <!-- Rendered imperatively by JS -->
+                    <div x-ref="genderBreakdown"></div>
+                </div>
+            </div>
+
+            {# ═══════════════════════════════════════════ #}
+            {#  SCREEN: VOTING                             #}
+            {# ═══════════════════════════════════════════ #}
+            <div x-show="screen === 'voting'"
+                 x-transition:enter="transition ease-out duration-500"
+                 x-transition:enter-start="opacity-0 scale-95"
+                 x-transition:enter-end="opacity-100 scale-100"
+                 x-transition:leave="transition ease-in duration-300"
+                 x-transition:leave-start="opacity-100 scale-100"
+                 x-transition:leave-end="opacity-0 scale-95"
+                 class="flex-1 flex flex-col px-12 py-8 gap-6">
+
+                <!-- Voting header -->
+                <div class="flex items-start justify-between flex-shrink-0">
+                    <div>
+                        <div class="inline-flex items-center gap-2.5 px-5 py-2 rounded-full
+                                     bg-amber-500/15 border border-amber-500/40 mb-3">
+                            <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
+                            <span class="text-amber-300 font-bold uppercase tracking-widest text-sm">{% trans "Live Voting" %}</span>
+                        </div>
+                        <h2 class="text-5xl font-black text-white">{% trans "Cast Your Vote!" %}</h2>
+                        <p class="text-xl text-gray-400 mt-1">
+                            <span class="text-white font-bold" x-text="phaseData.total_votes || 0"></span>
+                            {% trans "votes submitted" %}
+                        </p>
+                    </div>
+                    <!-- Countdown -->
+                    <div class="bg-slate-800/80 rounded-3xl px-10 py-5 text-center border border-slate-700/50 flex-shrink-0">
+                        <div class="text-7xl font-black tabular-nums" :class="votingTimerClass"
+                             x-text="formatTime(phaseData.time_remaining || 0)"></div>
+                        <p class="text-gray-500 text-sm mt-1 uppercase tracking-wider">{% trans "remaining" %}</p>
+                    </div>
+                </div>
+
+                <!-- Two-column vote bars -->
+                <div class="grid grid-cols-2 gap-6 flex-1 min-h-0">
+                    <!-- Presentation Style -->
+                    <div class="bg-slate-800/50 rounded-3xl p-7 border border-violet-500/20 flex flex-col">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="text-3xl">&#127931;</span>
+                            <h3 class="text-2xl font-bold" style="color:#A78BFA">{% trans "Presentation Style" %}</h3>
+                        </div>
+                        <p class="text-gray-500 text-sm mb-6">{% trans "How should each person introduce themselves?" %}</p>
+                        <div x-ref="presVotes" class="flex-1 overflow-hidden"></div>
+                    </div>
+
+                    <!-- Speed Dating Twist -->
+                    <div class="bg-slate-800/50 rounded-3xl p-7 border border-pink-500/20 flex flex-col">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="text-3xl">&#10024;</span>
+                            <h3 class="text-2xl font-bold" style="color:#F472B6">{% trans "Speed Dating Twist" %}</h3>
+                        </div>
+                        <p class="text-gray-500 text-sm mb-6">{% trans "What twist should the speed dating have?" %}</p>
+                        <div x-ref="twistVotes" class="flex-1 overflow-hidden"></div>
+                    </div>
+                </div>
+
+                <!-- CTA -->
+                <div class="text-center text-gray-500 text-lg flex-shrink-0">
+                    {% trans "Open" %} <span class="font-semibold text-gray-300">crush.lu</span> {% trans "on your phone to vote" %}
+                </div>
+            </div>
+
+            {# ═══════════════════════════════════════════ #}
+            {#  SCREEN: VOTING RESULTS                     #}
+            {# ═══════════════════════════════════════════ #}
+            <div x-show="screen === 'voting_results'"
+                 x-transition:enter="transition ease-out duration-500"
+                 x-transition:enter-start="opacity-0 scale-95"
+                 x-transition:enter-end="opacity-100 scale-100"
+                 x-transition:leave="transition ease-in duration-300"
+                 x-transition:leave-start="opacity-100 scale-100"
+                 x-transition:leave-end="opacity-0 scale-95"
+                 class="flex-1 flex flex-col items-center justify-center px-16 py-10 gap-10">
+
+                <div class="text-7xl animate-scale-in">&#127881;</div>
+                <div class="text-center">
+                    <h2 class="text-6xl font-black text-white mb-3">{% trans "The Votes Are In!" %}</h2>
+                    <p class="text-gray-400 text-xl">
+                        <span class="text-white font-bold" x-text="phaseData.total_votes || 0"></span>
+                        {% trans "votes cast" %}
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-8 w-full max-w-4xl">
+                    <!-- Winning presentation style -->
+                    <div class="bg-gradient-to-br from-violet-900/40 to-slate-800/80 rounded-3xl p-10
+                                 border border-violet-500/30 text-center">
+                        <div class="text-5xl mb-4">&#127931;</div>
+                        <p class="text-violet-400 text-sm uppercase tracking-widest font-semibold mb-3">
+                            {% trans "Presentation Style" %}
+                        </p>
+                        <p class="text-3xl font-black text-white leading-snug"
+                           x-text="phaseData.winning_style || '—'"></p>
+                    </div>
+                    <!-- Winning twist -->
+                    <div class="bg-gradient-to-br from-pink-900/40 to-slate-800/80 rounded-3xl p-10
+                                 border border-pink-500/30 text-center">
+                        <div class="text-5xl mb-4">&#10024;</div>
+                        <p class="text-pink-400 text-sm uppercase tracking-widest font-semibold mb-3">
+                            {% trans "Speed Dating Twist" %}
+                        </p>
+                        <p class="text-3xl font-black text-white leading-snug"
+                           x-text="phaseData.winning_twist || '—'"></p>
+                    </div>
+                </div>
+            </div>
+
+            {# ═══════════════════════════════════════════ #}
+            {#  SCREEN: PRESENTATIONS                      #}
+            {# ═══════════════════════════════════════════ #}
+            <div x-show="screen === 'presentations'"
+                 x-transition:enter="transition ease-out duration-500"
+                 x-transition:enter-start="opacity-0 scale-95"
+                 x-transition:enter-end="opacity-100 scale-100"
+                 x-transition:leave="transition ease-in duration-300"
+                 x-transition:leave-start="opacity-100 scale-100"
+                 x-transition:leave-end="opacity-0 scale-95"
+                 class="flex-1 flex flex-col items-center justify-center px-16 py-10 gap-8">
+
+                <!-- Live badge -->
+                <div class="inline-flex items-center gap-2.5 px-5 py-2 rounded-full
+                             bg-violet-500/15 border border-violet-500/40">
+                    <span class="w-2.5 h-2.5 rounded-full bg-violet-400 animate-pulse"></span>
+                    <span class="text-violet-300 font-bold uppercase tracking-widest text-sm">{% trans "Now Presenting" %}</span>
+                </div>
+
+                <!-- Presenter name — huge gradient -->
+                <div class="text-center relative py-4">
+                    <div class="absolute -inset-8 bg-gradient-to-r from-crush-purple/5 to-crush-pink/5 rounded-3xl blur-2xl"></div>
+                    <h2 class="relative text-9xl font-black grad-text leading-none tracking-tight animate-scale-in"
+                        x-text="phaseData.presenter_name || ''"></h2>
+                </div>
+
+                <!-- Queue progress -->
+                <div class="w-full max-w-2xl flex flex-col gap-4">
+                    <div class="flex justify-between text-gray-400 text-lg font-medium">
+                        <span>
+                            {% trans "Presenter" %}
+                            <span class="text-white font-bold ml-1" x-text="presenterNumber"></span>
+                            {% trans "of" %}
+                            <span class="text-white font-bold ml-1" x-text="phaseData.total_count || 0"></span>
+                        </span>
+                        <span class="text-gray-500">
+                            <span x-text="phaseData.completed_count || 0"></span>
+                            {% trans "completed" %}
+                        </span>
+                    </div>
+                    <!-- Progress bar -->
+                    <div class="h-4 bg-slate-800 rounded-full overflow-hidden border border-slate-700/60">
+                        <div class="h-full rounded-full bg-gradient-to-r from-crush-purple to-crush-pink bar-fill"
+                             :style="'width:' + (phaseData.progress_pct || 0) + '%'"></div>
+                    </div>
+                </div>
+
+                <!-- Rate hint -->
+                <div class="flex items-center gap-3 text-gray-600 text-xl mt-2">
+                    <span class="text-2xl">&#128247;</span>
+                    <span>{% trans "Rate on your phone at" %} <span class="font-semibold text-gray-400">crush.lu</span></span>
+                </div>
+            </div>
+
+            {# ═══════════════════════════════════════════ #}
+            {#  SCREEN: SPEED DATING                       #}
+            {# ═══════════════════════════════════════════ #}
+            <div x-show="screen === 'speed_dating'"
+                 x-transition:enter="transition ease-out duration-500"
+                 x-transition:enter-start="opacity-0 scale-95"
+                 x-transition:enter-end="opacity-100 scale-100"
+                 x-transition:leave="transition ease-in duration-300"
+                 x-transition:leave-start="opacity-100 scale-100"
+                 x-transition:leave-end="opacity-0 scale-95"
+                 class="flex-1 flex flex-col items-center justify-center px-16 py-10 gap-8">
+
+                <!-- Beating hearts -->
+                <div class="flex items-center gap-6">
+                    <span class="text-7xl animate-heartbeat" style="animation-delay:.1s">&#128149;</span>
+                    <span class="text-5xl animate-float-slow opacity-60">&#128148;</span>
+                    <span class="text-7xl animate-heartbeat" style="animation-delay:.3s">&#128149;</span>
+                </div>
+
+                <!-- Phase badge -->
+                <div class="inline-flex items-center gap-2.5 px-6 py-2.5 rounded-full
+                             bg-crush-pink/15 border border-crush-pink/40">
+                    <span class="w-3 h-3 rounded-full bg-crush-pink animate-pulse"></span>
+                    <span class="text-crush-pink font-bold uppercase tracking-widest">{% trans "Speed Dating" %}</span>
+                </div>
+
+                <!-- Round number -->
+                <div class="text-center">
+                    <p class="text-gray-500 text-2xl uppercase tracking-widest font-semibold mb-1">{% trans "Round" %}</p>
+                    <div class="text-[10rem] font-black grad-text leading-none tabular-nums"
+                         x-text="phaseData.current_round || 1"></div>
+                </div>
+
+                <!-- Stats row -->
+                <div class="flex items-center gap-12 text-center mt-4">
+                    <div>
+                        <p class="text-6xl font-black text-white tabular-nums"
+                           x-text="phaseData.total_pairs || 0"></p>
+                        <p class="text-gray-500 text-lg mt-1">{% trans "couples this round" %}</p>
+                    </div>
+                    <div class="w-px h-16 bg-slate-700"></div>
+                    <div>
+                        <p class="text-6xl font-black text-white tabular-nums"
+                           x-text="attendedCount"></p>
+                        <p class="text-gray-500 text-lg mt-1">{% trans "participants" %}</p>
+                    </div>
+                </div>
+
+                <!-- Encouragement -->
+                <p class="text-2xl text-gray-400 mt-4">{% trans "Enjoy the conversation!" %} &#128578;</p>
+            </div>
+
+        </main>
+
+        {# ──────────────────────────────────────────────── #}
+        {#  BOTTOM STATUS BAR                               #}
+        {# ──────────────────────────────────────────────── #}
+        <footer class="relative z-10 flex-shrink-0 flex items-center justify-between px-10 py-3
+                        bg-slate-900/90 border-t border-white/5 backdrop-blur-sm">
+
+            <!-- Attendance pills -->
+            <div class="flex items-center gap-5">
+                <div class="flex items-center gap-2">
+                    <span class="w-3 h-3 rounded-full bg-emerald-400 flex-shrink-0"></span>
+                    <span class="text-white font-bold text-2xl tabular-nums" x-text="attendedCount"></span>
+                    <span class="text-gray-500 text-sm">{% trans "checked in" %}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="w-3 h-3 rounded-full bg-slate-600 flex-shrink-0"></span>
+                    <span class="text-gray-400 text-xl tabular-nums" x-text="confirmedCount"></span>
+                    <span class="text-gray-600 text-sm">{% trans "registered" %}</span>
+                </div>
+                <!-- Gender pills — rendered imperatively -->
+                <div x-ref="genderPills" class="flex items-center gap-2"></div>
+            </div>
+
+            <!-- crush.lu branding -->
+            <div class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-crush-pink opacity-60" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402 0-3.791 3.068-5.191 5.281-5.191
+                             1.312 0 4.151.501 5.719 4.457 1.59-3.968 4.464-4.447 5.726-4.447
+                             2.54 0 5.274 1.621 5.274 5.181 0 4.069-5.136 8.625-11 14.402z"/>
+                </svg>
+                <span class="text-gray-600 text-sm font-medium">crush.lu</span>
+            </div>
+        </footer>
+
+    </div><!-- /x-data -->
+
+    {# Scripts: component first, then Alpine CSP runner #}
+    <script src="{% static 'crush_lu/js/speed-dating-display.js' %}?v=1"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/csp@3.13.3/dist/cdn.min.js"
+            integrity="sha384-EkI5VI1qflXkHKn4NX4W76cYYqh8dAx7UKkCc4QJ10k8jdtauy8Qs3BkF21ZXcZj"
+            crossorigin="anonymous"></script>
+</body>
+</html>

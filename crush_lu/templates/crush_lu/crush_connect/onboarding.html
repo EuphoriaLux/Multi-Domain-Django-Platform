@@ -1,0 +1,90 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Welcome to Crush Connect" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-10 pb-24 lg:pb-10">
+
+    <header class="mb-8 text-center">
+        <span class="inline-block rounded-full bg-gradient-to-r from-crush-purple to-crush-pink px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white mb-4">
+            {% trans "Welcome to Crush Connect" %}
+        </span>
+        <h1 class="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-white mb-3">
+            {% trans "One last step." %}
+        </h1>
+        <p class="text-gray-600 dark:text-gray-300 max-w-xl mx-auto">
+            {% trans "Pick the question that feels most like you and answer it in one line. That sentence is the only thing other members read before they decide to send you a Spark." %}
+        </p>
+    </header>
+
+    <form method="post" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-6 md:p-8 space-y-7">
+        {% csrf_token %}
+
+        {# Prompt picker (radio list) #}
+        <fieldset class="space-y-3">
+            <legend class="text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                {{ form.story_prompt.label }}
+            </legend>
+            {% for radio in form.story_prompt %}
+                <label class="flex items-start gap-3 rounded-xl border border-gray-200 dark:border-slate-700 p-3 cursor-pointer hover:border-crush-purple/60 hover:bg-crush-purple/5 transition has-[:checked]:border-crush-purple has-[:checked]:bg-crush-purple/10">
+                    {{ radio.tag }}
+                    <span class="text-sm text-gray-800 dark:text-gray-100">{{ radio.choice_label }}</span>
+                </label>
+            {% endfor %}
+            {% if form.story_prompt.errors %}
+                <p class="text-sm text-red-600 dark:text-red-400 mt-1">{{ form.story_prompt.errors|join:" " }}</p>
+            {% endif %}
+        </fieldset>
+
+        {# Story answer textarea #}
+        <div>
+            <label for="{{ form.story_answer.id_for_label }}" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                {{ form.story_answer.label }}
+            </label>
+            <div x-data="{ count: '{{ form.story_answer.value|default_if_none:"" }}'.length }">
+                <textarea
+                    name="{{ form.story_answer.name }}"
+                    id="{{ form.story_answer.id_for_label }}"
+                    rows="3"
+                    maxlength="200"
+                    placeholder="{% trans 'Keep it human — one sentence the right kind of person will recognise.' %}"
+                    class="input-crush w-full"
+                    x-on:input="count = $event.target.value.length"
+                >{{ form.story_answer.value|default_if_none:"" }}</textarea>
+                <div class="mt-1 flex items-center justify-between text-xs">
+                    <span class="text-gray-400 dark:text-gray-500">
+                        {% trans "Edit anytime from your settings later." %}
+                    </span>
+                    <span class="text-gray-400 dark:text-gray-500"><span x-text="count"></span>/200</span>
+                </div>
+            </div>
+            {% if form.story_answer.errors %}
+                <p class="text-sm text-red-600 dark:text-red-400 mt-1">{{ form.story_answer.errors|join:" " }}</p>
+            {% endif %}
+        </div>
+
+        {# Confirm checkbox #}
+        <div>
+            <label class="flex items-start gap-3 text-sm text-gray-700 dark:text-gray-200">
+                {{ form.confirm_terms }}
+                <span>{{ form.confirm_terms.label }}</span>
+            </label>
+            {% if form.confirm_terms.errors %}
+                <p class="text-sm text-red-600 dark:text-red-400 mt-1">{{ form.confirm_terms.errors|join:" " }}</p>
+            {% endif %}
+        </div>
+
+        <div class="pt-2">
+            <button type="submit" class="btn-crush-primary btn-block">
+                {% trans "Finish & open Today's Drop" %}
+            </button>
+        </div>
+    </form>
+
+    <p class="mt-6 text-center text-xs text-gray-500 dark:text-gray-400">
+        {% trans "Privacy: your full name and exact age are never shown to other members. Photos stay blurred until both of you have Sparked each other." %}
+    </p>
+
+</div>
+{% endblock %}
