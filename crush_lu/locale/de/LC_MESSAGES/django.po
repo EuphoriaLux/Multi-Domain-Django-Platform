@@ -7524,16 +7524,14 @@ msgid ""
 msgstr ""
 
 #: .\crush_lu\templates\account\verified_email_required_crush.html:4
-#, fuzzy
 #| msgid "Verification Required"
 msgid "Email Verification Required - Crush.lu"
-msgstr "Verifizierung erforderlich"
+msgstr "E-Mail-Bestätigung erforderlich – Crush.lu"
 
 #: .\crush_lu\templates\account\verified_email_required_crush.html:17
-#, fuzzy
 #| msgid "Verify Your Phone"
 msgid "Verify Your Email"
-msgstr "Überprüfen Sie Ihr Telefon"
+msgstr "Bestätige deine E-Mail"
 
 #: .\crush_lu\templates\account\verified_email_required_crush.html:20
 msgid ""
@@ -7543,7 +7541,7 @@ msgid ""
 "                    Please check your inbox for a verification link from "
 "Crush.lu.\n"
 "                "
-msgstr ""
+msgstr "Bevor du fortfahren kannst, müssen wir deine E-Mail-Adresse bestätigen. Bitte sieh in deinem Posteingang nach einem Bestätigungslink von Crush.lu."
 
 #: .\crush_lu\templates\account\verified_email_required_crush.html:26
 msgid ""
@@ -7553,13 +7551,12 @@ msgid ""
 "                    The email is sent from <strong>noreply@crush.lu</"
 "strong>.\n"
 "                "
-msgstr ""
+msgstr "Du siehst die E-Mail nicht? Sieh in deinem Spam-Ordner nach oder fordere unten einen neuen Link an. Die E-Mail wird von <strong>noreply@crush.lu</strong> gesendet."
 
 #: .\crush_lu\templates\account\verified_email_required_crush.html:33
-#, fuzzy
 #| msgid "Email Address *"
 msgid "Manage Email & Resend Link"
-msgstr "E-Mail-Adresse *"
+msgstr "E-Mail verwalten & Link erneut senden"
 
 #: .\crush_lu\templates\account\verified_email_required_crush.html:37
 #: .\crush_lu\templates\crush_lu\partials\edit_account_danger.html:61
@@ -11394,10 +11391,9 @@ msgstr "Nachfassen nach Ermessen des Coaches"
 #: .\crush_lu\templates\crush_lu\_screening_tab_calibration.html:137
 #: .\crush_lu\templates\crush_lu\auth.html:225
 #: .\crush_lu\templates\crush_lu\coach_settings.html:95
-#, fuzzy
 #| msgid "Optional"
 msgid "optional"
-msgstr "Fakultativ"
+msgstr "optional"
 
 #: .\crush_lu\templates\crush_lu\_screening_tab_calibration.html:141
 msgid ""
@@ -11951,10 +11947,9 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\account_banned.html:33
 #: .\crush_lu\templates\crush_lu\profile_submitted.html:658
-#, fuzzy
 #| msgid "12. Contact Us"
 msgid "Contact Support"
-msgstr "12. Kontakt"
+msgstr "Support kontaktieren"
 
 #: .\crush_lu\templates\crush_lu\account_banned.html:36
 #, fuzzy
@@ -12993,13 +12988,12 @@ msgstr "Datenschutz zuerst"
 
 #: .\crush_lu\templates\crush_lu\auth.html:43
 msgid "≈ 15 min to set up · Coach reviews within 48h"
-msgstr ""
+msgstr "≈ 15 Min. Einrichtung · Coach-Prüfung innerhalb von 48 Std."
 
 #: .\crush_lu\templates\crush_lu\auth.html:58
-#, fuzzy
 #| msgid "sign up"
 msgid "Sign up"
-msgstr "anmelden"
+msgstr "Registrieren"
 
 #: .\crush_lu\templates\crush_lu\auth.html:78
 msgid "Continue with Google"
@@ -13029,16 +13023,14 @@ msgstr "Oder per E-Mail"
 #: .\crush_lu\templates\crush_lu\auth.html:269
 #: .\crush_lu\templates\crush_lu\auth.html:295
 #: .\crush_lu\templates\crush_lu\auth.html:374
-#, fuzzy
 #| msgid "New Password"
 msgid "Show password"
-msgstr "Neues Passwort"
+msgstr "Passwort anzeigen"
 
 #: .\crush_lu\templates\crush_lu\auth.html:187
-#, fuzzy
 #| msgid "Why set a password?"
 msgid "Forgot your password?"
-msgstr "Passwort festlegen"
+msgstr "Passwort vergessen?"
 
 #: .\crush_lu\templates\crush_lu\auth.html:224
 #: .\crush_lu\templates\crush_lu\signup.html:102
@@ -13046,20 +13038,18 @@ msgid "Last Name"
 msgstr "Nachname"
 
 #: .\crush_lu\templates\crush_lu\auth.html:254
-#, fuzzy
 #| msgid "Or sign up with email"
 msgid "Sign in with this email"
-msgstr "Oder melden Sie sich per E-Mail an"
+msgstr "Mit dieser E-Mail anmelden"
 
 #: .\crush_lu\templates\crush_lu\auth.html:283
 msgid ""
 "At least 8 characters — mix letters, numbers and symbols for a strong "
 "password."
-msgstr ""
+msgstr "Mindestens 8 Zeichen – kombiniere Buchstaben, Zahlen und Symbole für ein sicheres Passwort."
 
 #: .\crush_lu\templates\crush_lu\auth.html:311
 #: .\crush_lu\templates\crush_lu\consent_confirm.html:43
-#, fuzzy
 #| msgid "I agree to Crush.lu's"
 msgid "I agree to the"
 msgstr "Ich stimme den"
@@ -13096,23 +13086,20 @@ msgstr ""
 "anderen Plattformen."
 
 #: .\crush_lu\templates\crush_lu\auth.html:369
-#, fuzzy
 #| msgid "Loading..."
 msgid "Logging in..."
-msgstr "Laden..."
+msgstr "Anmeldung läuft …"
 
 #: .\crush_lu\templates\crush_lu\auth.html:370
 #: .\crush_lu\templates\crush_lu\signup.html:160
-#, fuzzy
 #| msgid "Create Account"
 msgid "Creating Account..."
-msgstr "Konto erstellen"
+msgstr "Konto wird erstellt …"
 
 #: .\crush_lu\templates\crush_lu\auth.html:371
-#, fuzzy
 #| msgid "Completion"
 msgid "Opening login..."
-msgstr "Abschluss"
+msgstr "Anmeldung wird geöffnet …"
 
 #: .\crush_lu\templates\crush_lu\auth.html:372
 #: .\crush_lu\templates\crush_lu\signup.html:161
@@ -13124,52 +13111,44 @@ msgid "Opening"
 msgstr "Öffne"
 
 #: .\crush_lu\templates\crush_lu\auth.html:375
-#, fuzzy
 #| msgid "New Password"
 msgid "Hide password"
-msgstr "Neues Passwort"
+msgstr "Passwort verbergen"
 
 #: .\crush_lu\templates\crush_lu\auth.html:376
-#, fuzzy
 #| msgid "New Password"
 msgid "Weak password"
-msgstr "Neues Passwort"
+msgstr "Schwaches Passwort"
 
 #: .\crush_lu\templates\crush_lu\auth.html:377
-#, fuzzy
 #| msgid "New Password"
 msgid "Fair password"
-msgstr "Neues Passwort"
+msgstr "Mittelmäßiges Passwort"
 
 #: .\crush_lu\templates\crush_lu\auth.html:378
-#, fuzzy
 #| msgid "New Password"
 msgid "Good password"
-msgstr "Neues Passwort"
+msgstr "Gutes Passwort"
 
 #: .\crush_lu\templates\crush_lu\auth.html:379
-#, fuzzy
 #| msgid "Set Password"
 msgid "Strong password"
-msgstr "Passwort festlegen"
+msgstr "Starkes Passwort"
 
 #: .\crush_lu\templates\crush_lu\auth.html:380
-#, fuzzy
 #| msgid "Your password must be at least 8 characters."
 msgid "Too short — at least 8 characters"
-msgstr "Ihr Passwort muss mindestens 8 Zeichen lang sein."
+msgstr "Zu kurz – mindestens 8 Zeichen"
 
 #: .\crush_lu\templates\crush_lu\auth.html:381
-#, fuzzy
 #| msgid "Passwords do not match."
 msgid "Passwords match"
-msgstr "Passwörter stimmen nicht überein."
+msgstr "Passwörter stimmen überein"
 
 #: .\crush_lu\templates\crush_lu\auth.html:382
-#, fuzzy
 #| msgid "Passwords do not match."
 msgid "Passwords don\\'t match yet"
-msgstr "Passwörter stimmen nicht überein."
+msgstr "Passwörter stimmen noch nicht überein"
 
 #: .\crush_lu\templates\crush_lu\base.html:191
 #, fuzzy
@@ -28792,16 +28771,14 @@ msgid "You can now register for events and start making connections!"
 msgstr "Du kannst dich jetzt für Events anmelden und Verbindungen knüpfen!"
 
 #: .\crush_lu\templates\crush_lu\profile_submitted.html:626
-#, fuzzy
 #| msgid "Redirecting to"
 msgid "Redirecting to your dashboard in"
-msgstr "Weiterleitung zu"
+msgstr "Weiterleitung zu deinem Dashboard in"
 
 #: .\crush_lu\templates\crush_lu\profile_submitted.html:628
-#, fuzzy
 #| msgid "seconds"
 msgid "seconds…"
-msgstr "Sekunden"
+msgstr "Sekunden …"
 
 #: .\crush_lu\templates\crush_lu\profile_submitted.html:640
 msgid "Your profile needs some updates before it can be approved."
@@ -29403,10 +29380,9 @@ msgid "Sign up with Microsoft"
 msgstr "Melden Sie sich bei Microsoft an"
 
 #: .\crush_lu\templates\crush_lu\signup.html:73
-#, fuzzy
 #| msgid "Sign up with Google"
 msgid "Sign up with Apple"
-msgstr "Mit Google anmelden"
+msgstr "Mit Apple anmelden"
 
 #: .\crush_lu\templates\crush_lu\signup.html:79
 msgid "Or sign up with email"
@@ -31896,7 +31872,6 @@ msgid "No public browsing. No swiping feed. Ever."
 msgstr "Kein öffentliches Stöbern. Kein Swipe-Feed. Niemals."
 
 #: .\crush_lu\templates\crush_lu\welcome.html:125
-#, fuzzy
 #| msgid "I'll do this later"
 msgid "I'll finish later"
 msgstr "Ich mache das später"
