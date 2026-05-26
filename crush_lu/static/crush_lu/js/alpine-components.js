@@ -1053,6 +1053,28 @@ document.addEventListener("alpine:init", function () {
         };
     });
 
+    // Inline connection request form (event attendees page).
+    // Suggestion chips carry their text in a data-prefill attribute; clicking
+    // one inserts it into the note textarea (x-ref="note"). The CSP build
+    // passes the click event to the bare method reference @click="prefill".
+    Alpine.data("connectionForm", function () {
+        return {
+            prefill: function (event) {
+                var btn = event && event.currentTarget;
+                var text = btn ? btn.getAttribute("data-prefill") : "";
+                var ta = this.$refs.note;
+                if (!ta || !text) return;
+                if (ta.value && ta.value.indexOf(text) !== 0) {
+                    ta.value = text + " " + ta.value;
+                } else {
+                    ta.value = text;
+                }
+                ta.focus();
+                ta.setSelectionRange(ta.value.length, ta.value.length);
+            },
+        };
+    });
+
     // Tab navigation component (for auth page)
     // Reads initial tab from data-initial-tab attribute
     Alpine.data("tabNav", function () {

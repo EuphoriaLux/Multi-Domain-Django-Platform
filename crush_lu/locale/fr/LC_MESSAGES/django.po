@@ -10831,7 +10831,7 @@ msgid "What stood out about you…"
 msgstr "Quand vous etes-vous rencontres pour la premiere fois ?"
 
 #: .\crush_lu\templates\crush_lu\_request_connection_form.html:35
-msgid "I&#39;d love to continue our conversation on"
+msgid "I would love to continue our conversation on"
 msgstr "J'aimerais continuer notre conversation sur"
 
 #: .\crush_lu\templates\crush_lu\_request_connection_form.html:37
