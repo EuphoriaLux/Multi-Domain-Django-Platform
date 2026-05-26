@@ -700,24 +700,9 @@
                                     {% trans "Mark all read" %}
                                 </button>
                             </div>
-                            <ul class="divide-y divide-gray-100 dark:divide-gray-700" x-show="hasItems">
-                                <template x-for="item in items" x-bind:key="$index">
-                                    <li x-data="notifItem(item)" class="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                        <a x-bind:href="linkUrl"
-                                           x-on:click="doMarkRead"
-                                           class="block">
-                                            <div class="flex items-start gap-2">
-                                                <span x-show="isUnread" class="flex-shrink-0 mt-1.5 w-2 h-2 rounded-full bg-crush-purple"></span>
-                                                <div class="flex-1 min-w-0">
-                                                    <p class="text-sm font-medium text-gray-900 dark:text-white mb-0 truncate" x-text="title"></p>
-                                                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-0 line-clamp-2" x-text="body"></p>
-                                                    <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-1" x-text="relativeTime"></p>
-                                                </div>
-                                            </div>
-                                        </a>
-                                    </li>
-                                </template>
-                            </ul>
+                            {# List rendered imperatively in JS (notificationBell.renderItems) —
+                               the Alpine CSP build can't evaluate x-for over nested item props. #}
+                            <ul x-ref="notiflist" class="divide-y divide-gray-100 dark:divide-gray-700" x-show="hasItems"></ul>
                             <div x-show="hasNoItems" class="px-4 py-8 text-center">
                                 <p class="text-sm text-gray-500 dark:text-gray-400 mb-0">{% trans "No notifications yet" %}</p>
                             </div>

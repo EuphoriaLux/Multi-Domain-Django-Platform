@@ -12592,8 +12592,69 @@ document.addEventListener("alpine:init", function () {
             },
 
             init: function () {
+                var self = this;
+                // The CSP Alpine build can't iterate nested item props via x-for,
+                // so the list is rendered imperatively whenever items change.
+                this.$watch("items", function () {
+                    self.renderItems();
+                });
                 // Fetch unread count on mount so the badge appears immediately
                 this.refresh();
+            },
+
+            renderItems: function () {
+                var list = this.$refs.notiflist;
+                if (!list) return;
+                var self = this;
+                list.replaceChildren();
+                this.items.forEach(function (item) {
+                    var li = document.createElement("li");
+                    li.className =
+                        "px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50";
+
+                    var a = document.createElement("a");
+                    a.href = item.link_url || "#";
+                    a.className = "block";
+                    a.addEventListener("click", function () {
+                        if (item.is_unread) self.markRead(item.id);
+                    });
+
+                    var row = document.createElement("div");
+                    row.className = "flex items-start gap-2";
+
+                    if (item.is_unread) {
+                        var dot = document.createElement("span");
+                        dot.className =
+                            "flex-shrink-0 mt-1.5 w-2 h-2 rounded-full bg-crush-purple";
+                        row.appendChild(dot);
+                    }
+
+                    var content = document.createElement("div");
+                    content.className = "flex-1 min-w-0";
+
+                    var title = document.createElement("p");
+                    title.className =
+                        "text-sm font-medium text-gray-900 dark:text-white mb-0 truncate";
+                    title.textContent = item.title || "";
+                    content.appendChild(title);
+
+                    var body = document.createElement("p");
+                    body.className =
+                        "text-xs text-gray-500 dark:text-gray-400 mb-0 line-clamp-2";
+                    body.textContent = item.body || "";
+                    content.appendChild(body);
+
+                    var time = document.createElement("p");
+                    time.className =
+                        "text-[11px] text-gray-400 dark:text-gray-500 mt-1";
+                    time.textContent = item.relative_time || "";
+                    content.appendChild(time);
+
+                    row.appendChild(content);
+                    a.appendChild(row);
+                    li.appendChild(a);
+                    list.appendChild(li);
+                });
             },
 
             toggle: function () {
@@ -12708,44 +12769,6 @@ document.addEventListener("alpine:init", function () {
                     'input[name="csrfmiddlewaretoken"]',
                 );
                 return hidden ? hidden.value : "";
-            },
-        };
-    });
-
-    // CSP-safe child component for each notification row inside notificationBell's x-for.
-    // Flattens item object properties into direct identifiers so no property-access
-    // expressions appear in the template (the CSP build forbids those).
-    Alpine.data("notifItem", function (item) {
-        return {
-            id: item.id,
-            linkUrl: item.link_url,
-            isUnread: item.is_unread,
-            title: item.title,
-            body: item.body,
-            relativeTime: item.relative_time,
-
-            doMarkRead: function () {
-                if (!this.isUnread) return;
-                var self = this;
-                self.isUnread = false;
-                self.$dispatch("notif-mark-read", self.id);
-                var name = "csrftoken=";
-                var parts = (document.cookie || "").split(";");
-                var token = "";
-                for (var i = 0; i < parts.length; i++) {
-                    var c = parts[i].trim();
-                    if (c.indexOf(name) === 0) {
-                        token = c.substring(name.length);
-                        break;
-                    }
-                }
-                fetch("/api/notifications/" + self.id + "/read/", {
-                    method: "POST",
-                    credentials: "same-origin",
-                    headers: { "X-CSRFToken": token, Accept: "application/json" },
-                }).catch(function (err) {
-                    console.warn("notifItem.doMarkRead:", err);
-                });
             },
         };
     });
