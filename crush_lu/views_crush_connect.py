@@ -123,6 +123,8 @@ def crush_connect_onboarding(request):
         return redirect("crush_lu:crush_connect_teaser")
 
     membership, _created = CrushConnectMembership.objects.get_or_create(user=user)
+    if membership.excluded_by_coach:
+        return redirect("crush_lu:crush_connect_teaser")
     if membership.is_onboarded:
         return redirect("crush_lu:crush_connect_home")
 

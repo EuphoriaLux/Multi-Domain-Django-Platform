@@ -155,7 +155,7 @@ def _weight_for(candidate, *, today) -> float:
     if membership is None or membership.onboarded_at is None:
         # Shouldn't happen — eligible-pool filter already requires onboarded.
         return 1.0
-    days_since_onboarding = (today - membership.onboarded_at.date()).days
+    days_since_onboarding = (today - timezone.localtime(membership.onboarded_at).date()).days
     if 0 <= days_since_onboarding <= NEW_MEMBER_BOOST_WINDOW_DAYS:
         return NEW_MEMBER_BOOST
     return 1.0
