@@ -224,7 +224,11 @@
 
                             {% if user_has_rated %}
                             <div class="rating-submitted">
-                                {% trans "✓ You've responded. Thanks!" %}
+                                {% if user_rating_is_positive %}
+                                    {% trans "✓ You chose ❤️ Yes! — Thanks!" %}
+                                {% else %}
+                                    {% trans "✓ You chose 👎 Pass — Thanks!" %}
+                                {% endif %}
                             </div>
                             {% else %}
                             <div id="impression-buttons" data-presenter-id="{{ current_presentation.user.id }}" class="flex justify-center gap-4">
@@ -355,6 +359,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const csrfToken = '{{ csrf_token }}';
         const ratingUrl = `{% url 'crush_lu:submit_presentation_rating' event.id 0 %}`.replace('/0/', `/${presenterId}/`);
 
+        {% trans "❤️ Yes!" as yes_label %}
+        {% trans "👎 Pass" as pass_label %}
+        {% trans "You chose" as chose_label %}
+        const labelYes = '{{ yes_label|escapejs }}';
+        const labelPass = '{{ pass_label|escapejs }}';
+        const labelChose = '{{ chose_label|escapejs }}';
+
         impressionContainer.querySelectorAll('.impression-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
                 impressionContainer.querySelectorAll('.impression-btn').forEach(b => b.disabled = true);
@@ -372,7 +383,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     const data = await response.json();
 
                     if (data.success) {
-                        impressionContainer.outerHTML = `<div class="rating-submitted">✓ ${data.message}</div>`;
+                        const choiceLabel = data.is_positive ? labelYes : labelPass;
+                        impressionContainer.outerHTML = `<div class="rating-submitted">✓ ${labelChose} ${choiceLabel} — ${data.message}</div>`;
                     } else {
                         alert(data.error || 'Failed to submit response');
                         impressionContainer.querySelectorAll('.impression-btn').forEach(b => b.disabled = false);

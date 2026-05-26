@@ -981,6 +981,31 @@ class EventVotingSession(models.Model):
         return self.is_active and self.voting_start_time <= now <= self.voting_end_time
 
     @property
+    def has_ended(self):
+        """True only once the voting window has actually closed.
+
+        Distinct from ``not is_voting_open``, which is also true *before*
+        voting starts or while the session is inactive. Use this to gate
+        winner calculation and presentation queue creation so they never
+        run prematurely.
+        """
+        return timezone.now() > self.voting_end_time
+
+    @property
+    def has_concluded(self):
+        """True once voting is over by *either* path.
+
+        Covers the natural end (window elapsed, ``has_ended``) and a manual
+        early end via :meth:`end_voting` — which deactivates the session and
+        records a winner without moving ``voting_end_time``. A recorded
+        winner is a reliable conclusion signal because ``calculate_winner``
+        only runs from finalization paths. Use this to decide whether to
+        show post-voting UI (results / presentation CTA); use ``has_ended``
+        specifically when gating first-time queue creation.
+        """
+        return self.has_ended or bool(self.winning_presentation_style_id)
+
+    @property
     def time_until_start(self):
         """Seconds until voting starts (negative if already started)"""
         return (self.voting_start_time - timezone.now()).total_seconds()

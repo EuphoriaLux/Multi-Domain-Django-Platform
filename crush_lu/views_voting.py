@@ -311,8 +311,8 @@ def event_voting_results(request, event_id):
 
         user_has_voted_both = presentation_vote and twist_vote
 
-        # If voting ended and user hasn't voted, redirect back to voting with message
-        if not voting_session.is_voting_open and not user_has_voted_both:
+        # If voting concluded and user hasn't voted, redirect back to voting with message
+        if voting_session.has_concluded and not user_has_voted_both:
             messages.warning(
                 request,
                 _(
@@ -351,10 +351,15 @@ def event_voting_results(request, event_id):
         else:
             option.vote_percentage = 0
 
-    # If voting has ended, calculate winners and initialize presentation queue
-    if not voting_session.is_voting_open:
-        # Calculate winners if not already done
-        if not voting_session.winning_presentation_style:
+    # Show post-voting UI once voting has concluded — either the window
+    # closed (has_ended) or a coach ended it early (end_voting records a
+    # winner). Only create the queue on first natural close; a manual end
+    # already initialized it via end_voting().
+    if voting_session.has_concluded:
+        # Calculate winners if not already done (natural close that was
+        # never finalized elsewhere). Guard on has_ended so this never runs
+        # before the window actually closes.
+        if not voting_session.winning_presentation_style and voting_session.has_ended:
             voting_session.calculate_winner()
             voting_session.initialize_presentation_queue()
             voting_session.save()
@@ -501,12 +506,16 @@ def event_presentations(request, event_id):
         event=event, status="completed"
     ).count()
 
-    # Check if user has rated current presenter
+    # Check if user has rated current presenter, and what they chose
     user_has_rated = False
+    user_rating_is_positive = None
     if current_presentation:
-        user_has_rated = PresentationRating.objects.filter(
+        existing_rating = PresentationRating.objects.filter(
             event=event, presenter=current_presentation.user, rater=request.user
-        ).exists()
+        ).first()
+        if existing_rating is not None:
+            user_has_rated = True
+            user_rating_is_positive = existing_rating.is_positive
 
     # Get voting session and winning presentation style
     voting_session = get_object_or_404(EventVotingSession, event=event)
@@ -519,6 +528,7 @@ def event_presentations(request, event_id):
         "total_presentations": total_presentations,
         "completed_presentations": completed_presentations,
         "user_has_rated": user_has_rated,
+        "user_rating_is_positive": user_rating_is_positive,
         "winning_style": winning_style,
         "is_presenting": current_presentation
         and current_presentation.user == request.user,
@@ -715,10 +725,14 @@ def get_current_presenter_api(request, event_id):
     )
 
     if current_presentation:
-        # Check if user has rated this presenter
-        user_has_rated = PresentationRating.objects.filter(
+        # Check if user has rated this presenter, and what they chose
+        existing_rating = PresentationRating.objects.filter(
             event=event, presenter=current_presentation.user, rater=request.user
-        ).exists()
+        ).first()
+        user_has_rated = existing_rating is not None
+        user_rating_is_positive = (
+            existing_rating.is_positive if existing_rating is not None else None
+        )
 
         # Calculate time remaining
         time_remaining = 90
@@ -741,6 +755,7 @@ def get_current_presenter_api(request, event_id):
                 ),
                 "time_remaining": time_remaining,
                 "user_has_rated": user_has_rated,
+                "user_rating_is_positive": user_rating_is_positive,
                 "is_presenting": current_presentation.user == request.user,
             }
         )
