@@ -874,17 +874,17 @@ def speed_dating_tv_display_data(request, event_id):
         }
     else:
         # Phase 2 — Presentations
-        # Enter this phase as soon as the queue exists and has un-finished entries
-        # (waiting OR presenting), not only when someone is actively presenting.
-        # This prevents the TV from regressing to voting/welcome during handoff
-        # gaps between presenters or right after end_voting() seeds waiting rows.
-        queue_active = PresentationQueue.objects.filter(
-            event=event
-        ).exclude(status__in=["completed", "skipped"]).exists()
+        # Stay in this phase for the entire lifetime of the PresentationQueue —
+        # from the moment end_voting() seeds waiting rows until SpeedDatingPair
+        # rows appear. Checking only for un-finished rows would cause the TV to
+        # regress to voting/welcome in the handoff window after the last presenter
+        # finishes but before the coach creates pairs.
+        queue_exists = PresentationQueue.objects.filter(event=event).exists()
 
-        if queue_active:
+        if queue_exists:
             phase = "presentations"
             # Prefer the currently presenting row; fall back to next waiting.
+            # Both can be None when all presentations are done (100 % progress).
             current_presenter = (
                 PresentationQueue.objects.filter(event=event, status="presenting")
                 .select_related("user__crushprofile")
