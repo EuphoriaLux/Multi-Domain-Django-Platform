@@ -12615,8 +12615,13 @@ document.addEventListener("alpine:init", function () {
                     var a = document.createElement("a");
                     a.href = item.link_url || "#";
                     a.className = "block";
+                    // Synchronous guard so a rapid double-click can't fire two
+                    // mark-read POSTs (which would double-decrement the badge).
+                    var marking = false;
                     a.addEventListener("click", function () {
-                        if (item.is_unread) self.markRead(item.id);
+                        if (!item.is_unread || marking) return;
+                        marking = true;
+                        self.markRead(item.id);
                     });
 
                     var row = document.createElement("div");
