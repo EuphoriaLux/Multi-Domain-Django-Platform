@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from django.contrib import admin, messages
+from django.db.models import Count
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _, ngettext
 
@@ -87,8 +88,11 @@ class ConnectDailyDropAdmin(admin.ModelAdmin):
     date_hierarchy = "drop_date"
     actions = ["preview_today_for_selected_user", "preview_tomorrow_for_selected_user"]
 
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(_recipient_count=Count("recipients"))
+
     def recipient_count(self, obj):
-        return obj.recipients.count()
+        return obj._recipient_count
 
     recipient_count.short_description = _("Cards")
 

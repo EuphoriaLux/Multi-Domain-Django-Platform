@@ -28785,7 +28785,7 @@ msgstr "Ton coach a examiné ton profil et suggéré quelques améliorations."
 
 #: .\crush_lu\templates\crush_lu\profile_submitted.html:596
 msgid "Update Your Profile"
-msgstr "Créez votre profil"
+msgstr "Mettez à jour votre profil"
 
 #: .\crush_lu\templates\crush_lu\profile_submitted.html:611
 msgid "Your identity was verified via LuxID — no screening call needed."
@@ -28795,7 +28795,7 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\profile_submitted.html:613
 msgid "Congratulations! Your profile has been approved by our coaches."
-msgstr "Votre profil doit être approuvé avant de pouvoir être modifié."
+msgstr "Félicitations ! Votre profil a été approuvé par nos coaches."
 
 #: .\crush_lu\templates\crush_lu\profile_submitted.html:622
 msgid "You can now register for events and start making connections!"
@@ -28817,7 +28817,7 @@ msgstr "secondes"
 
 #: .\crush_lu\templates\crush_lu\profile_submitted.html:640
 msgid "Your profile needs some updates before it can be approved."
-msgstr "Votre profil doit être approuvé avant de pouvoir être modifié."
+msgstr "Votre profil nécessite quelques modifications avant de pouvoir être approuvé."
 
 #: .\crush_lu\templates\crush_lu\profile_submitted.html:670
 msgid ""
@@ -28846,7 +28846,7 @@ msgstr "Effectue l'appel pour faire approuver ton profil"
 
 #: .\crush_lu\templates\crush_lu\profile_submitted.html:693
 msgid "Profile Submitted Successfully!"
-msgstr "Profil mis à jour avec succès !"
+msgstr "Profil soumis avec succès !"
 
 #: .\crush_lu\templates\crush_lu\profile_submitted.html:695
 msgid "Your profile has been submitted for review by our Crush Coaches."
