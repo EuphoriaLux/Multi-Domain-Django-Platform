@@ -1,9 +1,12 @@
 # Azure App Service Deployment Workflow
 #
 # Deployment flow:
-# 1. Push to main: validate + test + build run IN PARALLEL
-# 2. Deploy to STAGING only after all pass
+# 1. Push to main: build (CSS + collectstatic)
+# 2. Deploy to STAGING after build passes
 # 3. Production swap: done manually in Azure Portal
+#
+# Tests/validation run on PRs only (test-and-validate.yml).
+# Branch protection enforces strict mode so merged code is always tested.
 #
 # Test staging via: test.crush.lu, test.powerup.lu, etc.
 
@@ -31,56 +34,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Fast validation (syntax + Django checks) - ~30s
-  validate:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: read
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-          cache: 'pip'
-
-      - name: Validate code
-        env:
-          SECRET_KEY: 'ci-validation-key'
-        run: |
-          pip install -q flake8 django
-          pip install -q -r requirements.txt
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=migrations,venv,env,.venv,.git,__pycache__
-          python -m compileall azureproject entreprinder vinsdelux crush_lu power_up arborist -f -q
-          python manage.py check
-          echo "✅ Validation passed"
-
-  # Run tests in parallel with validate
-  test:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: read
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-          cache: 'pip'
-
-      - name: Run tests
-        env:
-          SECRET_KEY: 'ci-test-key'
-        run: |
-          pip install -q -r requirements.txt pytest-xdist
-          pytest -m "not playwright" --tb=line -q -x -n auto
-          echo "✅ Tests passed"
-
-  # Build CSS + collectstatic in parallel with tests
+  # Build CSS + collectstatic (tests already passed on PR)
   build:
     runs-on: ubuntu-latest
     permissions:
@@ -107,9 +61,9 @@ jobs:
           npm run build:css:all
           echo "✅ CSS build complete (collectstatic runs during Oryx build on Azure)"
 
-  # Deploy only after validate + test + build all pass
+  # Deploy after build (tests already passed on the PR)
   deploy:
-    needs: [validate, test, build]
+    needs: [build]
     runs-on: ubuntu-latest
     permissions:
       contents: read
