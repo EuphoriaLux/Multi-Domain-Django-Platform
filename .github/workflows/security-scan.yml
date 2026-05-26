@@ -14,6 +14,10 @@ on:
     # Run weekly on Sundays at midnight UTC for baseline security checks
     - cron: '0 0 * * 0'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # Minimal permissions for security
 permissions:
   contents: read

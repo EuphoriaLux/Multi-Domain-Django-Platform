@@ -1,5 +1,4 @@
 name: Test and Validate
-# re-trigger: force CI to pick up PR (2026-05-26b)
 
 on:
   pull_request:
@@ -14,6 +13,12 @@ on:
   push:
     branches: [ main, develop ]
   workflow_dispatch:
+
+# Cancel any in-progress or queued run for the same branch when a new one starts.
+# This prevents queue buildup when multiple pushes happen in quick succession.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # Run actual tests (single Python version for speed)
