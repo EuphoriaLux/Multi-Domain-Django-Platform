@@ -251,11 +251,11 @@ The mobile foundation is genuinely solid — this audit is about levelling up, n
 - Recommendation: convert the banner into a motivating progress affordance ("2 steps from being matched") with a primary CTA that routes toward Crush Connect / matching once complete. Directly serves the standout goal.
 - Verify: from Edit Profile, the path to "get matched" is one obvious tap.
 
-#### [P4] Sticky action bar vs. keyboard / bottom nav collision — P2 (I2 R2 E2)
-- Files: `.action-buttons-sticky { @apply sticky bottom-0 …; backdrop-filter: blur(8px) }` (`tailwind-input.css:3471-3479`); used e.g. `edit_account_settings.html:332`. It sticks at `bottom: 0`, directly above the 5rem bottom-nav clearance.
-- Observed: with a field focused, the on-screen keyboard plus the sticky bar (and the bottom nav beneath it) can crowd or hide the submit on short viewports.
-- Recommendation: test with the keyboard open on iPhone SE / Pixel; consider hiding the bottom nav (or lifting the sticky bar's offset) while a field in the section is focused.
-- Verify: submit/back always reachable with the keyboard up at 375/360 px.
+#### [P4] Sticky action bar collides with the bottom nav (and the keyboard) — P2 (I2 R2 E2)
+- Files: `.action-buttons-sticky` is defined in the hand-authored `crush_lu/static/crush_lu/css/components/profile-creation.css:943-955` (a `@media (max-width: 767px)` block — *not* in `tailwind-input.css`); applied via `action-buttons-container action-buttons-sticky` on every edit section, e.g. `partials/edit_account_settings.html:332`, `partials/edit_about.html:375`, `partials/edit_photos.html:32`.
+- Observed: the rule is `position: sticky; bottom: 0; z-index: 20` with a top `box-shadow`. The fixed bottom nav also sits at `bottom: 0` but at `z-index: 50` (`tailwind-input.css:11036-11040`), so on mobile the nav renders **on top of / flush against** the sticky save bar. With a field focused, the on-screen keyboard compounds it — submit/back can be crowded or obscured on short viewports.
+- Recommendation: lift the sticky bar above the nav — `bottom: calc(56px + env(safe-area-inset-bottom))` (the nav's `min-height`, `:11048`) — and/or hide the bottom nav while a field in the section is focused. Add safe-area padding so it clears the home indicator.
+- Verify: with the keyboard up at 375/360 px, the save bar sits fully above the bottom nav and both buttons are tappable.
 
 #### [P5] Core form lib loaded from public CDN — P3 (I1 R2 E2)
 - Files: `edit_profile.html:36-37,207` load `intl-tel-input` CSS/JS (and `:305` its `utils.js`) from `cdn.jsdelivr.net`.
