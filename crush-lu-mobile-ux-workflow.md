@@ -196,9 +196,9 @@ The mobile foundation is genuinely solid — this audit is about levelling up, n
 
 #### [M5] Notification bell points at Connections, not notifications — P2 (I2 R2 E1)
 - File: `top_bar_mobile.html:37` — the bell links to `crush_lu:my_connections`, while a dedicated `crush_lu:notifications` page exists (`urls.py:339`).
-- Observed: the bell icon (universally "notifications") routes to the Connections list and badges off `pending_requests_count`. Mismatched signifier.
-- Recommendation: route the bell to the notifications page (or relabel/repurpose the icon). Confirm intended behaviour with product.
-- Verify: the bell opens what its icon promises.
+- Observed: the bell icon (universally "notifications") routes to the Connections list **and** its badge feeds from `pending_requests_count` (`top_bar_mobile.html:7,41`), which the context processor derives from pending `EventConnection` requests (`context_processors.py:66-71`) — not from unread notifications. Both the destination and the count are connection-centric, so the icon is doubly mismatched.
+- Recommendation: route the bell to the notifications page **and** switch the badge to the unread-notification count so signifier, destination, and number agree (changing the href alone would leave a "notifications" bell showing a connection-request count). If the bell is instead meant to stay a *connections* affordance, relabel/repurpose the icon. Confirm intended behaviour with product.
+- Verify: the bell opens what its icon promises **and** its badge matches that destination's count.
 
 #### [M6] Two sub-44px / tiny targets in the bars — P2 (I2 R3 E1)
 - Files: the top-bar bell is `width: 36px; height: 36px` (`tailwind-input.css:11189-11198`); tab labels are 10 px (`:11074`).
@@ -280,7 +280,7 @@ The mobile foundation is genuinely solid — this audit is about levelling up, n
 | M3 | Add active-state + tap handler to Crush Connect tab | `bottom_nav.html`, `bottomNav` in `alpine-components.js` |
 | M6 / X1 | Bell + small controls to ≥ 44×44 | `tailwind-input.css`, `account_settings.html` |
 | S5 | Hide duplicate in-page `h1` on mobile | `account_settings.html` |
-| M5 | Point bell at notifications (confirm w/ product) | `top_bar_mobile.html` |
+| M5 | Point bell at notifications **and** switch its badge to the unread-notification count (confirm w/ product) | `top_bar_mobile.html`, `context_processors.py` |
 | X3 | Honour `prefers-reduced-motion` | `tailwind-input.css` |
 
 ### Phase 2 — Structure & IA (~3–5 days)
