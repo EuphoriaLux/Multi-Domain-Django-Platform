@@ -296,7 +296,7 @@ The mobile foundation is genuinely solid — this audit is about levelling up, n
 |----|--------|-------|
 | **M2** | **Elevate "find a match" / Crush Connect to a distinct center action** | `bottom_nav.html`, `tailwind-input.css` |
 | P3 | Reframe profile completion as "get matched" progress | `edit_profile.html` |
-| P4 | Keyboard/nav collision fix for sticky actions | `tailwind-input.css` |
+| P4 | Keyboard/nav collision fix for sticky actions | `static/crush_lu/css/components/profile-creation.css` (`.action-buttons-sticky`) |
 | P5 | Self-host `intl-tel-input` | `edit_profile.html`, `static/` |
 | X2 / X4 | Skeletons + toasts; contrast pass | multiple |
 
