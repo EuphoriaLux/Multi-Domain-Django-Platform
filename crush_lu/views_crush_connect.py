@@ -20,7 +20,7 @@ from django.utils.translation import gettext_lazy as _
 
 from crush_lu.decorators import crush_login_required
 from crush_lu.forms_crush_connect import CrushConnectOnboardingForm
-from crush_lu.models import CrushConnectMembership, EventRegistration
+from crush_lu.models import CrushConnectMembership
 from crush_lu.services import get_or_create_daily_drop
 
 
@@ -49,11 +49,15 @@ def dev_connect_card_preview(request, user_id: int):
 
 
 def _user_passes_pre_onboarding_gate(user) -> bool:
-    """Approved profile + at least one attended event."""
+    """Verified profile + PREMIUM (personal coach assigned).
+
+    Crush Connect is a premium-only feature: it unlocks when a coach is
+    assigned (the Premium product), not on plain event attendance.
+    """
     profile = getattr(user, "crushprofile", None)
     if profile is None or not profile.is_approved:
         return False
-    return EventRegistration.objects.filter(user=user, status="attended").exists()
+    return profile.assigned_coach_id is not None
 
 
 def _connect_access_blocker(user):
@@ -65,7 +69,7 @@ def _connect_access_blocker(user):
     Everyone else must clear all four gates:
       1. global launch flag is on
       2. has an approved profile
-      3. has attended ≥1 event
+      3. is premium (has a personal coach assigned)
       4. has an onboarded ``CrushConnectMembership`` (and isn't coach-excluded)
     Routes:
       - flag off / not approved / no event → teaser

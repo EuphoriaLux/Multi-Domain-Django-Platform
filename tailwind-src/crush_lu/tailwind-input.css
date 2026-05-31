@@ -13625,3 +13625,76 @@ html.dark .coach-cta-section {
         transform: translateY(-10px);
     }
 }
+
+/* =============================================================================
+   VERIFICATION JOURNEY SCHEMA
+   _verification_journey.html partial
+   ============================================================================= */
+
+@layer components {
+    /* Base step card */
+    .journey-step {
+        @apply rounded-xl border border-gray-100 dark:border-gray-700
+               bg-gray-50/50 dark:bg-gray-800/40
+               transition-all duration-200;
+        min-height: 80px;
+    }
+
+    /* Current/active step — highlighted with purple tint */
+    .journey-step--active {
+        @apply border-crush-purple/40 bg-purple-50/60 dark:bg-purple-900/20
+               shadow-sm;
+    }
+
+    /* Completed step — muted green tint */
+    .journey-step--done {
+        @apply border-green-200 dark:border-green-800/40
+               bg-green-50/40 dark:bg-green-900/10;
+    }
+
+    /* Outcome fork cards (verified / rejected) */
+    .journey-step--outcome {
+        @apply border-gray-100 dark:border-gray-700;
+        min-height: 0;
+    }
+
+    .journey-step--verified {
+        @apply border-green-300 dark:border-green-700
+               bg-green-50/60 dark:bg-green-900/20 shadow-sm;
+    }
+
+    .journey-step--rejected {
+        @apply border-red-300 dark:border-red-700
+               bg-red-50/60 dark:bg-red-900/20 shadow-sm;
+    }
+
+    /* Icon bubble */
+    .journey-icon {
+        @apply w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0
+               bg-gray-100 dark:bg-gray-700 text-gray-400;
+    }
+
+    .journey-icon--active {
+        @apply bg-crush-purple text-white shadow-[0_4px_12px_rgba(155,89,182,0.35)];
+    }
+
+    .journey-icon--pending {
+        @apply bg-amber-400 text-white shadow-[0_4px_12px_rgba(251,191,36,0.35)];
+    }
+
+    .journey-icon--done {
+        @apply bg-green-500 text-white shadow-[0_4px_12px_rgba(34,197,94,0.3)];
+    }
+
+    .journey-icon--verified {
+        @apply bg-green-500 text-white shadow-[0_4px_12px_rgba(34,197,94,0.3)];
+    }
+
+    .journey-icon--rejected {
+        @apply bg-red-500 text-white;
+    }
+
+    .journey-icon--idle {
+        @apply bg-gray-100 dark:bg-gray-700 text-gray-300 dark:text-gray-500;
+    }
+}

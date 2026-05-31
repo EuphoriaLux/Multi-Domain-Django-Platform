@@ -92,7 +92,7 @@ class WalletPassAdmin(admin.ModelAdmin):
         'get_next_event_display',
         'get_actions_buttons',
     )
-    list_filter = (WalletPassFilter, 'membership_tier', 'is_approved')
+    list_filter = (WalletPassFilter, 'membership_tier', 'verification_status')
     search_fields = ('user__username', 'user__email', 'user__first_name', 'user__last_name')
     ordering = ['-referral_points', '-created_at']
     readonly_fields = (
@@ -113,7 +113,7 @@ class WalletPassAdmin(admin.ModelAdmin):
     # Only show profiles with wallet passes by default
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        return qs.select_related('user').filter(is_approved=True)
+        return qs.select_related('user').filter(verification_status="verified")
 
     def has_add_permission(self, request):
         # Don't allow adding - users get passes through the app
@@ -443,7 +443,7 @@ class WalletPassAdmin(admin.ModelAdmin):
         extra_context = extra_context or {}
 
         # Calculate wallet pass statistics
-        total_profiles = CrushProfile.objects.filter(is_approved=True).count()
+        total_profiles = CrushProfile.objects.filter(verification_status="verified").count()
         apple_passes = CrushProfile.objects.exclude(
             Q(apple_pass_serial__isnull=True) | Q(apple_pass_serial='')
         ).count()

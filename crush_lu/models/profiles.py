@@ -391,9 +391,16 @@ class CrushProfile(models.Model):
         ('submitted', _('Submitted for Review')),
     ]
 
+    VERIFICATION_STATUS_CHOICES = [
+        ('incomplete', _('Incomplete')),    # profile form not done / not submitted
+        ('pending',    _('Pending')),       # submitted, waiting for LuxId
+        ('verified',   _('Verified')),      # LuxId verified or grandfathered coach-approved
+        ('rejected',   _('Rejected')),      # admin/system rejected
+    ]
+
     user = models.OneToOneField(User, on_delete=models.CASCADE)
 
-    # Completion tracking
+    # Completion tracking (legacy — kept for migration; replaced by verification_status)
     completion_status = models.CharField(
         max_length=20,
         choices=COMPLETION_STATUS_CHOICES,
@@ -402,6 +409,15 @@ class CrushProfile(models.Model):
     )
     # Note: Screening call tracking has been consolidated into ProfileSubmission.review_call_completed
     # The Step 1 screening system was redundant and has been removed
+
+    # Verification status — single source of truth replacing completion_status + is_approved
+    verification_status = models.CharField(
+        max_length=20,
+        choices=VERIFICATION_STATUS_CHOICES,
+        default='incomplete',
+        db_index=True,
+        help_text=_("User's verification and profile completion state"),
+    )
 
     # Onboarding Journey (Step 1 of 7: /welcome/)
     INTENT_PROBE_CHOICES = [
@@ -630,10 +646,25 @@ class CrushProfile(models.Model):
         help_text=_("Membership tier based on referral activity")
     )
 
-    # Status
+    # Status (is_approved is legacy — replaced by verification_status == 'verified')
     is_approved = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     approved_at = models.DateTimeField(null=True, blank=True)
+
+    # Coach assignment — permanent per-user, set at first event or ticket purchase
+    assigned_coach = models.ForeignKey(
+        'crush_lu.CrushCoach',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='assigned_members',
+        help_text=_("Permanently assigned coach (set at first event attendance)"),
+    )
+    assigned_coach_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("When this coach was assigned"),
+    )
 
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
@@ -768,6 +799,24 @@ class CrushProfile(models.Model):
         return len(self.get_missing_fields()) == 0
 
     @property
+    def wizard_step(self):
+        """
+        Returns the next incomplete wizard step (1–3), or None when the
+        profile is fully filled in and ready to submit for verification.
+        Derived from field presence so no DB write is needed.
+
+        Mirrors get_missing_fields() requirements: phone_verified is required
+        for non-LuxId users; LuxId users have it set automatically by the signal.
+        """
+        if not (self.date_of_birth and self.gender and self.phone_number and self.location and self.phone_verified):
+            return 1  # basic info
+        if not self.photo_1:
+            return 2  # photos
+        if not self.event_languages:
+            return 3  # event preferences
+        return None  # complete — can submit
+
+    @property
     def review_status(self):
         """Status of the latest ProfileSubmission (pending/approved/rejected/revision/recontact_coach), or None."""
         latest = self.profilesubmission_set.order_by('-submitted_at').first()
@@ -776,9 +825,15 @@ class CrushProfile(models.Model):
     def save(self, *args, **kwargs):
         """
         Override save to:
-        1. Enforce phone verification protection at model level.
-        2. Delete old photo blobs when photos are replaced to prevent orphans.
+        1. Keep verification_status in sync with legacy is_approved field.
+        2. Enforce phone verification protection at model level.
+        3. Delete old photo blobs when photos are replaced to prevent orphans.
         """
+        # Sync legacy is_approved → verification_status (backward compat while
+        # old code still writes is_approved directly).
+        if self.is_approved and self.verification_status != 'verified':
+            self.verification_status = 'verified'
+
         if self.pk:  # Only on update, not create
             try:
                 old_instance = CrushProfile.objects.get(pk=self.pk)

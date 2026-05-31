@@ -202,9 +202,9 @@ def save_profile_step1(request):
         profile.gender = data.get("gender", "")
         profile.location = data.get("location", "")
 
-        # Set completion status
-        profile.completion_status = "step1"
-        # Note: Screening call will happen during coach review after full submission
+        # Mark as incomplete until submitted — wizard_step property derives exact step
+        profile.completion_status = "step1"  # legacy field; remove after migration cleanup
+        profile.verification_status = "incomplete"
 
         # Clear step1 draft data on successful save (data now officially saved)
         if profile.draft_data and "step1" in profile.draft_data:
@@ -259,7 +259,8 @@ def save_profile_step2(request):
         # Update profile content
         profile.bio = data.get("bio", "").strip()
         profile.interests = data.get("interests", "").strip()
-        profile.completion_status = "step2"
+        profile.completion_status = "step2"  # legacy field; remove after migration cleanup
+        profile.verification_status = "incomplete"
 
         # Clear step2 draft data on successful save, BUT preserve UI-only fields
         if profile.draft_data and "step2" in profile.draft_data:
@@ -499,7 +500,8 @@ def save_profile_step3(request):
         # Note: interest_category checkboxes are UI-only (not stored in model)
         # They're used for filtering/display purposes only
 
-        profile.completion_status = "step3"
+        profile.completion_status = "step3"  # legacy field; remove after migration cleanup
+        profile.verification_status = "incomplete"
 
         # Clear step3 draft data on successful save
         if profile.draft_data and "step3" in profile.draft_data:
@@ -611,8 +613,9 @@ def complete_profile_submission(request):
 
         try:
             with transaction.atomic():
-                # Mark as completed
-                profile.completion_status = "submitted"
+                # Mark as submitted — waiting for LuxId verification
+                profile.completion_status = "submitted"  # legacy field; remove after migration cleanup
+                profile.verification_status = "pending"
 
                 # Clear ALL draft data on successful submission
                 profile.draft_data = {}
@@ -724,7 +727,8 @@ def get_profile_progress(request):
         return JsonResponse(
             {
                 "exists": True,
-                "completion_status": profile.completion_status,
+                "verification_status": profile.verification_status,
+                "completion_status": profile.verification_status,  # backward compat alias
                 "phone_number": profile.phone_number or "",
                 "phone_verified": profile.phone_verified,
                 "has_basic_info": bool(profile.phone_number and profile.date_of_birth),
@@ -736,7 +740,7 @@ def get_profile_progress(request):
         )
     except CrushProfile.DoesNotExist:
         return JsonResponse(
-            {"exists": False, "completion_status": None, "phone_verified": False}
+            {"exists": False, "verification_status": None, "completion_status": None, "phone_verified": False}
         )
 
 
@@ -1269,7 +1273,7 @@ def meet_coach_step(request):
     happened yet. Shows the coach bio so the user knows who is reviewing.
     """
     profile = CrushProfile.objects.filter(user=request.user).first()
-    if profile is None or profile.completion_status != "submitted":
+    if profile is None or profile.verification_status not in ("pending", "verified"):
         return redirect("crush_lu:onboarding_entry")
 
     submission = profile.profilesubmission_set.order_by("-submitted_at").first()

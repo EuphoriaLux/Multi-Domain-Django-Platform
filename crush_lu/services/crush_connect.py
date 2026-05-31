@@ -61,8 +61,9 @@ def get_eligible_pool(user) -> "QuerySet[User]":
     """
     Return the queryset of users eligible to appear in ``user``'s Crush Connect Drop.
 
-    The requester must also be eligible (profile approved, attended ≥1 event,
-    onboarded into Crush Connect, not coach-excluded). Otherwise an empty queryset.
+    The requester must also be eligible (profile approved, PREMIUM = personal
+    coach assigned, onboarded into Crush Connect, not coach-excluded). Otherwise
+    an empty queryset. Crush Connect is a premium-only feature.
     """
     from crush_lu.models import EventConnection, EventRegistration
 
@@ -71,7 +72,8 @@ def get_eligible_pool(user) -> "QuerySet[User]":
     if user_profile is None or not user_profile.is_approved:
         return User.objects.none()
 
-    if not EventRegistration.objects.filter(user=user, status="attended").exists():
+    # Premium gate: Crush Connect requires a personal coach (the Premium product).
+    if not user_profile.assigned_coach_id:
         return User.objects.none()
 
     user_membership = getattr(user, "crush_connect_membership", None)
@@ -82,9 +84,6 @@ def get_eligible_pool(user) -> "QuerySet[User]":
     # --- Target filters ------------------------------------------------------
     inactivity_cutoff = timezone.now() - timedelta(days=CONNECT_INACTIVITY_WINDOW_DAYS)
 
-    attended_subq = EventRegistration.objects.filter(
-        user=OuterRef("pk"), status="attended"
-    )
     existing_connection_subq = EventConnection.objects.filter(
         Q(requester=user, recipient=OuterRef("pk"))
         | Q(requester=OuterRef("pk"), recipient=user)
@@ -92,16 +91,16 @@ def get_eligible_pool(user) -> "QuerySet[User]":
 
     qs = (
         User.objects.filter(
-            crushprofile__is_approved=True,
+            crushprofile__verification_status="verified",
+            crushprofile__assigned_coach__isnull=False,  # premium members only
             crush_connect_membership__onboarded_at__isnull=False,
             crush_connect_membership__excluded_by_coach=False,
             last_login__gte=inactivity_cutoff,
         )
         .annotate(
-            _has_attended=Exists(attended_subq),
             _has_connection=Exists(existing_connection_subq),
         )
-        .filter(_has_attended=True, _has_connection=False)
+        .filter(_has_connection=False)
         .exclude(pk=user.pk)
         .select_related("crushprofile", "crush_connect_membership")
     )

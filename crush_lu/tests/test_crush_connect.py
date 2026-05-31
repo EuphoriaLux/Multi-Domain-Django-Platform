@@ -16,6 +16,7 @@ pytestmark = pytest.mark.urls("azureproject.urls_crush")
 
 from crush_lu.models import (
     ConnectDailyDrop,
+    CrushCoach,
     CrushConnectMembership,
     CrushProfile,
     EventConnection,
@@ -52,6 +53,27 @@ def _make_event(title="Past Event"):
     )
 
 
+def _get_coach():
+    """A shared CrushCoach used to make users 'premium' (coach-assigned).
+
+    Uses get_or_create (no module-level cache) so it respects each test's
+    transaction — a cached Python object would dangle after rollback.
+    """
+    coach_user, _ = User.objects.get_or_create(
+        username="cc_coach", defaults={"email": "cc_coach@example.com"}
+    )
+    coach, _ = CrushCoach.objects.get_or_create(
+        user=coach_user,
+        defaults={
+            "bio": "Test coach",
+            "specializations": "General",
+            "phone_number": "+352123456",
+            "is_active": True,
+        },
+    )
+    return coach
+
+
 def _make_user(
     *,
     username,
@@ -64,11 +86,14 @@ def _make_user(
     onboarded=True,
     excluded_by_coach=False,
     last_login_days_ago=1,
+    premium=True,
 ):
     """
     Build a user ready to participate in Crush Connect by default:
-    approved + onboarded membership + recent last_login. Pass ``onboarded=False``
-    or ``last_login_days_ago=None`` to opt out of those defaults for negative tests.
+    verified + PREMIUM (coach assigned) + onboarded membership + recent last_login.
+    Crush Connect is premium-only, so ``premium=True`` is the eligible default.
+    Pass ``premium=False`` / ``onboarded=False`` / ``last_login_days_ago=None``
+    for negative tests.
     """
     user = User.objects.create_user(
         username=username,
@@ -80,7 +105,7 @@ def _make_user(
         user.last_login = timezone.now() - timedelta(days=last_login_days_ago)
         user.save(update_fields=["last_login"])
 
-    CrushProfile.objects.create(
+    profile = CrushProfile.objects.create(
         user=user,
         date_of_birth=dob,
         gender=gender,
@@ -91,6 +116,10 @@ def _make_user(
         preferred_age_min=preferred_age_min,
         preferred_age_max=preferred_age_max,
     )
+    if premium:
+        profile.assigned_coach = _get_coach()
+        profile.assigned_coach_at = timezone.now()
+        profile.save(update_fields=["assigned_coach", "assigned_coach_at"])
 
     CrushConnectMembership.objects.create(
         user=user,
@@ -135,14 +164,13 @@ def test_pool_empty_when_requester_has_no_profile():
 @pytest.mark.django_db
 def test_pool_empty_when_requester_not_approved():
     user = _make_user(username="pending", is_approved=False)
-    _mark_attended(user)
     assert list(get_eligible_pool(user)) == []
 
 
 @pytest.mark.django_db
-def test_pool_empty_when_requester_never_attended():
-    user = _make_user(username="never_attended")
-    # No EventRegistration → not eligible to participate
+def test_pool_empty_when_requester_not_premium():
+    # Crush Connect is premium-only: a verified user without a coach is excluded.
+    user = _make_user(username="not_premium", premium=False)
     assert list(get_eligible_pool(user)) == []
 
 
@@ -168,12 +196,11 @@ def test_pool_excludes_unapproved_targets():
 
 
 @pytest.mark.django_db
-def test_pool_excludes_targets_who_never_attended():
+def test_pool_excludes_non_premium_targets():
+    # Targets without a coach (non-premium) are not part of the Crush Connect pool.
     me = _make_user(username="me", preferred_genders=["F", "M"])
-    _mark_attended(me)
-    never_attended = _make_user(username="never")
-    # no _mark_attended
-    assert never_attended not in get_eligible_pool(me)
+    non_premium = _make_user(username="nonprem", premium=False)
+    assert non_premium not in get_eligible_pool(me)
 
 
 @pytest.mark.django_db
@@ -735,8 +762,10 @@ def test_home_renders_drop_with_cards(client, settings):
     body = resp.content.decode()
 
     assert "Today&#x27;s Drop" in body or "Today's Drop" in body
-    # The drop pinned recipients should match what get_or_create_daily_drop returns
-    drop = ConnectDailyDrop.objects.get(user=me, drop_date=date.today())
+    # The drop pinned recipients should match what get_or_create_daily_drop returns.
+    # Don't hardcode date.today(): the service dates the drop to "yesterday" before
+    # 6am, so fetch the drop the view actually created for this user.
+    drop = ConnectDailyDrop.objects.filter(user=me).latest("drop_date")
     expected_firstnames = {t.first_name for t in drop.recipients.all()}
     for fn in expected_firstnames:
         assert fn in body
@@ -815,10 +844,12 @@ def test_onboarding_redirects_to_teaser_when_flag_off(client, settings):
 
 @pytest.mark.django_db
 def test_onboarding_redirects_to_teaser_when_ineligible(client, settings):
-    """No attended event → can't onboard."""
+    """Not premium (no coach) → can't onboard."""
     settings.CRUSH_CONNECT_LAUNCHED = True
-    me = _make_user(username="me", preferred_genders=["F"], onboarded=False)
-    # No _mark_attended → ineligible
+    me = _make_user(
+        username="me", preferred_genders=["F"], onboarded=False, premium=False
+    )
+    # No coach assigned → ineligible for the premium-only Crush Connect
     _login_eligible(client, me)
 
     resp = client.get(ONBOARDING_URL)

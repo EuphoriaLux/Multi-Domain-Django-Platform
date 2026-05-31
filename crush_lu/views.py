@@ -86,6 +86,7 @@ from .views_static import (  # noqa: F401
     data_deletion_request,
     crush_coach,
     crush_connect_teaser,
+    membership_concept_preview,
 )
 
 # Account & auth
@@ -236,7 +237,9 @@ def dashboard(request):
     """
     # Regular user dashboard
     try:
-        profile = CrushProfile.objects.get(user=request.user)
+        profile = CrushProfile.objects.select_related(
+            "assigned_coach__user"
+        ).get(user=request.user)
         # Get latest submission status
         latest_submission = (
             ProfileSubmission.objects.filter(profile=profile)
@@ -280,6 +283,24 @@ def dashboard(request):
         except CrushConnectWaitlist.DoesNotExist:
             pass
 
+        # Whether user has attended at least one event (event-history display)
+        has_attended_event = EventRegistration.objects.filter(
+            user=request.user, status="attended"
+        ).exists()
+
+        # Premium = personal coach assigned. Premium is the ONLY tier that
+        # unlocks Crush Connect (Standard ticket / free LuxID do not).
+        is_premium = bool(profile.assigned_coach_id)
+
+        # Next upcoming published event (drives "attend to unlock" CTA)
+        next_event = (
+            MeetupEvent.objects.filter(
+                is_published=True, is_cancelled=False, date_time__gte=timezone.now()
+            )
+            .order_by("date_time")
+            .first()
+        )
+
         # Time-based greeting (use localtime for correct Luxembourg timezone)
         hour = timezone.localtime().hour
         name = profile.display_name
@@ -303,6 +324,9 @@ def dashboard(request):
             "on_crush_connect_waitlist": on_crush_connect_waitlist,
             "crush_connect_position": crush_connect_position,
             "crush_connect_total": crush_connect_total,
+            "has_attended_event": has_attended_event,
+            "is_premium": is_premium,
+            "next_event": next_event,
             "greeting": greeting,
             "apple_wallet_enabled": _is_apple_wallet_configured(),
         }
@@ -428,7 +452,7 @@ def create_profile(request):
                 return redirect("account_email")
 
             # Check if this is first submission or resubmission
-            is_first_submission = profile.completion_status != "submitted"
+            is_first_submission = profile.verification_status not in ("pending", "verified")
 
             # Set preferred language from current request language on first submission
             if is_first_submission and hasattr(request, "LANGUAGE_CODE"):
@@ -439,8 +463,9 @@ def create_profile(request):
                         f"Set preferred_language to '{current_lang}' for {request.user.email}"
                     )
 
-            # Mark profile as completed and submitted
-            profile.completion_status = "submitted"
+            # Mark profile as submitted — waiting for LuxId verification
+            profile.completion_status = "submitted"  # legacy; remove after migration cleanup
+            profile.verification_status = "pending"
 
             if is_first_submission:
                 logger.info(
@@ -483,6 +508,7 @@ def create_profile(request):
                     )
 
                     is_revision = False
+                    submission = None
                     if existing_submission:
                         submission = existing_submission
                         created = False
@@ -490,16 +516,13 @@ def create_profile(request):
                             f"⚠️ Existing pending submission found for {request.user.email}"
                         )
                     elif revision_submission:
+                        # Revision re-submit: user is in a paid coach flow and
+                        # was asked to update their profile. Put it back in the
+                        # channel so their coach (or a new one) can re-review.
                         submission = revision_submission
                         submission.status = "pending"
-                        submission.coach = None  # back to the channel
+                        submission.coach = None
                         submission.submitted_at = timezone.now()
-                        # Reset SLA cycle — the next coach claim must restamp
-                        # assigned_at/sla_deadline (the post-save signal only
-                        # fires when assigned_at is null). Leaving a stale
-                        # deadline would flag the fresh claim as already in
-                        # breach and keep the onboarding stepper on "coach
-                        # claimed".
                         submission.assigned_at = None
                         submission.sla_deadline = None
                         submission.escalated_at = None
@@ -512,12 +535,14 @@ def create_profile(request):
                             f"Revision submission updated to pending for {request.user.email}"
                         )
                     else:
-                        submission = ProfileSubmission.objects.create(
-                            profile=profile,
-                            status="pending",
-                            coach=None,
+                        # Fresh submission — no ProfileSubmission created.
+                        # The user verifies via LuxId (free) or purchases a
+                        # coach review (paid). Neither path needs a submission
+                        # at this point.
+                        created = False
+                        logger.info(
+                            f"Profile submitted (pending LuxId/paid coach) for {request.user.email}"
                         )
-                        created = True
 
             except Exception as e:
                 logger.error(
@@ -540,9 +565,9 @@ def create_profile(request):
                 }
                 return _render_create_profile(request, context)
 
-            # Broadcast to the verification channel (all eligible coaches).
-            # Coach is never assigned here — the channel view + claim endpoint owns that.
-            if created or is_revision:
+            # Broadcast to the verification channel only when a paid coach
+            # submission actually exists (revision re-submits).
+            if submission and is_revision:
                 try:
                     broadcast_new_submission_to_channel(submission)
                     logger.info(
@@ -551,19 +576,7 @@ def create_profile(request):
                 except Exception as e:
                     logger.warning(f"Failed to broadcast channel notification: {e}")
 
-            if created:
-                logger.info(f"NEW profile submission created for {request.user.email}")
-                send_profile_submission_notifications(
-                    submission,
-                    request,
-                    add_message_func=lambda msg: messages.warning(request, msg),
-                )
-            elif not is_revision:
-                logger.warning(
-                    f"Duplicate submission attempt prevented for {request.user.email}"
-                )
-
-            messages.success(request, _("Profile submitted for review!"))
+            messages.success(request, _("Profile submitted! Verify your identity to get started."))
             return redirect("crush_lu:profile_submitted")
         else:
             logger.error(
@@ -600,7 +613,7 @@ def create_profile(request):
     try:
         profile = CrushProfile.objects.get(user=request.user)
 
-        if profile.completion_status == "submitted":
+        if profile.verification_status in ("pending", "verified"):
             latest_submission = (
                 ProfileSubmission.objects.filter(profile=profile)
                 .order_by("-submitted_at")
@@ -631,28 +644,17 @@ def create_profile(request):
                 request, _("Your profile has been submitted. Check the status below.")
             )
             return redirect("crush_lu:profile_submitted")
-        elif profile.completion_status == "not_started":
+        elif profile.verification_status == "incomplete":
             from .social_photos import get_all_social_photos
 
             form = CrushProfileForm(instance=profile)
+            step = profile.wizard_step or "step1"
             return _render_create_profile(
                 request,
                 {
                     "form": form,
                     "profile": profile,
-                    "social_photos": get_all_social_photos(request.user),
-                },
-            )
-        elif profile.completion_status in ["step1", "step2", "step3", "step4"]:
-            from .social_photos import get_all_social_photos
-
-            form = CrushProfileForm(instance=profile)
-            return _render_create_profile(
-                request,
-                {
-                    "form": form,
-                    "profile": profile,
-                    "current_step": profile.completion_status,
+                    "current_step": step,
                     "social_photos": get_all_social_photos(request.user),
                 },
             )
@@ -1391,12 +1393,12 @@ def edit_profile(request):
         messages.info(request, _("You need to create a profile first."))
         return redirect("crush_lu:create_profile")
 
-    # 1. If profile is approved → use simple single-page edit
-    if profile.is_approved:
+    # 1. If profile is verified → use simple single-page edit
+    if profile.verification_status == "verified":
         return _render_edit_profile_form(request)
 
-    # 2. If profile is submitted and under review → redirect to status page
-    if profile.completion_status == "submitted":
+    # 2. If profile is pending (submitted, awaiting LuxId) → redirect to status page
+    if profile.verification_status == "pending":
         try:
             submission = ProfileSubmission.objects.filter(profile=profile).latest(
                 "submitted_at"
@@ -1431,13 +1433,7 @@ def edit_profile(request):
             pass
 
     # 3. Profile is incomplete → redirect to create_profile
-    if profile.completion_status in [
-        "not_started",
-        "step1",
-        "step2",
-        "step3",
-        "step4",
-    ]:
+    if profile.verification_status == "incomplete":
         messages.info(request, _("Please complete your profile to continue."))
         return redirect("crush_lu:create_profile")
 
@@ -1465,7 +1461,8 @@ def edit_profile(request):
         form = CrushProfileForm(request.POST, request.FILES, instance=profile)
         if form.is_valid():
             profile = form.save(commit=False)
-            profile.completion_status = "submitted"
+            profile.completion_status = "submitted"  # legacy; remove after migration cleanup
+            profile.verification_status = "pending"
             profile.save()
 
             submission, created = ProfileSubmission.objects.get_or_create(
@@ -1506,16 +1503,14 @@ def edit_profile(request):
         "recontact_coach",
     ]:
         current_step_to_show = None
-    elif profile.completion_status == "submitted":
+    elif profile.verification_status in ("pending", "verified"):
         current_step_to_show = None
-    elif profile.completion_status == "not_started":
-        current_step_to_show = None
-    elif profile.completion_status == "step1" and (
-        not profile.date_of_birth or not profile.phone_number
-    ):
-        current_step_to_show = None
+    elif profile.verification_status == "incomplete":
+        # wizard_step returns 1-3; map to legacy step key for template compat
+        step = profile.wizard_step
+        current_step_to_show = f"step{step}" if step else None
     else:
-        current_step_to_show = profile.completion_status
+        current_step_to_show = None
 
     context = {
         "form": form,
@@ -1593,7 +1588,7 @@ def matches_list(request):
             other_user = ms.user_b if ms.user_a == request.user else ms.user_a
             try:
                 other_profile = CrushProfile.objects.get(
-                    user=other_user, is_approved=True, is_active=True
+                    user=other_user, verification_status="verified", is_active=True
                 )
             except CrushProfile.DoesNotExist:
                 continue
@@ -1639,7 +1634,7 @@ def api_match_list(request):
     from .matching import get_matches_for_user, get_score_display
 
     try:
-        profile = CrushProfile.objects.get(user=request.user, is_approved=True)
+        profile = CrushProfile.objects.get(user=request.user, verification_status="verified")
     except CrushProfile.DoesNotExist:
         return JsonResponse({"error": "Profile not found or not approved"}, status=404)
 
@@ -1653,7 +1648,7 @@ def api_match_list(request):
         other_user = ms.user_b if ms.user_a == request.user else ms.user_a
         try:
             other_profile = CrushProfile.objects.get(
-                user=other_user, is_approved=True, is_active=True
+                user=other_user, verification_status="verified", is_active=True
             )
         except CrushProfile.DoesNotExist:
             continue
@@ -1692,9 +1687,9 @@ def api_match_score(request, user_id):
     from .matching import compute_match_score, get_score_display
 
     try:
-        my_profile = CrushProfile.objects.get(user=request.user, is_approved=True)
+        my_profile = CrushProfile.objects.get(user=request.user, verification_status="verified")
         other_profile = CrushProfile.objects.get(
-            user_id=user_id, is_approved=True, is_active=True
+            user_id=user_id, verification_status="verified", is_active=True
         )
     except CrushProfile.DoesNotExist:
         return JsonResponse({"error": "Profile not found"}, status=404)
@@ -1724,105 +1719,168 @@ def profile_submitted(request):
 
     try:
         profile = CrushProfile.objects.get(user=request.user)
-        submission = ProfileSubmission.objects.filter(profile=profile).latest(
-            "submitted_at"
-        )
-    except (CrushProfile.DoesNotExist, ProfileSubmission.DoesNotExist):
-        messages.error(request, _("No profile submission found."))
+    except CrushProfile.DoesNotExist:
         return redirect("crush_lu:create_profile")
 
-    # Determine coach contact phone: per-coach or global fallback
-    coach_contact_phone = ""
-    coach_phone_available = False
-    if submission and submission.coach and submission.coach.phone_number:
-        coach_contact_phone = submission.coach.whatsapp_number
-        coach_phone_available = True
-    else:
-        from .models import CrushSiteConfig
+    # Redirect away if profile is not in the pending/verification funnel
+    if profile.verification_status == "incomplete":
+        return redirect("crush_lu:create_profile")
+    if profile.verification_status == "verified":
+        return redirect("crush_lu:dashboard")
 
-        try:
-            config = CrushSiteConfig.get_config()
-            coach_contact_phone = config.whatsapp_number
-            coach_phone_available = config.whatsapp_enabled and bool(
-                coach_contact_phone
-            )
-        except Exception:
-            pass
+    # Submission only exists for the paid coach path or revision re-submits.
+    # For free LuxId verification, submission is None.
+    submission = ProfileSubmission.objects.filter(profile=profile).order_by(
+        "-submitted_at"
+    ).first()
 
-    # --- Review time statistics ---
     now = timezone.now()
 
-    # Global average review time
-    reviewed_qs = ProfileSubmission.objects.filter(
-        reviewed_at__isnull=False, submitted_at__isnull=False
-    )
-    avg_review_hours = 0
-    if reviewed_qs.count() >= 5:
-        avg_result = reviewed_qs.annotate(
-            review_duration=ExpressionWrapper(
-                F("reviewed_at") - F("submitted_at"),
-                output_field=DurationField(),
-            )
-        ).aggregate(avg_seconds=Avg(Extract("review_duration", "epoch")))
-        avg_seconds = avg_result["avg_seconds"] or 0
-        avg_review_hours = max(0, avg_seconds / 3600)
+    # --- LuxID CTA — always computed when profile is pending ---
+    has_luxid_account = False
+    luxid_connect_url = None
+    try:
+        from allauth.socialaccount.models import SocialApp, SocialToken
+        from django.contrib.sites.models import Site
 
-    # Per-coach average (if coach assigned and has enough data)
-    coach_avg_review_hours = None
-    if submission.coach:
-        coach_reviewed = reviewed_qs.filter(coach=submission.coach)
-        if coach_reviewed.count() >= 3:
-            coach_result = coach_reviewed.annotate(
+        has_luxid_account = request.user.socialaccount_set.filter(
+            provider="luxid"
+        ).exists()
+
+        _current_site = Site.objects.get_current(request)
+        _available_providers = set(
+            SocialApp.objects.filter(sites=_current_site).values_list(
+                "provider", flat=True
+            )
+        )
+        _oidc_app = SocialApp.objects.filter(
+            provider="openid_connect", provider_id="luxid", sites=_current_site
+        ).first()
+
+        if not has_luxid_account and _oidc_app is not None:
+            has_luxid_account = SocialToken.objects.filter(
+                account__user=request.user,
+                account__provider="openid_connect",
+                app=_oidc_app,
+            ).exists()
+
+        if not has_luxid_account:
+            luxid_connect_url = _luxid_connect_url(
+                _available_providers, oidc_app=_oidc_app
+            )
+        elif profile.verification_status != "verified":
+            # Lazy fix-up: user already has LuxId but profile is not yet verified.
+            # This can happen if LuxId was connected before the submission existed
+            # (old flow) or via an edge case. Verify directly now.
+            from .signals import _execute_luxid_direct_verify
+
+            _execute_luxid_direct_verify(request.user, profile, submission, request)
+            profile.refresh_from_db()
+            if profile.verification_status == "verified":
+                return redirect("crush_lu:dashboard")
+    except Exception:
+        pass
+
+    # --- Submission-dependent context (paid coach / revision path only) ---
+    coach_contact_phone = ""
+    coach_phone_available = False
+    estimated_review_display = None
+    is_coach_specific_estimate = False
+    queue_position = 0
+    total_coach_pending = 0
+    total_channel = 0
+    hours_waiting = 0
+    wait_status = "fresh"
+    progress_percent = 0
+    hybrid_user_state = None
+    recontact_days_remaining = None
+    has_booking_token = False
+    has_candidate_note = False
+    pre_screening_visible = False
+    pre_screening_submitted = False
+
+    if submission:
+        if submission.coach and submission.coach.phone_number:
+            coach_contact_phone = submission.coach.whatsapp_number
+            coach_phone_available = True
+        else:
+            from .models import CrushSiteConfig
+            try:
+                config = CrushSiteConfig.get_config()
+                coach_contact_phone = config.whatsapp_number
+                coach_phone_available = config.whatsapp_enabled and bool(coach_contact_phone)
+            except Exception:
+                pass
+
+        reviewed_qs = ProfileSubmission.objects.filter(
+            reviewed_at__isnull=False, submitted_at__isnull=False
+        )
+        avg_review_hours = 0
+        if reviewed_qs.count() >= 5:
+            avg_result = reviewed_qs.annotate(
                 review_duration=ExpressionWrapper(
                     F("reviewed_at") - F("submitted_at"),
                     output_field=DurationField(),
                 )
             ).aggregate(avg_seconds=Avg(Extract("review_duration", "epoch")))
-            coach_seconds = coach_result["avg_seconds"] or 0
-            coach_avg_review_hours = max(0, coach_seconds / 3600)
+            avg_review_hours = max(0, (avg_result["avg_seconds"] or 0) / 3600)
 
-    # Use coach-specific avg if available, else global
-    effective_avg = coach_avg_review_hours or avg_review_hours
-    estimated_review_display = format_review_estimate(effective_avg)
-    is_coach_specific_estimate = coach_avg_review_hours is not None
+        coach_avg_review_hours = None
+        if submission.coach:
+            coach_reviewed = reviewed_qs.filter(coach=submission.coach)
+            if coach_reviewed.count() >= 3:
+                coach_result = coach_reviewed.annotate(
+                    review_duration=ExpressionWrapper(
+                        F("reviewed_at") - F("submitted_at"),
+                        output_field=DurationField(),
+                    )
+                ).aggregate(avg_seconds=Avg(Extract("review_duration", "epoch")))
+                coach_avg_review_hours = max(0, (coach_result["avg_seconds"] or 0) / 3600)
 
-    # Queue position
-    queue_position = 0
-    total_coach_pending = 0
-    total_channel = 0
-    if submission.coach:
-        queue_position = ProfileSubmission.objects.filter(
-            status="pending",
-            coach=submission.coach,
-            submitted_at__lt=submission.submitted_at,
-        ).count()
-        total_coach_pending = submission.coach.get_active_reviews_count()
-    else:
-        queue_position = ProfileSubmission.objects.filter(
-            status="pending",
-            coach__isnull=True,
-            submitted_at__lt=submission.submitted_at,
-        ).count()
-        total_channel = ProfileSubmission.objects.filter(
-            status="pending", coach__isnull=True
-        ).count()
+        effective_avg = coach_avg_review_hours or avg_review_hours
+        estimated_review_display = format_review_estimate(effective_avg)
+        is_coach_specific_estimate = coach_avg_review_hours is not None
 
-    # Wait time and status
-    hours_waiting = (now - submission.submitted_at).total_seconds() / 3600
-    if hours_waiting < 6:
-        wait_status = "fresh"
-    elif hours_waiting < 24:
-        wait_status = "normal"
-    elif hours_waiting < 48:
-        wait_status = "extended"
-    else:
-        wait_status = "long"
+        if submission.coach:
+            queue_position = ProfileSubmission.objects.filter(
+                status="pending", coach=submission.coach,
+                submitted_at__lt=submission.submitted_at,
+            ).count()
+            total_coach_pending = submission.coach.get_active_reviews_count()
+        else:
+            queue_position = ProfileSubmission.objects.filter(
+                status="pending", coach__isnull=True,
+                submitted_at__lt=submission.submitted_at,
+            ).count()
+            total_channel = ProfileSubmission.objects.filter(
+                status="pending", coach__isnull=True
+            ).count()
 
-    # Progress bar percentage (capped at 95%)
-    if effective_avg > 0:
-        progress_percent = min(95, int((hours_waiting / effective_avg) * 100))
-    else:
-        progress_percent = min(95, int(hours_waiting / 36 * 100))
+        hours_waiting = (now - submission.submitted_at).total_seconds() / 3600
+        wait_status = (
+            "fresh" if hours_waiting < 6 else
+            "normal" if hours_waiting < 24 else
+            "extended" if hours_waiting < 48 else
+            "long"
+        )
+        if effective_avg > 0:
+            progress_percent = min(95, int((hours_waiting / effective_avg) * 100))
+        else:
+            progress_percent = min(95, int(hours_waiting / 36 * 100))
+
+        hybrid_user_state = submission.hybrid_user_state
+        recontact_days_remaining = submission.recontact_days_remaining
+        has_booking_token = bool(submission.booking_token)
+        has_candidate_note = bool(submission.candidate_note)
+
+        from django.conf import settings as _settings
+        pre_screening_enabled = getattr(_settings, "PRE_SCREENING_ENABLED", False)
+        pre_screening_submitted = submission.pre_screening_submitted_at is not None
+        pre_screening_visible = (
+            pre_screening_enabled
+            and submission.status == "pending"
+            and not submission.review_call_completed
+        )
 
     # Next upcoming event teaser
     next_event = (
@@ -1833,18 +1891,12 @@ def profile_submitted(request):
         .first()
     )
 
-    from django.conf import settings as _settings
-
-    pre_screening_enabled = getattr(_settings, "PRE_SCREENING_ENABLED", False)
-    pre_screening_submitted = submission.pre_screening_submitted_at is not None
-    pre_screening_visible = (
-        pre_screening_enabled
-        and submission.status == "pending"
-        and not submission.review_call_completed
-    )
-
     context = {
+        "profile": profile,
         "submission": submission,
+        "has_luxid_account": has_luxid_account,
+        "luxid_connect_url": luxid_connect_url,
+        # Submission-dependent (None when no submission)
         "coach_contact_phone": coach_contact_phone,
         "coach_phone_available": coach_phone_available,
         "estimated_review_display": estimated_review_display,
@@ -1856,79 +1908,17 @@ def profile_submitted(request):
         "wait_status": wait_status,
         "progress_percent": progress_percent,
         "next_event": next_event,
-        "has_candidate_note": bool(submission.candidate_note),
+        "has_candidate_note": has_candidate_note,
         "pre_screening_visible": pre_screening_visible,
         "pre_screening_submitted": pre_screening_submitted,
-        # Hybrid Coach Review System (Phase 4) — drives the adaptive banner.
-        # Always populated; template chooses whether to render based on state.
-        "hybrid_user_state": submission.hybrid_user_state,
-        "recontact_days_remaining": submission.recontact_days_remaining,
-        "has_booking_token": bool(submission.booking_token),
+        "hybrid_user_state": hybrid_user_state,
+        "recontact_days_remaining": recontact_days_remaining,
+        "has_booking_token": has_booking_token,
     }
-    # --- LuxID fast-lane CTA ---
-    # Only compute for pending submissions; skips DB work for all other states.
-    has_luxid_account = False
-    luxid_connect_url = None
-    if submission.status == "pending":
-        try:
-            from allauth.socialaccount.models import SocialApp, SocialToken
-            from django.contrib.sites.models import Site
 
-            # Check custom LuxID provider first (unambiguous).
-            has_luxid_account = request.user.socialaccount_set.filter(
-                provider="luxid"
-            ).exists()
-
-            _current_site = Site.objects.get_current(request)
-            _available_providers = set(
-                SocialApp.objects.filter(sites=_current_site).values_list(
-                    "provider", flat=True
-                )
-            )
-            # Find the specific OIDC app configured for LuxID. Filtering by
-            # provider_id="luxid" ensures we don't bind to a different
-            # openid_connect app if multiple OIDC providers are configured.
-            _oidc_app = SocialApp.objects.filter(
-                provider="openid_connect", provider_id="luxid", sites=_current_site
-            ).first()
-
-            if not has_luxid_account and _oidc_app is not None:
-                # Scope to the specific app to avoid matching other OIDC providers.
-                has_luxid_account = SocialToken.objects.filter(
-                    account__user=request.user,
-                    account__provider="openid_connect",
-                    app=_oidc_app,
-                ).exists()
-
-            if not has_luxid_account:
-                luxid_connect_url = _luxid_connect_url(
-                    _available_providers, oidc_app=_oidc_app
-                )
-            elif not profile.is_approved:
-                # Lazy fix-up: user connected LuxID during Step 2 phone
-                # verification before this submission existed.  The
-                # social_account_added signal fired at that point but found no
-                # pending submission and silently skipped.  Approve now.
-                from .signals import _execute_luxid_auto_approval
-
-                _execute_luxid_auto_approval(
-                    request.user, profile, submission, request
-                )
-                submission.refresh_from_db()
-                profile.refresh_from_db()
-        except Exception:
-            pass
-
-    context["has_luxid_account"] = has_luxid_account
-    context["luxid_connect_url"] = luxid_connect_url
-
-    # Journey stepper context — this page IS step 5 "Under review" (queue
-    # status, review time estimates, hybrid-coach banners). Hardcoding
-    # current=5 keeps the stepper label aligned with the page content even
-    # when a coach has already claimed (state-step 6) or approved (state-
-    # step 7) — those users are routed to meet_coach.html / screening_call.html
-    # via onboarding_entry, not here.
-    stepper_step = 7 if submission.status == "approved" else 5
+    stepper_step = 5
+    if submission and submission.status == "approved":
+        stepper_step = 7
     context.update(onboarding.stepper_context(current=stepper_step))
     return render(request, "crush_lu/profile_submitted.html", context)
 

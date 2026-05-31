@@ -112,7 +112,7 @@ class Command(BaseCommand):
                 # Get profile info for logging
                 try:
                     profile = user.crushprofile
-                    status = profile.completion_status
+                    status = profile.verification_status
                 except Exception:
                     status = 'unknown'
 

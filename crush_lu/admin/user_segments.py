@@ -73,7 +73,7 @@ def get_demographic_stats():
     and a gender x age cross-tabulation matrix.
     """
     active_profiles = CrushProfile.objects.filter(is_active=True)
-    approved_profiles = active_profiles.filter(is_approved=True)
+    approved_profiles = active_profiles.filter(verification_status="verified")
 
     total_active = active_profiles.count()
     total_approved = approved_profiles.count()
@@ -227,13 +227,13 @@ def get_segment_definitions():
 
     # Base querysets
     active = CrushProfile.objects.filter(is_active=True)
-    approved = active.filter(is_approved=True)
+    approved = active.filter(verification_status="verified")
 
-    # Profile completion segments
-    incomplete_not_started = active.filter(completion_status="not_started")
-    incomplete_step1 = active.filter(completion_status="step1")
-    incomplete_step2 = active.filter(completion_status="step2")
-    incomplete_step3 = active.filter(completion_status="step3")
+    # Profile completion segments (simplified — wizard step now derived from field presence)
+    incomplete_not_started = active.filter(verification_status="incomplete")
+    incomplete_step1 = incomplete_not_started  # alias for backward compat
+    incomplete_step2 = incomplete_not_started  # alias for backward compat
+    incomplete_step3 = incomplete_not_started  # alias for backward compat
 
     # Pending review segments
     pending_reviews_urgent = ProfileSubmission.objects.filter(
@@ -263,18 +263,18 @@ def get_segment_definitions():
 
     # Reminder eligible segments
     eligible_24h_reminder = active.filter(
-        completion_status__in=["not_started", "step1", "step2", "step3", "step4"],
+        verification_status="incomplete",
         created_at__lte=now - timedelta(hours=24),
         created_at__gte=now - timedelta(hours=48),
     ).exclude(user__profile_reminders__reminder_type="24h")
     eligible_72h_reminder = active.filter(
-        completion_status__in=["not_started", "step1", "step2", "step3", "step4"],
+        verification_status="incomplete",
         created_at__lte=now - timedelta(hours=72),
         created_at__gte=now - timedelta(hours=96),
         user__profile_reminders__reminder_type="24h",
     ).exclude(user__profile_reminders__reminder_type="72h")
     eligible_7d_reminder = active.filter(
-        completion_status__in=["not_started", "step1", "step2", "step3", "step4"],
+        verification_status="incomplete",
         created_at__lte=now - timedelta(hours=168),
         created_at__gte=now - timedelta(hours=192),
         user__profile_reminders__reminder_type="72h",
@@ -385,24 +385,16 @@ def get_segment_definitions():
         )
     ).distinct()
 
-    # Unverified profile segments (has profile, not approved by coach)
-    unverified_never_submitted = active.filter(is_approved=False).exclude(
-        user__in=ProfileSubmission.objects.values("profile__user")
-    )
-    unverified_pending_review = active.filter(
-        is_approved=False,
-        profilesubmission__status="pending",
-    ).distinct()
+    # Unverified profile segments
+    unverified_never_submitted = active.filter(verification_status="incomplete")
+    unverified_pending_review = active.filter(verification_status="pending").distinct()
     unverified_revision = active.filter(
-        is_approved=False,
+        verification_status="incomplete",
         profilesubmission__status="revision",
     ).distinct()
-    unverified_rejected = active.filter(
-        is_approved=False,
-        profilesubmission__status="rejected",
-    ).distinct()
+    unverified_rejected = active.filter(verification_status="rejected").distinct()
     unverified_recontact = active.filter(
-        is_approved=False,
+        verification_status="incomplete",
         profilesubmission__status="recontact_coach",
     ).distinct()
 
@@ -1041,7 +1033,7 @@ def user_segments_dashboard(request):
     # Preference stats for approved profiles
     from crush_lu.analytics import get_preference_stats
 
-    approved_profiles = CrushProfile.objects.filter(is_approved=True)
+    approved_profiles = CrushProfile.objects.filter(verification_status="verified")
     pref_stats = get_preference_stats(approved_profiles)
 
     # Approved-only event language distribution

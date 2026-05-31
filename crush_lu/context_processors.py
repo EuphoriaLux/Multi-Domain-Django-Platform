@@ -25,14 +25,19 @@ from .models import (
 # Simple in-memory cache for site config (avoids DB hit on every request)
 _site_config_cache = {"config": None, "expires": 0}
 
-# Profile completion step mapping for navbar progress indicator
+# Profile verification state → navbar progress indicator
 PROFILE_STEP_INFO = {
-    "not_started": (0, _("Get started")),
+    "incomplete": (1, _("Complete your profile")),
+    "pending":    (2, _("Verify your identity")),
+    "verified":   (3, _("Profile verified")),
+    "rejected":   (0, _("Profile rejected")),
+    # Legacy wizard-step keys kept for graceful handling of cached values
+    "not_started": (1, _("Get started")),
     "step1": (1, _("Tell us about you")),
     "step2": (2, _("Add photos")),
-    "step3": (3, _("Choose your coach")),
-    "step4": (4, _("Review & submit")),
-    "submitted": (5, _("Under review")),
+    "step3": (2, _("Add photos")),
+    "step4": (2, _("Review & submit")),
+    "submitted": (2, _("Under review")),
 }
 
 
@@ -82,11 +87,11 @@ def crush_user_context(request):
         profile = CrushProfile.objects.filter(user=request.user).first()
         context["profile"] = profile
         if profile:
-            completion_status = profile.completion_status
-            context["profile_completion_status"] = completion_status
+            verification_status = profile.verification_status
+            context["profile_completion_status"] = verification_status  # backward compat alias
 
             # Profile step info for navbar progress indicator
-            step_info = PROFILE_STEP_INFO.get(completion_status, (0, _("Get started")))
+            step_info = PROFILE_STEP_INFO.get(verification_status, (0, _("Get started")))
             context["profile_completion_step"] = step_info[0]
             context["profile_step_label"] = step_info[1]
 

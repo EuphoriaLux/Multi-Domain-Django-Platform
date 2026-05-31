@@ -67,14 +67,14 @@ class Command(BaseCommand):
         # Get profiles with photos first, then without
         profiles_with_photos = list(
             CrushProfile.objects.filter(
-                photo_1__isnull=False, is_approved=True
+                photo_1__isnull=False, verification_status="verified"
             )
             .exclude(photo_1="")
             .select_related("user")
         )
         profiles_without_photos = list(
             CrushProfile.objects.filter(
-                is_approved=True
+                verification_status="verified"
             )
             .exclude(
                 pk__in=[p.pk for p in profiles_with_photos]

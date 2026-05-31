@@ -106,6 +106,15 @@ class MeetupEvent(models.Model):
 
     # Capacity & Requirements
     max_participants = models.PositiveIntegerField(default=20)
+    reserved_premium_seats = models.PositiveIntegerField(
+        default=0,
+        verbose_name=_("Reserved premium seats"),
+        help_text=_(
+            "Seats within the total capacity held back for premium "
+            "(coach-assigned) members. General members fill only "
+            "(max participants − reserved). 0 = no reservation."
+        ),
+    )
     max_participants_m = models.PositiveIntegerField(
         null=True,
         blank=True,
@@ -137,6 +146,7 @@ class MeetupEvent(models.Model):
     max_age = models.PositiveIntegerField(default=99)
     PROFILE_REQUIREMENT_CHOICES = [
         ("approved", _("Approved profile required")),
+        ("coach_assigned", _("Premium member — coach assigned")),
         ("unverified", _("Unverified profile only")),
         ("profile_exists", _("Profile must exist")),
         ("none", _("No profile required")),
@@ -366,6 +376,21 @@ class MeetupEvent(models.Model):
                     % {"gender_total": total_gender, "max": self.max_participants}
                 )
 
+        # Reserved premium seats cannot exceed total capacity
+        if self.reserved_premium_seats > self.max_participants:
+            raise ValidationError(
+                {
+                    "reserved_premium_seats": _(
+                        "Reserved premium seats (%(reserved)d) cannot exceed "
+                        "total max participants (%(max)d)."
+                    )
+                    % {
+                        "reserved": self.reserved_premium_seats,
+                        "max": self.max_participants,
+                    }
+                }
+            )
+
     @property
     def is_registration_accepting(self):
         """Whether registration is accepting signups (confirmed or waitlist)."""
@@ -393,6 +418,32 @@ class MeetupEvent(models.Model):
     @property
     def spots_remaining(self):
         return max(0, self.max_participants - self.get_confirmed_count())
+
+    @property
+    def public_capacity(self):
+        """Seats available to general (non-premium) members."""
+        return max(0, self.max_participants - self.reserved_premium_seats)
+
+    def is_full_for(self, is_premium=False):
+        """Capacity check that respects reserved premium seats.
+
+        Premium (coach-assigned) members measure fullness against the total
+        ``max_participants``; everyone else against ``public_capacity``.
+        """
+        cap = self.max_participants if is_premium else self.public_capacity
+        return self.get_confirmed_count() >= cap
+
+    def spots_remaining_for(self, is_premium=False):
+        cap = self.max_participants if is_premium else self.public_capacity
+        return max(0, cap - self.get_confirmed_count())
+
+    @property
+    def reserved_spots_remaining(self):
+        """Unclaimed reserved seats (premium-only block at the top of capacity)."""
+        confirmed = self.get_confirmed_count()
+        total_remaining = max(0, self.max_participants - confirmed)
+        public_remaining = max(0, self.public_capacity - confirmed)
+        return total_remaining - public_remaining
 
     @property
     def end_time(self):

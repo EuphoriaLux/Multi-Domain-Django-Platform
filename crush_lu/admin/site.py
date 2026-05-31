@@ -91,7 +91,7 @@ class CrushLuAdminSite(admin.AdminSite):
 
         # Quick stats for index page
         extra_context['total_profiles'] = CrushProfile.objects.count()
-        extra_context['approved_profiles'] = CrushProfile.objects.filter(is_approved=True).count()
+        extra_context['approved_profiles'] = CrushProfile.objects.filter(verification_status="verified").count()
         extra_context['mutual_connections'] = EventConnection.objects.filter(status='mutual').count()
 
         # Upcoming events count

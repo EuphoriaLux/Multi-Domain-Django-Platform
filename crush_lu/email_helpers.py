@@ -1423,9 +1423,9 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
         logger.warning(f"User {user.id} has no CrushProfile, skipping reminder")
         return False
 
-    # Don't send reminders for completed/submitted profiles
-    if profile.completion_status in ['submitted']:
-        logger.info(f"User {user.email} already has completion_status={profile.completion_status}, skipping")
+    # Don't send reminders for profiles that are already submitted or verified
+    if profile.verification_status in ('pending', 'verified'):
+        logger.info(f"User {user.email} already has verification_status={profile.verification_status}, skipping")
         return False
 
     # Select template based on reminder type

@@ -361,7 +361,7 @@
                                             {% trans "Ideal Crush" %}
                                             <span class="inline-block rounded-full bg-crush-pink px-1.5 py-0.5 text-[10px] font-bold text-white uppercase leading-none ml-1">{% trans "New" %}</span>
                                         </a>
-                                        {% elif profile_completion_status == 'not_started' or profile_completion_status == 'step1' or profile_completion_status == 'step2' or profile_completion_status == 'step3' or profile_completion_status == 'step4' %}
+                                        {% elif profile_completion_status == 'incomplete' %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:create_profile' %}">
                                             {% include "shared/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
                                             {% trans "Finish Profile" %}
@@ -625,7 +625,7 @@
                                             {% trans "Ideal Crush" %}
                                             <span class="inline-block rounded-full bg-crush-pink px-1.5 py-0.5 text-[10px] font-bold text-white uppercase leading-none ml-1">{% trans "New" %}</span>
                                         </a>
-                                        {% elif profile_completion_status == 'not_started' or profile_completion_status == 'step1' or profile_completion_status == 'step2' or profile_completion_status == 'step3' or profile_completion_status == 'step4' %}
+                                        {% elif profile_completion_status == 'incomplete' %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:create_profile' %}">
                                             {% include "shared/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
                                             {% trans "Finish Profile" %}
@@ -700,8 +700,7 @@
                                     {% trans "Mark all read" %}
                                 </button>
                             </div>
-                            {# List rendered imperatively in JS (notificationBell.renderItems) —
-                               the Alpine CSP build can't evaluate x-for over nested item props. #}
+                            {% comment %}List rendered imperatively in JS (notificationBell.renderItems) — the Alpine CSP build can't evaluate x-for over nested item props.{% endcomment %}
                             <ul x-ref="notiflist" class="divide-y divide-gray-100 dark:divide-gray-700" x-show="hasItems"></ul>
                             <div x-show="hasNoItems" class="px-4 py-8 text-center">
                                 <p class="text-sm text-gray-500 dark:text-gray-400 mb-0">{% trans "No notifications yet" %}</p>
@@ -834,7 +833,7 @@
                                     {% trans "Ideal Crush" %}
                                     <span class="inline-block rounded-full bg-crush-pink px-1.5 py-0.5 text-[10px] font-bold text-white uppercase leading-none ml-1">{% trans "New" %}</span>
                                 </a>
-                                {% elif profile_completion_status == 'not_started' or profile_completion_status == 'step1' or profile_completion_status == 'step2' or profile_completion_status == 'step3' or profile_completion_status == 'step4' %}
+                                {% elif profile_completion_status == 'incomplete' %}
                                 <a class="nav-link block" href="{% url 'crush_lu:create_profile' %}">
                                     {% include "shared/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
                                     {% trans "Finish Profile" %}

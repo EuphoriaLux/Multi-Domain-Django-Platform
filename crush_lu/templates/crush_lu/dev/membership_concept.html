@@ -1,0 +1,185 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+
+{% block title %}Membership Segmentation — Concept Preview{% endblock %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-6">
+
+  {# ── Header ── #}
+  <div class="mb-6">
+    <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-100 dark:bg-purple-900/40 text-crush-purple dark:text-purple-300 text-xs font-bold uppercase tracking-wide mb-2">
+      ✦ Staff preview · iterate freely
+    </div>
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">Membership Segmentation</h1>
+    <p class="text-sm text-gray-500 dark:text-gray-400">
+      Live counts from current data ({{ total_active }} active profiles).
+      The <strong>LuxID / Coach / Legacy</strong> split is <em>derived</em> here (LuxID = has a LuxID social account) —
+      the dedicated <code>verification_method</code> field isn't built yet.
+    </p>
+  </div>
+
+  {# ── 1. The membership ladder ── #}
+  <h2 class="text-sm font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">The ladder</h2>
+  <div class="space-y-2 mb-8">
+    {% for step in ladder %}
+    <div class="flex items-center gap-4 rounded-xl border p-3 sm:p-4
+                {% if step.tone == 'green' %}border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/15
+                {% elif step.tone == 'teal' %}border-teal-200 dark:border-teal-800 bg-teal-50/50 dark:bg-teal-900/15
+                {% elif step.tone == 'purple' %}border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-900/15
+                {% elif step.tone == 'amber' %}border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/15
+                {% elif step.tone == 'red' %}border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-900/15
+                {% else %}border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/40{% endif %}">
+      <div class="flex-shrink-0 w-14 text-center">
+        <p class="text-2xl font-bold mb-0
+                  {% if step.tone == 'green' %}text-green-600 dark:text-green-400
+                  {% elif step.tone == 'teal' %}text-teal-600 dark:text-teal-400
+                  {% elif step.tone == 'purple' %}text-crush-purple dark:text-purple-300
+                  {% elif step.tone == 'amber' %}text-amber-600 dark:text-amber-400
+                  {% elif step.tone == 'red' %}text-red-600 dark:text-red-400
+                  {% else %}text-gray-500{% endif %}">{{ step.n }}</p>
+        <p class="text-[10px] text-gray-400 dark:text-gray-500 mb-0">{{ step.pct }}%</p>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="font-semibold text-sm text-gray-900 dark:text-white mb-0.5">{{ step.label }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{{ step.desc }}</p>
+      </div>
+      {# Mini bar #}
+      <div class="hidden sm:block w-32 flex-shrink-0">
+        <div class="h-2 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
+          <div class="h-full rounded-full
+                      {% if step.tone == 'green' %}bg-green-500{% elif step.tone == 'teal' %}bg-teal-500{% elif step.tone == 'purple' %}bg-crush-purple{% elif step.tone == 'amber' %}bg-amber-500{% elif step.tone == 'red' %}bg-red-500{% else %}bg-gray-400{% endif %}"
+               style="width: {{ step.pct }}%"></div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {# ── 2. The trust matrix ── #}
+  <h2 class="text-sm font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">Trust matrix — how verification method shapes access</h2>
+  <div class="card-bordered overflow-hidden mb-8">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40">
+            <th class="text-left font-semibold text-gray-500 dark:text-gray-400 px-4 py-3 text-xs uppercase tracking-wide"></th>
+            {% for m in methods %}
+            <th class="text-center font-semibold text-gray-900 dark:text-white px-4 py-3">
+              <div class="flex flex-col items-center gap-1">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center
+                            {% if m.key == 'luxid' %}bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300
+                            {% elif m.key == 'coach' %}bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-300
+                            {% else %}bg-gray-100 dark:bg-gray-700 text-gray-500{% endif %}">
+                  {% if m.icon == 'shield' %}{% include "shared/icons/shield-check.html" with class="w-4 h-4" %}
+                  {% elif m.icon == 'user' %}{% include "shared/icons/user.html" with class="w-4 h-4" %}
+                  {% else %}{% include "shared/icons/clock.html" with class="w-4 h-4" %}{% endif %}
+                </div>
+                <span>{{ m.label }}</span>
+                <span class="text-xs font-normal text-gray-400">{{ m.n }} · {{ m.pct }}%</span>
+              </div>
+            </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+          {# Row: Attended event (Standard ticket) — connections, NOT the community #}
+          <tr>
+            <td class="px-4 py-3 font-medium text-gray-700 dark:text-gray-300">{% trans "Attended event (Standard)" %}</td>
+            {% for m in methods %}
+            <td class="text-center px-4 py-3">
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">✓ {% trans "connections" %}</span>
+            </td>
+            {% endfor %}
+          </tr>
+          {# Row: Premium (coach) — the Crush Connect unlock #}
+          <tr>
+            <td class="px-4 py-3 font-medium text-gray-700 dark:text-gray-300">{% trans "Premium (coach)" %}</td>
+            {% for m in methods %}
+            <td class="text-center px-4 py-3">
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 dark:bg-purple-900/30 text-crush-purple dark:text-purple-300">★ {% trans "Crush Connect" %}</span>
+            </td>
+            {% endfor %}
+          </tr>
+          {# Row: Event eligibility #}
+          <tr class="bg-gray-50/40 dark:bg-gray-800/30">
+            <td class="px-4 py-3 font-medium text-gray-700 dark:text-gray-300">{% trans "Event eligibility" %}</td>
+            {% for m in methods %}
+            <td class="text-center px-4 py-3">
+              {% if m.key == 'luxid' %}
+                <span class="text-xs font-bold text-indigo-600 dark:text-indigo-300">{{ m.eligibility }}</span>
+              {% else %}
+                <span class="text-xs text-gray-500 dark:text-gray-400">{{ m.eligibility }}</span>
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="px-4 py-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40">
+      <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">
+        <strong>{% trans "Reading it:" %}</strong>
+        {% trans "All three methods grant full access. The only difference is the top trust tier — only LuxID-verified members can attend LuxID-only events." %}
+      </p>
+    </div>
+  </div>
+
+  {# ── 3. Funnel summary ── #}
+  <h2 class="text-sm font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">Conversion at a glance</h2>
+  <div class="grid grid-cols-3 gap-3 mb-8">
+    <div class="card-bordered p-4 text-center">
+      <p class="text-2xl font-bold text-green-600 dark:text-green-400 mb-0.5">{{ n_verified }}</p>
+      <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{% trans "Verified" %}</p>
+    </div>
+    <div class="card-bordered p-4 text-center">
+      <p class="text-2xl font-bold text-teal-600 dark:text-teal-400 mb-0.5">{{ n_community }}</p>
+      <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{% trans "Attended (community)" %}</p>
+    </div>
+    <div class="card-bordered p-4 text-center">
+      <p class="text-2xl font-bold text-crush-purple dark:text-purple-300 mb-0.5">{{ n_premium }}</p>
+      <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{% trans "Premium (coach)" %}</p>
+    </div>
+  </div>
+
+  {# ── 4. Premium perks bundle (concept) ── #}
+  <h2 class="text-sm font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">Premium perks — proposed bundle</h2>
+  <div class="rounded-2xl border border-amber-300/60 dark:border-amber-500/30 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/15 dark:to-orange-900/15 overflow-hidden mb-8">
+    <div class="px-5 py-4 border-b border-amber-200/60 dark:border-amber-700/40 flex items-center gap-2">
+      <span class="text-lg">✦</span>
+      <div>
+        <p class="font-bold text-amber-900 dark:text-amber-200 mb-0">Premium membership</p>
+        <p class="text-xs text-amber-700/80 dark:text-amber-400 mb-0">Comes with your personal coach. What it unlocks:</p>
+      </div>
+    </div>
+    <div class="divide-y divide-amber-200/40 dark:divide-amber-700/30">
+      {% for perk in perks %}
+      <div class="flex items-start gap-3 px-5 py-3">
+        <div class="w-7 h-7 rounded-lg bg-white/70 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0 text-amber-600 dark:text-amber-300">
+          {% include perk.icon with class="w-4 h-4" %}
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap mb-0.5">
+            <p class="font-semibold text-sm text-amber-900 dark:text-amber-200 mb-0">{{ perk.name }}</p>
+            {% if perk.status == 'live' %}
+              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 uppercase">Live</span>
+            {% elif perk.status == 'building' %}
+              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 uppercase">Building now</span>
+            {% else %}
+              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 uppercase">Planned</span>
+            {% endif %}
+            <span class="text-[10px] text-amber-600/70 dark:text-amber-500/70">{{ perk.effort }}</span>
+          </div>
+          <p class="text-xs text-amber-700/80 dark:text-amber-400/90 mb-0">{{ perk.why }}</p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <p class="text-xs text-gray-400 dark:text-gray-500 text-center">
+    {% trans "Concept page for internal iteration — tell Claude what to change." %}
+  </p>
+</div>
+{% endblock %}

@@ -1,0 +1,110 @@
+{% load i18n %}
+{% comment %}
+  The three Crush.lu products. Reusable comparison.
+  Expects: profile (CrushProfile or None), is_premium (bool),
+           has_attended_event (bool), next_event (optional).
+  Highlights the viewer's current tier and shows the right CTA.
+{% endcomment %}
+{% with vs=profile.verification_status|default:"incomplete" %}
+
+<div class="mb-6">
+  <div class="text-center mb-4">
+    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-1">{% trans "Choose how you join" %}</h3>
+    <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Crush Connect — our matching community — is exclusive to Premium." %}</p>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
+
+    {# ── 1. LuxID Verify (free) ── #}
+    <div class="relative rounded-2xl border bg-white dark:bg-gray-800 flex flex-col
+                {% if vs == 'verified' and not is_premium and not has_attended_event %}border-green-300 dark:border-green-700 ring-1 ring-green-300/50{% else %}border-gray-200 dark:border-gray-700{% endif %}">
+      <div class="p-5 flex-1 flex flex-col">
+        <div class="flex items-center gap-2 mb-1">
+          <div class="w-9 h-9 rounded-xl bg-green-100 dark:bg-green-900/40 flex items-center justify-center text-green-600 dark:text-green-400">
+            {% include "shared/icons/shield-check.html" with class="w-5 h-5" %}
+          </div>
+          <span class="text-[11px] font-bold uppercase tracking-wide text-green-600 dark:text-green-400">{% trans "Free" %}</span>
+        </div>
+        <h4 class="font-bold text-gray-900 dark:text-white mb-0.5">{% trans "LuxID Verify" %}</h4>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">{% trans "Prove it's really you, instantly." %}</p>
+
+        <ul class="space-y-2 text-sm mb-5 flex-1">
+          <li class="flex items-center gap-2 text-gray-700 dark:text-gray-300"><span class="text-green-500">✓</span> {% trans "Verified profile" %}</li>
+          <li class="flex items-center gap-2 text-gray-700 dark:text-gray-300"><span class="text-green-500">✓</span> {% trans "Browse & buy event tickets" %}</li>
+          <li class="flex items-center gap-2 text-gray-400 dark:text-gray-500"><span>✕</span> {% trans "No personal coach" %}</li>
+          <li class="flex items-center gap-2 text-gray-400 dark:text-gray-500"><span>✕</span> {% trans "No Crush Connect" %}</li>
+        </ul>
+
+        {% if vs == 'verified' %}
+          <span class="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-sm font-semibold">✓ {% trans "Active" %}</span>
+        {% else %}
+          <a href="{% url 'crush_lu:profile_submitted' %}" class="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl border border-green-300 dark:border-green-700 text-green-700 dark:text-green-300 text-sm font-semibold hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors">{% trans "Verify free" %}</a>
+        {% endif %}
+      </div>
+    </div>
+
+    {# ── 2. Standard Ticket (paid) ── #}
+    <div class="relative rounded-2xl border bg-white dark:bg-gray-800 flex flex-col
+                {% if has_attended_event and not is_premium %}border-blue-300 dark:border-blue-700 ring-1 ring-blue-300/50{% else %}border-gray-200 dark:border-gray-700{% endif %}">
+      <div class="p-5 flex-1 flex flex-col">
+        <div class="flex items-center gap-2 mb-1">
+          <div class="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 0 1 0 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 0 1 0-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375Z"/></svg>
+          </div>
+          <span class="text-[11px] font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400">{% trans "Per event" %}</span>
+        </div>
+        <h4 class="font-bold text-gray-900 dark:text-white mb-0.5">{% trans "Standard Ticket" %}</h4>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">{% trans "Come to an event and meet people in person." %}</p>
+
+        <ul class="space-y-2 text-sm mb-5 flex-1">
+          <li class="flex items-center gap-2 text-gray-700 dark:text-gray-300"><span class="text-green-500">✓</span> {% trans "Entry to one event" %}</li>
+          <li class="flex items-center gap-2 text-gray-700 dark:text-gray-300"><span class="text-green-500">✓</span> {% trans "Meet people face-to-face" %}</li>
+          <li class="flex items-center gap-2 text-gray-700 dark:text-gray-300"><span class="text-green-500">✓</span> {% trans "Post-event connections" %}</li>
+          <li class="flex items-center gap-2 text-gray-400 dark:text-gray-500"><span>✕</span> {% trans "No Crush Connect" %}</li>
+        </ul>
+
+        <a href="{% url 'crush_lu:event_list' %}" class="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 text-sm font-semibold hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+          {% if has_attended_event %}{% trans "Browse more events" %}{% else %}{% trans "Browse events" %}{% endif %}
+        </a>
+      </div>
+    </div>
+
+    {# ── 3. Premium (paid, featured) ── #}
+    <div class="relative rounded-2xl flex flex-col overflow-hidden shadow-[0_8px_30px_rgba(155,89,182,0.25)]
+                {% if is_premium %}bg-gradient-to-br from-crush-purple to-crush-pink{% else %}bg-gradient-to-br from-crush-purple to-crush-pink{% endif %}">
+      {# ribbon #}
+      <div class="absolute top-0 inset-x-0 bg-white/15 py-1 text-center">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-white">★ {% trans "Unlocks Crush Connect" %}</span>
+      </div>
+      <div class="p-5 pt-9 flex-1 flex flex-col text-white">
+        <div class="flex items-center gap-2 mb-1">
+          <div class="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 0 0 .95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 0 0-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 0 0-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 0 0-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 0 0 .951-.69l1.07-3.292Z"/></svg>
+          </div>
+          <span class="text-[11px] font-bold uppercase tracking-wide text-white/80">{% trans "Premium" %}</span>
+        </div>
+        <h4 class="font-bold text-white text-lg mb-0.5">{% trans "Premium Package" %}</h4>
+        <p class="text-xs text-white/80 mb-4">{% trans "Ticket + your personal coach + the community." %}</p>
+
+        <ul class="space-y-2 text-sm mb-5 flex-1">
+          <li class="flex items-center gap-2 text-white"><span>✓</span> {% trans "Everything in Standard" %}</li>
+          <li class="flex items-center gap-2 text-white"><span>✓</span> {% trans "Personal coach" %}</li>
+          <li class="flex items-center gap-2 text-white"><span>✓</span> {% trans "In-person verification before the event" %}</li>
+          <li class="flex items-center gap-2 text-white"><span>✓</span> {% trans "Reserved event seats" %}</li>
+          <li class="flex items-center gap-2 text-white font-semibold"><span>★</span> {% trans "Crush Connect — daily matches" %}</li>
+        </ul>
+
+        {% if is_premium %}
+          <span class="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-white/20 text-white text-sm font-bold">✓ {% trans "Your plan" %}</span>
+        {% else %}
+          <a href="{% url 'crush_lu:event_list' %}" class="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-white text-crush-purple text-sm font-bold hover:bg-purple-50 transition-colors">
+            {% trans "Go Premium" %}
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
+          </a>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endwith %}

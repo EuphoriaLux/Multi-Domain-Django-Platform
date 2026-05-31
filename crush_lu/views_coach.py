@@ -71,7 +71,7 @@ def coach_dashboard(request):
     now = timezone.now()
 
     # --- Row 1: Summary stat cards ---
-    approved_profiles = CrushProfile.objects.filter(is_approved=True)
+    approved_profiles = CrushProfile.objects.filter(verification_status="verified")
     total_approved = approved_profiles.count()
 
     pending_reviews = ProfileSubmission.objects.filter(
@@ -351,9 +351,9 @@ def coach_dashboard(request):
         for ms in MatchScore.objects.filter(
             Q(user_a_id__in=my_user_ids) | Q(user_b_id__in=my_user_ids),
             score_final__gte=THRESHOLD_GOOD,
-            user_a__crushprofile__is_approved=True,
+            user_a__crushprofile__verification_status="verified",
             user_a__crushprofile__is_active=True,
-            user_b__crushprofile__is_approved=True,
+            user_b__crushprofile__verification_status="verified",
             user_b__crushprofile__is_active=True,
         ).values_list("user_a_id", "user_b_id"):
             if ms[0] in my_user_ids:
@@ -780,22 +780,21 @@ def coach_profiles(request):
             profilesubmission__coach=coach,
             profilesubmission__status="revision",
         )
-        .exclude(completion_status="submitted")
-        .exclude(is_approved=True)
+        .exclude(verification_status="pending")
+        .exclude(verification_status="verified")
         .select_related("user")
         .distinct()
         .order_by("-updated_at")
     )
 
-    # All incomplete: profiles with verified phone stuck in steps, no approved status
+    # All incomplete: profiles stuck in the wizard (not yet pending or verified)
     all_incomplete = (
         CrushProfile.objects.filter(
-            completion_status__in=["step1", "step2", "step3", "step4"],
+            verification_status="incomplete",
             phone_number__isnull=False,
             phone_verified=True,
         )
         .exclude(phone_number="")
-        .exclude(is_approved=True)
         .select_related("user")
         .order_by("-updated_at")[:50]
     )
@@ -1154,6 +1153,7 @@ def coach_review_profile(request, submission_id):
                     )
                 submission.profile.is_approved = True
                 submission.profile.approved_at = timezone.now()
+                submission.profile.verification_status = "verified"
                 submission.profile.save()
                 messages.success(request, _("Profile approved!"))
 
@@ -1177,6 +1177,7 @@ def coach_review_profile(request, submission_id):
 
             elif submission.status == "rejected":
                 submission.profile.is_approved = False
+                submission.profile.verification_status = "rejected"
                 submission.profile.save()
                 messages.info(request, _("Profile rejected."))
 
@@ -1210,8 +1211,8 @@ def coach_review_profile(request, submission_id):
                 # keeps state consistent between request and resubmit.
                 submission.coach = None
 
-                # Unlock the profile wizard so the user can edit and resubmit.
-                submission.profile.completion_status = 'step4'
+                # Unlock the profile so the user can edit and resubmit.
+                submission.profile.verification_status = 'incomplete'
                 submission.profile.save()
 
                 # Send revision request to user (push first, email fallback)
@@ -2387,13 +2388,22 @@ def coach_event_sms_invite(request, event_id):
         pool_label = _("Incomplete Profiles")
 
     elif event.profile_requirement == "approved":
-        profile_pool_qs = CrushProfile.objects.filter(phone_q, is_approved=True).filter(
+        profile_pool_qs = CrushProfile.objects.filter(phone_q, verification_status="verified").filter(
             age_q_lenient
         )
         if has_language_filter:
             profile_pool_qs = profile_pool_qs.filter(lang_q)
         profile_pool_qs = profile_pool_qs.select_related("user")
         pool_label = _("Approved Profiles")
+
+    elif event.profile_requirement == "coach_assigned":
+        profile_pool_qs = CrushProfile.objects.filter(
+            phone_q, assigned_coach__isnull=False
+        ).filter(age_q_lenient)
+        if has_language_filter:
+            profile_pool_qs = profile_pool_qs.filter(lang_q)
+        profile_pool_qs = profile_pool_qs.select_related("user", "assigned_coach__user")
+        pool_label = _("Premium Members (Coach assigned)")
 
     elif event.profile_requirement == "profile_exists":
         profile_pool_qs = CrushProfile.objects.filter(phone_q).filter(age_q_lenient)
@@ -2872,7 +2882,7 @@ def coach_member_matches(request, user_id):
             other_user = ms.user_b if ms.user_a == member else ms.user_a
             try:
                 other_profile = CrushProfile.objects.get(
-                    user=other_user, is_approved=True, is_active=True
+                    user=other_user, verification_status="verified", is_active=True
                 )
             except CrushProfile.DoesNotExist:
                 continue
@@ -2941,7 +2951,7 @@ def coach_match_pairs(request):
         profiles_by_user = {
             p.user_id: p
             for p in CrushProfile.objects.filter(
-                user_id__in=all_user_ids, is_approved=True, is_active=True
+                user_id__in=all_user_ids, verification_status="verified", is_active=True
             )
         }
 

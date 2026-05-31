@@ -253,10 +253,11 @@ class Command(BaseCommand):
                 show_full_name=random.choice([True, False]),
                 show_exact_age=random.choice([True, True, False]),  # 66% show exact age
                 preferred_language=random.choice(['en', 'en', 'de', 'fr']),  # More English
-                is_approved=True,  # Pre-approve for testing
+                is_approved=True,
                 is_active=True,
                 approved_at=timezone.now(),
-                completion_status='submitted',  # Profile was submitted and approved
+                verification_status='verified',
+                completion_status='submitted',  # legacy field
             )
 
             # Upload photos if available
