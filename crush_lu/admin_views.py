@@ -248,6 +248,12 @@ def crush_admin_dashboard(request):
     step3_completed = funnel_verified
     submitted = funnel_pending
 
+    # The granular per-step funnel (step1–4) is no longer tracked under the
+    # 4-state verification_status model. Keep the legacy dashboard template
+    # rendering by surfacing 0 for those removed buckets.
+    funnel_step1 = funnel_step2 = funnel_step3 = funnel_step4 = 0
+    funnel_step1_pct = funnel_step2_pct = funnel_step3_pct = funnel_step4_pct = 0
+
     # ============================================================================
     # COACH METRICS
     # ============================================================================

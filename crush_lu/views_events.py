@@ -57,13 +57,27 @@ def _promote_from_waitlist(event, cancelled_user=None):
     if not waitlisted.exists():
         return None
 
-    # If gender limits are not active, just promote first in line
+    # Reserved premium seats are held for coach-assigned members. A general
+    # (non-premium) candidate may only be promoted while public capacity has
+    # room; a premium candidate may claim the full capacity, including reserves.
+    _premium_cache = {}
+
+    def _is_premium(reg):
+        if reg.user_id not in _premium_cache:
+            _premium_cache[reg.user_id] = CrushProfile.objects.filter(
+                user_id=reg.user_id, assigned_coach__isnull=False
+            ).exists()
+        return _premium_cache[reg.user_id]
+
+    # If gender limits are not active, promote the first candidate that fits
+    # under their own capacity rule (skipping general users when only reserved
+    # premium seats remain).
     if not event.gender_limits_active:
-        if not event.is_full:
-            candidate = waitlisted.first()
-            candidate.status = "confirmed"
-            candidate.save()
-            return candidate
+        for candidate in waitlisted:
+            if not event.is_full_for(_is_premium(candidate)):
+                candidate.status = "confirmed"
+                candidate.save()
+                return candidate
         return None
 
     # Gender-aware promotion
@@ -92,17 +106,19 @@ def _promote_from_waitlist(event, cancelled_user=None):
             for candidate in waitlisted_list:
                 cand_gender = _get_gender(candidate)
                 if cand_gender in pool_codes:
-                    if not event.is_full and not event.is_gender_pool_full(cand_gender):
+                    if not event.is_full_for(
+                        _is_premium(candidate)
+                    ) and not event.is_gender_pool_full(cand_gender):
                         candidate.status = "confirmed"
                         candidate.save()
                         return candidate
 
     # 2. Try any waitlisted user whose pool has room
     for candidate in waitlisted_list:
-        if event.is_full:
-            break
         cand_gender = _get_gender(candidate)
         if not cand_gender or event.is_gender_pool_full(cand_gender):
+            continue
+        if event.is_full_for(_is_premium(candidate)):
             continue
         candidate.status = "confirmed"
         candidate.save()

@@ -2125,7 +2125,7 @@ def auto_approve_profile_on_luxid_connect(sender, request, sociallogin, **kwargs
     paid coach revision re-submit).
 
     Guards: LuxID provider, crush.lu domain, authenticated user, has CrushProfile,
-    not already verified.
+    profile is in the 'pending' state (submitted, awaiting verification).
     """
     if sociallogin.account.provider not in ("luxid", "openid_connect"):
         return
@@ -2149,10 +2149,15 @@ def auto_approve_profile_on_luxid_connect(sender, request, sociallogin, **kwargs
         )
         return
 
-    if profile.verification_status == "verified":
+    # Only a profile that has been submitted and is awaiting verification may be
+    # verified by connecting LuxID. This blocks 'incomplete' profiles (never
+    # submitted) and 'rejected' profiles from bypassing the submission/rejection
+    # flow, and is a no-op for already-'verified' profiles.
+    if profile.verification_status != "pending":
         logger.info(
-            "[LUXID-VERIFY] Profile pk=%s already verified, skipping",
+            "[LUXID-VERIFY] Profile pk=%s status=%r not pending, skipping",
             profile.pk,
+            profile.verification_status,
         )
         return
 
