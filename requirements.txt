@@ -31,7 +31,7 @@ python-magic==0.4.27; sys_platform != 'win32'
 python-magic-bin==0.4.14; sys_platform == 'win32'
 
 # Microsoft Graph API (for email)
-msal==1.36.0  # Updated from 1.31.1 (latest stable)
+msal==1.37.0  # Updated from 1.31.1 (latest stable)
 
 # Production Server
 gunicorn==26.0.0
