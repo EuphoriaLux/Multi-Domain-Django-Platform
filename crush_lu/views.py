@@ -1770,10 +1770,13 @@ def profile_submitted(request):
             luxid_connect_url = _luxid_connect_url(
                 _available_providers, oidc_app=_oidc_app
             )
-        elif profile.verification_status != "verified":
-            # Lazy fix-up: user already has LuxId but profile is not yet verified.
-            # This can happen if LuxId was connected before the submission existed
-            # (old flow) or via an edge case. Verify directly now.
+        elif profile.verification_status == "pending":
+            # Lazy fix-up: user already has LuxId but their submitted profile
+            # is still awaiting verification. This can happen if LuxId was
+            # connected before the submission existed (old flow) or via an edge
+            # case, so the social_account_added signal never fired. Verify
+            # directly now. Only "pending" profiles qualify — "rejected" users
+            # must not be able to self-clear by reloading this page.
             from .signals import _execute_luxid_direct_verify
 
             _execute_luxid_direct_verify(request.user, profile, submission, request)

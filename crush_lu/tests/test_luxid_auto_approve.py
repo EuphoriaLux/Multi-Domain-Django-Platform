@@ -472,6 +472,30 @@ class TestProfileSubmittedLuxidContext(_SiteMixin, TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn("dashboard", response["Location"])
 
+    def test_rejected_profile_with_luxid_not_verified(self):
+        """A rejected profile must not self-clear by loading the status page,
+        even with a LuxID account connected (lazy fix-up is pending-only)."""
+        from allauth.socialaccount.models import SocialApp
+        site = Site.objects.get_current()
+        app = SocialApp.objects.create(
+            provider="luxid", name="LuxID", client_id="test", secret="test"
+        )
+        app.sites.add(site)
+        SocialAccount.objects.create(user=self.user, provider="luxid", uid="lux-123")
+
+        self.profile.verification_status = "rejected"
+        self.profile.save(update_fields=["verification_status"])
+
+        with patch("crush_lu.notification_service.notify_profile_approved"):
+            response = self._get_profile_submitted()
+
+        self.profile.refresh_from_db()
+        self.assertFalse(self.profile.is_approved)
+        self.assertEqual(self.profile.verification_status, "rejected")
+        # Not redirected to the dashboard (would only happen on verification).
+        if response.status_code == 302:
+            self.assertNotIn("dashboard", response["Location"])
+
     def test_approved_submission_no_cta(self):
         """CTA is only shown for pending submissions."""
         self.submission.status = "approved"
