@@ -1,8 +1,119 @@
 from django.shortcuts import render, redirect
 from django.utils import timezone
+from django.contrib.admin.views.decorators import staff_member_required
 from .models import MeetupEvent
 from .models.crush_connect import CrushConnectWaitlist
 from .models.events import EventRegistration
+
+
+@staff_member_required
+def membership_concept_preview(request):
+    """
+    Staff-only concept preview of the future membership segmentation.
+
+    Visualises the verification ladder + the LuxID / Coach / Legacy trust
+    matrix, with LIVE counts derived from current data so the concept can be
+    iterated against reality. The `verification_method` split is *derived*
+    here (LuxID = has a luxid/openid_connect social account) because the
+    dedicated field is not built yet — see memory `verification-method-planned`.
+    """
+    from django.db.models import Count, Q, Exists, OuterRef
+    from allauth.socialaccount.models import SocialAccount
+    from .models import CrushProfile
+
+    active = CrushProfile.objects.filter(is_active=True)
+
+    luxid_sub = SocialAccount.objects.filter(
+        user=OuterRef("user"), provider__in=["luxid", "openid_connect"]
+    )
+    attended_sub = EventRegistration.objects.filter(
+        user=OuterRef("user"), status="attended"
+    )
+
+    verified = active.filter(verification_status="verified").annotate(
+        _has_luxid=Exists(luxid_sub),
+        _has_attended=Exists(attended_sub),
+    )
+
+    total_active = active.count()
+    n_incomplete = active.filter(verification_status="incomplete").count()
+    n_pending = active.filter(verification_status="pending").count()
+    n_rejected = active.filter(verification_status="rejected").count()
+    n_verified = verified.count()
+
+    # Derived verification-method split
+    n_luxid = verified.filter(_has_luxid=True).count()
+    n_coach = verified.filter(
+        _has_luxid=False, assigned_coach__isnull=False
+    ).count()
+    n_legacy = n_verified - n_luxid - n_coach  # verified, no luxid, no coach
+
+    # Community + premium unlocks
+    n_community = verified.filter(_has_attended=True).count()
+    n_premium = verified.filter(assigned_coach__isnull=False).count()
+
+    def pct(n):
+        return round(n / total_active * 100, 1) if total_active else 0
+
+    ladder = [
+        {"key": "incomplete", "label": "Incomplete", "n": n_incomplete, "pct": pct(n_incomplete),
+         "desc": "Browsing only — finishing profile", "tone": "gray"},
+        {"key": "pending", "label": "Pending", "n": n_pending, "pct": pct(n_pending),
+         "desc": "Submitted, awaiting verification", "tone": "amber"},
+        {"key": "verified", "label": "Verified", "n": n_verified, "pct": pct(n_verified),
+         "desc": "Full access — can browse & buy event tickets", "tone": "green"},
+        {"key": "attended", "label": "Attended an event", "n": n_community, "pct": pct(n_community),
+         "desc": "Came to ≥1 event (Standard or Premium) — met people in person", "tone": "teal"},
+        {"key": "premium", "label": "Premium · Crush Connect", "n": n_premium, "pct": pct(n_premium),
+         "desc": "Personal coach assigned → Crush Connect + coach-only events unlocked", "tone": "purple"},
+        {"key": "rejected", "label": "Rejected", "n": n_rejected, "pct": pct(n_rejected),
+         "desc": "Blocked — support path", "tone": "red"},
+    ]
+
+    methods = [
+        {"key": "luxid", "label": "LuxID-verified", "n": n_luxid, "pct": pct(n_luxid),
+         "eligibility": "ALL event tiers", "icon": "shield"},
+        {"key": "coach", "label": "Coach-verified", "n": n_coach, "pct": pct(n_coach),
+         "eligibility": "Standard + coach events", "icon": "user"},
+        {"key": "legacy", "label": "Legacy-verified", "n": n_legacy, "pct": pct(n_legacy),
+         "eligibility": "Standard + coach events", "icon": "clock"},
+    ]
+
+    # Proposed premium perks bundle (concept — iterate freely)
+    perks = [
+        {"name": "Reserved event seats", "icon": "shared/icons/star.html",
+         "status": "building", "effort": "medium",
+         "why": "Your coach saves you a seat — join even when an event is sold out."},
+        {"name": "Premium-only events", "icon": "shared/icons/lock-closed.html",
+         "status": "live", "effort": "shipped",
+         "why": "Exclusive events gated to members with a coach (coach_assigned tier)."},
+        {"name": "Early access window", "icon": "shared/icons/clock.html",
+         "status": "planned", "effort": "small",
+         "why": "See & book new events 24–48h before they open to everyone."},
+        {"name": "See who liked you", "icon": "shared/icons/heart.html",
+         "status": "planned", "effort": "medium",
+         "why": "The universal dating-app converter — reveal interest instantly."},
+        {"name": "Premium badge", "icon": "shared/icons/shield-check.html",
+         "status": "planned", "effort": "small",
+         "why": "Status + trust signal; pairs with the planned verification_method badges."},
+        {"name": "Pre-event briefing & debrief", "icon": "shared/icons/chat-bubble-left-right.html",
+         "status": "planned", "effort": "small",
+         "why": "Coach flags who to look for, then gives feedback afterward."},
+        {"name": "+1 guest pass", "icon": "shared/icons/user-plus.html",
+         "status": "planned", "effort": "medium",
+         "why": "Bring a friend — built-in viral growth loop."},
+    ]
+
+    context = {
+        "ladder": ladder,
+        "methods": methods,
+        "perks": perks,
+        "total_active": total_active,
+        "n_verified": n_verified,
+        "n_community": n_community,
+        "n_premium": n_premium,
+    }
+    return render(request, "crush_lu/dev/membership_concept.html", context)
 
 
 def home(request):
@@ -69,9 +180,8 @@ def crush_connect_teaser(request):
         and getattr(_settings, "CRUSH_CONNECT_LAUNCHED", False)
     ):
         profile = getattr(request.user, "crushprofile", None)
-        if profile and profile.is_approved and EventRegistration.objects.filter(
-            user=request.user, status="attended"
-        ).exists():
+        # Premium gate: Crush Connect requires a personal coach assigned.
+        if profile and profile.is_approved and profile.assigned_coach_id:
             membership = getattr(request.user, "crush_connect_membership", None)
             if membership and membership.is_onboarded:
                 return redirect("crush_lu:crush_connect_home")
@@ -84,7 +194,7 @@ def crush_connect_teaser(request):
         "total_waitlist": CrushConnectWaitlist.objects.count(),
         "is_eligible": False,
         "profile_approved": False,
-        "has_attended_event": False,
+        "is_premium": False,
     }
 
     if request.user.is_authenticated:
@@ -96,12 +206,8 @@ def crush_connect_teaser(request):
         except CrushConnectWaitlist.DoesNotExist:
             pass
 
-        context["profile_approved"] = (
-            hasattr(request.user, "crushprofile")
-            and request.user.crushprofile.is_approved
-        )
-        context["has_attended_event"] = EventRegistration.objects.filter(
-            user=request.user, status="attended"
-        ).exists()
+        _profile = getattr(request.user, "crushprofile", None)
+        context["profile_approved"] = bool(_profile and _profile.is_approved)
+        context["is_premium"] = bool(_profile and _profile.assigned_coach_id)
 
     return render(request, "crush_lu/crush_connect.html", context)

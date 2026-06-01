@@ -63,7 +63,7 @@ def get_current_step(profile) -> int:
       1. welcome          — welcome_seen_at is null
       2. phone verify     — phone_verified is False
       3. coach intro      — coach_intro_seen_at is null
-      4. build profile    — completion_status != 'submitted'
+      4. build profile    — verification_status == 'incomplete'
       5. under review     — submission queued, no coach assigned yet
       6. meet coach       — coach has claimed; user sees coach bio
       7. screening call   — submission approved + call pending
@@ -87,7 +87,7 @@ def get_current_step(profile) -> int:
         return 2
     if not profile.coach_intro_seen_at:
         return 3
-    if profile.completion_status != "submitted":
+    if profile.verification_status == "incomplete":
         return 4
 
     submission = getattr(profile, "profilesubmission_set", None)

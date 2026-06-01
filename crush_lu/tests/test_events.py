@@ -581,6 +581,76 @@ class WaitlistPromotionTests(TestCase):
             event=self.event, user=user, status=status,
         )
 
+    def _make_premium(self, user):
+        """Attach an assigned coach so the user counts as premium."""
+        from crush_lu.models import CrushCoach, CrushProfile
+
+        coach_user = User.objects.create_user(
+            username=f"coach_{user.username}",
+            email=f"coach_{user.username}",
+            password="testpass123",
+        )
+        coach = CrushCoach.objects.create(user=coach_user, is_active=True)
+        CrushProfile.objects.filter(user=user).update(assigned_coach=coach)
+        return coach
+
+    def test_reserved_seat_not_filled_by_general_waitlist(self):
+        """A general waitlisted user must not be promoted into a reserved
+        premium seat — the reserve stays held when public capacity is full."""
+        from django.db import transaction
+        from crush_lu.views_events import _promote_from_waitlist
+
+        u1 = self._create_user_with_profile('g1@test.com', 'M')
+        u2 = self._create_user_with_profile('g2@test.com', 'F')
+        u3 = self._create_user_with_profile('g3@test.com', 'M')
+
+        # max=3, 1 reserved → public_capacity=2.
+        self.event.max_participants = 3
+        self.event.reserved_premium_seats = 1
+        self.event.save()
+
+        self._register(u1, 'confirmed')
+        self._register(u2, 'confirmed')   # public 2/2 full, total 2/3
+        self._register(u3, 'waitlist')    # general
+
+        with transaction.atomic():
+            locked = type(self.event).objects.select_for_update().get(pk=self.event.pk)
+            promoted = _promote_from_waitlist(locked)
+
+        # The free seat is reserved for premium members, so the general
+        # waitlisted user is not promoted.
+        self.assertIsNone(promoted)
+
+    def test_reserved_seat_filled_by_premium_waitlist(self):
+        """A premium (coach-assigned) waitlisted user may take the reserved
+        seat even when general users ahead of them cannot."""
+        from django.db import transaction
+        from crush_lu.views_events import _promote_from_waitlist
+
+        u1 = self._create_user_with_profile('g1@test.com', 'M')
+        u2 = self._create_user_with_profile('g2@test.com', 'F')
+        u3 = self._create_user_with_profile('g3@test.com', 'M')   # general, earlier
+        u4 = self._create_user_with_profile('p4@test.com', 'F')   # premium, later
+        self._make_premium(u4)
+
+        self.event.max_participants = 3
+        self.event.reserved_premium_seats = 1
+        self.event.save()
+
+        self._register(u1, 'confirmed')
+        self._register(u2, 'confirmed')   # public 2/2 full, total 2/3
+        self._register(u3, 'waitlist')    # general — cannot take reserved seat
+        reg4 = self._register(u4, 'waitlist')  # premium — eligible for reserved seat
+
+        with transaction.atomic():
+            locked = type(self.event).objects.select_for_update().get(pk=self.event.pk)
+            promoted = _promote_from_waitlist(locked)
+
+        self.assertIsNotNone(promoted)
+        self.assertEqual(promoted.user, u4)
+        reg4.refresh_from_db()
+        self.assertEqual(reg4.status, 'confirmed')
+
     def test_fifo_promotion_on_cancel(self):
         """When no gender limits, first waitlisted user is promoted (FIFO)."""
         from django.db import transaction
@@ -1282,3 +1352,78 @@ class CheckInVotingGateTests(TestCase):
         self.client.force_login(self.confirmed_user)
         response = self.client.get(self._presentations_url())
         self.assertEqual(response.status_code, 302)
+
+
+class CoachAssignmentOnAttendanceTests(TestCase):
+    """A member earns a permanent coach the first time they attend an event."""
+
+    def setUp(self):
+        from crush_lu.models import MeetupEvent, CrushCoach, CrushProfile
+
+        self.event = MeetupEvent.objects.create(
+            title='Coach Assignment Test',
+            description='Testing coach assignment on attendance',
+            event_type='mixer',
+            date_time=timezone.now() + timedelta(days=7),
+            location='Luxembourg',
+            address='123 Test Street',
+            max_participants=10,
+            registration_deadline=timezone.now() + timedelta(days=5),
+            is_published=True,
+        )
+        coach_user = User.objects.create_user(
+            username='coach@test.com', email='coach@test.com', password='testpass123',
+        )
+        self.coach = CrushCoach.objects.create(user=coach_user, is_active=True)
+        self.event.coaches.add(self.coach)
+
+        self.user = User.objects.create_user(
+            username='member@test.com', email='member@test.com', password='testpass123',
+        )
+        self.profile = CrushProfile.objects.create(
+            user=self.user,
+            date_of_birth=date(1995, 1, 1),
+            gender='F',
+            location='Luxembourg',
+        )
+
+    def _register(self, status):
+        from crush_lu.models import EventRegistration
+
+        return EventRegistration.objects.create(
+            event=self.event, user=self.user, status=status,
+        )
+
+    def test_attendance_assigns_event_coach(self):
+        reg = self._register('confirmed')
+        self.assertIsNone(self.profile.assigned_coach_id)
+
+        reg.status = 'attended'
+        reg.save()
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.assigned_coach_id, self.coach.id)
+        self.assertIsNotNone(self.profile.assigned_coach_at)
+
+    def test_existing_coach_is_not_overwritten(self):
+        from crush_lu.models import CrushCoach
+
+        other_user = User.objects.create_user(
+            username='coach2@test.com', email='coach2@test.com', password='testpass123',
+        )
+        other_coach = CrushCoach.objects.create(user=other_user, is_active=True)
+        self.profile.assigned_coach = other_coach
+        self.profile.save(update_fields=['assigned_coach'])
+
+        reg = self._register('confirmed')
+        reg.status = 'attended'
+        reg.save()
+
+        self.profile.refresh_from_db()
+        # Permanent assignment — the first coach stays.
+        self.assertEqual(self.profile.assigned_coach_id, other_coach.id)
+
+    def test_confirmed_only_does_not_assign(self):
+        self._register('confirmed')
+        self.profile.refresh_from_db()
+        self.assertIsNone(self.profile.assigned_coach_id)

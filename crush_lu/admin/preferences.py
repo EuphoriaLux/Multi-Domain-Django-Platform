@@ -259,16 +259,16 @@ class ProfileReminderAdmin(admin.ModelAdmin):
     get_email.admin_order_field = 'user__email'
 
     def get_profile_status(self, obj):
-        """Display current profile completion status"""
+        """Display current profile verification status"""
         try:
             profile = obj.user.crushprofile
-            status = profile.completion_status
-            if profile.is_approved:
-                return mark_safe('<span style="color: green;">✅ Approved</span>')
-            elif status == 'submitted':
-                return mark_safe('<span style="color: blue;">📝 Submitted</span>')
-            elif status == 'not_started':
-                return mark_safe('<span style="color: red;">❌ Not Started</span>')
+            status = profile.verification_status
+            if status == 'verified':
+                return mark_safe('<span style="color: green;">✅ Verified</span>')
+            elif status == 'pending':
+                return mark_safe('<span style="color: blue;">📝 Pending Verification</span>')
+            elif status == 'rejected':
+                return mark_safe('<span style="color: red;">❌ Rejected</span>')
             else:
                 return format_html('<span style="color: orange;">🔄 {}</span>', status.title())
         except Exception:

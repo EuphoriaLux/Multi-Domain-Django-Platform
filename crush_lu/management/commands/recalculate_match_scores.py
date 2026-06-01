@@ -34,11 +34,11 @@ class Command(BaseCommand):
 
         if user_id:
             profiles = CrushProfile.objects.filter(
-                user_id=user_id, is_approved=True
+                user_id=user_id, verification_status="verified"
             ).select_related("user")
         else:
             profiles = CrushProfile.objects.filter(
-                is_approved=True, is_active=True
+                verification_status="verified", is_active=True
             ).select_related("user")
 
         total = profiles.count()

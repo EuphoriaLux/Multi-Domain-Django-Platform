@@ -591,7 +591,7 @@ def update_match_scores_for_user(user):
 
     # Find all other approved profiles with at least some traits set
     other_profiles = (
-        CrushProfile.objects.filter(is_approved=True, is_active=True)
+        CrushProfile.objects.filter(verification_status="verified", is_active=True)
         .exclude(user=user)
         .select_related("user")
         .prefetch_related("qualities", "defects", "sought_qualities")

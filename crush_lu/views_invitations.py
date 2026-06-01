@@ -109,8 +109,9 @@ def invitation_accept(request, code):
                 profile = CrushProfile.objects.create(
                     user=user,
                     date_of_birth=date_of_birth,  # SECURITY: Use actual DOB from form
-                    is_approved=False,  # SECURITY: Requires coach approval
-                    completion_status="step3",
+                    is_approved=False,
+                    verification_status="incomplete",
+                    completion_status="step3",  # legacy field; remove after migration cleanup
                     preferred_language=preferred_lang,
                 )
 

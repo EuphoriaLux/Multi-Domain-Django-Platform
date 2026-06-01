@@ -7,15 +7,15 @@
 {% block meta_robots %}noindex, nofollow{% endblock %}
 
 {% block content %}
-{# Track dashboard view with profile status in Application Insights #}
 {% if profile %}{% appinsights_event "dashboard_viewed" profile_approved=profile.is_approved %}{% else %}{% appinsights_event "dashboard_viewed" profile_approved="no_profile" %}{% endif %}
 {% ga4_event "login" %}
-<div class="flex flex-row justify-between items-start gap-3 mb-4">
+
+{# ─── Header ─── #}
+<div class="flex flex-row justify-between items-start gap-3 mb-5">
     <div>
         <h2 class="text-2xl font-bold">{{ greeting }} 👋</h2>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {% blocktrans count events=upcoming_events_count %}{{ events }} upcoming event{% plural %}{{ events }} upcoming events{% endblocktrans %},
-            {% blocktrans count requests=pending_requests_count %}{{ requests }} new request{% plural %}{{ requests }} new requests{% endblocktrans %}
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+            {% blocktrans count events=upcoming_events_count %}{{ events }} upcoming event{% plural %}{{ events }} upcoming events{% endblocktrans %}{% if pending_requests_count %} · {% blocktrans count requests=pending_requests_count %}{{ requests }} new request{% plural %}{{ requests }} new requests{% endblocktrans %}{% endif %}
         </p>
     </div>
     <a href="{% url 'crush_lu:account_settings' %}" class="inline-flex items-center justify-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0" aria-label="{% trans "Settings" %}">
@@ -24,12 +24,10 @@
     </a>
 </div>
 
-{# Quick Actions Row - hidden on mobile (bottom nav covers these), visible on desktop #}
-<div class="quick-actions-row mb-6">
+{# ─── Quick actions (desktop only) ─── #}
+<div class="quick-actions-row mb-5">
     <a href="{% url 'crush_lu:event_list' %}" class="quick-action-pill">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-        </svg>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/></svg>
         {% trans "Browse Events" %}
     </a>
     <a href="{% url 'crush_lu:my_events' %}" class="quick-action-pill">
@@ -37,274 +35,309 @@
         {% trans "My Events" %}
     </a>
     <a href="{% url 'crush_lu:edit_profile' %}" class="quick-action-pill">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-            <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
-        </svg>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z"/></svg>
         {% trans "Edit Profile" %}
     </a>
     <a href="{% url 'crush_lu:my_connections' %}" class="quick-action-pill">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 0 1-.825-.242m9.345-8.334a2.126 2.126 0 0 0-.476-.095 48.64 48.64 0 0 0-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0 0 11.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" />
-        </svg>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 0 1-.825-.242m9.345-8.334a2.126 2.126 0 0 0-.476-.095 48.64 48.64 0 0 0-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0 0 11.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155"/></svg>
         {% trans "My Connections" %}
     </a>
 </div>
 
-{# Profile Completion Banner - encourages users to finish their profile #}
+{# ─── Profile completion / verification banners ─── #}
 {% include "crush_lu/partials/profile_completion_banner.html" %}
 
 {% if profile and not profile.phone_verified %}
-<!-- Phone Verification Banner -->
-<div class="alert alert-warning mb-6 flex-row justify-between items-center gap-3" role="alert">
+<div class="alert alert-warning mb-5 flex-row justify-between items-center gap-3" role="alert">
     <div class="flex items-center min-w-0">
         {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 mr-2 flex-shrink-0" %}
-        <span class="text-sm sm:text-base"><strong>{% trans "Phone verification required!" %}</strong> <span class="hidden sm:inline">{% trans "Please verify your phone number to access all features." %}</span></span>
+        <span class="text-sm sm:text-base"><strong>{% trans "Phone verification required!" %}</strong><span class="hidden sm:inline"> {% trans "Please verify your phone number to access all features." %}</span></span>
     </div>
-    <a href="{% url 'crush_lu:create_profile' %}" class="inline-flex items-center justify-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 font-medium bg-yellow-500 text-white hover:bg-yellow-600 rounded-lg transition-colors flex-shrink-0 text-sm sm:text-base">
-        {% include "shared/icons/phone.html" with class="w-4 h-4 sm:w-5 sm:h-5" %} {% trans "Verify Now" %}
+    <a href="{% url 'crush_lu:create_profile' %}" class="inline-flex items-center justify-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 font-medium bg-yellow-500 text-white hover:bg-yellow-600 rounded-lg transition-colors flex-shrink-0 text-sm">
+        {% include "shared/icons/phone.html" with class="w-4 h-4" %} {% trans "Verify Now" %}
     </a>
 </div>
 {% endif %}
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-    <!-- Profile Status Card -->
-    <div class="status-card rounded-2xl">
-        <div class="status-card-body">
-            <h5 class="font-semibold text-lg mb-4">{% trans "Profile Status" %}</h5>
-            {% if profile.is_approved %}
-                <div class="alert alert-success">
-                    {% trans "✅ Your profile is approved and active!" %}
-                </div>
-            {% elif submission %}
-                {% if submission.status == 'pending' %}
-                    <div class="alert alert-warning flex items-center gap-3">
-                        <div class="flex-shrink-0 w-12 h-12">{% include "crush_lu/includes/ghost-story-nervous.html" with class="w-full h-full" %}</div>
-                        <div>{% blocktrans with coach=submission.coach %}⏳ Your profile is currently under review by {{ coach }}{% endblocktrans %}</div>
-                    </div>
-                {% elif submission.status == 'revision' %}
-                    <div class="alert alert-info">
-                        {% trans "📝 Your coach has requested some revisions" %}
-                        <p class="mt-2 mb-0"><strong>{% trans "Feedback:" %}</strong> {{ submission.feedback_to_user }}</p>
-                    </div>
-                {% elif submission.status == 'recontact_coach' %}
-                    <div class="alert alert-warning">
-                        {% trans "📞 Your coach would like to speak with you" %}
-                        {% if submission.coach %}
-                        <p class="mt-2 mb-0"><strong>{% trans "Coach:" %}</strong> {{ submission.coach.user.first_name }}</p>
-                        {% endif %}
-                        {% if submission.coach.user.email %}
-                        <p class="mt-1 mb-0">
-                            <a href="mailto:{{ submission.coach.user.email }}" class="underline">{{ submission.coach.user.email }}</a>
-                        </p>
-                        {% endif %}
-                        {% if submission.coach.phone_number %}
-                        <p class="mt-1 mb-0">
-                            <a href="tel:{{ submission.coach.phone_number }}" class="underline">{{ submission.coach.phone_number }}</a>
-                            |
-                            <a href="https://wa.me/{{ submission.coach.whatsapp_number }}" target="_blank" rel="noopener noreferrer" class="underline">{% trans "WhatsApp" %}</a>
-                        </p>
-                        {% elif whatsapp_enabled and whatsapp_number %}
-                        <p class="mt-1 mb-0">
-                            <a href="tel:+{{ whatsapp_number }}" class="underline">+{{ whatsapp_number }}</a>
-                            |
-                            <a href="https://wa.me/{{ whatsapp_number }}" target="_blank" rel="noopener noreferrer" class="underline">{% trans "WhatsApp" %}</a>
-                        </p>
-                        {% endif %}
-                        {% if submission.feedback_to_user %}
-                        <p class="mt-2 mb-0"><strong>{% trans "Feedback:" %}</strong> {{ submission.feedback_to_user }}</p>
-                        {% endif %}
-                    </div>
-                {% elif submission.status == 'rejected' %}
-                    <div class="alert alert-danger">
-                        {% trans "❌ Your profile was not approved" %}
-                        <p class="mt-2 mb-0"><strong>{% trans "Feedback:" %}</strong> {{ submission.feedback_to_user }}</p>
-                    </div>
-                {% endif %}
-            {% endif %}
-
-            <div class="mt-4">
-                {% if profile.is_approved %}
-                <a href="{% url 'crush_lu:edit_profile' %}" class="btn-crush-outline inline-flex items-center gap-2 text-sm">
-                    {% include "shared/icons/pencil.html" with class="w-4 h-4" %}
-                    {% trans "Edit Profile" %}
-                </a>
-                {% elif submission and submission.status == 'recontact_coach' %}
-                {# Coach wants to speak with user #}
-                <a href="{% url 'crush_lu:profile_submitted' %}" class="btn-crush-primary inline-flex items-center gap-2 text-sm bg-orange-500 hover:bg-orange-600">
-                    {% include "shared/icons/phone.html" with class="w-4 h-4" %}
-                    {% trans "Contact Coach" %}
-                </a>
-                {% elif profile.completion_status == 'submitted' and submission and submission.status in 'pending,under_review' %}
-                {# Profile under review - no edit allowed #}
-                <span class="text-gray-400 dark:text-gray-500 text-sm">{% trans "Profile under review" %}</span>
-                {% else %}
-                {# Incomplete or needs revision - link to create_profile wizard #}
-                <a href="{% url 'crush_lu:create_profile' %}" class="btn-crush-solid inline-flex items-center gap-2 text-sm">
-                    {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
-                    {% trans "Complete Profile" %}
-                </a>
-                {% endif %}
-            </div>
-        </div>
+{# Pending verification banner #}
+{% if profile.verification_status == 'pending' %}
+<a href="{% url 'crush_lu:profile_submitted' %}" class="flex items-center gap-3 mb-5 p-4 rounded-xl border border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/20 no-underline group hover:border-amber-400 transition-colors">
+    <div class="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0">
+        {% include "shared/icons/shield-check.html" with class="w-5 h-5 text-amber-600 dark:text-amber-400" %}
     </div>
+    <div class="flex-1 min-w-0">
+        <p class="font-semibold text-amber-900 dark:text-amber-200 text-sm mb-0">{% trans "One step left — verify your identity" %}</p>
+        <p class="text-amber-700 dark:text-amber-400 text-xs mb-0">{% trans "Connect LuxId or attend an event to activate your profile." %}</p>
+    </div>
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-amber-500 group-hover:translate-x-0.5 transition-transform flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
+</a>
+{% endif %}
 
-    <div class="flex flex-col justify-center gap-6">
-    {% if profile.is_approved %}
-    <!-- Ideal Crush Preferences Card -->
-    <a href="{% url 'crush_lu:crush_preferences' %}"
-       class="status-card block no-underline group border-l-4 border-l-crush-purple hover:border-crush-pink dark:hover:border-crush-pink transition-colors">
-        <div class="status-card-body flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <span class="flex-shrink-0 hidden sm:flex items-center justify-center w-14 h-12">{% include "crush_lu/includes/ghost-story-blushing-reader.html" with class="w-full h-full" %}</span>
-                <span class="flex-shrink-0 flex items-center justify-center w-8 h-8 sm:hidden">{% include "crush_lu/includes/ghost-story-blushing-reader.html" with class="w-full h-full" %}</span>
-                <div>
-                    <div class="flex items-center gap-2 mb-0.5">
-                        <h5 class="font-semibold text-gray-900 dark:text-white mb-0">{% trans "Your Ideal Crush" %}</h5>
-                        {% if not has_crush_preferences %}
-                        <span class="inline-block rounded-full bg-purple-100 dark:bg-purple-900/40 px-2 py-0.5 text-xs font-bold text-crush-purple dark:text-purple-300 uppercase">{% trans "New" %}</span>
-                        {% endif %}
-                    </div>
-                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-0">
-                        {% if has_crush_preferences %}
-                            {% trans "Update your preferences" %}
-                        {% else %}
-                            {% trans "Tell us who you're looking for!" %}
-                        {% endif %}
-                    </p>
-                </div>
-            </div>
-            <svg class="w-5 h-5 text-gray-400 group-hover:text-crush-purple transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-        </div>
-    </a>
-    {% endif %}
+{# Verification status (Profile → Verify) #}
+{% if profile %}
+{% include "crush_lu/partials/_verification_journey.html" %}
+{% endif %}
 
-    <!-- Crush Connect Teaser Card -->
+{% comment %}Verified but NOT premium → show the 3 products (upsell to Premium / Crush Connect).{% endcomment %}
+{% if profile.verification_status == 'verified' and not is_premium %}
+{% include "crush_lu/partials/_products.html" with is_premium=is_premium has_attended_event=has_attended_event next_event=next_event %}
+{% endif %}
+
+{% comment %}Premium → Crush Connect is the hero feature.{% endcomment %}
+{% if profile.verification_status == 'verified' and is_premium %}
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+    {# Crush Connect — primary feature card #}
     {% if not on_crush_connect_waitlist %}
     <a href="{% url 'crush_lu:crush_connect_teaser' %}"
-       class="block no-underline group relative overflow-hidden rounded-xl bg-gradient-to-r from-teal-500 to-cyan-600 p-4 sm:p-5 text-white shadow-lg hover:shadow-xl transition-shadow">
-        <div class="relative z-10 flex items-center justify-between">
-            <div class="flex items-center gap-3 sm:gap-4 min-w-0">
-                <span class="flex-shrink-0 hidden sm:flex items-center justify-center w-16 h-14">{% include "crush_lu/includes/ghost-story-chatting-pair.html" with class="w-full h-full" %}</span>
-                <span class="flex-shrink-0 flex items-center justify-center w-10 h-10 sm:hidden">{% include "crush_lu/includes/ghost-story-phone.html" with class="w-full h-full" %}</span>
-                <div class="min-w-0">
-                    <div class="flex items-center gap-2 mb-1 flex-wrap">
-                        <h5 class="font-bold text-white text-lg mb-0">Crush Connect</h5>
-                        <span class="inline-block rounded-full bg-white/20 px-2 py-0.5 text-xs font-bold text-white uppercase">{% trans "Coming Soon" %}</span>
-                    </div>
-                    <p class="text-white/90 text-sm mb-0 hidden sm:block">{% trans "Online discovery for event-verified members" %}</p>
+       class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 p-5 text-white shadow-lg hover:shadow-xl transition-shadow no-underline group block">
+        <div class="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/10 pointer-events-none"></div>
+        <div class="relative z-10">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 0 1-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 0 0 6.16-12.12A14.98 14.98 0 0 0 9.631 8.41m5.96 5.96a14.926 14.926 0 0 1-5.841 2.58m-.119-8.54a6 6 0 0 0-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 0 0-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 0 1-2.448-2.448 14.9 14.9 0 0 1 .06-.312m-2.24 2.39a4.493 4.493 0 0 0-1.757 4.306 4.493 4.493 0 0 0 4.306-1.758M16.5 9a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z"/></svg>
+                </div>
+                <div>
+                    <p class="font-bold text-white text-base mb-0">Crush Connect</p>
+                    <span class="inline-block rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold text-white uppercase">{% trans "Unlocked" %} ✓</span>
                 </div>
             </div>
-            <span class="hidden sm:inline-flex items-center gap-1 rounded-lg bg-white/20 px-4 py-2 text-sm font-semibold text-white group-hover:bg-white/30 transition-colors flex-shrink-0">
-                {% trans "Learn More" %}
+            <p class="text-white/90 text-sm mb-4">{% trans "Your daily curated matches — people you've actually met at events." %}</p>
+            <span class="inline-flex items-center gap-1 rounded-lg bg-white/20 px-4 py-2 text-sm font-semibold text-white group-hover:bg-white/30 transition-colors">
+                {% trans "Open Crush Connect" %}
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
             </span>
-            <svg class="w-5 h-5 text-white/70 sm:hidden flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </div>
-        <div class="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/10"></div>
     </a>
     {% else %}
     <a href="{% url 'crush_lu:crush_connect_teaser' %}"
-       class="status-card block no-underline group border-l-4 border-l-teal-500 hover:border-teal-300 dark:hover:border-teal-600 transition-colors">
-        <div class="status-card-body flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <span class="flex-shrink-0 hidden sm:flex items-center justify-center w-14 h-12">{% include "crush_lu/includes/ghost-story-chatting-pair.html" with class="w-full h-full" %}</span>
-                <span class="flex-shrink-0 flex items-center justify-center w-8 h-8 sm:hidden">{% include "crush_lu/includes/ghost-story-phone.html" with class="w-full h-full" %}</span>
-                <div>
-                    <div class="flex items-center gap-2 mb-0.5">
-                        <h5 class="font-semibold text-gray-900 dark:text-white mb-0">Crush Connect</h5>
-                        <span class="inline-block rounded-full bg-teal-100 dark:bg-teal-900/40 px-2 py-0.5 text-xs font-bold text-teal-600 dark:text-teal-300 uppercase">{% trans "Waitlist" %}</span>
-                    </div>
-                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-0">{% blocktrans with pos=crush_connect_position %}You're #{{ pos }} on the waitlist{% endblocktrans %}</p>
+       class="status-card block no-underline group border-l-4 border-l-teal-500 hover:border-teal-400 transition-colors">
+        <div class="status-card-body flex items-center gap-4">
+            <span class="flex-shrink-0 flex items-center justify-center w-12 h-12">{% include "crush_lu/includes/ghost-story-chatting-pair.html" with class="w-full h-full" %}</span>
+            <div class="flex-1">
+                <div class="flex items-center gap-2 mb-0.5">
+                    <h5 class="font-semibold text-gray-900 dark:text-white mb-0">Crush Connect</h5>
+                    <span class="badge text-[10px] bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300">{% trans "Waitlist" %}</span>
                 </div>
+                <p class="text-gray-500 dark:text-gray-400 text-sm mb-0">{% blocktrans with pos=crush_connect_position %}You're #{{ pos }} on the waitlist{% endblocktrans %}</p>
             </div>
             <svg class="w-5 h-5 text-gray-400 group-hover:text-teal-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </div>
     </a>
     {% endif %}
-    </div>
 
-    <!-- PWA Install Card (client-side detection per device, not server-side per user) -->
+    {# Ideal Crush Preferences #}
+    <a href="{% url 'crush_lu:crush_preferences' %}"
+       class="status-card block no-underline group border-l-4 border-l-crush-purple hover:border-crush-pink transition-colors">
+        <div class="status-card-body flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <span class="flex-shrink-0 flex items-center justify-center w-12 h-12">{% include "crush_lu/includes/ghost-story-blushing-reader.html" with class="w-full h-full" %}</span>
+                <div>
+                    <div class="flex items-center gap-2 mb-0.5">
+                        <h5 class="font-semibold text-gray-900 dark:text-white mb-0">{% trans "Your Ideal Crush" %}</h5>
+                        {% if not has_crush_preferences %}<span class="inline-block rounded-full bg-purple-100 dark:bg-purple-900/40 px-2 py-0.5 text-xs font-bold text-crush-purple dark:text-purple-300 uppercase">{% trans "New" %}</span>{% endif %}
+                    </div>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-0">{% if has_crush_preferences %}{% trans "Update your preferences" %}{% else %}{% trans "Tell us who you're looking for!" %}{% endif %}</p>
+                </div>
+            </div>
+            <svg class="w-5 h-5 text-gray-400 group-hover:text-crush-purple transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </div>
+    </a>
+</div>
+{% endif %}{# end state B #}
+
+{# ─── Coach section ─── #}
+{% if coach %}
+<div class="status-card rounded-2xl mb-5">
+    <div class="status-card-body">
+        <h5 class="font-semibold text-lg mb-4 flex items-center gap-2">
+            {% include "shared/icons/heart.html" with class="w-5 h-5 text-crush-purple" %}
+            {% trans "Your Crush Coach" %}
+        </h5>
+        <div class="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+            <div class="shrink-0">
+                {% if coach.photo %}
+                    <div class="w-20 h-20 rounded-full p-0.5 bg-gradient-to-br from-crush-purple to-crush-pink">
+                        <img src="{{ coach.photo.url }}" alt="{{ coach.user.first_name }}" class="w-full h-full rounded-full object-cover border-2 border-white dark:border-slate-800" loading="lazy">
+                    </div>
+                {% else %}
+                    <div class="w-20 h-20 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                        {% include "shared/icons/user-circle.html" with class="w-12 h-12 text-crush-purple" %}
+                    </div>
+                {% endif %}
+            </div>
+            <div class="flex-1 text-center sm:text-left">
+                <h6 class="font-semibold text-gray-900 dark:text-white text-lg">{{ coach.user.first_name }}</h6>
+                {% if coach.get_spoken_languages_display %}
+                    <div class="flex flex-wrap justify-center sm:justify-start gap-1.5 mt-1 mb-2">
+                        <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Speaks:" %}</span>
+                        {% for lang in coach.get_spoken_languages_display %}
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full">{{ lang.flag }} {{ lang.name }}</span>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                {% if coach.bio %}<p class="text-sm text-gray-600 dark:text-gray-300 mb-3">{{ coach.bio|truncatewords:30 }}</p>{% endif %}
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">{% trans "Your personal coach is here to help you get the most out of Crush.lu. Event preparation, dating advice, and more — don't hesitate to reach out!" %}</p>
+                <a href="mailto:{{ coach.user.email }}" class="btn-crush-solid inline-flex items-center gap-2 px-4 py-2 text-sm">
+                    {% include "shared/icons/envelope.html" with class="w-4 h-4" %}
+                    {% trans "Contact Coach" %}
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# ─── Stats row (compact) ─── #}
+{% if profile.verification_status == 'verified' %}
+<div class="grid grid-cols-3 gap-3 mb-5">
+    <div class="card-bordered p-4 text-center">
+        <p class="text-2xl font-bold text-gray-900 dark:text-white mb-0.5">{{ registrations|length }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{% trans "Events" %}</p>
+    </div>
+    <div class="card-bordered p-4 text-center">
+        <p class="text-2xl font-bold text-gray-900 dark:text-white mb-0.5">{{ profile.age|default:"—" }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{% trans "Age" %}</p>
+    </div>
+    <a href="{% url 'crush_lu:my_connections' %}" class="card-bordered p-4 text-center no-underline hover:border-crush-purple/40 transition-colors">
+        <p class="text-2xl font-bold text-crush-purple mb-0.5">{{ connection_count|default:0 }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{% trans "Connections" %}</p>
+    </a>
+</div>
+{% endif %}
+
+{# ─── Events section ─── #}
+<div class="status-card rounded-2xl mb-5">
+    <div class="status-card-body">
+        <div class="flex items-center justify-between mb-4">
+            <h5 class="font-semibold text-lg mb-0">{% trans "Your Events" %}</h5>
+            <a href="{% url 'crush_lu:event_list' %}" class="text-xs font-semibold text-crush-purple hover:text-crush-purple-dark transition-colors">{% trans "Browse all" %} →</a>
+        </div>
+
+        {% if profile.verification_status == 'verified' and not is_premium %}
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            {% trans "Go Premium at any event to get a personal coach and unlock Crush Connect — daily curated matches." %}
+        </p>
+        {% endif %}
+
+        {% if registrations %}
+            <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for registration in registrations %}
+                <div class="py-4 first:pt-0 last:pb-0">
+                    <div class="flex justify-between items-start gap-3">
+                        <div class="flex-1 min-w-0">
+                            <h6 class="font-semibold mb-1 truncate">{{ registration.event.title }}</h6>
+                            <p class="mb-1 text-gray-500 dark:text-gray-400 text-sm">
+                                📅 {{ registration.event.date_time|date:"D, j M Y" }} · 📍 {{ registration.event.location }}
+                            </p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            {% if registration.status == 'confirmed' %}
+                                <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full">{% trans "Confirmed" %}</span>
+                            {% elif registration.status == 'waitlist' %}
+                                <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded-full">{% trans "Waitlist" %}</span>
+                            {% elif registration.status == 'cancelled' %}
+                                <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full">{% trans "Cancelled" %}</span>
+                            {% elif registration.status == 'attended' %}
+                                <span class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300 rounded-full">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                    {% trans "Attended" %}
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        <a href="{% url 'crush_lu:event_detail' registration.event.id %}" class="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium border border-purple-300 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-lg transition-colors">{% trans "View" %}</a>
+                        {% if registration.status == 'attended' %}
+                            <a href="{% url 'crush_lu:event_attendees' registration.event.id %}" class="btn-crush-solid inline-flex items-center justify-center gap-2 text-sm px-3 py-2">
+                                {% include "shared/icons/users.html" with class="w-4 h-4" %} {% trans "Connect" %}
+                            </a>
+                            {% if registration.event.quiz_join_available %}
+                            <a href="{% url 'crush_lu:quiz_live' registration.event.id %}" class="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold bg-crush-purple hover:bg-crush-purple-dark text-white rounded-lg transition-all">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                                {% trans "Join Quiz" %}
+                            </a>
+                            {% endif %}
+                        {% elif registration.status == 'confirmed' %}
+                            <a href="{% url 'crush_lu:event_ticket' registration.event.id %}" class="btn-crush-solid inline-flex items-center justify-center gap-2 text-sm px-3 py-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"/></svg>
+                                {% trans "View Ticket" %}
+                            </a>
+                            <a href="{% url 'crush_lu:event_cancel' registration.event.id %}" class="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium border border-red-300 dark:border-red-600 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors">{% trans "Cancel" %}</a>
+                        {% elif registration.status == 'waitlist' %}
+                            <a href="{% url 'crush_lu:event_cancel' registration.event.id %}" class="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium border border-red-300 dark:border-red-600 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors">{% trans "Cancel" %}</a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">{% trans "You haven't registered for any events yet." %}</p>
+            <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-solid inline-flex items-center justify-center gap-2 px-4 py-2.5">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/></svg>
+                {% trans "Browse upcoming events" %}
+            </a>
+        {% endif %}
+    </div>
+</div>
+
+
+{# ─── Secondary: PWA + Wallet ─── #}
+<div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+    {# PWA Install #}
     <div class="status-card rounded-2xl">
         <div class="status-card-body">
             <div x-data="pwaInstallButton">
-                <!-- Running as installed PWA on THIS device -->
                 <div x-show="isInstalledVisible">
                     <h5 class="font-semibold text-lg mb-2">{% trans "📲 Crush.lu App" %}</h5>
                     <div class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 text-green-800 dark:text-green-300 rounded-lg p-4 mb-4">
                         {% include "shared/icons/check-circle.html" with class="w-5 h-5 inline mr-1" %}
                         <strong>{% trans "App installed!" %}</strong>
                     </div>
-                    <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "Manage your push notifications in account settings." %}</p>
-                    <a href="{% url 'crush_lu:account_settings' %}#push-notifications" class="btn-crush-outline inline-flex items-center gap-2 text-sm">
-                        {% include "shared/icons/bell.html" with class="w-4 h-4" %} {% trans "Notification Settings" %}
-                    </a>
+                    <a href="{% url 'crush_lu:account_settings' %}#push-notifications" class="btn-crush-outline inline-flex items-center gap-2 text-sm">{% include "shared/icons/bell.html" with class="w-4 h-4" %} {% trans "Notification Settings" %}</a>
                 </div>
-
-                <!-- Not installed on THIS device - show install prompt -->
                 <div x-show="canInstallVisible">
-                    <h5 class="font-semibold text-lg mb-2">{% trans "📲 Install Crush.lu App" %}</h5>
+                    <h5 class="font-semibold text-lg mb-2">{% trans "📲 Install Crush.lu" %}</h5>
                     <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "Install our app to get push notifications about events, messages, and connections!" %}</p>
-                    <button @click="install" class="btn-crush-solid inline-flex items-center gap-2 px-4 py-2">
-                        {% include "shared/icons/arrow-down-tray.html" with class="w-4 h-4" %} {% trans "Install App" %}
-                    </button>
+                    <button @click="install" class="btn-crush-solid inline-flex items-center gap-2 px-4 py-2">{% include "shared/icons/arrow-down-tray.html" with class="w-4 h-4" %} {% trans "Install App" %}</button>
                 </div>
-
-                <!-- iOS: manual instructions -->
                 <div x-show="showInstructionsVisible">
-                    <h5 class="font-semibold text-lg mb-2">{% trans "📲 Install Crush.lu App" %}</h5>
-                    <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "Install our app to get push notifications about events, messages, and connections!" %}</p>
+                    <h5 class="font-semibold text-lg mb-2">{% trans "📲 Install Crush.lu" %}</h5>
                     <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-lg p-4">
                         {% include "shared/icons/information-circle.html" with class="w-5 h-5 inline mr-1" %}
                         <strong>{% trans "How to install" %}</strong>
-                        <p class="mb-0 mt-2 text-sm">
-                            {% trans "Tap the Share button, then select 'Add to Home Screen'." %}
-                        </p>
+                        <p class="mb-0 mt-2 text-sm">{% trans "Tap the Share button, then select 'Add to Home Screen'." %}</p>
                     </div>
                 </div>
-
-                <!-- Fallback: no prompt available, not iOS, not installed (desktop Firefox, etc.) -->
                 <div x-show="showFallbackVisible">
-                    <h5 class="font-semibold text-lg mb-2">{% trans "📲 Install Crush.lu App" %}</h5>
-                    <p class="text-gray-500 dark:text-gray-400 text-sm">
-                        {% trans "Open crush.lu in Chrome or Safari for the best install experience." %}
-                    </p>
+                    <h5 class="font-semibold text-lg mb-2">{% trans "📲 Install Crush.lu" %}</h5>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm">{% trans "Open crush.lu in Chrome or Safari for the best install experience." %}</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Membership Card -->
+    {# Membership / Wallet #}
     <div class="status-card rounded-2xl">
         <div class="status-card-body">
             <h5 class="font-semibold text-lg mb-2">{% trans "Membership Card" %}</h5>
-
-            <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "Save your Crush.lu membership card to your mobile wallet and share your referral link." %}</p>
+            <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "Save your Crush.lu card to your mobile wallet and share your referral link." %}</p>
             <div class="flex flex-col sm:flex-row gap-3 flex-wrap">
-                {# Apple Wallet #}
                 {% if apple_wallet_enabled %}
                 <a href="{% url 'wallet_apple_pass' %}" target="_blank" rel="noopener" class="inline-block p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
                     <img src="{% static 'crush_lu/img/wallet/apple_wallet_badge.svg' %}" alt="{% trans 'Add to Apple Wallet' %}" class="h-12 w-auto">
                 </a>
                 {% else %}
-                <button type="button" disabled class="inline-flex items-center gap-2 text-sm px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 rounded-lg cursor-not-allowed" title="{% trans 'Coming soon' %}">
-                    {% include "shared/icons/arrow-down-tray.html" with class="w-4 h-4" %}
-                    {% trans "Apple Wallet" %}
+                <button type="button" disabled class="inline-flex items-center gap-2 text-sm px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-400 rounded-lg cursor-not-allowed">
+                    {% include "shared/icons/arrow-down-tray.html" with class="w-4 h-4" %} {% trans "Apple Wallet" %}
                     <span class="text-xs bg-gray-200 dark:bg-gray-600 px-2 py-0.5 rounded-full">{% trans "Soon" %}</span>
                 </button>
                 {% endif %}
-                {% comment %}
-                    Google Wallet Button - Using official Google brand assets
-                    Brand guidelines: https://developers.google.com/wallet/generic/resources/brand-guidelines
-                {% endcomment %}
                 <button type="button" id="save-google-wallet-btn" data-jwt-url="/wallet/google/jwt/" class="google-wallet-btn p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed">
                     {% get_current_language as LANGUAGE_CODE %}
-                    {% if LANGUAGE_CODE == 'de' %}
-                    <img src="{% static 'crush_lu/img/wallet/de_add_to_google_wallet.svg' %}" alt="{% trans 'Add to Google Wallet' %}" class="h-12 w-auto" id="google-wallet-img">
-                    {% elif LANGUAGE_CODE == 'fr' %}
-                    <img src="{% static 'crush_lu/img/wallet/fr_add_to_google_wallet.svg' %}" alt="{% trans 'Add to Google Wallet' %}" class="h-12 w-auto" id="google-wallet-img">
-                    {% else %}
-                    <img src="{% static 'crush_lu/img/wallet/en_add_to_google_wallet.svg' %}" alt="{% trans 'Add to Google Wallet' %}" class="h-12 w-auto" id="google-wallet-img">
-                    {% endif %}
+                    {% if LANGUAGE_CODE == 'de' %}<img src="{% static 'crush_lu/img/wallet/de_add_to_google_wallet.svg' %}" alt="{% trans 'Add to Google Wallet' %}" class="h-12 w-auto" id="google-wallet-img">
+                    {% elif LANGUAGE_CODE == 'fr' %}<img src="{% static 'crush_lu/img/wallet/fr_add_to_google_wallet.svg' %}" alt="{% trans 'Add to Google Wallet' %}" class="h-12 w-auto" id="google-wallet-img">
+                    {% else %}<img src="{% static 'crush_lu/img/wallet/en_add_to_google_wallet.svg' %}" alt="{% trans 'Add to Google Wallet' %}" class="h-12 w-auto" id="google-wallet-img">{% endif %}
                     <span id="google-wallet-loading" class="hidden text-sm text-gray-500 dark:text-gray-400">{% trans "Loading..." %}</span>
                 </button>
             </div>
@@ -319,168 +352,6 @@
     </div>
 </div>
 
-{% if coach %}
-<div class="grid grid-cols-1 gap-6 mb-6">
-    <!-- Your Crush Coach Card -->
-    <div class="status-card rounded-2xl">
-        <div class="status-card-body">
-            <h5 class="font-semibold text-lg mb-4 flex items-center gap-2">
-                {% include "shared/icons/heart.html" with class="w-5 h-5 text-crush-purple" %}
-                {% trans "Your Crush Coach" %}
-            </h5>
-            <div class="flex flex-col sm:flex-row items-center sm:items-start gap-5">
-                <!-- Coach Photo -->
-                <div class="shrink-0">
-                    {% if coach.photo %}
-                        <div class="w-20 h-20 rounded-full p-0.5 bg-gradient-to-br from-crush-purple to-crush-pink">
-                            <img src="{{ coach.photo.url }}" alt="{{ coach.user.first_name }}"
-                                 class="w-full h-full rounded-full object-cover border-2 border-white dark:border-slate-800"
-                                 loading="lazy">
-                        </div>
-                    {% else %}
-                        <div class="w-20 h-20 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-                            {% include "shared/icons/user-circle.html" with class="w-12 h-12 text-crush-purple" %}
-                        </div>
-                    {% endif %}
-                </div>
-                <!-- Coach Info -->
-                <div class="flex-1 text-center sm:text-left">
-                    <h6 class="font-semibold text-gray-900 dark:text-white text-lg">{{ coach.user.first_name }}</h6>
-                    {% if coach.get_spoken_languages_display %}
-                        <div class="flex flex-wrap justify-center sm:justify-start gap-1.5 mt-1 mb-2">
-                            <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Speaks:" %}</span>
-                            {% for lang in coach.get_spoken_languages_display %}
-                                <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full">
-                                    {{ lang.flag }} {{ lang.name }}
-                                </span>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                    {% if coach.bio %}
-                        <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">{{ coach.bio|truncatewords:30 }}</p>
-                    {% endif %}
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">
-                        {% trans "Your personal coach is here to help you get the most out of Crush.lu." %}
-                        {% trans "Event preparation, dating advice, and more - don't hesitate to reach out!" %}
-                    </p>
-                    <a href="mailto:{{ coach.user.email }}" class="btn-crush-solid inline-flex items-center gap-2 px-4 py-2 text-sm">
-                        {% include "shared/icons/envelope.html" with class="w-4 h-4" %}
-                        {% trans "Contact Coach" %}
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-{% endif %}
-
-<div class="grid grid-cols-1 gap-6 mb-6">
-    <!-- Quick Stats Card -->
-    <div class="status-card rounded-2xl">
-        <div class="status-card-body">
-            <h5 class="font-semibold text-lg mb-4">{% trans "Your Activity" %}</h5>
-            <div class="grid grid-cols-3 text-center mt-4">
-                <div>
-                    <h3 class="text-3xl font-bold">{{ registrations|length }}</h3>
-                    <p class="text-gray-500 dark:text-gray-400 mb-0">{% trans "Events" %}</p>
-                </div>
-                <div>
-                    <h3 class="text-3xl font-bold">{{ profile.age|default:"—" }}</h3>
-                    <p class="text-gray-500 dark:text-gray-400 mb-0">{% trans "Age" %}</p>
-                </div>
-                <div>
-                    <a href="{% url 'crush_lu:my_connections' %}" class="no-underline">
-                        <h3 class="text-3xl font-bold text-crush-purple">{{ connection_count|default:0 }}</h3>
-                        <p class="text-gray-500 dark:text-gray-400 mb-0">{% trans "Connections" %}</p>
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Upcoming Events Section -->
-<div class="status-card mb-6">
-    <div class="status-card-body">
-        <h5 class="font-semibold text-lg mb-4">{% trans "Your Events" %}</h5>
-
-        {% if registrations %}
-            <div class="divide-y divide-gray-100 dark:divide-gray-700">
-                {% for registration in registrations %}
-                    <div class="py-4 first:pt-0 last:pb-0">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <h6 class="font-semibold mb-1">{{ registration.event.title }}</h6>
-                                <p class="mb-1 text-gray-500 dark:text-gray-400 text-sm">
-                                    📅 {{ registration.event.date_time|date:"D, M j, Y" }} at {{ registration.event.date_time|date:"g:i A" }}<br>
-                                    📍 {{ registration.event.location }}
-                                </p>
-                            </div>
-                            <div>
-                                {% if registration.status == 'confirmed' %}
-                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full">{% trans "Confirmed" %}</span>
-                                {% elif registration.status == 'waitlist' %}
-                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded-full">{% trans "Waitlist" %}</span>
-                                {% elif registration.status == 'cancelled' %}
-                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300 rounded-full">{% trans "Cancelled" %}</span>
-                                {% elif registration.status == 'attended' %}
-                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full">{% trans "Attended" %}</span>
-                                {% endif %}
-                            </div>
-                        </div>
-                        <div class="mt-3 flex flex-col sm:flex-row gap-2">
-                            <a href="{% url 'crush_lu:event_detail' registration.event.id %}" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium border border-purple-500 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-lg transition-colors">
-                                {% trans "View Event" %}
-                            </a>
-                            {% if registration.status == 'attended' %}
-                                <a href="{% url 'crush_lu:event_attendees' registration.event.id %}" class="btn-crush-solid inline-flex items-center justify-center gap-2 text-sm px-4 py-2.5">
-                                    {% include "shared/icons/users.html" with class="w-4 h-4" %} {% trans "Make Connections" %}
-                                </a>
-                                {% if registration.event.quiz_join_available %}
-                                <a href="{% url 'crush_lu:quiz_live' registration.event.id %}" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold bg-crush-purple hover:bg-crush-purple-dark text-white rounded-lg transition-all hover:shadow-lg">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-                                    {% trans "Join Quiz" %}
-                                </a>
-                                {% endif %}
-                            {% elif registration.status == 'confirmed' %}
-                                <a href="{% url 'crush_lu:event_ticket' registration.event.id %}" class="btn-crush-solid inline-flex items-center justify-center gap-2 text-sm px-4 py-2.5">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"/></svg>
-                                    {% trans "View Ticket" %}
-                                </a>
-                                <a href="{% url 'crush_lu:event_cancel' registration.event.id %}" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium border border-red-500 dark:border-red-600 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors">
-                                    {% trans "Cancel Registration" %}
-                                </a>
-                            {% elif registration.status == 'waitlist' %}
-                                <a href="{% url 'crush_lu:event_cancel' registration.event.id %}" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium border border-red-500 dark:border-red-600 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors">
-                                    {% trans "Cancel Registration" %}
-                                </a>
-                            {% endif %}
-                        </div>
-                    </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "You haven't registered for any events yet." %}</p>
-            <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-solid inline-flex items-center justify-center gap-2 px-4 py-2">
-                {% trans "Browse Events" %}
-            </a>
-        {% endif %}
-    </div>
-</div>
-
-<!-- Call to Action -->
-{% if profile.is_approved and not registrations %}
-<div class="bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 dark:from-crush-purple/20 dark:to-crush-pink/20 rounded-xl shadow-sm dark:shadow-gray-900/20 dark:border dark:border-gray-700">
-    <div class="text-center p-10">
-        <h4 class="text-xl font-bold mb-2">{% trans "Ready to Meet New People?" %}</h4>
-        <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "Check out our upcoming events and start making connections!" %}</p>
-        <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-primary inline-flex items-center justify-center gap-2 px-6 py-3">
-            {% trans "View Upcoming Events" %}
-        </a>
-    </div>
-</div>
-{% endif %}
-
 {% trans "Crush.lu" as referral_share_title %}
 {% trans "Join me on Crush.lu" as referral_share_text %}
 {% trans "Referral link shared!" as referral_shared_message %}
@@ -490,113 +361,28 @@
 <script nonce="{{ csp_nonce }}">
     document.addEventListener('DOMContentLoaded', () => {
         const shareButton = document.getElementById('share-referral-btn');
-        if (!shareButton) {
-            return;
+        if (shareButton) {
+            const statusElement = document.getElementById('share-referral-status');
+            const referralUrl = shareButton.dataset.referralUrl;
+            const setStatus = (msg, isError=false) => { if (!statusElement) return; statusElement.textContent = msg; statusElement.classList.remove('hidden'); statusElement.classList.toggle('text-green-600', !isError); statusElement.classList.toggle('text-red-600', isError); };
+            shareButton.addEventListener('click', async () => {
+                if (!referralUrl) { setStatus("{{ referral_unavailable_message|escapejs }}", true); return; }
+                if (navigator.share) { try { await navigator.share({ title: "{{ referral_share_title|escapejs }}", text: "{{ referral_share_text|escapejs }}", url: referralUrl }); setStatus("{{ referral_shared_message|escapejs }}"); return; } catch(e) { if (e && e.name === 'AbortError') return; } }
+                if (navigator.clipboard && navigator.clipboard.writeText) { try { await navigator.clipboard.writeText(referralUrl); setStatus("{{ referral_copied_message|escapejs }}"); return; } catch(e) {} }
+                const tmp = document.createElement('input'); tmp.value = referralUrl; document.body.appendChild(tmp); tmp.select(); const ok = document.execCommand('copy'); document.body.removeChild(tmp); setStatus(ok ? "{{ referral_copied_message|escapejs }}" : "{{ referral_copy_failed_message|escapejs }}", !ok);
+            });
         }
-
-        const statusElement = document.getElementById('share-referral-status');
-        const referralUrl = shareButton.dataset.referralUrl;
-        const shareTitle = "{{ referral_share_title|escapejs }}";
-        const shareText = "{{ referral_share_text|escapejs }}";
-        const sharedMessage = "{{ referral_shared_message|escapejs }}";
-        const copiedMessage = "{{ referral_copied_message|escapejs }}";
-        const copyFailedMessage = "{{ referral_copy_failed_message|escapejs }}";
-        const unavailableMessage = "{{ referral_unavailable_message|escapejs }}";
-
-        const setStatus = (message, isError = false) => {
-            if (!statusElement) {
-                return;
-            }
-            statusElement.textContent = message;
-            statusElement.classList.remove('hidden');
-            statusElement.classList.toggle('text-green-600', !isError);
-            statusElement.classList.toggle('text-red-600', isError);
-        };
-
-        shareButton.addEventListener('click', async () => {
-            if (!referralUrl) {
-                setStatus(unavailableMessage, true);
-                return;
-            }
-
-            if (navigator.share) {
-                try {
-                    await navigator.share({
-                        title: shareTitle,
-                        text: shareText,
-                        url: referralUrl,
-                    });
-                    setStatus(sharedMessage);
-                    return;
-                } catch (error) {
-                    if (error && error.name === 'AbortError') {
-                        return;
-                    }
-                }
-            }
-
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                try {
-                    await navigator.clipboard.writeText(referralUrl);
-                    setStatus(copiedMessage);
-                    return;
-                } catch (error) {
-                    // Fall back to legacy copy below.
-                }
-            }
-
-            const tempInput = document.createElement('input');
-            tempInput.value = referralUrl;
-            document.body.appendChild(tempInput);
-            tempInput.select();
-            const copied = document.execCommand('copy');
-            document.body.removeChild(tempInput);
-            if (copied) {
-                setStatus(copiedMessage);
-            } else {
-                setStatus(copyFailedMessage, true);
-            }
-        });
-
-        // Google Wallet handler
         const googleWalletBtn = document.getElementById('save-google-wallet-btn');
         if (googleWalletBtn) {
-            const googleWalletImg = document.getElementById('google-wallet-img');
-            const googleWalletLoading = document.getElementById('google-wallet-loading');
+            const img = document.getElementById('google-wallet-img');
+            const loading = document.getElementById('google-wallet-loading');
             const jwtUrl = googleWalletBtn.dataset.jwtUrl;
-
-            const setLoading = (isLoading) => {
-                googleWalletBtn.disabled = isLoading;
-                if (googleWalletImg) {
-                    googleWalletImg.classList.toggle('hidden', isLoading);
-                }
-                if (googleWalletLoading) {
-                    googleWalletLoading.classList.toggle('hidden', !isLoading);
-                }
-            };
-
+            const setLoading = (v) => { googleWalletBtn.disabled = v; if (img) img.classList.toggle('hidden', v); if (loading) loading.classList.toggle('hidden', !v); };
             googleWalletBtn.addEventListener('click', async () => {
                 setLoading(true);
-
-                try {
-                    const response = await fetch(jwtUrl);
-                    const data = await response.json();
-
-                    if (data.jwt) {
-                        // Redirect to Google Wallet save URL
-                        window.location.href = 'https://pay.google.com/gp/v/save/' + data.jwt;
-                    } else if (data.error) {
-                        alert(data.error);
-                        setLoading(false);
-                    }
-                } catch (error) {
-                    alert('{% filter escapejs %}{% trans "Failed to generate wallet pass. Please try again." %}{% endfilter %}');
-                    setLoading(false);
-                }
+                try { const r = await fetch(jwtUrl); const d = await r.json(); if (d.jwt) { window.location.href = 'https://pay.google.com/gp/v/save/' + d.jwt; } else if (d.error) { alert(d.error); setLoading(false); } } catch(e) { alert('{% filter escapejs %}{% trans "Failed to generate wallet pass. Please try again." %}{% endfilter %}'); setLoading(false); }
             });
         }
     });
 </script>
-
-<!-- Styles are in static/crush_lu/css/pages/dashboard.css -->
 {% endblock %}

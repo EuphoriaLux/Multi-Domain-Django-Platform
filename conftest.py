@@ -181,6 +181,7 @@ def test_user_with_profile(db, test_user):
         bio='Test bio for testing purposes',
         interests='Testing, Coding, Coffee',
         is_approved=True,
+        verification_status='verified',
         is_active=True
     )
     return test_user, profile
@@ -324,6 +325,7 @@ def connection_pair(db):
             gender=gender,
             location='Luxembourg City',
             is_approved=True,
+            verification_status='verified',
             is_active=True
         )
 

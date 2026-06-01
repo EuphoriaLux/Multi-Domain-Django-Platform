@@ -155,6 +155,8 @@
         </div>
         {% if profile_requirement == "approved" %}
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">{% trans "Approved profiles with verified phone numbers matching event criteria." %}</p>
+        {% elif profile_requirement == "coach_assigned" %}
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">{% trans "Premium members with an assigned coach, matching event criteria." %}</p>
         {% elif profile_requirement == "unverified" %}
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">{% trans "These users have a verified phone number but have not completed their profile yet. Sending an SMS invite may encourage them to finish." %}</p>
         {% else %}

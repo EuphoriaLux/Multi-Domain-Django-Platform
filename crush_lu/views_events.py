@@ -57,23 +57,8 @@ def _promote_from_waitlist(event, cancelled_user=None):
     if not waitlisted.exists():
         return None
 
-    # If gender limits are not active, just promote first in line
-    if not event.gender_limits_active:
-        if not event.is_full:
-            candidate = waitlisted.first()
-            candidate.status = "confirmed"
-            candidate.save()
-            return candidate
-        return None
-
-    # Gender-aware promotion
-    cancelled_gender = None
-    if cancelled_user:
-        cancelled_profile = getattr(cancelled_user, "crushprofile", None)
-        if cancelled_profile:
-            cancelled_gender = cancelled_profile.gender
-
-    # Prefetch profiles in a separate query (no FOR UPDATE conflict)
+    # Prefetch profiles in a separate query (no FOR UPDATE conflict). Used for
+    # both gender pools and premium (coach-assigned) capacity checks.
     waitlisted_list = list(waitlisted)
     user_ids = [reg.user_id for reg in waitlisted_list]
     profiles_by_user = {
@@ -84,6 +69,30 @@ def _promote_from_waitlist(event, cancelled_user=None):
         profile = profiles_by_user.get(reg.user_id)
         return profile.gender if profile else None
 
+    def _is_premium(reg):
+        # Premium = personal coach assigned. Premium members may take a
+        # reserved seat (measured against total capacity); general members are
+        # capped at public_capacity so the reserved block stays held back.
+        profile = profiles_by_user.get(reg.user_id)
+        return bool(profile and profile.assigned_coach_id)
+
+    # If gender limits are not active, promote the first in line who still has
+    # a seat under their own capacity (general → public, premium → total).
+    if not event.gender_limits_active:
+        for candidate in waitlisted_list:
+            if not event.is_full_for(is_premium=_is_premium(candidate)):
+                candidate.status = "confirmed"
+                candidate.save()
+                return candidate
+        return None
+
+    # Gender-aware promotion
+    cancelled_gender = None
+    if cancelled_user:
+        cancelled_profile = getattr(cancelled_user, "crushprofile", None)
+        if cancelled_profile:
+            cancelled_gender = cancelled_profile.gender
+
     # 1. Try same-pool candidates first
     if cancelled_gender:
         pool = event.get_gender_pool(cancelled_gender)
@@ -92,17 +101,19 @@ def _promote_from_waitlist(event, cancelled_user=None):
             for candidate in waitlisted_list:
                 cand_gender = _get_gender(candidate)
                 if cand_gender in pool_codes:
-                    if not event.is_full and not event.is_gender_pool_full(cand_gender):
+                    if not event.is_full_for(
+                        is_premium=_is_premium(candidate)
+                    ) and not event.is_gender_pool_full(cand_gender):
                         candidate.status = "confirmed"
                         candidate.save()
                         return candidate
 
-    # 2. Try any waitlisted user whose pool has room
+    # 2. Try any waitlisted user whose pool (and overall capacity) has room
     for candidate in waitlisted_list:
-        if event.is_full:
-            break
         cand_gender = _get_gender(candidate)
         if not cand_gender or event.is_gender_pool_full(cand_gender):
+            continue
+        if event.is_full_for(is_premium=_is_premium(candidate)):
             continue
         candidate.status = "confirmed"
         candidate.save()
@@ -583,11 +594,26 @@ def event_detail(request, event_id):
 
     is_past = event.end_time < timezone.now()
 
+    # Premium (coach-assigned) members can claim reserved seats, so fullness is
+    # evaluated against the full capacity for them and public capacity otherwise.
+    user_is_premium = bool(user_profile and user_profile.assigned_coach_id)
+    event_full_for_user = event.is_full_for(is_premium=user_is_premium)
+    # A reserved seat is available to this premium member specifically when the
+    # event is publicly full but not yet at total capacity.
+    premium_reserved_seat_available = (
+        user_is_premium
+        and event.is_full_for(is_premium=False)
+        and not event_full_for_user
+    )
+
     context = {
         "event": event,
         "is_past": is_past,
         "user_registration": registration,
         "user_profile": user_profile,
+        "user_is_premium": user_is_premium,
+        "event_full_for_user": event_full_for_user,
+        "premium_reserved_seat_available": premium_reserved_seat_available,
         "language_requirement_met": language_requirement_met,
         "event_languages_display": event.get_languages_display,
         "event_coaches": event_coaches,
@@ -746,6 +772,26 @@ def event_register(request, event_id):
                         request,
                         _(
                             "This event requires an approved profile. Your profile is currently under review."
+                        ),
+                    )
+                    return redirect("crush_lu:event_detail", event_id=event_id)
+            except CrushProfile.DoesNotExist:
+                messages.error(
+                    request,
+                    _(
+                        "This event requires a Crush profile. Please create one to register."
+                    ),
+                )
+                return redirect("crush_lu:create_profile")
+        elif event.profile_requirement == "coach_assigned":
+            try:
+                profile = CrushProfile.objects.get(user=request.user)
+                if not profile.assigned_coach_id:
+                    messages.error(
+                        request,
+                        _(
+                            "This is a premium event for members with a personal coach. "
+                            "Attend an event to get your coach assigned."
                         ),
                     )
                     return redirect("crush_lu:event_detail", event_id=event_id)
@@ -949,9 +995,12 @@ def event_register(request, event_id):
                     registration.event = locked_event
                     registration.user = request.user
 
-                # Determine confirmed vs waitlist using both total and gender caps
+                # Determine confirmed vs waitlist using both total and gender caps.
+                # Premium (coach-assigned) members can claim reserved seats, so
+                # their fullness is measured against the full capacity.
                 user_gender = getattr(profile, "gender", None)
-                total_full = locked_event.is_full
+                is_premium = bool(profile and profile.assigned_coach_id)
+                total_full = locked_event.is_full_for(is_premium=is_premium)
                 gender_pool_full = (
                     locked_event.gender_limits_active
                     and user_gender

@@ -447,6 +447,7 @@ class SubmissionStateRoutingTests(_SiteMixin, TestCase):
             phone_number="+352621000000",
             coach_intro_seen_at=now,
             completion_status="submitted",
+            verification_status="pending",
             date_of_birth=now.date().replace(year=now.year - 30),
             gender="F",
             location="Luxembourg",

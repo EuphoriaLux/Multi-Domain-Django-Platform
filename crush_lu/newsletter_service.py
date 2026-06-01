@@ -48,7 +48,7 @@ def get_newsletter_recipients(newsletter):
     elif newsletter.audience == 'all_profiles':
         users = User.objects.filter(is_active=True, crushprofile__isnull=False)
     elif newsletter.audience == 'approved_profiles':
-        users = User.objects.filter(is_active=True, crushprofile__is_approved=True)
+        users = User.objects.filter(is_active=True, crushprofile__verification_status="verified")
     elif newsletter.audience == 'pending_review':
         from .models.profiles import ProfileSubmission
         pending_user_ids = ProfileSubmission.objects.filter(

@@ -161,6 +161,13 @@ urlpatterns = [
     ),
     path('membership/', views.membership, name='membership'),
 
+    # Staff-only: membership segmentation concept preview (iteration tool)
+    path(
+        'dev/membership-concept/',
+        views.membership_concept_preview,
+        name='membership_concept_preview',
+    ),
+
     # PWA Debug Page (language-prefixed is fine for debug pages)
     # Note: sw-workbox.js, manifest.json, and offline/ are now in urls_crush.py
     # as language-neutral URLs to prevent redirect errors

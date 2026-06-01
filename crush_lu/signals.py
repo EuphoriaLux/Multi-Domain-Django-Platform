@@ -2055,39 +2055,33 @@ def verify_email_on_social_account_connect(sender, request, sociallogin, **kwarg
         )
 
 
-def _execute_luxid_auto_approval(user, profile, submission, request):
+def _execute_luxid_direct_verify(user, profile, submission, request):
     """
-    Core LuxID auto-approval: mark the submission approved, fire notifications.
+    Verify a profile directly via LuxId without a ProfileSubmission.
 
-    Called from two places:
-    - ``auto_approve_profile_on_luxid_connect`` (signal) — LuxID connected after
-      submission existed (the normal fast-lane flow).
-    - ``profile_submitted`` view (lazy fix-up) — LuxID was connected during Step 2
-      phone verification *before* the submission existed, so the signal fired but
-      found nothing to approve. The view detects this on next load and calls here.
+    Used for the free verification path (no coach involved).
+    If a submission is passed (e.g. revision path), it is also approved.
     """
     now = timezone.now()
-
     with transaction.atomic():
-        submission.status = "approved"
-        submission.reviewed_at = now
-        submission.review_call_completed = True
-        _auto_note = "Auto-approved via LuxID identity verification"
-        submission.coach_notes = (
-            f"{submission.coach_notes}\n{_auto_note}".strip()
-            if submission.coach_notes
-            else _auto_note
-        )
-        submission.save(update_fields=["status", "reviewed_at", "coach_notes", "review_call_completed"])
-
         profile.is_approved = True
         profile.approved_at = now
-        profile.save(update_fields=["is_approved", "approved_at"])
+        profile.verification_status = "verified"
+        profile.save(update_fields=["is_approved", "approved_at", "verification_status"])
+
+        if submission and submission.status == "pending":
+            submission.status = "approved"
+            submission.reviewed_at = now
+            submission.review_call_completed = True
+            submission.coach_notes = (
+                (submission.coach_notes + "\n" if submission.coach_notes else "")
+                + "Auto-approved via LuxID identity verification"
+            ).strip()
+            submission.save(update_fields=["status", "reviewed_at", "coach_notes", "review_call_completed"])
 
     logger.info(
-        "[LUXID-AUTO-APPROVE] Auto-approved profile pk=%s for user pk=%s via LuxID",
-        profile.pk,
-        user.pk,
+        "[LUXID-VERIFY] Verified profile pk=%s for user pk=%s (submission=%s)",
+        profile.pk, user.pk, submission.pk if submission else "none",
     )
 
     if request is not None and hasattr(request, "session"):
@@ -2097,58 +2091,46 @@ def _execute_luxid_auto_approval(user, profile, submission, request):
         from .referrals import check_and_apply_profile_approved_reward
         check_and_apply_profile_approved_reward(profile)
     except Exception as _e:
-        logger.error(
-            "[LUXID-AUTO-APPROVE] Reward step failed for profile pk=%s: %s", profile.pk, _e
-        )
+        logger.error("[LUXID-VERIFY] Reward step failed for profile pk=%s: %s", profile.pk, _e)
 
     try:
         from .notification_service import notify_profile_approved
         notify_profile_approved(user=user, profile=profile, coach_notes=None, request=request)
     except Exception as _e:
-        logger.error(
-            "[LUXID-AUTO-APPROVE] Notification step failed for profile pk=%s: %s", profile.pk, _e
-        )
+        logger.error("[LUXID-VERIFY] Notification failed for profile pk=%s: %s", profile.pk, _e)
 
     if request is not None:
         try:
             from django.utils.translation import gettext
             messages.success(
                 request,
-                gettext(
-                    "Your identity has been verified via LuxID. "
-                    "Your profile is now approved!"
-                ),
+                gettext("Your identity has been verified via LuxID. Your profile is now active!"),
             )
         except Exception:
             pass
 
 
+def _execute_luxid_auto_approval(user, profile, submission, request):
+    """Kept for backward compatibility — delegates to _execute_luxid_direct_verify."""
+    _execute_luxid_direct_verify(user, profile, submission, request)
+
+
 @receiver(social_account_added)
 def auto_approve_profile_on_luxid_connect(sender, request, sociallogin, **kwargs):
     """
-    Auto-approve a pending ProfileSubmission when an existing user connects
-    their LuxID government identity account, bypassing the coach review step.
+    Verify a CrushProfile when an existing user connects their LuxID account.
 
-    Guards (all must pass):
-      1. Provider is LuxID ('luxid' or 'openid_connect').
-      2. Request is from a crush.lu domain.
-      3. sociallogin.user has a real pk (authenticated user).
-      4. The user has a CrushProfile.
-      5. The profile is NOT already approved.
-      6. There is a 'pending' ProfileSubmission.
+    No ProfileSubmission is required — verification is now direct for the free
+    path. A pending submission is used opportunistically if one exists (e.g. a
+    paid coach revision re-submit).
 
-    By the time this signal fires, update_crush_profile_from_luxid (pre_social_login)
-    has already run and applied LuxID's authoritative DOB, gender, and phone to
-    the profile. The approval here is therefore based on clean, reconciled data.
+    Guards: LuxID provider, crush.lu domain, authenticated user, has CrushProfile,
+    and the profile must be awaiting verification (verification_status="pending").
+    Incomplete profiles must submit first; rejected profiles cannot self-clear.
     """
     if sociallogin.account.provider not in ("luxid", "openid_connect"):
         return
 
-    # Reuse the thread-local flag set by update_crush_profile_from_luxid
-    # (pre_social_login). That handler sets it True only when it has positively
-    # identified a genuine LuxID OIDC flow on crush.lu — which means we don't
-    # need to duplicate that detection here, and we won't accidentally trigger
-    # for other openid_connect providers (e.g. LinkedIn) configured on the site.
     if not getattr(_thread_local, "is_crush_luxid_login", False):
         return
 
@@ -2163,30 +2145,31 @@ def auto_approve_profile_on_luxid_connect(sender, request, sociallogin, **kwargs
         profile = CrushProfile.objects.get(user=user)
     except CrushProfile.DoesNotExist:
         logger.info(
-            "[LUXID-AUTO-APPROVE] No CrushProfile for user pk=%s, skipping",
+            "[LUXID-VERIFY] No CrushProfile for user pk=%s, skipping",
             getattr(user, "pk", None),
         )
         return
 
-    if profile.is_approved:
+    # Only profiles that have been submitted and are awaiting verification
+    # ("pending") may be verified by connecting LuxID. Profiles that never
+    # completed/submitted ("incomplete") must go through submission first, and
+    # "rejected" profiles must not be able to self-clear by connecting LuxID.
+    # This also short-circuits already-"verified" profiles.
+    if profile.verification_status != "pending":
         logger.info(
-            "[LUXID-AUTO-APPROVE] Profile pk=%s already approved, skipping",
+            "[LUXID-VERIFY] Profile pk=%s not pending verification (status=%s), skipping",
             profile.pk,
+            profile.verification_status,
         )
         return
 
-    try:
-        submission = ProfileSubmission.objects.filter(
-            profile=profile, status="pending"
-        ).latest("submitted_at")
-    except ProfileSubmission.DoesNotExist:
-        logger.info(
-            "[LUXID-AUTO-APPROVE] No pending submission for profile pk=%s, skipping",
-            profile.pk,
-        )
-        return
+    # Use any pending submission opportunistically (paid coach / revision path).
+    # For the standard free path there will be none — that is fine.
+    submission = ProfileSubmission.objects.filter(
+        profile=profile, status="pending"
+    ).order_by("-submitted_at").first()
 
-    _execute_luxid_auto_approval(user, profile, submission, request)
+    _execute_luxid_direct_verify(user, profile, submission, request)
 
 
 # =============================================================================
@@ -2339,6 +2322,41 @@ def handle_event_ticket_on_registration_change(sender, instance, created, **kwar
         logger.error(
             f"Error updating event ticket for registration {instance.id}: {e}"
         )
+
+
+@receiver(post_save, sender=EventRegistration)
+def assign_coach_on_first_attendance(sender, instance, created, **kwargs):
+    """
+    Grant a permanent coach the first time a member attends an event.
+
+    Premium gates (``coach_assigned`` events and Crush Connect) depend on
+    ``CrushProfile.assigned_coach``. This is the path that earns it: when a
+    registration is marked "attended" and the member has no coach yet, the
+    event's first assigned coach becomes their permanent coach. Idempotent —
+    once a coach is assigned the member keeps it, and events with no coaches
+    simply leave the member unassigned until a coached event is attended.
+    """
+    if instance.status != "attended":
+        return
+
+    profile = CrushProfile.objects.filter(user_id=instance.user_id).first()
+    if profile is None or profile.assigned_coach_id:
+        return
+
+    coach = instance.event.coaches.first()
+    if coach is None:
+        return
+
+    profile.assigned_coach = coach
+    profile.assigned_coach_at = timezone.now()
+    profile.save(update_fields=["assigned_coach", "assigned_coach_at"])
+    logger.info(
+        "[COACH-ASSIGN] Assigned coach pk=%s to profile pk=%s on attendance "
+        "of event pk=%s",
+        coach.pk,
+        profile.pk,
+        instance.event_id,
+    )
 
 
 # =============================================================================

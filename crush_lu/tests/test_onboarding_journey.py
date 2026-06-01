@@ -99,6 +99,12 @@ class GetCurrentStepTests(TestCase):
             self.coach_id = kw.get("coach_id")
             self.coach_intro_seen_at = kw.get("coach_intro_seen_at")
             self.completion_status = kw.get("completion_status", "not_started")
+            # verification_status is the new gate for step 4. Mirror the real
+            # submission flow: a "submitted" profile is "pending", else "incomplete".
+            self.verification_status = kw.get(
+                "verification_status",
+                "pending" if self.completion_status == "submitted" else "incomplete",
+            )
             # Django's default reverse accessor for ProfileSubmission.profile
             # (no related_name set on the FK). Tests pass a mock manager here.
             self.profilesubmission_set = kw.get("profilesubmission_set")

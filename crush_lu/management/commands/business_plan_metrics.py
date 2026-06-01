@@ -79,8 +79,8 @@ class Command(BaseCommand):
             all_profiles = all_profiles.filter(created_at__date__gte=since)
         if until:
             all_profiles = all_profiles.filter(created_at__date__lt=until)
-        approved = all_profiles.filter(is_approved=True)
-        not_approved = all_profiles.filter(is_approved=False)
+        approved = all_profiles.filter(verification_status="verified")
+        not_approved = all_profiles.exclude(verification_status="verified")
 
         data = {}
 
@@ -221,7 +221,7 @@ class Command(BaseCommand):
 
         # "Complete" profile: has photo + bio + preferences + submitted
         complete_count = all_profiles.filter(
-            completion_status="submitted",
+            verification_status__in=["pending", "verified"],
         ).exclude(photo_1="").exclude(photo_1__isnull=True).exclude(
             bio=""
         ).exclude(bio__isnull=True).count()
@@ -743,11 +743,11 @@ class Command(BaseCommand):
                 created_at__date__lt=month_end,
             )
             total = profiles.count()
-            approved = profiles.filter(is_approved=True).count()
+            approved = profiles.filter(verification_status="verified").count()
             male = profiles.filter(gender="M").count()
             female = profiles.filter(gender="F").count()
             no_gender = profiles.filter(Q(gender="") | Q(gender__isnull=True)).count()
-            submitted = profiles.filter(completion_status="submitted").count()
+            submitted = profiles.filter(verification_status="pending").count()
             has_photo = profiles.exclude(photo_1="").exclude(photo_1__isnull=True).count()
             has_bio = profiles.exclude(bio="").exclude(bio__isnull=True).count()
 

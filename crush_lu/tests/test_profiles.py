@@ -146,7 +146,11 @@ class RegistrationFlowTests(TestCase):
         self.assertEqual(profile.location, "canton-luxembourg")
         self.assertEqual(profile.gender, "F")
         self.assertEqual(profile.completion_status, "submitted")
-        self.assertTrue(ProfileSubmission.objects.filter(profile=profile).exists())
+        self.assertEqual(profile.verification_status, "pending")
+        # Fresh first submissions no longer create a ProfileSubmission — the
+        # user verifies via LuxId (free) or buys a coach review (paid), and
+        # only those paths open a submission for coach review.
+        self.assertFalse(ProfileSubmission.objects.filter(profile=profile).exists())
 
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")

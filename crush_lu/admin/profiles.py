@@ -164,7 +164,7 @@ class ProfileSubmissionProfileInline(admin.TabularInline):
 
 
 class CrushProfileAdmin(admin.ModelAdmin):
-    list_display = ('get_user_link', 'get_photo_preview', 'get_email', 'age', 'gender', 'location', 'get_language_display', 'phone_verified_icon', 'get_consent_status', 'completion_status', 'get_assigned_coach', 'get_referral_code', 'get_referral_count', 'is_approved', 'is_active', 'outlook_synced', 'created_at', 'is_coach')
+    list_display = ('get_user_link', 'get_photo_preview', 'get_email', 'age', 'gender', 'location', 'get_language_display', 'phone_verified_icon', 'get_consent_status', 'verification_status', 'get_assigned_coach', 'get_referral_code', 'get_referral_count', 'is_approved', 'is_active', 'outlook_synced', 'created_at', 'is_coach')
 
     def save_model(self, request, obj, form, change):
         """
@@ -191,7 +191,8 @@ class CrushProfileAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
 
     list_filter = (
-        # Approval & Status
+        # Verification & Status
+        'verification_status',
         'is_approved',
         'is_active',
 
@@ -308,7 +309,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
             ),
         }),
         ('Status', {
-            'fields': ('is_approved', 'is_active', 'approved_at'),
+            'fields': ('verification_status', 'is_approved', 'is_active', 'approved_at', 'assigned_coach', 'assigned_coach_at'),
         }),
         ('Metadata', {
             'fields': ('created_at', 'updated_at'),
@@ -346,13 +347,10 @@ class CrushProfileAdmin(admin.ModelAdmin):
 
         # Mutually exclusive categories for clearer understanding
         total = CrushProfile.objects.count()
-        approved = CrushProfile.objects.filter(is_approved=True).count()
+        approved = CrushProfile.objects.filter(verification_status="verified").count()
 
-        # Incomplete: Not started OR partially filled (step1, step2, step3)
-        incomplete_statuses = ['not_started', 'step1', 'step2', 'step3', 'step4']
-        incomplete_qs = CrushProfile.objects.filter(
-            completion_status__in=incomplete_statuses
-        )
+        # Incomplete: profile form not fully filled or not yet submitted
+        incomplete_qs = CrushProfile.objects.filter(verification_status="incomplete")
         incomplete = incomplete_qs.count()
 
         # Incomplete with phone verified (users who verified phone but didn't finish profile)
@@ -361,11 +359,8 @@ class CrushProfileAdmin(admin.ModelAdmin):
         # Incomplete without phone verified
         incomplete_unverified = incomplete_qs.filter(phone_verified=False).count()
 
-        # Awaiting Review: Profile completed/submitted but not yet approved
-        awaiting_review = CrushProfile.objects.filter(
-            is_approved=False,
-            completion_status__in=['step4', 'submitted']
-        ).count()
+        # Awaiting Verification: Profile submitted, waiting for LuxId
+        awaiting_review = CrushProfile.objects.filter(verification_status="pending").count()
 
         # NEW: Email verification count (Priority 1)
         unverified_email = CrushProfile.objects.filter(
@@ -519,35 +514,16 @@ class CrushProfileAdmin(admin.ModelAdmin):
     outlook_synced.admin_order_field = 'outlook_contact_id'
 
     def get_assigned_coach(self, obj):
-        """Display the assigned coach from ProfileSubmission with clickable link"""
-        submissions = getattr(obj, '_prefetched_submissions', None)
-        if submissions is not None:
-            submission = submissions[0] if submissions else None
-        else:
-            submission = ProfileSubmission.objects.filter(profile=obj).select_related('coach__user').first()
-
-        if submission is None:
-            return mark_safe('<em style="color: #999;">Not submitted yet</em>')
-
-        if submission.coach:
-            coach_url = reverse('crush_admin:crush_lu_crushcoach_change', args=[submission.coach.pk])
-            status_colors = {
-                'pending': '#ffc107',
-                'approved': '#28a745',
-                'rejected': '#dc3545',
-                'revision': '#17a2b8',
-            }
-            status_color = status_colors.get(submission.status, '#666')
+        """Display the permanently assigned coach (direct FK on profile)."""
+        coach = obj.assigned_coach
+        if coach:
+            coach_url = reverse('crush_admin:crush_lu_crushcoach_change', args=[coach.pk])
             return format_html(
-                '<a href="{}" style="color: #9B59B6; font-weight: bold;">{}</a> '
-                '<span style="color: {};">({}) </span>',
+                '<a href="{}" style="color: #9B59B6; font-weight: bold;">{}</a>',
                 coach_url,
-                submission.coach.user.get_full_name() or submission.coach.user.username,
-                status_color,
-                submission.get_status_display()
+                coach.user.get_full_name() or coach.user.username,
             )
-        else:
-            return mark_safe('<em style="color: #dc3545;">No coach assigned</em>')
+        return mark_safe('<em style="color: #dc3545;">No coach assigned</em>')
     get_assigned_coach.short_description = _('Assigned Coach')
 
     def get_event_registrations(self, obj):
@@ -866,21 +842,17 @@ class CrushProfileAdmin(admin.ModelAdmin):
 
     def get_quick_status_summary(self, obj):
         """Display a quick visual status summary at the top"""
-        if obj.is_approved:
-            profile_status = '✅ Approved'
-            profile_color = '#28a745'
-        else:
-            profile_status = '⏳ Pending Approval'
-            profile_color = '#ffc107'
-
-        completion_map = {
-            'not_started': ('🔴', 'Not Started'),
-            'step1': ('🟡', 'Step 1'),
-            'step2': ('🟠', 'Step 2'),
-            'step3': ('🟢', 'Step 3'),
-            'complete': ('✅', 'Complete'),
+        verification_map = {
+            'verified':   ('#28a745', '✅ Verified'),
+            'pending':    ('#ffc107', '📝 Pending Verification'),
+            'incomplete': ('#dc3545', '🔄 Incomplete'),
+            'rejected':   ('#dc3545', '❌ Rejected'),
         }
-        comp_icon, comp_text = completion_map.get(obj.completion_status, ('❓', obj.completion_status or 'Unknown'))
+        profile_color, profile_status = verification_map.get(
+            obj.verification_status, ('#666', obj.verification_status or 'Unknown')
+        )
+
+        comp_icon, comp_text = ('', '')  # legacy wizard step display removed
 
         phone_status = '✅ Verified' if obj.phone_verified else '❌ Not Verified'
         phone_color = '#28a745' if obj.phone_verified else '#dc3545'
@@ -959,7 +931,8 @@ class CrushProfileAdmin(admin.ModelAdmin):
                 continue
             profile.is_approved = True
             profile.approved_at = now
-            profile.save(update_fields=["is_approved", "approved_at"])
+            profile.verification_status = "verified"
+            profile.save(update_fields=["is_approved", "approved_at", "verification_status"])
             approved_count += 1
         if approved_count > 0:
             django_messages.success(request, _("Approved %(count)s profile(s)") % {"count": approved_count})
@@ -1131,7 +1104,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
                 'Yes' if profile.is_active else 'No',
                 profile.approved_at.strftime('%Y-%m-%d %H:%M') if profile.approved_at else 'Not yet',
                 profile.created_at.strftime('%Y-%m-%d %H:%M'),
-                profile.completion_status,
+                profile.verification_status,
             ])
 
         django_messages.success(request, _("Exported %(count)s profile(s) to CSV.") % {"count": queryset.count()})
@@ -1412,6 +1385,7 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
 
                 submission.profile.is_approved = True
                 submission.profile.approved_at = now
+                submission.profile.verification_status = "verified"
                 submission.profile.save()
                 approved_count += 1
 
@@ -1442,6 +1416,7 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
             submission.reviewed_at = now
             submission.save()
             submission.profile.is_approved = False
+            submission.profile.verification_status = "rejected"
             submission.profile.save()
             count += 1
             try:
@@ -1464,7 +1439,8 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
             submission.status = 'revision'
             submission.reviewed_at = now
             submission.save()
-            submission.profile.completion_status = 'step4'
+            submission.profile.verification_status = 'incomplete'
+            submission.profile.completion_status = 'step4'  # legacy; remove after migration cleanup
             submission.profile.save()
             count += 1
             try:
@@ -1636,7 +1612,7 @@ class IncompleteProfile(CrushProfile):
 
 class ApprovedProfileAdmin(CrushProfileAdmin):
     def get_queryset(self, request):
-        return super().get_queryset(request).filter(is_approved=True)
+        return super().get_queryset(request).filter(verification_status="verified")
 
     def has_add_permission(self, request):
         return False
@@ -1644,10 +1620,7 @@ class ApprovedProfileAdmin(CrushProfileAdmin):
 
 class AwaitingReviewProfileAdmin(CrushProfileAdmin):
     def get_queryset(self, request):
-        return super().get_queryset(request).filter(
-            is_approved=False,
-            completion_status__in=['step4', 'submitted'],
-        )
+        return super().get_queryset(request).filter(verification_status="pending")
 
     def has_add_permission(self, request):
         return False
@@ -1655,9 +1628,7 @@ class AwaitingReviewProfileAdmin(CrushProfileAdmin):
 
 class IncompleteProfileAdmin(CrushProfileAdmin):
     def get_queryset(self, request):
-        return super().get_queryset(request).filter(
-            completion_status__in=['not_started', 'step1', 'step2', 'step3', 'step4'],
-        )
+        return super().get_queryset(request).filter(verification_status="incomplete")
 
     def has_add_permission(self, request):
         return False

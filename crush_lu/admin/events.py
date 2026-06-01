@@ -275,6 +275,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             {
                 "fields": (
                     "max_participants",
+                    "reserved_premium_seats",
                     ("max_participants_m", "max_participants_f", "max_participants_nb"),
                     "min_age",
                     "max_age",
@@ -633,6 +634,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             kwargs["help_text"] = _(
                 "Profile requirement level for registration:\n"
                 "• Approved profile required (recommended): Only users with coach-approved profiles can register\n"
+                "• Premium member — coach assigned: Only members who have a personal coach assigned can register\n"
                 "• Unverified profile only: Only users with a profile NOT yet verified by a coach can register\n"
                 "• Profile must exist: Any user with a Crush profile can register (pending or incomplete OK)\n"
                 "• No profile required: Any authenticated user can register"

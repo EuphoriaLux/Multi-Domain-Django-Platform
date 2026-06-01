@@ -66,6 +66,7 @@ def _make_user_with_pending_profile(gender="M", dob=None):
         gender=gender,
         location="Luxembourg City",
         is_approved=False,
+        verification_status="pending",  # submitted, awaiting LuxId/paid coach
         is_active=True,
     )
     submission = ProfileSubmission.objects.create(profile=profile, status="pending")
@@ -258,11 +259,13 @@ class TestAutoApproveSignalGuards(TestCase):
         self.assertEqual(submission.status, "approved")
         self.assertEqual(submission.coach_notes, "")  # not modified
 
-    def test_guard_no_pending_submission_skips(self):
+    def test_guard_incomplete_profile_skips(self):
+        """An incomplete profile (never submitted) must not be verified just
+        by connecting LuxID — it has to go through submission first."""
         crush_signals._thread_local.is_crush_luxid_login = True
         user, profile, submission = _make_user_with_pending_profile()
-        submission.status = "rejected"
-        submission.save(update_fields=["status"])
+        profile.verification_status = "incomplete"
+        profile.save(update_fields=["verification_status"])
 
         sl = _make_sociallogin(user, provider="luxid")
         social_account_added.send(
@@ -270,6 +273,40 @@ class TestAutoApproveSignalGuards(TestCase):
         )
         profile.refresh_from_db()
         self.assertFalse(profile.is_approved)
+        self.assertEqual(profile.verification_status, "incomplete")
+
+    def test_guard_rejected_profile_skips(self):
+        """A rejected profile must not be able to self-clear by connecting
+        LuxID."""
+        crush_signals._thread_local.is_crush_luxid_login = True
+        user, profile, submission = _make_user_with_pending_profile()
+        profile.verification_status = "rejected"
+        profile.save(update_fields=["verification_status"])
+
+        sl = _make_sociallogin(user, provider="luxid")
+        social_account_added.send(
+            sender=SocialAccount, request=self.request, sociallogin=sl
+        )
+        profile.refresh_from_db()
+        self.assertFalse(profile.is_approved)
+        self.assertEqual(profile.verification_status, "rejected")
+
+    def test_no_pending_submission_verifies_directly(self):
+        """LuxId now verifies the profile directly even with no pending submission.
+        Coach review is a paid feature — LuxId verification is independent."""
+        crush_signals._thread_local.is_crush_luxid_login = True
+        user, profile, submission = _make_user_with_pending_profile()
+        submission.status = "rejected"
+        submission.save(update_fields=["status"])
+
+        with patch("crush_lu.notification_service.notify_profile_approved"):
+            sl = _make_sociallogin(user, provider="luxid")
+            social_account_added.send(
+                sender=SocialAccount, request=self.request, sociallogin=sl
+            )
+        profile.refresh_from_db()
+        self.assertTrue(profile.is_approved)
+        self.assertEqual(profile.verification_status, "verified")
 
     def test_reward_failure_does_not_abort_approval(self):
         """Reward errors are swallowed; the approval DB writes must persist."""
@@ -418,8 +455,8 @@ class TestProfileSubmittedLuxidContext(_SiteMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIsNone(response.context["luxid_connect_url"])
 
-    def test_already_has_luxid_account_no_cta(self):
-        """User with existing LuxID social account gets no CTA."""
+    def test_already_has_luxid_account_redirects_to_dashboard(self):
+        """User with existing LuxID account is verified immediately and redirected to dashboard."""
         from allauth.socialaccount.models import SocialApp
         site = Site.objects.get_current()
         app = SocialApp.objects.create(
@@ -428,10 +465,36 @@ class TestProfileSubmittedLuxidContext(_SiteMixin, TestCase):
         app.sites.add(site)
         SocialAccount.objects.create(user=self.user, provider="luxid", uid="lux-123")
 
-        response = self._get_profile_submitted()
-        self.assertEqual(response.status_code, 200)
-        self.assertFalse(response.context["has_luxid_account"] is False)
-        self.assertIsNone(response.context["luxid_connect_url"])
+        with patch("crush_lu.notification_service.notify_profile_approved"):
+            response = self._get_profile_submitted()
+
+        # Verified immediately → redirect to dashboard
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("dashboard", response["Location"])
+
+    def test_rejected_profile_with_luxid_not_verified(self):
+        """A rejected profile must not self-clear by loading the status page,
+        even with a LuxID account connected (lazy fix-up is pending-only)."""
+        from allauth.socialaccount.models import SocialApp
+        site = Site.objects.get_current()
+        app = SocialApp.objects.create(
+            provider="luxid", name="LuxID", client_id="test", secret="test"
+        )
+        app.sites.add(site)
+        SocialAccount.objects.create(user=self.user, provider="luxid", uid="lux-123")
+
+        self.profile.verification_status = "rejected"
+        self.profile.save(update_fields=["verification_status"])
+
+        with patch("crush_lu.notification_service.notify_profile_approved"):
+            response = self._get_profile_submitted()
+
+        self.profile.refresh_from_db()
+        self.assertFalse(self.profile.is_approved)
+        self.assertEqual(self.profile.verification_status, "rejected")
+        # Not redirected to the dashboard (would only happen on verification).
+        if response.status_code == 302:
+            self.assertNotIn("dashboard", response["Location"])
 
     def test_approved_submission_no_cta(self):
         """CTA is only shown for pending submissions."""

@@ -398,24 +398,21 @@ def _luxid_connect_url(available_providers, oidc_app=None):
 
 @login_required
 def dev_simulate_luxid_connect(request):
-    """Dev-only: simulate LuxID OAuth callback and auto-approve a pending profile.
+    """Dev-only: simulate LuxID OAuth callback and verify a pending profile.
 
-    This view is only reachable when DEBUG=True. It replaces the real OIDC
-    redirect so the LuxID fast-lane can be tested locally without credentials.
+    No ProfileSubmission required — mirrors the new free-path flow where
+    LuxId verification is direct and independent of coach review.
+    Only reachable when DEBUG=True.
     """
     from django.http import Http404
 
     if not settings.DEBUG:
         raise Http404
 
-    from unittest.mock import MagicMock
-
     from allauth.socialaccount.models import SocialAccount
-    from allauth.socialaccount.signals import social_account_added
-
-    from crush_lu import signals as crush_signals
     from crush_lu.models import CrushProfile
     from crush_lu.models.profiles import ProfileSubmission
+    from crush_lu.signals import _execute_luxid_direct_verify
 
     user = request.user
 
@@ -425,37 +422,29 @@ def dev_simulate_luxid_connect(request):
         messages.warning(request, "No CrushProfile found for your account.")
         return redirect("crush_lu:profile_submitted")
 
-    if profile.is_approved:
-        messages.info(request, "[Dev] Profile is already approved.")
-        return redirect("crush_lu:profile_submitted")
+    if profile.verification_status == "verified":
+        messages.info(request, "[Dev] Profile is already verified.")
+        return redirect("crush_lu:dashboard")
 
-    if not ProfileSubmission.objects.filter(profile=profile, status="pending").exists():
-        messages.warning(request, "[Dev] No pending submission found.")
-        return redirect("crush_lu:profile_submitted")
+    if profile.verification_status == "incomplete":
+        messages.warning(request, "[Dev] Profile is incomplete — finish the wizard first.")
+        return redirect("crush_lu:create_profile")
 
-    sa, _ = SocialAccount.objects.get_or_create(
+    # Create a stub SocialAccount so the user appears LuxId-linked
+    SocialAccount.objects.get_or_create(
         user=user,
         provider="openid_connect",
         defaults={"uid": f"dev-luxid-{user.pk}"},
     )
 
-    account_mock = MagicMock()
-    account_mock.provider = "openid_connect"
-    sociallogin = MagicMock()
-    sociallogin.user = user
-    sociallogin.account = account_mock
+    # Use any pending submission opportunistically (revision / paid-coach path)
+    submission = ProfileSubmission.objects.filter(
+        profile=profile, status="pending"
+    ).order_by("-submitted_at").first()
 
-    crush_signals._thread_local.is_crush_luxid_login = True
-    try:
-        social_account_added.send(
-            sender=SocialAccount,
-            request=request,
-            sociallogin=sociallogin,
-        )
-    finally:
-        crush_signals._thread_local.is_crush_luxid_login = False
+    _execute_luxid_direct_verify(user, profile, submission, request)
 
-    return redirect("crush_lu:profile_submitted")
+    return redirect("crush_lu:dashboard")
 
 
 @crush_login_required

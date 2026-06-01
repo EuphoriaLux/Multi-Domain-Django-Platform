@@ -156,9 +156,9 @@ def crush_admin_dashboard(request):
     # Total users and profiles
     total_profiles = CrushProfile.objects.count()
     active_profiles = CrushProfile.objects.filter(is_active=True).count()
-    approved_profiles = CrushProfile.objects.filter(is_approved=True).count()
+    approved_profiles = CrushProfile.objects.filter(verification_status="verified").count()
     pending_approval = CrushProfile.objects.filter(
-        is_approved=False,
+        verification_status="pending",
         is_active=True
     ).count()
 
@@ -216,48 +216,37 @@ def crush_admin_dashboard(request):
         .order_by('-count')
     )
 
-    # Profile completion funnel - users CURRENTLY at each step (not cumulative)
-    # This shows where users are stuck in the funnel
-    # OPTIMIZATION: Use single aggregate query instead of 6 separate COUNT queries
-    from django.db.models import Case, When, IntegerField
+    # Profile verification funnel — shows where users are in the pipeline
     funnel_stats = CrushProfile.objects.aggregate(
-        funnel_not_started=Count('id', filter=Q(completion_status='not_started')),
-        funnel_step1=Count('id', filter=Q(completion_status='step1')),
-        funnel_step2=Count('id', filter=Q(completion_status='step2')),
-        funnel_step3=Count('id', filter=Q(completion_status='step3')),
-        funnel_step4=Count('id', filter=Q(completion_status='step4')),
-        funnel_submitted=Count('id', filter=Q(completion_status='submitted')),
+        funnel_incomplete=Count('id', filter=Q(verification_status='incomplete')),
+        funnel_pending=Count('id', filter=Q(verification_status='pending')),
+        funnel_verified=Count('id', filter=Q(verification_status='verified')),
+        funnel_rejected=Count('id', filter=Q(verification_status='rejected')),
     )
-    funnel_not_started = funnel_stats['funnel_not_started']
-    funnel_step1 = funnel_stats['funnel_step1']
-    funnel_step2 = funnel_stats['funnel_step2']
-    funnel_step3 = funnel_stats['funnel_step3']
-    funnel_step4 = funnel_stats['funnel_step4']
-    funnel_submitted = funnel_stats['funnel_submitted']
+    funnel_incomplete = funnel_stats['funnel_incomplete']
+    funnel_pending = funnel_stats['funnel_pending']
+    funnel_verified = funnel_stats['funnel_verified']
+    funnel_rejected = funnel_stats['funnel_rejected']
+    # Legacy aliases for template backward compat
+    funnel_submitted = funnel_pending
+    funnel_not_started = funnel_incomplete
 
-    # Calculate percentages for each step (of total profiles)
     if total_profiles > 0:
-        funnel_not_started_pct = round(funnel_not_started / total_profiles * 100, 1)
-        funnel_step1_pct = round(funnel_step1 / total_profiles * 100, 1)
-        funnel_step2_pct = round(funnel_step2 / total_profiles * 100, 1)
-        funnel_step3_pct = round(funnel_step3 / total_profiles * 100, 1)
-        funnel_step4_pct = round(funnel_step4 / total_profiles * 100, 1)
-        funnel_submitted_pct = round(funnel_submitted / total_profiles * 100, 1)
+        funnel_incomplete_pct = round(funnel_incomplete / total_profiles * 100, 1)
+        funnel_pending_pct = round(funnel_pending / total_profiles * 100, 1)
+        funnel_verified_pct = round(funnel_verified / total_profiles * 100, 1)
+        funnel_rejected_pct = round(funnel_rejected / total_profiles * 100, 1)
+        # Legacy aliases
+        funnel_not_started_pct = funnel_incomplete_pct
+        funnel_submitted_pct = funnel_pending_pct
     else:
-        funnel_not_started_pct = funnel_step1_pct = funnel_step2_pct = 0
-        funnel_step3_pct = funnel_step4_pct = funnel_submitted_pct = 0
+        funnel_incomplete_pct = funnel_pending_pct = funnel_verified_pct = funnel_rejected_pct = 0
+        funnel_not_started_pct = funnel_submitted_pct = 0
 
-    # Legacy cumulative counts (for backward compatibility)
-    # OPTIMIZATION: Use single aggregate query instead of 3 separate COUNT queries
-    legacy_stats = CrushProfile.objects.aggregate(
-        step1_completed=Count('id', filter=~Q(completion_status='not_started')),
-        step2_completed=Count('id', filter=Q(completion_status__in=['step2', 'step3', 'step4', 'submitted'])),
-        step3_completed=Count('id', filter=Q(completion_status__in=['step3', 'step4', 'submitted'])),
-    )
-    step1_completed = legacy_stats['step1_completed']
-    step2_completed = legacy_stats['step2_completed']
-    step3_completed = legacy_stats['step3_completed']
-    submitted = funnel_submitted
+    step1_completed = funnel_pending + funnel_verified + funnel_rejected
+    step2_completed = funnel_verified
+    step3_completed = funnel_verified
+    submitted = funnel_pending
 
     # ============================================================================
     # COACH METRICS
@@ -696,7 +685,7 @@ def crush_admin_dashboard(request):
 
     from .analytics import get_preference_stats
 
-    pref_approved_qs = CrushProfile.objects.filter(is_approved=True)
+    pref_approved_qs = CrushProfile.objects.filter(verification_status="verified")
     preference_metrics = get_preference_stats(pref_approved_qs)
 
     # ============================================================================
@@ -857,18 +846,19 @@ def crush_admin_dashboard(request):
         'email_only_users': email_only_users,
         'social_users': social_users,
         'auth_provider_stats': auth_provider_stats,
-        # New funnel metrics - users currently at each step
+        # Verification funnel — counts per verification_status state
+        'funnel_incomplete': funnel_incomplete,
+        'funnel_pending': funnel_pending,
+        'funnel_verified': funnel_verified,
+        'funnel_rejected': funnel_rejected,
+        'funnel_incomplete_pct': funnel_incomplete_pct,
+        'funnel_pending_pct': funnel_pending_pct,
+        'funnel_verified_pct': funnel_verified_pct,
+        'funnel_rejected_pct': funnel_rejected_pct,
+        # Legacy aliases kept for any older template/partials still in use
         'funnel_not_started': funnel_not_started,
-        'funnel_step1': funnel_step1,
-        'funnel_step2': funnel_step2,
-        'funnel_step3': funnel_step3,
-        'funnel_step4': funnel_step4,
         'funnel_submitted': funnel_submitted,
         'funnel_not_started_pct': funnel_not_started_pct,
-        'funnel_step1_pct': funnel_step1_pct,
-        'funnel_step2_pct': funnel_step2_pct,
-        'funnel_step3_pct': funnel_step3_pct,
-        'funnel_step4_pct': funnel_step4_pct,
         'funnel_submitted_pct': funnel_submitted_pct,
         # Legacy cumulative counts (for backward compatibility)
         'step1_completed': step1_completed,
@@ -1055,7 +1045,7 @@ def signup_trend_api(request):
     )
 
     # Approvals per period (using approved_at)
-    aq = CrushProfile.objects.filter(is_approved=True, approved_at__isnull=False)
+    aq = CrushProfile.objects.filter(verification_status="verified", approved_at__isnull=False)
     if start_date:
         aq = aq.filter(approved_at__gte=start_date)
 
@@ -1168,7 +1158,7 @@ def cumulative_growth_api(request):
         # Get count before start_date as baseline
         baseline_total = CrushProfile.objects.filter(created_at__lt=start_date).count()
         baseline_approved = CrushProfile.objects.filter(
-            is_approved=True, approved_at__isnull=False, approved_at__lt=start_date
+            verification_status="verified", approved_at__isnull=False, approved_at__lt=start_date
         ).count()
         pq = pq.filter(created_at__gte=start_date)
     else:
@@ -1182,7 +1172,7 @@ def cumulative_growth_api(request):
         .order_by('period')
     )
 
-    aq = CrushProfile.objects.filter(is_approved=True, approved_at__isnull=False)
+    aq = CrushProfile.objects.filter(verification_status="verified", approved_at__isnull=False)
     if start_date:
         aq = aq.filter(approved_at__gte=start_date)
 
