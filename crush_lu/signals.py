@@ -2125,7 +2125,8 @@ def auto_approve_profile_on_luxid_connect(sender, request, sociallogin, **kwargs
     paid coach revision re-submit).
 
     Guards: LuxID provider, crush.lu domain, authenticated user, has CrushProfile,
-    not already verified.
+    and the profile must be awaiting verification (verification_status="pending").
+    Incomplete profiles must submit first; rejected profiles cannot self-clear.
     """
     if sociallogin.account.provider not in ("luxid", "openid_connect"):
         return
@@ -2149,10 +2150,16 @@ def auto_approve_profile_on_luxid_connect(sender, request, sociallogin, **kwargs
         )
         return
 
-    if profile.verification_status == "verified":
+    # Only profiles that have been submitted and are awaiting verification
+    # ("pending") may be verified by connecting LuxID. Profiles that never
+    # completed/submitted ("incomplete") must go through submission first, and
+    # "rejected" profiles must not be able to self-clear by connecting LuxID.
+    # This also short-circuits already-"verified" profiles.
+    if profile.verification_status != "pending":
         logger.info(
-            "[LUXID-VERIFY] Profile pk=%s already verified, skipping",
+            "[LUXID-VERIFY] Profile pk=%s not pending verification (status=%s), skipping",
             profile.pk,
+            profile.verification_status,
         )
         return
 
@@ -2315,6 +2322,41 @@ def handle_event_ticket_on_registration_change(sender, instance, created, **kwar
         logger.error(
             f"Error updating event ticket for registration {instance.id}: {e}"
         )
+
+
+@receiver(post_save, sender=EventRegistration)
+def assign_coach_on_first_attendance(sender, instance, created, **kwargs):
+    """
+    Grant a permanent coach the first time a member attends an event.
+
+    Premium gates (``coach_assigned`` events and Crush Connect) depend on
+    ``CrushProfile.assigned_coach``. This is the path that earns it: when a
+    registration is marked "attended" and the member has no coach yet, the
+    event's first assigned coach becomes their permanent coach. Idempotent —
+    once a coach is assigned the member keeps it, and events with no coaches
+    simply leave the member unassigned until a coached event is attended.
+    """
+    if instance.status != "attended":
+        return
+
+    profile = CrushProfile.objects.filter(user_id=instance.user_id).first()
+    if profile is None or profile.assigned_coach_id:
+        return
+
+    coach = instance.event.coaches.first()
+    if coach is None:
+        return
+
+    profile.assigned_coach = coach
+    profile.assigned_coach_at = timezone.now()
+    profile.save(update_fields=["assigned_coach", "assigned_coach_at"])
+    logger.info(
+        "[COACH-ASSIGN] Assigned coach pk=%s to profile pk=%s on attendance "
+        "of event pk=%s",
+        coach.pk,
+        profile.pk,
+        instance.event_id,
+    )
 
 
 # =============================================================================

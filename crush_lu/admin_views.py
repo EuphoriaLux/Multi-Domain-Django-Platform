@@ -846,18 +846,19 @@ def crush_admin_dashboard(request):
         'email_only_users': email_only_users,
         'social_users': social_users,
         'auth_provider_stats': auth_provider_stats,
-        # New funnel metrics - users currently at each step
+        # Verification funnel — counts per verification_status state
+        'funnel_incomplete': funnel_incomplete,
+        'funnel_pending': funnel_pending,
+        'funnel_verified': funnel_verified,
+        'funnel_rejected': funnel_rejected,
+        'funnel_incomplete_pct': funnel_incomplete_pct,
+        'funnel_pending_pct': funnel_pending_pct,
+        'funnel_verified_pct': funnel_verified_pct,
+        'funnel_rejected_pct': funnel_rejected_pct,
+        # Legacy aliases kept for any older template/partials still in use
         'funnel_not_started': funnel_not_started,
-        'funnel_step1': funnel_step1,
-        'funnel_step2': funnel_step2,
-        'funnel_step3': funnel_step3,
-        'funnel_step4': funnel_step4,
         'funnel_submitted': funnel_submitted,
         'funnel_not_started_pct': funnel_not_started_pct,
-        'funnel_step1_pct': funnel_step1_pct,
-        'funnel_step2_pct': funnel_step2_pct,
-        'funnel_step3_pct': funnel_step3_pct,
-        'funnel_step4_pct': funnel_step4_pct,
         'funnel_submitted_pct': funnel_submitted_pct,
         # Legacy cumulative counts (for backward compatibility)
         'step1_completed': step1_completed,

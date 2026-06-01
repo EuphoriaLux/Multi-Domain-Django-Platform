@@ -801,19 +801,26 @@ class CrushProfile(models.Model):
     @property
     def wizard_step(self):
         """
-        Returns the next incomplete wizard step (1–3), or None when the
-        profile is fully filled in and ready to submit for verification.
-        Derived from field presence so no DB write is needed.
+        Returns the next incomplete wizard sub-step, or None when the profile
+        is fully filled in and ready to submit for verification. Derived from
+        field presence so no DB write is needed.
+
+        The numbers match the Alpine create-profile wizard sub-steps so the
+        value can be written straight to ``data-initial-step``:
+            1 Basic Info · 2 About You · 3 Photos · 4 Preferences · 5 Review
+        "About You" (step 2) holds only optional fields, so it is never a
+        resume target — a returning user is taken to the first *required*
+        missing step instead.
 
         Mirrors get_missing_fields() requirements: phone_verified is required
         for non-LuxId users; LuxId users have it set automatically by the signal.
         """
         if not (self.date_of_birth and self.gender and self.phone_number and self.location and self.phone_verified):
-            return 1  # basic info
+            return 1  # Basic Info
         if not self.photo_1:
-            return 2  # photos
+            return 3  # Photos
         if not self.event_languages:
-            return 3  # event preferences
+            return 4  # Preferences
         return None  # complete — can submit
 
     @property

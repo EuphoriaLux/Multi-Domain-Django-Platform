@@ -259,6 +259,38 @@ class TestAutoApproveSignalGuards(TestCase):
         self.assertEqual(submission.status, "approved")
         self.assertEqual(submission.coach_notes, "")  # not modified
 
+    def test_guard_incomplete_profile_skips(self):
+        """An incomplete profile (never submitted) must not be verified just
+        by connecting LuxID — it has to go through submission first."""
+        crush_signals._thread_local.is_crush_luxid_login = True
+        user, profile, submission = _make_user_with_pending_profile()
+        profile.verification_status = "incomplete"
+        profile.save(update_fields=["verification_status"])
+
+        sl = _make_sociallogin(user, provider="luxid")
+        social_account_added.send(
+            sender=SocialAccount, request=self.request, sociallogin=sl
+        )
+        profile.refresh_from_db()
+        self.assertFalse(profile.is_approved)
+        self.assertEqual(profile.verification_status, "incomplete")
+
+    def test_guard_rejected_profile_skips(self):
+        """A rejected profile must not be able to self-clear by connecting
+        LuxID."""
+        crush_signals._thread_local.is_crush_luxid_login = True
+        user, profile, submission = _make_user_with_pending_profile()
+        profile.verification_status = "rejected"
+        profile.save(update_fields=["verification_status"])
+
+        sl = _make_sociallogin(user, provider="luxid")
+        social_account_added.send(
+            sender=SocialAccount, request=self.request, sociallogin=sl
+        )
+        profile.refresh_from_db()
+        self.assertFalse(profile.is_approved)
+        self.assertEqual(profile.verification_status, "rejected")
+
     def test_no_pending_submission_verifies_directly(self):
         """LuxId now verifies the profile directly even with no pending submission.
         Coach review is a paid feature — LuxId verification is independent."""

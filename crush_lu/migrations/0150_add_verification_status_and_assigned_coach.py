@@ -19,10 +19,15 @@ def backfill_verification_status(apps, schema_editor):
 def backfill_assigned_coach(apps, schema_editor):
     ProfileSubmission = apps.get_model("crush_lu", "ProfileSubmission")
     CrushProfile = apps.get_model("crush_lu", "CrushProfile")
-    # Use the most recent approved submission with a coach to populate assigned_coach
+    # Use the most recent approved submission with a coach to populate
+    # assigned_coach. Iterate newest-first so that — combined with the
+    # assigned_coach__isnull=True guard below — the latest approved coach
+    # wins and older submissions are skipped.
     for sub in (
-        ProfileSubmission.objects.filter(status="approved", coach__isnull=False)
-        .order_by("reviewed_at")
+        ProfileSubmission.objects.filter(
+            status="approved", coach__isnull=False, reviewed_at__isnull=False
+        )
+        .order_by("-reviewed_at")
         .values("profile_id", "coach_id", "reviewed_at")
     ):
         CrushProfile.objects.filter(

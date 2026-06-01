@@ -282,98 +282,72 @@
             </div>
         </div>
 
-        {# Full Profile Funnel #}
+        {# Verification Funnel #}
         <div class="chart-container">
-            <h3>{% trans "Profile Completion Funnel" %}</h3>
-            <p>{% trans "Shows where users are currently stuck in the profile creation process" %}</p>
+            <h3>{% trans "Verification Funnel" %}</h3>
+            <p>{% trans "Shows where members currently sit in the verification pipeline" %}</p>
 
             <div class="funnel-step not-started">
                 <div>
-                    <span class="funnel-step-name">&#x274C; {% trans "Not Started" %}</span>
+                    <span class="funnel-step-name">&#x274C; {% trans "Incomplete" %}</span>
                     <div class="progress-bar-container progress-bar-sm" style="width: 200px; margin-top: 5px;">
-                        <div class="progress-bar" style="width: {{ funnel_not_started_pct }}%; background: linear-gradient(90deg, #dc3545, #ff6b6b);"></div>
+                        <div class="progress-bar" style="width: {{ funnel_incomplete_pct }}%; background: linear-gradient(90deg, #dc3545, #ff6b6b);"></div>
                     </div>
                 </div>
                 <div style="text-align: right;">
-                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=not_started" class="funnel-step-value" style="color: var(--status-danger);">{{ funnel_not_started }}</a>
-                    <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_not_started_pct }}%</div>
-                </div>
-            </div>
-
-            <div class="funnel-step step1">
-                <div>
-                    <span class="funnel-step-name">&#x1F4DD; {% trans "Step 1: Basic Info" %}</span>
-                    <div class="progress-bar-container progress-bar-sm" style="width: 200px; margin-top: 5px;">
-                        <div class="progress-bar" style="width: {{ funnel_step1_pct }}%; background: linear-gradient(90deg, #ffc107, #ffda6a);"></div>
-                    </div>
-                </div>
-                <div style="text-align: right;">
-                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=step1" class="funnel-step-value" style="color: #d39e00;">{{ funnel_step1 }}</a>
-                    <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_step1_pct }}%</div>
+                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?verification_status__exact=incomplete" class="funnel-step-value" style="color: var(--status-danger);">{{ funnel_incomplete }}</a>
+                    <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_incomplete_pct }}%</div>
                 </div>
             </div>
 
             <div class="funnel-step step2">
                 <div>
-                    <span class="funnel-step-name">&#x1F4F7; {% trans "Step 2: Photos & Bio" %}</span>
+                    <span class="funnel-step-name">&#x23F3; {% trans "Pending Review" %}</span>
                     <div class="progress-bar-container progress-bar-sm" style="width: 200px; margin-top: 5px;">
-                        <div class="progress-bar" style="width: {{ funnel_step2_pct }}%; background: linear-gradient(90deg, #17a2b8, #63d5eb);"></div>
+                        <div class="progress-bar" style="width: {{ funnel_pending_pct }}%; background: linear-gradient(90deg, #ffc107, #ffda6a);"></div>
                     </div>
                 </div>
                 <div style="text-align: right;">
-                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=step2" class="funnel-step-value" style="color: var(--status-info);">{{ funnel_step2 }}</a>
-                    <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_step2_pct }}%</div>
-                </div>
-            </div>
-
-            <div class="funnel-step step3">
-                <div>
-                    <span class="funnel-step-name">&#x1F512; {% trans "Step 3: Privacy Settings" %}</span>
-                    <div class="progress-bar-container progress-bar-sm" style="width: 200px; margin-top: 5px;">
-                        <div class="progress-bar" style="width: {{ funnel_step3_pct }}%; background: linear-gradient(90deg, #6f42c1, #a855f7);"></div>
-                    </div>
-                </div>
-                <div style="text-align: right;">
-                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=step3" class="funnel-step-value" style="color: #6f42c1;">{{ funnel_step3 }}</a>
-                    <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_step3_pct }}%</div>
-                </div>
-            </div>
-
-            <div class="funnel-step step4">
-                <div>
-                    <span class="funnel-step-name">🧑‍🏫 {% trans "Step 4: Coach Selected" %}</span>
-                    <div class="progress-bar-container progress-bar-sm" style="width: 200px; margin-top: 5px;">
-                        <div class="progress-bar" style="width: {{ funnel_step4_pct }}%; background: linear-gradient(90deg, #e83e8c, #f472b6);"></div>
-                    </div>
-                </div>
-                <div style="text-align: right;">
-                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=step4" class="funnel-step-value" style="color: #e83e8c;">{{ funnel_step4 }}</a>
-                    <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_step4_pct }}%</div>
+                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?verification_status__exact=pending" class="funnel-step-value" style="color: #d39e00;">{{ funnel_pending }}</a>
+                    <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_pending_pct }}%</div>
                 </div>
             </div>
 
             <div class="funnel-step submitted">
                 <div>
-                    <span class="funnel-step-name">&#x2705; {% trans "Submitted for Review" %}</span>
+                    <span class="funnel-step-name">&#x2705; {% trans "Verified" %}</span>
                     <div class="progress-bar-container progress-bar-sm" style="width: 200px; margin-top: 5px;">
-                        <div class="progress-bar" style="width: {{ funnel_submitted_pct }}%; background: linear-gradient(90deg, #28a745, #5cb85c);"></div>
+                        <div class="progress-bar" style="width: {{ funnel_verified_pct }}%; background: linear-gradient(90deg, #28a745, #5cb85c);"></div>
                     </div>
                 </div>
                 <div style="text-align: right;">
-                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?completion_status__exact=submitted" class="funnel-step-value" style="color: var(--status-success);">{{ funnel_submitted }}</a>
-                    <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_submitted_pct }}%</div>
+                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?verification_status__exact=verified" class="funnel-step-value" style="color: var(--status-success);">{{ funnel_verified }}</a>
+                    <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_verified_pct }}%</div>
+                </div>
+            </div>
+
+            <div class="funnel-step step3">
+                <div>
+                    <span class="funnel-step-name">&#x1F6AB; {% trans "Rejected" %}</span>
+                    <div class="progress-bar-container progress-bar-sm" style="width: 200px; margin-top: 5px;">
+                        <div class="progress-bar" style="width: {{ funnel_rejected_pct }}%; background: linear-gradient(90deg, #6f42c1, #a855f7);"></div>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?verification_status__exact=rejected" class="funnel-step-value" style="color: #6f42c1;">{{ funnel_rejected }}</a>
+                    <div style="font-size: 12px; color: var(--text-muted);">{{ funnel_rejected_pct }}%</div>
                 </div>
             </div>
 
             <div class="insight-box">
                 <strong>&#x1F4A1; {% trans "Insight:" %}</strong>
                 <span>
-                    {% if funnel_not_started > funnel_submitted %}
-                        {% blocktrans with count=funnel_not_started %}{{ count }} users haven't started their profile yet - consider sending reminder emails.{% endblocktrans %}
-                    {% elif funnel_step1 > 0 or funnel_step2 > 0 %}
-                        {% blocktrans with count=funnel_step1|add:funnel_step2 %}{{ count }} users are stuck in steps 1-2 - they may need help with photos or bio.{% endblocktrans %}
+                    {% if funnel_incomplete > funnel_verified %}
+                        {% blocktrans with count=funnel_incomplete %}{{ count }} members haven't completed verification yet - consider sending reminder emails.{% endblocktrans %}
+                    {% elif funnel_pending > 0 %}
+                        {% blocktrans with count=funnel_pending %}{{ count }} members are awaiting review - check coach review throughput.{% endblocktrans %}
                     {% else %}
-                        {% trans "Great progress! Most users are completing their profiles." %}
+                        {% trans "Great progress! Most members are verified." %}
                     {% endif %}
                 </span>
             </div>

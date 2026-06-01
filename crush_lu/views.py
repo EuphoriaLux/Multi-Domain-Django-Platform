@@ -648,7 +648,9 @@ def create_profile(request):
             from .social_photos import get_all_social_photos
 
             form = CrushProfileForm(instance=profile)
-            step = profile.wizard_step or "step1"
+            # wizard_step returns an Alpine sub-step number (1/3/4) — pass it
+            # straight through to data-initial-step.
+            step = profile.wizard_step or 1
             return _render_create_profile(
                 request,
                 {
@@ -1506,9 +1508,9 @@ def edit_profile(request):
     elif profile.verification_status in ("pending", "verified"):
         current_step_to_show = None
     elif profile.verification_status == "incomplete":
-        # wizard_step returns 1-3; map to legacy step key for template compat
-        step = profile.wizard_step
-        current_step_to_show = f"step{step}" if step else None
+        # wizard_step returns an Alpine sub-step number (1/3/4) for
+        # data-initial-step, or None when the profile is ready to submit.
+        current_step_to_show = profile.wizard_step
     else:
         current_step_to_show = None
 
