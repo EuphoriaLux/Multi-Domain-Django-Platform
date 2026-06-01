@@ -1439,7 +1439,13 @@ def edit_profile(request):
         messages.info(request, _("Please complete your profile to continue."))
         return redirect("crush_lu:create_profile")
 
-    # 4. Default: Use multi-step form for any other edge cases
+    # 4. Profile is rejected → terminal. Do not let the fallback form below
+    #    flip it back to "pending" (which would also re-open the pending-only
+    #    LuxID self-verify path). Send the user to the rejection page.
+    if profile.verification_status == "rejected":
+        return redirect("crush_lu:profile_rejected")
+
+    # 5. Default: Use multi-step form for any other edge cases
     if request.method == "POST":
         # Mirror the email-verification gate from create_profile and
         # complete_profile_submission so this edge-case resubmission path
