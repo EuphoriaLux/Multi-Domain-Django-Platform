@@ -910,6 +910,69 @@ document.addEventListener("alpine:init", function () {
                         alert(i18n.networkError || "Network error");
                     });
             },
+
+            getCsrfToken: function () {
+                var input = document.querySelector(
+                    'input[name="csrfmiddlewaretoken"]',
+                );
+                if (input && input.value) return input.value;
+                var cookie = document.cookie.split("; ").find(function (row) {
+                    return row.startsWith("csrftoken=");
+                });
+                return cookie ? cookie.split("=")[1] : "";
+            },
+
+            markVerified: function (evt) {
+                var self = this;
+                var btn = evt.currentTarget;
+                var url = btn.getAttribute("data-verify-url");
+                var regId = btn.getAttribute("data-reg-id");
+                var i18n = window._checkinI18n || {};
+                btn.disabled = true;
+                btn.textContent = "...";
+
+                fetch(url, {
+                    method: "POST",
+                    headers: { "X-CSRFToken": self.getCsrfToken() },
+                })
+                    .then(function (r) {
+                        return r.json();
+                    })
+                    .then(function (data) {
+                        if (data.success) {
+                            self._markRowVerified(regId);
+                        } else {
+                            btn.disabled = false;
+                            btn.textContent = i18n.verifyAction || "Verify";
+                            alert(
+                                data.error ||
+                                    i18n.verifyFailed ||
+                                    "Verification failed",
+                            );
+                        }
+                    })
+                    .catch(function () {
+                        btn.disabled = false;
+                        btn.textContent = i18n.verifyAction || "Verify";
+                        alert(i18n.networkError || "Network error");
+                    });
+            },
+
+            _markRowVerified: function (regId) {
+                var i18n = window._checkinI18n || {};
+                var row = document.getElementById("manual-reg-" + regId);
+                if (!row) return;
+                // Swap the amber "Unverified" pill for a green "Verified" pill.
+                var pill = row.querySelector("[data-verify-pill]");
+                if (pill) {
+                    pill.className =
+                        "inline-flex items-center gap-0.5 rounded-full bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 text-xs font-medium text-green-700 dark:text-green-400";
+                    pill.textContent = i18n.verified || "Verified";
+                }
+                // Remove the verify button.
+                var btn = row.querySelector(".manual-verify-btn");
+                if (btn) btn.remove();
+            },
         };
     });
 

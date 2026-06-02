@@ -2067,7 +2067,8 @@ def _execute_luxid_direct_verify(user, profile, submission, request):
         profile.is_approved = True
         profile.approved_at = now
         profile.verification_status = "verified"
-        profile.save(update_fields=["is_approved", "approved_at", "verification_status"])
+        profile.verification_method = "luxid"
+        profile.save(update_fields=["is_approved", "approved_at", "verification_status", "verification_method"])
 
         if submission and submission.status == "pending":
             submission.status = "approved"

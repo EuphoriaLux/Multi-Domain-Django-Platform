@@ -16,6 +16,15 @@
     <p class="font-semibold text-sm text-green-800 dark:text-green-200 mb-0">{% trans "You're verified" %}</p>
     <p class="text-xs text-green-700/80 dark:text-green-400/80 mb-0">{% trans "Your profile is active — you can browse and book events." %}</p>
   </div>
+  {% with vm=profile.verification_method %}
+  {% if vm == 'luxid' %}
+  <span class="flex-shrink-0 inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">{% trans "LuxID verified" %}</span>
+  {% elif vm == 'premium_coach' %}
+  <span class="flex-shrink-0 inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">{% trans "Premium coach verified" %}</span>
+  {% elif vm == 'coach_event' %}
+  <span class="flex-shrink-0 inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">{% trans "Coach verified" %}</span>
+  {% endif %}
+  {% endwith %}
 </div>
 
 {% elif vs == 'rejected' %}

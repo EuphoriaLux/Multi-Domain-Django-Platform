@@ -79,13 +79,13 @@ def serve_profile_photo(request, user_id, photo_field):
     is_coach = CrushCoach.objects.filter(user=request.user, is_active=True).exists()
     max_requests = 300 if is_coach else 200
     period_seconds = 60  # 1 minute window
-    cache_key = f'ratelimit:serve_profile_photo:user_{request.user.id}'
+    cache_key = f"ratelimit:serve_profile_photo:user_{request.user.id}"
     try:
         current = cache.get(cache_key, 0)
     except Exception:
         current = 0
     if current >= max_requests:
-        return HttpResponse('Rate limit exceeded. Please try again later.', status=429)
+        return HttpResponse("Rate limit exceeded. Please try again later.", status=429)
     try:
         if current == 0:
             cache.set(cache_key, 1, period_seconds)
@@ -98,7 +98,7 @@ def serve_profile_photo(request, user_id, photo_field):
         pass
 
     # Validate photo_field
-    if photo_field not in ['photo_1', 'photo_2', 'photo_3']:
+    if photo_field not in ["photo_1", "photo_2", "photo_3"]:
         raise Http404("Invalid photo field")
 
     # Get the profile
@@ -117,13 +117,15 @@ def serve_profile_photo(request, user_id, photo_field):
         raise Http404("Photo not found")
 
     # AZURE BLOB STORAGE: Generate SAS URL and redirect
-    if hasattr(settings, 'AZURE_ACCOUNT_NAME') and settings.AZURE_ACCOUNT_NAME:
+    if hasattr(settings, "AZURE_ACCOUNT_NAME") and settings.AZURE_ACCOUNT_NAME:
         from .storage import CrushProfilePhotoStorage
+
         storage = CrushProfilePhotoStorage()
 
         # Redirect to Azure with time-limited SAS token
         secure_url = storage.url(photo.name, expire=1800)  # 30 min expiry
         from django.shortcuts import redirect
+
         return redirect(secure_url)
 
     # LOCAL FILESYSTEM: Serve directly
@@ -136,19 +138,63 @@ def serve_profile_photo(request, user_id, photo_field):
 
         # Serve original photo
         try:
-            with open(photo_path, 'rb') as f:
-                content_type = 'image/jpeg'
-                if photo_path.lower().endswith('.png'):
-                    content_type = 'image/png'
-                elif photo_path.lower().endswith('.webp'):
-                    content_type = 'image/webp'
+            with open(photo_path, "rb") as f:
+                content_type = "image/jpeg"
+                if photo_path.lower().endswith(".png"):
+                    content_type = "image/png"
+                elif photo_path.lower().endswith(".webp"):
+                    content_type = "image/webp"
 
                 response = HttpResponse(f.read(), content_type=content_type)
-                response['Content-Disposition'] = 'inline'
+                response["Content-Disposition"] = "inline"
                 return response
         except Exception as e:
             logger.error(f"Error serving photo {photo_path}: {e}")
             raise Http404("Error loading photo")
+
+
+@login_required
+def serve_coach_photo(request, coach_id):
+    """Serve a coach's directory photo to any authenticated member.
+
+    Coach photos live in the same private container as profile photos but are
+    meant to be shown in the member-facing premium coach directory, so the only
+    gate is authentication.
+
+    URL: /crush/media/coach/{coach_id}/
+    """
+    coach = get_object_or_404(CrushCoach, id=coach_id, is_active=True)
+    photo = coach.photo
+    if not photo:
+        raise Http404("Photo not found")
+
+    # AZURE BLOB STORAGE: redirect to a time-limited SAS URL.
+    if hasattr(settings, "AZURE_ACCOUNT_NAME") and settings.AZURE_ACCOUNT_NAME:
+        from django.shortcuts import redirect
+
+        try:
+            secure_url = photo.storage.url(photo.name, expire=1800)  # 30 min
+        except TypeError:
+            secure_url = photo.storage.url(photo.name)
+        return redirect(secure_url)
+
+    # LOCAL FILESYSTEM: serve directly.
+    photo_path = photo.path
+    if not os.path.exists(photo_path):
+        raise Http404("Photo file not found")
+    try:
+        with open(photo_path, "rb") as f:
+            content_type = "image/jpeg"
+            if photo_path.lower().endswith(".png"):
+                content_type = "image/png"
+            elif photo_path.lower().endswith(".webp"):
+                content_type = "image/webp"
+            response = HttpResponse(f.read(), content_type=content_type)
+            response["Content-Disposition"] = "inline"
+            return response
+    except Exception as e:
+        logger.error(f"Error serving coach photo {photo_path}: {e}")
+        raise Http404("Error loading photo")
 
 
 def get_profile_photo_url(profile, photo_field, request=None):
@@ -171,10 +217,10 @@ def get_profile_photo_url(profile, photo_field, request=None):
         return None
 
     # Generate URL through the secure view
-    url = reverse('crush_lu:serve_profile_photo', kwargs={
-        'user_id': profile.user.id,
-        'photo_field': photo_field
-    })
+    url = reverse(
+        "crush_lu:serve_profile_photo",
+        kwargs={"user_id": profile.user.id, "photo_field": photo_field},
+    )
 
     # Build absolute URL if request provided
     if request:
