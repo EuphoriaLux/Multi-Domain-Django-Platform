@@ -165,3 +165,97 @@ class PremiumMembershipTests(SiteTestMixin, TestCase):
         self.client.force_login(self.member)
         resp = self.client.get(reverse("crush_lu:premium_choose_coach"))
         self.assertEqual(resp.status_code, 302)
+
+    def test_cancel_pending_membership(self):
+        from crush_lu.models import PremiumMembership
+
+        coach = self._make_coach("cara")
+        membership = PremiumMembership.objects.create(
+            user=self.member, coach=coach, status="pending"
+        )
+
+        self.client.force_login(self.member)
+        resp = self.client.post(reverse("crush_lu:premium_cancel_membership"))
+        self.assertEqual(resp.status_code, 302)
+
+        membership.refresh_from_db()
+        self.assertEqual(membership.status, "cancelled")
+        # A cancelled request frees re-selection: a new select creates a fresh
+        # pending row (the cancelled one no longer matches status="pending").
+        resp = self.client.post(
+            reverse("crush_lu:premium_select_coach", kwargs={"coach_id": coach.id})
+        )
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(
+            PremiumMembership.objects.filter(
+                user=self.member, status="pending"
+            ).count(),
+            1,
+        )
+
+    def test_cancel_method_noop_on_active(self):
+        from crush_lu.models import PremiumMembership
+
+        coach = self._make_coach("nick")
+        membership = PremiumMembership.objects.create(
+            user=self.member, coach=coach, status="pending"
+        )
+        membership.confirm()  # → active, assigns coach
+        self.assertFalse(membership.cancel())
+        membership.refresh_from_db()
+        self.assertEqual(membership.status, "active")
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.assigned_coach_id, coach.id)
+
+    def test_cancel_requires_post(self):
+        self.client.force_login(self.member)
+        resp = self.client.get(reverse("crush_lu:premium_cancel_membership"))
+        self.assertEqual(resp.status_code, 405)
+
+    def test_dashboard_shows_premium_pending_path(self):
+        """End-to-end: a pending premium member sees the premium-pending hero
+        (view → _verification_path_context → journey partial)."""
+        from crush_lu.models import PremiumMembership
+
+        self.profile.verification_status = "pending"
+        self.profile.save(update_fields=["verification_status"])
+        coach = self._make_coach("dana")
+        PremiumMembership.objects.create(
+            user=self.member, coach=coach, status="pending"
+        )
+
+        self.client.force_login(self.member)
+        resp = self.client.get(reverse("crush_lu:dashboard"))
+        self.assertEqual(resp.status_code, 200)
+        body = resp.content.decode()
+        self.assertIn("payment pending", body.lower())
+        self.assertIn("Dana", body)
+
+    def test_dashboard_shows_event_pending_path(self):
+        """End-to-end: a pending user with an upcoming confirmed registration
+        sees the at-event hero."""
+        from datetime import timedelta
+
+        from crush_lu.models import EventRegistration, MeetupEvent
+
+        self.profile.verification_status = "pending"
+        self.profile.save(update_fields=["verification_status"])
+        event = MeetupEvent.objects.create(
+            title="Test Event",
+            description="x",
+            event_type="speed_dating",
+            date_time=timezone.now() + timedelta(days=7),
+            location="Luxembourg",
+            address="1 Test St",
+            max_participants=20,
+            registration_deadline=timezone.now() + timedelta(days=5),
+            is_published=True,
+        )
+        EventRegistration.objects.create(
+            event=event, user=self.member, status="confirmed"
+        )
+
+        self.client.force_login(self.member)
+        resp = self.client.get(reverse("crush_lu:dashboard"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("verified at your next event", resp.content.decode())

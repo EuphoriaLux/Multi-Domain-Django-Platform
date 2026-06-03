@@ -1237,7 +1237,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
             profile.approved_at = now
             profile.verification_status = "verified"
             if not profile.verification_method:
-                profile.verification_method = "coach_event"
+                profile.verification_method = "admin"
             profile.save(
                 update_fields=[
                     "is_approved",
@@ -1789,6 +1789,8 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
                 submission.profile.is_approved = True
                 submission.profile.approved_at = now
                 submission.profile.verification_status = "verified"
+                if not submission.profile.verification_method:
+                    submission.profile.verification_method = "admin"
                 submission.profile.save()
                 approved_count += 1
 

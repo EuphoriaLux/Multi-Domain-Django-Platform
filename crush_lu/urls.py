@@ -137,6 +137,7 @@ urlpatterns = [
     # Premium membership — member chooses their coach
     path('premium/coaches/', views_premium.premium_choose_coach, name='premium_choose_coach'),
     path('premium/coaches/<int:coach_id>/select/', views_premium.premium_select_coach, name='premium_select_coach'),
+    path('premium/cancel/', views_premium.premium_cancel_membership, name='premium_cancel_membership'),
 
     # Landing and public pages
     path('', views.home, name='home'),
