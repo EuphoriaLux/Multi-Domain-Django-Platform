@@ -2236,9 +2236,16 @@ class PremiumMembership(models.Model):
         """Confirm payment and permanently assign the chosen coach.
 
         Race-safe: the coach's premium capacity is re-checked under a row lock.
-        Returns True on success; raises ValueError if the coach is full.
+        Returns True on success; raises ValueError if the coach is full or the
+        membership is not pending (e.g. already cancelled).
         """
         from django.db import transaction
+
+        # Only a pending request may be confirmed. Guards the admin action,
+        # which iterates every non-active row — without this, confirming a
+        # cancelled membership would silently reactivate it and assign a coach.
+        if self.status != "pending":
+            raise ValueError("Only a pending membership can be confirmed.")
 
         with transaction.atomic():
             coach = CrushCoach.objects.select_for_update().get(pk=self.coach_id)

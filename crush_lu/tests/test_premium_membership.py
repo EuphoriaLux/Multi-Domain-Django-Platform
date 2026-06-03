@@ -212,6 +212,25 @@ class PremiumMembershipTests(SiteTestMixin, TestCase):
         resp = self.client.get(reverse("crush_lu:premium_cancel_membership"))
         self.assertEqual(resp.status_code, 405)
 
+    def test_confirm_rejects_cancelled_membership(self):
+        """A cancelled request must not be reactivated by confirm() — otherwise
+        the admin 'confirm payment' action could resurrect it and assign a
+        coach despite the user cancelling."""
+        from crush_lu.models import PremiumMembership
+
+        coach = self._make_coach("cleo")
+        membership = PremiumMembership.objects.create(
+            user=self.member, coach=coach, status="cancelled"
+        )
+        with self.assertRaises(ValueError):
+            membership.confirm()
+
+        membership.refresh_from_db()
+        self.assertEqual(membership.status, "cancelled")
+        self.assertFalse(membership.payment_confirmed)
+        self.profile.refresh_from_db()
+        self.assertIsNone(self.profile.assigned_coach_id)
+
     def test_dashboard_shows_premium_pending_path(self):
         """End-to-end: a pending premium member sees the premium-pending hero
         (view → _verification_path_context → journey partial)."""
