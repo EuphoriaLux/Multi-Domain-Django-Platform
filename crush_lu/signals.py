@@ -1010,6 +1010,9 @@ def check_special_user_experience(sender, request, user, **kwargs):
                     if not profile.is_approved:
                         profile.is_approved = True
                         profile.approved_at = timezone.now()
+                        profile.verification_status = "verified"
+                        if not profile.verification_method:
+                            profile.verification_method = "admin"
                         profile.save()
                         logger.info(
                             f"Auto-approved profile for special user: {user.email}"

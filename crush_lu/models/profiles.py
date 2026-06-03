@@ -6,7 +6,6 @@ from django.utils.translation import gettext_lazy as _
 from datetime import timedelta
 import os
 import uuid
-from django.db.models import Q, F
 
 # Storage selection for ImageField using Django 4.2+ storages utility
 # Using storages.backends ensures consistent migration state across environments
@@ -431,6 +430,7 @@ class CrushProfile(models.Model):
         ("luxid", _("LuxID identity")),  # government OIDC self-serve
         ("coach_event", _("Coach at event")),  # any coach verified a walk-in in person
         ("premium_coach", _("Premium coach")),  # member's assigned premium coach
+        ("admin", _("Verified by Crush.lu")),  # manual approval by staff/admin
         ("legacy", _("Legacy")),  # grandfathered / pre-method approvals
     ]
 
@@ -870,6 +870,14 @@ class CrushProfile(models.Model):
         # old code still writes is_approved directly).
         if self.is_approved and self.verification_status != "verified":
             self.verification_status = "verified"
+
+        # Safety net: a verified profile must always record HOW it was verified
+        # so the UI can render a badge. Paths with an explicit method (luxid,
+        # coach_event, premium_coach) set it before save and are never touched
+        # here — this only fills the gap left by manual/legacy approvals that
+        # set is_approved without a method.
+        if self.verification_status == "verified" and not self.verification_method:
+            self.verification_method = "admin"
 
         if self.pk:  # Only on update, not create
             try:
@@ -2228,11 +2236,20 @@ class PremiumMembership(models.Model):
         """Confirm payment and permanently assign the chosen coach.
 
         Race-safe: the coach's premium capacity is re-checked under a row lock.
-        Returns True on success; raises ValueError if the coach is full.
+        Returns True on success; raises ValueError if the coach is full or the
+        membership is not pending (e.g. already cancelled).
         """
         from django.db import transaction
 
         with transaction.atomic():
+            # Lock this membership row and re-check status at write time so a
+            # concurrent cancel() serialises behind us. Without the lock, the
+            # admin confirm action could race the cancel endpoint and reactivate
+            # a request the user just cancelled (or vice-versa).
+            locked = PremiumMembership.objects.select_for_update().get(pk=self.pk)
+            if locked.status != "pending":
+                raise ValueError("Only a pending membership can be confirmed.")
+
             coach = CrushCoach.objects.select_for_update().get(pk=self.coach_id)
             if coach.get_premium_members_count() >= coach.max_premium_members:
                 raise ValueError(
@@ -2257,4 +2274,26 @@ class PremiumMembership(models.Model):
             profile.assigned_coach = coach
             profile.assigned_coach_at = now
             profile.save(update_fields=["assigned_coach", "assigned_coach_at"])
+        return True
+
+    def cancel(self, by_user=None):
+        """Cancel a still-pending membership request.
+
+        Only ``pending`` requests can be cancelled — once ``active`` the coach
+        has been assigned and confirmed, which is out of scope here. No coach is
+        ever assigned while pending, so there is nothing to unwind on the
+        profile. Returns True on success, False if not cancellable.
+
+        Locks the membership row and re-checks status at write time so this
+        cannot race a concurrent confirm() (admin action) and clobber a
+        just-confirmed row back to cancelled.
+        """
+        from django.db import transaction
+
+        with transaction.atomic():
+            locked = PremiumMembership.objects.select_for_update().get(pk=self.pk)
+            if locked.status != "pending":
+                return False
+            self.status = "cancelled"
+            self.save(update_fields=["status"])
         return True

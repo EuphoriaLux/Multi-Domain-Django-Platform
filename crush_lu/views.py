@@ -289,6 +289,49 @@ def _build_dashboard_verifier(profile, review_coach, is_premium):
     return None
 
 
+def _verification_path_context(profile, user):
+    """Detect which verification path a *pending* user has chosen.
+
+    Lets the pending-state UI speak to the user's actual choice instead of a
+    generic "verify now". The path is inferred (no extra schema):
+      - ``premium`` ⇐ a pending ``PremiumMembership`` exists for the user.
+      - ``event``   ⇐ the user holds an active registration (confirmed /
+        waitlist) for an upcoming, non-cancelled event — a real commitment.
+      - ``""``      ⇐ no path chosen yet (generic hero).
+
+    Returns a context dict (empty-ish unless pending) with ``premium_pending``,
+    ``chosen_path`` and ``path_locked`` (premium can only be one coach at a
+    time, so it locks the options grid against accidental re-selection).
+    """
+    from .models import PremiumMembership
+
+    if profile.verification_status != "pending":
+        return {"chosen_path": "", "premium_pending": None, "path_locked": False}
+
+    premium_pending = (
+        PremiumMembership.objects.filter(user=user, status="pending")
+        .select_related("coach__user")
+        .first()
+    )
+    if premium_pending:
+        chosen_path = "premium"
+    elif EventRegistration.objects.filter(
+        user=user,
+        status__in=("confirmed", "waitlist"),
+        event__is_cancelled=False,
+        event__date_time__gte=timezone.now(),
+    ).exists():
+        chosen_path = "event"
+    else:
+        chosen_path = ""
+
+    return {
+        "chosen_path": chosen_path,
+        "premium_pending": premium_pending,
+        "path_locked": bool(premium_pending),
+    }
+
+
 @crush_login_required
 def dashboard(request):
     """User dashboard - always shows the dating profile dashboard.
@@ -395,6 +438,7 @@ def dashboard(request):
             "next_event": next_event,
             "greeting": greeting,
             "apple_wallet_enabled": _is_apple_wallet_configured(),
+            **_verification_path_context(profile, request.user),
         }
     except CrushProfile.DoesNotExist:
         messages.warning(request, _("Please complete your profile first."))
@@ -2031,6 +2075,7 @@ def profile_submitted(request):
         "hybrid_user_state": hybrid_user_state,
         "recontact_days_remaining": recontact_days_remaining,
         "has_booking_token": has_booking_token,
+        **_verification_path_context(profile, request.user),
     }
 
     stepper_step = 5

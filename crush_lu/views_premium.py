@@ -106,3 +106,27 @@ def premium_select_coach(request, coach_id):
         % {"coach": coach.user.first_name or _("your coach")},
     )
     return redirect("crush_lu:dashboard")
+
+
+@login_required
+@require_POST
+def premium_cancel_membership(request):
+    """Cancel a pending premium membership so the member can re-choose."""
+    membership = (
+        PremiumMembership.objects.filter(user=request.user, status="pending")
+        .select_related("coach__user")
+        .first()
+    )
+    if membership and membership.cancel(by_user=request.user):
+        logger.info(
+            "Premium membership %s cancelled by user %s",
+            membership.id,
+            request.user.id,
+        )
+        messages.success(
+            request,
+            _("Your premium request has been cancelled. You can choose again anytime."),
+        )
+    else:
+        messages.info(request, _("You have no pending premium request to cancel."))
+    return redirect("crush_lu:premium_choose_coach")
