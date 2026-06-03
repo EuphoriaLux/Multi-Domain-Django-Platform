@@ -2241,13 +2241,15 @@ class PremiumMembership(models.Model):
         """
         from django.db import transaction
 
-        # Only a pending request may be confirmed. Guards the admin action,
-        # which iterates every non-active row — without this, confirming a
-        # cancelled membership would silently reactivate it and assign a coach.
-        if self.status != "pending":
-            raise ValueError("Only a pending membership can be confirmed.")
-
         with transaction.atomic():
+            # Lock this membership row and re-check status at write time so a
+            # concurrent cancel() serialises behind us. Without the lock, the
+            # admin confirm action could race the cancel endpoint and reactivate
+            # a request the user just cancelled (or vice-versa).
+            locked = PremiumMembership.objects.select_for_update().get(pk=self.pk)
+            if locked.status != "pending":
+                raise ValueError("Only a pending membership can be confirmed.")
+
             coach = CrushCoach.objects.select_for_update().get(pk=self.coach_id)
             if coach.get_premium_members_count() >= coach.max_premium_members:
                 raise ValueError(
@@ -2281,9 +2283,17 @@ class PremiumMembership(models.Model):
         has been assigned and confirmed, which is out of scope here. No coach is
         ever assigned while pending, so there is nothing to unwind on the
         profile. Returns True on success, False if not cancellable.
+
+        Locks the membership row and re-checks status at write time so this
+        cannot race a concurrent confirm() (admin action) and clobber a
+        just-confirmed row back to cancelled.
         """
-        if self.status != "pending":
-            return False
-        self.status = "cancelled"
-        self.save(update_fields=["status"])
+        from django.db import transaction
+
+        with transaction.atomic():
+            locked = PremiumMembership.objects.select_for_update().get(pk=self.pk)
+            if locked.status != "pending":
+                return False
+            self.status = "cancelled"
+            self.save(update_fields=["status"])
         return True
