@@ -47,12 +47,6 @@ AUTOSAVE_PRIVACY_FIELDS = {
     "show_exact_age",
 }
 
-# CrushProfile.wizard_step (1=basic info, 2=photos, 3=event prefs) → the
-# Alpine create-profile wizard pane to open on resume. The wizard has 5 panes:
-# 1 Basic Info · 2 About You · 3 Photos · 4 Preferences · 5 Review. Alpine reads
-# data-initial-step as a numeric pane index, so map the logical step to its pane.
-WIZARD_STEP_TO_PANE = {1: 1, 2: 3, 3: 4}
-
 from .models import (
     CrushProfile,
     ProfileSubmission,
@@ -236,7 +230,6 @@ from .views_pwa import (  # noqa: F401
 # =============================================================================
 
 
-@crush_login_required
 def _coach_card(coach, subtitle):
     """Build a display dict for a real CrushCoach shown on the dashboard."""
     first = coach.user.first_name or _("Your coach")
@@ -296,6 +289,7 @@ def _build_dashboard_verifier(profile, review_coach, is_premium):
     return None
 
 
+@crush_login_required
 def dashboard(request):
     """User dashboard - always shows the dating profile dashboard.
     Coaches access their coach dashboard via the dedicated Coach tab.
@@ -728,7 +722,9 @@ def create_profile(request):
             from .social_photos import get_all_social_photos
 
             form = CrushProfileForm(instance=profile)
-            step = WIZARD_STEP_TO_PANE.get(profile.wizard_step, 1)
+            # wizard_step returns an Alpine sub-step number (1/3/4) — pass it
+            # straight through to data-initial-step.
+            step = profile.wizard_step or 1
             return _render_create_profile(
                 request,
                 {
@@ -1529,7 +1525,13 @@ def edit_profile(request):
         messages.info(request, _("Please complete your profile to continue."))
         return redirect("crush_lu:create_profile")
 
-    # 4. Default: Use multi-step form for any other edge cases
+    # 4. Profile is rejected → terminal. Do not let the fallback form below
+    #    flip it back to "pending" (which would also re-open the pending-only
+    #    LuxID self-verify path). Send the user to the rejection page.
+    if profile.verification_status == "rejected":
+        return redirect("crush_lu:profile_rejected")
+
+    # 5. Default: Use multi-step form for any other edge cases
     if request.method == "POST":
         # Mirror the email-verification gate from create_profile and
         # complete_profile_submission so this edge-case resubmission path
@@ -1601,9 +1603,9 @@ def edit_profile(request):
     elif profile.verification_status in ("pending", "verified"):
         current_step_to_show = None
     elif profile.verification_status == "incomplete":
-        # wizard_step returns 1-3 (basic/photos/prefs); map to the Alpine pane.
-        step = profile.wizard_step
-        current_step_to_show = WIZARD_STEP_TO_PANE.get(step) if step else None
+        # wizard_step returns an Alpine sub-step number (1/3/4) for
+        # data-initial-step, or None when the profile is ready to submit.
+        current_step_to_show = profile.wizard_step
     else:
         current_step_to_show = None
 
@@ -1869,10 +1871,13 @@ def profile_submitted(request):
             luxid_connect_url = _luxid_connect_url(
                 _available_providers, oidc_app=_oidc_app
             )
-        elif profile.verification_status != "verified":
-            # Lazy fix-up: user already has LuxId but profile is not yet verified.
-            # This can happen if LuxId was connected before the submission existed
-            # (old flow) or via an edge case. Verify directly now.
+        elif profile.verification_status == "pending":
+            # Lazy fix-up: user already has LuxId but their submitted profile
+            # is still awaiting verification. This can happen if LuxId was
+            # connected before the submission existed (old flow) or via an edge
+            # case, so the social_account_added signal never fired. Verify
+            # directly now. Only "pending" profiles qualify — "rejected" users
+            # must not be able to self-clear by reloading this page.
             from .signals import _execute_luxid_direct_verify
 
             _execute_luxid_direct_verify(request.user, profile, submission, request)

@@ -57,24 +57,30 @@ def _promote_from_waitlist(event, cancelled_user=None):
     if not waitlisted.exists():
         return None
 
-    # Reserved premium seats are held for coach-assigned members. A general
-    # (non-premium) candidate may only be promoted while public capacity has
-    # room; a premium candidate may claim the full capacity, including reserves.
-    _premium_cache = {}
+    # Prefetch profiles in a separate query (no FOR UPDATE conflict). Used for
+    # both gender pools and premium (coach-assigned) capacity checks.
+    waitlisted_list = list(waitlisted)
+    user_ids = [reg.user_id for reg in waitlisted_list]
+    profiles_by_user = {
+        p.user_id: p for p in CrushProfile.objects.filter(user_id__in=user_ids)
+    }
+
+    def _get_gender(reg):
+        profile = profiles_by_user.get(reg.user_id)
+        return profile.gender if profile else None
 
     def _is_premium(reg):
-        if reg.user_id not in _premium_cache:
-            _premium_cache[reg.user_id] = CrushProfile.objects.filter(
-                user_id=reg.user_id, assigned_coach__isnull=False
-            ).exists()
-        return _premium_cache[reg.user_id]
+        # Premium = personal coach assigned. Premium members may take a
+        # reserved seat (measured against total capacity); general members are
+        # capped at public_capacity so the reserved block stays held back.
+        profile = profiles_by_user.get(reg.user_id)
+        return bool(profile and profile.assigned_coach_id)
 
-    # If gender limits are not active, promote the first candidate that fits
-    # under their own capacity rule (skipping general users when only reserved
-    # premium seats remain).
+    # If gender limits are not active, promote the first in line who still has
+    # a seat under their own capacity (general → public, premium → total).
     if not event.gender_limits_active:
-        for candidate in waitlisted:
-            if not event.is_full_for(_is_premium(candidate)):
+        for candidate in waitlisted_list:
+            if not event.is_full_for(is_premium=_is_premium(candidate)):
                 candidate.status = "confirmed"
                 candidate.save()
                 return candidate
@@ -87,17 +93,6 @@ def _promote_from_waitlist(event, cancelled_user=None):
         if cancelled_profile:
             cancelled_gender = cancelled_profile.gender
 
-    # Prefetch profiles in a separate query (no FOR UPDATE conflict)
-    waitlisted_list = list(waitlisted)
-    user_ids = [reg.user_id for reg in waitlisted_list]
-    profiles_by_user = {
-        p.user_id: p for p in CrushProfile.objects.filter(user_id__in=user_ids)
-    }
-
-    def _get_gender(reg):
-        profile = profiles_by_user.get(reg.user_id)
-        return profile.gender if profile else None
-
     # 1. Try same-pool candidates first
     if cancelled_gender:
         pool = event.get_gender_pool(cancelled_gender)
@@ -107,18 +102,18 @@ def _promote_from_waitlist(event, cancelled_user=None):
                 cand_gender = _get_gender(candidate)
                 if cand_gender in pool_codes:
                     if not event.is_full_for(
-                        _is_premium(candidate)
+                        is_premium=_is_premium(candidate)
                     ) and not event.is_gender_pool_full(cand_gender):
                         candidate.status = "confirmed"
                         candidate.save()
                         return candidate
 
-    # 2. Try any waitlisted user whose pool has room
+    # 2. Try any waitlisted user whose pool (and overall capacity) has room
     for candidate in waitlisted_list:
         cand_gender = _get_gender(candidate)
         if not cand_gender or event.is_gender_pool_full(cand_gender):
             continue
-        if event.is_full_for(_is_premium(candidate)):
+        if event.is_full_for(is_premium=_is_premium(candidate)):
             continue
         candidate.status = "confirmed"
         candidate.save()

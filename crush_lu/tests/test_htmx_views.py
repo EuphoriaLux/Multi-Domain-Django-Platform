@@ -149,6 +149,28 @@ class AuthenticatedHTMXTests(SiteTestMixin, HTMXTestMixin, TestCase):
         response = self.htmx_get(url)
         self.assertEqual(response.status_code, 200)
 
+    def test_rejected_profile_cannot_resubmit_via_edit(self):
+        """A rejected profile must not be flipped back to pending through the
+        edit_profile resubmission fallback (which would re-open LuxID
+        self-verification)."""
+        self.profile.is_approved = False
+        self.profile.verification_status = "rejected"
+        self.profile.save(update_fields=["is_approved", "verification_status"])
+
+        self.client.login(username='testuser@example.com', password='testpass123')
+        url = reverse('crush_lu:edit_profile')
+        response = self.client.post(url, {
+            "date_of_birth": "1995-05-15",
+            "gender": "M",
+            "location": "Luxembourg",
+            "bio": "Trying to resubmit",
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("rejected", response["Location"])
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.verification_status, "rejected")
+
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
 class EventHTMXTests(SiteTestMixin, HTMXTestMixin, TestCase):

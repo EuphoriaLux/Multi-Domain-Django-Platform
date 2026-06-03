@@ -6,23 +6,43 @@ from django.db import migrations, models
 
 def backfill_verification_status(apps, schema_editor):
     CrushProfile = apps.get_model("crush_lu", "CrushProfile")
+    ProfileSubmission = apps.get_model("crush_lu", "ProfileSubmission")
     for profile in CrushProfile.objects.only("pk", "is_approved", "completion_status"):
         if profile.is_approved:
             status = "verified"
-        elif profile.completion_status in ("submitted", "step4"):
-            status = "pending"
         else:
-            status = "incomplete"
+            # A terminal rejection lives on the latest ProfileSubmission, not on
+            # is_approved/completion_status (a rejected profile usually still has
+            # completion_status="submitted"). Detect it first so rejected users
+            # are not migrated to "pending" — which would otherwise re-open the
+            # pending-only LuxID verification path for them.
+            latest_status = (
+                ProfileSubmission.objects.filter(profile_id=profile.pk)
+                .order_by("-submitted_at")
+                .values_list("status", flat=True)
+                .first()
+            )
+            if latest_status == "rejected":
+                status = "rejected"
+            elif profile.completion_status in ("submitted", "step4"):
+                status = "pending"
+            else:
+                status = "incomplete"
         CrushProfile.objects.filter(pk=profile.pk).update(verification_status=status)
 
 
 def backfill_assigned_coach(apps, schema_editor):
     ProfileSubmission = apps.get_model("crush_lu", "ProfileSubmission")
     CrushProfile = apps.get_model("crush_lu", "CrushProfile")
-    # Use the most recent approved submission with a coach to populate assigned_coach
+    # Use the most recent approved submission with a coach to populate
+    # assigned_coach. Iterate newest-first so that — combined with the
+    # assigned_coach__isnull=True guard below — the latest approved coach
+    # wins and older submissions are skipped.
     for sub in (
-        ProfileSubmission.objects.filter(status="approved", coach__isnull=False)
-        .order_by("reviewed_at")
+        ProfileSubmission.objects.filter(
+            status="approved", coach__isnull=False, reviewed_at__isnull=False
+        )
+        .order_by("-reviewed_at")
         .values("profile_id", "coach_id", "reviewed_at")
     ):
         CrushProfile.objects.filter(
