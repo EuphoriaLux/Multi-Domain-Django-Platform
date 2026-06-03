@@ -7,6 +7,7 @@ Covers:
   - profile_submitted view: LuxID CTA context injection
   - update_crush_profile_from_luxid: authoritative DOB/gender overwrite
 """
+
 from datetime import date, timedelta
 from unittest.mock import MagicMock, patch
 
@@ -32,6 +33,7 @@ CRUSH_LU_URL_SETTINGS = {"ROOT_URLCONF": "azureproject.urls_crush"}
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_request(host="crush.lu"):
     """RequestFactory GET with session and messages support."""
@@ -76,6 +78,7 @@ def _make_user_with_pending_profile(gender="M", dob=None):
 # ---------------------------------------------------------------------------
 # Signal tests
 # ---------------------------------------------------------------------------
+
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
 class TestAutoApproveSignalHappyPath(TestCase):
@@ -125,7 +128,9 @@ class TestAutoApproveSignalHappyPath(TestCase):
             sender=SocialAccount, request=self.request, sociallogin=sl
         )
         self.submission.refresh_from_db()
-        self.assertIn("Auto-approved via LuxID identity verification", self.submission.coach_notes)
+        self.assertIn(
+            "Auto-approved via LuxID identity verification", self.submission.coach_notes
+        )
 
     @patch("crush_lu.referrals.check_and_apply_profile_approved_reward")
     @patch("crush_lu.notification_service.notify_profile_approved")
@@ -139,7 +144,9 @@ class TestAutoApproveSignalHappyPath(TestCase):
         )
         self.submission.refresh_from_db()
         self.assertIn("Existing coach note", self.submission.coach_notes)
-        self.assertIn("Auto-approved via LuxID identity verification", self.submission.coach_notes)
+        self.assertIn(
+            "Auto-approved via LuxID identity verification", self.submission.coach_notes
+        )
 
     @patch("crush_lu.referrals.check_and_apply_profile_approved_reward")
     @patch("crush_lu.notification_service.notify_profile_approved")
@@ -222,9 +229,7 @@ class TestAutoApproveSignalGuards(TestCase):
         user, profile, submission = _make_user_with_pending_profile()
         request = _make_request(host="entreprinder.lu")
         sl = _make_sociallogin(user, provider="luxid")
-        social_account_added.send(
-            sender=SocialAccount, request=request, sociallogin=sl
-        )
+        social_account_added.send(sender=SocialAccount, request=request, sociallogin=sl)
         self._assert_not_approved(submission)
 
     def test_guard_user_without_profile_skips(self):
@@ -267,10 +272,11 @@ class TestAutoApproveSignalGuards(TestCase):
         profile.verification_status = "incomplete"
         profile.save(update_fields=["verification_status"])
 
-        sl = _make_sociallogin(user, provider="luxid")
-        social_account_added.send(
-            sender=SocialAccount, request=self.request, sociallogin=sl
-        )
+        with patch("crush_lu.notification_service.notify_profile_approved"):
+            sl = _make_sociallogin(user, provider="luxid")
+            social_account_added.send(
+                sender=SocialAccount, request=self.request, sociallogin=sl
+            )
         profile.refresh_from_db()
         self.assertFalse(profile.is_approved)
         self.assertEqual(profile.verification_status, "incomplete")
@@ -330,6 +336,7 @@ class TestAutoApproveSignalGuards(TestCase):
 # ---------------------------------------------------------------------------
 # Adapter redirect tests
 # ---------------------------------------------------------------------------
+
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
 class TestGetConnectRedirectUrl(TestCase):
@@ -411,6 +418,7 @@ class TestGetConnectRedirectUrl(TestCase):
 
 def _make_adapter():
     from azureproject.adapters import MultiDomainSocialAccountAdapter
+
     return MultiDomainSocialAccountAdapter()
 
 
@@ -423,6 +431,7 @@ def _make_social_account(user, provider="luxid"):
 # ---------------------------------------------------------------------------
 # View context tests: LuxID CTA on profile_submitted
 # ---------------------------------------------------------------------------
+
 
 class _SiteMixin:
     @classmethod
@@ -458,6 +467,7 @@ class TestProfileSubmittedLuxidContext(_SiteMixin, TestCase):
     def test_already_has_luxid_account_redirects_to_dashboard(self):
         """User with existing LuxID account is verified immediately and redirected to dashboard."""
         from allauth.socialaccount.models import SocialApp
+
         site = Site.objects.get_current()
         app = SocialApp.objects.create(
             provider="luxid", name="LuxID", client_id="test", secret="test"
@@ -476,6 +486,7 @@ class TestProfileSubmittedLuxidContext(_SiteMixin, TestCase):
         """A rejected profile must not self-clear by loading the status page,
         even with a LuxID account connected (lazy fix-up is pending-only)."""
         from allauth.socialaccount.models import SocialApp
+
         site = Site.objects.get_current()
         app = SocialApp.objects.create(
             provider="luxid", name="LuxID", client_id="test", secret="test"
@@ -532,6 +543,7 @@ class TestProfileSubmittedLuxidContext(_SiteMixin, TestCase):
 # DOB / gender authoritative overwrite tests
 # ---------------------------------------------------------------------------
 
+
 @override_settings(**CRUSH_LU_URL_SETTINGS)
 class TestLuxidProfileDataOverwrite(TestCase):
     """update_crush_profile_from_luxid overwrites DOB/gender for luxid provider."""
@@ -544,6 +556,7 @@ class TestLuxidProfileDataOverwrite(TestCase):
 
     def _run_pre_social_login(self, user, claims, provider="luxid", host="crush.lu"):
         from allauth.socialaccount.signals import pre_social_login
+
         account = MagicMock()
         account.provider = provider
         account.extra_data = claims

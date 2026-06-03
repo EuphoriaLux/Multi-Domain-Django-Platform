@@ -465,7 +465,9 @@ def promote_waitlist_on_capacity_increase(sender, instance, created, **kwargs):
         except Exception as e:
             logger.error(
                 "Failed to send waitlist promotion email for user %s, event %s: %s",
-                reg.user.pk, instance.id, type(e).__name__
+                reg.user.pk,
+                instance.id,
+                type(e).__name__,
             )
 
     if promoted_registrations:
@@ -489,8 +491,11 @@ def setup_event_voting(sender, instance, created, **kwargs):
         # Step 1: Ensure GlobalActivityOption records exist
         if not GlobalActivityOption.objects.filter(is_active=True).exists():
             from django.core.management import call_command
+
             call_command("populate_global_activity_options")
-            logger.info("Auto-populated GlobalActivityOption records for event %s", instance.id)
+            logger.info(
+                "Auto-populated GlobalActivityOption records for event %s", instance.id
+            )
 
         # Step 2: Auto-create EventVotingSession if it doesn't exist
         if not EventVotingSession.objects.filter(event=instance).exists():
@@ -508,10 +513,14 @@ def setup_event_voting(sender, instance, created, **kwargs):
             )
             logger.info(
                 "Auto-created EventVotingSession for event %s (voting: %s to %s)",
-                instance.id, voting_start, voting_end,
+                instance.id,
+                voting_start,
+                voting_end,
             )
     except Exception as e:
-        logger.error("Failed to setup voting for event %s: %s", instance.id, type(e).__name__)
+        logger.error(
+            "Failed to setup voting for event %s: %s", instance.id, type(e).__name__
+        )
 
 
 def get_high_res_facebook_photo_url(facebook_id, access_token=None):
@@ -770,6 +779,7 @@ def update_facebook_profile_on_login(sender, request, sociallogin, **kwargs):
         if hasattr(sociallogin.user, "id") and sociallogin.user.id:
             try:
                 from .social_photos import refresh_social_photo_cache
+
                 token = sociallogin.token if sociallogin.token else None
                 refresh_social_photo_cache(sociallogin.account, token)
             except Exception as e:
@@ -795,9 +805,9 @@ def detect_apple_relay_email(sender, request, sociallogin, **kwargs):
     if not _is_crush_domain(request):
         return
 
-    email = sociallogin.account.extra_data.get('email', '')
-    if email.endswith('@privaterelay.appleid.com') and not sociallogin.is_existing:
-        request.session['apple_relay_needs_linking'] = True
+    email = sociallogin.account.extra_data.get("email", "")
+    if email.endswith("@privaterelay.appleid.com") and not sociallogin.is_existing:
+        request.session["apple_relay_needs_linking"] = True
         logger.info(
             f"[APPLE-RELAY] New signup with Hide My Email detected, "
             f"setting linking prompt flag"
@@ -868,6 +878,7 @@ def create_crush_profile_from_facebook(sender, instance, created, **kwargs):
         # Persist social photo to cache for token-expiry fallback
         try:
             from .social_photos import refresh_social_photo_cache
+
             refresh_social_photo_cache(instance)
         except Exception as e:
             logger.warning(f"Failed to persist Facebook photo cache for new user: {e}")
@@ -878,10 +889,16 @@ def create_crush_profile_from_facebook(sender, instance, created, **kwargs):
             if oauth_request:
                 try:
                     from .email_helpers import send_welcome_email
+
                     result = send_welcome_email(instance.user, oauth_request)
-                    logger.info(f"Welcome email sent to Facebook OAuth user {instance.user.email}: {result}")
+                    logger.info(
+                        f"Welcome email sent to Facebook OAuth user {instance.user.email}: {result}"
+                    )
                 except Exception as e:
-                    logger.error(f"Failed to send welcome email to Facebook OAuth user {instance.user.email}: {e}", exc_info=True)
+                    logger.error(
+                        f"Failed to send welcome email to Facebook OAuth user {instance.user.email}: {e}",
+                        exc_info=True,
+                    )
                 finally:
                     _thread_local.oauth_signup_request = None
 
@@ -999,6 +1016,7 @@ def check_special_user_experience(sender, request, user, **kwargs):
                         )
                         # Award referral bonus points to referrer (if referred)
                         from .referrals import check_and_apply_profile_approved_reward
+
                         check_and_apply_profile_approved_reward(profile)
                 except CrushProfile.DoesNotExist:
                     pass
@@ -1187,6 +1205,7 @@ def update_google_profile_on_login(sender, request, sociallogin, **kwargs):
         if hasattr(sociallogin.user, "id") and sociallogin.user.id:
             try:
                 from .social_photos import refresh_social_photo_cache
+
                 refresh_social_photo_cache(sociallogin.account)
             except Exception as e:
                 logger.warning(f"Failed to refresh Google photo cache: {e}")
@@ -1252,6 +1271,7 @@ def create_crush_profile_from_google(sender, instance, created, **kwargs):
         # Persist social photo to cache for consistency
         try:
             from .social_photos import refresh_social_photo_cache
+
             refresh_social_photo_cache(instance)
         except Exception as e:
             logger.warning(f"Failed to persist Google photo cache for new user: {e}")
@@ -1262,10 +1282,16 @@ def create_crush_profile_from_google(sender, instance, created, **kwargs):
             if oauth_request:
                 try:
                     from .email_helpers import send_welcome_email
+
                     result = send_welcome_email(instance.user, oauth_request)
-                    logger.info(f"Welcome email sent to Google OAuth user {instance.user.email}: {result}")
+                    logger.info(
+                        f"Welcome email sent to Google OAuth user {instance.user.email}: {result}"
+                    )
                 except Exception as e:
-                    logger.error(f"Failed to send welcome email to Google OAuth user {instance.user.email}: {e}", exc_info=True)
+                    logger.error(
+                        f"Failed to send welcome email to Google OAuth user {instance.user.email}: {e}",
+                        exc_info=True,
+                    )
                 finally:
                     _thread_local.oauth_signup_request = None
 
@@ -1369,6 +1395,7 @@ def update_microsoft_profile_on_login(sender, request, sociallogin, **kwargs):
         if hasattr(sociallogin.user, "id") and sociallogin.user.id:
             try:
                 from .social_photos import refresh_social_photo_cache
+
                 token = sociallogin.token if sociallogin.token else None
                 refresh_social_photo_cache(sociallogin.account, token)
             except Exception as e:
@@ -1424,6 +1451,7 @@ def create_crush_profile_from_microsoft(sender, instance, created, **kwargs):
         # Persist social photo to cache for token-expiry fallback
         try:
             from .social_photos import refresh_social_photo_cache
+
             refresh_social_photo_cache(instance)
         except Exception as e:
             logger.warning(f"Failed to persist Microsoft photo cache for new user: {e}")
@@ -1434,10 +1462,16 @@ def create_crush_profile_from_microsoft(sender, instance, created, **kwargs):
             if oauth_request:
                 try:
                     from .email_helpers import send_welcome_email
+
                     result = send_welcome_email(instance.user, oauth_request)
-                    logger.info(f"Welcome email sent to Microsoft OAuth user {instance.user.email}: {result}")
+                    logger.info(
+                        f"Welcome email sent to Microsoft OAuth user {instance.user.email}: {result}"
+                    )
                 except Exception as e:
-                    logger.error(f"Failed to send welcome email to Microsoft OAuth user {instance.user.email}: {e}", exc_info=True)
+                    logger.error(
+                        f"Failed to send welcome email to Microsoft OAuth user {instance.user.email}: {e}",
+                        exc_info=True,
+                    )
                 finally:
                     _thread_local.oauth_signup_request = None
 
@@ -1457,7 +1491,7 @@ LUXID_GENDER_MAP = {
     "male": "M",
     "female": "F",
     "diverse": "NB",  # OIDC standard spelling
-    "divers": "NB",   # French/German spelling used in LuxID UI
+    "divers": "NB",  # French/German spelling used in LuxID UI
 }
 
 
@@ -1512,9 +1546,7 @@ def _luxid_phone_available(phone, profile):
     if not phone:
         return False
     clash = (
-        CrushProfile.objects.filter(phone_number=phone)
-        .exclude(pk=profile.pk)
-        .exists()
+        CrushProfile.objects.filter(phone_number=phone).exclude(pk=profile.pk).exists()
     )
     if clash:
         logger.warning(
@@ -1682,7 +1714,12 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
         # the new SocialAccount link and logging the user in seamlessly.
         _phone = _claims.get("phone_number")
         _is_connect_flow = getattr(sociallogin, "state", {}).get("process") == "connect"
-        if _phone and _is_trusted_luxid_phone(_phone) and not sociallogin.is_existing and not _is_connect_flow:
+        if (
+            _phone
+            and _is_trusted_luxid_phone(_phone)
+            and not sociallogin.is_existing
+            and not _is_connect_flow
+        ):
             try:
                 _existing_profile = CrushProfile.objects.select_related("user").get(
                     phone_number=_phone,
@@ -1710,7 +1747,9 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                 # the same phone lookup to repeat on every subsequent login.
                 sociallogin.connect(request, _existing_user)
             except CrushProfile.DoesNotExist:
-                logger.debug("[LUXID] Phone-based lookup: no existing user for this phone")
+                logger.debug(
+                    "[LUXID] Phone-based lookup: no existing user for this phone"
+                )
             except CrushProfile.MultipleObjectsReturned:
                 logger.warning(
                     "[LUXID] Phone-based lookup: multiple profiles share the same phone, skipping"
@@ -1730,13 +1769,8 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
         # session user's profile before they are logged out (cross-account
         # data corruption).
         _sl_user = sociallogin.user
-        _is_connect = (
-            getattr(sociallogin, "state", {}).get("process") == "connect"
-        )
-        if (
-            _is_connect
-            and not (hasattr(_sl_user, "id") and _sl_user.id)
-        ):
+        _is_connect = getattr(sociallogin, "state", {}).get("process") == "connect"
+        if _is_connect and not (hasattr(_sl_user, "id") and _sl_user.id):
             _req_user = getattr(request, "user", None)
             if _req_user is not None and getattr(_req_user, "is_authenticated", False):
                 _sl_user = _req_user
@@ -1981,6 +2015,7 @@ def create_crush_profile_from_luxid(sender, instance, created, **kwargs):
             if oauth_request:
                 try:
                     from .email_helpers import send_welcome_email
+
                     result = send_welcome_email(instance.user, oauth_request)
                     logger.info(
                         f"Welcome email sent to LuxID OAuth user {instance.user.email}: {result}"
@@ -2067,7 +2102,15 @@ def _execute_luxid_direct_verify(user, profile, submission, request):
         profile.is_approved = True
         profile.approved_at = now
         profile.verification_status = "verified"
-        profile.save(update_fields=["is_approved", "approved_at", "verification_status"])
+        profile.verification_method = "luxid"
+        profile.save(
+            update_fields=[
+                "is_approved",
+                "approved_at",
+                "verification_status",
+                "verification_method",
+            ]
+        )
 
         if submission and submission.status == "pending":
             submission.status = "approved"
@@ -2077,11 +2120,20 @@ def _execute_luxid_direct_verify(user, profile, submission, request):
                 (submission.coach_notes + "\n" if submission.coach_notes else "")
                 + "Auto-approved via LuxID identity verification"
             ).strip()
-            submission.save(update_fields=["status", "reviewed_at", "coach_notes", "review_call_completed"])
+            submission.save(
+                update_fields=[
+                    "status",
+                    "reviewed_at",
+                    "coach_notes",
+                    "review_call_completed",
+                ]
+            )
 
     logger.info(
         "[LUXID-VERIFY] Verified profile pk=%s for user pk=%s (submission=%s)",
-        profile.pk, user.pk, submission.pk if submission else "none",
+        profile.pk,
+        user.pk,
+        submission.pk if submission else "none",
     )
 
     if request is not None and hasattr(request, "session"):
@@ -2089,22 +2141,33 @@ def _execute_luxid_direct_verify(user, profile, submission, request):
 
     try:
         from .referrals import check_and_apply_profile_approved_reward
+
         check_and_apply_profile_approved_reward(profile)
     except Exception as _e:
-        logger.error("[LUXID-VERIFY] Reward step failed for profile pk=%s: %s", profile.pk, _e)
+        logger.error(
+            "[LUXID-VERIFY] Reward step failed for profile pk=%s: %s", profile.pk, _e
+        )
 
     try:
         from .notification_service import notify_profile_approved
-        notify_profile_approved(user=user, profile=profile, coach_notes=None, request=request)
+
+        notify_profile_approved(
+            user=user, profile=profile, coach_notes=None, request=request
+        )
     except Exception as _e:
-        logger.error("[LUXID-VERIFY] Notification failed for profile pk=%s: %s", profile.pk, _e)
+        logger.error(
+            "[LUXID-VERIFY] Notification failed for profile pk=%s: %s", profile.pk, _e
+        )
 
     if request is not None:
         try:
             from django.utils.translation import gettext
+
             messages.success(
                 request,
-                gettext("Your identity has been verified via LuxID. Your profile is now active!"),
+                gettext(
+                    "Your identity has been verified via LuxID. Your profile is now active!"
+                ),
             )
         except Exception:
             pass
@@ -2165,9 +2228,11 @@ def auto_approve_profile_on_luxid_connect(sender, request, sociallogin, **kwargs
 
     # Use any pending submission opportunistically (paid coach / revision path).
     # For the standard free path there will be none — that is fine.
-    submission = ProfileSubmission.objects.filter(
-        profile=profile, status="pending"
-    ).order_by("-submitted_at").first()
+    submission = (
+        ProfileSubmission.objects.filter(profile=profile, status="pending")
+        .order_by("-submitted_at")
+        .first()
+    )
 
     _execute_luxid_direct_verify(user, profile, submission, request)
 
@@ -2304,24 +2369,21 @@ def handle_event_ticket_on_registration_change(sender, instance, created, **kwar
         return
 
     try:
-        from .wallet.google_event_ticket_api import expire_event_ticket, complete_event_ticket
+        from .wallet.google_event_ticket_api import (
+            expire_event_ticket,
+            complete_event_ticket,
+        )
 
         if instance.status == "cancelled":
             result = expire_event_ticket(instance)
             if result["success"]:
-                logger.info(
-                    f"Expired event ticket for registration {instance.id}"
-                )
+                logger.info(f"Expired event ticket for registration {instance.id}")
         elif instance.status == "attended":
             result = complete_event_ticket(instance)
             if result["success"]:
-                logger.info(
-                    f"Completed event ticket for registration {instance.id}"
-                )
+                logger.info(f"Completed event ticket for registration {instance.id}")
     except Exception as e:
-        logger.error(
-            f"Error updating event ticket for registration {instance.id}: {e}"
-        )
+        logger.error(f"Error updating event ticket for registration {instance.id}: {e}")
 
 
 @receiver(post_save, sender=EventRegistration)
@@ -2671,6 +2733,7 @@ def reveal_spark_sender_on_journey_completion(sender, instance, **kwargs):
 # HYBRID COACH REVIEW — SLA TIMER (Phase 3)
 # =============================================================================
 
+
 @receiver(post_save, sender=ProfileSubmission)
 def start_sla_on_coach_assignment(sender, instance, created, **kwargs):
     """Stamp assigned_at and sla_deadline when a submission first gets a coach.
@@ -2687,9 +2750,7 @@ def start_sla_on_coach_assignment(sender, instance, created, **kwargs):
         return
 
     now = timezone.now()
-    ProfileSubmission.objects.filter(
-        pk=instance.pk, assigned_at__isnull=True
-    ).update(
+    ProfileSubmission.objects.filter(pk=instance.pk, assigned_at__isnull=True).update(
         assigned_at=now,
         sla_deadline=now + timedelta(hours=48),
     )

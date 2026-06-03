@@ -78,6 +78,9 @@
 {% include "crush_lu/partials/_verification_journey.html" %}
 {% endif %}
 
+{# Adaptive "your verifier" highlight — real coach, LuxID, or verifying coach #}
+{% include "crush_lu/partials/_verifier_card.html" %}
+
 {% comment %}Verified but NOT premium → show the 3 products (upsell to Premium / Crush Connect).{% endcomment %}
 {% if profile.verification_status == 'verified' and not is_premium %}
 {% include "crush_lu/partials/_products.html" with is_premium=is_premium has_attended_event=has_attended_event next_event=next_event %}

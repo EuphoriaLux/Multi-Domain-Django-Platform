@@ -20,6 +20,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
+from .decorators import coach_required
 from .models import EventRegistration
 
 logger = logging.getLogger(__name__)
@@ -213,6 +214,143 @@ def event_checkin_api(request, registration_id, token):
     return JsonResponse(response_data)
 
 
+@coach_required
+@require_POST
+def coach_mark_verified(request, event_id, registration_id):
+    """Verify an attendee in person at an event (Option 2 / premium Option 3).
+
+    A coach running the event can flip an unverified attendee to ``verified``.
+    For ordinary walk-ins any active coach may do this (method ``coach_event``).
+    For a premium member (one with an ``assigned_coach``) only that assigned
+    coach may verify them, and the method is recorded as ``premium_coach``.
+    """
+    from .models import ProfileSubmission
+
+    coach = request.coach
+    now = timezone.now()
+
+    with transaction.atomic():
+        # Lock only the registration row — crushprofile is the nullable side of
+        # an outer join, which PostgreSQL refuses to lock under FOR UPDATE.
+        registration = (
+            EventRegistration.objects.select_for_update(of=("self",))
+            .select_related("user", "event")
+            .filter(id=registration_id, event_id=event_id)
+            .first()
+        )
+        if registration is None:
+            return JsonResponse(
+                {"success": False, "error": str(_("Registration not found."))},
+                status=404,
+            )
+        if registration.status not in ("confirmed", "attended"):
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": str(
+                        _("Only confirmed or checked-in attendees can be verified.")
+                    ),
+                },
+                status=400,
+            )
+
+        try:
+            profile = registration.user.crushprofile
+        except Exception:
+            return JsonResponse(
+                {"success": False, "error": str(_("Attendee has no profile."))},
+                status=404,
+            )
+
+        # Premium members may only be verified by their own assigned coach.
+        if profile.assigned_coach_id:
+            if profile.assigned_coach_id != coach.id:
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "error": str(
+                            _("This premium member is verified by their own coach.")
+                        ),
+                    },
+                    status=403,
+                )
+            method = "premium_coach"
+        else:
+            method = "coach_event"
+
+        if profile.verification_status == "verified":
+            return JsonResponse(
+                {
+                    "success": True,
+                    "already_verified": True,
+                    "registration_id": registration.id,
+                    "attendee_name": _get_display_name(registration),
+                    "verification_method": profile.verification_method,
+                    "message": str(_("Already verified.")),
+                }
+            )
+
+        profile.is_approved = True
+        profile.approved_at = now
+        profile.verification_status = "verified"
+        profile.verification_method = method
+        profile.save(
+            update_fields=[
+                "is_approved",
+                "approved_at",
+                "verification_status",
+                "verification_method",
+            ]
+        )
+
+        submission = (
+            ProfileSubmission.objects.filter(profile=profile, status="pending")
+            .order_by("-submitted_at")
+            .first()
+        )
+        if submission:
+            submission.status = "approved"
+            submission.reviewed_at = now
+            submission.review_call_completed = True
+            if not submission.coach_id:
+                submission.coach = coach
+            submission.coach_notes = (
+                (submission.coach_notes + "\n" if submission.coach_notes else "")
+                + "Verified in person at event by coach"
+            ).strip()
+            submission.save(
+                update_fields=[
+                    "status",
+                    "reviewed_at",
+                    "coach_notes",
+                    "review_call_completed",
+                    "coach",
+                ]
+            )
+
+    logger.info(
+        "Coach %s verified registration %s (user %s) at event %s via %s",
+        coach,
+        registration.id,
+        registration.user_id,
+        event_id,
+        method,
+    )
+
+    response_data = {
+        "success": True,
+        "already_verified": False,
+        "registration_id": registration.id,
+        "attendee_name": _get_display_name(registration),
+        "verification_method": method,
+        "message": str(_("%(name)s is now verified."))
+        % {"name": _get_display_name(registration)},
+        "profile": _get_profile_data(registration),
+    }
+    _broadcast_checkin(registration.event_id, response_data)
+    return JsonResponse(response_data)
+
+
 def _get_display_name(registration):
     """Get privacy-aware display name for attendee."""
     try:
@@ -255,7 +393,9 @@ def _get_profile_data(registration):
         if latest_submission:
             data["submission_status"] = latest_submission.get_status_display()
             if latest_submission.coach:
-                data["coach_name"] = f"{latest_submission.coach.user.first_name} {latest_submission.coach.user.last_name}".strip()
+                data["coach_name"] = (
+                    f"{latest_submission.coach.user.first_name} {latest_submission.coach.user.last_name}".strip()
+                )
 
     return data
 

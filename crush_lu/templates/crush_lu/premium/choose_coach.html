@@ -1,0 +1,86 @@
+{% extends 'crush_lu/base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans "Choose your coach" %} - Crush.lu{% endblock %}
+
+{% block content %}
+<main class="min-h-screen bg-crush-light dark:bg-gray-900">
+  <div class="mx-auto max-w-2xl px-4 pb-16 pt-6 sm:px-6">
+
+    <section class="mb-6">
+      <h1 class="font-display text-2xl font-semibold italic leading-tight tracking-tight text-crush-dark dark:text-white">
+        {% trans "Go Premium — choose your coach" %}
+      </h1>
+      <p class="mt-2 text-[13px] leading-normal text-gray-500 dark:text-gray-400">
+        {% trans "Pick the coach you'd like by your side. They'll assist you at events to help you find your Crush." %}
+      </p>
+    </section>
+
+    {% if pending_membership %}
+    <div class="mb-6 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-900/20">
+      <div class="flex-1 min-w-0">
+        <p class="mb-0 text-sm font-semibold text-amber-800 dark:text-amber-200">
+          {% blocktrans with coach_name=pending_membership.coach.user.first_name %}You've chosen {{ coach_name }} — payment pending.{% endblocktrans %}
+        </p>
+        <p class="mb-0 text-xs text-amber-700/80 dark:text-amber-400/80">
+          {% trans "We'll be in touch to complete your premium membership. You can pick a different coach below." %}
+        </p>
+      </div>
+    </div>
+    {% endif %}
+
+    <section class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {% for coach in coaches %}
+      <div class="flex flex-col rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
+        <div class="flex items-center gap-4">
+          {% if coach.photo %}
+            <img src="{% url 'crush_lu:serve_coach_photo' coach.id %}" alt="" class="h-16 w-16 rounded-full object-cover">
+          {% else %}
+            <div class="flex h-16 w-16 items-center justify-center rounded-full bg-crush-purple/10 text-xl font-semibold text-crush-purple">
+              {{ coach.user.first_name|slice:":1"|default:"?" }}
+            </div>
+          {% endif %}
+          <div class="min-w-0 flex-1">
+            <div class="font-semibold text-crush-dark dark:text-white">
+              {{ coach.user.first_name|default:coach.user.username }}
+            </div>
+            {% if coach.specializations %}
+            <div class="text-xs text-gray-500 dark:text-gray-400">{{ coach.specializations }}</div>
+            {% endif %}
+            {% if coach.get_spoken_languages_display %}
+            <div class="mt-1 flex flex-wrap gap-1">
+              {% for lang in coach.get_spoken_languages_display %}
+              <span class="inline-flex items-center gap-0.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-600 dark:bg-gray-700 dark:text-gray-300">{{ lang.flag }} {{ lang.name }}</span>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </div>
+        </div>
+        {% if coach.bio %}
+        <p class="mt-4 flex-1 text-sm leading-relaxed text-gray-600 dark:text-gray-300">{{ coach.bio }}</p>
+        {% endif %}
+        <form method="post" action="{% url 'crush_lu:premium_select_coach' coach.id %}" class="mt-4">
+          {% csrf_token %}
+          <button type="submit"
+                  class="block w-full rounded-xl bg-crush-purple px-5 py-3 text-center text-sm font-semibold text-white transition-all duration-200 hover:bg-crush-purple/90">
+            {% blocktrans with coach_name=coach.user.first_name|default:_("this coach") %}Choose {{ coach_name }}{% endblocktrans %}
+          </button>
+        </form>
+      </div>
+      {% empty %}
+      <div class="col-span-full rounded-2xl border border-gray-100 bg-white p-8 text-center dark:border-gray-700 dark:bg-gray-800">
+        <p class="mb-0 text-sm text-gray-500 dark:text-gray-400">
+          {% trans "No coaches are taking on new premium members right now. Please check back soon." %}
+        </p>
+      </div>
+      {% endfor %}
+    </section>
+
+    <a href="{% url 'crush_lu:dashboard' %}"
+       class="mt-6 block w-full rounded-xl border border-gray-200 bg-white px-5 py-3 text-center text-sm font-semibold text-crush-dark transition-all duration-200 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+      {% trans "Back to dashboard" %}
+    </a>
+
+  </div>
+</main>
+{% endblock %}

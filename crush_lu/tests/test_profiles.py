@@ -10,25 +10,38 @@ from django.utils import timezone
 
 from crush_lu.models import Trait
 from crush_lu.models.journey import JourneyConfiguration
-from crush_lu.models.profiles import CrushProfile, ProfileSubmission, SpecialUserExperience, UserDataConsent
+from crush_lu.models.profiles import (
+    CrushProfile,
+    ProfileSubmission,
+    SpecialUserExperience,
+    UserDataConsent,
+)
 
 
 class SpecialUserExperienceTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create(username="alice", first_name="Alice", last_name="Wonder")
+        self.user = User.objects.create(
+            username="alice", first_name="Alice", last_name="Wonder"
+        )
 
     def test_matches_user_is_case_insensitive_and_active(self):
-        special = SpecialUserExperience.objects.create(first_name="alice", last_name="wonder", is_active=True)
+        special = SpecialUserExperience.objects.create(
+            first_name="alice", last_name="wonder", is_active=True
+        )
 
         self.assertTrue(special.matches_user(self.user))
 
     def test_matches_user_respects_inactive_state(self):
-        special = SpecialUserExperience.objects.create(first_name="Alice", last_name="Wonder", is_active=False)
+        special = SpecialUserExperience.objects.create(
+            first_name="Alice", last_name="Wonder", is_active=False
+        )
 
         self.assertFalse(special.matches_user(self.user))
 
     def test_trigger_updates_timestamp_and_count(self):
-        special = SpecialUserExperience.objects.create(first_name="Alice", last_name="Wonder")
+        special = SpecialUserExperience.objects.create(
+            first_name="Alice", last_name="Wonder"
+        )
 
         self.assertIsNone(special.last_triggered_at)
         self.assertEqual(special.trigger_count, 0)
@@ -40,7 +53,9 @@ class SpecialUserExperienceTests(TestCase):
         self.assertEqual(special.trigger_count, 1)
 
     def test_journey_helpers_return_expected_records(self):
-        special = SpecialUserExperience.objects.create(first_name="Alice", last_name="Wonder")
+        special = SpecialUserExperience.objects.create(
+            first_name="Alice", last_name="Wonder"
+        )
         wonderland = JourneyConfiguration.objects.create(
             special_experience=special,
             journey_type="wonderland",
@@ -64,7 +79,9 @@ class CrushProfileTests(TestCase):
             first_name="Test",
             last_name="User",
         )
-        self.profile = CrushProfile.objects.create(user=self.user, location="canton-luxembourg")
+        self.profile = CrushProfile.objects.create(
+            user=self.user, location="canton-luxembourg"
+        )
 
     def test_age_and_age_range_calculation(self):
         today = timezone.now().date()
@@ -101,7 +118,9 @@ class RegistrationFlowTests(TestCase):
             "crushlu_consent": True,  # Required consent checkbox
         }
 
-        response = self.client.post(reverse("crush_lu:signup"), signup_data, follow=True, HTTP_HOST="crush.lu")
+        response = self.client.post(
+            reverse("crush_lu:signup"), signup_data, follow=True, HTTP_HOST="crush.lu"
+        )
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(User.objects.filter(email="newuser@example.com").exists())
@@ -117,7 +136,9 @@ class RegistrationFlowTests(TestCase):
 
         # Simulate the user clicking the verification link, then logging in,
         # so the rest of the registration flow can proceed.
-        EmailAddress.objects.filter(user=user, email__iexact=user.email).update(verified=True, primary=True)
+        EmailAddress.objects.filter(user=user, email__iexact=user.email).update(
+            verified=True, primary=True
+        )
         self.client.force_login(user)
 
         # Get or create the profile and mark phone + coach_intro as done so
@@ -131,7 +152,9 @@ class RegistrationFlowTests(TestCase):
 
         profile_data = {
             "phone_number": "+35212345678",
-            "date_of_birth": (timezone.now().date() - timedelta(days=30 * 365)).isoformat(),
+            "date_of_birth": (
+                timezone.now().date() - timedelta(days=30 * 365)
+            ).isoformat(),
             "gender": "F",
             "location": "canton-luxembourg",  # Canton-based location (from interactive map)
             "bio": "Testing bio",
@@ -139,7 +162,12 @@ class RegistrationFlowTests(TestCase):
             "event_languages": ["en", "fr"],
         }
 
-        profile_response = self.client.post(reverse("crush_lu:create_profile"), profile_data, follow=True, HTTP_HOST="crush.lu")
+        profile_response = self.client.post(
+            reverse("crush_lu:create_profile"),
+            profile_data,
+            follow=True,
+            HTTP_HOST="crush.lu",
+        )
 
         self.assertEqual(profile_response.status_code, 200)
         profile.refresh_from_db()
@@ -147,9 +175,9 @@ class RegistrationFlowTests(TestCase):
         self.assertEqual(profile.gender, "F")
         self.assertEqual(profile.completion_status, "submitted")
         self.assertEqual(profile.verification_status, "pending")
-        # Fresh first submissions no longer create a ProfileSubmission — the
-        # user verifies via LuxId (free) or buys a coach review (paid), and
-        # only those paths open a submission for coach review.
+        # The free path no longer creates a ProfileSubmission up front — the
+        # user verifies via LuxId (free) or purchases a coach review (paid),
+        # so none should exist yet at this point.
         self.assertFalse(ProfileSubmission.objects.filter(profile=profile).exists())
 
 
@@ -185,7 +213,8 @@ class CrushPreferencesTests(TestCase):
         self._grant_consent()
         self.client.login(username="pref@example.com", password="testpass123")
         response = self.client.get(
-            reverse("crush_lu:crush_preferences"), HTTP_HOST="crush.lu",
+            reverse("crush_lu:crush_preferences"),
+            HTTP_HOST="crush.lu",
         )
         self.assertEqual(response.status_code, 302)
         self.assertIn("section=preferences", response.url)
@@ -195,6 +224,7 @@ class CrushPreferencesTests(TestCase):
         views accept this fixture user. Skips email creation if the user
         has no email (some tests use username-only)."""
         from allauth.account.models import EmailAddress
+
         consent, _ = UserDataConsent.objects.get_or_create(user=self.user)
         consent.crushlu_consent_given = True
         consent.save()
@@ -305,15 +335,27 @@ class ProfileSettingsAutosaveTests(TestCase):
 
         self.quality, _ = Trait.objects.get_or_create(
             slug="kind",
-            defaults={"trait_type": "quality", "label": "Kind", "category": "personality"},
+            defaults={
+                "trait_type": "quality",
+                "label": "Kind",
+                "category": "personality",
+            },
         )
         self.defect, _ = Trait.objects.get_or_create(
             slug="stubborn",
-            defaults={"trait_type": "defect", "label": "Stubborn", "category": "personality"},
+            defaults={
+                "trait_type": "defect",
+                "label": "Stubborn",
+                "category": "personality",
+            },
         )
         self.sought, _ = Trait.objects.get_or_create(
             slug="curious",
-            defaults={"trait_type": "quality", "label": "Curious", "category": "personality"},
+            defaults={
+                "trait_type": "quality",
+                "label": "Curious",
+                "category": "personality",
+            },
         )
 
         self.client.login(username="autosave@example.com", password="testpass123")
@@ -322,15 +364,17 @@ class ProfileSettingsAutosaveTests(TestCase):
     def test_about_autosave_updates_profile_fields(self):
         response = self.client.post(
             self.url,
-            data=json.dumps({
-                "section": "about",
-                "bio": "Updated bio",
-                "interests": "Music, Travel",
-                "location": "border-france",
-                "event_languages": ["fr", "en"],
-                "qualities_ids": str(self.quality.pk),
-                "defects_ids": str(self.defect.pk),
-            }),
+            data=json.dumps(
+                {
+                    "section": "about",
+                    "bio": "Updated bio",
+                    "interests": "Music, Travel",
+                    "location": "border-france",
+                    "event_languages": ["fr", "en"],
+                    "qualities_ids": str(self.quality.pk),
+                    "defects_ids": str(self.defect.pk),
+                }
+            ),
             content_type="application/json",
             HTTP_HOST="crush.lu",
         )
@@ -341,16 +385,22 @@ class ProfileSettingsAutosaveTests(TestCase):
         self.assertEqual(self.profile.interests, "Music, Travel")
         self.assertEqual(self.profile.location, "border-france")
         self.assertEqual(self.profile.event_languages, ["fr", "en"])
-        self.assertEqual(list(self.profile.qualities.values_list("pk", flat=True)), [self.quality.pk])
-        self.assertEqual(list(self.profile.defects.values_list("pk", flat=True)), [self.defect.pk])
+        self.assertEqual(
+            list(self.profile.qualities.values_list("pk", flat=True)), [self.quality.pk]
+        )
+        self.assertEqual(
+            list(self.profile.defects.values_list("pk", flat=True)), [self.defect.pk]
+        )
 
     def test_about_autosave_rejects_invalid_location_without_overwrite(self):
         response = self.client.post(
             self.url,
-            data=json.dumps({
-                "section": "about",
-                "location": "invalid-location",
-            }),
+            data=json.dumps(
+                {
+                    "section": "about",
+                    "location": "invalid-location",
+                }
+            ),
             content_type="application/json",
             HTTP_HOST="crush.lu",
         )
@@ -360,19 +410,23 @@ class ProfileSettingsAutosaveTests(TestCase):
         self.assertEqual(self.profile.location, "canton-luxembourg")
 
     @patch("crush_lu.matching.update_match_scores_for_user")
-    def test_preferences_autosave_updates_profile_and_triggers_match_recalc(self, mock_update):
+    def test_preferences_autosave_updates_profile_and_triggers_match_recalc(
+        self, mock_update
+    ):
         with self.captureOnCommitCallbacks(execute=True):
             response = self.client.post(
                 self.url,
-                data=json.dumps({
-                    "section": "preferences",
-                    "preferred_age_min": 25,
-                    "preferred_age_max": 35,
-                    "preferred_genders": ["F", "NB"],
-                    "first_step_preference": "i_initiate",
-                    "astro_enabled": False,
-                    "sought_qualities_ids": str(self.sought.pk),
-                }),
+                data=json.dumps(
+                    {
+                        "section": "preferences",
+                        "preferred_age_min": 25,
+                        "preferred_age_max": 35,
+                        "preferred_genders": ["F", "NB"],
+                        "first_step_preference": "i_initiate",
+                        "astro_enabled": False,
+                        "sought_qualities_ids": str(self.sought.pk),
+                    }
+                ),
                 content_type="application/json",
                 HTTP_HOST="crush.lu",
             )
@@ -384,17 +438,22 @@ class ProfileSettingsAutosaveTests(TestCase):
         self.assertEqual(self.profile.preferred_genders, ["F", "NB"])
         self.assertEqual(self.profile.first_step_preference, "i_initiate")
         self.assertFalse(self.profile.astro_enabled)
-        self.assertEqual(list(self.profile.sought_qualities.values_list("pk", flat=True)), [self.sought.pk])
+        self.assertEqual(
+            list(self.profile.sought_qualities.values_list("pk", flat=True)),
+            [self.sought.pk],
+        )
         mock_update.assert_called_once_with(self.user)
 
     def test_privacy_autosave_updates_booleans(self):
         response = self.client.post(
             self.url,
-            data=json.dumps({
-                "section": "privacy",
-                "show_full_name": True,
-                "show_exact_age": False,
-            }),
+            data=json.dumps(
+                {
+                    "section": "privacy",
+                    "show_full_name": True,
+                    "show_exact_age": False,
+                }
+            ),
             content_type="application/json",
             HTTP_HOST="crush.lu",
         )

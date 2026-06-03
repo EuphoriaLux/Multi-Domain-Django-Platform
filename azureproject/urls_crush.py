@@ -238,6 +238,9 @@ urlpatterns = [
     # Event Check-In API (language-neutral - called from QR codes and scanner)
     path('api/events/checkin/<int:registration_id>/<str:token>/', views_checkin.event_checkin_api, name='event_checkin_api'),
 
+    # Verify an attendee in person at an event (coach action from the scanner)
+    path('api/events/<int:event_id>/verify/<int:registration_id>/', views_checkin.coach_mark_verified, name='coach_mark_verified'),
+
     # Wallet passes (language-neutral for platform-specific clients)
     path('wallet/apple/pass/', views_wallet.apple_wallet_pass, name='wallet_apple_pass'),
     path('wallet/google/jwt/', views_wallet.google_wallet_jwt, name='wallet_google_jwt'),

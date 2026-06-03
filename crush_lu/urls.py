@@ -108,6 +108,7 @@ from . import views_quiz
 from . import views_coach as views_coach_module
 from . import views_quiz_config
 from . import views_changelog
+from . import views_premium
 
 app_name = 'crush_lu'
 
@@ -131,6 +132,11 @@ def _spark_to_crush_connect(request, *args, **kwargs):
 urlpatterns = [
     # Secure media serving
     path('media/profile/<int:user_id>/<str:photo_field>/', views_media.serve_profile_photo, name='serve_profile_photo'),
+    path('media/coach/<int:coach_id>/', views_media.serve_coach_photo, name='serve_coach_photo'),
+
+    # Premium membership — member chooses their coach
+    path('premium/coaches/', views_premium.premium_choose_coach, name='premium_choose_coach'),
+    path('premium/coaches/<int:coach_id>/select/', views_premium.premium_select_coach, name='premium_select_coach'),
 
     # Landing and public pages
     path('', views.home, name='home'),

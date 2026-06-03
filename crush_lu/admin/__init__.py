@@ -67,6 +67,7 @@ from .profiles import (
     RecontactCoachProfileAdmin,
     RejectedProfile,
     RejectedProfileAdmin,
+    PremiumMembershipAdmin,
 )
 
 from .events import (
@@ -207,6 +208,7 @@ from crush_lu.models import (
     ProfileSubmission,
     CoachSession,
     ScreeningSlot,
+    PremiumMembership,
     MeetupEvent,
     EventRegistration,
     EventInvitation,
@@ -286,6 +288,7 @@ crush_admin_site.register(CompletedSubmission, CompletedSubmissionAdmin)
 crush_admin_site.register(InProcessSubmission, InProcessSubmissionAdmin)
 crush_admin_site.register(CoachSession, CoachSessionAdmin)
 crush_admin_site.register(ScreeningSlot, ScreeningSlotAdmin)
+crush_admin_site.register(PremiumMembership, PremiumMembershipAdmin)
 
 # Event System
 crush_admin_site.register(MeetupEvent, MeetupEventAdmin)
