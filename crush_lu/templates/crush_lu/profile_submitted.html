@@ -20,10 +20,10 @@
 
             {% if not submission %}
             {# ═══════════════════════════════════════════════════════════════ #}
-            {# NO SUBMISSION STATE — standard free path (LuxId verification)  #}
-            {# Profile is pending. No coach has been assigned. Show:          #}
-            {#   1. LuxId CTA (free, instant)                                 #}
-            {#   2. Crush Coach premium upsell (paid, via event ticket)       #}
+            {# DEFAULT STATE — profile complete, now get verified.            #}
+            {# No pre-event coach review: verification happens in person at   #}
+            {# an event or via LuxID. The two paths + Premium teaser are      #}
+            {# rendered by _verification_options.html at the bottom.          #}
             {# ═══════════════════════════════════════════════════════════════ #}
 
             {# Header #}
@@ -32,8 +32,8 @@
                     {% include "shared/icons/shield-check.html" with class="w-8 h-8 md:w-10 md:h-10 text-white" %}
                 </div>
             </div>
-            <h2 class="mt-4 mb-1 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "One last step!" %}</h2>
-            <p class="text-sm text-gray-500 dark:text-gray-400 mb-8">{% trans "Verify your identity to activate your Crush.lu profile." %}</p>
+            <h2 class="mt-4 mb-1 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Your profile is ready — now get verified" %}</h2>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-8">{% trans "One last step to activate your Crush.lu profile and start meeting real people." %}</p>
 
             {# If the user already connected LuxID but isn't verified yet, reassure them.
                (The view lazily verifies + redirects in the normal case, so this is an edge state.) #}
@@ -49,8 +49,8 @@
             </div>
             {% endif %}
 
-            {# Verification options (LuxID / event / premium) are presented in the
-               "Three ways to get verified" section at the bottom of the page. #}
+            {# Verification options (come to an event / LuxID) plus the Premium
+               teaser are presented by _verification_options.html at the bottom. #}
 
             {% else %}{# submission exists — existing coach/revision flow below #}
                 {% if submission.status == 'pending' or submission.status == 'under_review' or submission.status == 'recontact_coach' or submission.is_paused %}
@@ -834,6 +834,6 @@
     </div>
 </div>
 
-{# The three ways to get verified — clarifies the in-person/event route too #}
+{# The two ways to get verified (event / LuxID) plus the Premium teaser #}
 {% include "crush_lu/partials/_verification_options.html" %}
 {% endblock %}

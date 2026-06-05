@@ -70,7 +70,10 @@ def oauth_complete(request):
     try:
         profile = request.user.crushprofile
         from . import onboarding
-        if onboarding.get_current_step(profile) < 6:
+        # Steps 1-4 (welcome → build profile) resume in the onboarding flow;
+        # once the profile is submitted (step 5, pending/verified) land on the
+        # dashboard, where the get-verified card guides them.
+        if onboarding.get_current_step(profile) < 5:
             final_destination = "/onboarding/"
     except CrushProfile.DoesNotExist:
         final_destination = "/onboarding/"

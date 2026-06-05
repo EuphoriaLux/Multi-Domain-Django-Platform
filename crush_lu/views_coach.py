@@ -2387,6 +2387,18 @@ def coach_event_sms_invite(request, event_id):
         profile_pool_qs = profile_pool_qs.select_related("user")
         pool_label = _("Incomplete Profiles")
 
+    elif event.profile_requirement == "completed":
+        # Entry event: anyone with a completed (phone-verified) profile is a
+        # candidate to invite — verified or not. They get verified in person
+        # when they attend.
+        profile_pool_qs = CrushProfile.objects.filter(phone_q).filter(age_q_lenient)
+        if has_language_filter:
+            profile_pool_qs = profile_pool_qs.filter(
+                lang_q | Q(event_languages=[]) | Q(event_languages__isnull=True)
+            )
+        profile_pool_qs = profile_pool_qs.select_related("user")
+        pool_label = _("Completed Profiles (entry event)")
+
     elif event.profile_requirement == "approved":
         profile_pool_qs = CrushProfile.objects.filter(phone_q, verification_status="verified").filter(
             age_q_lenient

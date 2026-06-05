@@ -81,6 +81,7 @@ Languages: EN, FR, DE welcome 🇬🇧🇫🇷🇩🇪''',
                 'min_age': 21,
                 'max_age': 45,
                 'registration_fee': 0.00,
+                'profile_requirement': 'completed',  # Entry event: complete profile, get verified in person here
             },
             {
                 'title': '🍷 Wine Tasting & Speed Dating – Moselle Edition',
@@ -114,6 +115,7 @@ Limited to 24 participants for an intimate experience.''',
                 'min_age': 28,
                 'max_age': 50,
                 'registration_fee': 25.00,
+                'profile_requirement': 'approved',  # Members-only event: verified profiles only
             },
             {
                 'title': '🎨 Art Gallery Opening & Singles Mixer',

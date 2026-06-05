@@ -633,7 +633,8 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         elif db_field.name == "profile_requirement":
             kwargs["help_text"] = _(
                 "Profile requirement level for registration:\n"
-                "• Approved profile required (recommended): Only users with coach-approved profiles can register\n"
+                "• Completed profile / entry event (recommended, default): Anyone with a completed profile (built + phone verified) can register, verified or not. New members get verified in person at the event\n"
+                "• Verified profile only (members): Only already-verified members can register — use for members-only events\n"
                 "• Premium member — coach assigned: Only members who have a personal coach assigned can register\n"
                 "• Unverified profile only: Only users with a profile NOT yet verified by a coach can register\n"
                 "• Profile must exist: Any user with a Crush profile can register (pending or incomplete OK)\n"

@@ -145,7 +145,8 @@ class MeetupEvent(models.Model):
     min_age = models.PositiveIntegerField(default=18)
     max_age = models.PositiveIntegerField(default=99)
     PROFILE_REQUIREMENT_CHOICES = [
-        ("approved", _("Approved profile required")),
+        ("completed", _("Completed profile (entry event)")),
+        ("approved", _("Verified profile only (members)")),
         ("coach_assigned", _("Premium member — coach assigned")),
         ("unverified", _("Unverified profile only")),
         ("profile_exists", _("Profile must exist")),
@@ -154,7 +155,7 @@ class MeetupEvent(models.Model):
     profile_requirement = models.CharField(
         max_length=20,
         choices=PROFILE_REQUIREMENT_CHOICES,
-        default="approved",
+        default="completed",
         help_text=_(
             "Controls what level of profile is needed to register for this event"
         ),
@@ -850,6 +851,7 @@ class GlobalActivityOption(models.Model):
 
     def get_display_name(self, language=None):
         from django.utils.translation import get_language
+
         lang = language or get_language() or "en"
         if lang.startswith("fr") and self.display_name_fr:
             return self.display_name_fr
@@ -857,6 +859,7 @@ class GlobalActivityOption(models.Model):
 
     def get_description(self, language=None):
         from django.utils.translation import get_language
+
         lang = language or get_language() or "en"
         if lang.startswith("fr") and self.description_fr:
             return self.description_fr
@@ -1279,11 +1282,15 @@ class EventFeedback(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
     nps_score = models.PositiveSmallIntegerField(
-        help_text=_("Net Promoter Score: 0 (would not recommend) to 10 (would strongly recommend)"),
+        help_text=_(
+            "Net Promoter Score: 0 (would not recommend) to 10 (would strongly recommend)"
+        ),
     )
     would_recommend = models.BooleanField(
         default=True,
-        help_text=_("Quick yes/no convenience flag derived from NPS at submission time"),
+        help_text=_(
+            "Quick yes/no convenience flag derived from NPS at submission time"
+        ),
     )
     what_worked = models.TextField(
         blank=True,
@@ -1304,7 +1311,9 @@ class EventFeedback(models.Model):
         ]
 
     def __str__(self):
-        return f"Feedback {self.user.username} → {self.event.title} (NPS {self.nps_score})"
+        return (
+            f"Feedback {self.user.username} → {self.event.title} (NPS {self.nps_score})"
+        )
 
     @property
     def is_promoter(self):

@@ -7,6 +7,7 @@ Covers:
   - A full walk from signup state -> welcome -> phone verified ->
     coach intro ack -> profile complete -> submission created
 """
+
 from django.test import TestCase, Client, override_settings
 from django.urls import reverse
 from django.contrib.auth import get_user_model
@@ -17,7 +18,6 @@ from datetime import timedelta
 
 from crush_lu.models import CrushCoach, CrushProfile, ProfileSubmission
 from crush_lu.models.profiles import UserDataConsent
-
 
 User = get_user_model()
 
@@ -32,6 +32,7 @@ def _grant_consent(user):
     the same way (gate redirects to email management).
     """
     from allauth.account.models import EmailAddress
+
     consent, _ = UserDataConsent.objects.get_or_create(user=user)
     consent.crushlu_consent_given = True
     consent.save(update_fields=["crushlu_consent_given"])
@@ -41,6 +42,7 @@ def _grant_consent(user):
             email=user.email,
             defaults={"verified": True, "primary": True},
         )
+
 
 CRUSH_LU_URL_SETTINGS = {"ROOT_URLCONF": "azureproject.urls_crush"}
 
@@ -81,9 +83,7 @@ class OnboardingEntryRoutingTests(_SiteMixin, TestCase):
         self.assertIn("/welcome/", self._final_path("/onboarding/"))
 
     def test_welcome_seen_routes_to_phone_step(self):
-        CrushProfile.objects.create(
-            user=self.user, welcome_seen_at=timezone.now()
-        )
+        CrushProfile.objects.create(user=self.user, welcome_seen_at=timezone.now())
         self.assertIn("/onboarding/phone/", self._final_path("/onboarding/"))
 
     def test_phone_verified_routes_to_coach_intro(self):
@@ -150,12 +150,10 @@ class PhoneStepViewTests(_SiteMixin, TestCase):
         self.assertContains(response, "+352621000000")
 
     def test_renders_with_step_2_active(self):
-        CrushProfile.objects.create(
-            user=self.user, welcome_seen_at=timezone.now()
-        )
+        CrushProfile.objects.create(user=self.user, welcome_seen_at=timezone.now())
         response = self.client.get("/onboarding/phone/", follow=True)
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "2/7")
+        self.assertContains(response, "2/5")
 
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
@@ -183,10 +181,10 @@ class CoachIntroStepViewTests(_SiteMixin, TestCase):
         return start_path
 
     def test_bounces_back_to_phone_if_not_verified(self):
-        CrushProfile.objects.create(
-            user=self.user, welcome_seen_at=timezone.now()
+        CrushProfile.objects.create(user=self.user, welcome_seen_at=timezone.now())
+        self.assertIn(
+            "/onboarding/phone/", self._final_path("/onboarding/coach-intro/")
         )
-        self.assertIn("/onboarding/phone/", self._final_path("/onboarding/coach-intro/"))
 
     def test_get_renders_with_step_3_active(self):
         CrushProfile.objects.create(
@@ -196,7 +194,7 @@ class CoachIntroStepViewTests(_SiteMixin, TestCase):
         )
         response = self.client.get("/onboarding/coach-intro/", follow=True)
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "3/7")
+        self.assertContains(response, "3/5")
 
     def test_post_marks_intro_seen_and_advances(self):
         profile = CrushProfile.objects.create(
@@ -272,7 +270,8 @@ class JourneyWalkE2ETests(_SiteMixin, TestCase):
         self.assertIn("/onboarding/coach-intro/", self._final_path("/onboarding/"))
         # POST to ack coach intro advances to step 4.
         self.assertIn(
-            "/create-profile/", self._final_path("/onboarding/coach-intro/", method="post")
+            "/create-profile/",
+            self._final_path("/onboarding/coach-intro/", method="post"),
         )
         profile.refresh_from_db()
         self.assertIsNotNone(profile.coach_intro_seen_at)
@@ -283,14 +282,15 @@ class JourneyWalkE2ETests(_SiteMixin, TestCase):
         # Submission gate: journey fields are set (phone + coach intro) but
         # profile is incomplete, so it bounces to /create-profile/ without
         # creating a submission.
-        self.assertIn("/create-profile/", self._final_path("/api/profile/complete/", method="post"))
+        self.assertIn(
+            "/create-profile/",
+            self._final_path("/api/profile/complete/", method="post"),
+        )
         self.assertFalse(ProfileSubmission.objects.filter(profile=profile).exists())
 
     def test_submission_gate_requires_phone_verified(self):
         """Direct POST without phone verify redirects to phone step."""
-        CrushProfile.objects.create(
-            user=self.user, welcome_seen_at=timezone.now()
-        )
+        CrushProfile.objects.create(user=self.user, welcome_seen_at=timezone.now())
         self.assertIn(
             "/onboarding/phone/",
             self._final_path("/api/profile/complete/", method="post"),
@@ -327,9 +327,9 @@ class JourneyWalkE2ETests(_SiteMixin, TestCase):
         # If the form is invalid it re-renders (status 200); if the guard
         # fires we get redirected to /onboarding/coach-intro/. Either way,
         # no submission must be created.
-        self.assertFalse(ProfileSubmission.objects.filter(
-            profile__user=self.user
-        ).exists())
+        self.assertFalse(
+            ProfileSubmission.objects.filter(profile__user=self.user).exists()
+        )
 
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
@@ -338,6 +338,7 @@ class SaveProfilePreferencesTests(_SiteMixin, TestCase):
 
     def setUp(self):
         import json
+
         self.json = json
         self.client = Client()
         self.user = User.objects.create_user(
@@ -362,11 +363,13 @@ class SaveProfilePreferencesTests(_SiteMixin, TestCase):
         )
 
     def test_persists_valid_payload(self):
-        resp = self._post({
-            "preferred_genders": ["F", "NB"],
-            "preferred_age_min": 27,
-            "preferred_age_max": 36,
-        })
+        resp = self._post(
+            {
+                "preferred_genders": ["F", "NB"],
+                "preferred_age_min": 27,
+                "preferred_age_max": 36,
+            }
+        )
         self.assertEqual(resp.status_code, 200)
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.preferred_genders, ["F", "NB"])
@@ -374,43 +377,51 @@ class SaveProfilePreferencesTests(_SiteMixin, TestCase):
         self.assertEqual(self.profile.preferred_age_max, 36)
 
     def test_rejects_inverted_age_range(self):
-        resp = self._post({
-            "preferred_genders": ["F"],
-            "preferred_age_min": 40,
-            "preferred_age_max": 30,
-        })
+        resp = self._post(
+            {
+                "preferred_genders": ["F"],
+                "preferred_age_min": 40,
+                "preferred_age_max": 30,
+            }
+        )
         self.assertEqual(resp.status_code, 400)
         self.profile.refresh_from_db()
         self.assertNotEqual(self.profile.preferred_age_min, 40)
 
     def test_drops_unknown_gender_codes(self):
-        resp = self._post({
-            "preferred_genders": ["F", "BOGUS", "M"],
-            "preferred_age_min": 25,
-            "preferred_age_max": 40,
-        })
+        resp = self._post(
+            {
+                "preferred_genders": ["F", "BOGUS", "M"],
+                "preferred_age_min": 25,
+                "preferred_age_max": 40,
+            }
+        )
         self.assertEqual(resp.status_code, 200)
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.preferred_genders, ["F", "M"])
 
     def test_requires_login(self):
         self.client.logout()
-        resp = self._post({
-            "preferred_genders": ["F"],
-            "preferred_age_min": 25,
-            "preferred_age_max": 40,
-        })
+        resp = self._post(
+            {
+                "preferred_genders": ["F"],
+                "preferred_age_min": 25,
+                "preferred_age_max": 40,
+            }
+        )
         self.assertEqual(resp.status_code, 302)
 
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
 class SubmissionStateRoutingTests(_SiteMixin, TestCase):
     """
-    Routing tests for the three submission states PR #376 cleaned up:
-      - revision   → user goes back to step 4 and a resubmit flips the row
-                     back to 'pending' with a fresh SLA window.
-      - rejected   → /onboarding/ routes to /profile/rejected/, not a step.
-      - coach-claimed pending (assigned_at set) → step 6, meet-coach page.
+    Smart-resume routing now derives purely from CrushProfile.verification_status
+    (the pre-event coach-review queue is gone):
+      - incomplete (e.g. after a legacy revision) → step 4, /create-profile/.
+      - rejected → /onboarding/ routes to /profile/rejected/, not a step.
+      - pending → the final "get verified" step, /profile-submitted/.
+    A legacy revision resubmit still flips an in-flight submission row back to
+    'pending' for any coach mid-review.
     """
 
     def setUp(self):
@@ -468,6 +479,9 @@ class SubmissionStateRoutingTests(_SiteMixin, TestCase):
 
     def test_revision_submission_routes_to_step_4(self):
         profile = self._make_complete_profile()
+        # A legacy revision resets the profile to incomplete (back to the wizard).
+        profile.verification_status = "incomplete"
+        profile.save(update_fields=["verification_status"])
         coach = self._make_coach()
         now = timezone.now()
         ProfileSubmission.objects.create(
@@ -500,14 +514,14 @@ class SubmissionStateRoutingTests(_SiteMixin, TestCase):
         self.assertIsNone(submission.assigned_at)
         self.assertIsNone(submission.sla_deadline)
         # The existing row is re-used — no duplicate submission is created.
-        self.assertEqual(
-            ProfileSubmission.objects.filter(profile=profile).count(), 1
-        )
+        self.assertEqual(ProfileSubmission.objects.filter(profile=profile).count(), 1)
 
     # ── rejected ────────────────────────────────────────────────────────────
 
     def test_rejected_submission_routes_to_profile_rejected(self):
         profile = self._make_complete_profile()
+        profile.verification_status = "rejected"
+        profile.save(update_fields=["verification_status"])
         ProfileSubmission.objects.create(profile=profile, status="rejected")
         self.assertIn("/profile/rejected/", self._final_path("/onboarding/"))
 
@@ -517,19 +531,17 @@ class SubmissionStateRoutingTests(_SiteMixin, TestCase):
         ProfileSubmission.objects.create(profile=profile, status="rejected")
         self._final_path("/onboarding/")
         self._final_path("/onboarding/")
-        self.assertEqual(
-            ProfileSubmission.objects.filter(profile=profile).count(), 1
-        )
+        self.assertEqual(ProfileSubmission.objects.filter(profile=profile).count(), 1)
         self.assertFalse(
-            ProfileSubmission.objects.filter(
-                profile=profile, status="pending"
-            ).exists()
+            ProfileSubmission.objects.filter(profile=profile, status="pending").exists()
         )
 
-    # ── coach-claimed pending → step 6 ──────────────────────────────────────
+    # ── pending → get-verified step ─────────────────────────────────────────
 
-    def test_coach_claim_routes_to_meet_coach_step(self):
-        profile = self._make_complete_profile()
+    def test_pending_profile_routes_to_get_verified(self):
+        """A submitted (pending) profile lands on the get-verified page — there
+        is no pre-event coach-review/meet-coach step anymore."""
+        profile = self._make_complete_profile()  # verification_status='pending'
         coach = self._make_coach(first_name="Nora")
         ProfileSubmission.objects.create(
             profile=profile,
@@ -537,9 +549,7 @@ class SubmissionStateRoutingTests(_SiteMixin, TestCase):
             status="pending",
             assigned_at=timezone.now(),
         )
-        self.assertIn(
-            "/onboarding/meet-coach/", self._final_path("/onboarding/")
-        )
+        self.assertIn("/profile-submitted/", self._final_path("/onboarding/"))
 
     def test_meet_coach_step_renders_coach_bio(self):
         profile = self._make_complete_profile()

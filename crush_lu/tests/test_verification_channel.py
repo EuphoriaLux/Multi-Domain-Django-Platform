@@ -68,6 +68,7 @@ class VerificationChannelFlowTests(SiteTestMixin, TestCase):
         # Mark email verified so the submission gate in
         # views_profile.complete_profile_submission accepts this fixture.
         from allauth.account.models import EmailAddress
+
         EmailAddress.objects.update_or_create(
             user=self.user,
             email=self.user.email,
@@ -207,10 +208,8 @@ class VerificationChannelFlowTests(SiteTestMixin, TestCase):
             "crush_lu.models.CrushProfile.get_missing_fields", return_value=[]
         ), patch(
             "crush_lu.views_profile.broadcast_new_submission_to_channel"
-        ) as broadcast, patch(
-            "crush_lu.views_profile.send_profile_submission_notifications"
-        ):
-            resp = self.client.post(
+        ) as broadcast:
+            self.client.post(
                 reverse("api_complete_profile_submission"),
                 content_type="application/json",
                 data="{}",

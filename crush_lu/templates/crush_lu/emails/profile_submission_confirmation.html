@@ -3,34 +3,34 @@
 
 {% block title %}{% trans "Profile Submitted" %} - Crush.lu{% endblock %}
 
-{% block header_title %}{% trans "Profile Submitted!" %} 🎉{% endblock %}
+{% block header_title %}{% trans "Profile Complete!" %} 🎉{% endblock %}
 
 {% block content %}
 <h2>{% blocktrans with first_name=first_name %}Hey {{ first_name }}!{% endblocktrans %}</h2>
 
-<p>{% trans "Thanks for submitting your Crush.lu profile! We're excited to have you join our community." %}</p>
+<p>{% trans "Your Crush.lu profile is complete! We're excited to have you join our community." %}</p>
 
 {# Intent-aware line, set on /welcome/ (step 1 of the onboarding journey). #}
 {% if intent_probe == "events" %}
-<p>{% trans "You told us you want to meet people at real events — so do we. Your coach will make sure your first event is a good fit." %}</p>
+<p>{% trans "You told us you want to meet people at real events — so do we. Come to one and a coach verifies you in person, right there." %}</p>
 {% elif intent_probe == "online" %}
-<p>{% trans "You mentioned online dating is your priority. Heads up: Crush.lu is event-first — your coach will walk you through how that shapes what to expect." %}</p>
+<p>{% trans "You mentioned online dating is your priority. Heads up: Crush.lu is event-first — you get verified in person at an event (or instantly with LuxID)." %}</p>
 {% elif intent_probe == "curious" %}
-<p>{% trans "Curiosity is a great starting point. Your coach will help you feel out whether Crush.lu is a fit before you commit to anything." %}</p>
+<p>{% trans "Curiosity is a great starting point. Come to an event to meet the community and get verified in person — no commitment needed." %}</p>
 {% elif intent_probe == "friend" %}
-<p>{% trans "Glad a friend pointed you our way — tell them thanks from us. Your coach will help you get set up just like they did." %}</p>
+<p>{% trans "Glad a friend pointed you our way — tell them thanks from us. Come to an event and a coach will verify you in person, just like they did." %}</p>
 {% endif %}
 
 <div class="info-box">
     <strong>{% trans "What happens next?" %}</strong>
     <ul>
-        <li>{% trans "Our coaches will review your profile within 24-48 hours" %}</li>
-        <li>{% trans "You'll receive an email once your profile is approved" %}</li>
-        <li>{% trans "Then you can start browsing and registering for events!" %}</li>
+        <li>{% trans "Get verified — come to an event and a coach verifies you in person, or connect your LuxID in seconds" %}</li>
+        <li>{% trans "You're verified the moment you arrive (or instantly with LuxID) — no waiting" %}</li>
+        <li>{% trans "Browse and register for events any time" %}</li>
     </ul>
 </div>
 
-<p>{% trans "We carefully review every profile to ensure our community stays authentic and respectful. This helps create a safe, quality experience for everyone." %}</p>
+<p>{% trans "We verify every member — in person at an event or via LuxID — to keep our community authentic and respectful. This helps create a safe, quality experience for everyone." %}</p>
 
 <p><strong>{% trans "While you wait:" %}</strong></p>
 <ul>

@@ -337,6 +337,19 @@ def coach_mark_verified(request, event_id, registration_id):
         method,
     )
 
+    # Welcome the freshly-verified member (mirrors the LuxID path). Best-effort:
+    # never let an email failure break the in-person check-in flow.
+    try:
+        from .notification_service import notify_profile_approved
+
+        notify_profile_approved(
+            user=registration.user, profile=profile, coach_notes=None, request=request
+        )
+    except Exception:
+        logger.warning(
+            "Failed to send approval notification for registration %s", registration.id
+        )
+
     response_data = {
         "success": True,
         "already_verified": False,

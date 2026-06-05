@@ -1427,3 +1427,127 @@ class CoachAssignmentOnAttendanceTests(TestCase):
         self._register('confirmed')
         self.profile.refresh_from_db()
         self.assertIsNone(self.profile.assigned_coach_id)
+
+
+@override_settings(
+    ROOT_URLCONF="azureproject.urls_crush",
+)
+class EntryEventRegistrationGateTests(TestCase):
+    """The 'completed' (entry event) profile_requirement — the load-bearing
+    fix for the verification pivot.
+
+    A completed but *unverified* profile may register for an entry event and
+    get verified in person there; incomplete profiles are bounced to finish
+    their profile first; already-verified members may also attend; and
+    members-only ('approved') events stay closed to the unverified.
+    """
+
+    def setUp(self):
+        from django.core.cache import cache
+        from crush_lu.models import MeetupEvent
+
+        cache.clear()  # reset per-user ratelimit counters between tests
+        self.client = Client()
+        self.today = date.today()
+
+        common = dict(
+            event_type='mixer',
+            date_time=timezone.now() + timedelta(days=7),
+            location='Luxembourg',
+            address='123 Test Street',
+            max_participants=20,
+            min_age=18,
+            max_age=99,
+            registration_deadline=timezone.now() + timedelta(days=5),
+            is_published=True,
+        )
+        self.entry_event = MeetupEvent.objects.create(
+            title='Entry Mixer',
+            description='Come get verified in person',
+            profile_requirement='completed',
+            **common,
+        )
+        self.members_event = MeetupEvent.objects.create(
+            title='Members Social',
+            description='Verified members only',
+            profile_requirement='approved',
+            **common,
+        )
+
+    def _make_user(self, email, *, verification_status, phone_verified):
+        from crush_lu.models import CrushProfile
+        from crush_lu.models.profiles import UserDataConsent
+
+        user = User.objects.create_user(
+            username=email, email=email, password='testpass123',
+            first_name='Test', last_name='User',
+        )
+        UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
+        CrushProfile.objects.create(
+            user=user,
+            date_of_birth=date(self.today.year - 30, 1, 1),
+            gender='M',
+            location='Luxembourg',
+            verification_status=verification_status,
+            phone_verified=phone_verified,
+            phone_number='+352621000000' if phone_verified else '',
+            is_active=True,
+        )
+        return user
+
+    def _post_register(self, event):
+        from django.urls import reverse
+        url = reverse('crush_lu:event_register', kwargs={'event_id': event.id})
+        return self.client.post(url, {}, follow=False)
+
+    def test_completed_unverified_profile_can_register_entry_event(self):
+        from crush_lu.models import EventRegistration
+
+        user = self._make_user(
+            'pending@example.com', verification_status='pending', phone_verified=True
+        )
+        self.client.force_login(user)
+        self._post_register(self.entry_event)
+        self.assertTrue(
+            EventRegistration.objects.filter(event=self.entry_event, user=user).exists()
+        )
+
+    def test_incomplete_profile_blocked_from_entry_event(self):
+        from crush_lu.models import EventRegistration
+
+        user = self._make_user(
+            'incomplete@example.com',
+            verification_status='incomplete',
+            phone_verified=False,
+        )
+        self.client.force_login(user)
+        resp = self._post_register(self.entry_event)
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(
+            EventRegistration.objects.filter(event=self.entry_event, user=user).exists()
+        )
+
+    def test_verified_member_can_register_entry_event(self):
+        from crush_lu.models import EventRegistration
+
+        user = self._make_user(
+            'verified@example.com', verification_status='verified', phone_verified=True
+        )
+        self.client.force_login(user)
+        self._post_register(self.entry_event)
+        self.assertTrue(
+            EventRegistration.objects.filter(event=self.entry_event, user=user).exists()
+        )
+
+    def test_unverified_user_blocked_from_members_event(self):
+        from crush_lu.models import EventRegistration
+
+        user = self._make_user(
+            'pending2@example.com', verification_status='pending', phone_verified=True
+        )
+        self.client.force_login(user)
+        resp = self._post_register(self.members_event)
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(
+            EventRegistration.objects.filter(event=self.members_event, user=user).exists()
+        )

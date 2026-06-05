@@ -4,7 +4,6 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
 from django.http import HttpResponse
-from django.views.decorators.http import require_http_methods
 from django.db import transaction
 from datetime import timedelta
 import json
@@ -134,23 +133,20 @@ def _filter_private_events(events, user):
         invited_event_ids = set(
             MeetupEvent.objects.filter(
                 id__in=private_ids, invited_users=user
-            ).values_list('id', flat=True)
+            ).values_list("id", flat=True)
         )
         approved_event_ids = set(
             EventInvitation.objects.filter(
                 event_id__in=private_ids,
                 created_user=user,
                 approval_status="approved",
-            ).values_list('event_id', flat=True)
+            ).values_list("event_id", flat=True)
         )
         allowed_ids = invited_event_ids | approved_event_ids
     else:
         allowed_ids = set()
 
-    return [
-        e for e in events
-        if not e.is_private_invitation or e.id in allowed_ids
-    ]
+    return [e for e in events if not e.is_private_invitation or e.id in allowed_ids]
 
 
 def event_list(request):
@@ -173,8 +169,7 @@ def event_list(request):
     past_events = list(
         MeetupEvent.objects.filter(
             is_published=True, is_cancelled=False, date_time__lt=now
-        )
-        .order_by("-date_time")[:50]
+        ).order_by("-date_time")[:50]
     )
     past_events = [e for e in past_events if e.end_time < now][:10]
 
@@ -256,7 +251,7 @@ def event_list(request):
 
         # Description fallback for events with empty descriptions
         if not description:
-            description = f"Dating event in Luxembourg organized by Crush.lu"
+            description = "Dating event in Luxembourg organized by Crush.lu"
 
         # Map event languages for inLanguage
         lang_map = {"en": "en", "de": "de", "fr": "fr"}
@@ -378,12 +373,9 @@ def my_events(request):
     attended_event_ids = [r.event_id for r in past if r.status == "attended"]
     mutual_counts = {}
     if attended_event_ids:
-        connections = (
-            EventConnection.objects.annotate_is_mutual()
-            .filter(
-                event_id__in=attended_event_ids,
-                requester=request.user,
-            )
+        connections = EventConnection.objects.annotate_is_mutual().filter(
+            event_id__in=attended_event_ids,
+            requester=request.user,
         )
         for conn in connections:
             if conn.is_mutual_annotated:
@@ -764,14 +756,45 @@ def event_register(request, event_id):
                 )
                 return redirect("crush_lu:event_detail", event_id=event_id)
     else:
-        if event.profile_requirement == "approved":
+        if event.profile_requirement == "completed":
+            # Entry event: open to anyone with a COMPLETED profile (built +
+            # phone verified), whether or not they are verified yet. This is
+            # where unverified users get verified in person by a coach.
+            # Allowlist on purpose — "!= incomplete" would wrongly admit
+            # rejected profiles (statuses: incomplete/pending/verified/rejected).
+            try:
+                profile = CrushProfile.objects.get(user=request.user)
+                # Already-verified members always qualify. Unverified users need
+                # a completed profile (submitted + phone verified) — they get
+                # verified in person at the event.
+                profile_ready = profile.verification_status == "verified" or (
+                    profile.verification_status == "pending" and profile.phone_verified
+                )
+                if not profile_ready:
+                    messages.warning(
+                        request,
+                        _(
+                            "Please complete your profile before registering. "
+                            "You'll get verified in person when you come to the event."
+                        ),
+                    )
+                    return redirect("crush_lu:create_profile")
+            except CrushProfile.DoesNotExist:
+                messages.error(
+                    request,
+                    _(
+                        "This event requires a Crush profile. Please create one to register."
+                    ),
+                )
+                return redirect("crush_lu:create_profile")
+        elif event.profile_requirement == "approved":
             try:
                 profile = CrushProfile.objects.get(user=request.user)
                 if not profile.is_approved:
                     messages.error(
                         request,
                         _(
-                            "This event requires an approved profile. Your profile is currently under review."
+                            "This event is for verified members only. Get verified at an entry event or with LuxID first."
                         ),
                     )
                     return redirect("crush_lu:event_detail", event_id=event_id)
@@ -947,18 +970,13 @@ def event_register(request, event_id):
                     ):
                         messages.error(
                             request,
-                            _(
-                                "This event is restricted to ages "
-                                "%(min)d–%(max)d."
-                            )
+                            _("This event is restricted to ages " "%(min)d–%(max)d.")
                             % {
                                 "min": locked_event.min_age,
                                 "max": locked_event.max_age,
                             },
                         )
-                        return redirect(
-                            "crush_lu:event_detail", event_id=event_id
-                        )
+                        return redirect("crush_lu:event_detail", event_id=event_id)
 
                 # If the user submitted a gender, persist it to their profile
                 submitted_gender = form.cleaned_data.get("gender")
