@@ -2399,9 +2399,10 @@ def coach_event_sms_invite(request, event_id):
             .filter(age_q_lenient)
         )
         if has_language_filter:
-            profile_pool_qs = profile_pool_qs.filter(
-                lang_q | Q(event_languages=[]) | Q(event_languages__isnull=True)
-            )
+            # Strict match — registration calls user_meets_language_requirement,
+            # which rejects profiles with no overlapping event language (empty or
+            # NULL included). Don't invite users who'd be bounced on click-through.
+            profile_pool_qs = profile_pool_qs.filter(lang_q)
         profile_pool_qs = profile_pool_qs.select_related("user")
         pool_label = _("Completed Profiles (entry event)")
 
