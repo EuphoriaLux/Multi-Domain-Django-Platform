@@ -2332,6 +2332,9 @@ def coach_event_sms_invite(request, event_id):
     age_q_lenient = age_q | Q(
         date_of_birth__isnull=True
     )  # include profiles missing DOB
+    # For age-restricted events use strict filter — NULL DOB profiles are rejected
+    # at registration and would bounce on click-through if invited.
+    age_filter = age_q if has_age_filter else age_q_lenient
 
     # Age filter through profile__ FK (for ProfileSubmission queries)
     sub_age_q = Q(
@@ -2375,7 +2378,7 @@ def coach_event_sms_invite(request, event_id):
 
         profile_pool_qs = (
             CrushProfile.objects.filter(phone_q)
-            .filter(age_q_lenient)
+            .filter(age_filter)
             .exclude(
                 id__in=ProfileSubmission.objects.values_list("profile_id", flat=True)
             )
@@ -2396,7 +2399,7 @@ def coach_event_sms_invite(request, event_id):
         profile_pool_qs = (
             CrushProfile.objects.filter(phone_q)
             .filter(verification_status__in=["verified", "pending"])
-            .filter(age_q_lenient)
+            .filter(age_filter)
         )
         if has_language_filter:
             # Strict match — registration calls user_meets_language_requirement,
@@ -2408,7 +2411,7 @@ def coach_event_sms_invite(request, event_id):
 
     elif event.profile_requirement == "approved":
         profile_pool_qs = CrushProfile.objects.filter(phone_q, verification_status="verified").filter(
-            age_q_lenient
+            age_filter
         )
         if has_language_filter:
             profile_pool_qs = profile_pool_qs.filter(lang_q)
@@ -2418,21 +2421,21 @@ def coach_event_sms_invite(request, event_id):
     elif event.profile_requirement == "coach_assigned":
         profile_pool_qs = CrushProfile.objects.filter(
             phone_q, assigned_coach__isnull=False
-        ).filter(age_q_lenient)
+        ).filter(age_filter)
         if has_language_filter:
             profile_pool_qs = profile_pool_qs.filter(lang_q)
         profile_pool_qs = profile_pool_qs.select_related("user", "assigned_coach__user")
         pool_label = _("Premium Members (Coach assigned)")
 
     elif event.profile_requirement == "profile_exists":
-        profile_pool_qs = CrushProfile.objects.filter(phone_q).filter(age_q_lenient)
+        profile_pool_qs = CrushProfile.objects.filter(phone_q).filter(age_filter)
         if has_language_filter:
             profile_pool_qs = profile_pool_qs.filter(lang_q)
         profile_pool_qs = profile_pool_qs.select_related("user")
         pool_label = _("All Profiles")
 
     else:  # "none"
-        profile_pool_qs = CrushProfile.objects.filter(phone_q).filter(age_q_lenient)
+        profile_pool_qs = CrushProfile.objects.filter(phone_q).filter(age_filter)
         if has_language_filter:
             profile_pool_qs = profile_pool_qs.filter(
                 lang_q | Q(event_languages=[]) | Q(event_languages__isnull=True)
