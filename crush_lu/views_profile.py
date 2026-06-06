@@ -19,7 +19,6 @@ from django.middleware.csrf import get_token
 from .models import CrushProfile, CrushCoach, ProfileSubmission
 from .decorators import crush_login_required
 from .coach_notifications import broadcast_new_submission_to_channel
-from .email_helpers import send_profile_submission_notifications
 from .utils.image_processing import process_uploaded_image
 from . import onboarding
 
@@ -203,7 +202,9 @@ def save_profile_step1(request):
         profile.location = data.get("location", "")
 
         # Mark as incomplete until submitted — wizard_step property derives exact step
-        profile.completion_status = "step1"  # legacy field; remove after migration cleanup
+        profile.completion_status = (
+            "step1"  # legacy field; remove after migration cleanup
+        )
         profile.verification_status = "incomplete"
 
         # Clear step1 draft data on successful save (data now officially saved)
@@ -259,7 +260,9 @@ def save_profile_step2(request):
         # Update profile content
         profile.bio = data.get("bio", "").strip()
         profile.interests = data.get("interests", "").strip()
-        profile.completion_status = "step2"  # legacy field; remove after migration cleanup
+        profile.completion_status = (
+            "step2"  # legacy field; remove after migration cleanup
+        )
         profile.verification_status = "incomplete"
 
         # Clear step2 draft data on successful save, BUT preserve UI-only fields
@@ -500,7 +503,9 @@ def save_profile_step3(request):
         # Note: interest_category checkboxes are UI-only (not stored in model)
         # They're used for filtering/display purposes only
 
-        profile.completion_status = "step3"  # legacy field; remove after migration cleanup
+        profile.completion_status = (
+            "step3"  # legacy field; remove after migration cleanup
+        )
         profile.verification_status = "incomplete"
 
         # Clear step3 draft data on successful save
@@ -570,6 +575,7 @@ def complete_profile_submission(request):
         # Fail-closed: any DB/import error here bubbles up rather than
         # silently letting an unverified user through.
         from allauth.account.models import EmailAddress
+
         email_ok = EmailAddress.objects.filter(
             user=request.user, verified=True
         ).exists()
@@ -613,8 +619,11 @@ def complete_profile_submission(request):
 
         try:
             with transaction.atomic():
-                # Mark as submitted — waiting for LuxId verification
-                profile.completion_status = "submitted"  # legacy field; remove after migration cleanup
+                # Mark as submitted — now "pending" means waiting to get
+                # verified at an event or via LuxID (no pre-event coach review).
+                profile.completion_status = (
+                    "submitted"  # legacy field; remove after migration cleanup
+                )
                 profile.verification_status = "pending"
 
                 # Clear ALL draft data on successful submission
@@ -624,55 +633,37 @@ def complete_profile_submission(request):
 
                 profile.save()
 
-                # Check for existing pending submission (prevent duplicates)
-                existing_submission = (
-                    ProfileSubmission.objects.select_for_update()
-                    .filter(profile=profile, status="pending")
-                    .first()
-                )
-
-                # Check for revision/recontact submissions
+                # Legacy decoupling: new submitters do NOT enter the coach-review
+                # queue — no ProfileSubmission row, no coach broadcast, no
+                # "under review" emails. We only keep the queue alive for users
+                # who already have an in-flight submission from before the
+                # verification pivot (a coach may be mid-review). Verification
+                # now happens at an event (in person) or via LuxID.
                 revision_submission = (
                     ProfileSubmission.objects.select_for_update()
                     .filter(profile=profile, status__in=["revision", "recontact_coach"])
                     .first()
                 )
 
-                is_revision = False
-                if existing_submission:
-                    submission = existing_submission
-                    created = False
-                    logger.warning(
-                        f"Existing pending submission found for {request.user.email}"
-                    )
-                elif revision_submission:
-                    submission = revision_submission
-                    submission.status = "pending"
-                    submission.coach = None  # back to the channel
-                    submission.submitted_at = timezone.now()
+                legacy_submission = None
+                if revision_submission:
+                    legacy_submission = revision_submission
+                    legacy_submission.status = "pending"
+                    legacy_submission.coach = None  # back to the channel
+                    legacy_submission.submitted_at = timezone.now()
                     # Reset SLA cycle — the next coach claim must restamp
                     # assigned_at/sla_deadline (the post-save signal only fires
                     # when assigned_at is null). Leaving a stale deadline would
-                    # flag the fresh claim as already in breach and keep the
-                    # onboarding stepper on "coach claimed".
-                    submission.assigned_at = None
-                    submission.sla_deadline = None
-                    submission.escalated_at = None
-                    submission.nudge_sent_at = None
-                    submission.fallback_offered_at = None
-                    submission.save()
-                    created = False
-                    is_revision = True
+                    # flag the fresh claim as already in breach.
+                    legacy_submission.assigned_at = None
+                    legacy_submission.sla_deadline = None
+                    legacy_submission.escalated_at = None
+                    legacy_submission.nudge_sent_at = None
+                    legacy_submission.fallback_offered_at = None
+                    legacy_submission.save()
                     logger.info(
-                        f"Revision submission updated to pending for {request.user.email}"
+                        f"Legacy revision submission re-queued for {request.user.email}"
                     )
-                else:
-                    submission = ProfileSubmission.objects.create(
-                        profile=profile,
-                        status="pending",
-                        coach=None,
-                    )
-                    created = True
 
         except Exception as e:
             logger.error(
@@ -684,32 +675,28 @@ def complete_profile_submission(request):
             )
             return redirect("crush_lu:create_profile")
 
-        # Broadcast to the verification channel (all eligible coaches)
-        if created or is_revision:
+        # Re-broadcast only for legacy in-flight submissions so a coach already
+        # working the channel sees the resubmission. New users are never queued.
+        if legacy_submission is not None:
             try:
-                broadcast_new_submission_to_channel(submission)
-                logger.info(f"Channel broadcast sent for submission {submission.id}")
+                broadcast_new_submission_to_channel(legacy_submission)
+                logger.info(
+                    f"Channel broadcast sent for legacy submission {legacy_submission.id}"
+                )
             except Exception as e:
                 logger.warning(f"Failed to broadcast channel notification: {e}")
 
-        if created:
-            logger.info(f"NEW profile submission created for {request.user.email}")
-            logger.info(
-                f"journey_completed user={request.user.email} "
-                f"intent_probe={profile.intent_probe or 'unset'}"
-            )
-            send_profile_submission_notifications(
-                submission,
-                request,
-                add_message_func=lambda msg: messages.warning(request, msg),
-            )
-        elif not is_revision:
-            logger.warning(
-                f"Duplicate submission attempt prevented for {request.user.email}"
-            )
+        logger.info(
+            f"journey_completed user={request.user.email} "
+            f"intent_probe={profile.intent_probe or 'unset'}"
+        )
 
         messages.success(
-            request, _("Profile submitted for review! A coach will contact you soon.")
+            request,
+            _(
+                "Profile complete! Now get verified — come to an event and a coach "
+                "will verify you in person, or connect your LuxID."
+            ),
         )
         return redirect("crush_lu:profile_submitted")
 
@@ -740,7 +727,12 @@ def get_profile_progress(request):
         )
     except CrushProfile.DoesNotExist:
         return JsonResponse(
-            {"exists": False, "verification_status": None, "completion_status": None, "phone_verified": False}
+            {
+                "exists": False,
+                "verification_status": None,
+                "completion_status": None,
+                "phone_verified": False,
+            }
         )
 
 
@@ -1103,6 +1095,7 @@ def get_csrf_token(request):
 
 # ─── Onboarding /welcome/ (Step 1 of 7) ────────────────────────────────────
 
+
 @crush_login_required
 @require_http_methods(["GET"])
 def welcome_view(request):
@@ -1135,7 +1128,9 @@ def welcome_view(request):
             {
                 "chapter": onboarding.JOURNEY_CHAPTERS[ch],
                 "steps": [s for s in onboarding.JOURNEY_STEPS if s.chapter == ch],
-                "total_min": sum(s.min_duration for s in onboarding.JOURNEY_STEPS if s.chapter == ch),
+                "total_min": sum(
+                    s.min_duration for s in onboarding.JOURNEY_STEPS if s.chapter == ch
+                ),
             }
             for ch in onboarding.JOURNEY_CHAPTERS
         ],
@@ -1169,11 +1164,15 @@ def welcome_intent_api(request):
     return render(
         request,
         "crush_lu/partials/welcome_intent_response.html",
-        {"intent": intent, "first_name": request.user.first_name or request.user.username},
+        {
+            "intent": intent,
+            "first_name": request.user.first_name or request.user.username,
+        },
     )
 
 
 # ─── Onboarding /onboarding/ (smart-resume entry) ──────────────────────────
+
 
 @crush_login_required
 @require_http_methods(["GET"])
@@ -1191,6 +1190,7 @@ def onboarding_entry(request):
 
 
 # ─── Onboarding Step 2: Phone verification ─────────────────────────────────
+
 
 @crush_login_required
 @require_http_methods(["GET"])
@@ -1214,6 +1214,7 @@ def phone_step(request):
     # compute the flag defensively because the page can be re-entered by
     # backtracking from step 3.
     from allauth.socialaccount.models import SocialAccount
+
     has_luxid_account = SocialAccount.objects.filter(
         user=request.user,
         provider__in=("luxid", "openid_connect"),
@@ -1225,6 +1226,7 @@ def phone_step(request):
 
 
 # ─── Onboarding Step 3: Coach intro ────────────────────────────────────────
+
 
 @crush_login_required
 @require_http_methods(["GET", "POST"])
@@ -1264,6 +1266,7 @@ def coach_intro_step(request):
 
 # ─── Onboarding Step 6: Meet your coach ────────────────────────────────────
 
+
 @crush_login_required
 @require_http_methods(["GET"])
 def meet_coach_step(request):
@@ -1285,11 +1288,12 @@ def meet_coach_step(request):
         "submission": submission,
         "coach": submission.coach,
     }
-    context.update(onboarding.stepper_context(current=6))
+    context.update(onboarding.stepper_context(current=5))
     return render(request, "crush_lu/onboarding/meet_coach.html", context)
 
 
 # ─── Onboarding Step 7: Screening call ─────────────────────────────────────
+
 
 @crush_login_required
 @require_http_methods(["GET"])
@@ -1311,5 +1315,5 @@ def screening_call_step(request):
         "approved": approved,
         "call_completed": approved and submission.review_call_completed,
     }
-    context.update(onboarding.stepper_context(current=7))
+    context.update(onboarding.stepper_context(current=5))
     return render(request, "crush_lu/onboarding/screening_call.html", context)

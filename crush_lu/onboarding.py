@@ -33,29 +33,27 @@ class Chapter:
 
 
 JOURNEY_STEPS = (
-    Step(1, "welcome",   _("Welcome"),           chapter=1, min_duration=1),
-    Step(2, "phone",     _("Verify number"),     chapter=1, min_duration=1),
+    Step(1, "welcome", _("Welcome"), chapter=1, min_duration=1),
+    Step(2, "phone", _("Verify number"), chapter=1, min_duration=1),
     Step(3, "coach_intro", _("Meet the Coaches"), chapter=2, min_duration=2),
-    Step(4, "profile",   _("Build profile"),     chapter=2, min_duration=8),
-    Step(5, "submitted", _("Under review"),      chapter=3, min_duration=0),
-    Step(6, "coach",     _("Meet your Coach"),   chapter=3, min_duration=1),
-    Step(7, "call",      _("Screening call"),    chapter=3, min_duration=20, locked=True),
+    Step(4, "profile", _("Build profile"), chapter=2, min_duration=8),
+    Step(5, "verify", _("Get verified"), chapter=3, min_duration=0),
 )
 
-# Sentinel returned by get_current_step when the user's submission is permanently
+# Sentinel returned by get_current_step when the user's profile is permanently
 # rejected. Callers translate this to `profile_rejected` rather than a journey step.
 STEP_REJECTED = -1
 
 JOURNEY_CHAPTERS = {
-    1: Chapter(1, _("Chapter 1"), _("Get set up"),        "#9b59b6"),
-    2: Chapter(2, _("Chapter 2"), _("You & your coach"),  "#c04a7e"),
-    3: Chapter(3, _("Chapter 3"), _("Review & match"),    "#ff6b9d"),
+    1: Chapter(1, _("Chapter 1"), _("Get set up"), "#9b59b6"),
+    2: Chapter(2, _("Chapter 2"), _("Build your profile"), "#c04a7e"),
+    3: Chapter(3, _("Chapter 3"), _("Get verified"), "#ff6b9d"),
 }
 
 
 def get_current_step(profile) -> int:
     """
-    Derive the user's current journey step (1-7) from their CrushProfile state.
+    Derive the user's current journey step (1-5) from their CrushProfile state.
 
     Ordering — first gate that fails is the current step. Step numbers follow
     temporal order so the stepper never moves backwards as the user progresses:
@@ -64,18 +62,16 @@ def get_current_step(profile) -> int:
       2. phone verify     — phone_verified is False
       3. coach intro      — coach_intro_seen_at is null
       4. build profile    — verification_status == 'incomplete'
-      5. under review     — submission queued, no coach assigned yet
-      6. meet coach       — coach has claimed; user sees coach bio
-      7. screening call   — submission approved + call pending
+      5. get verified     — profile submitted (pending) or verified
 
-    Step 3 is informational: users don't pick a coach here — coaches claim
-    submissions from a broadcast channel post-submit. `coach_intro_seen_at`
-    marks that the user has seen the intro.
+    Verification no longer goes through a pre-event coach-review queue, so the
+    journey ends at "get verified" — the user gets verified in person at an
+    event or via LuxID. Step 3 ("Meet the Coaches") is informational.
 
     `profile` may be None (user has no CrushProfile yet) — treat as step 1.
 
-    Returns STEP_REJECTED (a sentinel outside 1-7) for submissions that have
-    been permanently rejected. Callers should translate that to the
+    Returns STEP_REJECTED (a sentinel outside 1-5) for profiles that have been
+    permanently rejected. Callers should translate that to the
     `profile_rejected` URL instead of a journey step.
     """
     if profile is None:
@@ -87,26 +83,15 @@ def get_current_step(profile) -> int:
         return 2
     if not profile.coach_intro_seen_at:
         return 3
+    # 'incomplete' covers both "never submitted" and legacy "revision" (which
+    # resets verification_status to incomplete) — back to the build step.
     if profile.verification_status == "incomplete":
         return 4
-
-    submission = getattr(profile, "profilesubmission_set", None)
-    latest = submission.order_by("-submitted_at").first() if submission else None
-    if latest is None:
-        return 4
-
-    if latest.status == "rejected":
+    if profile.verification_status == "rejected":
         return STEP_REJECTED
-    if latest.status == "revision":
-        # Coach asked for edits — send user back to the wizard to resubmit.
-        return 4
-    if latest.status == "approved":
-        return 7
-    # 'pending' and 'recontact_coach' both keep the user in the review phase;
-    # stepper position depends on whether a coach has claimed.
-    if latest.assigned_at:
-        return 6  # coach claimed → meet your coach
-    return 5  # still in the channel, no coach yet
+    # 'pending' (awaiting verification) and 'verified' both land on the final
+    # "get verified" step.
+    return 5
 
 
 def annotate_steps(current: int):
@@ -124,20 +109,22 @@ def annotate_steps(current: int):
             state = "active"
         else:
             state = "upcoming"
-        annotated.append({
-            "n": s.n,
-            "key": s.key,
-            "title": s.title,
-            "chapter": s.chapter,
-            "min_duration": s.min_duration,
-            "locked": s.locked,
-            "state": state,
-        })
+        annotated.append(
+            {
+                "n": s.n,
+                "key": s.key,
+                "title": s.title,
+                "chapter": s.chapter,
+                "min_duration": s.min_duration,
+                "locked": s.locked,
+                "state": state,
+            }
+        )
     return annotated
 
 
 def active_step(current: int):
-    """Return the Step dataclass for the current step (1-7)."""
+    """Return the Step dataclass for the current step (1-5)."""
     return JOURNEY_STEPS[max(1, min(current, len(JOURNEY_STEPS))) - 1]
 
 
@@ -172,10 +159,10 @@ def stepper_context(current: int) -> dict:
 
 
 INTENT_PROBE_CHOICES = (
-    ("events",  _("I want to meet people at real events")),
+    ("events", _("I want to meet people at real events")),
     ("curious", _("I'm curious but still exploring")),
-    ("online",  _("I want online dating, events are a bonus")),
-    ("friend",  _("A friend recommended it")),
+    ("online", _("I want online dating, events are a bonus")),
+    ("friend", _("A friend recommended it")),
 )
 
 
@@ -186,9 +173,7 @@ STEP_URL_NAMES = {
     2: "crush_lu:onboarding_phone",
     3: "crush_lu:onboarding_coach_intro",
     4: "crush_lu:create_profile",
-    5: "crush_lu:profile_submitted",
-    6: "crush_lu:onboarding_meet_coach",
-    7: "crush_lu:onboarding_screening_call",
+    5: "crush_lu:profile_submitted",  # the "get verified" page
 }
 
 

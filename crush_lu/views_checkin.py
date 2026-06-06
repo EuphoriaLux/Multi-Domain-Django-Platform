@@ -337,6 +337,33 @@ def coach_mark_verified(request, event_id, registration_id):
         method,
     )
 
+    # Credit the referrer if this attendee was referred (mirrors the LuxID and
+    # coach-review paths). Event verification is now the primary path for new
+    # users, so the profile-approved referral bonus must fire here too.
+    # Best-effort: never let the reward step break the in-person check-in flow.
+    try:
+        from .referrals import check_and_apply_profile_approved_reward
+
+        check_and_apply_profile_approved_reward(profile)
+    except Exception:
+        logger.warning(
+            "Failed to apply profile-approved referral reward for registration %s",
+            registration.id,
+        )
+
+    # Welcome the freshly-verified member (mirrors the LuxID path). Best-effort:
+    # never let an email failure break the in-person check-in flow.
+    try:
+        from .notification_service import notify_profile_approved
+
+        notify_profile_approved(
+            user=registration.user, profile=profile, coach_notes=None, request=request
+        )
+    except Exception:
+        logger.warning(
+            "Failed to send approval notification for registration %s", registration.id
+        )
+
     response_data = {
         "success": True,
         "already_verified": False,

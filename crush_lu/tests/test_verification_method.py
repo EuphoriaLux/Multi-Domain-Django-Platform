@@ -115,10 +115,13 @@ class VerificationJourneyRenderTests(SiteTestMixin, TestCase):
             user=self.user, gender="M", verification_status="pending"
         )
 
-    def test_generic_pending_mentions_all_three_paths(self):
+    def test_generic_pending_mentions_event_and_luxid_paths(self):
         html = self._render(self.profile, chosen_path="", premium_pending=None)
         self.assertIn("Verify your identity", html)
-        self.assertIn("premium coach", html)
+        # Pre-event coach review was retired: the generic card now offers
+        # in-person verification at an event or LuxID — not premium coach.
+        self.assertIn("come to an event", html)
+        self.assertIn("LuxID", html)
 
     def test_event_path_pending(self):
         html = self._render(self.profile, chosen_path="event", premium_pending=None)

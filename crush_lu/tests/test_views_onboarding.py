@@ -1,5 +1,5 @@
 """
-Tests for the /welcome/ onboarding page (Step 1 of the 7-step journey).
+Tests for the /welcome/ onboarding page (Step 1 of the 5-step journey).
 
 Covers:
   - Login gate
@@ -82,8 +82,8 @@ class WelcomeViewTests(_SiteMixin, TestCase):
         response = self.client.get(reverse("crush_lu:welcome"))
         # The ARIA attribute marks the active step
         self.assertContains(response, 'aria-current="step"')
-        # Welcome is step 1 of 7
-        self.assertContains(response, "1/7")
+        # Welcome is step 1 of 5
+        self.assertContains(response, "1/5")
 
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)

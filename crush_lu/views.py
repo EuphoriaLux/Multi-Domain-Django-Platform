@@ -1529,40 +1529,27 @@ def edit_profile(request):
     if profile.verification_status == "verified":
         return _render_edit_profile_form(request)
 
-    # 2. If profile is pending (submitted, awaiting LuxId) → redirect to status page
+    # 2. If profile is pending (submitted, awaiting verification) → send to the
+    #    get-verified page. New users have no ProfileSubmission; only legacy
+    #    in-flight submissions still carry revision/rejected/recontact states.
     if profile.verification_status == "pending":
-        try:
-            submission = ProfileSubmission.objects.filter(profile=profile).latest(
-                "submitted_at"
+        submission = (
+            ProfileSubmission.objects.filter(profile=profile)
+            .order_by("-submitted_at")
+            .first()
+        )
+        if submission and submission.status == "rejected":
+            return redirect("crush_lu:profile_rejected")
+        if submission and submission.status == "revision":
+            messages.warning(
+                request,
+                _(
+                    "Your profile needs updates. Please review the coach feedback below."
+                ),
             )
-            if submission.status in ["pending", "under_review"]:
-                messages.info(
-                    request,
-                    _(
-                        "Your profile is currently under review. You'll be notified once it's approved."
-                    ),
-                )
-                return redirect("crush_lu:profile_submitted")
-            elif submission.status == "rejected":
-                return redirect("crush_lu:profile_rejected")
-            elif submission.status == "revision":
-                messages.warning(
-                    request,
-                    _(
-                        "Your profile needs updates. Please review the coach feedback below."
-                    ),
-                )
-                return redirect("crush_lu:create_profile")
-            elif submission.status == "recontact_coach":
-                messages.info(
-                    request,
-                    _(
-                        "Your coach is trying to reach you. Please contact them to schedule your screening call."
-                    ),
-                )
-                return redirect("crush_lu:profile_submitted")
-        except ProfileSubmission.DoesNotExist:
-            pass
+            return redirect("crush_lu:create_profile")
+        # Generic pending (new flow) or legacy pending/recontact → status page.
+        return redirect("crush_lu:profile_submitted")
 
     # 3. Profile is incomplete → redirect to create_profile
     if profile.verification_status == "incomplete":
@@ -2078,10 +2065,9 @@ def profile_submitted(request):
         **_verification_path_context(profile, request.user),
     }
 
-    stepper_step = 5
-    if submission and submission.status == "approved":
-        stepper_step = 7
-    context.update(onboarding.stepper_context(current=stepper_step))
+    # Final journey step: "Get verified". Verified users are redirected to the
+    # dashboard above, so this page always renders at the get-verified step.
+    context.update(onboarding.stepper_context(current=5))
     return render(request, "crush_lu/profile_submitted.html", context)
 
 

@@ -63,7 +63,7 @@
                     <li><strong>{% trans "Platform:" %}</strong> {% trans "The Crush.lu website, Progressive Web App (PWA), and all associated services." %}</li>
                     <li><strong>{% trans "PowerUp Account:" %}</strong> {% trans "Your base identity account (email, name, authentication), which may be shared with other platforms we operate." %}</li>
                     <li><strong>{% trans "Crush.lu Profile:" %}</strong> {% trans "Your dating profile including photos, bio, interests, and all Crush.lu-specific data." %}</li>
-                    <li><strong>{% trans "Coach:" %}</strong> {% trans "An authorised representative of Crush.lu who reviews profiles, facilitates connections, and moderates interactions." %}</li>
+                    <li><strong>{% trans "Coach:" %}</strong> {% trans "An authorised representative of Crush.lu who hosts events, verifies members in person, facilitates connections, and moderates interactions." %}</li>
                     <li><strong>{% trans "Event:" %}</strong> {% trans "Any in-person meetup, speed dating session, mixer, or activity organised through the Platform." %}</li>
                     <li><strong>{% trans "Connection:" %}</strong> {% trans "A coach-facilitated link between two users who met at an Event, requiring bilateral consent." %}</li>
                     <li><strong>{% trans "Crush Spark:" %}</strong> {% trans "An anonymous admirer feature where a user creates a personalised journey for someone they liked at an Event." %}</li>
@@ -109,13 +109,12 @@
                     {% trans "To complete your Crush.lu Profile, you must verify your phone number via SMS one-time password (OTP). This verification is processed through Firebase and is required to prevent duplicate accounts and enhance trust." %}
                 </p>
 
-                <h5>{% trans "4.4 Profile Approval" %}</h5>
-                <p>{% trans "All Crush.lu Profiles are reviewed by our Coaches before approval. This process typically takes up to 48 hours. We reserve the right to:" %}</p>
+                <h5>{% trans "4.4 Profile Verification" %}</h5>
+                <p>{% trans "Crush.lu Members are verified before accessing members-only events — in person by a Coach when you attend an event, or via LuxID digital identity. We reserve the right to:" %}</p>
                 <ul>
                     <li>{% trans "Request revisions to your profile content or photos" %}</li>
-                    <li>{% trans "Reject profiles that violate our community standards" %}</li>
-                    <li>{% trans "Require a screening call before profile activation" %}</li>
-                    <li>{% trans "Require you to recontact your assigned Coach for additional information" %}</li>
+                    <li>{% trans "Reject or remove profiles that violate our community standards" %}</li>
+                    <li>{% trans "Require identity verification in person at an event or via LuxID" %}</li>
                 </ul>
 
                 <!-- 5. User Conduct -->
@@ -337,7 +336,7 @@
                 </ul>
 
                 <h5>{% trans "16.2 Safety Disclaimer" %}</h5>
-                <p>{% trans "While we review profiles and facilitate connections through coaches, we cannot guarantee the conduct of users. You are responsible for your own safety:" %}</p>
+                <p>{% trans "While we verify members and facilitate connections through coaches, we cannot guarantee the conduct of users. You are responsible for your own safety:" %}</p>
                 <ul>
                     <li>{% trans "Always meet in public places for first meetings outside of organised events" %}</li>
                     <li>{% trans "Trust your instincts and prioritise your safety" %}</li>

@@ -22,14 +22,17 @@
 {% endif %}
 
 {% comment %}
-  Journey Stepper — the 7-step rail that sits at the top of every onboarding page.
+  Journey Stepper — the step rail that sits at the top of every onboarding page.
 
   Required context:
     journey_steps     — list of dicts from onboarding.annotate_steps(current_step)
     journey_chapter   — Chapter dataclass for the active step
-    journey_current   — int, the active step number (1-7)
-    journey_total     — int, total step count (7)
+    journey_current   — int, the active step number (1..journey_total)
+    journey_total     — int, total step count (drives the grid + track width)
     journey_active    — Step dataclass for the active step (for title + min_duration)
+
+  The grid columns and the connector track are sized from journey_total so the
+  rail adapts if the step count changes.
 
   Safe to include as:
     {% include "crush_lu/includes/journey_stepper.html" %}
@@ -43,12 +46,14 @@
       <span class="tabular-nums text-crush-purple dark:text-purple-300">{{ journey_current }}/{{ journey_total }}</span>
     </div>
 
-    <ol class="relative grid grid-cols-7 gap-0 px-2 py-1" role="list">
+    <ol class="relative grid gap-0 px-2 py-1" role="list"
+        style="grid-template-columns: repeat({{ journey_total }}, minmax(0, 1fr));">
       <div aria-hidden="true"
-           class="absolute left-[calc(100%/14)] right-[calc(100%/14)] top-[22px] h-[2px] rounded bg-gray-100 dark:bg-gray-700"></div>
+           style="left: calc(50% / {{ journey_total }}); right: calc(50% / {{ journey_total }});"
+           class="absolute top-[22px] h-[2px] rounded bg-gray-100 dark:bg-gray-700"></div>
       <div aria-hidden="true"
-           style="width: {{ journey_progress_pct }}%"
-           class="absolute left-[calc(100%/14)] top-[22px] h-[2px] rounded bg-crush-success dark:bg-green-400 transition-all duration-200"></div>
+           style="left: calc(50% / {{ journey_total }}); width: {{ journey_progress_pct }}%;"
+           class="absolute top-[22px] h-[2px] rounded bg-crush-success dark:bg-green-400 transition-all duration-200"></div>
 
       {% for step in journey_steps %}
       <li class="relative z-[1] flex flex-col items-center gap-1" {% if step.state == 'active' %}aria-current="step"{% endif %}>
@@ -63,8 +68,7 @@
           {% elif step.key == 'phone' %}{% url 'crush_lu:onboarding_phone' as step_url %}
           {% elif step.key == 'coach_intro' %}{% url 'crush_lu:onboarding_coach_intro' as step_url %}
           {% elif step.key == 'profile' %}{% url 'crush_lu:create_profile' as step_url %}
-          {% elif step.key == 'submitted' %}{% url 'crush_lu:profile_submitted' as step_url %}
-          {% elif step.key == 'coach' %}{% url 'crush_lu:onboarding_meet_coach' as step_url %}
+          {% elif step.key == 'verify' %}{% url 'crush_lu:profile_submitted' as step_url %}
           {% else %}{% url 'crush_lu:onboarding_entry' as step_url %}{% endif %}
           <a href="{{ step_url }}" class="group contents">
         {% endif %}
