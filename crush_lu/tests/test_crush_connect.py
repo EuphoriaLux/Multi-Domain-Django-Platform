@@ -761,7 +761,7 @@ def test_home_renders_drop_with_cards(client, settings):
     assert resp.status_code == 200
     body = resp.content.decode()
 
-    assert "Today&#x27;s Drop" in body or "Today's Drop" in body
+    assert "This Week&#x27;s Drop" in body or "This Week's Drop" in body
     # The drop pinned recipients should match what get_or_create_daily_drop returns.
     # Don't hardcode date.today(): the service dates the drop to "yesterday" before
     # 6am, so fetch the drop the view actually created for this user.
