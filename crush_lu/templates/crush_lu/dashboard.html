@@ -105,7 +105,7 @@
                     <span class="inline-block rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold text-white uppercase">{% trans "Unlocked" %} ✓</span>
                 </div>
             </div>
-            <p class="text-white/90 text-sm mb-4">{% trans "Your daily curated matches — people you've actually met at events." %}</p>
+            <p class="text-white/90 text-sm mb-4">{% trans "Your weekly curated matches — people you've actually met at events." %}</p>
             <span class="inline-flex items-center gap-1 rounded-lg bg-white/20 px-4 py-2 text-sm font-semibold text-white group-hover:bg-white/30 transition-colors">
                 {% trans "Open Crush Connect" %}
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
@@ -219,7 +219,7 @@
 
         {% if profile.verification_status == 'verified' and not is_premium %}
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            {% trans "Go Premium at any event to get a personal coach and unlock Crush Connect — daily curated matches." %}
+            {% trans "Go Premium at any event to get a personal coach and unlock Crush Connect — weekly curated matches." %}
         </p>
         {% endif %}
 

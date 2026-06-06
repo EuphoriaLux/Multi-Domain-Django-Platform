@@ -1110,6 +1110,18 @@ document.addEventListener("alpine:init", function () {
     Alpine.data("dismissible", function () {
         return {
             show: true,
+            init: function () {
+                // Auto-dismiss only when the banner opts in via data-auto-dismiss
+                // (success/info confirmations). Errors and warnings omit the
+                // attribute so they persist until the user closes them.
+                var delay = parseInt(this.$el.dataset.autoDismiss, 10);
+                if (delay > 0) {
+                    var self = this;
+                    setTimeout(function () {
+                        self.show = false;
+                    }, delay);
+                }
+            },
             dismiss: function () {
                 this.show = false;
             },

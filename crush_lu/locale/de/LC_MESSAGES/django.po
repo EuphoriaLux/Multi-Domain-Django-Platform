@@ -18238,8 +18238,8 @@ msgstr ""
 "gegenseitiges Interesse die Identität enthüllt (M6)."
 
 #: .\templates\crush_lu\crush_connect\home.html:4
-msgid "Today's Drop — Crush Connect"
-msgstr "Dein heutiger Drop — Crush Connect"
+msgid "This Week's Drop — Crush Connect"
+msgstr "Dein wöchentlicher Drop — Crush Connect"
 
 #: .\templates\crush_lu\crush_connect\home.html:11
 #| msgid "Question Preview"
@@ -18257,42 +18257,42 @@ msgstr ""
 "zum Teaser weitergeleitet."
 
 #: .\templates\crush_lu\crush_connect\home.html:20
-msgid "Today's Drop"
-msgstr "Dein heutiger Drop"
+msgid "This Week's Drop"
+msgstr "Dein wöchentlicher Drop"
 
 #: .\templates\crush_lu\crush_connect\home.html:27
 #, python-format
 msgid ""
 "\n"
-"                One person, hand-picked for you today. Take a moment with them — your next Drop arrives tomorrow morning.\n"
+"                One person, hand-picked for you this week. Take a moment with them — your next Drop arrives next week.\n"
 "            "
 msgid_plural ""
 "\n"
-"                %(count)s people, hand-picked for you today. Take a moment with each — your next Drop arrives tomorrow morning.\n"
+"                %(count)s people, hand-picked for you this week. Take a moment with each — your next Drop arrives next week.\n"
 "            "
 msgstr[0] ""
 "\n"
-"                Eine Person, heute speziell für dich ausgewählt. Nimm dir einen Moment für sie — dein nächster Drop kommt morgen früh.\n"
+"                Eine Person, diese Woche speziell für dich ausgewählt. Nimm dir einen Moment für sie — dein nächster Drop kommt nächste Woche.\n"
 "            "
 msgstr[1] ""
 "\n"
-"                %(count)s Personen, heute speziell für dich ausgewählt. Nimm dir einen Moment für jede — dein nächster Drop kommt morgen früh.\n"
+"                %(count)s Personen, diese Woche speziell für dich ausgewählt. Nimm dir einen Moment für jede — dein nächster Drop kommt nächste Woche.\n"
 "            "
 
 #: .\templates\crush_lu\crush_connect\home.html:44
 #, python-format
 msgid ""
 "\n"
-"                That's it for today. Your next Drop arrives <strong>%(when)s</strong>.\n"
+"                That's it for this week. Your next Drop arrives <strong>%(when)s</strong>.\n"
 "            "
 msgstr ""
 "\n"
-"                Das war's für heute. Dein nächster Drop kommt <strong>%(when)s</strong>.\n"
+"                Das war's für diese Woche. Dein nächster Drop kommt <strong>%(when)s</strong>.\n"
 "            "
 
 #: .\templates\crush_lu\crush_connect\home.html:55
-msgid "No Drop for today."
-msgstr "Heute kein Drop."
+msgid "No Drop for this week."
+msgstr "Diese Woche kein Drop."
 
 #: .\templates\crush_lu\crush_connect\home.html:58
 msgid ""
@@ -18351,8 +18351,8 @@ msgid "Edit anytime from your settings later."
 msgstr "Du kannst das später jederzeit in deinen Einstellungen ändern."
 
 #: .\templates\crush_lu\crush_connect\onboarding.html:80
-msgid "Finish & open Today's Drop"
-msgstr "Abschließen & heutigen Drop öffnen"
+msgid "Finish & open This Week's Drop"
+msgstr "Abschließen & wöchentlichen Drop öffnen"
 
 #: .\templates\crush_lu\crush_connect\onboarding.html:86
 msgid ""
@@ -18510,9 +18510,9 @@ msgid "Unlocked"
 msgstr "Freigeschaltet"
 
 #: .\templates\crush_lu\dashboard.html:110
-msgid "Your daily curated matches — people you've actually met at events."
+msgid "Your weekly curated matches — people you've actually met at events."
 msgstr ""
-"Deine täglich kuratierten Matches — Menschen, die du wirklich auf Events "
+"Deine wöchentlich kuratierten Matches — Menschen, die du wirklich auf Events "
 "getroffen hast."
 
 #: .\templates\crush_lu\dashboard.html:112
@@ -18560,10 +18560,10 @@ msgstr "Alle ansehen"
 #: .\templates\crush_lu\dashboard.html:224
 msgid ""
 "Go Premium at any event to get a personal coach and unlock Crush Connect — "
-"daily curated matches."
+"weekly curated matches."
 msgstr ""
 "Werde bei jedem Event Premium, um einen persönlichen Coach zu bekommen und "
-"Crush Connect freizuschalten — täglich kuratierte Matches."
+"Crush Connect freizuschalten — wöchentlich kuratierte Matches."
 
 #: .\templates\crush_lu\dashboard.html:258
 #: .\templates\crush_lu\partials\bottom_nav.html:74
@@ -26125,8 +26125,8 @@ msgstr "Reservierte Event-Plätze"
 
 #: .\templates\crush_lu\partials\_products.html:94
 #| msgid "You're on the Waitlist"
-msgid "Crush Connect — daily matches"
-msgstr "Crush Connect — tägliche Matches"
+msgid "Crush Connect — weekly matches"
+msgstr "Crush Connect — wöchentliche Matches"
 
 #: .\templates\crush_lu\partials\_products.html:98
 #| msgid "Your answer"
@@ -33978,14 +33978,6 @@ msgid "Not available right now — come to an event to get verified instead."
 msgstr ""
 "Gerade nicht verfügbar — komm stattdessen zu einem Event, um dich zu "
 "verifizieren."
-
-msgid ""
-"Our coaches host every event and welcome you in person. Want a personal "
-"coach by your side? That's Premium."
-msgstr ""
-"Möchtest du einen persönlichen Coach an deiner Seite? Mit Premium "
-"verifiziert dich ein Coach deiner Wahl und begleitet dich bei Events, um "
-"deinen Crush zu finden."
 
 msgid ""
 "Crush.lu is about real people meeting in person — no bots, no algorithms "

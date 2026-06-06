@@ -1,7 +1,7 @@
 {% extends 'crush_lu/base.html' %}
 {% load i18n %}
 
-{% block title %}{% trans "Today's Drop — Crush Connect" %}{% endblock %}
+{% block title %}{% trans "This Week's Drop — Crush Connect" %}{% endblock %}
 
 {% block content %}
 <div class="max-w-3xl mx-auto px-4 py-10 pb-24 lg:pb-10">
@@ -17,7 +17,7 @@
     <header class="mb-8">
         <div class="flex items-baseline justify-between gap-3 mb-2">
             <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-gray-900 dark:text-white">
-                {% trans "Today's Drop" %}
+                {% trans "This Week's Drop" %}
             </h1>
             <span class="text-xs font-medium uppercase tracking-wide text-crush-purple dark:text-crush-pink">
                 {{ drop.drop_date|date:"l, F j" }}
@@ -25,9 +25,9 @@
         </div>
         <p class="text-gray-600 dark:text-gray-300 max-w-2xl">
             {% blocktrans count count=recipients|length %}
-                One person, hand-picked for you today. Take a moment with them — your next Drop arrives tomorrow morning.
+                One person, hand-picked for you this week. Take a moment with them — your next Drop arrives next week.
             {% plural %}
-                {{ count }} people, hand-picked for you today. Take a moment with each — your next Drop arrives tomorrow morning.
+                {{ count }} people, hand-picked for you this week. Take a moment with each — your next Drop arrives next week.
             {% endblocktrans %}
         </p>
     </header>
@@ -42,7 +42,7 @@
 
         <p class="mt-10 text-center text-sm text-gray-500 dark:text-gray-400">
             {% blocktrans with when=next_drop_at|date:"l H:i" %}
-                That's it for today. Your next Drop arrives <strong>{{ when }}</strong>.
+                That's it for this week. Your next Drop arrives <strong>{{ when }}</strong>.
             {% endblocktrans %}
         </p>
     {% else %}
@@ -52,7 +52,7 @@
                 {% include "shared/icons/sparkles.html" with class="w-8 h-8 text-crush-purple" %}
             </div>
             <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                {% trans "No Drop for today." %}
+                {% trans "No Drop for this week." %}
             </h2>
             <p class="text-sm text-gray-600 dark:text-gray-300 max-w-md mx-auto mb-6">
                 {% trans "We didn't find anyone new to introduce you to right now. Attending more events makes you discoverable to more members — and vice versa." %}

@@ -692,9 +692,9 @@ def create_profile(request):
                 except Exception as e:
                     logger.warning(f"Failed to broadcast channel notification: {e}")
 
-            messages.success(
-                request, _("Profile submitted! Verify your identity to get started.")
-            )
+            # No "Profile submitted" toast: the profile_submitted page already
+            # explains the verification next step, and on the LuxID path this
+            # message double-stacked with the "identity verified" banner.
             return redirect("crush_lu:profile_submitted")
         else:
             logger.error(
