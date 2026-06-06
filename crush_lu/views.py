@@ -255,21 +255,14 @@ def _build_dashboard_verifier(profile, review_coach, is_premium):
     - LuxID-verified → a *virtual* LuxID coach (never a real assigned_coach,
       which would wrongly flip them to premium).
     - Coach-verified (in person) → the verifying/reviewing coach if known.
-    - Not yet verified → an invitation to get verified in person at an event
-      (the alternative for people who would rather not use LuxID).
+    - Not yet verified → None. Pending users already get the "Get verified to
+      join" hero (_verification_journey.html) plus the pending banner, so the
+      verifier card stays out of the way until there's a verifier to highlight.
     """
     if profile.verification_status != "verified":
-        # Don't nag people who haven't finished their profile yet, or who were
-        # rejected — only those ready to verify (submitted / pending).
-        if profile.verification_status == "pending":
-            return {
-                "kind": "unverified",
-                "name": _("Get verified at an event"),
-                "subtitle": _("Prefer not to use LuxID?"),
-                "detail": _("Come to an event and a coach will verify you in person."),
-                "cta_url": reverse("crush_lu:event_list"),
-                "cta_label": _("Browse events"),
-            }
+        # The verifier card highlights *who* verified you — there's nothing to
+        # show until verification completes. The pending CTA is owned by the
+        # verification hero, so returning a card here just duplicated it.
         return None
 
     if is_premium and profile.assigned_coach_id:
