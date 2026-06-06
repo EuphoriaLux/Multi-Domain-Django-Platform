@@ -52,7 +52,17 @@
             {# Verification options (come to an event / LuxID) plus the Premium
                teaser are presented by _verification_options.html at the bottom. #}
 
-            {% else %}{# submission exists — existing coach/revision flow below #}
+            {% else %}
+            {# ═══════════════════════════════════════════════════════════════ #}
+            {# PREMIUM COACH PATH — a ProfileSubmission only exists for the     #}
+            {# paid/Premium coach flow (or a revision re-submit). Free users    #}
+            {# verify via event/LuxID and never reach this branch (see the      #}
+            {# `not submission` block above). The states below branch on        #}
+            {# submission.status — which is the coach-review tracker, distinct   #}
+            {# from profile.verification_status that the *view* gates on. Keep   #}
+            {# this fenced as Premium so the two status systems don't read as    #}
+            {# the default flow.                                                 #}
+            {# ═══════════════════════════════════════════════════════════════ #}
                 {% if submission.status == 'pending' or submission.status == 'under_review' or submission.status == 'recontact_coach' or submission.is_paused %}
                 {# ═══════════════════════════════════════════════════════ #}
                 {# HYBRID STATUS BANNER (Phase 4) — shows when the new      #}
@@ -220,6 +230,14 @@
                             {% include "shared/icons/hourglass.html" with class="w-8 h-8 md:w-10 md:h-10 text-white" %}
                         </div>
                     </div>
+                    {% if path_locked %}
+                    <div class="flex justify-center mb-2">
+                        <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-[0.7rem] font-bold uppercase tracking-wide">
+                            {% include "shared/icons/shield-check.html" with class="w-3.5 h-3.5" %}
+                            {% trans "Coach Verification · Premium" %}
+                        </span>
+                    </div>
+                    {% endif %}
                     <h2 class="mt-4 mb-2 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Profile Under Review" %}</h2>
                     <div class="flex justify-center mb-4">
                         <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
