@@ -782,7 +782,7 @@ def test_home_renders_empty_state_when_no_pool(client, settings):
     resp = client.get(CONNECT_HOME_URL)
     assert resp.status_code == 200
     body = resp.content.decode()
-    assert "No Drop for today" in body
+    assert "No Drop for this week." in body
     assert "Browse upcoming events" in body
 
 
