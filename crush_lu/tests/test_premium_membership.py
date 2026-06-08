@@ -60,6 +60,7 @@ class PremiumMembershipTests(SiteTestMixin, TestCase):
         )
         return self.CrushCoach.objects.create(user=user, **opts)
 
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=False)
     def test_directory_lists_only_available_coaches(self):
         available = self._make_coach("ava")
         self._make_coach("inactive", is_active=False)
@@ -165,6 +166,31 @@ class PremiumMembershipTests(SiteTestMixin, TestCase):
         self.client.force_login(self.member)
         resp = self.client.get(reverse("crush_lu:premium_choose_coach"))
         self.assertEqual(resp.status_code, 302)
+
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
+    def test_premium_seeker_redirected_to_beta(self):
+        """With the beta funnel on, a premium-seeker (no pending request) is
+        sent to the Crush Connect waitlist instead of the coach directory."""
+        self._make_coach("ava")
+        self.client.force_login(self.member)
+        resp = self.client.get(reverse("crush_lu:premium_choose_coach"))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(reverse("crush_lu:crush_connect_teaser"), resp.url)
+
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
+    def test_pending_member_not_redirected_to_beta(self):
+        """A member with an in-flight request still reaches the directory so
+        they can change or cancel it."""
+        from crush_lu.models import PremiumMembership
+
+        coach = self._make_coach("pip")
+        PremiumMembership.objects.create(
+            user=self.member, coach=coach, status="pending"
+        )
+        self.client.force_login(self.member)
+        resp = self.client.get(reverse("crush_lu:premium_choose_coach"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertIsNotNone(resp.context["pending_membership"])
 
     def test_cancel_pending_membership(self):
         from crush_lu.models import PremiumMembership

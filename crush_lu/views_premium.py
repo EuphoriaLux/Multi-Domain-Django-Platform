@@ -52,6 +52,13 @@ def premium_choose_coach(request):
         .first()
     )
 
+    # Crush Connect beta: funnel premium-seekers into the beta waitlist. Members
+    # with a pending request fall through so they can still change/cancel it.
+    from django.conf import settings as _settings
+
+    if getattr(_settings, "PREMIUM_REDIRECTS_TO_BETA", False) and not pending:
+        return redirect("crush_lu:crush_connect_teaser")
+
     context = {
         "coaches": _available_coaches(),
         "pending_membership": pending,

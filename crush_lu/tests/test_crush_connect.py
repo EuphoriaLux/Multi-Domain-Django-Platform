@@ -761,7 +761,7 @@ def test_home_renders_drop_with_cards(client, settings):
     assert resp.status_code == 200
     body = resp.content.decode()
 
-    assert "Today&#x27;s Drop" in body or "Today's Drop" in body
+    assert "This Week&#x27;s Drop" in body or "This Week's Drop" in body
     # The drop pinned recipients should match what get_or_create_daily_drop returns.
     # Don't hardcode date.today(): the service dates the drop to "yesterday" before
     # 6am, so fetch the drop the view actually created for this user.
@@ -782,7 +782,7 @@ def test_home_renders_empty_state_when_no_pool(client, settings):
     resp = client.get(CONNECT_HOME_URL)
     assert resp.status_code == 200
     body = resp.content.decode()
-    assert "No Drop for today" in body
+    assert "No Drop for this week" in body
     assert "Browse upcoming events" in body
 
 
@@ -954,6 +954,90 @@ def test_teaser_auto_redirects_eligible_not_onboarded_to_onboarding(client, sett
     resp = client.get(CONNECT_TEASER_URL)
     assert resp.status_code in (302, 301)
     assert "/crush-connect/onboarding/" in resp.url
+
+
+# ---------------------------------------------------------------------------
+# Beta tester selection — waitlist fields, admin actions, teaser context
+# ---------------------------------------------------------------------------
+
+
+def _admin_request(user):
+    """A POST request usable by admin actions (messages framework attached)."""
+    from django.contrib.messages.storage.fallback import FallbackStorage
+    from django.test import RequestFactory
+
+    req = RequestFactory().post("/admin/")
+    req.user = user
+    req.session = {}
+    req._messages = FallbackStorage(req)
+    return req
+
+
+@pytest.mark.django_db
+def test_admin_select_as_tester_stamps_fields():
+    from django.contrib.admin.sites import AdminSite
+
+    from crush_lu.admin.crush_connect import CrushConnectWaitlistAdmin
+    from crush_lu.models import CrushConnectWaitlist
+
+    me = _make_user(username="me", premium=False, onboarded=False)
+    staff = User.objects.create_user(
+        username="cc_staff", email="cc_staff@example.com", password="x", is_staff=True
+    )
+    entry = CrushConnectWaitlist.objects.create(user=me)
+
+    admin = CrushConnectWaitlistAdmin(CrushConnectWaitlist, AdminSite())
+    admin.select_as_tester(
+        _admin_request(staff), CrushConnectWaitlist.objects.filter(pk=entry.pk)
+    )
+
+    entry.refresh_from_db()
+    assert entry.selected_as_tester is True
+    assert entry.selected_at is not None
+
+
+@pytest.mark.django_db
+def test_admin_confirm_payment_stamps_confirmed_by():
+    from django.contrib.admin.sites import AdminSite
+
+    from crush_lu.admin.crush_connect import CrushConnectWaitlistAdmin
+    from crush_lu.models import CrushConnectWaitlist
+
+    me = _make_user(username="me", premium=False, onboarded=False)
+    staff = User.objects.create_user(
+        username="cc_staff", email="cc_staff@example.com", password="x", is_staff=True
+    )
+    entry = CrushConnectWaitlist.objects.create(user=me)
+
+    admin = CrushConnectWaitlistAdmin(CrushConnectWaitlist, AdminSite())
+    admin.confirm_payment(
+        _admin_request(staff), CrushConnectWaitlist.objects.filter(pk=entry.pk)
+    )
+
+    entry.refresh_from_db()
+    assert entry.payment_confirmed is True
+    assert entry.payment_date is not None
+    assert entry.confirmed_by_id == staff.id
+
+
+@pytest.mark.django_db
+def test_teaser_context_exposes_tester_status(client, settings):
+    """The teaser surfaces the new beta-status flags for the logged-in user."""
+    settings.CRUSH_CONNECT_LAUNCHED = False  # stay on the teaser, no fast-path
+    from crush_lu.models import CrushConnectWaitlist
+
+    me = _make_user(username="me", premium=False, onboarded=False)
+    CrushConnectWaitlist.objects.create(
+        user=me, selected_as_tester=True, payment_confirmed=True
+    )
+    _login_eligible(client, me)
+
+    resp = client.get(CONNECT_TEASER_URL)
+    assert resp.status_code == 200
+    assert resp.context["on_waitlist"] is True
+    assert resp.context["selected_as_tester"] is True
+    assert resp.context["tester_payment_confirmed"] is True
+    assert "Selected as a beta tester" in resp.content.decode()
 
 
 @pytest.mark.django_db

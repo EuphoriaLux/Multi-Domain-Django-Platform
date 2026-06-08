@@ -195,6 +195,8 @@ def crush_connect_teaser(request):
         "is_eligible": False,
         "profile_approved": False,
         "is_premium": False,
+        "selected_as_tester": False,
+        "tester_payment_confirmed": False,
     }
 
     if request.user.is_authenticated:
@@ -203,6 +205,8 @@ def crush_connect_teaser(request):
             context["on_waitlist"] = True
             context["waitlist_position"] = entry.waitlist_position
             context["is_eligible"] = entry.is_eligible
+            context["selected_as_tester"] = entry.selected_as_tester
+            context["tester_payment_confirmed"] = entry.payment_confirmed
         except CrushConnectWaitlist.DoesNotExist:
             pass
 
