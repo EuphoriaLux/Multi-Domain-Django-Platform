@@ -390,6 +390,12 @@ PRE_SCREENING_ENABLED = _env_bool("PRE_SCREENING_ENABLED", default=False)
 # in M8, so this flag can stay True in production once beta finishes.
 CRUSH_CONNECT_LAUNCHED = _env_bool("CRUSH_CONNECT_LAUNCHED", default=False)
 
+# During the "4 weeks / 4 matches" Crush Connect beta, funnel the Go-Premium flow
+# into the beta waitlist instead of the coach directory. Members with an in-flight
+# (pending) premium request are exempt so they can still manage it. Set False to
+# fully restore the old premium flow after the beta — no code change needed.
+PREMIUM_REDIRECTS_TO_BETA = _env_bool("PREMIUM_REDIRECTS_TO_BETA", default=True)
+
 # Event Check-In Configuration
 EVENT_CHECKIN_WINDOW_HOURS = int(os.getenv("EVENT_CHECKIN_WINDOW_HOURS", "12"))
 
