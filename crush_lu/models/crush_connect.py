@@ -26,6 +26,14 @@ class CrushConnectWaitlist(models.Model):
     # Beta tester selection — staff hand-pick the 20 "4 weeks / 4 matches" testers
     # and track the €10/month payment out-of-band (manual flag, no payment
     # processor — mirrors PremiumMembership.payment_confirmed / EventRegistration).
+    #
+    # Scope note: these flags are recruitment + teaser-status tracking ONLY. They
+    # do NOT grant access to Crush Connect — the access gate
+    # (views_crush_connect._user_passes_pre_onboarding_gate) intentionally still
+    # requires a premium coach, because the existing gate guards the daily-drop
+    # feature, not the coach-picked weekly-match concept this beta advertises.
+    # Wiring tester access belongs with building that weekly-match delivery
+    # (a deferred phase), not here.
     selected_as_tester = models.BooleanField(
         default=False,
         help_text=_("Marked as one of the 20 beta testers"),
