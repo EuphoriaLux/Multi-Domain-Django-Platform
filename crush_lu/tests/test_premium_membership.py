@@ -231,6 +231,25 @@ class PremiumMembershipTests(SiteTestMixin, TestCase):
         )
         self.assertEqual(membership.coach_id, second.id)
 
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
+    def test_profileless_user_reaches_beta_funnel(self):
+        """A logged-in user with no profile still reaches the beta via the
+        'Join the Beta' CTA — the redirect runs before the profile gate."""
+        from crush_lu.models.profiles import UserDataConsent
+
+        user = User.objects.create_user(
+            username="noprof@example.com",
+            email="noprof@example.com",
+            password="pass12345",
+        )
+        UserDataConsent.objects.filter(user=user).update(
+            crushlu_consent_given=True
+        )
+        self.client.force_login(user)
+        resp = self.client.get(reverse("crush_lu:premium_choose_coach"))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(reverse("crush_lu:crush_connect_teaser"), resp.url)
+
     def test_cancel_pending_membership(self):
         from crush_lu.models import PremiumMembership
 

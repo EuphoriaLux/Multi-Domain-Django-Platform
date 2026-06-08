@@ -163,6 +163,21 @@ class CrushConnectWaitlistAdmin(admin.ModelAdmin):
     is_eligible.boolean = True
     is_eligible.short_description = _("Eligible")
 
+    def save_model(self, request, obj, form, change):
+        # Stamp the audit/date fields when staff flips the booleans directly in
+        # the change form (the bulk actions stamp them too). Keeps the teaser's
+        # "beta status" honest — no "selected"/"€10 active" without a timestamp.
+        if "selected_as_tester" in form.changed_data:
+            obj.selected_at = timezone.now() if obj.selected_as_tester else None
+        if "payment_confirmed" in form.changed_data:
+            if obj.payment_confirmed:
+                obj.payment_date = obj.payment_date or timezone.now()
+                obj.confirmed_by = obj.confirmed_by or request.user
+            else:
+                obj.payment_date = None
+                obj.confirmed_by = None
+        super().save_model(request, obj, form, change)
+
     @admin.action(description=_("Select as beta tester (4 weeks / 4 matches)"))
     def select_as_tester(self, request, queryset):
         selected = 0

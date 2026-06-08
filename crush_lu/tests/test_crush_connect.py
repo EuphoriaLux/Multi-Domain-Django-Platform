@@ -1021,6 +1021,35 @@ def test_admin_confirm_payment_stamps_confirmed_by():
 
 
 @pytest.mark.django_db
+def test_admin_form_save_stamps_tester_fields():
+    """Toggling the booleans in the change form (not the bulk action) still
+    stamps selected_at / payment_date / confirmed_by via save_model."""
+    from django.contrib.admin.sites import AdminSite
+
+    from crush_lu.admin.crush_connect import CrushConnectWaitlistAdmin
+    from crush_lu.models import CrushConnectWaitlist
+
+    me = _make_user(username="me", premium=False, onboarded=False)
+    staff = User.objects.create_user(
+        username="cc_staff2", email="cc_staff2@example.com", password="x", is_staff=True
+    )
+    entry = CrushConnectWaitlist.objects.create(user=me)
+    entry.selected_as_tester = True
+    entry.payment_confirmed = True
+
+    class _Form:
+        changed_data = ["selected_as_tester", "payment_confirmed"]
+
+    admin = CrushConnectWaitlistAdmin(CrushConnectWaitlist, AdminSite())
+    admin.save_model(_admin_request(staff), entry, _Form(), change=True)
+
+    entry.refresh_from_db()
+    assert entry.selected_at is not None
+    assert entry.payment_date is not None
+    assert entry.confirmed_by_id == staff.id
+
+
+@pytest.mark.django_db
 def test_teaser_context_exposes_tester_status(client, settings):
     """The teaser surfaces the new beta-status flags for the logged-in user."""
     settings.CRUSH_CONNECT_LAUNCHED = False  # stay on the teaser, no fast-path

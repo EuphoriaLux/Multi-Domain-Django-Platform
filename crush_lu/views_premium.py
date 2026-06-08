@@ -35,6 +35,21 @@ def _available_coaches():
 @login_required
 def premium_choose_coach(request):
     """Show the premium coach directory."""
+    from django.conf import settings as _settings
+
+    pending = (
+        PremiumMembership.objects.filter(user=request.user, status="pending")
+        .select_related("coach__user")
+        .first()
+    )
+
+    # Crush Connect beta: funnel premium-seekers into the beta waitlist. This
+    # runs before the profile gate because the waitlist is open to authenticated
+    # users with no profile yet (a profile-less user can't have a pending request
+    # anyway). Members with a pending request fall through so they can manage it.
+    if getattr(_settings, "PREMIUM_REDIRECTS_TO_BETA", False) and not pending:
+        return redirect("crush_lu:crush_connect_teaser")
+
     try:
         profile = request.user.crushprofile
     except CrushProfile.DoesNotExist:
@@ -45,19 +60,6 @@ def premium_choose_coach(request):
     if profile.assigned_coach_id:
         messages.info(request, _("You already have a personal coach."))
         return redirect("crush_lu:dashboard")
-
-    pending = (
-        PremiumMembership.objects.filter(user=request.user, status="pending")
-        .select_related("coach__user")
-        .first()
-    )
-
-    # Crush Connect beta: funnel premium-seekers into the beta waitlist. Members
-    # with a pending request fall through so they can still change/cancel it.
-    from django.conf import settings as _settings
-
-    if getattr(_settings, "PREMIUM_REDIRECTS_TO_BETA", False) and not pending:
-        return redirect("crush_lu:crush_connect_teaser")
 
     context = {
         "coaches": _available_coaches(),
@@ -70,6 +72,18 @@ def premium_choose_coach(request):
 @require_POST
 def premium_select_coach(request, coach_id):
     """Create a pending premium membership for the chosen coach."""
+    from django.conf import settings as _settings
+
+    # Crush Connect beta: while the funnel is on, don't let a member start a
+    # *fresh* premium request (stale directory form or a direct POST). Members
+    # who already have a pending request may still change their chosen coach.
+    # Runs before the profile gate, mirroring premium_choose_coach.
+    has_pending = PremiumMembership.objects.filter(
+        user=request.user, status="pending"
+    ).exists()
+    if getattr(_settings, "PREMIUM_REDIRECTS_TO_BETA", False) and not has_pending:
+        return redirect("crush_lu:crush_connect_teaser")
+
     try:
         profile = request.user.crushprofile
     except CrushProfile.DoesNotExist:
@@ -79,17 +93,6 @@ def premium_select_coach(request, coach_id):
     if profile.assigned_coach_id:
         messages.info(request, _("You already have a personal coach."))
         return redirect("crush_lu:dashboard")
-
-    # Crush Connect beta: while the funnel is on, don't let a member start a
-    # *fresh* premium request (stale directory form or a direct POST). Members
-    # who already have a pending request may still change their chosen coach.
-    from django.conf import settings as _settings
-
-    has_pending = PremiumMembership.objects.filter(
-        user=request.user, status="pending"
-    ).exists()
-    if getattr(_settings, "PREMIUM_REDIRECTS_TO_BETA", False) and not has_pending:
-        return redirect("crush_lu:crush_connect_teaser")
 
     coach = get_object_or_404(CrushCoach, id=coach_id)
     if not coach.can_accept_premium():
