@@ -29,7 +29,10 @@ class SiteTestMixin:
         )
 
 
-@override_settings(**CRUSH_LU_URL_SETTINGS)
+# Premium-mechanics tests run with the beta funnel OFF; the funnel tests below
+# opt into PREMIUM_REDIRECTS_TO_BETA=True per-method (method override stacks on
+# top of the class-level one).
+@override_settings(**CRUSH_LU_URL_SETTINGS, PREMIUM_REDIRECTS_TO_BETA=False)
 class PremiumMembershipTests(SiteTestMixin, TestCase):
     def setUp(self):
         from crush_lu.models import CrushCoach, CrushProfile
@@ -60,7 +63,6 @@ class PremiumMembershipTests(SiteTestMixin, TestCase):
         )
         return self.CrushCoach.objects.create(user=user, **opts)
 
-    @override_settings(PREMIUM_REDIRECTS_TO_BETA=False)
     def test_directory_lists_only_available_coaches(self):
         available = self._make_coach("ava")
         self._make_coach("inactive", is_active=False)
@@ -191,6 +193,43 @@ class PremiumMembershipTests(SiteTestMixin, TestCase):
         resp = self.client.get(reverse("crush_lu:premium_choose_coach"))
         self.assertEqual(resp.status_code, 200)
         self.assertIsNotNone(resp.context["pending_membership"])
+
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
+    def test_select_post_blocked_for_non_pending_during_beta(self):
+        """A fresh select POST (stale form / direct hit) is funneled to the
+        beta instead of creating a pending membership."""
+        from crush_lu.models import PremiumMembership
+
+        coach = self._make_coach("zoe")
+        self.client.force_login(self.member)
+        resp = self.client.post(
+            reverse("crush_lu:premium_select_coach", kwargs={"coach_id": coach.id})
+        )
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(reverse("crush_lu:crush_connect_teaser"), resp.url)
+        self.assertFalse(
+            PremiumMembership.objects.filter(user=self.member).exists()
+        )
+
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
+    def test_pending_member_can_change_coach_during_beta(self):
+        """A member with a pending request may still switch coaches via POST."""
+        from crush_lu.models import PremiumMembership
+
+        first = self._make_coach("amy")
+        second = self._make_coach("bea")
+        PremiumMembership.objects.create(
+            user=self.member, coach=first, status="pending"
+        )
+        self.client.force_login(self.member)
+        resp = self.client.post(
+            reverse("crush_lu:premium_select_coach", kwargs={"coach_id": second.id})
+        )
+        self.assertEqual(resp.status_code, 302)
+        membership = PremiumMembership.objects.get(
+            user=self.member, status="pending"
+        )
+        self.assertEqual(membership.coach_id, second.id)
 
     def test_cancel_pending_membership(self):
         from crush_lu.models import PremiumMembership
