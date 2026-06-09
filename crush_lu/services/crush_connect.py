@@ -308,6 +308,27 @@ def is_catalogue_eligible(user) -> bool:
     )
 
 
+def is_sender_eligible(user) -> bool:
+    """
+    Whether ``user`` currently qualifies to SEND Sparks (the receiver track):
+    approved profile + Premium coach assigned + onboarded (not excluded).
+
+    Like catalogue eligibility, this must be re-checked at accept time —
+    a sender who was rejected, lost their Premium coach, or got
+    coach-excluded after sending must not land in the accepted-sparks
+    coach queue via an old pending Spark.
+    """
+    profile = getattr(user, "crushprofile", None)
+    membership = getattr(user, "crush_connect_membership", None)
+    return bool(
+        profile is not None
+        and profile.is_approved
+        and profile.assigned_coach_id
+        and membership is not None
+        and membership.is_onboarded
+    )
+
+
 def can_send_spark(sender, recipient) -> Tuple[bool, str]:
     """
     Whether ``sender`` may send a Curiosity Spark to ``recipient``.
@@ -328,15 +349,7 @@ def can_send_spark(sender, recipient) -> Tuple[bool, str]:
     """
     from crush_lu.models import ConnectDailyDrop, CuriositySpark
 
-    sender_profile = getattr(sender, "crushprofile", None)
-    sender_membership = getattr(sender, "crush_connect_membership", None)
-    if (
-        sender_profile is None
-        or not sender_profile.is_approved
-        or not sender_profile.assigned_coach_id
-        or sender_membership is None
-        or not sender_membership.is_onboarded
-    ):
+    if not is_sender_eligible(sender):
         return False, "not_receiver"
 
     if not is_catalogue_eligible(recipient):
@@ -395,11 +408,15 @@ def respond_to_spark(spark, accept: bool, request=None):
     """
     if spark.status != "pending":
         return spark
-    if accept and not is_catalogue_eligible(spark.recipient):
-        # Eligibility lost since the Spark arrived (rejection, LuxID unlink,
-        # exclusion) — an accept must not fire the mutual notification or
-        # land in the coach queue. Leave the Spark pending; the views block
-        # the page before this, so this is the race-condition safety net.
+    if accept and not (
+        is_catalogue_eligible(spark.recipient)
+        and is_sender_eligible(spark.sender)
+    ):
+        # Either party lost eligibility since the Spark was created
+        # (rejection, LuxID unlink, Premium loss, exclusion) — an accept
+        # must not fire the mutual notification or land in the coach
+        # queue. Leave the Spark pending; the views filter these out, so
+        # this is the race-condition safety net.
         return spark
     spark.status = "accepted" if accept else "declined"
     spark.responded_at = timezone.now()

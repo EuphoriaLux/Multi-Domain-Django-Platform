@@ -1603,3 +1603,42 @@ def test_can_send_spark_blocks_inactive_recipient():
     )
     _surface_in_drop(me, dormant)
     assert can_send_spark(me, dormant) == (False, "recipient_unavailable")
+
+
+@pytest.mark.django_db
+def test_respond_accept_blocked_when_sender_lost_eligibility():
+    """A sender who lost Premium (or got rejected/excluded) after sending
+    must not reach the accepted-sparks coach queue via an old pending Spark."""
+    from crush_lu.models import Notification
+
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F", premium=False)
+    _surface_in_drop(me, her)
+    spark = send_spark(me, her)
+
+    me.crushprofile.assigned_coach = None
+    me.crushprofile.save(update_fields=["assigned_coach"])
+
+    respond_to_spark(spark, accept=True)
+    spark.refresh_from_db()
+    assert spark.status == "pending"
+    assert not Notification.objects.filter(
+        user=me, notification_type="connect_spark_accepted"
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_sparks_received_hides_sparks_from_ineligible_sender(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F", premium=False)
+    _surface_in_drop(me, her)
+    send_spark(me, her, message="Hello there")
+
+    me.crushprofile.assigned_coach = None
+    me.crushprofile.save(update_fields=["assigned_coach"])
+
+    _login_eligible(client, her)
+    resp = client.get(SPARKS_RECEIVED_URL)
+    assert resp.status_code == 200
+    assert "Hello there" not in resp.content.decode()

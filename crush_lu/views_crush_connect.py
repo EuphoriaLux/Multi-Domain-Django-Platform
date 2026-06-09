@@ -364,7 +364,10 @@ def crush_connect_sparks_received(request):
     the notification email) is where they meet the Sparks sent to them.
     """
     from crush_lu.models import CuriositySpark
-    from crush_lu.services.crush_connect import is_catalogue_eligible
+    from crush_lu.services.crush_connect import (
+        is_catalogue_eligible,
+        is_sender_eligible,
+    )
 
     user = request.user
     if not user.is_staff and not getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
@@ -383,10 +386,14 @@ def crush_connect_sparks_received(request):
         )
         .order_by("-created_at")
     )
+    # Hide Sparks whose sender lost eligibility since sending (rejection,
+    # Premium loss, exclusion) — accepting them is a no-op anyway, so they
+    # must not be offered.
+    visible_sparks = [s for s in sparks if is_sender_eligible(s.sender)]
     return render(
         request,
         "crush_lu/crush_connect/sparks_received.html",
-        {"sparks": list(sparks)},
+        {"sparks": visible_sparks},
     )
 
 
