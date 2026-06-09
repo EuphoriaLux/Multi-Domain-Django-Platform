@@ -36,7 +36,7 @@
     {% if recipients %}
         <div class="grid grid-cols-1 gap-6">
             {% for target in recipients %}
-                {% include "crush_lu/crush_connect/_drop_card.html" with target=target target_profile=target.crushprofile target_membership=target.crush_connect_membership show_spark_placeholder=True %}
+                {% include "crush_lu/crush_connect/_drop_card.html" with target=target target_profile=target.crushprofile target_membership=target.crush_connect_membership show_spark_cta=True sparked_ids=sparked_ids %}
             {% endfor %}
         </div>
 

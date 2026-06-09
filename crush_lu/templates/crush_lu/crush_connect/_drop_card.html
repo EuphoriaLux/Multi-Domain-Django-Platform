@@ -79,8 +79,22 @@ Privacy contract (Crush Connect):
             </div>
         {% endif %}
 
-        {# Footer / CTA slot — M5 fills this with the Spark button. M3 just shows a placeholder. #}
-        {% if show_spark_placeholder %}
+        {# Footer / CTA slot — the M5 Spark button (show_spark_cta) or the legacy M3 placeholder. #}
+        {% if show_spark_cta %}
+            <div class="mt-2 pt-3 border-t border-gray-100 dark:border-slate-700/60">
+                {% if target.pk in sparked_ids %}
+                    <p class="inline-flex items-center gap-1.5 text-sm font-medium text-crush-purple dark:text-crush-pink mb-0">
+                        {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
+                        {% trans "Spark sent — you'll hear back if it's mutual." %}
+                    </p>
+                {% else %}
+                    <a href="{% url 'crush_lu:crush_connect_spark_compose' target.pk %}" class="btn-crush-primary btn-sm inline-flex items-center gap-1.5 no-underline">
+                        {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
+                        {% trans "Send a Curiosity Spark" %}
+                    </a>
+                {% endif %}
+            </div>
+        {% elif show_spark_placeholder %}
             <div class="mt-2 pt-3 border-t border-gray-100 dark:border-slate-700/60">
                 <p class="text-xs text-gray-400 dark:text-gray-500">
                     {% trans "Send a Curiosity Spark — coming soon." %}

@@ -264,6 +264,33 @@ class TestAutoApproveSignalGuards(TestCase):
         self.assertEqual(submission.status, "approved")
         self.assertEqual(submission.coach_notes, "")  # not modified
 
+    def test_already_verified_profile_keeps_method_and_gets_message(self):
+        """A coach/admin-verified member linking LuxID keeps their original
+        verification_method (it records the FIRST path) — but gets a success
+        message confirming Crush Connect catalogue eligibility."""
+        crush_signals._thread_local.is_crush_luxid_login = True
+        user, profile, submission = _make_user_with_pending_profile()
+        profile.verification_status = "verified"
+        profile.verification_method = "coach_event"
+        profile.is_approved = True
+        profile.save(
+            update_fields=["verification_status", "verification_method", "is_approved"]
+        )
+
+        sl = _make_sociallogin(user, provider="luxid")
+        social_account_added.send(
+            sender=SocialAccount, request=self.request, sociallogin=sl
+        )
+
+        profile.refresh_from_db()
+        self.assertEqual(profile.verification_status, "verified")
+        self.assertEqual(profile.verification_method, "coach_event")
+        stored = [str(m) for m in self.request._messages]
+        self.assertTrue(
+            any("LuxID" in m for m in stored),
+            f"Expected a LuxID confirmation message, got: {stored}",
+        )
+
     def test_guard_incomplete_profile_skips(self):
         """An incomplete profile (never submitted) must not be verified just
         by connecting LuxID — it has to go through submission first."""

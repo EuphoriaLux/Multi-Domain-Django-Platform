@@ -2216,11 +2216,30 @@ def auto_approve_profile_on_luxid_connect(sender, request, sociallogin, **kwargs
         )
         return
 
+    # Already-verified profiles keep their status AND verification_method (it
+    # records the FIRST verification path) — but linking LuxID still matters:
+    # it's the ticket into the Crush Connect candidate catalogue, so confirm
+    # that to the user instead of silently skipping.
+    if profile.verification_status == "verified":
+        logger.info(
+            "[LUXID-CONNECT] Already-verified profile pk=%s connected LuxID — "
+            "now eligible for the Crush Connect catalogue (no status change)",
+            profile.pk,
+        )
+        if request is not None:
+            messages.success(
+                request,
+                _(
+                    "Your LuxID is now connected — you can join the "
+                    "Crush Connect catalogue."
+                ),
+            )
+        return
+
     # Only profiles that have been submitted and are awaiting verification
     # ("pending") may be verified by connecting LuxID. Profiles that never
     # completed/submitted ("incomplete") must go through submission first, and
     # "rejected" profiles must not be able to self-clear by connecting LuxID.
-    # This also short-circuits already-"verified" profiles.
     if profile.verification_status != "pending":
         logger.info(
             "[LUXID-VERIFY] Profile pk=%s not pending verification (status=%s), skipping",

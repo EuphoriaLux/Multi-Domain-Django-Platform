@@ -419,7 +419,7 @@ class CrushProfile(models.Model):
 
     VERIFICATION_STATUS_CHOICES = [
         ("incomplete", _("Incomplete")),  # profile form not done / not submitted
-        ("pending", _("Pending")),  # submitted, waiting for LuxId
+        ("pending", _("Pending")),  # submitted, awaiting verification (LuxID or coach at event)
         ("verified", _("Verified")),  # LuxId verified or grandfathered coach-approved
         ("rejected", _("Rejected")),  # admin/system rejected
     ]
@@ -432,13 +432,6 @@ class CrushProfile(models.Model):
         ("premium_coach", _("Premium coach")),  # member's assigned premium coach
         ("admin", _("Verified by Crush.lu")),  # manual approval by staff/admin
         ("legacy", _("Legacy")),  # grandfathered / pre-method approvals
-    ]
-
-    VERIFICATION_STATUS_CHOICES = [
-        ("incomplete", _("Incomplete")),  # profile form not done / not submitted
-        ("pending", _("Pending")),  # submitted, waiting for LuxId
-        ("verified", _("Verified")),  # LuxId verified or grandfathered coach-approved
-        ("rejected", _("Rejected")),  # admin/system rejected
     ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -858,6 +851,45 @@ class CrushProfile(models.Model):
         """Status of the latest ProfileSubmission (pending/approved/rejected/revision/recontact_coach), or None."""
         latest = self.profilesubmission_set.order_by("-submitted_at").first()
         return latest.status if latest else None
+
+    @staticmethod
+    def luxid_account_querysets(user_ref):
+        """Querysets identifying a LuxID link for ``user_ref`` (pk or OuterRef).
+
+        LuxID is reached two ways: the dedicated ``luxid`` provider, or the
+        generic ``openid_connect`` provider configured as the LuxID SocialApp
+        (``provider_id="luxid"``). The generic OIDC provider is shared with
+        other platforms (e.g. LinkedIn on Entreprinder), so a bare
+        ``openid_connect`` account must NOT be assumed to be LuxID — only
+        accounts whose token belongs to the LuxID app count. Mirrors the
+        runtime check in views and the 0153 backfill.
+
+        Returns ``(native_qs, oidc_token_qs)`` — a user has LuxID when either
+        is non-empty.
+        """
+        from allauth.socialaccount.models import SocialAccount, SocialToken
+
+        native = SocialAccount.objects.filter(user=user_ref, provider="luxid")
+        oidc_token = SocialToken.objects.filter(
+            account__user=user_ref,
+            account__provider="openid_connect",
+            app__provider="openid_connect",
+            app__provider_id="luxid",
+        )
+        return native, oidc_token
+
+    @property
+    def has_luxid_connected(self) -> bool:
+        """True when the user has a LuxID social account linked.
+
+        ``verification_method`` only records how the profile FIRST became
+        verified, so a coach-verified member who links LuxID later keeps
+        ``method='coach_event'`` — the SocialAccount is the authoritative
+        store for "LuxID is connected". Used by the Crush Connect catalogue
+        gate (LuxID is the ticket into the candidate pool).
+        """
+        native, oidc_token = self.luxid_account_querysets(self.user_id)
+        return native.exists() or oidc_token.exists()
 
     def save(self, *args, **kwargs):
         """
