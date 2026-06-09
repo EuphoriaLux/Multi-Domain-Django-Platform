@@ -273,3 +273,169 @@ def get_or_create_daily_drop(user, drop_date: date | None = None):
         if not drop.recipients.exists():
             drop.recipients.set(chosen)
     return drop
+
+# ---------------------------------------------------------------------------
+# Curiosity Sparks (M5)
+# ---------------------------------------------------------------------------
+
+
+def can_send_spark(sender, recipient) -> Tuple[bool, str]:
+    """
+    Whether ``sender`` may send a Curiosity Spark to ``recipient``.
+
+    Returns ``(allowed, reason)`` — ``reason`` is a machine-readable code for
+    the view layer ("not_receiver", "not_surfaced", "already_sparked",
+    "recipient_unavailable", "ok").
+
+    Rules (asymmetric model):
+    - Only Drop receivers (Premium + onboarded, not excluded) can send.
+    - The recipient must have actually appeared in one of the sender's Drops
+      (the ConnectDailyDrop snapshot is the audit trail).
+    - The recipient must still be onboarded and not coach-excluded.
+    - One Spark per pair, in either direction.
+    """
+    from crush_lu.models import ConnectDailyDrop, CuriositySpark
+
+    sender_profile = getattr(sender, "crushprofile", None)
+    sender_membership = getattr(sender, "crush_connect_membership", None)
+    if (
+        sender_profile is None
+        or not sender_profile.is_approved
+        or not sender_profile.assigned_coach_id
+        or sender_membership is None
+        or not sender_membership.is_onboarded
+    ):
+        return False, "not_receiver"
+
+    recipient_membership = getattr(recipient, "crush_connect_membership", None)
+    if recipient_membership is None or not recipient_membership.is_onboarded:
+        return False, "recipient_unavailable"
+
+    if not ConnectDailyDrop.objects.filter(
+        user=sender, recipients=recipient
+    ).exists():
+        return False, "not_surfaced"
+
+    if CuriositySpark.objects.filter(
+        Q(sender=sender, recipient=recipient)
+        | Q(sender=recipient, recipient=sender)
+    ).exists():
+        return False, "already_sparked"
+
+    return True, "ok"
+
+
+def send_spark(sender, recipient, message: str = "", request=None):
+    """
+    Create a Curiosity Spark and notify the recipient (in-app + email).
+
+    Raises ``ValueError`` when ``can_send_spark`` fails — callers should have
+    checked first; the raise is a safety net against race conditions.
+    """
+    from crush_lu.models import ConnectDailyDrop, CuriositySpark
+
+    allowed, reason = can_send_spark(sender, recipient)
+    if not allowed:
+        raise ValueError(reason)
+
+    drop = (
+        ConnectDailyDrop.objects.filter(user=sender, recipients=recipient)
+        .order_by("-drop_date")
+        .first()
+    )
+    spark = CuriositySpark.objects.create(
+        sender=sender,
+        recipient=recipient,
+        drop=drop,
+        message=(message or "").strip(),
+    )
+    _notify_spark_received(spark, request=request)
+    return spark
+
+
+def respond_to_spark(spark, accept: bool, request=None):
+    """
+    Record the recipient's decision on a pending Spark.
+
+    Accept → sender is notified (in-app + email) and the pair lands in the
+    coach's accepted-sparks queue (admin) to arrange the date — the mutual
+    reveal itself is M6.
+    Decline → silent. The sender is never notified of a decline.
+    """
+    if spark.status != "pending":
+        return spark
+    spark.status = "accepted" if accept else "declined"
+    spark.responded_at = timezone.now()
+    spark.save(update_fields=["status", "responded_at"])
+    if accept:
+        _notify_spark_accepted(spark, request=request)
+    return spark
+
+
+def _notify_spark_received(spark, request=None):
+    """In-app bell + email to the recipient. Never blocks the send flow."""
+    try:
+        from django.urls import reverse
+        from django.utils.translation import gettext as _g
+
+        from crush_lu.models import Notification
+
+        Notification.objects.create(
+            user=spark.recipient,
+            notification_type="connect_spark_received",
+            title=_g("Someone is curious about you"),
+            body=_g(
+                "A Crush Connect member sent you a Curiosity Spark. "
+                "Take a look and decide."
+            ),
+            link_url=reverse("crush_lu:crush_connect_sparks_received"),
+            metadata={"spark_id": spark.pk},
+        )
+    except Exception:  # pragma: no cover - notification must never block
+        import logging
+
+        logging.getLogger(__name__).exception("Spark-received notification failed")
+    if request is not None:
+        try:
+            from crush_lu.email_helpers import send_connect_spark_received_email
+
+            send_connect_spark_received_email(spark, request)
+        except Exception:  # pragma: no cover
+            import logging
+
+            logging.getLogger(__name__).exception("Spark-received email failed")
+
+
+def _notify_spark_accepted(spark, request=None):
+    """In-app bell + email to the sender on acceptance."""
+    try:
+        from django.urls import reverse
+        from django.utils.translation import gettext as _g
+
+        from crush_lu.models import Notification
+
+        Notification.objects.create(
+            user=spark.sender,
+            notification_type="connect_spark_accepted",
+            title=_g("It's mutual!"),
+            body=_g(
+                "%(name)s is curious about you too. Your Crush Coach will "
+                "be in touch to arrange your date."
+            )
+            % {"name": spark.recipient.first_name or _g("Your match")},
+            link_url=reverse("crush_lu:crush_connect_home"),
+            metadata={"spark_id": spark.pk},
+        )
+    except Exception:  # pragma: no cover
+        import logging
+
+        logging.getLogger(__name__).exception("Spark-accepted notification failed")
+    if request is not None:
+        try:
+            from crush_lu.email_helpers import send_connect_spark_accepted_email
+
+            send_connect_spark_accepted_email(spark, request)
+        except Exception:  # pragma: no cover
+            import logging
+
+            logging.getLogger(__name__).exception("Spark-accepted email failed")

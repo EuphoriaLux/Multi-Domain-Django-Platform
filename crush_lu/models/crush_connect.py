@@ -244,3 +244,80 @@ class SparkPrompt(models.Model):
 
     def __str__(self):
         return self.text
+
+class CuriositySpark(models.Model):
+    """
+    A Premium member's expression of interest in someone from their Drop (M5).
+
+    Asymmetric by design: only Drop receivers (Premium) can SEND a Spark, but
+    anyone in the candidate catalogue can RECEIVE one — candidates respond
+    from their own "Sparks received" page, not from a Drop of their own.
+
+    Privacy: the recipient sees the sender exactly like a Drop card (blurred
+    photo, first name, age range, Story) plus the sender's message. Declines
+    are silent — the sender is never notified of a decline; acceptance is the
+    only event that travels back. The mutual reveal itself ships in M6; until
+    then an accepted Spark is handed to the coach (admin queue) to arrange
+    the date.
+    """
+
+    STATUS_CHOICES = [
+        ("pending", _("Pending")),
+        ("accepted", _("Accepted")),
+        ("declined", _("Declined")),
+    ]
+
+    sender = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="connect_sparks_sent",
+    )
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="connect_sparks_received",
+    )
+    # Audit trail: the Drop that surfaced the recipient to the sender. M5's
+    # cardinal rule — you can only Spark someone who actually appeared in one
+    # of your Drops — is enforced in the service layer using this snapshot.
+    drop = models.ForeignKey(
+        ConnectDailyDrop,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sparks",
+    )
+    message = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text=_("The sender's one-line opener ('What made you curious?')"),
+    )
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default="pending",
+        db_index=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    responded_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = _("Curiosity Spark")
+        verbose_name_plural = _("Curiosity Sparks")
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["sender", "recipient"], name="connect_spark_unique_pair"
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(sender=models.F("recipient")),
+                name="connect_spark_no_self",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.sender} → {self.recipient} ({self.status})"
+
+    @property
+    def is_pending(self) -> bool:
+        return self.status == "pending"

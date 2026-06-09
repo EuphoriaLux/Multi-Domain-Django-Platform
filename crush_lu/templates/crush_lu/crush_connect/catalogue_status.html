@@ -39,6 +39,22 @@
         {% endif %}
     </div>
 
+    {# Pending Sparks #}
+    {% if pending_sparks_count %}
+    <a href="{% url 'crush_lu:crush_connect_sparks_received' %}" class="flex items-center gap-3 mb-6 p-4 rounded-xl border border-crush-purple/30 bg-crush-purple/5 dark:bg-crush-pink/10 no-underline group hover:border-crush-purple/60 transition-colors">
+        <div class="w-9 h-9 rounded-full bg-crush-purple/10 flex items-center justify-center flex-shrink-0">
+            {% include "shared/icons/sparkles.html" with class="w-5 h-5 text-crush-purple" %}
+        </div>
+        <div class="flex-1 min-w-0">
+            <p class="font-semibold text-gray-900 dark:text-white text-sm mb-0">
+                {% blocktrans count count=pending_sparks_count %}Someone is curious about you{% plural %}{{ count }} people are curious about you{% endblocktrans %}
+            </p>
+            <p class="text-xs text-gray-600 dark:text-gray-300 mb-0">{% trans "View their Spark and decide — declines stay silent." %}</p>
+        </div>
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-crush-purple group-hover:translate-x-0.5 transition-transform flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
+    </a>
+    {% endif %}
+
     {# Premium upsell #}
     <div class="rounded-2xl bg-gradient-to-br from-crush-purple/5 to-crush-pink/5 ring-1 ring-gray-200 dark:ring-slate-700 p-6 md:p-8 text-center">
         <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">

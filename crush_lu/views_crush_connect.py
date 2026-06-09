@@ -223,10 +223,19 @@ def crush_connect_catalogue_status(request):
     if membership is None or not membership.is_onboarded:
         return redirect("crush_lu:crush_connect_onboarding")
 
+    from crush_lu.models import CuriositySpark
+
+    pending_sparks_count = CuriositySpark.objects.filter(
+        recipient=user, status="pending"
+    ).count()
+
     return render(
         request,
         "crush_lu/crush_connect/catalogue_status.html",
-        {"membership": membership},
+        {
+            "membership": membership,
+            "pending_sparks_count": pending_sparks_count,
+        },
     )
 
 
@@ -251,9 +260,19 @@ def crush_connect_home(request):
         ).all()
     )
 
+    # Card CTA state: which of today's cards this user has already Sparked.
+    from crush_lu.models import CuriositySpark
+
+    sparked_ids = set(
+        CuriositySpark.objects.filter(sender=user).values_list(
+            "recipient_id", flat=True
+        )
+    )
+
     context = {
         "drop": drop,
         "recipients": recipients,
+        "sparked_ids": sparked_ids,
         "next_drop_at": _next_drop_at(),
         "is_staff_preview": user.is_staff
         and (
@@ -263,3 +282,132 @@ def crush_connect_home(request):
         ),
     }
     return render(request, "crush_lu/crush_connect/home.html", context)
+
+# ---------------------------------------------------------------------------
+# Curiosity Sparks (M5)
+# ---------------------------------------------------------------------------
+
+
+@crush_login_required
+def crush_connect_spark_compose(request, user_id: int):
+    """
+    Compose-and-send a Curiosity Spark to someone from the sender's Drop.
+
+    Only Drop receivers (Premium track) can send. The service enforces the
+    cardinal rule: the target must actually have appeared in one of the
+    sender's Drop snapshots.
+    """
+    from crush_lu.services.crush_connect import can_send_spark, send_spark
+
+    user = request.user
+    if not user.is_staff and not getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
+        return redirect("crush_lu:crush_connect_teaser")
+
+    target = get_object_or_404(
+        User.objects.select_related("crushprofile", "crush_connect_membership"),
+        pk=user_id,
+    )
+
+    allowed, reason = can_send_spark(user, target)
+    if not allowed:
+        if reason == "already_sparked":
+            messages.info(
+                request, _("You've already sent a Spark to this member.")
+            )
+            return redirect("crush_lu:crush_connect_home")
+        if reason == "not_receiver":
+            return redirect("crush_lu:crush_connect_teaser")
+        # not_surfaced / recipient_unavailable — don't leak details
+        messages.info(
+            request, _("This member isn't available for a Spark right now.")
+        )
+        return redirect("crush_lu:crush_connect_home")
+
+    if request.method == "POST":
+        message = (request.POST.get("message") or "").strip()
+        if len(message) > 200:
+            messages.error(
+                request, _("Keep your message under 200 characters.")
+            )
+        else:
+            try:
+                send_spark(user, target, message=message, request=request)
+            except ValueError:
+                messages.info(
+                    request,
+                    _("This member isn't available for a Spark right now."),
+                )
+                return redirect("crush_lu:crush_connect_home")
+            messages.success(
+                request,
+                _("Spark sent. If they're curious too, your coach takes it from there."),
+            )
+            return redirect("crush_lu:crush_connect_home")
+
+    return render(
+        request,
+        "crush_lu/crush_connect/spark_compose.html",
+        {
+            "target": target,
+            "target_profile": getattr(target, "crushprofile", None),
+            "target_membership": getattr(target, "crush_connect_membership", None),
+        },
+    )
+
+
+@crush_login_required
+def crush_connect_sparks_received(request):
+    """
+    The recipient's response surface — works for BOTH tracks.
+
+    Candidates never receive Drops, so this page (reached from the bell or
+    the notification email) is where they meet the Sparks sent to them.
+    """
+    from crush_lu.models import CuriositySpark
+
+    user = request.user
+    if not user.is_staff and not getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
+        return redirect("crush_lu:crush_connect_teaser")
+
+    membership = getattr(user, "crush_connect_membership", None)
+    if not user.is_staff and (membership is None or not membership.is_onboarded):
+        return redirect("crush_lu:crush_connect_teaser")
+
+    sparks = (
+        CuriositySpark.objects.filter(recipient=user, status="pending")
+        .select_related(
+            "sender__crushprofile", "sender__crush_connect_membership"
+        )
+        .order_by("-created_at")
+    )
+    return render(
+        request,
+        "crush_lu/crush_connect/sparks_received.html",
+        {"sparks": list(sparks)},
+    )
+
+
+@crush_login_required
+def crush_connect_spark_respond(request, spark_id: int):
+    """Accept or decline a pending Spark (POST only, recipient only)."""
+    from crush_lu.models import CuriositySpark
+    from crush_lu.services.crush_connect import respond_to_spark
+
+    if request.method != "POST":
+        return redirect("crush_lu:crush_connect_sparks_received")
+
+    spark = get_object_or_404(
+        CuriositySpark.objects.select_related("sender", "recipient"),
+        pk=spark_id,
+        recipient=request.user,
+    )
+    accept = request.POST.get("action") == "accept"
+    respond_to_spark(spark, accept=accept, request=request)
+    if accept:
+        messages.success(
+            request,
+            _("It's mutual! Your Crush Coach will be in touch to arrange your date."),
+        )
+    else:
+        messages.info(request, _("Spark declined — they won't be told."))
+    return redirect("crush_lu:crush_connect_sparks_received")

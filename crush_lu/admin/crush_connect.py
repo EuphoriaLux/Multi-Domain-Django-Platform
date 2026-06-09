@@ -243,3 +243,28 @@ class SparkPromptAdmin(admin.ModelAdmin):
         ),
         (_("Audit"), {"fields": ("created_at", "updated_at")}),
     )
+
+
+class CuriositySparkAdmin(admin.ModelAdmin):
+    """
+    M5 Spark oversight — the 'accepted' filter is the coach's queue for
+    arranging dates until the dedicated coach dashboard ships in M7.
+    """
+
+    list_display = (
+        "sender",
+        "recipient",
+        "status",
+        "created_at",
+        "responded_at",
+    )
+    list_filter = ("status", "created_at")
+    search_fields = (
+        "sender__username",
+        "sender__first_name",
+        "recipient__username",
+        "recipient__first_name",
+    )
+    raw_id_fields = ("sender", "recipient", "drop")
+    readonly_fields = ("created_at", "responded_at")
+    date_hierarchy = "created_at"

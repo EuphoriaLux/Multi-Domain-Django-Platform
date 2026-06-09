@@ -166,6 +166,22 @@ urlpatterns = [
         views_crush_connect.crush_connect_catalogue_status,
         name='crush_connect_catalogue_status',
     ),
+    # Curiosity Sparks (M5): send from a Drop card, respond from the bell/email.
+    path(
+        'crush-connect/spark/<int:user_id>/',
+        views_crush_connect.crush_connect_spark_compose,
+        name='crush_connect_spark_compose',
+    ),
+    path(
+        'crush-connect/sparks/',
+        views_crush_connect.crush_connect_sparks_received,
+        name='crush_connect_sparks_received',
+    ),
+    path(
+        'crush-connect/sparks/<int:spark_id>/respond/',
+        views_crush_connect.crush_connect_spark_respond,
+        name='crush_connect_spark_respond',
+    ),
     # Staff-only Crush Connect Drop card preview (M3).
     path(
         'dev/connect-card/<int:user_id>/',

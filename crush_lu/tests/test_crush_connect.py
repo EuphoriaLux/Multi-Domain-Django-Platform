@@ -1302,3 +1302,216 @@ def test_drop_new_member_boost_increases_selection_frequency():
     # Uniform would be ~3/5 = 36 of 60. Boosted (×1.5) should comfortably exceed
     # that. We assert > 40 (≈67%) to leave plenty of slack.
     assert surfaced > 40, f"Boosted newcomer surfaced only {surfaced}/{trials} times"
+
+
+# ---------------------------------------------------------------------------
+# M5 — Curiosity Sparks
+# ---------------------------------------------------------------------------
+
+
+from crush_lu.models import CuriositySpark
+from crush_lu.services.crush_connect import (
+    can_send_spark,
+    respond_to_spark,
+    send_spark,
+)
+
+
+def _surface_in_drop(sender, target):
+    """Create a Drop snapshot so ``target`` was 'surfaced' to ``sender``."""
+    drop, _ = ConnectDailyDrop.objects.get_or_create(
+        user=sender, drop_date=timezone.localdate()
+    )
+    drop.recipients.add(target)
+    return drop
+
+
+SPARKS_RECEIVED_URL = "/en/crush-connect/sparks/"
+
+
+@pytest.mark.django_db
+def test_can_send_spark_requires_surfaced_target():
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F", premium=False)
+    allowed, reason = can_send_spark(me, her)
+    assert (allowed, reason) == (False, "not_surfaced")
+
+    _surface_in_drop(me, her)
+    allowed, reason = can_send_spark(me, her)
+    assert (allowed, reason) == (True, "ok")
+
+
+@pytest.mark.django_db
+def test_can_send_spark_requires_premium_sender():
+    me = _make_user(username="me", premium=False)  # candidate-only
+    her = _make_user(username="her", gender="F", premium=False)
+    _surface_in_drop(me, her)
+    allowed, reason = can_send_spark(me, her)
+    assert (allowed, reason) == (False, "not_receiver")
+
+
+@pytest.mark.django_db
+def test_send_spark_blocks_duplicates_both_directions():
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F")
+    _surface_in_drop(me, her)
+    send_spark(me, her, message="Curious!")
+
+    allowed, reason = can_send_spark(me, her)
+    assert (allowed, reason) == (False, "already_sparked")
+
+    # Reverse direction also blocked (her drop surfaces me)
+    _surface_in_drop(her, me)
+    allowed, reason = can_send_spark(her, me)
+    assert (allowed, reason) == (False, "already_sparked")
+
+
+@pytest.mark.django_db
+def test_send_spark_creates_notification_for_recipient():
+    from crush_lu.models import Notification
+
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F", premium=False)
+    _surface_in_drop(me, her)
+    spark = send_spark(me, her, message="Your story made me smile.")
+
+    assert spark.status == "pending"
+    assert spark.drop is not None
+    notif = Notification.objects.filter(
+        user=her, notification_type="connect_spark_received"
+    )
+    assert notif.count() == 1
+
+
+@pytest.mark.django_db
+def test_respond_accept_notifies_sender():
+    from crush_lu.models import Notification
+
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F", premium=False)
+    _surface_in_drop(me, her)
+    spark = send_spark(me, her)
+
+    respond_to_spark(spark, accept=True)
+    spark.refresh_from_db()
+    assert spark.status == "accepted"
+    assert spark.responded_at is not None
+    assert Notification.objects.filter(
+        user=me, notification_type="connect_spark_accepted"
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_respond_decline_is_silent_for_sender():
+    from crush_lu.models import Notification
+
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F", premium=False)
+    _surface_in_drop(me, her)
+    spark = send_spark(me, her)
+
+    respond_to_spark(spark, accept=False)
+    spark.refresh_from_db()
+    assert spark.status == "declined"
+    assert not Notification.objects.filter(
+        user=me, notification_type="connect_spark_accepted"
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_respond_is_idempotent_after_decision():
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F", premium=False)
+    _surface_in_drop(me, her)
+    spark = send_spark(me, her)
+    respond_to_spark(spark, accept=False)
+    respond_to_spark(spark, accept=True)  # must NOT flip a decided spark
+    spark.refresh_from_db()
+    assert spark.status == "declined"
+
+
+@pytest.mark.django_db
+def test_spark_compose_view_sends_spark(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F", premium=False)
+    _surface_in_drop(me, her)
+    _login_eligible(client, me)
+
+    url = f"/en/crush-connect/spark/{her.pk}/"
+    resp = client.get(url)
+    assert resp.status_code == 200
+
+    resp = client.post(url, data={"message": "Your story made me curious."})
+    assert resp.status_code in (302, 301)
+    spark = CuriositySpark.objects.get(sender=me, recipient=her)
+    assert spark.message == "Your story made me curious."
+
+
+@pytest.mark.django_db
+def test_spark_compose_rejected_when_not_surfaced(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F", premium=False)
+    _login_eligible(client, me)
+
+    resp = client.post(
+        f"/en/crush-connect/spark/{her.pk}/", data={"message": "hi"}
+    )
+    assert resp.status_code in (302, 301)
+    assert not CuriositySpark.objects.filter(sender=me, recipient=her).exists()
+
+
+@pytest.mark.django_db
+def test_sparks_received_page_lists_pending_and_responds(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F", premium=False)
+    _surface_in_drop(me, her)
+    spark = send_spark(me, her, message="Hello there")
+
+    _login_eligible(client, her)
+    resp = client.get(SPARKS_RECEIVED_URL)
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert "Hello there" in body
+    assert me.first_name in body
+
+    resp = client.post(
+        f"/en/crush-connect/sparks/{spark.pk}/respond/", data={"action": "accept"}
+    )
+    assert resp.status_code in (302, 301)
+    spark.refresh_from_db()
+    assert spark.status == "accepted"
+
+
+@pytest.mark.django_db
+def test_spark_respond_forbidden_for_non_recipient(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F", premium=False)
+    other = _make_user(username="other", gender="F", premium=False)
+    _surface_in_drop(me, her)
+    spark = send_spark(me, her)
+
+    _login_eligible(client, other)
+    resp = client.post(
+        f"/en/crush-connect/sparks/{spark.pk}/respond/", data={"action": "accept"}
+    )
+    assert resp.status_code == 404
+    spark.refresh_from_db()
+    assert spark.status == "pending"
+
+
+@pytest.mark.django_db
+def test_home_card_shows_spark_cta_and_sent_state(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])
+    _mark_attended(me)
+    targets = _seed_pool_for(me, n=3)
+    _login_eligible(client, me)
+
+    resp = client.get(CONNECT_HOME_URL)
+    body = resp.content.decode()
+    assert "Send a Curiosity Spark" in body
+    assert "coming soon" not in body

@@ -97,9 +97,26 @@ See "What changed in code" above.
 - [ ] Comms to existing Premium members WITHOUT LuxID (they silently fell out
       of the candidate pool — decide on an email nudge or grace messaging).
 
+### M5 — Curiosity Sparks ✅ (implemented, asymmetric-aware)
+- `CuriositySpark` model (sender, recipient, drop audit FK, message, status;
+  one Spark per pair, no self-sparks). Migration 0158.
+- Send: Premium receivers only, and only to people who actually appeared in
+  one of their Drop snapshots (`can_send_spark` / `send_spark` in
+  `services/crush_connect.py`). Drop card CTA replaces the "coming soon"
+  placeholder; sent state shown on the card.
+- Respond: `/crush-connect/sparks/` works for BOTH tracks — candidates never
+  receive Drops, so the bell notification + email is how they learn someone
+  is curious. Accept → sender notified (in-app + email) and the pair lands
+  in the admin accepted-sparks queue for the coach to arrange the date.
+  Decline → silent by design; the sender is never told.
+- Emails: `crush_connect_spark_received.html`, `crush_connect_spark_accepted.html`.
+- Admin: `CuriositySparkAdmin` (status filter = the coach's interim M7 queue).
+
 ### Phase 3+ — deferred features
-- [ ] "A coach picked you" notification for candidates (M5 Sparks).
 - [ ] Mutual-interest reveal flow (M6) — unblur, name reveal chapters.
+- [ ] Coach dashboard queue for accepted Sparks + date arrangement (M7) —
+      currently served by the admin list filtered to status=accepted.
+- [ ] Spark quotas / expiry (e.g. auto-expire pending Sparks after 14 days).
 - [ ] Coach admin view: catalogue size, members without LuxID, exclusions.
 - [ ] Decay/activity cron + push notifications (M8).
 
