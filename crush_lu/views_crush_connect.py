@@ -253,8 +253,14 @@ def crush_connect_home(request):
     if blocker is not None:
         return blocker
 
+    # Coach pick REPLACES the algorithmic Drop — the coach-curated match is
+    # the product promise; the algorithm only fills in when no pick is open.
+    from crush_lu.services.crush_connect import get_active_coach_pick
+
+    coach_pick = get_active_coach_pick(user)
+
     drop = get_or_create_daily_drop(user)
-    recipients = list(
+    recipients = [] if coach_pick else list(
         drop.recipients.select_related(
             "crushprofile", "crush_connect_membership"
         ).all()
@@ -270,6 +276,7 @@ def crush_connect_home(request):
     )
 
     context = {
+        "coach_pick": coach_pick,
         "drop": drop,
         "recipients": recipients,
         "sparked_ids": sparked_ids,
@@ -427,3 +434,138 @@ def crush_connect_spark_respond(request, spark_id: int):
     else:
         messages.info(request, _("Spark declined — they won't be told."))
     return redirect("crush_lu:crush_connect_sparks_received")
+
+# ---------------------------------------------------------------------------
+# Coach Picks (M7) — coach curation interface + member response
+# ---------------------------------------------------------------------------
+
+from crush_lu.decorators import coach_required
+
+
+@coach_required
+def coach_connect_members(request):
+    """The coach's Crush Connect curation hub: their assigned Premium
+    members with Connect status and current pick, ready to curate."""
+    from crush_lu.models import ConnectCoachPick, CrushProfile
+
+    coach = request.coach
+    members = (
+        User.objects.filter(crushprofile__assigned_coach=coach)
+        .select_related("crushprofile", "crush_connect_membership")
+        .order_by("first_name", "pk")
+    )
+    picks = {
+        p.member_id: p
+        for p in ConnectCoachPick.objects.filter(
+            coach=coach, status__in=["proposed", "accepted"]
+        ).select_related("candidate")
+    }
+    rows = []
+    for m in members:
+        membership = getattr(m, "crush_connect_membership", None)
+        rows.append(
+            {
+                "member": m,
+                "onboarded": bool(membership and membership.is_onboarded),
+                "pick": picks.get(m.pk),
+            }
+        )
+    return render(
+        request,
+        "crush_lu/crush_connect/coach_members.html",
+        {"rows": rows},
+    )
+
+
+@coach_required
+def coach_connect_member(request, user_id: int):
+    """Browse one member's eligible pool (full profiles) and propose a pick."""
+    from crush_lu.models import ConnectCoachPick
+    from crush_lu.services.crush_connect import (
+        get_eligible_pool,
+        propose_coach_pick,
+    )
+
+    coach = request.coach
+    member = get_object_or_404(
+        User.objects.select_related("crushprofile", "crush_connect_membership"),
+        pk=user_id,
+        crushprofile__assigned_coach=coach,
+    )
+
+    if request.method == "POST":
+        candidate = get_object_or_404(User, pk=request.POST.get("candidate_id"))
+        note = (request.POST.get("note") or "").strip()[:300]
+        try:
+            propose_coach_pick(coach, member, candidate, note=note)
+        except ValueError as exc:
+            reasons = {
+                "already_picked": _("You already proposed this candidate to them."),
+                "candidate_not_eligible": _("This candidate isn't in their eligible pool."),
+                "member_not_ready": _("This member isn't Connect-onboarded yet."),
+            }
+            messages.error(
+                request, reasons.get(str(exc), _("This pick isn't possible right now."))
+            )
+        else:
+            messages.success(
+                request,
+                _("Pick proposed — %(name)s will see it on their next visit.")
+                % {"name": member.first_name or member.username},
+            )
+        return redirect("crush_lu:coach_connect_member", user_id=member.pk)
+
+    pool = list(
+        get_eligible_pool(member).select_related(
+            "crushprofile", "crush_connect_membership"
+        )[:60]
+    )
+    already_picked_ids = set(
+        ConnectCoachPick.objects.filter(member=member).values_list(
+            "candidate_id", flat=True
+        )
+    )
+    picks = list(
+        ConnectCoachPick.objects.filter(member=member)
+        .select_related("candidate")
+        .order_by("-created_at")[:10]
+    )
+    return render(
+        request,
+        "crush_lu/crush_connect/coach_member_detail.html",
+        {
+            "member": member,
+            "pool": pool,
+            "already_picked_ids": already_picked_ids,
+            "picks": picks,
+        },
+    )
+
+
+@crush_login_required
+def crush_connect_pick_respond(request, pick_id: int):
+    """Member accepts/declines their coach's pick (POST only)."""
+    from crush_lu.models import ConnectCoachPick
+    from crush_lu.services.crush_connect import respond_to_coach_pick
+
+    if request.method != "POST":
+        return redirect("crush_lu:crush_connect_home")
+
+    pick = get_object_or_404(
+        ConnectCoachPick.objects.select_related("coach__user", "member"),
+        pk=pick_id,
+        member=request.user,
+    )
+    accept = request.POST.get("action") == "accept"
+    respond_to_coach_pick(pick, accept=accept)
+    if accept:
+        messages.success(
+            request,
+            _("Wonderful — your Crush Coach will contact them and arrange your date."),
+        )
+    else:
+        messages.info(
+            request,
+            _("No problem — your coach will pick someone else for you."),
+        )
+    return redirect("crush_lu:crush_connect_home")

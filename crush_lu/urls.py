@@ -182,6 +182,22 @@ urlpatterns = [
         views_crush_connect.crush_connect_spark_respond,
         name='crush_connect_spark_respond',
     ),
+    # Coach Picks (M7): coach curation hub + member accept/decline.
+    path(
+        'coach/connect/',
+        views_crush_connect.coach_connect_members,
+        name='coach_connect_members',
+    ),
+    path(
+        'coach/connect/member/<int:user_id>/',
+        views_crush_connect.coach_connect_member,
+        name='coach_connect_member',
+    ),
+    path(
+        'crush-connect/pick/<int:pick_id>/respond/',
+        views_crush_connect.crush_connect_pick_respond,
+        name='crush_connect_pick_respond',
+    ),
     # Staff-only Crush Connect Drop card preview (M3).
     path(
         'dev/connect-card/<int:user_id>/',
