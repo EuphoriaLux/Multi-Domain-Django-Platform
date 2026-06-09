@@ -282,21 +282,29 @@ def get_or_create_daily_drop(user, drop_date: date | None = None):
 def is_catalogue_eligible(user) -> bool:
     """
     Whether ``user`` currently qualifies for the candidate catalogue:
-    verified profile + LuxID linked + onboarded (not coach-excluded).
+    verified profile + LuxID linked + onboarded (not coach-excluded) +
+    active within CONNECT_INACTIVITY_WINDOW_DAYS (same gate as Drops).
 
     Drop snapshots and pending Sparks are immutable records — eligibility
-    lost AFTER they were created (rejection, LuxID unlink, exclusion) must
-    be re-checked at every action point: sending a Spark to them, listing
-    their received Sparks, and accepting one.
+    lost AFTER they were created (rejection, LuxID unlink, exclusion,
+    inactivity) must be re-checked at every action point: sending a Spark
+    to them, listing their received Sparks, and accepting one. The
+    inactivity arm only ever bites the SEND side: a recipient acting on
+    the site has, by definition, just logged in.
     """
     profile = getattr(user, "crushprofile", None)
     membership = getattr(user, "crush_connect_membership", None)
+    inactivity_cutoff = timezone.now() - timedelta(
+        days=CONNECT_INACTIVITY_WINDOW_DAYS
+    )
     return bool(
         profile is not None
         and profile.verification_status == "verified"
         and profile.has_luxid_connected
         and membership is not None
         and membership.is_onboarded
+        and user.last_login is not None
+        and user.last_login >= inactivity_cutoff
     )
 
 

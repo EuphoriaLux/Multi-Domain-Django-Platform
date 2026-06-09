@@ -1591,3 +1591,15 @@ def test_sparks_views_blocked_when_recipient_lost_eligibility(client, settings):
     assert resp.status_code in (302, 301)
     spark.refresh_from_db()
     assert spark.status == "pending"
+
+
+@pytest.mark.django_db
+def test_can_send_spark_blocks_inactive_recipient():
+    """The 30-day activity gate applies to Sparks, not just Drops — an old
+    snapshot or bookmarked compose URL must not reach inactive members."""
+    me = _make_user(username="me", preferred_genders=["F"])
+    dormant = _make_user(
+        username="dormant", gender="F", premium=False, last_login_days_ago=40
+    )
+    _surface_in_drop(me, dormant)
+    assert can_send_spark(me, dormant) == (False, "recipient_unavailable")
