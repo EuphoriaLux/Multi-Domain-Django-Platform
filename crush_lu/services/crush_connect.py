@@ -291,7 +291,10 @@ def can_send_spark(sender, recipient) -> Tuple[bool, str]:
     - Only Drop receivers (Premium + onboarded, not excluded) can send.
     - The recipient must have actually appeared in one of the sender's Drops
       (the ConnectDailyDrop snapshot is the audit trail).
-    - The recipient must still be onboarded and not coach-excluded.
+    - The recipient must STILL be catalogue-eligible — verified, LuxID
+      linked, onboarded, not coach-excluded. Drop snapshots are immutable,
+      so eligibility lost after surfacing (rejection, LuxID unlink) must be
+      re-checked here, not assumed from the snapshot.
     - One Spark per pair, in either direction.
     """
     from crush_lu.models import ConnectDailyDrop, CuriositySpark
@@ -307,8 +310,15 @@ def can_send_spark(sender, recipient) -> Tuple[bool, str]:
     ):
         return False, "not_receiver"
 
+    recipient_profile = getattr(recipient, "crushprofile", None)
     recipient_membership = getattr(recipient, "crush_connect_membership", None)
-    if recipient_membership is None or not recipient_membership.is_onboarded:
+    if (
+        recipient_profile is None
+        or recipient_profile.verification_status != "verified"
+        or not recipient_profile.has_luxid_connected
+        or recipient_membership is None
+        or not recipient_membership.is_onboarded
+    ):
         return False, "recipient_unavailable"
 
     if not ConnectDailyDrop.objects.filter(

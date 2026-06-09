@@ -1515,3 +1515,33 @@ def test_home_card_shows_spark_cta_and_sent_state(client, settings):
     body = resp.content.decode()
     assert "Send a Curiosity Spark" in body
     assert "coming soon" not in body
+
+
+@pytest.mark.django_db
+def test_can_send_spark_rechecks_recipient_eligibility():
+    """Drop snapshots are immutable — eligibility lost AFTER surfacing
+    (rejection, LuxID unlink, coach exclusion) must block new Sparks."""
+    me = _make_user(username="me", preferred_genders=["F"])
+
+    # Rejected after surfacing
+    rejected = _make_user(username="rejected", gender="F", premium=False)
+    _surface_in_drop(me, rejected)
+    rejected.crushprofile.is_approved = False
+    rejected.crushprofile.verification_status = "rejected"
+    rejected.crushprofile.save(
+        update_fields=["is_approved", "verification_status"]
+    )
+    assert can_send_spark(me, rejected) == (False, "recipient_unavailable")
+
+    # LuxID unlinked after surfacing
+    unlinked = _make_user(username="unlinked", gender="F", premium=False)
+    _surface_in_drop(me, unlinked)
+    SocialAccount.objects.filter(user=unlinked).delete()
+    assert can_send_spark(me, unlinked) == (False, "recipient_unavailable")
+
+    # Coach-excluded after surfacing
+    excluded = _make_user(username="excluded", gender="F", premium=False)
+    _surface_in_drop(me, excluded)
+    excluded.crush_connect_membership.excluded_by_coach = True
+    excluded.crush_connect_membership.save(update_fields=["excluded_by_coach"])
+    assert can_send_spark(me, excluded) == (False, "recipient_unavailable")
