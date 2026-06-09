@@ -419,7 +419,7 @@ class CrushProfile(models.Model):
 
     VERIFICATION_STATUS_CHOICES = [
         ("incomplete", _("Incomplete")),  # profile form not done / not submitted
-        ("pending", _("Pending")),  # submitted, waiting for LuxId
+        ("pending", _("Pending")),  # submitted, awaiting verification (LuxID or coach at event)
         ("verified", _("Verified")),  # LuxId verified or grandfathered coach-approved
         ("rejected", _("Rejected")),  # admin/system rejected
     ]
@@ -432,13 +432,6 @@ class CrushProfile(models.Model):
         ("premium_coach", _("Premium coach")),  # member's assigned premium coach
         ("admin", _("Verified by Crush.lu")),  # manual approval by staff/admin
         ("legacy", _("Legacy")),  # grandfathered / pre-method approvals
-    ]
-
-    VERIFICATION_STATUS_CHOICES = [
-        ("incomplete", _("Incomplete")),  # profile form not done / not submitted
-        ("pending", _("Pending")),  # submitted, waiting for LuxId
-        ("verified", _("Verified")),  # LuxId verified or grandfathered coach-approved
-        ("rejected", _("Rejected")),  # admin/system rejected
     ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -858,6 +851,23 @@ class CrushProfile(models.Model):
         """Status of the latest ProfileSubmission (pending/approved/rejected/revision/recontact_coach), or None."""
         latest = self.profilesubmission_set.order_by("-submitted_at").first()
         return latest.status if latest else None
+
+    @property
+    def has_luxid_connected(self) -> bool:
+        """True when the user has a LuxID social account linked.
+
+        ``verification_method`` only records how the profile FIRST became
+        verified, so a coach-verified member who links LuxID later keeps
+        ``method='coach_event'`` — the SocialAccount is the authoritative
+        store for "LuxID is connected". Used by the Crush Connect catalogue
+        gate (LuxID is the ticket into the candidate pool).
+        """
+        from allauth.socialaccount.models import SocialAccount
+
+        return SocialAccount.objects.filter(
+            user_id=self.user_id,
+            provider__in=["luxid", "openid_connect"],
+        ).exists()
 
     def save(self, *args, **kwargs):
         """

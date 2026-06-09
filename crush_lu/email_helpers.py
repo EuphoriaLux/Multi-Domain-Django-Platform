@@ -1527,3 +1527,52 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
     except Exception as e:
         logger.error(f"Failed to send {reminder_type} reminder to {user.email}: {e}", exc_info=True)
         return False
+
+
+def send_crush_connect_catalogue_welcome(user, request):
+    """
+    Confirm catalogue entry to a candidate-track member (LuxID, no Premium)
+    right after they finish Crush Connect onboarding.
+
+    They won't receive Drops, so without this email being "discoverable"
+    would be invisible to them. Failures never block the opt-in flow.
+
+    Returns:
+        int: Number of emails sent (1 on success, 0 on failure)
+    """
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    try:
+        lang = get_user_preferred_language(user=user, request=request, default='en')
+
+        premium_url = get_user_language_url(user, 'crush_lu:premium_choose_coach', request)
+        dashboard_url = get_user_language_url(user, 'crush_lu:dashboard', request)
+
+        context = get_email_context_with_unsubscribe(user, request,
+            first_name=user.first_name,
+            premium_url=premium_url,
+            dashboard_url=dashboard_url,
+        )
+
+        with translation.override(lang):
+            subject = _("You're in the Crush Connect catalogue")
+            html_message = render_to_string(
+                'crush_lu/emails/crush_connect_catalogue_welcome.html', context
+            )
+            plain_message = strip_tags(html_message)
+
+        return send_domain_email(
+            subject=subject,
+            message=plain_message,
+            html_message=html_message,
+            recipient_list=[user.email],
+            request=request,
+            fail_silently=True,
+        )
+    except Exception as e:
+        logger.error(
+            f"Failed to send Crush Connect catalogue welcome to {user.email}: {e}",
+            exc_info=True,
+        )
+        return 0

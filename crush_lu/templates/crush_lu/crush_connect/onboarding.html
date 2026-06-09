@@ -14,7 +14,11 @@
             {% trans "One last step." %}
         </h1>
         <p class="text-gray-600 dark:text-gray-300 max-w-xl mx-auto">
-            {% trans "Pick the question that feels most like you and answer it in one line. That sentence is the only thing other members read before they decide to send you a Spark." %}
+            {% if is_candidate_only %}
+                {% trans "Pick the question that feels most like you and answer it in one line. That sentence is what a Premium member reads when a Crush Coach picks you as their match." %}
+            {% else %}
+                {% trans "Pick the question that feels most like you and answer it in one line. That sentence is the only thing other members read before they decide to send you a Spark." %}
+            {% endif %}
         </p>
     </header>
 
@@ -77,7 +81,7 @@
 
         <div class="pt-2">
             <button type="submit" class="btn-crush-primary btn-block">
-                {% trans "Finish & open This Week's Drop" %}
+                {% trans "Finish & join Crush Connect" %}
             </button>
         </div>
     </form>

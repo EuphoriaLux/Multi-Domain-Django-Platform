@@ -8,6 +8,7 @@ Later milestones append to this module.
 from datetime import date, timedelta
 
 import pytest
+from allauth.socialaccount.models import SocialAccount
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
@@ -87,13 +88,15 @@ def _make_user(
     excluded_by_coach=False,
     last_login_days_ago=1,
     premium=True,
+    has_luxid=True,
 ):
     """
     Build a user ready to participate in Crush Connect by default:
-    verified + PREMIUM (coach assigned) + onboarded membership + recent last_login.
-    Crush Connect is premium-only, so ``premium=True`` is the eligible default.
-    Pass ``premium=False`` / ``onboarded=False`` / ``last_login_days_ago=None``
-    for negative tests.
+    verified + LuxID-linked + PREMIUM (coach assigned) + onboarded membership
+    + recent last_login. Receiving Drops requires premium; appearing in the
+    candidate catalogue requires LuxID — the default user qualifies for both.
+    Pass ``premium=False`` / ``has_luxid=False`` / ``onboarded=False`` /
+    ``last_login_days_ago=None`` for negative tests.
     """
     user = User.objects.create_user(
         username=username,
@@ -120,6 +123,8 @@ def _make_user(
         profile.assigned_coach = _get_coach()
         profile.assigned_coach_at = timezone.now()
         profile.save(update_fields=["assigned_coach", "assigned_coach_at"])
+    if has_luxid:
+        SocialAccount.objects.create(user=user, provider="luxid", uid=username)
 
     CrushConnectMembership.objects.create(
         user=user,
@@ -196,11 +201,31 @@ def test_pool_excludes_unapproved_targets():
 
 
 @pytest.mark.django_db
-def test_pool_excludes_non_premium_targets():
-    # Targets without a coach (non-premium) are not part of the Crush Connect pool.
+def test_pool_includes_non_premium_luxid_targets():
+    # Asymmetric catalogue: candidates don't need premium — LuxID + opt-in is
+    # the ticket into the pool. Only RECEIVING drops requires premium.
     me = _make_user(username="me", preferred_genders=["F", "M"])
-    non_premium = _make_user(username="nonprem", premium=False)
-    assert non_premium not in get_eligible_pool(me)
+    non_premium = _make_user(username="nonprem", premium=False, has_luxid=True)
+    assert non_premium in get_eligible_pool(me)
+
+
+@pytest.mark.django_db
+def test_pool_excludes_targets_without_luxid():
+    # LuxID is mandatory for the candidate catalogue — even premium members
+    # drop out of OTHERS' pools until they link LuxID.
+    me = _make_user(username="me", preferred_genders=["F", "M"])
+    no_luxid_premium = _make_user(username="noluxprem", premium=True, has_luxid=False)
+    no_luxid_free = _make_user(username="noluxfree", premium=False, has_luxid=False)
+    pool = get_eligible_pool(me)
+    assert no_luxid_premium not in pool
+    assert no_luxid_free not in pool
+
+
+@pytest.mark.django_db
+def test_pool_empty_when_requester_not_premium_even_with_luxid():
+    # LuxID alone never unlocks receiving drops — that stays premium-only.
+    me = _make_user(username="luxonly", premium=False, has_luxid=True)
+    assert list(get_eligible_pool(me)) == []
 
 
 @pytest.mark.django_db
@@ -844,12 +869,15 @@ def test_onboarding_redirects_to_teaser_when_flag_off(client, settings):
 
 @pytest.mark.django_db
 def test_onboarding_redirects_to_teaser_when_ineligible(client, settings):
-    """Not premium (no coach) → can't onboard."""
+    """Neither track qualifies: no premium coach AND no LuxID → can't onboard."""
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(
-        username="me", preferred_genders=["F"], onboarded=False, premium=False
+        username="me",
+        preferred_genders=["F"],
+        onboarded=False,
+        premium=False,
+        has_luxid=False,
     )
-    # No coach assigned → ineligible for the premium-only Crush Connect
     _login_eligible(client, me)
 
     resp = client.get(ONBOARDING_URL)
@@ -954,6 +982,136 @@ def test_teaser_auto_redirects_eligible_not_onboarded_to_onboarding(client, sett
     resp = client.get(CONNECT_TEASER_URL)
     assert resp.status_code in (302, 301)
     assert "/crush-connect/onboarding/" in resp.url
+
+
+# ---------------------------------------------------------------------------
+# Asymmetric catalogue — candidate track (LuxID, no Premium)
+# ---------------------------------------------------------------------------
+
+
+CATALOGUE_STATUS_URL = "/en/crush-connect/catalogue/"
+
+
+@pytest.mark.django_db
+def test_onboarding_renders_for_luxid_non_premium_user(client, settings):
+    """LuxID-only members may opt in as catalogue candidates."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="me", preferred_genders=["F"], onboarded=False, premium=False
+    )
+    _login_eligible(client, me)
+
+    resp = client.get(ONBOARDING_URL)
+    assert resp.status_code == 200
+    assert "story_prompt" in resp.content.decode()
+
+
+@pytest.mark.django_db
+def test_onboarding_redirects_candidate_to_catalogue_status(client, settings):
+    """Candidate-track submit lands on the catalogue page, not Today's Drop."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="me", preferred_genders=["F"], onboarded=False, premium=False
+    )
+    _login_eligible(client, me)
+
+    prompt = SparkPrompt.objects.filter(is_active=True).first()
+    resp = client.post(
+        ONBOARDING_URL,
+        data={
+            "story_prompt": prompt.pk,
+            "story_answer": "I love foggy walks along the Pétrusse valley.",
+            "confirm_terms": "on",
+        },
+    )
+    assert resp.status_code in (302, 301)
+    assert "/crush-connect/catalogue/" in resp.url
+
+    membership = CrushConnectMembership.objects.get(user=me)
+    assert membership.onboarded_at is not None
+
+
+@pytest.mark.django_db
+def test_catalogue_status_renders_for_onboarded_candidate(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="me", preferred_genders=["F"], onboarded=True, premium=False
+    )
+    _login_eligible(client, me)
+
+    resp = client.get(CATALOGUE_STATUS_URL)
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert "catalogue" in body.lower()
+
+
+@pytest.mark.django_db
+def test_catalogue_status_redirects_premium_to_home(client, settings):
+    """Premium receivers don't belong on the catalogue page — Drop instead."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"], onboarded=True)
+    _login_eligible(client, me)
+
+    resp = client.get(CATALOGUE_STATUS_URL)
+    assert resp.status_code in (302, 301)
+    assert "/crush-connect/today/" in resp.url
+
+
+@pytest.mark.django_db
+def test_catalogue_status_redirects_to_onboarding_if_not_onboarded(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="me", preferred_genders=["F"], onboarded=False, premium=False
+    )
+    _login_eligible(client, me)
+
+    resp = client.get(CATALOGUE_STATUS_URL)
+    assert resp.status_code in (302, 301)
+    assert "/crush-connect/onboarding/" in resp.url
+
+
+@pytest.mark.django_db
+def test_catalogue_status_redirects_to_teaser_without_luxid(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="me",
+        preferred_genders=["F"],
+        onboarded=True,
+        premium=False,
+        has_luxid=False,
+    )
+    _login_eligible(client, me)
+
+    resp = client.get(CATALOGUE_STATUS_URL)
+    assert resp.status_code in (302, 301)
+    assert CONNECT_TEASER_URL in resp.url
+
+
+@pytest.mark.django_db
+def test_home_redirects_candidate_only_to_catalogue_status(client, settings):
+    """Onboarded LuxID members without Premium never see Today's Drop."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="me", preferred_genders=["F"], onboarded=True, premium=False
+    )
+    _login_eligible(client, me)
+
+    resp = client.get(CONNECT_HOME_URL)
+    assert resp.status_code in (302, 301)
+    assert "/crush-connect/catalogue/" in resp.url
+
+
+@pytest.mark.django_db
+def test_teaser_auto_redirects_onboarded_candidate_to_catalogue(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="me", preferred_genders=["F"], onboarded=True, premium=False
+    )
+    _login_eligible(client, me)
+
+    resp = client.get(CONNECT_TEASER_URL)
+    assert resp.status_code in (302, 301)
+    assert "/crush-connect/catalogue/" in resp.url
 
 
 # ---------------------------------------------------------------------------

@@ -29,6 +29,19 @@
   {% endwith %}
 </div>
 
+{% if profile.verification_method != 'luxid' and not profile.has_luxid_connected %}
+{# Verified without LuxID — secondary nudge: LuxID is the ticket into the Crush Connect catalogue #}
+<div class="flex items-center gap-2 -mt-3 mb-5 px-4 py-2 rounded-lg border border-indigo-200 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20">
+  {% include "shared/icons/shield-check.html" with class="w-4 h-4 text-indigo-600 dark:text-indigo-400 flex-shrink-0" %}
+  <p class="text-xs text-indigo-700 dark:text-indigo-300 flex-1 mb-0">
+    {% trans "Connect LuxID to enter the Crush Connect catalogue and become discoverable to Premium members." %}
+  </p>
+  {% if luxid_connect_url %}
+  <a href="{{ luxid_connect_url }}" class="flex-shrink-0 text-xs font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">{% trans "Connect" %}</a>
+  {% endif %}
+</div>
+{% endif %}
+
 {% elif vs == 'rejected' %}
 {# Rejected — support card #}
 <div class="flex items-center gap-3 mb-5 px-4 py-4 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">

@@ -160,6 +160,12 @@ urlpatterns = [
         views_crush_connect.crush_connect_home,
         name='crush_connect_home',
     ),
+    # Catalogue status — candidate-track members (LuxID, no Premium).
+    path(
+        'crush-connect/catalogue/',
+        views_crush_connect.crush_connect_catalogue_status,
+        name='crush_connect_catalogue_status',
+    ),
     # Staff-only Crush Connect Drop card preview (M3).
     path(
         'dev/connect-card/<int:user_id>/',

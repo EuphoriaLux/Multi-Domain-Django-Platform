@@ -5,10 +5,13 @@ M1: eligible-pool query.
 M2: Daily Drop selection.
 Future: Spark send/quota (M5), mutual-spark transition (M6).
 
-The eligible pool defines who can appear in another user's Drop. To be in
-*anyone's* pool a target must:
-- have a CrushProfile with is_approved=True
-- have attended at least one event
+The model is ASYMMETRIC: receiving a Drop requires Premium (assigned coach),
+but appearing in someone else's Drop does not. The candidate catalogue is
+gated by LuxID instead — government-eID identity is the ticket in.
+
+To be in *anyone's* pool a target must:
+- have a verified CrushProfile (verification_status='verified')
+- have a LuxID social account linked (the catalogue requirement)
 - have a CrushConnectMembership with onboarded_at set (Crush Connect is opt-in)
 - not be flagged by a coach via CrushConnectMembership.excluded_by_coach
 - have logged in within the last 30 days (active membership signal)
@@ -61,10 +64,13 @@ def get_eligible_pool(user) -> "QuerySet[User]":
     """
     Return the queryset of users eligible to appear in ``user``'s Crush Connect Drop.
 
-    The requester must also be eligible (profile approved, PREMIUM = personal
-    coach assigned, onboarded into Crush Connect, not coach-excluded). Otherwise
-    an empty queryset. Crush Connect is a premium-only feature.
+    The requester must be eligible to RECEIVE (profile approved, PREMIUM =
+    personal coach assigned, onboarded into Crush Connect, not coach-excluded),
+    otherwise an empty queryset. Candidates don't need Premium — the catalogue
+    requires LuxID + opt-in instead (asymmetric model).
     """
+    from allauth.socialaccount.models import SocialAccount
+
     from crush_lu.models import EventConnection, EventRegistration
 
     # --- Requester self-eligibility -----------------------------------------
@@ -89,18 +95,26 @@ def get_eligible_pool(user) -> "QuerySet[User]":
         | Q(requester=OuterRef("pk"), recipient=user)
     )
 
+    # LuxID is mandatory for the candidate catalogue. SocialAccount is the
+    # authoritative store — verification_method only records the FIRST
+    # verification path, so coach-verified members who linked LuxID later
+    # would be missed by a method check.
+    luxid_subq = SocialAccount.objects.filter(
+        user=OuterRef("pk"), provider__in=["luxid", "openid_connect"]
+    )
+
     qs = (
         User.objects.filter(
             crushprofile__verification_status="verified",
-            crushprofile__assigned_coach__isnull=False,  # premium members only
             crush_connect_membership__onboarded_at__isnull=False,
             crush_connect_membership__excluded_by_coach=False,
             last_login__gte=inactivity_cutoff,
         )
         .annotate(
             _has_connection=Exists(existing_connection_subq),
+            _has_luxid=Exists(luxid_subq),
         )
-        .filter(_has_connection=False)
+        .filter(_has_connection=False, _has_luxid=True)
         .exclude(pk=user.pk)
         .select_related("crushprofile", "crush_connect_membership")
     )

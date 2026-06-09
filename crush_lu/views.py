@@ -390,9 +390,31 @@ def dashboard(request):
             user=request.user, status="attended"
         ).exists()
 
-        # Premium = personal coach assigned. Premium is the ONLY tier that
-        # unlocks Crush Connect (Standard ticket / free LuxID do not).
+        # Premium = personal coach assigned. Premium unlocks RECEIVING
+        # Crush Connect Drops; LuxID unlocks APPEARING in the catalogue.
         is_premium = bool(profile.assigned_coach_id)
+
+        # LuxID upgrade prompt: verified members without LuxID can link it
+        # to enter the Crush Connect catalogue (asymmetric model).
+        has_luxid_connected = profile.has_luxid_connected
+        luxid_connect_url = None
+        if not has_luxid_connected:
+            try:
+                from allauth.socialaccount.models import SocialApp
+                from django.contrib.sites.models import Site
+
+                _site = Site.objects.get_current(request)
+                _providers = set(
+                    SocialApp.objects.filter(sites=_site).values_list(
+                        "provider", flat=True
+                    )
+                )
+                _oidc = SocialApp.objects.filter(
+                    provider="openid_connect", provider_id="luxid", sites=_site
+                ).first()
+                luxid_connect_url = _luxid_connect_url(_providers, oidc_app=_oidc)
+            except Exception:
+                luxid_connect_url = None
 
         # Adaptive "verifier" highlight for the dashboard. We never put LuxID in
         # assigned_coach (that is the premium flag) — instead we render it as a
@@ -434,6 +456,8 @@ def dashboard(request):
             "crush_connect_total": crush_connect_total,
             "has_attended_event": has_attended_event,
             "is_premium": is_premium,
+            "has_luxid_connected": has_luxid_connected,
+            "luxid_connect_url": luxid_connect_url,
             "verifier": verifier,
             "next_event": next_event,
             "greeting": greeting,

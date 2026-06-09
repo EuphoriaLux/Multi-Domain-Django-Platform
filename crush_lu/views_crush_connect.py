@@ -19,6 +19,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from crush_lu.decorators import crush_login_required
+from crush_lu.email_helpers import send_crush_connect_catalogue_welcome
 from crush_lu.forms_crush_connect import CrushConnectOnboardingForm
 from crush_lu.models import CrushConnectMembership
 from crush_lu.services import get_or_create_daily_drop
@@ -48,16 +49,36 @@ def dev_connect_card_preview(request, user_id: int):
     return render(request, "crush_lu/crush_connect/dev_card_preview.html", context)
 
 
-def _user_passes_pre_onboarding_gate(user) -> bool:
+def _user_is_connect_receiver_eligible(user) -> bool:
     """Verified profile + PREMIUM (personal coach assigned).
 
-    Crush Connect is a premium-only feature: it unlocks when a coach is
-    assigned (the Premium product), not on plain event attendance.
+    Receiving Drops is the Premium product: it unlocks when a coach is
+    assigned, not on plain event attendance or LuxID alone.
     """
     profile = getattr(user, "crushprofile", None)
     if profile is None or not profile.is_approved:
         return False
     return profile.assigned_coach_id is not None
+
+
+def _user_is_connect_candidate_eligible(user) -> bool:
+    """Verified profile + LuxID linked: may opt in to the candidate catalogue.
+
+    LuxID is the ticket into the catalogue — members verified at an event
+    stay verified for events/connections but must link LuxID before they
+    can be picked for a Premium member's Drop.
+    """
+    profile = getattr(user, "crushprofile", None)
+    if profile is None or not profile.is_approved:
+        return False
+    return profile.has_luxid_connected
+
+
+def _user_passes_pre_onboarding_gate(user) -> bool:
+    """Either track may onboard: receivers (Premium) or candidates (LuxID)."""
+    return _user_is_connect_receiver_eligible(
+        user
+    ) or _user_is_connect_candidate_eligible(user)
 
 
 def _connect_access_blocker(user):
@@ -66,13 +87,12 @@ def _connect_access_blocker(user):
     a redirect/response that should be sent back to them.
 
     Staff users bypass all checks so they can preview the UI in any state.
-    Everyone else must clear all four gates:
-      1. global launch flag is on
-      2. has an approved profile
-      3. is premium (has a personal coach assigned)
-      4. has an onboarded ``CrushConnectMembership`` (and isn't coach-excluded)
+    Two tracks exist (asymmetric model):
+      - RECEIVER (Premium, coach assigned): onboarded → Today's Drop.
+      - CANDIDATE (LuxID, no Premium): onboarded → catalogue status page;
+        they appear in others' Drops but never receive their own.
     Routes:
-      - flag off / not approved / no event → teaser
+      - flag off / not approved / neither track → teaser
       - eligible but not onboarded → onboarding (so they can opt in)
       - excluded by coach → teaser (silent — don't expose the exclusion)
     """
@@ -90,6 +110,10 @@ def _connect_access_blocker(user):
         return redirect("crush_lu:crush_connect_teaser")
     if membership is None or membership.onboarded_at is None:
         return redirect("crush_lu:crush_connect_onboarding")
+
+    if not _user_is_connect_receiver_eligible(user):
+        # Candidate-only members don't get Drops — show their catalogue state.
+        return redirect("crush_lu:crush_connect_catalogue_status")
 
     return None
 
@@ -111,13 +135,13 @@ def _next_drop_at(now=None):
 @crush_login_required
 def crush_connect_onboarding(request):
     """
-    One-page Crush Connect opt-in.
+    One-page Crush Connect opt-in, shared by both tracks:
+      - RECEIVER (Premium): finishing lands on Today's Drop.
+      - CANDIDATE (LuxID, no Premium): finishing lands on the catalogue
+        status page — they're discoverable, not receiving.
 
-    Pre-conditions (mirrors the waitlist eligibility):
-      - approved profile
-      - at least 1 attended event
-      - flag on (or staff)
-    If the user is already onboarded, send them straight to Today's Drop.
+    Pre-conditions: approved profile + (Premium coach OR LuxID linked),
+    flag on (or staff). If already onboarded, forward to the right page.
     """
     user = request.user
 
@@ -126,11 +150,18 @@ def crush_connect_onboarding(request):
     if not user.is_staff and not _user_passes_pre_onboarding_gate(user):
         return redirect("crush_lu:crush_connect_teaser")
 
+    is_receiver = _user_is_connect_receiver_eligible(user) or user.is_staff
+    done_url = (
+        "crush_lu:crush_connect_home"
+        if is_receiver
+        else "crush_lu:crush_connect_catalogue_status"
+    )
+
     membership, _created = CrushConnectMembership.objects.get_or_create(user=user)
     if membership.excluded_by_coach:
         return redirect("crush_lu:crush_connect_teaser")
     if membership.is_onboarded:
-        return redirect("crush_lu:crush_connect_home")
+        return redirect(done_url)
 
     if request.method == "POST":
         form = CrushConnectOnboardingForm(request.POST, instance=membership)
@@ -138,18 +169,64 @@ def crush_connect_onboarding(request):
             obj = form.save(commit=False)
             obj.onboarded_at = timezone.now()
             obj.save()
-            messages.success(
-                request,
-                _("Welcome to Crush Connect — your first Drop is ready."),
-            )
-            return redirect("crush_lu:crush_connect_home")
+            if is_receiver:
+                messages.success(
+                    request,
+                    _("Welcome to Crush Connect — your first Drop is ready."),
+                )
+            else:
+                messages.success(
+                    request,
+                    _(
+                        "Welcome to Crush Connect — you're now in the "
+                        "catalogue and can be matched by a Crush Coach."
+                    ),
+                )
+                send_crush_connect_catalogue_welcome(user, request)
+            return redirect(done_url)
     else:
         form = CrushConnectOnboardingForm(instance=membership)
 
     return render(
         request,
         "crush_lu/crush_connect/onboarding.html",
-        {"form": form, "membership": membership},
+        {
+            "form": form,
+            "membership": membership,
+            "is_candidate_only": not is_receiver,
+        },
+    )
+
+
+@crush_login_required
+def crush_connect_catalogue_status(request):
+    """
+    Status page for candidate-track members (LuxID, no Premium): confirms
+    they're in the catalogue, previews their Story card, and offers the
+    Premium upgrade for receiving their own coach-curated matches.
+
+    Premium receivers are forwarded to Today's Drop instead.
+    """
+    user = request.user
+
+    if not user.is_staff and not getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
+        return redirect("crush_lu:crush_connect_teaser")
+
+    if _user_is_connect_receiver_eligible(user):
+        return redirect("crush_lu:crush_connect_home")
+    if not user.is_staff and not _user_is_connect_candidate_eligible(user):
+        return redirect("crush_lu:crush_connect_teaser")
+
+    membership = getattr(user, "crush_connect_membership", None)
+    if membership is not None and membership.excluded_by_coach:
+        return redirect("crush_lu:crush_connect_teaser")
+    if membership is None or not membership.is_onboarded:
+        return redirect("crush_lu:crush_connect_onboarding")
+
+    return render(
+        request,
+        "crush_lu/crush_connect/catalogue_status.html",
+        {"membership": membership},
     )
 
 
