@@ -1545,3 +1545,49 @@ def test_can_send_spark_rechecks_recipient_eligibility():
     excluded.crush_connect_membership.excluded_by_coach = True
     excluded.crush_connect_membership.save(update_fields=["excluded_by_coach"])
     assert can_send_spark(me, excluded) == (False, "recipient_unavailable")
+
+
+@pytest.mark.django_db
+def test_respond_accept_blocked_when_recipient_lost_eligibility():
+    """An ineligible recipient must not be able to trigger the mutual
+    notification/coach queue from an old pending Spark."""
+    from crush_lu.models import Notification
+
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F", premium=False)
+    _surface_in_drop(me, her)
+    spark = send_spark(me, her)
+
+    SocialAccount.objects.filter(user=her).delete()  # LuxID unlinked
+
+    respond_to_spark(spark, accept=True)
+    spark.refresh_from_db()
+    assert spark.status == "pending"  # accept refused, no flip
+    assert not Notification.objects.filter(
+        user=me, notification_type="connect_spark_accepted"
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_sparks_views_blocked_when_recipient_lost_eligibility(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F", premium=False)
+    _surface_in_drop(me, her)
+    spark = send_spark(me, her)
+
+    her.crushprofile.is_approved = False
+    her.crushprofile.verification_status = "rejected"
+    her.crushprofile.save(update_fields=["is_approved", "verification_status"])
+
+    _login_eligible(client, her)
+    resp = client.get(SPARKS_RECEIVED_URL)
+    assert resp.status_code in (302, 301)
+    assert CONNECT_TEASER_URL in resp.url
+
+    resp = client.post(
+        f"/en/crush-connect/sparks/{spark.pk}/respond/", data={"action": "accept"}
+    )
+    assert resp.status_code in (302, 301)
+    spark.refresh_from_db()
+    assert spark.status == "pending"

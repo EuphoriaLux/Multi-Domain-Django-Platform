@@ -279,6 +279,27 @@ def get_or_create_daily_drop(user, drop_date: date | None = None):
 # ---------------------------------------------------------------------------
 
 
+def is_catalogue_eligible(user) -> bool:
+    """
+    Whether ``user`` currently qualifies for the candidate catalogue:
+    verified profile + LuxID linked + onboarded (not coach-excluded).
+
+    Drop snapshots and pending Sparks are immutable records — eligibility
+    lost AFTER they were created (rejection, LuxID unlink, exclusion) must
+    be re-checked at every action point: sending a Spark to them, listing
+    their received Sparks, and accepting one.
+    """
+    profile = getattr(user, "crushprofile", None)
+    membership = getattr(user, "crush_connect_membership", None)
+    return bool(
+        profile is not None
+        and profile.verification_status == "verified"
+        and profile.has_luxid_connected
+        and membership is not None
+        and membership.is_onboarded
+    )
+
+
 def can_send_spark(sender, recipient) -> Tuple[bool, str]:
     """
     Whether ``sender`` may send a Curiosity Spark to ``recipient``.
@@ -310,15 +331,7 @@ def can_send_spark(sender, recipient) -> Tuple[bool, str]:
     ):
         return False, "not_receiver"
 
-    recipient_profile = getattr(recipient, "crushprofile", None)
-    recipient_membership = getattr(recipient, "crush_connect_membership", None)
-    if (
-        recipient_profile is None
-        or recipient_profile.verification_status != "verified"
-        or not recipient_profile.has_luxid_connected
-        or recipient_membership is None
-        or not recipient_membership.is_onboarded
-    ):
+    if not is_catalogue_eligible(recipient):
         return False, "recipient_unavailable"
 
     if not ConnectDailyDrop.objects.filter(
@@ -373,6 +386,12 @@ def respond_to_spark(spark, accept: bool, request=None):
     Decline → silent. The sender is never notified of a decline.
     """
     if spark.status != "pending":
+        return spark
+    if accept and not is_catalogue_eligible(spark.recipient):
+        # Eligibility lost since the Spark arrived (rejection, LuxID unlink,
+        # exclusion) — an accept must not fire the mutual notification or
+        # land in the coach queue. Leave the Spark pending; the views block
+        # the page before this, so this is the race-condition safety net.
         return spark
     spark.status = "accepted" if accept else "declined"
     spark.responded_at = timezone.now()

@@ -364,13 +364,16 @@ def crush_connect_sparks_received(request):
     the notification email) is where they meet the Sparks sent to them.
     """
     from crush_lu.models import CuriositySpark
+    from crush_lu.services.crush_connect import is_catalogue_eligible
 
     user = request.user
     if not user.is_staff and not getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
         return redirect("crush_lu:crush_connect_teaser")
 
-    membership = getattr(user, "crush_connect_membership", None)
-    if not user.is_staff and (membership is None or not membership.is_onboarded):
+    # Pending Sparks are immutable records — a recipient who lost catalogue
+    # eligibility since they arrived (rejection, LuxID unlink, exclusion)
+    # must not be able to view or act on them.
+    if not user.is_staff and not is_catalogue_eligible(user):
         return redirect("crush_lu:crush_connect_teaser")
 
     sparks = (
@@ -391,10 +394,16 @@ def crush_connect_sparks_received(request):
 def crush_connect_spark_respond(request, spark_id: int):
     """Accept or decline a pending Spark (POST only, recipient only)."""
     from crush_lu.models import CuriositySpark
-    from crush_lu.services.crush_connect import respond_to_spark
+    from crush_lu.services.crush_connect import (
+        is_catalogue_eligible,
+        respond_to_spark,
+    )
 
     if request.method != "POST":
         return redirect("crush_lu:crush_connect_sparks_received")
+
+    if not is_catalogue_eligible(request.user):
+        return redirect("crush_lu:crush_connect_teaser")
 
     spark = get_object_or_404(
         CuriositySpark.objects.select_related("sender", "recipient"),
