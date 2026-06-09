@@ -229,6 +229,42 @@ def test_pool_empty_when_requester_not_premium_even_with_luxid():
 
 
 @pytest.mark.django_db
+def test_pool_excludes_generic_oidc_account_not_scoped_to_luxid():
+    # The generic openid_connect provider is shared with non-LuxID apps
+    # (e.g. LinkedIn on Entreprinder) — a bare openid_connect account must
+    # NOT count as LuxID for the catalogue.
+    me = _make_user(username="me", preferred_genders=["F", "M"])
+    other = _make_user(username="generic_oidc", has_luxid=False)
+    SocialAccount.objects.create(
+        user=other, provider="openid_connect", uid="generic_oidc"
+    )
+    assert other not in get_eligible_pool(me)
+
+
+@pytest.mark.django_db
+def test_pool_includes_oidc_account_scoped_to_luxid_app():
+    # openid_connect accounts DO count when their token belongs to the
+    # SocialApp configured as LuxID (provider_id='luxid') — the production
+    # OIDC configuration.
+    from allauth.socialaccount.models import SocialApp, SocialToken
+
+    me = _make_user(username="me", preferred_genders=["F", "M"])
+    other = _make_user(username="oidc_luxid", has_luxid=False)
+    app = SocialApp.objects.create(
+        provider="openid_connect",
+        provider_id="luxid",
+        name="LuxID",
+        client_id="test",
+        secret="test",
+    )
+    acct = SocialAccount.objects.create(
+        user=other, provider="openid_connect", uid="oidc_luxid"
+    )
+    SocialToken.objects.create(account=acct, app=app, token="tok")
+    assert other in get_eligible_pool(me)
+
+
+@pytest.mark.django_db
 def test_pool_does_not_require_shared_event():
     """Cardinal rule of M1 per product-owner: pool is community-wide."""
     me = _make_user(username="me", preferred_genders=["F", "M"])

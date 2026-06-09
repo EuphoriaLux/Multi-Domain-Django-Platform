@@ -69,9 +69,7 @@ def get_eligible_pool(user) -> "QuerySet[User]":
     otherwise an empty queryset. Candidates don't need Premium — the catalogue
     requires LuxID + opt-in instead (asymmetric model).
     """
-    from allauth.socialaccount.models import SocialAccount
-
-    from crush_lu.models import EventConnection, EventRegistration
+    from crush_lu.models import CrushProfile, EventConnection, EventRegistration
 
     # --- Requester self-eligibility -----------------------------------------
     user_profile = getattr(user, "crushprofile", None)
@@ -98,9 +96,11 @@ def get_eligible_pool(user) -> "QuerySet[User]":
     # LuxID is mandatory for the candidate catalogue. SocialAccount is the
     # authoritative store — verification_method only records the FIRST
     # verification path, so coach-verified members who linked LuxID later
-    # would be missed by a method check.
-    luxid_subq = SocialAccount.objects.filter(
-        user=OuterRef("pk"), provider__in=["luxid", "openid_connect"]
+    # would be missed by a method check. Generic openid_connect accounts only
+    # count when scoped to the LuxID SocialApp (the provider is shared with
+    # non-LuxID apps) — see CrushProfile.luxid_account_querysets.
+    luxid_native_subq, luxid_oidc_subq = CrushProfile.luxid_account_querysets(
+        OuterRef("pk")
     )
 
     qs = (
@@ -112,9 +112,11 @@ def get_eligible_pool(user) -> "QuerySet[User]":
         )
         .annotate(
             _has_connection=Exists(existing_connection_subq),
-            _has_luxid=Exists(luxid_subq),
+            _has_luxid_native=Exists(luxid_native_subq),
+            _has_luxid_oidc=Exists(luxid_oidc_subq),
         )
-        .filter(_has_connection=False, _has_luxid=True)
+        .filter(_has_connection=False)
+        .filter(Q(_has_luxid_native=True) | Q(_has_luxid_oidc=True))
         .exclude(pk=user.pk)
         .select_related("crushprofile", "crush_connect_membership")
     )
