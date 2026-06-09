@@ -1811,3 +1811,41 @@ def test_stale_pick_candidate_hides_pick_and_falls_back():
 
     SocialAccount.objects.filter(user=cand).delete()  # LuxID unlinked
     assert get_active_coach_pick(member) is None
+
+
+@pytest.mark.django_db
+def test_no_drop_created_while_pick_active(client, settings):
+    """Drop snapshots authorize Sparks — none may be persisted while the
+    coach's pick replaces the Drop."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    member = _make_user(username="member", preferred_genders=["F"])
+    coach = _coach_for(member)
+    _seed_pool_for(member, n=4)
+    cand = _make_user(
+        username="pickme", gender="F", premium=False, preferred_genders=["M"]
+    )
+    propose_coach_pick(coach, member, cand)
+
+    _login_eligible(client, member)
+    resp = client.get(CONNECT_HOME_URL)
+    assert resp.status_code == 200
+    assert ConnectDailyDrop.objects.filter(user=member).count() == 0
+
+
+@pytest.mark.django_db
+def test_pick_accept_blocked_when_candidate_lost_eligibility():
+    from crush_lu.models import Notification
+
+    member = _make_user(username="member", preferred_genders=["F"])
+    coach = _coach_for(member)
+    cand = _make_user(username="cand", gender="F", premium=False)
+    pick = propose_coach_pick(coach, member, cand)
+
+    SocialAccount.objects.filter(user=cand).delete()  # LuxID unlinked
+
+    respond_to_coach_pick(pick, accept=True)
+    pick.refresh_from_db()
+    assert pick.status == "proposed"
+    assert not Notification.objects.filter(
+        user=coach.user, notification_type="connect_coach_pick_response"
+    ).exists()

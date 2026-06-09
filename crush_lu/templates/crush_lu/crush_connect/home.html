@@ -19,9 +19,11 @@
             <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-gray-900 dark:text-white">
                 {% trans "This Week's Drop" %}
             </h1>
+            {% if drop %}
             <span class="text-xs font-medium uppercase tracking-wide text-crush-purple dark:text-crush-pink">
                 {{ drop.drop_date|date:"l, F j" }}
             </span>
+            {% endif %}
         </div>
         <p class="text-gray-600 dark:text-gray-300 max-w-2xl">
             {% blocktrans count count=recipients|length %}

@@ -259,12 +259,18 @@ def crush_connect_home(request):
 
     coach_pick = get_active_coach_pick(user)
 
-    drop = get_or_create_daily_drop(user)
-    recipients = [] if coach_pick else list(
-        drop.recipients.select_related(
-            "crushprofile", "crush_connect_membership"
-        ).all()
-    )
+    # Don't create/persist an algorithmic Drop while a pick is open — drop
+    # snapshots authorize Sparks, so hidden recipients would become
+    # sparkable by id and bypass the "pick replaces the Drop" flow.
+    drop = None
+    recipients = []
+    if not coach_pick:
+        drop = get_or_create_daily_drop(user)
+        recipients = list(
+            drop.recipients.select_related(
+                "crushprofile", "crush_connect_membership"
+            ).all()
+        )
 
     # Card CTA state: which of today's cards this user has already Sparked.
     from crush_lu.models import CuriositySpark

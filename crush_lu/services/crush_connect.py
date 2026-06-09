@@ -573,6 +573,13 @@ def respond_to_coach_pick(pick, accept: bool):
     date', decline means 'pick someone else'. Idempotent after decision."""
     if pick.status != "proposed":
         return pick
+    if accept and not (
+        is_catalogue_eligible(pick.candidate) and is_sender_eligible(pick.member)
+    ):
+        # Either party lost eligibility since the pick was proposed — an
+        # accept must not enter the coach's arrangement queue. The Today
+        # page already hides stale picks; this guards old/raced POSTs.
+        return pick
     pick.status = "accepted" if accept else "declined"
     pick.responded_at = timezone.now()
     pick.save(update_fields=["status", "responded_at"])
