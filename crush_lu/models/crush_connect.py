@@ -23,6 +23,35 @@ class CrushConnectWaitlist(models.Model):
         default=True,
         help_text=_("Wants to be notified when Crush Connect launches"),
     )
+    # Beta tester selection — staff hand-pick the 20 "4 weeks / 4 matches" testers
+    # and track the €10/month payment out-of-band (manual flag, no payment
+    # processor — mirrors PremiumMembership.payment_confirmed / EventRegistration).
+    #
+    # Scope note: these flags are recruitment + teaser-status tracking ONLY. They
+    # do NOT grant access to Crush Connect — the access gate
+    # (views_crush_connect._user_passes_pre_onboarding_gate) intentionally still
+    # requires a premium coach, because the existing gate guards the daily-drop
+    # feature, not the coach-picked weekly-match concept this beta advertises.
+    # Wiring tester access belongs with building that weekly-match delivery
+    # (a deferred phase), not here.
+    selected_as_tester = models.BooleanField(
+        default=False,
+        help_text=_("Marked as one of the 20 beta testers"),
+    )
+    selected_at = models.DateTimeField(null=True, blank=True)
+    payment_confirmed = models.BooleanField(
+        default=False,
+        help_text=_("€10/month payment confirmed by staff (manual, no processor)"),
+    )
+    payment_date = models.DateTimeField(null=True, blank=True)
+    confirmed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="confirmed_crush_connect_payments",
+        help_text=_("Staff member who confirmed the €10 payment"),
+    )
 
     class Meta:
         ordering = ["joined_at"]

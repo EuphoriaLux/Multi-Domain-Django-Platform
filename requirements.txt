@@ -1,5 +1,5 @@
 # Core Django
-Django==6.0.5  # Major upgrade from 5.1.15 — requires Python 3.12+
+Django==6.0.6  # Security patch (PYSEC-2026-197..201); requires Python 3.12+
 djangorestframework==3.17.1
 djangorestframework-simplejwt==5.5.1
 django-crispy-forms==2.6
@@ -37,8 +37,8 @@ msal==1.37.0  # Updated from 1.31.1 (latest stable)
 gunicorn==26.0.0
 channels==4.3.2
 channels-redis==4.3.0
-django-redis==6.0.0  # Redis cache backend for Django 6.0
-uvicorn[standard]==0.48.0
+django-redis==7.0.0  # Redis cache backend for Django 6.0
+uvicorn[standard]==0.49.0
 
 # Utilities
 python-dotenv==1.2.2  # Updated from 1.0.1

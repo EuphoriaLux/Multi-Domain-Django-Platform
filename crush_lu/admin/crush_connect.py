@@ -136,17 +136,92 @@ class ConnectDailyDropAdmin(admin.ModelAdmin):
 
 
 class CrushConnectWaitlistAdmin(admin.ModelAdmin):
-    list_display = ["user", "joined_at", "notification_preference", "is_eligible"]
-    list_filter = ["joined_at", "notification_preference"]
+    list_display = [
+        "user",
+        "joined_at",
+        "notification_preference",
+        "is_eligible",
+        "selected_as_tester",
+        "selected_at",
+        "payment_confirmed",
+        "payment_date",
+    ]
+    list_filter = [
+        "selected_as_tester",
+        "payment_confirmed",
+        "joined_at",
+        "notification_preference",
+    ]
     search_fields = ["user__email", "user__first_name", "user__last_name", "user__username"]
-    raw_id_fields = ["user"]
-    readonly_fields = ["joined_at"]
+    raw_id_fields = ["user", "confirmed_by"]
+    readonly_fields = ["joined_at", "selected_at", "payment_date", "confirmed_by"]
+    actions = ["select_as_tester", "confirm_payment"]
 
     def is_eligible(self, obj):
         return obj.is_eligible
 
     is_eligible.boolean = True
     is_eligible.short_description = _("Eligible")
+
+    def save_model(self, request, obj, form, change):
+        # Stamp the audit/date fields when staff flips the booleans directly in
+        # the change form (the bulk actions stamp them too). Keeps the teaser's
+        # "beta status" honest — no "selected"/"€10 active" without a timestamp.
+        if "selected_as_tester" in form.changed_data:
+            obj.selected_at = timezone.now() if obj.selected_as_tester else None
+        if "payment_confirmed" in form.changed_data:
+            if obj.payment_confirmed:
+                obj.payment_date = obj.payment_date or timezone.now()
+                obj.confirmed_by = obj.confirmed_by or request.user
+            else:
+                obj.payment_date = None
+                obj.confirmed_by = None
+        super().save_model(request, obj, form, change)
+
+    @admin.action(description=_("Select as beta tester (4 weeks / 4 matches)"))
+    def select_as_tester(self, request, queryset):
+        selected = 0
+        for entry in queryset:
+            if entry.selected_as_tester:
+                continue
+            entry.selected_as_tester = True
+            entry.selected_at = timezone.now()
+            entry.save(update_fields=["selected_as_tester", "selected_at"])
+            selected += 1
+        self.message_user(
+            request,
+            ngettext(
+                "%(n)d member selected as a beta tester.",
+                "%(n)d members selected as beta testers.",
+                selected,
+            )
+            % {"n": selected},
+            level=messages.SUCCESS,
+        )
+
+    @admin.action(description=_("Confirm €10/month payment"))
+    def confirm_payment(self, request, queryset):
+        confirmed = 0
+        for entry in queryset:
+            if entry.payment_confirmed:
+                continue
+            entry.payment_confirmed = True
+            entry.payment_date = timezone.now()
+            entry.confirmed_by = request.user
+            entry.save(
+                update_fields=["payment_confirmed", "payment_date", "confirmed_by"]
+            )
+            confirmed += 1
+        self.message_user(
+            request,
+            ngettext(
+                "%(n)d payment confirmed.",
+                "%(n)d payments confirmed.",
+                confirmed,
+            )
+            % {"n": confirmed},
+            level=messages.SUCCESS,
+        )
 
 
 class SparkPromptAdmin(admin.ModelAdmin):
