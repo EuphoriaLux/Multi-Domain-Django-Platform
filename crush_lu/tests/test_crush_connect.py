@@ -1946,3 +1946,20 @@ def test_stale_accept_view_shows_no_false_promise(client, settings):
     body = resp.content.decode()
     assert "no longer available" in body
     assert "arrange your date" not in body
+
+
+@pytest.mark.django_db
+def test_pick_accept_blocked_when_candidate_left_member_pool():
+    """Accept re-checks the FULL pool: an EventConnection created after the
+    proposal (they already met) makes the accept a no-op."""
+    member = _make_user(username="member", preferred_genders=["F"])
+    coach = _coach_for(member)
+    cand = _make_user(username="cand", gender="F", premium=False)
+    pick = propose_coach_pick(coach, member, cand)
+
+    EventConnection.objects.create(
+        requester=member, recipient=cand, event=_make_event(), status="pending"
+    )
+    respond_to_coach_pick(pick, accept=True)
+    pick.refresh_from_db()
+    assert pick.status == "proposed"

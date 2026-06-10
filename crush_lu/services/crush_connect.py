@@ -586,9 +586,13 @@ def respond_to_coach_pick(pick, accept: bool):
         and pick.coach_id == member_profile.assigned_coach_id
     )
     if accept and not (
-        is_catalogue_eligible(pick.candidate)
-        and is_sender_eligible(pick.member)
+        is_sender_eligible(pick.member)
         and coach_is_current
+        # Full pool re-check, not just catalogue eligibility: an
+        # EventConnection created since the proposal, or changed mutual
+        # preferences, must invalidate the pick exactly as it would block
+        # proposing the same candidate today.
+        and get_eligible_pool(pick.member).filter(pk=pick.candidate_id).exists()
     ):
         # Either party lost eligibility since the pick was proposed — an
         # accept must not enter the coach's arrangement queue. The Today
