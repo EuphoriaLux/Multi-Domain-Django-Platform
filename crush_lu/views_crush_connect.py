@@ -563,8 +563,15 @@ def crush_connect_pick_respond(request, pick_id: int):
         member=request.user,
     )
     accept = request.POST.get("action") == "accept"
-    respond_to_coach_pick(pick, accept=accept)
-    if accept:
+    pick = respond_to_coach_pick(pick, accept=accept)
+    if accept and pick.status != "accepted":
+        # Stale pick (eligibility lost / coach reassigned) — the accept was
+        # a no-op, so don't promise a date that isn't being arranged.
+        messages.info(
+            request,
+            _("This pick is no longer available — your coach will propose someone new."),
+        )
+    elif accept:
         messages.success(
             request,
             _("Wonderful — your Crush Coach will contact them and arrange your date."),

@@ -581,11 +581,14 @@ def respond_to_coach_pick(pick, accept: bool):
     if pick.status != "proposed":
         return pick
     member_profile = getattr(pick.member, "crushprofile", None)
+    coach_is_current = (
+        member_profile is not None
+        and pick.coach_id == member_profile.assigned_coach_id
+    )
     if accept and not (
         is_catalogue_eligible(pick.candidate)
         and is_sender_eligible(pick.member)
-        and member_profile is not None
-        and pick.coach_id == member_profile.assigned_coach_id
+        and coach_is_current
     ):
         # Either party lost eligibility since the pick was proposed — an
         # accept must not enter the coach's arrangement queue. The Today
@@ -594,6 +597,10 @@ def respond_to_coach_pick(pick, accept: bool):
     pick.status = "accepted" if accept else "declined"
     pick.responded_at = timezone.now()
     pick.save(update_fields=["status", "responded_at"])
+    if not accept and not coach_is_current:
+        # Member's decline is recorded, but an ex-coach must not receive a
+        # response for a member they no longer own.
+        return pick
     try:
         from django.urls import reverse
         from django.utils.translation import gettext as _g

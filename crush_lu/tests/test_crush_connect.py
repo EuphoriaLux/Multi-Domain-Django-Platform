@@ -1900,3 +1900,49 @@ def test_pick_hidden_and_unacceptable_after_coach_reassignment():
     respond_to_coach_pick(pick, accept=True)
     pick.refresh_from_db()
     assert pick.status == "proposed"
+
+
+@pytest.mark.django_db
+def test_stale_decline_recorded_but_ex_coach_not_notified():
+    from crush_lu.models import Notification
+
+    member = _make_user(username="member", preferred_genders=["F"])
+    old_coach = _coach_for(member)
+    cand = _make_user(username="cand", gender="F", premium=False)
+    pick = propose_coach_pick(old_coach, member, cand)
+
+    new_coach = CrushCoach.objects.create(
+        user=User.objects.create_user(
+            username="coach2", email="coach2@example.com", password="x"
+        ),
+        bio="b", specializations="g", phone_number="+352999998", is_active=True,
+    )
+    member.crushprofile.assigned_coach = new_coach
+    member.crushprofile.save(update_fields=["assigned_coach"])
+
+    respond_to_coach_pick(pick, accept=False)
+    pick.refresh_from_db()
+    assert pick.status == "declined"  # member's intent honored
+    assert not Notification.objects.filter(
+        user=old_coach.user, notification_type="connect_coach_pick_response"
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_stale_accept_view_shows_no_false_promise(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    member = _make_user(username="member", preferred_genders=["F"])
+    coach = _coach_for(member)
+    cand = _make_user(username="cand", gender="F", premium=False)
+    pick = propose_coach_pick(coach, member, cand)
+    SocialAccount.objects.filter(user=cand).delete()
+
+    _login_eligible(client, member)
+    resp = client.post(
+        f"/en/crush-connect/pick/{pick.pk}/respond/",
+        data={"action": "accept"},
+        follow=True,
+    )
+    body = resp.content.decode()
+    assert "no longer available" in body
+    assert "arrange your date" not in body
