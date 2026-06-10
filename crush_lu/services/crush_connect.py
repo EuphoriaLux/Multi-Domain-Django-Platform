@@ -514,7 +514,14 @@ def get_active_coach_pick(member):
         .order_by("-created_at")
         .first()
     )
-    if pick is not None and not is_catalogue_eligible(pick.candidate):
+    if pick is None:
+        return None
+    if not is_catalogue_eligible(pick.candidate):
+        return None
+    # Coach reassignment orphans the proposal — an ex-coach's pick must not
+    # surface as "Your Coach's Pick" (and they couldn't act on a response).
+    profile = getattr(member, "crushprofile", None)
+    if profile is None or pick.coach_id != profile.assigned_coach_id:
         return None
     return pick
 
@@ -573,8 +580,12 @@ def respond_to_coach_pick(pick, accept: bool):
     date', decline means 'pick someone else'. Idempotent after decision."""
     if pick.status != "proposed":
         return pick
+    member_profile = getattr(pick.member, "crushprofile", None)
     if accept and not (
-        is_catalogue_eligible(pick.candidate) and is_sender_eligible(pick.member)
+        is_catalogue_eligible(pick.candidate)
+        and is_sender_eligible(pick.member)
+        and member_profile is not None
+        and pick.coach_id == member_profile.assigned_coach_id
     ):
         # Either party lost eligibility since the pick was proposed — an
         # accept must not enter the coach's arrangement queue. The Today

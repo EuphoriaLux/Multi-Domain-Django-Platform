@@ -1876,3 +1876,27 @@ def test_pick_accept_blocked_when_either_party_coach_excluded():
     respond_to_coach_pick(pick, accept=True)
     pick.refresh_from_db()
     assert pick.status == "proposed"
+
+
+@pytest.mark.django_db
+def test_pick_hidden_and_unacceptable_after_coach_reassignment():
+    """An ex-coach's proposed pick must neither surface nor be acceptable."""
+    member = _make_user(username="member", preferred_genders=["F"])
+    old_coach = _coach_for(member)
+    cand = _make_user(username="cand", gender="F", premium=False)
+    pick = propose_coach_pick(old_coach, member, cand)
+
+    new_coach_user = User.objects.create_user(
+        username="coach2", email="coach2@example.com", password="x"
+    )
+    new_coach = CrushCoach.objects.create(
+        user=new_coach_user, bio="b", specializations="g",
+        phone_number="+352999999", is_active=True,
+    )
+    member.crushprofile.assigned_coach = new_coach
+    member.crushprofile.save(update_fields=["assigned_coach"])
+
+    assert get_active_coach_pick(member) is None
+    respond_to_coach_pick(pick, accept=True)
+    pick.refresh_from_db()
+    assert pick.status == "proposed"
