@@ -516,7 +516,10 @@ def get_active_coach_pick(member):
     )
     if pick is None:
         return None
-    if not is_catalogue_eligible(pick.candidate):
+    # Full-pool re-check (subsumes catalogue eligibility) so display and
+    # accept agree — otherwise a member could be stuck seeing a pick the
+    # accept guard would refuse (e.g. EventConnection formed since).
+    if not get_eligible_pool(member).filter(pk=pick.candidate_id).exists():
         return None
     # Coach reassignment orphans the proposal — an ex-coach's pick must not
     # surface as "Your Coach's Pick" (and they couldn't act on a response).

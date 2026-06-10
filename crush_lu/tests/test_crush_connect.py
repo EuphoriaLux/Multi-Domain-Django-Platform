@@ -1963,3 +1963,18 @@ def test_pick_accept_blocked_when_candidate_left_member_pool():
     respond_to_coach_pick(pick, accept=True)
     pick.refresh_from_db()
     assert pick.status == "proposed"
+
+
+@pytest.mark.django_db
+def test_pick_hidden_when_candidate_leaves_member_pool():
+    """Display uses the same full-pool check as accept — a post-proposal
+    EventConnection hides the pick so the member is never stuck on it."""
+    member = _make_user(username="member", preferred_genders=["F"])
+    coach = _coach_for(member)
+    cand = _make_user(username="cand", gender="F", premium=False)
+    propose_coach_pick(coach, member, cand)
+
+    EventConnection.objects.create(
+        requester=member, recipient=cand, event=_make_event(), status="pending"
+    )
+    assert get_active_coach_pick(member) is None
