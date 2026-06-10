@@ -1849,3 +1849,30 @@ def test_pick_accept_blocked_when_candidate_lost_eligibility():
     assert not Notification.objects.filter(
         user=coach.user, notification_type="connect_coach_pick_response"
     ).exists()
+
+
+@pytest.mark.django_db
+def test_pick_accept_blocked_when_either_party_coach_excluded():
+    """The panic button (excluded_by_coach) is enforced via is_onboarded
+    inside both eligibility helpers — an exclusion after proposal makes
+    accept a no-op for candidate AND member exclusions."""
+    member = _make_user(username="member", preferred_genders=["F"])
+    coach = _coach_for(member)
+    cand = _make_user(username="cand", gender="F", premium=False)
+    pick = propose_coach_pick(coach, member, cand)
+
+    cand.crush_connect_membership.excluded_by_coach = True
+    cand.crush_connect_membership.save(update_fields=["excluded_by_coach"])
+    respond_to_coach_pick(pick, accept=True)
+    pick.refresh_from_db()
+    assert pick.status == "proposed"
+
+    # Reset candidate, exclude the member instead
+    cand.crush_connect_membership.excluded_by_coach = False
+    cand.crush_connect_membership.save(update_fields=["excluded_by_coach"])
+    member.crush_connect_membership.excluded_by_coach = True
+    member.crush_connect_membership.save(update_fields=["excluded_by_coach"])
+    pick = type(pick).objects.get(pk=pick.pk)
+    respond_to_coach_pick(pick, accept=True)
+    pick.refresh_from_db()
+    assert pick.status == "proposed"
