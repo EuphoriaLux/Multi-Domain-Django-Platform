@@ -464,6 +464,9 @@
 .metric-card.red {
     border-left-color: var(--status-danger);
 }
+.metric-card.teal {
+    border-left-color: #0d9488;
+}
 
 .metric-icon {
     font-size: 40px;
