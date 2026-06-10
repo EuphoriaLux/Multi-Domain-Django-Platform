@@ -112,10 +112,19 @@ See "What changed in code" above.
 - Emails: `crush_connect_spark_received.html`, `crush_connect_spark_accepted.html`.
 - Admin: `CuriositySparkAdmin` (status filter = the coach's interim M7 queue).
 
+### M7 — Coach Picks ✅ (implemented)
+- `ConnectCoachPick` model (migration 0159): coach proposes ONE candidate
+  per member with a personal note; new proposal withdraws the previous one.
+- Coach curation hub at `/coach/connect/` (+ `/coach/connect/member/<id>/`):
+  coaches browse the member's eligible pool with FULL profiles and pick.
+- The pick REPLACES the algorithmic Drop as the hero card on `/today/`,
+  with the coach's note and accept/decline buttons.
+- Accept → coach is notified and contacts the candidate personally to
+  arrange the date (no automatic Spark to the candidate). Decline → coach
+  notified, picks again. Stale candidates hide the pick automatically.
+
 ### Phase 3+ — deferred features
 - [ ] Mutual-interest reveal flow (M6) — unblur, name reveal chapters.
-- [ ] Coach dashboard queue for accepted Sparks + date arrangement (M7) —
-      currently served by the admin list filtered to status=accepted.
 - [ ] Spark quotas / expiry (e.g. auto-expire pending Sparks after 14 days).
 - [ ] Coach admin view: catalogue size, members without LuxID, exclusions.
 - [ ] Decay/activity cron + push notifications (M8).

@@ -493,3 +493,147 @@ def _notify_spark_accepted(spark, request=None):
             import logging
 
             logging.getLogger(__name__).exception("Spark-accepted email failed")
+
+# ---------------------------------------------------------------------------
+# Coach Picks (M7) — the coach-curated match proposal
+# ---------------------------------------------------------------------------
+
+
+def get_active_coach_pick(member):
+    """The member's current 'proposed' pick with a still-eligible candidate,
+    or None. A stale candidate hides the pick (coach re-picks)."""
+    from crush_lu.models import ConnectCoachPick
+
+    pick = (
+        ConnectCoachPick.objects.filter(member=member, status="proposed")
+        .select_related(
+            "candidate__crushprofile",
+            "candidate__crush_connect_membership",
+            "coach__user",
+        )
+        .order_by("-created_at")
+        .first()
+    )
+    if pick is None:
+        return None
+    # Full-pool re-check (subsumes catalogue eligibility) so display and
+    # accept agree — otherwise a member could be stuck seeing a pick the
+    # accept guard would refuse (e.g. EventConnection formed since).
+    if not get_eligible_pool(member).filter(pk=pick.candidate_id).exists():
+        return None
+    # Coach reassignment orphans the proposal — an ex-coach's pick must not
+    # surface as "Your Coach's Pick" (and they couldn't act on a response).
+    profile = getattr(member, "crushprofile", None)
+    if profile is None or pick.coach_id != profile.assigned_coach_id:
+        return None
+    return pick
+
+
+def propose_coach_pick(coach, member, candidate, note: str = ""):
+    """
+    Create a coach pick. Validates: member is the coach's assigned Premium
+    member + Connect-onboarded; candidate is in the member's eligible pool;
+    no pick already exists for this pair; only one open proposal at a time
+    (a new pick withdraws the previous proposed one).
+
+    Raises ValueError with a machine-readable reason on violation.
+    """
+    from crush_lu.models import ConnectCoachPick
+
+    member_profile = getattr(member, "crushprofile", None)
+    if member_profile is None or member_profile.assigned_coach_id != coach.pk:
+        raise ValueError("not_your_member")
+    if not is_sender_eligible(member):
+        raise ValueError("member_not_ready")
+    if not get_eligible_pool(member).filter(pk=candidate.pk).exists():
+        raise ValueError("candidate_not_eligible")
+    if ConnectCoachPick.objects.filter(member=member, candidate=candidate).exists():
+        raise ValueError("already_picked")
+
+    ConnectCoachPick.objects.filter(member=member, status="proposed").update(
+        status="withdrawn", responded_at=timezone.now()
+    )
+    pick = ConnectCoachPick.objects.create(
+        coach=coach, member=member, candidate=candidate, note=(note or "").strip()
+    )
+    try:
+        from django.urls import reverse
+        from django.utils.translation import gettext as _g
+
+        from crush_lu.models import Notification
+
+        Notification.objects.create(
+            user=member,
+            notification_type="connect_coach_pick",
+            title=_g("Your Crush Coach picked a match for you"),
+            body=_g("Take a look and decide — accept and your coach arranges the date."),
+            link_url=reverse("crush_lu:crush_connect_home"),
+            metadata={"pick_id": pick.pk},
+        )
+    except Exception:  # pragma: no cover
+        import logging
+
+        logging.getLogger(__name__).exception("Coach-pick notification failed")
+    return pick
+
+
+def respond_to_coach_pick(pick, accept: bool):
+    """Member accepts/declines the coach's pick. Either way the coach is
+    notified (bell) — accept means 'contact the candidate and arrange the
+    date', decline means 'pick someone else'. Idempotent after decision."""
+    if pick.status != "proposed":
+        return pick
+    member_profile = getattr(pick.member, "crushprofile", None)
+    coach_is_current = (
+        member_profile is not None
+        and pick.coach_id == member_profile.assigned_coach_id
+    )
+    if accept and not (
+        is_sender_eligible(pick.member)
+        and coach_is_current
+        # Full pool re-check, not just catalogue eligibility: an
+        # EventConnection created since the proposal, or changed mutual
+        # preferences, must invalidate the pick exactly as it would block
+        # proposing the same candidate today.
+        and get_eligible_pool(pick.member).filter(pk=pick.candidate_id).exists()
+    ):
+        # Either party lost eligibility since the pick was proposed — an
+        # accept must not enter the coach's arrangement queue. The Today
+        # page already hides stale picks; this guards old/raced POSTs.
+        return pick
+    pick.status = "accepted" if accept else "declined"
+    pick.responded_at = timezone.now()
+    pick.save(update_fields=["status", "responded_at"])
+    if not accept and not coach_is_current:
+        # Member's decline is recorded, but an ex-coach must not receive a
+        # response for a member they no longer own.
+        return pick
+    try:
+        from django.urls import reverse
+        from django.utils.translation import gettext as _g
+
+        from crush_lu.models import Notification
+
+        if accept:
+            title = _g("%(name)s accepted your pick") % {
+                "name": pick.member.first_name or _g("Your member")
+            }
+            body = _g("Contact the candidate to confirm interest and arrange the date.")
+        else:
+            title = _g("%(name)s declined your pick") % {
+                "name": pick.member.first_name or _g("Your member")
+            }
+            body = _g("Time to propose someone else.")
+        Notification.objects.create(
+            user=pick.coach.user,
+            notification_type="connect_coach_pick_response",
+            title=title,
+            body=body,
+            link_url=reverse("crush_lu:coach_connect_member", args=[pick.member_id]),
+            metadata={"pick_id": pick.pk},
+        )
+    except Exception:  # pragma: no cover
+        import logging
+
+        logging.getLogger(__name__).exception("Pick-response notification failed")
+    return pick

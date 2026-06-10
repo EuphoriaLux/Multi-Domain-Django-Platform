@@ -268,3 +268,18 @@ class CuriositySparkAdmin(admin.ModelAdmin):
     raw_id_fields = ("sender", "recipient", "drop")
     readonly_fields = ("created_at", "responded_at")
     date_hierarchy = "created_at"
+
+
+class ConnectCoachPickAdmin(admin.ModelAdmin):
+    """Oversight for coach-curated match proposals (M7)."""
+
+    list_display = ("coach", "member", "candidate", "status", "created_at", "responded_at")
+    list_filter = ("status", "created_at")
+    search_fields = (
+        "member__username", "member__first_name",
+        "candidate__username", "candidate__first_name",
+        "coach__user__username",
+    )
+    raw_id_fields = ("coach", "member", "candidate")
+    readonly_fields = ("created_at", "responded_at")
+    date_hierarchy = "created_at"

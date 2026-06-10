@@ -321,3 +321,69 @@ class CuriositySpark(models.Model):
     @property
     def is_pending(self) -> bool:
         return self.status == "pending"
+
+
+class ConnectCoachPick(models.Model):
+    """
+    A Crush Coach's hand-picked match proposal for one of their Premium
+    members (M7 — the coach-curated heart of Crush Connect).
+
+    Flow: coach browses the member's eligible pool (full profiles) and
+    proposes ONE candidate with a personal note. The pick REPLACES the
+    algorithmic Drop as the hero card on the member's Today page. The
+    member accepts or declines:
+      - accept  → lands in the coach's queue; the coach contacts the
+                  candidate personally to confirm interest and arrange the
+                  date (no automatic Spark/notification to the candidate).
+      - decline → coach is notified and can propose someone else.
+    """
+
+    STATUS_CHOICES = [
+        ("proposed", _("Proposed")),
+        ("accepted", _("Accepted by member")),
+        ("declined", _("Declined by member")),
+        ("withdrawn", _("Withdrawn by coach")),
+    ]
+
+    coach = models.ForeignKey(
+        "crush_lu.CrushCoach",
+        on_delete=models.CASCADE,
+        related_name="connect_picks",
+    )
+    member = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="connect_coach_picks",
+    )
+    candidate = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="connect_picks_as_candidate",
+    )
+    note = models.CharField(
+        max_length=300,
+        blank=True,
+        help_text=_("Coach's 'why I picked them' — shown to the member"),
+    )
+    status = models.CharField(
+        max_length=10, choices=STATUS_CHOICES, default="proposed", db_index=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    responded_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = _("Connect Coach Pick")
+        verbose_name_plural = _("Connect Coach Picks")
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["member", "candidate"], name="connect_pick_unique_pair"
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(member=models.F("candidate")),
+                name="connect_pick_no_self",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.coach} → {self.member}: {self.candidate} ({self.status})"
