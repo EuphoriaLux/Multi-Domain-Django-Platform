@@ -471,14 +471,22 @@ def coach_connect_members(request):
         .select_related("candidate")
         .order_by("created_at")
     }
+    from crush_lu.services.crush_connect import get_active_coach_pick
+
     rows = []
     for m in members:
         membership = getattr(m, "crush_connect_membership", None)
+        pick = picks.get(m.pk)
+        if pick is not None and pick.status == "proposed":
+            # A proposed pick whose candidate left the pool is hidden from
+            # the member — show the coach "no open pick" so they re-pick
+            # instead of waiting forever on an answer that can't come.
+            pick = get_active_coach_pick(m)
         rows.append(
             {
                 "member": m,
                 "onboarded": bool(membership and membership.is_onboarded),
-                "pick": picks.get(m.pk),
+                "pick": pick,
             }
         )
     return render(

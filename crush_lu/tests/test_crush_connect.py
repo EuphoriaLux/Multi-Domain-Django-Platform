@@ -1978,3 +1978,21 @@ def test_pick_hidden_when_candidate_leaves_member_pool():
         requester=member, recipient=cand, event=_make_event(), status="pending"
     )
     assert get_active_coach_pick(member) is None
+
+
+@pytest.mark.django_db
+def test_coach_hub_hides_stale_proposed_pick(client, settings):
+    """A proposed pick the member can no longer see must prompt the coach
+    to re-pick, not show 'awaiting their answer'."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    member = _make_user(username="member", preferred_genders=["F"])
+    coach = _coach_for(member)
+    cand = _make_user(username="cand", gender="F", premium=False)
+    propose_coach_pick(coach, member, cand)
+    SocialAccount.objects.filter(user=cand).delete()  # candidate left pool
+
+    _login_eligible(client, coach.user)
+    resp = client.get("/en/coach/connect/")
+    body = resp.content.decode()
+    assert "awaiting their answer" not in body
+    assert "No open pick" in body
