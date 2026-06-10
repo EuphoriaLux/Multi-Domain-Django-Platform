@@ -460,11 +460,16 @@ def coach_connect_members(request):
         .select_related("crushprofile", "crush_connect_membership")
         .order_by("first_name", "pk")
     )
+    # Iterate oldest-first so the NEWEST row wins the per-member map —
+    # default model ordering is newest-first, which would let an older
+    # accepted pick mask a fresher proposal.
     picks = {
         p.member_id: p
         for p in ConnectCoachPick.objects.filter(
             coach=coach, status__in=["proposed", "accepted"]
-        ).select_related("candidate")
+        )
+        .select_related("candidate")
+        .order_by("created_at")
     }
     rows = []
     for m in members:
