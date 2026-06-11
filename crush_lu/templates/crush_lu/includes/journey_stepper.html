@@ -101,13 +101,15 @@
 
     <div class="mt-2 flex items-baseline justify-between gap-3 px-1">
       <div class="text-xs font-bold tracking-[-0.005em] text-crush-dark dark:text-white">{{ journey_active.title }}</div>
+      {% comment %}
+        min_duration=0 steps render no duration at all — "Instant" was only
+        true for the LuxID path, not the come-to-an-event path.
+      {% endcomment %}
+      {% if journey_active.min_duration %}
       <div class="flex-shrink-0 text-[10px] font-medium tabular-nums text-gray-400 dark:text-gray-500">
-        {% if journey_active.min_duration %}
-          ≈ {{ journey_active.min_duration }} {% trans "min" %}
-        {% else %}
-          {% trans "Instant" %}
-        {% endif %}
+        ≈ {{ journey_active.min_duration }} {% trans "min" %}
       </div>
+      {% endif %}
     </div>
 
   </div>

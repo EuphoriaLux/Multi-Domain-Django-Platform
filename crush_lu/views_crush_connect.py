@@ -21,7 +21,7 @@ from django.utils.translation import gettext_lazy as _
 from crush_lu.decorators import crush_login_required
 from crush_lu.email_helpers import send_crush_connect_catalogue_welcome
 from crush_lu.forms_crush_connect import CrushConnectOnboardingForm
-from crush_lu.models import CrushConnectMembership
+from crush_lu.models import CrushConnectMembership, CrushProfile, Trait
 from crush_lu.services import get_or_create_daily_drop
 
 
@@ -163,12 +163,56 @@ def crush_connect_onboarding(request):
     if membership.is_onboarded:
         return redirect(done_url)
 
+    profile = getattr(user, "crushprofile", None)
+
     if request.method == "POST":
         form = CrushConnectOnboardingForm(request.POST, instance=membership)
         if form.is_valid():
             obj = form.save(commit=False)
             obj.onboarded_at = timezone.now()
             obj.save()
+
+            # Persist ideal-match preferences back onto CrushProfile —
+            # everything _preferences_fields.html posts, not just a subset.
+            if profile is not None:
+                valid_genders = dict(CrushProfile.GENDER_CHOICES).keys()
+                profile.preferred_genders = [
+                    g for g in request.POST.getlist("preferred_genders")
+                    if g in valid_genders
+                ]
+                try:
+                    profile.preferred_age_min = int(request.POST.get("preferred_age_min", 18))
+                    profile.preferred_age_max = int(request.POST.get("preferred_age_max", 99))
+                except (ValueError, TypeError):
+                    pass
+                if profile.preferred_age_min > profile.preferred_age_max:
+                    profile.preferred_age_min, profile.preferred_age_max = (
+                        profile.preferred_age_max,
+                        profile.preferred_age_min,
+                    )
+                # Radio may be absent when the user picked nothing — keep the
+                # stored value in that case.
+                first_step = request.POST.get("first_step_preference", "")
+                if first_step in dict(CrushProfile.FIRST_STEP_CHOICES):
+                    profile.first_step_preference = first_step
+                # The astro toggle posts "true"/"false" via a hidden input.
+                astro_raw = request.POST.get("astro_enabled")
+                if astro_raw is not None:
+                    profile.astro_enabled = astro_raw == "true"
+                profile.save(update_fields=[
+                    "preferred_age_min",
+                    "preferred_age_max",
+                    "preferred_genders",
+                    "first_step_preference",
+                    "astro_enabled",
+                ])
+                ids_raw = request.POST.get("sought_qualities_ids", "")
+                if ids_raw:
+                    ids = [int(i) for i in ids_raw.split(",") if i.strip().isdigit()]
+                    profile.sought_qualities.set(
+                        Trait.objects.filter(pk__in=ids[:5], trait_type="quality")
+                    )
+
             if is_receiver:
                 messages.success(
                     request,
@@ -187,6 +231,15 @@ def crush_connect_onboarding(request):
     else:
         form = CrushConnectOnboardingForm(instance=membership)
 
+    # Build rich context for the 4-step wizard (Step 3: Ideal Match).
+    # _render_preferences_section also returns "form" (IdealCrushPreferencesForm)
+    # and "profile" — we drop those to avoid overwriting our onboarding form.
+    from crush_lu.views import _render_preferences_section
+    prefs_ctx = {}
+    if profile is not None:
+        raw = _render_preferences_section(request, profile)
+        prefs_ctx = {k: v for k, v in raw.items() if k not in ("form", "profile", "section")}
+
     return render(
         request,
         "crush_lu/crush_connect/onboarding.html",
@@ -194,6 +247,8 @@ def crush_connect_onboarding(request):
             "form": form,
             "membership": membership,
             "is_candidate_only": not is_receiver,
+            "profile": profile,
+            **prefs_ctx,
         },
     )
 

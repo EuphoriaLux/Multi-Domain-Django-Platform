@@ -962,6 +962,44 @@ def test_onboarding_submission_stamps_membership(client, settings):
 
 
 @pytest.mark.django_db
+def test_onboarding_persists_all_posted_preferences(client, settings):
+    """Step 3 posts first_step_preference and astro_enabled alongside
+    age/genders/qualities — none of them may be silently discarded."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"], onboarded=False)
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    profile = me.crushprofile
+    profile.astro_enabled = True
+    profile.save(update_fields=["astro_enabled"])
+
+    prompt = SparkPrompt.objects.filter(is_active=True).first()
+    resp = client.post(
+        ONBOARDING_URL,
+        data={
+            "story_prompt": prompt.pk,
+            "story_answer": "I love foggy walks along the Pétrusse valley.",
+            "confirm_terms": "on",
+            "preferred_genders": ["F", "NB"],
+            # Crossed range must be re-ordered, not saved inverted
+            "preferred_age_min": "45",
+            "preferred_age_max": "30",
+            "first_step_preference": "they_initiate",
+            "astro_enabled": "false",
+        },
+    )
+    assert resp.status_code in (302, 301)
+
+    profile.refresh_from_db()
+    assert profile.preferred_genders == ["F", "NB"]
+    assert profile.preferred_age_min == 30
+    assert profile.preferred_age_max == 45
+    assert profile.first_step_preference == "they_initiate"
+    assert profile.astro_enabled is False
+
+
+@pytest.mark.django_db
 def test_onboarding_rejects_short_answer(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(username="me", preferred_genders=["F"], onboarded=False)

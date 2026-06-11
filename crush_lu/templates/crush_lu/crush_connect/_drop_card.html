@@ -48,6 +48,16 @@ Privacy contract (Crush Connect):
             {% endif %}
         </header>
 
+        {# Relationship goal badge #}
+        {% if target_membership.relationship_goal %}
+            <span class="inline-block text-xs font-medium rounded-full px-2.5 py-0.5
+                         {% if target_membership.relationship_goal == 'serious' %}bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300
+                         {% elif target_membership.relationship_goal == 'open' %}bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300
+                         {% else %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                {{ target_membership.get_relationship_goal_display }}
+            </span>
+        {% endif %}
+
         {# Story (one coach-curated line) — fallback copy if not yet onboarded with a story #}
         {% if target_membership.story_answer %}
             <p class="text-[15px] leading-relaxed text-gray-700 dark:text-gray-200 italic">
@@ -62,6 +72,33 @@ Privacy contract (Crush Connect):
             <p class="text-sm text-gray-400 dark:text-gray-500 italic">
                 {% trans "This member hasn't shared a story yet." %}
             </p>
+        {% endif %}
+
+        {# Optional second story #}
+        {% if target_membership.story_answer_2 %}
+            <p class="text-sm leading-relaxed text-gray-600 dark:text-gray-300 italic border-l-2 border-crush-purple/30 pl-3">
+                {% if target_membership.story_prompt_2 %}
+                    <span class="not-italic block text-xs font-medium uppercase tracking-wide text-crush-purple/60 dark:text-crush-pink/60 mb-1">
+                        {{ target_membership.story_prompt_2.text }}
+                    </span>
+                {% endif %}
+                &ldquo;{{ target_membership.story_answer_2 }}&rdquo;
+            </p>
+        {% endif %}
+
+        {# Lifestyle chips #}
+        {% if target_membership.lifestyle_energy or target_membership.lifestyle_social or target_membership.lifestyle_pace %}
+            <div class="flex flex-wrap gap-1.5">
+                {% if target_membership.lifestyle_energy %}
+                    <span class="badge badge-secondary text-xs">{{ target_membership.get_lifestyle_energy_display }}</span>
+                {% endif %}
+                {% if target_membership.lifestyle_social %}
+                    <span class="badge badge-secondary text-xs">{{ target_membership.get_lifestyle_social_display }}</span>
+                {% endif %}
+                {% if target_membership.lifestyle_pace %}
+                    <span class="badge badge-secondary text-xs">{{ target_membership.get_lifestyle_pace_display }}</span>
+                {% endif %}
+            </div>
         {% endif %}
 
         {# Tag chips: languages + interests #}

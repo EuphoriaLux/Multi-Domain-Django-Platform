@@ -149,6 +149,62 @@ class CrushConnectMembership(models.Model):
         help_text=_("One-line answer shown on the member's Drop card"),
     )
 
+    # Connect onboarding — intent & lifestyle signals
+    RELATIONSHIP_GOAL_CHOICES = [
+        ("serious", _("Looking for something serious")),
+        ("open", _("Open to see where it goes")),
+        ("curious", _("Here to explore")),
+    ]
+    relationship_goal = models.CharField(
+        max_length=20,
+        blank=True,
+        choices=RELATIONSHIP_GOAL_CHOICES,
+        help_text=_("Member's relationship intent, set during Connect onboarding"),
+    )
+    LIFESTYLE_ENERGY_CHOICES = [
+        ("homebody", _("Homebody")),
+        ("mix", _("Mix of both")),
+        ("adventurer", _("Adventurer")),
+    ]
+    lifestyle_energy = models.CharField(
+        max_length=10,
+        blank=True,
+        choices=LIFESTYLE_ENERGY_CHOICES,
+    )
+    LIFESTYLE_SOCIAL_CHOICES = [
+        ("intimate", _("Deep 1:1s")),
+        ("flexible", _("Depends on mood")),
+        ("social", _("Group energy")),
+    ]
+    lifestyle_social = models.CharField(
+        max_length=10,
+        blank=True,
+        choices=LIFESTYLE_SOCIAL_CHOICES,
+    )
+    LIFESTYLE_PACE_CHOICES = [
+        ("structured", _("Structured")),
+        ("balanced", _("Balanced")),
+        ("spontaneous", _("Spontaneous")),
+    ]
+    lifestyle_pace = models.CharField(
+        max_length=12,
+        blank=True,
+        choices=LIFESTYLE_PACE_CHOICES,
+    )
+
+    # Optional second story card
+    story_prompt_2 = models.ForeignKey(
+        "crush_lu.SparkPrompt",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="story_owners_2",
+    )
+    story_answer_2 = models.CharField(
+        max_length=200,
+        blank=True,
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
