@@ -1829,7 +1829,11 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                     )
                 elif (
                     phone
-                    and phone != profile.phone_number
+                    # Same number but not yet verified also qualifies: the
+                    # user typed their number manually, abandoned the OTP,
+                    # then clicked "Verify with LuxID" — LuxID confirming
+                    # the same number IS the verification.
+                    and (phone != profile.phone_number or not profile.phone_verified)
                     and _luxid_phone_available(phone, profile)
                 ):
                     old_phone = profile.phone_number
@@ -1994,7 +1998,9 @@ def create_crush_profile_from_luxid(sender, instance, created, **kwargs):
             if (
                 phone
                 and _is_trusted_luxid_phone(phone)
-                and phone != profile.phone_number
+                # Same number but not yet verified also qualifies — see the
+                # matching condition in update_crush_profile_from_luxid.
+                and (phone != profile.phone_number or not profile.phone_verified)
                 and _luxid_phone_available(phone, profile)
             ):
                 profile.phone_number = phone

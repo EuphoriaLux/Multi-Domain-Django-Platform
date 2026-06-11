@@ -783,9 +783,10 @@ def create_profile(request):
             from .social_photos import get_all_social_photos
 
             form = CrushProfileForm(instance=profile)
-            # wizard_step returns an Alpine sub-step number (1/3/4) — pass it
-            # straight through to data-initial-step.
-            step = profile.wizard_step or 1
+            # wizard_step returns an Alpine sub-step number (1/3), or None
+            # when every required field is filled — resume those users on
+            # the Review step (4), not back at Basic Info.
+            step = profile.wizard_step or 4
             return _render_create_profile(
                 request,
                 {
@@ -1026,6 +1027,8 @@ def _render_preferences_section(request, profile, form=None):
         "zodiac_emoji": ZODIAC_SIGN_EMOJIS.get(zodiac_sign, ""),
         "chinese_animal": CHINESE_ANIMAL_LABELS.get(chinese_animal, chinese_animal),
         "chinese_emoji": CHINESE_ANIMAL_EMOJIS.get(chinese_animal, ""),
+        "profile_gender_choices": IdealCrushPreferencesForm.PREFERRED_GENDER_CHOICES,
+        "first_step_choices": CrushProfile.FIRST_STEP_CHOICES,
     }
 
 
@@ -1651,9 +1654,10 @@ def edit_profile(request):
     elif profile.verification_status in ("pending", "verified"):
         current_step_to_show = None
     elif profile.verification_status == "incomplete":
-        # wizard_step returns an Alpine sub-step number (1/3/4) for
-        # data-initial-step, or None when the profile is ready to submit.
-        current_step_to_show = profile.wizard_step
+        # wizard_step returns an Alpine sub-step number (1/3) for
+        # data-initial-step, or None when the profile is ready to submit —
+        # in that case resume on the Review step (4).
+        current_step_to_show = profile.wizard_step or 4
     else:
         current_step_to_show = None
 
@@ -1919,21 +1923,34 @@ def profile_submitted(request):
             luxid_connect_url = _luxid_connect_url(
                 _available_providers, oidc_app=_oidc_app
             )
-        elif profile.verification_status == "pending":
-            # Lazy fix-up: user already has LuxId but their submitted profile
-            # is still awaiting verification. This can happen if LuxId was
-            # connected before the submission existed (old flow) or via an edge
-            # case, so the social_account_added signal never fired. Verify
-            # directly now. Only "pending" profiles qualify — "rejected" users
-            # must not be able to self-clear by reloading this page.
-            from .signals import _execute_luxid_direct_verify
+    except Exception:
+        # The CTA is optional decoration — a lookup failure must not 500
+        # the status page, but it should be visible in the logs.
+        logger.exception(
+            "LuxID CTA lookup failed for user pk=%s", request.user.pk
+        )
 
+    if has_luxid_account and profile.verification_status == "pending":
+        # Lazy fix-up: user already has LuxId but their submitted profile
+        # is still awaiting verification. This can happen if LuxId was
+        # connected before the submission existed (old flow) or via an edge
+        # case, so the social_account_added signal never fired. Verify
+        # directly now. Only "pending" profiles qualify — "rejected" users
+        # must not be able to self-clear by reloading this page.
+        from .signals import _execute_luxid_direct_verify
+
+        try:
             _execute_luxid_direct_verify(request.user, profile, submission, request)
+        except Exception:
+            # Unlike the CTA above, a failure here leaves the user stuck on
+            # "pending" — never swallow it silently.
+            logger.exception(
+                "[LUXID-VERIFY] Lazy fix-up failed for profile pk=%s", profile.pk
+            )
+        else:
             profile.refresh_from_db()
             if profile.verification_status == "verified":
                 return redirect("crush_lu:dashboard")
-    except Exception:
-        pass
 
     # --- Submission-dependent context (paid coach / revision path only) ---
     coach_contact_phone = ""

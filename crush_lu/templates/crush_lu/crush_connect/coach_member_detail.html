@@ -42,9 +42,41 @@
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-0">{{ candidate.get_full_name|default:candidate.username }}</h3>
                     <span class="text-sm text-gray-500">{{ candidate.crushprofile.age }}</span>
                 </header>
-                {% if candidate.crush_connect_membership.story_answer %}
-                <p class="text-sm italic text-gray-600 dark:text-gray-300 mb-0">&ldquo;{{ candidate.crush_connect_membership.story_answer }}&rdquo;</p>
+                {# Relationship goal + lifestyle signals #}
+                {% with mem=candidate.crush_connect_membership %}
+                {% if mem.relationship_goal %}
+                <span class="inline-block text-xs font-medium rounded-full px-2.5 py-0.5
+                             {% if mem.relationship_goal == 'serious' %}bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300
+                             {% elif mem.relationship_goal == 'open' %}bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300
+                             {% else %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                    {{ mem.get_relationship_goal_display }}
+                </span>
                 {% endif %}
+                {% if mem.lifestyle_energy or mem.lifestyle_social or mem.lifestyle_pace %}
+                <div class="flex flex-wrap gap-1">
+                    {% if mem.lifestyle_energy %}<span class="badge badge-secondary text-xs">{{ mem.get_lifestyle_energy_display }}</span>{% endif %}
+                    {% if mem.lifestyle_social %}<span class="badge badge-secondary text-xs">{{ mem.get_lifestyle_social_display }}</span>{% endif %}
+                    {% if mem.lifestyle_pace %}<span class="badge badge-secondary text-xs">{{ mem.get_lifestyle_pace_display }}</span>{% endif %}
+                </div>
+                {% endif %}
+                {# Story #}
+                {% if mem.story_answer %}
+                <p class="text-sm italic text-gray-600 dark:text-gray-300 mb-0">&ldquo;{{ mem.story_answer }}&rdquo;</p>
+                {% endif %}
+                {% if mem.story_answer_2 %}
+                <p class="text-xs italic text-gray-500 dark:text-gray-400 mb-0 border-l-2 border-crush-purple/30 pl-2">&ldquo;{{ mem.story_answer_2 }}&rdquo;</p>
+                {% endif %}
+                {% endwith %}
+                {# Sought qualities #}
+                {% with sought=candidate.crushprofile.sought_qualities.all %}
+                {% if sought %}
+                <div class="flex flex-wrap gap-1">
+                    {% for trait in sought %}
+                    <span class="badge badge-success text-xs">{{ trait.label }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endwith %}
                 {% if candidate.crushprofile.bio %}
                 <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{{ candidate.crushprofile.bio|truncatechars:140 }}</p>
                 {% endif %}

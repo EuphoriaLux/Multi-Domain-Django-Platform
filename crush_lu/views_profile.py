@@ -185,17 +185,17 @@ def save_profile_step1(request):
         # Update basic info
         new_phone_number = data.get("phone_number", "").strip()
 
-        # Check if phone number changed - reset verification if so
-        # Note: When phone is verified via Firebase, phone_number is set from the token
-        # so we don't want users changing it afterwards without re-verification
-        if profile.phone_number and new_phone_number != profile.phone_number:
-            # Phone number changed - reset verification status
-            profile.phone_verified = False
-            profile.phone_verified_at = None
-            profile.phone_verification_uid = None
+        # A verified phone cannot be changed here: CrushProfile.save()
+        # restores the verified phone fields on every update (phone-
+        # protection block), so "resetting verification" would be silently
+        # undone anyway. Keep the stored number so the log and the saved
+        # state agree; re-verification goes through the OTP/LuxID flows.
+        if profile.phone_verified and new_phone_number != profile.phone_number:
             logger.info(
-                f"Phone number changed for user {request.user.id}, resetting verification"
+                f"Ignoring phone change for user {request.user.id}: "
+                "number is verified and locked"
             )
+            new_phone_number = profile.phone_number
 
         profile.phone_number = new_phone_number
         profile.date_of_birth = date_of_birth
@@ -462,6 +462,58 @@ def upload_photo_draft(request):
         logger.error(traceback.format_exc())
         return JsonResponse(
             {"success": False, "error": "An error occurred while saving your profile"},
+            status=500,
+        )
+
+
+@crush_login_required
+@require_http_methods(["POST"])
+def delete_photo_draft(request):
+    """
+    Delete a wizard photo server-side (counterpart of upload_photo_draft).
+
+    Wizard photos auto-upload to the profile the moment they're picked so
+    they survive a refresh — which means the remove button must delete the
+    stored photo too, otherwise it silently reappears on reload and would be
+    submitted with the profile.
+
+    Request: form-data with 'photo_number' (1-3)
+    """
+    photo_number = request.POST.get("photo_number")
+    if photo_number not in ("1", "2", "3"):
+        return JsonResponse(
+            {"success": False, "error": "Invalid photo_number. Must be 1, 2, or 3."},
+            status=400,
+        )
+
+    try:
+        profile = CrushProfile.objects.get(user=request.user)
+    except CrushProfile.DoesNotExist:
+        return JsonResponse(
+            {"success": False, "error": "Profile not found"}, status=404
+        )
+
+    try:
+        photo_field = f"photo_{photo_number}"
+        # Clearing the field is enough: CrushProfile.save() deletes the old
+        # blob whenever a photo field's name changes (including to None).
+        setattr(profile, photo_field, None)
+
+        # Drop the draft URL too, or photoUpload restores it on next load.
+        if profile.draft_data and "step3" in profile.draft_data:
+            profile.draft_data["step3"].pop(f"photo_{photo_number}_url", None)
+
+        profile.save()
+        logger.info(
+            f"Wizard photo {photo_number} deleted for user {request.user.id}"
+        )
+        return JsonResponse({"success": True, "photo_number": int(photo_number)})
+
+    except Exception as e:
+        logger.error(f"Error deleting wizard photo: {e}")
+        logger.error(traceback.format_exc())
+        return JsonResponse(
+            {"success": False, "error": "An error occurred while removing the photo"},
             status=500,
         )
 
@@ -1215,19 +1267,21 @@ def phone_step(request):
     if not profile.welcome_seen_at:
         return redirect("crush_lu:welcome")
 
-    # The template hides the LuxID fallback card when the user already has a
-    # linked LuxID SocialAccount — for those users the post-login signal has
-    # already flipped phone_verified, so they won't see this page. We still
-    # compute the flag defensively because the page can be re-entered by
-    # backtracking from step 3.
-    from allauth.socialaccount.models import SocialAccount
+    # The template offers LuxID as the promoted verification option, but only
+    # while no LuxID account is linked yet. Once linked, the signal normally
+    # flips phone_verified — when it could NOT (LuxID released no usable
+    # phone claim, untrusted prefix, or the number belongs to another
+    # account), `luxid_linked_without_phone` drives an explanatory notice so
+    # the user isn't left wondering why they're still on this step.
+    native_qs, oidc_token_qs = CrushProfile.luxid_account_querysets(request.user.pk)
+    has_luxid_account = native_qs.exists() or oidc_token_qs.exists()
 
-    has_luxid_account = SocialAccount.objects.filter(
-        user=request.user,
-        provider__in=("luxid", "openid_connect"),
-    ).exists()
-
-    context = {"profile": profile, "has_luxid_account": has_luxid_account}
+    context = {
+        "profile": profile,
+        "has_luxid_account": has_luxid_account,
+        "luxid_linked_without_phone": has_luxid_account
+        and not profile.phone_verified,
+    }
     context.update(onboarding.stepper_context(current=2))
     return render(request, "crush_lu/onboarding/phone.html", context)
 

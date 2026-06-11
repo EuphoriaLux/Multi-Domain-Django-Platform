@@ -17,6 +17,18 @@ import traceback
 
 logger = logging.getLogger(__name__)
 
+# Fields that must never be persisted in (or restored from) draft_data.
+# csrfmiddlewaretoken is session-scoped: old drafts that captured it would
+# restore a stale token after re-login and 403 every subsequent save.
+_DRAFT_EXCLUDED_FIELDS = frozenset(["csrfmiddlewaretoken"])
+
+
+def _sanitize_step_data(step_data):
+    """Drop excluded fields from one step's draft dict."""
+    if not isinstance(step_data, dict):
+        return step_data
+    return {k: v for k, v in step_data.items() if k not in _DRAFT_EXCLUDED_FIELDS}
+
 
 @crush_login_required
 @require_http_methods(["POST"])
@@ -47,7 +59,7 @@ def save_draft(request):
     try:
         data = json.loads(request.body)
         step = data.get('step')
-        step_data = data.get('data', {})
+        step_data = _sanitize_step_data(data.get('data', {}))
 
         logger.info(f"[DRAFT SAVE] User {request.user.id} saving step {step}")
         logger.debug(f"[DRAFT SAVE] Step data: {step_data}")
@@ -188,10 +200,15 @@ def get_draft(request):
 
         logger.debug(f"[DRAFT GET] Merged data BEFORE draft override: {merged}")
 
-        # Override with draft data (draft takes priority)
-        if profile.draft_data:
+        # Override with draft data (draft takes priority). Sanitize each step
+        # so excluded fields captured by older clients are never sent back.
+        sanitized_draft = {
+            step_key: _sanitize_step_data(step_data)
+            for step_key, step_data in (profile.draft_data or {}).items()
+        }
+        if sanitized_draft:
             logger.info(f"[DRAFT GET] Applying draft data overrides...")
-            for step_key, step_data in profile.draft_data.items():
+            for step_key, step_data in sanitized_draft.items():
                 if isinstance(step_data, dict):
                     logger.debug(f"[DRAFT GET] Merging {step_key}: {step_data}")
                     merged.update(step_data)
@@ -205,7 +222,7 @@ def get_draft(request):
             'success': True,
             'data': {
                 'profile': merged,  # For backward compatibility
-                'draft': profile.draft_data or {},
+                'draft': sanitized_draft,
                 'merged': merged,
                 'last_saved': profile.last_draft_saved.isoformat() if profile.last_draft_saved else None
             }
