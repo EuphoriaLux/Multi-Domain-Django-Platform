@@ -1205,8 +1205,12 @@ def _check_admin_access(request):
     try:
         if request.user.crushcoach.is_active:
             return None
+    except CrushCoach.DoesNotExist:
+        pass  # Not a coach — deny below.
     except Exception:
-        pass
+        # Unexpected failure (not a permissions outcome): log it so a broken
+        # coach lookup doesn't masquerade as a silent "Access denied".
+        logger.exception("Coach access check failed for user %s", request.user.pk)
     return JsonResponse({"error": "Access denied"}, status=403)
 
 

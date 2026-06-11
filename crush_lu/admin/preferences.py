@@ -86,6 +86,7 @@ class EmailPreferenceAdmin(admin.ModelAdmin):
         'user', 'get_email', 'get_email_status_icons', 'unsubscribed_all',
         'email_marketing', 'updated_at'
     )
+    list_select_related = ["user"]
     list_filter = (
         'unsubscribed_all', 'email_newsletter', 'email_marketing',
         'email_profile_updates', 'email_event_reminders',

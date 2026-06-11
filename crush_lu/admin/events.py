@@ -23,6 +23,7 @@ from crush_lu.models import (
     MeetupEvent,
     EventRegistration,
     EventInvitation,
+    EventFeedback,
     EventVotingSession,
     PresentationQueue,
     SpeedDatingPair,
@@ -655,6 +656,8 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
 class EventRegistrationAdmin(admin.ModelAdmin):
     form = EventRegistrationAdminForm
     list_display = ("get_user_display", "event", "status", "payment_confirmed", "registered_at")
+    list_per_page = 50
+    list_select_related = ["user", "event"]
     list_filter = ("status", "payment_confirmed", "registered_at")
     search_fields = ("user__username", "user__first_name", "user__last_name", "user__email", "event__title")
     autocomplete_fields = ['user', 'event']
@@ -802,6 +805,7 @@ class EventInvitationAdmin(admin.ModelAdmin):
         "has_special_user",
         "get_invitation_link",
     )
+    list_select_related = ["event", "invited_by", "special_user", "created_user"]
     list_filter = (
         "status",
         "approval_status",
@@ -1031,3 +1035,46 @@ class EventInvitationAdmin(admin.ModelAdmin):
                     "No pending invitations to resend. Only unaccepted invitations can be resent."
                 ),
             )
+
+
+class EventFeedbackAdmin(admin.ModelAdmin):
+    """
+    📝 POST-EVENT FEEDBACK REVIEW
+
+    Read-only view of attendee survey responses (NPS + free text).
+    Feedback is submitted by users after events; coaches review it here
+    for quality assurance. Records are never created from the admin.
+    """
+
+    list_display = (
+        "user",
+        "event",
+        "nps_score",
+        "get_nps_segment",
+        "would_recommend",
+        "created_at",
+    )
+    list_select_related = ["user", "event"]
+    list_filter = ("would_recommend", "nps_score", "created_at")
+    search_fields = ("user__username", "user__email", "event__title")
+    readonly_fields = ("event", "user", "nps_score", "would_recommend", "created_at")
+    date_hierarchy = "created_at"
+    list_per_page = 50
+
+    fieldsets = (
+        (_("Response"), {"fields": ("event", "user", "nps_score", "would_recommend")}),
+        (_("Free Text (visible to coaches only)"), {"fields": ("what_worked", "what_to_improve")}),
+        (_("Metadata"), {"fields": ("created_at",)}),
+    )
+
+    @admin.display(description=_("NPS Segment"))
+    def get_nps_segment(self, obj):
+        if obj.is_promoter:
+            return format_html('<span style="color: #28a745;">😍 Promoter</span>')
+        if obj.is_detractor:
+            return format_html('<span style="color: #dc3545;">😞 Detractor</span>')
+        return format_html('<span style="color: #6c757d;">😐 Passive</span>')
+
+    def has_add_permission(self, request):
+        # Feedback comes from attendees via the post-event survey.
+        return False

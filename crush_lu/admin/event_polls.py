@@ -41,6 +41,7 @@ class EventPollAdmin(AutoTranslateMixin, TranslationAdmin):
 
 class EventPollVoteAdmin(admin.ModelAdmin):
     list_display = ('user', 'poll', 'option', 'voted_at')
+    list_select_related = ["user", "poll", "option"]
     list_filter = ('poll', 'voted_at')
     search_fields = ('user__username', 'user__email')
     readonly_fields = ('poll', 'option', 'user', 'voted_at')

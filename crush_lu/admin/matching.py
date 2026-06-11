@@ -10,6 +10,7 @@ class TraitAdmin(AutoTranslateMixin, TranslationAdmin):
     """Admin for managing personality traits (qualities and defects)."""
 
     list_display = ("slug", "label", "trait_type", "category", "opposite", "sort_order")
+    list_select_related = ["opposite"]
     list_filter = ("trait_type", "category")
     search_fields = ("slug", "label")
     list_editable = ("sort_order",)
@@ -28,6 +29,7 @@ class MatchScoreAdmin(admin.ModelAdmin):
         "score_zodiac_cn",
         "computed_at",
     )
+    list_select_related = ["user_a", "user_b"]
     list_filter = ("computed_at",)
     search_fields = (
         "user_a__username",

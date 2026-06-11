@@ -67,6 +67,7 @@ class GlobalActivityOptionAdmin(admin.ModelAdmin):
 
 class EventActivityOptionAdmin(admin.ModelAdmin):
     list_display = ('event', 'display_name', 'get_activity_phase', 'activity_variant', 'get_actual_votes', 'is_winner', 'created_at')
+    list_select_related = ["event"]
     list_filter = ('activity_type', 'is_winner', 'event__date_time')
     search_fields = ('event__title', 'display_name', 'description')
     readonly_fields = ('created_at', 'vote_count', 'get_activity_phase', 'get_actual_votes')
@@ -121,6 +122,7 @@ class EventActivityOptionAdmin(admin.ModelAdmin):
 
 class EventActivityVoteAdmin(admin.ModelAdmin):
     list_display = ('user', 'event', 'selected_option', 'voted_at')
+    list_select_related = ["user", "event", "selected_option"]
     list_filter = ('event', 'voted_at')
     search_fields = ('user__username', 'event__title', 'selected_option__display_name')
     readonly_fields = ('voted_at',)
@@ -136,6 +138,7 @@ class EventActivityVoteAdmin(admin.ModelAdmin):
 
 class EventVotingSessionAdmin(admin.ModelAdmin):
     list_display = ('event', 'is_active', 'voting_start_time', 'voting_end_time', 'total_votes', 'winning_presentation_style', 'winning_speed_dating_twist')
+    list_select_related = ["event", "winning_presentation_style", "winning_speed_dating_twist"]
     list_filter = ('is_active', 'voting_start_time', 'voting_end_time')
     search_fields = ('event__title',)
     readonly_fields = ('created_at', 'updated_at', 'total_votes')
@@ -176,6 +179,7 @@ class EventVotingSessionAdmin(admin.ModelAdmin):
 
 class PresentationQueueAdmin(admin.ModelAdmin):
     list_display = ('event', 'user', 'presentation_order', 'status', 'started_at', 'completed_at', 'duration_seconds')
+    list_select_related = ["event", "user"]
     list_filter = ('status', 'event')
     search_fields = ('user__username', 'event__title')
     readonly_fields = ('created_at', 'updated_at', 'duration_seconds')
@@ -196,6 +200,7 @@ class PresentationQueueAdmin(admin.ModelAdmin):
 
 class PresentationRatingAdmin(admin.ModelAdmin):
     list_display = ('event', 'presenter', 'rater', 'is_positive', 'rated_at')
+    list_select_related = ["event", "presenter", "rater"]
     list_filter = ('is_positive', 'event')
     search_fields = ('presenter__username', 'rater__username', 'event__title')
     readonly_fields = ('rated_at',)
@@ -213,6 +218,7 @@ class PresentationRatingAdmin(admin.ModelAdmin):
 
 class SpeedDatingPairAdmin(admin.ModelAdmin):
     list_display = ('event', 'round_number', 'user1', 'user2', 'mutual_rating_score', 'is_top_match', 'duration_minutes')
+    list_select_related = ["event", "user1", "user2"]
     list_filter = ('is_top_match', 'event', 'round_number')
     search_fields = ('user1__username', 'user2__username', 'event__title')
     readonly_fields = ('created_at', 'duration_minutes')
