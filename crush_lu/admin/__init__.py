@@ -68,6 +68,7 @@ from .profiles import (
     RejectedProfile,
     RejectedProfileAdmin,
     PremiumMembershipAdmin,
+    CallAttemptAdmin,
 )
 
 from .events import (
@@ -79,6 +80,7 @@ from .events import (
     MeetupEventAdmin,
     EventRegistrationAdmin,
     EventInvitationAdmin,
+    EventFeedbackAdmin,
 )
 
 from .connections import (
@@ -127,6 +129,7 @@ from .advent import (
 from .notifications import (
     PushSubscriptionAdmin,
     CoachPushSubscriptionAdmin,
+    NotificationAdmin,
 )
 
 from .preferences import (
@@ -144,6 +147,7 @@ from .users import (
     CrushProfileUserInline,
     CrushCoachUserInline,
     CrushUserAdmin,
+    UserDataConsentAdmin,
 )
 
 from .crush_spark import CrushSparkAdmin
@@ -214,6 +218,10 @@ from crush_lu.models import (
     MeetupEvent,
     EventRegistration,
     EventInvitation,
+    EventFeedback,
+    CallAttempt,
+    UserDataConsent,
+    Notification,
     EventConnection,
     ConnectionMessage,
     GlobalActivityOption,
@@ -298,6 +306,16 @@ crush_admin_site.register(PremiumMembership, PremiumMembershipAdmin)
 crush_admin_site.register(MeetupEvent, MeetupEventAdmin)
 crush_admin_site.register(EventRegistration, EventRegistrationAdmin)
 crush_admin_site.register(EventInvitation, EventInvitationAdmin)
+crush_admin_site.register(EventFeedback, EventFeedbackAdmin)
+
+# Phone Verification Call Log
+crush_admin_site.register(CallAttempt, CallAttemptAdmin)
+
+# GDPR Consent Audit
+crush_admin_site.register(UserDataConsent, UserDataConsentAdmin)
+
+# In-App Notifications (bell)
+crush_admin_site.register(Notification, NotificationAdmin)
 
 # Crush Spark System
 crush_admin_site.register(CrushSpark, CrushSparkAdmin)
@@ -455,6 +473,8 @@ __all__ = [
     'MeetupEventAdmin',
     'EventRegistrationAdmin',
     'EventInvitationAdmin',
+    'EventFeedbackAdmin',
+    'CallAttemptAdmin',
 
     # Crush Spark
     'CrushSparkAdmin',
@@ -501,6 +521,7 @@ __all__ = [
     # Notifications
     'PushSubscriptionAdmin',
     'CoachPushSubscriptionAdmin',
+    'NotificationAdmin',
 
     # Preferences
     'UserActivityAdmin',
@@ -515,6 +536,7 @@ __all__ = [
     'CrushProfileUserInline',
     'CrushCoachUserInline',
     'CrushUserAdmin',
+    'UserDataConsentAdmin',
 
     # Wallet
     'WalletPassFilter',

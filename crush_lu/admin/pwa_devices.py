@@ -22,6 +22,7 @@ class PWADeviceInstallationAdmin(admin.ModelAdmin):
         'last_used_at',
         'get_activity_status',
     )
+    list_select_related = ["user"]
     list_filter = (
         'os_type',
         'form_factor',

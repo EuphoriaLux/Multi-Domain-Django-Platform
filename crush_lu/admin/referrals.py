@@ -14,6 +14,7 @@ class ReferralCodeAdmin(admin.ModelAdmin):
         'last_used_at',
         'get_referral_counts',
     )
+    list_select_related = ["referrer__user"]
     list_filter = ('is_active', 'created_at', 'last_used_at')
     search_fields = ('code', 'referrer__user__email', 'referrer__user__username')
     readonly_fields = ('created_at', 'last_used_at', 'get_referral_counts', 'get_referrer_link')
@@ -51,6 +52,7 @@ class ReferralAttributionAdmin(admin.ModelAdmin):
         'created_at',
         'converted_at',
     )
+    list_select_related = ["referral_code__referrer__user", "referred_user"]
     list_filter = ('status', 'created_at', 'converted_at')
     search_fields = (
         'referral_code__code',

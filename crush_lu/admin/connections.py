@@ -71,6 +71,7 @@ class EventConnectionAdmin(admin.ModelAdmin):
 
 class ConnectionMessageAdmin(admin.ModelAdmin):
     list_display = ('connection', 'get_sender_display', 'is_coach_message', 'coach_approved', 'sent_at')
+    list_per_page = 50
     list_filter = ('is_coach_message', 'coach_approved', 'sent_at')
     search_fields = ('sender__username', 'sender__first_name', 'sender__last_name', 'sender__email', 'message', 'connection__event__title')
     autocomplete_fields = ['sender']

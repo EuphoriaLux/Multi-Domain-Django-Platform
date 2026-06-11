@@ -298,3 +298,85 @@ class CrushUserAdmin(BaseUserAdmin):
         The full user list lives at /admin/auth/user/.
         """
         return False
+
+
+class UserDataConsentAdmin(admin.ModelAdmin):
+    """
+    🛡️ GDPR CONSENT AUDIT
+
+    Standalone, filterable list of all consent records for GDPR audits
+    (the inline on the User page only shows one record at a time).
+    Consents are written by the app at signup/profile creation; this
+    admin is read-oriented and records cannot be added manually.
+    """
+
+    list_display = (
+        "user",
+        "powerup_consent_given",
+        "crushlu_consent_given",
+        "marketing_consent",
+        "crushlu_banned",
+        "crushlu_consent_date",
+        "updated_at",
+    )
+    list_select_related = ["user"]
+    list_filter = (
+        "powerup_consent_given",
+        "crushlu_consent_given",
+        "marketing_consent",
+        "crushlu_banned",
+        "crushlu_ban_reason",
+    )
+    search_fields = ("user__username", "user__email")
+    # Fully read-only audit surface: consent state is written by the
+    # signup/profile flows and bans are managed via the CrushProfileAdmin
+    # ban/unban actions — nothing here should be hand-edited.
+    readonly_fields = (
+        "user",
+        "powerup_consent_given",
+        "powerup_consent_date",
+        "powerup_consent_ip",
+        "powerup_terms_version",
+        "crushlu_consent_given",
+        "crushlu_consent_date",
+        "crushlu_consent_ip",
+        "crushlu_terms_version",
+        "crushlu_banned",
+        "crushlu_ban_date",
+        "crushlu_ban_reason",
+        "marketing_consent",
+        "marketing_consent_date",
+        "created_at",
+        "updated_at",
+    )
+    date_hierarchy = "created_at"
+    list_per_page = 50
+
+    fieldsets = (
+        ('User', {'fields': ('user',)}),
+        ('PowerUp Consent (Identity Layer)', {
+            'fields': ('powerup_consent_given', 'powerup_consent_date',
+                       'powerup_consent_ip', 'powerup_terms_version')
+        }),
+        ('Crush.lu Consent (Profile Layer)', {
+            'fields': ('crushlu_consent_given', 'crushlu_consent_date',
+                       'crushlu_consent_ip', 'crushlu_terms_version')
+        }),
+        ('Ban Status', {
+            'fields': ('crushlu_banned', 'crushlu_ban_date', 'crushlu_ban_reason')
+        }),
+        ('Marketing', {
+            'fields': ('marketing_consent', 'marketing_consent_date')
+        }),
+        ('Metadata', {'fields': ('created_at', 'updated_at')}),
+    )
+
+    def has_add_permission(self, request):
+        # Consent records are created by the application, never by hand.
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        # Deleting a consent row would erase the GDPR audit trail and the
+        # crushlu_banned flag (effectively lifting a ban). Rows are only
+        # removed by app-level cascades (e.g. account deletion).
+        return False

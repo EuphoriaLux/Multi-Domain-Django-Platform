@@ -84,6 +84,7 @@ class JourneyConfigurationAdmin(AutoTranslateMixin, TranslationAdmin):
         'total_chapters', 'estimated_duration_minutes',
         'certificate_enabled', 'created_at'
     )
+    list_select_related = ["special_experience"]
     list_filter = ('journey_type', 'is_active', 'certificate_enabled', 'created_at')
     search_fields = (
         'journey_name', 'special_experience__first_name',
@@ -157,6 +158,7 @@ class JourneyChapterAdmin(AutoTranslateMixin, TranslationAdmin):
         'background_theme', 'difficulty', 'estimated_duration',
         'get_challenge_count', 'get_reward_count'
     )
+    list_select_related = ["journey"]
     list_filter = ('difficulty', 'background_theme', 'journey')
     search_fields = ('title', 'theme', 'story_introduction', 'journey__journey_name')
     readonly_fields = ('get_challenge_count', 'get_reward_count')
@@ -209,6 +211,7 @@ class JourneyChallengeAdmin(AutoTranslateMixin, TranslationAdmin):
         'get_chapter_display', 'challenge_order', 'challenge_type',
         'get_question_preview', 'points_awarded', 'has_hints'
     )
+    list_select_related = ["chapter"]
     list_filter = ('challenge_type', 'chapter__journey', 'chapter__chapter_number')
     search_fields = ('question', 'correct_answer', 'success_message')
     ordering = ['chapter__chapter_number', 'challenge_order']
@@ -264,6 +267,7 @@ class JourneyRewardAdmin(AutoTranslateMixin, TranslationAdmin):
         'get_chapter_display', 'title', 'reward_type',
         'has_photo', 'has_audio', 'has_video'
     )
+    list_select_related = ["chapter"]
     list_filter = ('reward_type', 'chapter__journey', 'chapter__chapter_number')
     search_fields = ('title', 'message')
     ordering = ['chapter__chapter_number']
@@ -317,6 +321,7 @@ class JourneyProgressAdmin(admin.ModelAdmin):
         'get_completion_pct', 'total_points', 'get_time_spent',
         'is_completed', 'final_response', 'last_activity'
     )
+    list_select_related = ["user", "journey"]
     list_filter = ('is_completed', 'final_response', 'started_at', 'completed_at')
     search_fields = (
         'user__username', 'user__email', 'user__first_name', 'user__last_name',
@@ -389,6 +394,7 @@ class ChapterProgressAdmin(admin.ModelAdmin):
         'get_user', 'get_chapter_display', 'is_completed',
         'points_earned', 'get_time_spent', 'started_at', 'completed_at'
     )
+    list_select_related = ["journey_progress__user", "chapter"]
     list_filter = ('is_completed', 'chapter__chapter_number', 'started_at', 'completed_at')
     search_fields = (
         'journey_progress__user__username',
@@ -437,6 +443,7 @@ class ChallengeAttemptAdmin(admin.ModelAdmin):
         'get_user', 'get_chapter', 'get_challenge_display', 'is_correct',
         'points_earned', 'get_hints_count', 'attempted_at'
     )
+    list_select_related = ["chapter_progress__journey_progress__user", "chapter_progress__chapter", "challenge"]
     list_filter = (
         'is_correct', 'attempted_at', 'challenge__challenge_type',
         'challenge__chapter__chapter_number'
@@ -540,6 +547,7 @@ class RewardProgressAdmin(admin.ModelAdmin):
         'get_user', 'get_reward', 'get_pieces_unlocked',
         'points_spent', 'is_completed', 'started_at'
     )
+    list_select_related = ["journey_progress__user", "reward"]
     list_filter = ('is_completed', 'reward__reward_type', 'started_at')
     search_fields = (
         'journey_progress__user__username',
@@ -573,6 +581,7 @@ class JourneyGiftAdmin(admin.ModelAdmin):
         'gift_code', 'get_sender', 'recipient_name', 'status',
         'has_media_icon', 'get_claimed_by', 'created_at', 'claimed_at'
     )
+    list_select_related = ["sender", "claimed_by"]
     list_filter = ('status', 'created_at', 'claimed_at')
     search_fields = (
         'gift_code', 'sender__username', 'sender__email',

@@ -4,6 +4,7 @@ Profile creation views with step-by-step saving
 
 from django.shortcuts import render, redirect
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.views.decorators.http import require_http_methods
 from django.template.loader import render_to_string
@@ -416,8 +417,14 @@ def upload_photo_draft(request):
         # Get or create profile
         profile, created = CrushProfile.objects.get_or_create(user=request.user)
 
-        # Process image: fix orientation, strip EXIF metadata, resize
-        photo_file = process_uploaded_image(photo_file)
+        # Process image: fix orientation, strip EXIF metadata, resize.
+        # Rejects oversized files before decoding (see MAX_UPLOAD_BYTES).
+        try:
+            photo_file = process_uploaded_image(photo_file)
+        except ValidationError as e:
+            return JsonResponse(
+                {"success": False, "error": " ".join(e.messages)}, status=400
+            )
 
         # Save photo to the appropriate field
         photo_field = f"photo_{photo_number}"

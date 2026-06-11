@@ -65,6 +65,7 @@ class AdventCalendarAdmin(admin.ModelAdmin):
         'get_door_count', 'get_progress_count',
         'is_december_active', 'created_at'
     )
+    list_select_related = ["journey__special_experience"]
     list_filter = ('year', 'created_at')
     search_fields = (
         'calendar_title', 'calendar_description',
@@ -176,6 +177,7 @@ class AdventDoorAdmin(admin.ModelAdmin):
         'get_door_display', 'calendar', 'content_type', 'get_challenge_type_display',
         'qr_mode', 'has_content', 'has_qr_tokens', 'door_color'
     )
+    list_select_related = ["calendar"]
     list_filter = ('content_type', 'challenge_type', 'qr_mode', 'calendar', 'door_number')
     search_fields = ('teaser_text', 'calendar__calendar_title')
     readonly_fields = ('has_content', 'has_qr_tokens')
@@ -250,6 +252,7 @@ class AdventDoorContentAdmin(admin.ModelAdmin):
         'get_door_display', 'get_calendar', 'get_content_type', 'has_title',
         'has_challenge', 'has_bonus', 'has_media'
     )
+    list_select_related = ["door", "door__calendar"]
     list_filter = ('door__content_type', 'door__challenge_type', 'door__calendar')
     search_fields = ('title', 'message', 'challenge_question', 'bonus_content', 'door__calendar__calendar_title')
 
@@ -345,6 +348,7 @@ class AdventProgressAdmin(admin.ModelAdmin):
         'user', 'calendar', 'get_doors_opened', 'get_qr_scans',
         'completion_percentage', 'first_visit', 'last_visit'
     )
+    list_select_related = ["user", "calendar"]
     list_filter = ('calendar', 'first_visit', 'last_visit')
     search_fields = ('user__username', 'user__email', 'calendar__calendar_title')
     readonly_fields = ('first_visit', 'last_visit', 'completion_percentage')
@@ -383,6 +387,7 @@ class QRCodeTokenAdmin(admin.ModelAdmin):
         'get_door_display', 'user', 'get_token_short',
         'is_used', 'used_at', 'is_valid_display', 'expires_at', 'created_at'
     )
+    list_select_related = ["door", "user"]
     list_filter = ('is_used', 'door__calendar', 'door__door_number', 'created_at')
     search_fields = (
         'token', 'user__username', 'user__email',
