@@ -24,10 +24,22 @@ class CrushConnectMembershipAdmin(admin.ModelAdmin):
         "user__username",
         "exclusion_reason",
     ]
-    raw_id_fields = ["user", "excluded_by"]
+    raw_id_fields = ["user", "excluded_by", "story_prompt", "story_prompt_2"]
     readonly_fields = ["created_at", "updated_at"]
     fieldsets = (
         (None, {"fields": ("user", "onboarded_at")}),
+        (
+            _("Onboarding — Intent"),
+            {"fields": ("relationship_goal",)},
+        ),
+        (
+            _("Onboarding — Lifestyle"),
+            {"fields": ("lifestyle_energy", "lifestyle_social", "lifestyle_pace")},
+        ),
+        (
+            _("Story"),
+            {"fields": ("story_prompt", "story_answer", "story_prompt_2", "story_answer_2")},
+        ),
         (
             _("Coach exclusion (panic button)"),
             {
