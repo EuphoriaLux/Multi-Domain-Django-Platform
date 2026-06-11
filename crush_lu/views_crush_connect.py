@@ -172,7 +172,8 @@ def crush_connect_onboarding(request):
             obj.onboarded_at = timezone.now()
             obj.save()
 
-            # Persist ideal-match preferences back onto CrushProfile
+            # Persist ideal-match preferences back onto CrushProfile —
+            # everything _preferences_fields.html posts, not just a subset.
             if profile is not None:
                 valid_genders = dict(CrushProfile.GENDER_CHOICES).keys()
                 profile.preferred_genders = [
@@ -184,7 +185,27 @@ def crush_connect_onboarding(request):
                     profile.preferred_age_max = int(request.POST.get("preferred_age_max", 99))
                 except (ValueError, TypeError):
                     pass
-                profile.save(update_fields=["preferred_age_min", "preferred_age_max", "preferred_genders"])
+                if profile.preferred_age_min > profile.preferred_age_max:
+                    profile.preferred_age_min, profile.preferred_age_max = (
+                        profile.preferred_age_max,
+                        profile.preferred_age_min,
+                    )
+                # Radio may be absent when the user picked nothing — keep the
+                # stored value in that case.
+                first_step = request.POST.get("first_step_preference", "")
+                if first_step in dict(CrushProfile.FIRST_STEP_CHOICES):
+                    profile.first_step_preference = first_step
+                # The astro toggle posts "true"/"false" via a hidden input.
+                astro_raw = request.POST.get("astro_enabled")
+                if astro_raw is not None:
+                    profile.astro_enabled = astro_raw == "true"
+                profile.save(update_fields=[
+                    "preferred_age_min",
+                    "preferred_age_max",
+                    "preferred_genders",
+                    "first_step_preference",
+                    "astro_enabled",
+                ])
                 ids_raw = request.POST.get("sought_qualities_ids", "")
                 if ids_raw:
                     ids = [int(i) for i in ids_raw.split(",") if i.strip().isdigit()]
