@@ -278,7 +278,7 @@
                                      x-transition:leave-start="opacity-100 scale-100"
                                      x-transition:leave-end="opacity-0 scale-95"
                                      x-cloak
-                                     class="dropdown-menu">
+                                     class="dropdown-menu max-h-[60vh] overflow-y-auto">
                                     <a class="dropdown-item" href="{% url 'crush_lu:coach_dashboard' %}">
                                         {% include "shared/icons/chart-bar.html" with class="w-4 h-4 inline mr-2" only %}
                                         {% trans "Dashboard" %}
