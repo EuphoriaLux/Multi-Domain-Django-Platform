@@ -12822,6 +12822,11 @@ msgstr ""
 msgid "Coach Settings"
 msgstr ""
 
+#: .\crush_lu\templates\crush_lu\base.html
+#: .\crush_lu\templates\crush_lu\coach_dashboard.html
+msgid "Coach Picks"
+msgstr ""
+
 #: .\crush_lu\templates\crush_lu\coach_settings.html:11
 msgid ""
 "How you want the Hybrid Coach Review System to route submissions to you."
