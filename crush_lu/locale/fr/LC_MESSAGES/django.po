@@ -26810,11 +26810,11 @@ msgstr "Viens à un événement"
 
 #: .\crush_lu\templates\crush_lu\partials\_verification_options.html:54
 msgid ""
-"Meet us in person — a coach will verify you on the spot. No LuxID needed, "
-"and you start meeting people right away."
+"Meet us in person — our team verifies you on the spot. No LuxID needed, and "
+"you start meeting people right away."
 msgstr ""
-"Rencontre-nous en personne — un coach te vérifie sur place. Pas besoin de "
-"LuxID, et tu rencontres des gens tout de suite."
+"Rencontre-nous en personne — notre équipe te vérifie sur place. Pas besoin "
+"de LuxID, et tu rencontres des gens tout de suite."
 
 #: .\crush_lu\templates\crush_lu\partials\_verification_options.html:66
 msgid "LuxID"
@@ -34429,6 +34429,9 @@ msgstr "Étape 3 sur 5 - Ajoute tes photos"
 #| msgid "Step 4 of 4 - Review and submit"
 msgid "Step 5 of 5 - Review and submit"
 msgstr "Étape 5 sur 5 - Vérifie et soumets"
+
+msgid "Coach Verification · Premium"
+msgstr "Vérification par un coach · Premium"
 
 #~ msgid "Approved profile required"
 #~ msgstr "Profil approuvé requis"
