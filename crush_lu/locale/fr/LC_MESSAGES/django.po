@@ -16315,6 +16315,11 @@ msgstr "Aucune session de coaching enregistrée pour le moment."
 msgid "Coach Settings"
 msgstr "Paramètres du coach"
 
+#: .\templates\crush_lu\base.html
+#: .\templates\crush_lu\coach_dashboard.html
+msgid "Coach Picks"
+msgstr "Sélections du coach"
+
 #: .\templates\crush_lu\coach_settings.html:11
 msgid ""
 "How you want the Hybrid Coach Review System to route submissions to you."
