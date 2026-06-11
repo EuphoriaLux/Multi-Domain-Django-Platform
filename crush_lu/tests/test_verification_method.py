@@ -99,11 +99,15 @@ class VerificationJourneyRenderTests(SiteTestMixin, TestCase):
 
     def _render(self, profile, **ctx):
         from django.template.loader import render_to_string
+        from django.utils import translation
 
-        return render_to_string(
-            "crush_lu/partials/_verification_journey.html",
-            {"profile": profile, **ctx},
-        )
+        # Pin English: render_to_string uses the worker's active language,
+        # and tests that hit /de/ URLs earlier in the run leave 'de' active.
+        with translation.override("en"):
+            return render_to_string(
+                "crush_lu/partials/_verification_journey.html",
+                {"profile": profile, **ctx},
+            )
 
     def setUp(self):
         from crush_lu.models import CrushProfile
