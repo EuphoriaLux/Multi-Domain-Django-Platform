@@ -283,6 +283,12 @@
                                         {% include "shared/icons/chart-bar.html" with class="w-4 h-4 inline mr-2" only %}
                                         {% trans "Dashboard" %}
                                     </a>
+                                    <div class="dropdown-divider"></div>
+                                    <span class="block px-4 pt-1 pb-0.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{% trans "Review" %}</span>
+                                    <a class="dropdown-item" href="{% url 'crush_lu:coach_action_queue' %}">
+                                        {% include "shared/icons/inbox.html" with class="w-4 h-4 inline mr-2" %}
+                                        {% trans "Inbox" %}
+                                    </a>
                                     <a class="dropdown-item" href="{% url 'crush_lu:coach_profiles' %}">
                                         {% include "shared/icons/clipboard.html" with class="w-4 h-4 inline mr-2" %}
                                         {% trans "Profile Queue" %}
@@ -290,28 +296,59 @@
                                             <span class="badge badge-warning ml-2">{{ pending_screening_count }}</span>
                                         {% endif %}
                                     </a>
-                                    <a class="dropdown-item" href="{% url 'crush_lu:coach_verification_history' %}">
-                                        {% include "shared/icons/clipboard-document-check.html" with class="w-4 h-4 inline mr-2" %}
-                                        {% trans "Verification History" %}
-                                    </a>
-                                    <a class="dropdown-item" href="{% url 'crush_lu:coach_journey_dashboard' %}">
-                                        {% include "shared/icons/map-pin.html" with class="w-4 h-4 inline mr-2" %}
-                                        {% trans "Journey Management" %}
-                                    </a>
-                                    <div class="dropdown-divider"></div>
-                                    <a class="dropdown-item" href="{% url 'crush_lu:coach_sessions' %}">
-                                        {% include "shared/icons/chat-bubble-left-right.html" with class="w-4 h-4 inline mr-2" %}
-                                        {% trans "Coach Sessions" %}
-                                    </a>
-                                    <a class="dropdown-item" href="{% url 'crush_lu:coach_event_list' %}">
-                                        {% include "shared/icons/calendar.html" with class="w-4 h-4 inline mr-2" %}
-                                        {% trans "Manage Events" %}
+                                    <a class="dropdown-item" href="{% url 'crush_lu:coach_connections' %}">
+                                        {% include "shared/icons/heart.html" with class="w-4 h-4 inline mr-2" %}
+                                        {% trans "Connections" %}
                                     </a>
                                     <a class="dropdown-item" href="{% url 'crush_lu:coach_spark_list' %}">
                                         <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-4 h-4 inline mr-2">
                                         {% trans "Crush Sparks" %}
                                     </a>
                                     <div class="dropdown-divider"></div>
+                                    <span class="block px-4 pt-1 pb-0.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{% trans "People" %}</span>
+                                    <a class="dropdown-item" href="{% url 'crush_lu:coach_members' %}">
+                                        {% include "shared/icons/users.html" with class="w-4 h-4 inline mr-2" %}
+                                        {% trans "Members" %}
+                                    </a>
+                                    <a class="dropdown-item" href="{% url 'crush_lu:coach_match_pairs' %}">
+                                        {% include "shared/icons/sparkles.html" with class="w-4 h-4 inline mr-2" %}
+                                        {% trans "Match Pairs" %}
+                                    </a>
+                                    <a class="dropdown-item" href="{% url 'crush_lu:coach_connect_members' %}">
+                                        {% include "shared/icons/user-check.html" with class="w-4 h-4 inline mr-2" %}
+                                        {% trans "Coach Picks" %}
+                                    </a>
+                                    <a class="dropdown-item" href="{% url 'crush_lu:coach_verification_channel' %}">
+                                        {% include "shared/icons/inbox.html" with class="w-4 h-4 inline mr-2" %}
+                                        {% trans "Verification Channel" %}
+                                    </a>
+                                    <a class="dropdown-item" href="{% url 'crush_lu:coach_verification_history' %}">
+                                        {% include "shared/icons/clipboard-document-check.html" with class="w-4 h-4 inline mr-2" %}
+                                        {% trans "Verification History" %}
+                                    </a>
+                                    <a class="dropdown-item" href="{% url 'crush_lu:coach_team_stats' %}">
+                                        {% include "shared/icons/users.html" with class="w-4 h-4 inline mr-2" %}
+                                        {% trans "Team Stats" %}
+                                    </a>
+                                    <div class="dropdown-divider"></div>
+                                    <span class="block px-4 pt-1 pb-0.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{% trans "Activities" %}</span>
+                                    <a class="dropdown-item" href="{% url 'crush_lu:coach_event_list' %}">
+                                        {% include "shared/icons/calendar.html" with class="w-4 h-4 inline mr-2" %}
+                                        {% trans "Manage Events" %}
+                                    </a>
+                                    <a class="dropdown-item" href="{% url 'crush_lu:coach_journey_dashboard' %}">
+                                        {% include "shared/icons/map-pin.html" with class="w-4 h-4 inline mr-2" %}
+                                        {% trans "Journey Management" %}
+                                    </a>
+                                    <a class="dropdown-item" href="{% url 'crush_lu:coach_sessions' %}">
+                                        {% include "shared/icons/chat-bubble-left-right.html" with class="w-4 h-4 inline mr-2" %}
+                                        {% trans "Coach Sessions" %}
+                                    </a>
+                                    <div class="dropdown-divider"></div>
+                                    <a class="dropdown-item" href="{% url 'crush_lu:coach_settings' %}">
+                                        {% include "shared/icons/cog.html" with class="w-4 h-4 inline mr-2" %}
+                                        {% trans "Coach Settings" %}
+                                    </a>
                                     <a class="dropdown-item" href="{% url 'crush_lu:coach_edit_profile' %}">
                                         {% include "shared/icons/user-circle.html" with class="w-4 h-4 inline mr-2" %}
                                         {% trans "Edit Coach Profile" %}
@@ -776,6 +813,10 @@
                                 {% include "shared/icons/chart-bar.html" with class="w-4 h-4 inline mr-2" only %}
                                 {% trans "Dashboard" %}
                             </a>
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_action_queue' %}">
+                                {% include "shared/icons/inbox.html" with class="w-4 h-4 inline mr-2" %}
+                                {% trans "Inbox" %}
+                            </a>
                             <a class="nav-link block" href="{% url 'crush_lu:coach_profiles' %}">
                                 {% include "shared/icons/clipboard.html" with class="w-4 h-4 inline mr-2" %}
                                 {% trans "Profile Queue" %}
@@ -783,25 +824,53 @@
                                     <span class="badge badge-warning ml-1">{{ pending_screening_count }}</span>
                                 {% endif %}
                             </a>
-                            <a class="nav-link block" href="{% url 'crush_lu:coach_sessions' %}">
-                                {% include "shared/icons/chat-bubble-left-right.html" with class="w-4 h-4 inline mr-2" %}
-                                {% trans "Coach Sessions" %}
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_connections' %}">
+                                {% include "shared/icons/heart.html" with class="w-4 h-4 inline mr-2" %}
+                                {% trans "Connections" %}
                             </a>
-                            <a class="nav-link block" href="{% url 'crush_lu:coach_event_list' %}">
-                                {% include "shared/icons/calendar.html" with class="w-4 h-4 inline mr-2" %}
-                                {% trans "Manage Events" %}
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_spark_list' %}">
+                                <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-4 h-4 inline mr-2">
+                                {% trans "Crush Sparks" %}
+                            </a>
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_members' %}">
+                                {% include "shared/icons/users.html" with class="w-4 h-4 inline mr-2" %}
+                                {% trans "Members" %}
+                            </a>
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_match_pairs' %}">
+                                {% include "shared/icons/sparkles.html" with class="w-4 h-4 inline mr-2" %}
+                                {% trans "Match Pairs" %}
+                            </a>
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_connect_members' %}">
+                                {% include "shared/icons/user-check.html" with class="w-4 h-4 inline mr-2" %}
+                                {% trans "Coach Picks" %}
+                            </a>
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_verification_channel' %}">
+                                {% include "shared/icons/inbox.html" with class="w-4 h-4 inline mr-2" %}
+                                {% trans "Verification Channel" %}
                             </a>
                             <a class="nav-link block" href="{% url 'crush_lu:coach_verification_history' %}">
                                 {% include "shared/icons/clipboard-document-check.html" with class="w-4 h-4 inline mr-2" %}
                                 {% trans "Verification History" %}
                             </a>
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_team_stats' %}">
+                                {% include "shared/icons/users.html" with class="w-4 h-4 inline mr-2" %}
+                                {% trans "Team Stats" %}
+                            </a>
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_event_list' %}">
+                                {% include "shared/icons/calendar.html" with class="w-4 h-4 inline mr-2" %}
+                                {% trans "Manage Events" %}
+                            </a>
                             <a class="nav-link block" href="{% url 'crush_lu:coach_journey_dashboard' %}">
                                 {% include "shared/icons/map-pin.html" with class="w-4 h-4 inline mr-2" %}
                                 {% trans "Journey Management" %}
                             </a>
-                            <a class="nav-link block" href="{% url 'crush_lu:coach_spark_list' %}">
-                                <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-4 h-4 inline mr-2">
-                                {% trans "Crush Sparks" %}
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_sessions' %}">
+                                {% include "shared/icons/chat-bubble-left-right.html" with class="w-4 h-4 inline mr-2" %}
+                                {% trans "Coach Sessions" %}
+                            </a>
+                            <a class="nav-link block" href="{% url 'crush_lu:coach_settings' %}">
+                                {% include "shared/icons/cog.html" with class="w-4 h-4 inline mr-2" %}
+                                {% trans "Coach Settings" %}
                             </a>
                             <a class="nav-link block" href="{% url 'crush_lu:coach_edit_profile' %}">
                                 {% include "shared/icons/user-circle.html" with class="w-4 h-4 inline mr-2" %}

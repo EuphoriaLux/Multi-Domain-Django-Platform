@@ -16291,6 +16291,11 @@ msgstr "Es wurden noch keine Coaching-Sitzungen aufgezeichnet."
 msgid "Coach Settings"
 msgstr "Coach-Einstellungen"
 
+#: .\templates\crush_lu\base.html
+#: .\templates\crush_lu\coach_dashboard.html
+msgid "Coach Picks"
+msgstr "Coach-Auswahl"
+
 #: .\templates\crush_lu\coach_settings.html:11
 msgid ""
 "How you want the Hybrid Coach Review System to route submissions to you."
