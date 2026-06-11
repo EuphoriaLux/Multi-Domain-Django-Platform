@@ -33968,11 +33968,14 @@ msgstr ""
 "bei einem Einstiegs-Event oder mit LuxID."
 
 msgid ""
-"Meet us in person — a coach will verify you on the spot. No LuxID needed, "
-"and you start meeting people right away."
+"Meet us in person — our team verifies you on the spot. No LuxID needed, and "
+"you start meeting people right away."
 msgstr ""
-"Triff uns persönlich — ein Coach verifiziert dich direkt vor Ort. Kein LuxID"
-" nötig, und du lernst sofort Leute kennen."
+"Triff uns persönlich — unser Team verifiziert dich direkt vor Ort. Kein "
+"LuxID nötig, und du lernst sofort Leute kennen."
+
+msgid "Coach Verification · Premium"
+msgstr "Coach-Verifizierung · Premium"
 
 msgid "Not available right now — come to an event to get verified instead."
 msgstr ""

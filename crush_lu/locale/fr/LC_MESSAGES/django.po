@@ -33876,11 +33876,14 @@ msgstr ""
 "lors d'un événement d'accueil ou avec LuxID."
 
 msgid ""
-"Meet us in person — a coach will verify you on the spot. No LuxID needed, "
-"and you start meeting people right away."
+"Meet us in person — our team verifies you on the spot. No LuxID needed, and "
+"you start meeting people right away."
 msgstr ""
-"Rencontre-nous en personne — un coach te vérifie sur place. Pas besoin de "
-"LuxID, et tu rencontres des gens tout de suite."
+"Rencontre-nous en personne — notre équipe te vérifie sur place. Pas besoin "
+"de LuxID, et tu rencontres des gens tout de suite."
+
+msgid "Coach Verification · Premium"
+msgstr "Vérification par un coach · Premium"
 
 msgid "Not available right now — come to an event to get verified instead."
 msgstr ""
