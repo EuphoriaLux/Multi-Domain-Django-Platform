@@ -115,6 +115,21 @@ class AdminChangelistSmokeTests(SiteTestMixin, TestCase):
                 f"EventFeedback.{field} should be read-only in the admin",
             )
 
+    def test_consent_audit_admin_is_fully_read_only(self):
+        """The GDPR audit surface must not allow editing any consent state."""
+        model_admin = crush_admin_site._registry[UserDataConsent]
+        editable_fields = [
+            f.name
+            for f in UserDataConsent._meta.fields
+            if f.editable and f.name != "id"
+        ]
+        for field in editable_fields:
+            self.assertIn(
+                field,
+                model_admin.readonly_fields,
+                f"UserDataConsent.{field} should be read-only in the admin",
+            )
+
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
 class EventRegistrationChangelistQueryTests(SiteTestMixin, TestCase):

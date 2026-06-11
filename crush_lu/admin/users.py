@@ -328,12 +328,23 @@ class UserDataConsentAdmin(admin.ModelAdmin):
         "crushlu_ban_reason",
     )
     search_fields = ("user__username", "user__email")
+    # Fully read-only audit surface: consent state is written by the
+    # signup/profile flows and bans are managed via the CrushProfileAdmin
+    # ban/unban actions — nothing here should be hand-edited.
     readonly_fields = (
         "user",
+        "powerup_consent_given",
         "powerup_consent_date",
         "powerup_consent_ip",
+        "powerup_terms_version",
+        "crushlu_consent_given",
         "crushlu_consent_date",
         "crushlu_consent_ip",
+        "crushlu_terms_version",
+        "crushlu_banned",
+        "crushlu_ban_date",
+        "crushlu_ban_reason",
+        "marketing_consent",
         "marketing_consent_date",
         "created_at",
         "updated_at",
