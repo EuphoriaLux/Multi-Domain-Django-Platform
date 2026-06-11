@@ -238,6 +238,7 @@ class QuizEventAdmin(admin.ModelAdmin):
         "tables_generated_at",
         "created_at",
     )
+    list_select_related = ["event", "current_round", "created_by"]
     list_filter = ("status",)
     inlines = [QuizRoundInline, QuizRotationScheduleInline]
     raw_id_fields = ("event", "created_by", "current_round")
@@ -289,17 +290,20 @@ class QuizEventAdmin(admin.ModelAdmin):
 
 class QuizRoundAdmin(AutoTranslateMixin, TranslationAdmin):
     list_display = ("title", "quiz", "sort_order", "time_per_question", "is_bonus")
+    list_select_related = ["quiz__event"]
     list_filter = ("quiz__event", "is_bonus")
     inlines = [QuizQuestionInline]
 
 
 class QuizQuestionAdmin(AutoTranslateMixin, TranslationAdmin):
     list_display = ("text", "round", "question_type", "points", "sort_order")
+    list_select_related = ["round__quiz__event"]
     list_filter = ("question_type", "round__quiz__event")
 
 
 class QuizTableAdmin(admin.ModelAdmin):
     list_display = ("table_number", "quiz", "member_count")
+    list_select_related = ["quiz__event"]
     list_filter = ("quiz__event",)
     inlines = [QuizTableMembershipInline]
 
@@ -311,6 +315,7 @@ class QuizTableAdmin(admin.ModelAdmin):
 
 class TableRoundScoreAdmin(admin.ModelAdmin):
     list_display = ("table", "question", "is_correct", "scored_at")
+    list_select_related = ["table__quiz__event", "question"]
     list_filter = ("is_correct", "quiz__event")
     raw_id_fields = ("quiz", "table", "question")
     readonly_fields = ("scored_at",)
@@ -325,6 +330,7 @@ class IndividualScoreAdmin(admin.ModelAdmin):
         "points_earned",
         "answered_at",
     )
+    list_select_related = ["user", "quiz__event", "question"]
     list_filter = ("is_correct", "quiz__event")
     raw_id_fields = ("user", "quiz", "question")
     readonly_fields = ("answered_at",)

@@ -15,6 +15,7 @@ class CrushConnectMembershipAdmin(admin.ModelAdmin):
         "excluded_at",
         "updated_at",
     ]
+    list_select_related = ["user"]
     list_filter = ["excluded_by_coach", "onboarded_at"]
     list_editable = ["excluded_by_coach"]
     search_fields = [
@@ -73,6 +74,7 @@ class ConnectDailyDropAdmin(admin.ModelAdmin):
         "recipient_count",
         "created_at",
     ]
+    list_select_related = ["user"]
     list_filter = ["drop_date"]
     search_fields = [
         "user__email",
@@ -146,6 +148,7 @@ class CrushConnectWaitlistAdmin(admin.ModelAdmin):
         "payment_confirmed",
         "payment_date",
     ]
+    list_select_related = ["user"]
     list_filter = [
         "selected_as_tester",
         "payment_confirmed",
@@ -258,6 +261,7 @@ class CuriositySparkAdmin(admin.ModelAdmin):
         "created_at",
         "responded_at",
     )
+    list_select_related = ["sender", "recipient"]
     list_filter = ("status", "created_at")
     search_fields = (
         "sender__username",
@@ -274,6 +278,7 @@ class ConnectCoachPickAdmin(admin.ModelAdmin):
     """Oversight for coach-curated match proposals (M7)."""
 
     list_display = ("coach", "member", "candidate", "status", "created_at", "responded_at")
+    list_select_related = ["coach__user", "member", "candidate"]
     list_filter = ("status", "created_at")
     search_fields = (
         "member__username", "member__first_name",

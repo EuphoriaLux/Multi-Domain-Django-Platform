@@ -70,6 +70,7 @@ class PatchNoteAdmin(AutoTranslateMixin, TranslationAdmin):
     """Admin for individual patch notes (usually edited inline via release)."""
 
     list_display = ("release", "category", "title", "order", "auto_generated")
+    list_select_related = ["release"]
     list_filter = ("category", "auto_generated", "release__is_published", "release")
     list_editable = ("order",)
     search_fields = ("title", "body", "release__version", "release__title")
