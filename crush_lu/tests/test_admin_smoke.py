@@ -105,30 +105,24 @@ class AdminChangelistSmokeTests(SiteTestMixin, TestCase):
                 f"{model.__name__} admin should not allow manual adds",
             )
 
-    def test_event_feedback_answers_are_read_only(self):
-        """Attendee survey answers must not be editable from the admin."""
-        model_admin = crush_admin_site._registry[EventFeedback]
-        for field in ("nps_score", "would_recommend", "what_worked", "what_to_improve"):
-            self.assertIn(
-                field,
-                model_admin.readonly_fields,
-                f"EventFeedback.{field} should be read-only in the admin",
-            )
+    def test_log_style_admins_are_fully_read_only(self):
+        """App-written audit records must not be editable field by field.
 
-    def test_consent_audit_admin_is_fully_read_only(self):
-        """The GDPR audit surface must not allow editing any consent state."""
-        model_admin = crush_admin_site._registry[UserDataConsent]
-        editable_fields = [
-            f.name
-            for f in UserDataConsent._meta.fields
-            if f.editable and f.name != "id"
-        ]
-        for field in editable_fields:
-            self.assertIn(
-                field,
-                model_admin.readonly_fields,
-                f"UserDataConsent.{field} should be read-only in the admin",
-            )
+        Edits where legitimately needed happen on the workflow's own
+        surfaces (e.g. CallAttemptInline on ProfileSubmission), never on
+        these audit/log changelists.
+        """
+        for model in (EventFeedback, CallAttempt, UserDataConsent, Notification):
+            model_admin = crush_admin_site._registry[model]
+            editable_fields = [
+                f.name for f in model._meta.fields if f.editable and f.name != "id"
+            ]
+            for field in editable_fields:
+                self.assertIn(
+                    field,
+                    model_admin.readonly_fields,
+                    f"{model.__name__}.{field} should be read-only in the admin",
+                )
 
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)

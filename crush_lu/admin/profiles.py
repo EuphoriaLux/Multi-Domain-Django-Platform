@@ -2294,8 +2294,18 @@ class CallAttemptAdmin(admin.ModelAdmin):
         "coach__user__username",
         "notes",
     )
-    readonly_fields = ("attempt_date",)
-    raw_id_fields = ("submission", "profile", "coach", "event")
+    # Fully read-only audit surface: corrections to result/notes happen via
+    # the CallAttemptInline on ProfileSubmission, the workflow's own surface.
+    readonly_fields = (
+        "submission",
+        "profile",
+        "attempt_date",
+        "result",
+        "failure_reason",
+        "notes",
+        "coach",
+        "event",
+    )
     date_hierarchy = "attempt_date"
     list_per_page = 50
 
