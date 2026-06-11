@@ -269,3 +269,8 @@ class NotificationAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         # Notifications are written by NotificationService, never by hand.
         return False
+
+    def has_delete_permission(self, request, obj=None):
+        # Preserve notification history; rows are only removed by
+        # app-level cascades (e.g. account deletion).
+        return False

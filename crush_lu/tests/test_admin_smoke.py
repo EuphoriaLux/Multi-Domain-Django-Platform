@@ -95,14 +95,18 @@ class AdminChangelistSmokeTests(SiteTestMixin, TestCase):
                 model, crush_admin_site._registry, f"{model.__name__} not registered"
             )
 
-    def test_log_style_admins_disallow_add(self):
-        """App-written records must not be creatable by hand in the admin."""
+    def test_log_style_admins_disallow_add_and_delete(self):
+        """App-written records must not be creatable or deletable by hand."""
         request = type("Req", (), {"user": self.superuser})()
         for model in (EventFeedback, CallAttempt, UserDataConsent, Notification):
             model_admin = crush_admin_site._registry[model]
             self.assertFalse(
                 model_admin.has_add_permission(request),
                 f"{model.__name__} admin should not allow manual adds",
+            )
+            self.assertFalse(
+                model_admin.has_delete_permission(request),
+                f"{model.__name__} admin should not allow deletes",
             )
 
     def test_log_style_admins_are_fully_read_only(self):

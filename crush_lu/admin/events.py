@@ -1086,3 +1086,8 @@ class EventFeedbackAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         # Feedback comes from attendees via the post-event survey.
         return False
+
+    def has_delete_permission(self, request, obj=None):
+        # Preserve the survey audit trail; rows are only removed by
+        # app-level cascades (e.g. account deletion).
+        return False

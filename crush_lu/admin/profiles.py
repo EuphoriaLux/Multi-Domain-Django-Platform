@@ -2319,3 +2319,8 @@ class CallAttemptAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         # Attempts are logged by the coach call workflow, not created by hand.
         return False
+
+    def has_delete_permission(self, request, obj=None):
+        # Preserve the verification audit trail (matches CallAttemptInline's
+        # can_delete = False); rows are only removed by app-level cascades.
+        return False

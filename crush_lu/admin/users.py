@@ -374,3 +374,9 @@ class UserDataConsentAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         # Consent records are created by the application, never by hand.
         return False
+
+    def has_delete_permission(self, request, obj=None):
+        # Deleting a consent row would erase the GDPR audit trail and the
+        # crushlu_banned flag (effectively lifting a ban). Rows are only
+        # removed by app-level cascades (e.g. account deletion).
+        return False
