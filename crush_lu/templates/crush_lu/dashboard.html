@@ -83,6 +83,25 @@
 
 {% comment %}Verified but NOT premium → show the 3 products (upsell to Premium / Crush Connect).{% endcomment %}
 {% if profile.verification_status == 'verified' and not is_premium %}
+
+{% if not has_luxid_connected %}
+{# LuxID catalogue prompt — verified via coach/admin, but not selectable in Crush Connect until LuxID is linked #}
+<div class="flex items-center gap-3 mb-5 p-4 rounded-xl border border-indigo-200 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20">
+    <div class="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center flex-shrink-0">
+        {% include "shared/icons/shield-check.html" with class="w-5 h-5 text-indigo-600 dark:text-indigo-400" %}
+    </div>
+    <div class="flex-1 min-w-0">
+        <p class="font-semibold text-indigo-900 dark:text-indigo-200 text-sm mb-0">{% trans "Connect LuxID to join the Crush Connect catalogue" %}</p>
+        <p class="text-indigo-700 dark:text-indigo-400 text-xs mb-0">{% trans "LuxID-verified members can be hand-picked by a Crush Coach as a match for Premium members — free, no subscription needed." %}</p>
+    </div>
+    {% if luxid_connect_url %}
+    <a href="{{ luxid_connect_url }}" class="flex-shrink-0 inline-flex items-center gap-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 px-3 py-2 text-xs font-semibold text-white no-underline transition-colors">
+        {% trans "Connect LuxID" %}
+    </a>
+    {% endif %}
+</div>
+{% endif %}
+
 {% include "crush_lu/partials/_products.html" with is_premium=is_premium has_attended_event=has_attended_event next_event=next_event %}
 {% endif %}
 
@@ -219,7 +238,7 @@
 
         {% if profile.verification_status == 'verified' and not is_premium %}
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            {% trans "Go Premium at any event to get a personal coach and unlock Crush Connect — weekly curated matches." %}
+            {% trans "Join the Crush Connect beta — 4 coach-curated matches over 4 weeks, free for the first month. We're recruiting 20 testers." %}
         </p>
         {% endif %}
 

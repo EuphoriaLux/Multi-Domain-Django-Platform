@@ -1,0 +1,33 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "You're in the Crush Connect catalogue" %} - Crush.lu{% endblock %}
+
+{% block header_title %}{% trans "You're in the catalogue!" %} ✨{% endblock %}
+
+{% block content %}
+<h2>{% blocktrans with first_name=first_name %}Great news, {{ first_name }}!{% endblocktrans %}</h2>
+
+<p><strong>{% trans "You're now in the Crush Connect catalogue." %}</strong> {% trans "Your LuxID is verified and your story is live — a Crush Coach can now hand-pick you as a match for a Premium member." %}</p>
+
+<p><strong>{% trans "What this means:" %}</strong></p>
+<ul>
+    <li>{% trans "A real Crush Coach — not an algorithm — may introduce you to a Premium member as a curated match" %}</li>
+    <li>{% trans "Your full name and exact age are never shown; photos stay blurred until there's mutual interest" %}</li>
+    <li>{% trans "We'll let you know the moment a coach picks you" %}</li>
+</ul>
+
+<div class="info-box">
+    <strong>{% trans "Want your own coach-curated matches?" %}</strong>
+    <p>{% trans "With Premium, a personal Crush Coach picks matches for you — delivered in your own weekly Drop." %}</p>
+</div>
+
+<a href="{{ premium_url }}" class="button">{% trans "Discover Premium" %}</a>
+
+<p>{% blocktrans %}You can review your story or leave the catalogue anytime from your <a href="{{ dashboard_url }}">dashboard</a>.{% endblocktrans %}</p>
+
+<p>
+    {% trans "Cheers," %}<br>
+    <strong>{% trans "The Crush.lu Team" %}</strong>
+</p>
+{% endblock %}

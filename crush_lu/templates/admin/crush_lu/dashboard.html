@@ -151,7 +151,7 @@
                 <div class="metric-value">{{ upcoming_events }}</div>
                 <div class="metric-subtitle">{% blocktrans with count=total_events %}{{ count }} total{% endblocktrans %}</div>
             </a>
-            <a href="{% url 'crush_admin:crush_lu_eventconnection_changelist' %}?status__exact=mutual" class="metric-card pink">
+            <a href="{% url 'crush_admin:crush_lu_eventconnection_changelist' %}?status__exact=shared" class="metric-card pink">
                 <span class="metric-icon">&#x1F495;</span>
                 <div class="metric-label">{% trans "Connections" %}</div>
                 <div class="metric-value">{{ mutual_connections }}</div>
@@ -742,7 +742,7 @@
     </div>
 
         <div class="tab-panel" :class="eventsTabClass" x-show="isEvents">
-        {# Event Metrics #}
+        {# Event Metrics — top KPI grid #}
         <div class="metric-grid">
             <div class="metric-card blue">
                 <span class="metric-icon">&#x1F4C5;</span>
@@ -762,11 +762,29 @@
                 <div class="metric-value">&#x20AC;{{ total_revenue }}</div>
                 <div class="metric-subtitle">{% trans "From confirmed payments" %}</div>
             </div>
+            <div class="metric-card teal">
+                <span class="metric-icon">&#x1F4C8;</span>
+                <div class="metric-label">{% trans "Avg Fill Rate" %}</div>
+                <div class="metric-value">{{ avg_fill_rate }}%</div>
+                <div class="metric-subtitle">{% trans "Of capacity (past events)" %}</div>
+            </div>
             <div class="metric-card pink">
                 <span class="metric-icon">&#x1F4CA;</span>
                 <div class="metric-label">{% trans "Attendance Rate" %}</div>
                 <div class="metric-value">{{ attendance_rate }}%</div>
                 <div class="metric-subtitle">{% trans "Show-up rate" %}</div>
+            </div>
+            <div class="metric-card red">
+                <span class="metric-icon">&#x1F6AB;</span>
+                <div class="metric-label">{% trans "No-show Rate" %}</div>
+                <div class="metric-value">{{ no_show_rate }}%</div>
+                <div class="metric-subtitle">{% blocktrans with count=no_show_count %}{{ count }} no-shows{% endblocktrans %}</div>
+            </div>
+            <div class="metric-card orange">
+                <span class="metric-icon">&#x23F3;</span>
+                <div class="metric-label">{% trans "Waitlisted" %}</div>
+                <div class="metric-value">{{ waitlist_count }}</div>
+                <div class="metric-subtitle">{% trans "Currently on waitlist" %}</div>
             </div>
             <div class="metric-card orange">
                 <span class="metric-icon">&#x1F4C1;</span>
@@ -776,29 +794,122 @@
             </div>
         </div>
 
-        {# Popular Events #}
+        {# Registration Funnel #}
+        {% if total_registrations > 0 %}
         <div class="table-container">
-            <h3>{% trans "Most Popular Events" %}</h3>
+            <h3>{% trans "Registration Funnel" %}</h3>
+            <table class="stats-table">
+                <thead>
+                    <tr>
+                        <th>{% trans "Confirmed" %}</th>
+                        <th>{% trans "Attended" %}</th>
+                        <th>{% trans "Waitlisted" %}</th>
+                        <th>{% trans "No-shows" %}</th>
+                        <th>{% trans "Cancelled" %}</th>
+                        <th>{% trans "Pending" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <strong>{{ confirmed_registrations }}</strong>
+                            <div style="font-size:11px;color:var(--text-muted);">{% widthratio confirmed_registrations total_registrations 100 %}%</div>
+                        </td>
+                        <td>
+                            <strong>{{ reg_status_counts.attended }}</strong>
+                            <div style="font-size:11px;color:var(--text-muted);">{% widthratio reg_status_counts.attended total_registrations 100 %}%</div>
+                        </td>
+                        <td>
+                            <strong>{{ waitlist_count }}</strong>
+                            <div style="font-size:11px;color:var(--text-muted);">{% widthratio waitlist_count total_registrations 100 %}%</div>
+                        </td>
+                        <td>
+                            <strong>{{ no_show_count }}</strong>
+                            <div style="font-size:11px;color:var(--text-muted);">{% widthratio no_show_count total_registrations 100 %}%</div>
+                        </td>
+                        <td>
+                            <strong>{{ cancelled_count }}</strong>
+                            <div style="font-size:11px;color:var(--text-muted);">{% widthratio cancelled_count total_registrations 100 %}%</div>
+                        </td>
+                        <td>
+                            <strong>{{ reg_status_counts.pending }}</strong>
+                            <div style="font-size:11px;color:var(--text-muted);">{% widthratio reg_status_counts.pending total_registrations 100 %}%</div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td colspan="6">
+                            <div style="display:flex;height:10px;border-radius:6px;overflow:hidden;gap:2px;">
+                                <div style="flex:{{ confirmed_registrations }};background:#22c55e;" title="{% trans 'Confirmed' %}"></div>
+                                <div style="flex:{{ reg_status_counts.attended }};background:#3b82f6;" title="{% trans 'Attended' %}"></div>
+                                <div style="flex:{{ waitlist_count }};background:#f97316;" title="{% trans 'Waitlisted' %}"></div>
+                                <div style="flex:{{ no_show_count }};background:#ef4444;" title="{% trans 'No-shows' %}"></div>
+                                <div style="flex:{{ cancelled_count }};background:#9ca3af;" title="{% trans 'Cancelled' %}"></div>
+                                <div style="flex:{{ reg_status_counts.pending }};background:#a78bfa;" title="{% trans 'Pending' %}"></div>
+                            </div>
+                            <div style="display:flex;gap:16px;margin-top:6px;flex-wrap:wrap;">
+                                <span style="font-size:11px;color:var(--text-muted);"><span style="display:inline-block;width:10px;height:10px;background:#22c55e;border-radius:2px;margin-right:4px;"></span>{% trans "Confirmed" %}</span>
+                                <span style="font-size:11px;color:var(--text-muted);"><span style="display:inline-block;width:10px;height:10px;background:#3b82f6;border-radius:2px;margin-right:4px;"></span>{% trans "Attended" %}</span>
+                                <span style="font-size:11px;color:var(--text-muted);"><span style="display:inline-block;width:10px;height:10px;background:#f97316;border-radius:2px;margin-right:4px;"></span>{% trans "Waitlisted" %}</span>
+                                <span style="font-size:11px;color:var(--text-muted);"><span style="display:inline-block;width:10px;height:10px;background:#ef4444;border-radius:2px;margin-right:4px;"></span>{% trans "No-shows" %}</span>
+                                <span style="font-size:11px;color:var(--text-muted);"><span style="display:inline-block;width:10px;height:10px;background:#9ca3af;border-radius:2px;margin-right:4px;"></span>{% trans "Cancelled" %}</span>
+                                <span style="font-size:11px;color:var(--text-muted);"><span style="display:inline-block;width:10px;height:10px;background:#a78bfa;border-radius:2px;margin-right:4px;"></span>{% trans "Pending" %}</span>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {# Event Performance Table #}
+        <div class="table-container">
+            <h3>{% trans "Event Performance (Last 10)" %}</h3>
             <table class="stats-table">
                 <thead>
                     <tr>
                         <th>{% trans "Event" %}</th>
                         <th>{% trans "Type" %}</th>
                         <th>{% trans "Date" %}</th>
-                        <th>{% trans "Registrations" %}</th>
+                        <th>{% trans "Registrations / Cap." %}</th>
+                        <th>{% trans "Fill Rate" %}</th>
+                        <th>{% trans "No-show Rate" %}</th>
+                        <th>{% trans "Connections" %}</th>
+                        <th>{% trans "Avg NPS" %}</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for event in popular_events %}
+                    {% for event in event_performance %}
                     <tr>
                         <td><a href="{% url 'crush_admin:crush_lu_meetupevent_change' event.id %}">{{ event.title }}</a></td>
                         <td>{{ event.get_event_type_display }}</td>
                         <td>{{ event.date_time|date:"M d, Y" }}</td>
-                        <td>{{ event.registration_count }}</td>
+                        <td>{{ event.confirmed_count }} / {{ event.max_participants }}</td>
+                        <td>
+                            {% if event.max_participants %}
+                                {% widthratio event.confirmed_count event.max_participants 100 %}%
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if event.confirmed_count %}
+                                {% widthratio event.no_show_reg event.confirmed_count 100 %}%
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td>{{ event.connection_count }}</td>
+                        <td>
+                            {% if event.avg_nps_event %}
+                                {{ event.avg_nps_event|floatformat:1 }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="4" class="empty-state">{% trans "No events available" %}</td>
+                        <td colspan="8" class="empty-state">{% trans "No past events yet" %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -834,6 +945,86 @@
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+        {% endif %}
+
+        {# NPS & Feedback #}
+        {% if total_feedback > 0 %}
+        <h2 class="section-header"><span class="section-header-icon">&#x2B50;</span> {% trans "Post-event Feedback (NPS)" %}</h2>
+        <div class="metric-grid">
+            <div class="metric-card blue">
+                <span class="metric-icon">&#x1F4CB;</span>
+                <div class="metric-label">{% trans "Net Promoter Score" %}</div>
+                <div class="metric-value">{{ nps_score }}</div>
+                <div class="metric-subtitle">{% blocktrans with avg=avg_nps %}Avg rating {{ avg }} / 10{% endblocktrans %}</div>
+            </div>
+            <div class="metric-card green">
+                <span class="metric-icon">&#x1F44D;</span>
+                <div class="metric-label">{% trans "Promoters" %}</div>
+                <div class="metric-value">{{ promoters }}</div>
+                <div class="metric-subtitle">{% trans "Score 9–10" %}</div>
+            </div>
+            <div class="metric-card orange">
+                <span class="metric-icon">&#x1F610;</span>
+                <div class="metric-label">{% trans "Passives" %}</div>
+                <div class="metric-value">{{ passives }}</div>
+                <div class="metric-subtitle">{% trans "Score 7–8" %}</div>
+            </div>
+            <div class="metric-card red">
+                <span class="metric-icon">&#x1F44E;</span>
+                <div class="metric-label">{% trans "Detractors" %}</div>
+                <div class="metric-value">{{ detractors }}</div>
+                <div class="metric-subtitle">{% trans "Score 0–6" %}</div>
+            </div>
+            <div class="metric-card teal">
+                <span class="metric-icon">&#x1F4EC;</span>
+                <div class="metric-label">{% trans "Response Rate" %}</div>
+                <div class="metric-value">{{ feedback_response_rate }}%</div>
+                <div class="metric-subtitle">{% blocktrans with count=total_feedback %}{{ count }} surveys submitted{% endblocktrans %}</div>
+            </div>
+        </div>
+        <div class="table-container" style="margin-bottom:0;">
+            <div style="display:flex;height:14px;border-radius:6px;overflow:hidden;gap:2px;">
+                <div style="flex:{{ promoters }};background:#22c55e;" title="{% trans 'Promoters' %}"></div>
+                <div style="flex:{{ passives }};background:#f97316;" title="{% trans 'Passives' %}"></div>
+                <div style="flex:{{ detractors }};background:#ef4444;" title="{% trans 'Detractors' %}"></div>
+            </div>
+            <div style="display:flex;gap:16px;margin-top:6px;flex-wrap:wrap;">
+                <span style="font-size:11px;color:var(--text-muted);"><span style="display:inline-block;width:10px;height:10px;background:#22c55e;border-radius:2px;margin-right:4px;"></span>{% trans "Promoters" %}</span>
+                <span style="font-size:11px;color:var(--text-muted);"><span style="display:inline-block;width:10px;height:10px;background:#f97316;border-radius:2px;margin-right:4px;"></span>{% trans "Passives" %}</span>
+                <span style="font-size:11px;color:var(--text-muted);"><span style="display:inline-block;width:10px;height:10px;background:#ef4444;border-radius:2px;margin-right:4px;"></span>{% trans "Detractors" %}</span>
+            </div>
+        </div>
+        {% endif %}
+
+        {# Post-event Connections #}
+        {% if total_connections > 0 %}
+        <h2 class="section-header"><span class="section-header-icon">&#x1F495;</span> {% trans "Post-event Connections" %}</h2>
+        <div class="metric-grid">
+            <div class="metric-card pink">
+                <span class="metric-icon">&#x1F91D;</span>
+                <div class="metric-label">{% trans "Connection Requests" %}</div>
+                <div class="metric-value">{{ total_connections }}</div>
+                <div class="metric-subtitle">{% trans "Total sent" %}</div>
+            </div>
+            <div class="metric-card green">
+                <span class="metric-icon">&#x1F517;</span>
+                <div class="metric-label">{% trans "Shared" %}</div>
+                <div class="metric-value">{{ mutual_connections }}</div>
+                <div class="metric-subtitle">{% trans "Contact info exchanged" %}</div>
+            </div>
+            <div class="metric-card blue">
+                <span class="metric-icon">&#x1F4AF;</span>
+                <div class="metric-label">{% trans "Success Rate" %}</div>
+                <div class="metric-value">{{ connection_rate }}%</div>
+                <div class="metric-subtitle">{% trans "Shared / requested" %}</div>
+            </div>
+            <div class="metric-card orange">
+                <span class="metric-icon">&#x23F3;</span>
+                <div class="metric-label">{% trans "Pending" %}</div>
+                <div class="metric-value">{{ pending_connections }}</div>
+                <div class="metric-subtitle">{% trans "Awaiting response" %}</div>
+            </div>
         </div>
         {% endif %}
 

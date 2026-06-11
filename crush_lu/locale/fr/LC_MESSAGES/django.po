@@ -18595,7 +18595,8 @@ msgid ""
 "weekly curated matches."
 msgstr ""
 "Passe Premium lors de n'importe quel événement pour obtenir un coach "
-"personnel et débloquer Crush Connect — des matchs sélectionnés chaque semaine."
+"personnel et débloquer Crush Connect — des matchs sélectionnés chaque "
+"semaine."
 
 #: .\templates\crush_lu\dashboard.html:258
 #: .\templates\crush_lu\partials\bottom_nav.html:74
@@ -34368,6 +34369,206 @@ msgstr ""
 " aux membres — en personne par un coach lorsque tu participes à un "
 "événement, ou via lidentité numérique LuxID. Nous nous réservons le droit de"
 " :"
+
+msgid "Crush Connect Beta — 4 Weeks, 4 Coach-Picked Matches | Crush.lu"
+msgstr ""
+"Crush Connect Beta — 4 semaines, 4 matchs choisis par le coach | Crush.lu"
+
+msgid "Crush Connect Beta — We're Looking for 20 Testers | Crush.lu"
+msgstr "Crush Connect Beta — Nous cherchons 20 testeurs | Crush.lu"
+
+msgid ""
+"Help us co-create Crush Connect: over 4 weeks you receive 4 matches, one "
+"hand-picked by a Crush Coach each week. Join the waitlist — we're recruiting"
+" 20 testers."
+msgstr ""
+"Aide-nous à créer Crush Connect : en 4 semaines, tu reçois 4 matchs, un "
+"choisi chaque semaine par un Crush Coach. Inscris-toi sur la liste d'attente"
+" — nous recrutons 20 testeurs."
+
+msgid ""
+"Crush Connect is a new Crush.lu concept: 4 weeks, 4 coach-curated matches — "
+"one per week. Free for the first month, then €10/month. Join the waitlist."
+msgstr ""
+"Crush Connect est un nouveau concept Crush.lu : 4 semaines, 4 matchs choisis"
+" par le coach — un par semaine. Gratuit le premier mois, puis 10 €/mois. "
+"Inscris-toi sur la liste d'attente."
+
+msgid ""
+"crush connect, coach-curated matches luxembourg, dating beta, crush.lu, "
+"curated matchmaking"
+msgstr ""
+"crush connect, matchs sélectionnés par un coach luxembourg, beta rencontre, "
+"crush.lu, mise en relation"
+
+msgid "Beta — 20 testers wanted"
+msgstr "Beta — 20 testeurs recherchés"
+
+msgid "4 weeks. 4 matches."
+msgstr "4 semaines. 4 matchs."
+
+msgid ""
+"We're co-creating a new way to meet on Crush.lu — and we're looking for 20 "
+"testers to help. Over 4 weeks you receive 4 matches, each one hand-picked "
+"for you by a Crush Coach, one per week."
+msgstr ""
+"Nous créons une nouvelle façon de se rencontrer sur Crush.lu — et nous "
+"cherchons 20 testeurs pour nous aider. En 4 semaines, tu reçois 4 matchs, "
+"chacun choisi pour toi par un Crush Coach, un par semaine."
+
+msgid "How the beta works"
+msgstr "Comment fonctionne la beta"
+
+msgid ""
+"Four weeks, four coach-curated matches — and your feedback shapes what Crush"
+" Connect becomes."
+msgstr ""
+"Quatre semaines, quatre matchs choisis par le coach — et ton avis façonne ce"
+" que deviendra Crush Connect."
+
+msgid "One match per week"
+msgstr "Un match par semaine"
+
+msgid ""
+"Each week of the beta, your Crush Coach hand-picks one match for you — four "
+"curated introductions over four weeks."
+msgstr ""
+"Chaque semaine de la beta, ton Crush Coach choisit un match pour toi — "
+"quatre présentations sur quatre semaines."
+
+msgid "Coach-curated, not an algorithm"
+msgstr "Choisi par un coach, pas par un algorithme"
+
+msgid ""
+"A real Crush Coach chooses who you meet, based on you — not an endless "
+"swipe-based feed. Thoughtful over infinite."
+msgstr ""
+"Un vrai Crush Coach choisit qui tu rencontres, en fonction de toi — pas un "
+"fil de swipes sans fin. Réfléchi plutôt qu'infini."
+
+msgid "Free for the first month"
+msgstr "Gratuit le premier mois"
+
+msgid ""
+"The 4-week beta is completely free. Want to keep your weekly coach-curated "
+"matches afterwards? It's €10/month."
+msgstr ""
+"La beta de 4 semaines est entièrement gratuite. Tu veux garder tes matchs "
+"hebdomadaires choisis par le coach ensuite ? C'est 10 €/mois."
+
+msgid "Your 4 weeks"
+msgstr "Tes 4 semaines"
+
+msgid "Week 1"
+msgstr "Semaine 1"
+
+msgid "Week 2"
+msgstr "Semaine 2"
+
+msgid "Week 3"
+msgstr "Semaine 3"
+
+msgid "Week 4"
+msgstr "Semaine 4"
+
+msgid "Your Crush Coach introduces your first hand-picked match."
+msgstr "Ton Crush Coach te présente ton premier match choisi à la main."
+
+msgid "A second curated match, chosen just for you."
+msgstr "Un deuxième match choisi, rien que pour toi."
+
+msgid "Your third match — your coach learns what you like as you go."
+msgstr ""
+"Ton troisième match — ton coach apprend ce qui te plaît au fil du temps."
+
+msgid ""
+"Your fourth match completes the beta. Keep going for €10/month, or stop "
+"anytime."
+msgstr ""
+"Ton quatrième match clôt la beta. Continue pour 10 €/mois, ou arrête quand "
+"tu veux."
+
+msgid "Simple, honest pricing"
+msgstr "Des tarifs simples et honnêtes"
+
+msgid "Try the full 4-week beta for free. No card up front, no commitment."
+msgstr ""
+"Essaie toute la beta de 4 semaines gratuitement. Sans carte au départ, sans "
+"engagement."
+
+msgid "During the 4-week beta"
+msgstr "Pendant la beta de 4 semaines"
+
+msgid "4 coach-curated matches over 4 weeks — one per week."
+msgstr "4 matchs choisis par le coach sur 4 semaines — un par semaine."
+
+msgid "After your first month"
+msgstr "Après ton premier mois"
+
+msgid "€10 / month"
+msgstr "10 € / mois"
+
+msgid "Keep your weekly coach-curated matches. Cancel anytime."
+msgstr ""
+"Garde tes matchs hebdomadaires choisis par le coach. Annulable à tout "
+"moment."
+
+msgid "Your beta status"
+msgstr "Ton statut beta"
+
+msgid "On the waitlist"
+msgstr "Sur la liste d'attente"
+
+msgid "Not on the waitlist yet"
+msgstr "Pas encore sur la liste d'attente"
+
+msgid "Selected as a beta tester"
+msgstr "Sélectionné comme testeur beta"
+
+msgid "Beta tester selection pending"
+msgstr "Sélection comme testeur beta en attente"
+
+msgid "€10/month active"
+msgstr "10 €/mois actif"
+
+msgid "Free during the beta — €10/month after your first month"
+msgstr "Gratuit pendant la beta — 10 €/mois après ton premier mois"
+
+msgid "Join the waitlist"
+msgstr "Rejoindre la liste d'attente"
+
+msgid ""
+"We're hand-picking 20 testers to co-create Crush Connect. Add your name — "
+"it's open to everyone, and we'll be in touch."
+msgstr ""
+"Nous sélectionnons 20 testeurs pour créer Crush Connect avec nous. Inscris-"
+"toi — c'est ouvert à tous, et nous te recontacterons."
+
+msgid ""
+"Join the Crush Connect beta — 4 coach-curated matches over 4 weeks, free for"
+" the first month. We're recruiting 20 testers."
+msgstr ""
+"Rejoins la beta Crush Connect — 4 matchs choisis par le coach sur 4 "
+"semaines, gratuit le premier mois. Nous recrutons 20 testeurs."
+
+msgid "Join the Beta"
+msgstr "Rejoindre la beta"
+
+msgid "4 weeks, 4 coach-picked matches"
+msgstr "4 semaines, 4 matchs choisis par le coach"
+
+msgid ""
+"We're recruiting 20 testers for Crush Connect — 4 matches over 4 weeks, one "
+"hand-picked by a Crush Coach each week. Free for the first month."
+msgstr ""
+"Nous recrutons 20 testeurs pour Crush Connect — 4 matchs sur 4 semaines, un "
+"choisi chaque semaine par un Crush Coach. Gratuit le premier mois."
+
+msgid "Select as beta tester (4 weeks / 4 matches)"
+msgstr "Sélectionner comme testeur beta (4 semaines / 4 matchs)"
+
+msgid "Confirm €10/month payment"
+msgstr "Confirmer le paiement de 10 €/mois"
 
 #, fuzzy
 #~ msgid "Profile Completion Funnel"

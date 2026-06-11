@@ -1,0 +1,21 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "It's mutual!" %} - Crush.lu{% endblock %}
+
+{% block header_title %}{% trans "It's mutual!" %} 💜{% endblock %}
+
+{% block content %}
+<h2>{% blocktrans with first_name=first_name %}Great news, {{ first_name }}!{% endblocktrans %}</h2>
+
+<p><strong>{% blocktrans with name=recipient_first_name %}{{ name }} is curious about you too.{% endblocktrans %}</strong></p>
+
+<p>{% trans "Your Crush Coach has been looped in and will be in touch to arrange your date — a real meeting, the way Crush works best." %}</p>
+
+<a href="{{ connect_url }}" class="button">{% trans "Open Crush Connect" %}</a>
+
+<p>
+    {% trans "Cheers," %}<br>
+    <strong>{% trans "The Crush.lu Team" %}</strong>
+</p>
+{% endblock %}

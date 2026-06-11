@@ -7,7 +7,7 @@ Provides comprehensive analytics and insights for the Crush.lu admin panel.
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
-from django.db.models import Count, Q, Avg, Sum, F
+from django.db.models import Count, Q, Avg, Sum, F, ExpressionWrapper, FloatField
 from django.contrib.auth import get_user_model
 from django.db.models.functions import TruncDate, TruncWeek, TruncMonth
 from django.http import JsonResponse
@@ -41,6 +41,7 @@ from .models import (
     ProfileReminder,
     UserActivity,
     CallAttempt,
+    EventFeedback,
 )
 
 
@@ -312,7 +313,7 @@ def crush_admin_dashboard(request):
     )
 
     # Average review time (if reviewed_at exists) - optimized with DB aggregation
-    from django.db.models import ExpressionWrapper, DurationField
+    from django.db.models import DurationField
     from django.db.models.functions import Extract
 
     reviewed_submissions = ProfileSubmission.objects.filter(
@@ -484,17 +485,94 @@ def crush_admin_dashboard(request):
         else 0
     )
 
+    # Registration status breakdown (funnel)
+    reg_status_counts = EventRegistration.objects.aggregate(
+        pending=Count("id", filter=Q(status="pending")),
+        waitlist=Count("id", filter=Q(status="waitlist")),
+        cancelled=Count("id", filter=Q(status="cancelled")),
+        attended=Count("id", filter=Q(status="attended")),
+        no_show=Count("id", filter=Q(status="no_show")),
+    )
+    no_show_count = reg_status_counts["no_show"]
+    waitlist_count = reg_status_counts["waitlist"]
+    cancelled_count = reg_status_counts["cancelled"]
+
+    no_show_rate = (
+        (no_show_count / (confirmed_registrations + attended_count) * 100)
+        if (confirmed_registrations + attended_count) > 0
+        else 0
+    )
+
+    # Average capacity fill rate across past events
+    capacity_stats = (
+        MeetupEvent.objects.filter(
+            date_time__lt=timezone.now(), max_participants__gt=0
+        )
+        .annotate(
+            fill_confirmed=Count(
+                "eventregistration",
+                filter=Q(eventregistration__status__in=["confirmed", "attended"]),
+            )
+        )
+        .aggregate(
+            avg_fill=Avg(
+                ExpressionWrapper(
+                    F("fill_confirmed") * 100.0 / F("max_participants"),
+                    output_field=FloatField(),
+                )
+            )
+        )
+    )
+    avg_fill_rate = round(capacity_stats["avg_fill"] or 0, 1)
+
+    # NPS / Feedback metrics
+    feedback_qs = EventFeedback.objects.all()
+    total_feedback = feedback_qs.count()
+    avg_nps = round(feedback_qs.aggregate(avg=Avg("nps_score"))["avg"] or 0, 1)
+    promoters = feedback_qs.filter(nps_score__gte=9).count()
+    detractors = feedback_qs.filter(nps_score__lte=6).count()
+    passives = total_feedback - promoters - detractors
+    nps_score = round(
+        ((promoters - detractors) / total_feedback * 100) if total_feedback > 0 else 0,
+        1,
+    )
+    feedback_response_rate = round(
+        (total_feedback / attended_count * 100) if attended_count > 0 else 0, 1
+    )
+
+    # Per-event performance table (10 most recent past events)
+    event_performance = (
+        MeetupEvent.objects.filter(date_time__lt=timezone.now())
+        .annotate(
+            confirmed_count=Count(
+                "eventregistration",
+                filter=Q(eventregistration__status__in=["confirmed", "attended"]),
+            ),
+            attended_reg=Count(
+                "eventregistration",
+                filter=Q(eventregistration__status="attended"),
+            ),
+            no_show_reg=Count(
+                "eventregistration",
+                filter=Q(eventregistration__status="no_show"),
+            ),
+            connection_count=Count("eventconnection"),
+            avg_nps_event=Avg("feedback__nps_score"),
+        )
+        .order_by("-date_time")[:10]
+    )
+
     # ============================================================================
     # CONNECTION METRICS
     # ============================================================================
 
     total_connections = EventConnection.objects.count()
-    mutual_connections = EventConnection.objects.filter(status="mutual").count()
+    shared_connections = EventConnection.objects.filter(status="shared").count()
     pending_connections = EventConnection.objects.filter(status="pending").count()
 
-    # Connection success rate
+    # Connection success rate ("shared" = contact info exchanged = successful connection)
     connection_rate = (
-        (mutual_connections / total_connections * 100) if total_connections > 0 else 0
+        (shared_connections / total_connections * 100) if total_connections > 0 else 0
     )
 
     # ============================================================================
@@ -1015,9 +1093,24 @@ def crush_admin_dashboard(request):
         "event_type_stats": event_type_stats,
         "popular_events": popular_events,
         "attendance_rate": round(attendance_rate, 1),
+        # Extended event KPIs
+        "reg_status_counts": reg_status_counts,
+        "no_show_count": no_show_count,
+        "no_show_rate": round(no_show_rate, 1),
+        "waitlist_count": waitlist_count,
+        "cancelled_count": cancelled_count,
+        "avg_fill_rate": avg_fill_rate,
+        "total_feedback": total_feedback,
+        "avg_nps": avg_nps,
+        "nps_score": nps_score,
+        "promoters": promoters,
+        "detractors": detractors,
+        "passives": passives,
+        "feedback_response_rate": feedback_response_rate,
+        "event_performance": event_performance,
         # Connection metrics
         "total_connections": total_connections,
-        "mutual_connections": mutual_connections,
+        "mutual_connections": shared_connections,
         "pending_connections": pending_connections,
         "connection_rate": round(connection_rate, 1),
         # Journey metrics

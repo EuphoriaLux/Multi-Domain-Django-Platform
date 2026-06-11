@@ -177,6 +177,8 @@ from .crush_connect import (
     ConnectDailyDropAdmin,
     CrushConnectMembershipAdmin,
     CrushConnectWaitlistAdmin,
+    ConnectCoachPickAdmin,
+    CuriositySparkAdmin,
     SparkPromptAdmin,
 )
 
@@ -251,7 +253,9 @@ from crush_lu.models import (
     EventPoll,
     EventPollOption,
     EventPollVote,
+    ConnectCoachPick,
     ConnectDailyDrop,
+    CuriositySpark,
     CrushConnectMembership,
     CrushConnectWaitlist,
     SparkPrompt,
@@ -371,6 +375,8 @@ crush_admin_site.register(CrushConnectWaitlist, CrushConnectWaitlistAdmin)
 crush_admin_site.register(CrushConnectMembership, CrushConnectMembershipAdmin)
 crush_admin_site.register(ConnectDailyDrop, ConnectDailyDropAdmin)
 crush_admin_site.register(SparkPrompt, SparkPromptAdmin)
+crush_admin_site.register(CuriositySpark, CuriositySparkAdmin)
+crush_admin_site.register(ConnectCoachPick, ConnectCoachPickAdmin)
 
 # Matching System
 crush_admin_site.register(Trait, TraitAdmin)
@@ -541,6 +547,8 @@ __all__ = [
     'CrushConnectMembershipAdmin',
     'ConnectDailyDropAdmin',
     'SparkPromptAdmin',
+    'CuriositySparkAdmin',
+    'ConnectCoachPickAdmin',
 
     # Matching
     'TraitAdmin',

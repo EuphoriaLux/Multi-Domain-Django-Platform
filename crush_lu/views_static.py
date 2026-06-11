@@ -171,22 +171,30 @@ def crush_connect_teaser(request):
     from django.conf import settings as _settings
 
     # Post-launch fast-path: if Crush Connect is live and the visitor can
-    # actually use it, send them past the teaser. Onboarded → Today's Drop.
-    # Eligible but not onboarded → onboarding. Staff are never auto-redirected
-    # so they can still preview the teaser itself.
+    # actually use it, send them past the teaser. Two tracks (asymmetric
+    # model): Premium receivers land on Today's Drop, LuxID candidates on
+    # the catalogue status page; either onboards first if needed. Staff are
+    # never auto-redirected so they can still preview the teaser itself.
     if (
         request.user.is_authenticated
         and not request.user.is_staff
         and getattr(_settings, "CRUSH_CONNECT_LAUNCHED", False)
     ):
         profile = getattr(request.user, "crushprofile", None)
-        # Premium gate: Crush Connect requires a personal coach assigned.
-        if profile and profile.is_approved and profile.assigned_coach_id:
+        if profile and profile.is_approved:
             membership = getattr(request.user, "crush_connect_membership", None)
-            if membership and membership.is_onboarded:
-                return redirect("crush_lu:crush_connect_home")
-            if not membership or not membership.excluded_by_coach:
-                return redirect("crush_lu:crush_connect_onboarding")
+            excluded = membership and membership.excluded_by_coach
+            if not excluded:
+                if profile.assigned_coach_id:
+                    # Receiver track (Premium).
+                    if membership and membership.is_onboarded:
+                        return redirect("crush_lu:crush_connect_home")
+                    return redirect("crush_lu:crush_connect_onboarding")
+                if profile.has_luxid_connected:
+                    # Candidate track (LuxID, no Premium).
+                    if membership and membership.is_onboarded:
+                        return redirect("crush_lu:crush_connect_catalogue_status")
+                    return redirect("crush_lu:crush_connect_onboarding")
 
     context = {
         "on_waitlist": False,
@@ -195,6 +203,9 @@ def crush_connect_teaser(request):
         "is_eligible": False,
         "profile_approved": False,
         "is_premium": False,
+        "has_luxid_connected": False,
+        "selected_as_tester": False,
+        "tester_payment_confirmed": False,
     }
 
     if request.user.is_authenticated:
@@ -203,11 +214,16 @@ def crush_connect_teaser(request):
             context["on_waitlist"] = True
             context["waitlist_position"] = entry.waitlist_position
             context["is_eligible"] = entry.is_eligible
+            context["selected_as_tester"] = entry.selected_as_tester
+            context["tester_payment_confirmed"] = entry.payment_confirmed
         except CrushConnectWaitlist.DoesNotExist:
             pass
 
         _profile = getattr(request.user, "crushprofile", None)
         context["profile_approved"] = bool(_profile and _profile.is_approved)
         context["is_premium"] = bool(_profile and _profile.assigned_coach_id)
+        context["has_luxid_connected"] = bool(
+            _profile and _profile.has_luxid_connected
+        )
 
     return render(request, "crush_lu/crush_connect.html", context)

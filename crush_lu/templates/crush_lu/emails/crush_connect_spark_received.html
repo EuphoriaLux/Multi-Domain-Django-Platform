@@ -1,0 +1,28 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Someone is curious about you" %} - Crush.lu{% endblock %}
+
+{% block header_title %}{% trans "Someone is curious about you" %} ✨{% endblock %}
+
+{% block content %}
+<h2>{% blocktrans with first_name=first_name %}Hi {{ first_name }},{% endblocktrans %}</h2>
+
+<p><strong>{% blocktrans with name=sender_first_name %}{{ name }} sent you a Curiosity Spark on Crush Connect.{% endblocktrans %}</strong></p>
+
+{% if spark_message %}
+<div class="info-box">
+    <strong>{% trans "Their message:" %}</strong>
+    <p>&ldquo;{{ spark_message }}&rdquo;</p>
+</div>
+{% endif %}
+
+<p>{% trans "Take a look at their card — first name, story and interests only — and decide whether you're curious too. If you accept, your Crush Coach will be in touch to arrange a date. If you decline, they'll never know." %}</p>
+
+<a href="{{ sparks_url }}" class="button">{% trans "View your Spark" %}</a>
+
+<p>
+    {% trans "Cheers," %}<br>
+    <strong>{% trans "The Crush.lu Team" %}</strong>
+</p>
+{% endblock %}

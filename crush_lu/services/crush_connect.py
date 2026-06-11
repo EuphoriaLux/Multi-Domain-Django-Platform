@@ -5,10 +5,13 @@ M1: eligible-pool query.
 M2: Daily Drop selection.
 Future: Spark send/quota (M5), mutual-spark transition (M6).
 
-The eligible pool defines who can appear in another user's Drop. To be in
-*anyone's* pool a target must:
-- have a CrushProfile with is_approved=True
-- have attended at least one event
+The model is ASYMMETRIC: receiving a Drop requires Premium (assigned coach),
+but appearing in someone else's Drop does not. The candidate catalogue is
+gated by LuxID instead — government-eID identity is the ticket in.
+
+To be in *anyone's* pool a target must:
+- have a verified CrushProfile (verification_status='verified')
+- have a LuxID social account linked (the catalogue requirement)
 - have a CrushConnectMembership with onboarded_at set (Crush Connect is opt-in)
 - not be flagged by a coach via CrushConnectMembership.excluded_by_coach
 - have logged in within the last 30 days (active membership signal)
@@ -61,11 +64,12 @@ def get_eligible_pool(user) -> "QuerySet[User]":
     """
     Return the queryset of users eligible to appear in ``user``'s Crush Connect Drop.
 
-    The requester must also be eligible (profile approved, PREMIUM = personal
-    coach assigned, onboarded into Crush Connect, not coach-excluded). Otherwise
-    an empty queryset. Crush Connect is a premium-only feature.
+    The requester must be eligible to RECEIVE (profile approved, PREMIUM =
+    personal coach assigned, onboarded into Crush Connect, not coach-excluded),
+    otherwise an empty queryset. Candidates don't need Premium — the catalogue
+    requires LuxID + opt-in instead (asymmetric model).
     """
-    from crush_lu.models import EventConnection, EventRegistration
+    from crush_lu.models import CrushProfile, EventConnection, EventRegistration
 
     # --- Requester self-eligibility -----------------------------------------
     user_profile = getattr(user, "crushprofile", None)
@@ -89,18 +93,30 @@ def get_eligible_pool(user) -> "QuerySet[User]":
         | Q(requester=OuterRef("pk"), recipient=user)
     )
 
+    # LuxID is mandatory for the candidate catalogue. SocialAccount is the
+    # authoritative store — verification_method only records the FIRST
+    # verification path, so coach-verified members who linked LuxID later
+    # would be missed by a method check. Generic openid_connect accounts only
+    # count when scoped to the LuxID SocialApp (the provider is shared with
+    # non-LuxID apps) — see CrushProfile.luxid_account_querysets.
+    luxid_native_subq, luxid_oidc_subq = CrushProfile.luxid_account_querysets(
+        OuterRef("pk")
+    )
+
     qs = (
         User.objects.filter(
             crushprofile__verification_status="verified",
-            crushprofile__assigned_coach__isnull=False,  # premium members only
             crush_connect_membership__onboarded_at__isnull=False,
             crush_connect_membership__excluded_by_coach=False,
             last_login__gte=inactivity_cutoff,
         )
         .annotate(
             _has_connection=Exists(existing_connection_subq),
+            _has_luxid_native=Exists(luxid_native_subq),
+            _has_luxid_oidc=Exists(luxid_oidc_subq),
         )
         .filter(_has_connection=False)
+        .filter(Q(_has_luxid_native=True) | Q(_has_luxid_oidc=True))
         .exclude(pk=user.pk)
         .select_related("crushprofile", "crush_connect_membership")
     )
@@ -257,3 +273,367 @@ def get_or_create_daily_drop(user, drop_date: date | None = None):
         if not drop.recipients.exists():
             drop.recipients.set(chosen)
     return drop
+
+# ---------------------------------------------------------------------------
+# Curiosity Sparks (M5)
+# ---------------------------------------------------------------------------
+
+
+def is_catalogue_eligible(user) -> bool:
+    """
+    Whether ``user`` currently qualifies for the candidate catalogue:
+    verified profile + LuxID linked + onboarded (not coach-excluded) +
+    active within CONNECT_INACTIVITY_WINDOW_DAYS (same gate as Drops).
+
+    Drop snapshots and pending Sparks are immutable records — eligibility
+    lost AFTER they were created (rejection, LuxID unlink, exclusion,
+    inactivity) must be re-checked at every action point: sending a Spark
+    to them, listing their received Sparks, and accepting one. The
+    inactivity arm only ever bites the SEND side: a recipient acting on
+    the site has, by definition, just logged in.
+    """
+    profile = getattr(user, "crushprofile", None)
+    membership = getattr(user, "crush_connect_membership", None)
+    inactivity_cutoff = timezone.now() - timedelta(
+        days=CONNECT_INACTIVITY_WINDOW_DAYS
+    )
+    return bool(
+        profile is not None
+        and profile.verification_status == "verified"
+        and profile.has_luxid_connected
+        and membership is not None
+        and membership.is_onboarded
+        and user.last_login is not None
+        and user.last_login >= inactivity_cutoff
+    )
+
+
+def is_sender_eligible(user) -> bool:
+    """
+    Whether ``user`` currently qualifies to SEND Sparks (the receiver track):
+    approved profile + Premium coach assigned + onboarded (not excluded).
+
+    Like catalogue eligibility, this must be re-checked at accept time —
+    a sender who was rejected, lost their Premium coach, or got
+    coach-excluded after sending must not land in the accepted-sparks
+    coach queue via an old pending Spark.
+    """
+    profile = getattr(user, "crushprofile", None)
+    membership = getattr(user, "crush_connect_membership", None)
+    return bool(
+        profile is not None
+        and profile.is_approved
+        and profile.assigned_coach_id
+        and membership is not None
+        and membership.is_onboarded
+    )
+
+
+def can_send_spark(sender, recipient) -> Tuple[bool, str]:
+    """
+    Whether ``sender`` may send a Curiosity Spark to ``recipient``.
+
+    Returns ``(allowed, reason)`` — ``reason`` is a machine-readable code for
+    the view layer ("not_receiver", "not_surfaced", "already_sparked",
+    "recipient_unavailable", "ok").
+
+    Rules (asymmetric model):
+    - Only Drop receivers (Premium + onboarded, not excluded) can send.
+    - The recipient must have actually appeared in one of the sender's Drops
+      (the ConnectDailyDrop snapshot is the audit trail).
+    - The recipient must STILL be catalogue-eligible — verified, LuxID
+      linked, onboarded, not coach-excluded. Drop snapshots are immutable,
+      so eligibility lost after surfacing (rejection, LuxID unlink) must be
+      re-checked here, not assumed from the snapshot.
+    - One Spark per pair, in either direction.
+    """
+    from crush_lu.models import ConnectDailyDrop, CuriositySpark
+
+    if not is_sender_eligible(sender):
+        return False, "not_receiver"
+
+    if not is_catalogue_eligible(recipient):
+        return False, "recipient_unavailable"
+
+    if not ConnectDailyDrop.objects.filter(
+        user=sender, recipients=recipient
+    ).exists():
+        return False, "not_surfaced"
+
+    if CuriositySpark.objects.filter(
+        Q(sender=sender, recipient=recipient)
+        | Q(sender=recipient, recipient=sender)
+    ).exists():
+        return False, "already_sparked"
+
+    return True, "ok"
+
+
+def send_spark(sender, recipient, message: str = "", request=None):
+    """
+    Create a Curiosity Spark and notify the recipient (in-app + email).
+
+    Raises ``ValueError`` when ``can_send_spark`` fails — callers should have
+    checked first; the raise is a safety net against race conditions.
+    """
+    from crush_lu.models import ConnectDailyDrop, CuriositySpark
+
+    allowed, reason = can_send_spark(sender, recipient)
+    if not allowed:
+        raise ValueError(reason)
+
+    drop = (
+        ConnectDailyDrop.objects.filter(user=sender, recipients=recipient)
+        .order_by("-drop_date")
+        .first()
+    )
+    spark = CuriositySpark.objects.create(
+        sender=sender,
+        recipient=recipient,
+        drop=drop,
+        message=(message or "").strip(),
+    )
+    _notify_spark_received(spark, request=request)
+    return spark
+
+
+def respond_to_spark(spark, accept: bool, request=None):
+    """
+    Record the recipient's decision on a pending Spark.
+
+    Accept → sender is notified (in-app + email) and the pair lands in the
+    coach's accepted-sparks queue (admin) to arrange the date — the mutual
+    reveal itself is M6.
+    Decline → silent. The sender is never notified of a decline.
+    """
+    if spark.status != "pending":
+        return spark
+    if accept and not (
+        is_catalogue_eligible(spark.recipient)
+        and is_sender_eligible(spark.sender)
+    ):
+        # Either party lost eligibility since the Spark was created
+        # (rejection, LuxID unlink, Premium loss, exclusion) — an accept
+        # must not fire the mutual notification or land in the coach
+        # queue. Leave the Spark pending; the views filter these out, so
+        # this is the race-condition safety net.
+        return spark
+    spark.status = "accepted" if accept else "declined"
+    spark.responded_at = timezone.now()
+    spark.save(update_fields=["status", "responded_at"])
+    if accept:
+        _notify_spark_accepted(spark, request=request)
+    return spark
+
+
+def _notify_spark_received(spark, request=None):
+    """In-app bell + email to the recipient. Never blocks the send flow."""
+    try:
+        from django.urls import reverse
+        from django.utils.translation import gettext as _g
+
+        from crush_lu.models import Notification
+
+        Notification.objects.create(
+            user=spark.recipient,
+            notification_type="connect_spark_received",
+            title=_g("Someone is curious about you"),
+            body=_g(
+                "A Crush Connect member sent you a Curiosity Spark. "
+                "Take a look and decide."
+            ),
+            link_url=reverse("crush_lu:crush_connect_sparks_received"),
+            metadata={"spark_id": spark.pk},
+        )
+    except Exception:  # pragma: no cover - notification must never block
+        import logging
+
+        logging.getLogger(__name__).exception("Spark-received notification failed")
+    if request is not None:
+        try:
+            from crush_lu.email_helpers import send_connect_spark_received_email
+
+            send_connect_spark_received_email(spark, request)
+        except Exception:  # pragma: no cover
+            import logging
+
+            logging.getLogger(__name__).exception("Spark-received email failed")
+
+
+def _notify_spark_accepted(spark, request=None):
+    """In-app bell + email to the sender on acceptance."""
+    try:
+        from django.urls import reverse
+        from django.utils.translation import gettext as _g
+
+        from crush_lu.models import Notification
+
+        Notification.objects.create(
+            user=spark.sender,
+            notification_type="connect_spark_accepted",
+            title=_g("It's mutual!"),
+            body=_g(
+                "%(name)s is curious about you too. Your Crush Coach will "
+                "be in touch to arrange your date."
+            )
+            % {"name": spark.recipient.first_name or _g("Your match")},
+            link_url=reverse("crush_lu:crush_connect_home"),
+            metadata={"spark_id": spark.pk},
+        )
+    except Exception:  # pragma: no cover
+        import logging
+
+        logging.getLogger(__name__).exception("Spark-accepted notification failed")
+    if request is not None:
+        try:
+            from crush_lu.email_helpers import send_connect_spark_accepted_email
+
+            send_connect_spark_accepted_email(spark, request)
+        except Exception:  # pragma: no cover
+            import logging
+
+            logging.getLogger(__name__).exception("Spark-accepted email failed")
+
+# ---------------------------------------------------------------------------
+# Coach Picks (M7) — the coach-curated match proposal
+# ---------------------------------------------------------------------------
+
+
+def get_active_coach_pick(member):
+    """The member's current 'proposed' pick with a still-eligible candidate,
+    or None. A stale candidate hides the pick (coach re-picks)."""
+    from crush_lu.models import ConnectCoachPick
+
+    pick = (
+        ConnectCoachPick.objects.filter(member=member, status="proposed")
+        .select_related(
+            "candidate__crushprofile",
+            "candidate__crush_connect_membership",
+            "coach__user",
+        )
+        .order_by("-created_at")
+        .first()
+    )
+    if pick is None:
+        return None
+    # Full-pool re-check (subsumes catalogue eligibility) so display and
+    # accept agree — otherwise a member could be stuck seeing a pick the
+    # accept guard would refuse (e.g. EventConnection formed since).
+    if not get_eligible_pool(member).filter(pk=pick.candidate_id).exists():
+        return None
+    # Coach reassignment orphans the proposal — an ex-coach's pick must not
+    # surface as "Your Coach's Pick" (and they couldn't act on a response).
+    profile = getattr(member, "crushprofile", None)
+    if profile is None or pick.coach_id != profile.assigned_coach_id:
+        return None
+    return pick
+
+
+def propose_coach_pick(coach, member, candidate, note: str = ""):
+    """
+    Create a coach pick. Validates: member is the coach's assigned Premium
+    member + Connect-onboarded; candidate is in the member's eligible pool;
+    no pick already exists for this pair; only one open proposal at a time
+    (a new pick withdraws the previous proposed one).
+
+    Raises ValueError with a machine-readable reason on violation.
+    """
+    from crush_lu.models import ConnectCoachPick
+
+    member_profile = getattr(member, "crushprofile", None)
+    if member_profile is None or member_profile.assigned_coach_id != coach.pk:
+        raise ValueError("not_your_member")
+    if not is_sender_eligible(member):
+        raise ValueError("member_not_ready")
+    if not get_eligible_pool(member).filter(pk=candidate.pk).exists():
+        raise ValueError("candidate_not_eligible")
+    if ConnectCoachPick.objects.filter(member=member, candidate=candidate).exists():
+        raise ValueError("already_picked")
+
+    ConnectCoachPick.objects.filter(member=member, status="proposed").update(
+        status="withdrawn", responded_at=timezone.now()
+    )
+    pick = ConnectCoachPick.objects.create(
+        coach=coach, member=member, candidate=candidate, note=(note or "").strip()
+    )
+    try:
+        from django.urls import reverse
+        from django.utils.translation import gettext as _g
+
+        from crush_lu.models import Notification
+
+        Notification.objects.create(
+            user=member,
+            notification_type="connect_coach_pick",
+            title=_g("Your Crush Coach picked a match for you"),
+            body=_g("Take a look and decide — accept and your coach arranges the date."),
+            link_url=reverse("crush_lu:crush_connect_home"),
+            metadata={"pick_id": pick.pk},
+        )
+    except Exception:  # pragma: no cover
+        import logging
+
+        logging.getLogger(__name__).exception("Coach-pick notification failed")
+    return pick
+
+
+def respond_to_coach_pick(pick, accept: bool):
+    """Member accepts/declines the coach's pick. Either way the coach is
+    notified (bell) — accept means 'contact the candidate and arrange the
+    date', decline means 'pick someone else'. Idempotent after decision."""
+    if pick.status != "proposed":
+        return pick
+    member_profile = getattr(pick.member, "crushprofile", None)
+    coach_is_current = (
+        member_profile is not None
+        and pick.coach_id == member_profile.assigned_coach_id
+    )
+    if accept and not (
+        is_sender_eligible(pick.member)
+        and coach_is_current
+        # Full pool re-check, not just catalogue eligibility: an
+        # EventConnection created since the proposal, or changed mutual
+        # preferences, must invalidate the pick exactly as it would block
+        # proposing the same candidate today.
+        and get_eligible_pool(pick.member).filter(pk=pick.candidate_id).exists()
+    ):
+        # Either party lost eligibility since the pick was proposed — an
+        # accept must not enter the coach's arrangement queue. The Today
+        # page already hides stale picks; this guards old/raced POSTs.
+        return pick
+    pick.status = "accepted" if accept else "declined"
+    pick.responded_at = timezone.now()
+    pick.save(update_fields=["status", "responded_at"])
+    if not accept and not coach_is_current:
+        # Member's decline is recorded, but an ex-coach must not receive a
+        # response for a member they no longer own.
+        return pick
+    try:
+        from django.urls import reverse
+        from django.utils.translation import gettext as _g
+
+        from crush_lu.models import Notification
+
+        if accept:
+            title = _g("%(name)s accepted your pick") % {
+                "name": pick.member.first_name or _g("Your member")
+            }
+            body = _g("Contact the candidate to confirm interest and arrange the date.")
+        else:
+            title = _g("%(name)s declined your pick") % {
+                "name": pick.member.first_name or _g("Your member")
+            }
+            body = _g("Time to propose someone else.")
+        Notification.objects.create(
+            user=pick.coach.user,
+            notification_type="connect_coach_pick_response",
+            title=title,
+            body=body,
+            link_url=reverse("crush_lu:coach_connect_member", args=[pick.member_id]),
+            metadata={"pick_id": pick.pk},
+        )
+    except Exception:  # pragma: no cover
+        import logging
+
+        logging.getLogger(__name__).exception("Pick-response notification failed")
+    return pick

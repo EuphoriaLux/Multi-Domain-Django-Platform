@@ -23,6 +23,35 @@ class CrushConnectWaitlist(models.Model):
         default=True,
         help_text=_("Wants to be notified when Crush Connect launches"),
     )
+    # Beta tester selection — staff hand-pick the 20 "4 weeks / 4 matches" testers
+    # and track the €10/month payment out-of-band (manual flag, no payment
+    # processor — mirrors PremiumMembership.payment_confirmed / EventRegistration).
+    #
+    # Scope note: these flags are recruitment + teaser-status tracking ONLY. They
+    # do NOT grant access to Crush Connect — the access gate
+    # (views_crush_connect._user_passes_pre_onboarding_gate) intentionally still
+    # requires a premium coach, because the existing gate guards the daily-drop
+    # feature, not the coach-picked weekly-match concept this beta advertises.
+    # Wiring tester access belongs with building that weekly-match delivery
+    # (a deferred phase), not here.
+    selected_as_tester = models.BooleanField(
+        default=False,
+        help_text=_("Marked as one of the 20 beta testers"),
+    )
+    selected_at = models.DateTimeField(null=True, blank=True)
+    payment_confirmed = models.BooleanField(
+        default=False,
+        help_text=_("€10/month payment confirmed by staff (manual, no processor)"),
+    )
+    payment_date = models.DateTimeField(null=True, blank=True)
+    confirmed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="confirmed_crush_connect_payments",
+        help_text=_("Staff member who confirmed the €10 payment"),
+    )
 
     class Meta:
         ordering = ["joined_at"]
@@ -215,3 +244,146 @@ class SparkPrompt(models.Model):
 
     def __str__(self):
         return self.text
+
+class CuriositySpark(models.Model):
+    """
+    A Premium member's expression of interest in someone from their Drop (M5).
+
+    Asymmetric by design: only Drop receivers (Premium) can SEND a Spark, but
+    anyone in the candidate catalogue can RECEIVE one — candidates respond
+    from their own "Sparks received" page, not from a Drop of their own.
+
+    Privacy: the recipient sees the sender exactly like a Drop card (blurred
+    photo, first name, age range, Story) plus the sender's message. Declines
+    are silent — the sender is never notified of a decline; acceptance is the
+    only event that travels back. The mutual reveal itself ships in M6; until
+    then an accepted Spark is handed to the coach (admin queue) to arrange
+    the date.
+    """
+
+    STATUS_CHOICES = [
+        ("pending", _("Pending")),
+        ("accepted", _("Accepted")),
+        ("declined", _("Declined")),
+    ]
+
+    sender = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="connect_sparks_sent",
+    )
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="connect_sparks_received",
+    )
+    # Audit trail: the Drop that surfaced the recipient to the sender. M5's
+    # cardinal rule — you can only Spark someone who actually appeared in one
+    # of your Drops — is enforced in the service layer using this snapshot.
+    drop = models.ForeignKey(
+        ConnectDailyDrop,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sparks",
+    )
+    message = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text=_("The sender's one-line opener ('What made you curious?')"),
+    )
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default="pending",
+        db_index=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    responded_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = _("Curiosity Spark")
+        verbose_name_plural = _("Curiosity Sparks")
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["sender", "recipient"], name="connect_spark_unique_pair"
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(sender=models.F("recipient")),
+                name="connect_spark_no_self",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.sender} → {self.recipient} ({self.status})"
+
+    @property
+    def is_pending(self) -> bool:
+        return self.status == "pending"
+
+
+class ConnectCoachPick(models.Model):
+    """
+    A Crush Coach's hand-picked match proposal for one of their Premium
+    members (M7 — the coach-curated heart of Crush Connect).
+
+    Flow: coach browses the member's eligible pool (full profiles) and
+    proposes ONE candidate with a personal note. The pick REPLACES the
+    algorithmic Drop as the hero card on the member's Today page. The
+    member accepts or declines:
+      - accept  → lands in the coach's queue; the coach contacts the
+                  candidate personally to confirm interest and arrange the
+                  date (no automatic Spark/notification to the candidate).
+      - decline → coach is notified and can propose someone else.
+    """
+
+    STATUS_CHOICES = [
+        ("proposed", _("Proposed")),
+        ("accepted", _("Accepted by member")),
+        ("declined", _("Declined by member")),
+        ("withdrawn", _("Withdrawn by coach")),
+    ]
+
+    coach = models.ForeignKey(
+        "crush_lu.CrushCoach",
+        on_delete=models.CASCADE,
+        related_name="connect_picks",
+    )
+    member = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="connect_coach_picks",
+    )
+    candidate = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="connect_picks_as_candidate",
+    )
+    note = models.CharField(
+        max_length=300,
+        blank=True,
+        help_text=_("Coach's 'why I picked them' — shown to the member"),
+    )
+    status = models.CharField(
+        max_length=10, choices=STATUS_CHOICES, default="proposed", db_index=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    responded_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = _("Connect Coach Pick")
+        verbose_name_plural = _("Connect Coach Picks")
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["member", "candidate"], name="connect_pick_unique_pair"
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(member=models.F("candidate")),
+                name="connect_pick_no_self",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.coach} → {self.member}: {self.candidate} ({self.status})"

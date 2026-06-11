@@ -8,6 +8,7 @@ Later milestones append to this module.
 from datetime import date, timedelta
 
 import pytest
+from allauth.socialaccount.models import SocialAccount
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
@@ -87,13 +88,15 @@ def _make_user(
     excluded_by_coach=False,
     last_login_days_ago=1,
     premium=True,
+    has_luxid=True,
 ):
     """
     Build a user ready to participate in Crush Connect by default:
-    verified + PREMIUM (coach assigned) + onboarded membership + recent last_login.
-    Crush Connect is premium-only, so ``premium=True`` is the eligible default.
-    Pass ``premium=False`` / ``onboarded=False`` / ``last_login_days_ago=None``
-    for negative tests.
+    verified + LuxID-linked + PREMIUM (coach assigned) + onboarded membership
+    + recent last_login. Receiving Drops requires premium; appearing in the
+    candidate catalogue requires LuxID — the default user qualifies for both.
+    Pass ``premium=False`` / ``has_luxid=False`` / ``onboarded=False`` /
+    ``last_login_days_ago=None`` for negative tests.
     """
     user = User.objects.create_user(
         username=username,
@@ -120,6 +123,8 @@ def _make_user(
         profile.assigned_coach = _get_coach()
         profile.assigned_coach_at = timezone.now()
         profile.save(update_fields=["assigned_coach", "assigned_coach_at"])
+    if has_luxid:
+        SocialAccount.objects.create(user=user, provider="luxid", uid=username)
 
     CrushConnectMembership.objects.create(
         user=user,
@@ -196,11 +201,67 @@ def test_pool_excludes_unapproved_targets():
 
 
 @pytest.mark.django_db
-def test_pool_excludes_non_premium_targets():
-    # Targets without a coach (non-premium) are not part of the Crush Connect pool.
+def test_pool_includes_non_premium_luxid_targets():
+    # Asymmetric catalogue: candidates don't need premium — LuxID + opt-in is
+    # the ticket into the pool. Only RECEIVING drops requires premium.
     me = _make_user(username="me", preferred_genders=["F", "M"])
-    non_premium = _make_user(username="nonprem", premium=False)
-    assert non_premium not in get_eligible_pool(me)
+    non_premium = _make_user(username="nonprem", premium=False, has_luxid=True)
+    assert non_premium in get_eligible_pool(me)
+
+
+@pytest.mark.django_db
+def test_pool_excludes_targets_without_luxid():
+    # LuxID is mandatory for the candidate catalogue — even premium members
+    # drop out of OTHERS' pools until they link LuxID.
+    me = _make_user(username="me", preferred_genders=["F", "M"])
+    no_luxid_premium = _make_user(username="noluxprem", premium=True, has_luxid=False)
+    no_luxid_free = _make_user(username="noluxfree", premium=False, has_luxid=False)
+    pool = get_eligible_pool(me)
+    assert no_luxid_premium not in pool
+    assert no_luxid_free not in pool
+
+
+@pytest.mark.django_db
+def test_pool_empty_when_requester_not_premium_even_with_luxid():
+    # LuxID alone never unlocks receiving drops — that stays premium-only.
+    me = _make_user(username="luxonly", premium=False, has_luxid=True)
+    assert list(get_eligible_pool(me)) == []
+
+
+@pytest.mark.django_db
+def test_pool_excludes_generic_oidc_account_not_scoped_to_luxid():
+    # The generic openid_connect provider is shared with non-LuxID apps
+    # (e.g. LinkedIn on Entreprinder) — a bare openid_connect account must
+    # NOT count as LuxID for the catalogue.
+    me = _make_user(username="me", preferred_genders=["F", "M"])
+    other = _make_user(username="generic_oidc", has_luxid=False)
+    SocialAccount.objects.create(
+        user=other, provider="openid_connect", uid="generic_oidc"
+    )
+    assert other not in get_eligible_pool(me)
+
+
+@pytest.mark.django_db
+def test_pool_includes_oidc_account_scoped_to_luxid_app():
+    # openid_connect accounts DO count when their token belongs to the
+    # SocialApp configured as LuxID (provider_id='luxid') — the production
+    # OIDC configuration.
+    from allauth.socialaccount.models import SocialApp, SocialToken
+
+    me = _make_user(username="me", preferred_genders=["F", "M"])
+    other = _make_user(username="oidc_luxid", has_luxid=False)
+    app = SocialApp.objects.create(
+        provider="openid_connect",
+        provider_id="luxid",
+        name="LuxID",
+        client_id="test",
+        secret="test",
+    )
+    acct = SocialAccount.objects.create(
+        user=other, provider="openid_connect", uid="oidc_luxid"
+    )
+    SocialToken.objects.create(account=acct, app=app, token="tok")
+    assert other in get_eligible_pool(me)
 
 
 @pytest.mark.django_db
@@ -782,7 +843,7 @@ def test_home_renders_empty_state_when_no_pool(client, settings):
     resp = client.get(CONNECT_HOME_URL)
     assert resp.status_code == 200
     body = resp.content.decode()
-    assert "No Drop for this week." in body
+    assert "No Drop for this week" in body
     assert "Browse upcoming events" in body
 
 
@@ -844,12 +905,15 @@ def test_onboarding_redirects_to_teaser_when_flag_off(client, settings):
 
 @pytest.mark.django_db
 def test_onboarding_redirects_to_teaser_when_ineligible(client, settings):
-    """Not premium (no coach) → can't onboard."""
+    """Neither track qualifies: no premium coach AND no LuxID → can't onboard."""
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(
-        username="me", preferred_genders=["F"], onboarded=False, premium=False
+        username="me",
+        preferred_genders=["F"],
+        onboarded=False,
+        premium=False,
+        has_luxid=False,
     )
-    # No coach assigned → ineligible for the premium-only Crush Connect
     _login_eligible(client, me)
 
     resp = client.get(ONBOARDING_URL)
@@ -956,6 +1020,249 @@ def test_teaser_auto_redirects_eligible_not_onboarded_to_onboarding(client, sett
     assert "/crush-connect/onboarding/" in resp.url
 
 
+# ---------------------------------------------------------------------------
+# Asymmetric catalogue — candidate track (LuxID, no Premium)
+# ---------------------------------------------------------------------------
+
+
+CATALOGUE_STATUS_URL = "/en/crush-connect/catalogue/"
+
+
+@pytest.mark.django_db
+def test_onboarding_renders_for_luxid_non_premium_user(client, settings):
+    """LuxID-only members may opt in as catalogue candidates."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="me", preferred_genders=["F"], onboarded=False, premium=False
+    )
+    _login_eligible(client, me)
+
+    resp = client.get(ONBOARDING_URL)
+    assert resp.status_code == 200
+    assert "story_prompt" in resp.content.decode()
+
+
+@pytest.mark.django_db
+def test_onboarding_redirects_candidate_to_catalogue_status(client, settings):
+    """Candidate-track submit lands on the catalogue page, not Today's Drop."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="me", preferred_genders=["F"], onboarded=False, premium=False
+    )
+    _login_eligible(client, me)
+
+    prompt = SparkPrompt.objects.filter(is_active=True).first()
+    resp = client.post(
+        ONBOARDING_URL,
+        data={
+            "story_prompt": prompt.pk,
+            "story_answer": "I love foggy walks along the Pétrusse valley.",
+            "confirm_terms": "on",
+        },
+    )
+    assert resp.status_code in (302, 301)
+    assert "/crush-connect/catalogue/" in resp.url
+
+    membership = CrushConnectMembership.objects.get(user=me)
+    assert membership.onboarded_at is not None
+
+
+@pytest.mark.django_db
+def test_catalogue_status_renders_for_onboarded_candidate(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="me", preferred_genders=["F"], onboarded=True, premium=False
+    )
+    _login_eligible(client, me)
+
+    resp = client.get(CATALOGUE_STATUS_URL)
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert "catalogue" in body.lower()
+
+
+@pytest.mark.django_db
+def test_catalogue_status_redirects_premium_to_home(client, settings):
+    """Premium receivers don't belong on the catalogue page — Drop instead."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"], onboarded=True)
+    _login_eligible(client, me)
+
+    resp = client.get(CATALOGUE_STATUS_URL)
+    assert resp.status_code in (302, 301)
+    assert "/crush-connect/today/" in resp.url
+
+
+@pytest.mark.django_db
+def test_catalogue_status_redirects_to_onboarding_if_not_onboarded(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="me", preferred_genders=["F"], onboarded=False, premium=False
+    )
+    _login_eligible(client, me)
+
+    resp = client.get(CATALOGUE_STATUS_URL)
+    assert resp.status_code in (302, 301)
+    assert "/crush-connect/onboarding/" in resp.url
+
+
+@pytest.mark.django_db
+def test_catalogue_status_redirects_to_teaser_without_luxid(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="me",
+        preferred_genders=["F"],
+        onboarded=True,
+        premium=False,
+        has_luxid=False,
+    )
+    _login_eligible(client, me)
+
+    resp = client.get(CATALOGUE_STATUS_URL)
+    assert resp.status_code in (302, 301)
+    assert CONNECT_TEASER_URL in resp.url
+
+
+@pytest.mark.django_db
+def test_home_redirects_candidate_only_to_catalogue_status(client, settings):
+    """Onboarded LuxID members without Premium never see Today's Drop."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="me", preferred_genders=["F"], onboarded=True, premium=False
+    )
+    _login_eligible(client, me)
+
+    resp = client.get(CONNECT_HOME_URL)
+    assert resp.status_code in (302, 301)
+    assert "/crush-connect/catalogue/" in resp.url
+
+
+@pytest.mark.django_db
+def test_teaser_auto_redirects_onboarded_candidate_to_catalogue(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="me", preferred_genders=["F"], onboarded=True, premium=False
+    )
+    _login_eligible(client, me)
+
+    resp = client.get(CONNECT_TEASER_URL)
+    assert resp.status_code in (302, 301)
+    assert "/crush-connect/catalogue/" in resp.url
+
+
+# ---------------------------------------------------------------------------
+# Beta tester selection — waitlist fields, admin actions, teaser context
+# ---------------------------------------------------------------------------
+
+
+def _admin_request(user):
+    """A POST request usable by admin actions (messages framework attached)."""
+    from django.contrib.messages.storage.fallback import FallbackStorage
+    from django.test import RequestFactory
+
+    req = RequestFactory().post("/admin/")
+    req.user = user
+    req.session = {}
+    req._messages = FallbackStorage(req)
+    return req
+
+
+@pytest.mark.django_db
+def test_admin_select_as_tester_stamps_fields():
+    from django.contrib.admin.sites import AdminSite
+
+    from crush_lu.admin.crush_connect import CrushConnectWaitlistAdmin
+    from crush_lu.models import CrushConnectWaitlist
+
+    me = _make_user(username="me", premium=False, onboarded=False)
+    staff = User.objects.create_user(
+        username="cc_staff", email="cc_staff@example.com", password="x", is_staff=True
+    )
+    entry = CrushConnectWaitlist.objects.create(user=me)
+
+    admin = CrushConnectWaitlistAdmin(CrushConnectWaitlist, AdminSite())
+    admin.select_as_tester(
+        _admin_request(staff), CrushConnectWaitlist.objects.filter(pk=entry.pk)
+    )
+
+    entry.refresh_from_db()
+    assert entry.selected_as_tester is True
+    assert entry.selected_at is not None
+
+
+@pytest.mark.django_db
+def test_admin_confirm_payment_stamps_confirmed_by():
+    from django.contrib.admin.sites import AdminSite
+
+    from crush_lu.admin.crush_connect import CrushConnectWaitlistAdmin
+    from crush_lu.models import CrushConnectWaitlist
+
+    me = _make_user(username="me", premium=False, onboarded=False)
+    staff = User.objects.create_user(
+        username="cc_staff", email="cc_staff@example.com", password="x", is_staff=True
+    )
+    entry = CrushConnectWaitlist.objects.create(user=me)
+
+    admin = CrushConnectWaitlistAdmin(CrushConnectWaitlist, AdminSite())
+    admin.confirm_payment(
+        _admin_request(staff), CrushConnectWaitlist.objects.filter(pk=entry.pk)
+    )
+
+    entry.refresh_from_db()
+    assert entry.payment_confirmed is True
+    assert entry.payment_date is not None
+    assert entry.confirmed_by_id == staff.id
+
+
+@pytest.mark.django_db
+def test_admin_form_save_stamps_tester_fields():
+    """Toggling the booleans in the change form (not the bulk action) still
+    stamps selected_at / payment_date / confirmed_by via save_model."""
+    from django.contrib.admin.sites import AdminSite
+
+    from crush_lu.admin.crush_connect import CrushConnectWaitlistAdmin
+    from crush_lu.models import CrushConnectWaitlist
+
+    me = _make_user(username="me", premium=False, onboarded=False)
+    staff = User.objects.create_user(
+        username="cc_staff2", email="cc_staff2@example.com", password="x", is_staff=True
+    )
+    entry = CrushConnectWaitlist.objects.create(user=me)
+    entry.selected_as_tester = True
+    entry.payment_confirmed = True
+
+    class _Form:
+        changed_data = ["selected_as_tester", "payment_confirmed"]
+
+    admin = CrushConnectWaitlistAdmin(CrushConnectWaitlist, AdminSite())
+    admin.save_model(_admin_request(staff), entry, _Form(), change=True)
+
+    entry.refresh_from_db()
+    assert entry.selected_at is not None
+    assert entry.payment_date is not None
+    assert entry.confirmed_by_id == staff.id
+
+
+@pytest.mark.django_db
+def test_teaser_context_exposes_tester_status(client, settings):
+    """The teaser surfaces the new beta-status flags for the logged-in user."""
+    settings.CRUSH_CONNECT_LAUNCHED = False  # stay on the teaser, no fast-path
+    from crush_lu.models import CrushConnectWaitlist
+
+    me = _make_user(username="me", premium=False, onboarded=False)
+    CrushConnectWaitlist.objects.create(
+        user=me, selected_as_tester=True, payment_confirmed=True
+    )
+    _login_eligible(client, me)
+
+    resp = client.get(CONNECT_TEASER_URL)
+    assert resp.status_code == 200
+    assert resp.context["on_waitlist"] is True
+    assert resp.context["selected_as_tester"] is True
+    assert resp.context["tester_payment_confirmed"] is True
+    assert "Selected as a beta tester" in resp.content.decode()
+
+
 @pytest.mark.django_db
 def test_drop_new_member_boost_increases_selection_frequency():
     """A bulk-rate check: when 1 target is "new" (boosted) and 4 are old,
@@ -995,3 +1302,697 @@ def test_drop_new_member_boost_increases_selection_frequency():
     # Uniform would be ~3/5 = 36 of 60. Boosted (×1.5) should comfortably exceed
     # that. We assert > 40 (≈67%) to leave plenty of slack.
     assert surfaced > 40, f"Boosted newcomer surfaced only {surfaced}/{trials} times"
+
+
+# ---------------------------------------------------------------------------
+# M5 — Curiosity Sparks
+# ---------------------------------------------------------------------------
+
+
+from crush_lu.models import CuriositySpark
+from crush_lu.services.crush_connect import (
+    can_send_spark,
+    respond_to_spark,
+    send_spark,
+)
+
+
+def _surface_in_drop(sender, target):
+    """Create a Drop snapshot so ``target`` was 'surfaced' to ``sender``."""
+    drop, _ = ConnectDailyDrop.objects.get_or_create(
+        user=sender, drop_date=timezone.localdate()
+    )
+    drop.recipients.add(target)
+    return drop
+
+
+SPARKS_RECEIVED_URL = "/en/crush-connect/sparks/"
+
+
+@pytest.mark.django_db
+def test_can_send_spark_requires_surfaced_target():
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F", premium=False)
+    allowed, reason = can_send_spark(me, her)
+    assert (allowed, reason) == (False, "not_surfaced")
+
+    _surface_in_drop(me, her)
+    allowed, reason = can_send_spark(me, her)
+    assert (allowed, reason) == (True, "ok")
+
+
+@pytest.mark.django_db
+def test_can_send_spark_requires_premium_sender():
+    me = _make_user(username="me", premium=False)  # candidate-only
+    her = _make_user(username="her", gender="F", premium=False)
+    _surface_in_drop(me, her)
+    allowed, reason = can_send_spark(me, her)
+    assert (allowed, reason) == (False, "not_receiver")
+
+
+@pytest.mark.django_db
+def test_send_spark_blocks_duplicates_both_directions():
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F")
+    _surface_in_drop(me, her)
+    send_spark(me, her, message="Curious!")
+
+    allowed, reason = can_send_spark(me, her)
+    assert (allowed, reason) == (False, "already_sparked")
+
+    # Reverse direction also blocked (her drop surfaces me)
+    _surface_in_drop(her, me)
+    allowed, reason = can_send_spark(her, me)
+    assert (allowed, reason) == (False, "already_sparked")
+
+
+@pytest.mark.django_db
+def test_send_spark_creates_notification_for_recipient():
+    from crush_lu.models import Notification
+
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F", premium=False)
+    _surface_in_drop(me, her)
+    spark = send_spark(me, her, message="Your story made me smile.")
+
+    assert spark.status == "pending"
+    assert spark.drop is not None
+    notif = Notification.objects.filter(
+        user=her, notification_type="connect_spark_received"
+    )
+    assert notif.count() == 1
+
+
+@pytest.mark.django_db
+def test_respond_accept_notifies_sender():
+    from crush_lu.models import Notification
+
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F", premium=False)
+    _surface_in_drop(me, her)
+    spark = send_spark(me, her)
+
+    respond_to_spark(spark, accept=True)
+    spark.refresh_from_db()
+    assert spark.status == "accepted"
+    assert spark.responded_at is not None
+    assert Notification.objects.filter(
+        user=me, notification_type="connect_spark_accepted"
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_respond_decline_is_silent_for_sender():
+    from crush_lu.models import Notification
+
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F", premium=False)
+    _surface_in_drop(me, her)
+    spark = send_spark(me, her)
+
+    respond_to_spark(spark, accept=False)
+    spark.refresh_from_db()
+    assert spark.status == "declined"
+    assert not Notification.objects.filter(
+        user=me, notification_type="connect_spark_accepted"
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_respond_is_idempotent_after_decision():
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F", premium=False)
+    _surface_in_drop(me, her)
+    spark = send_spark(me, her)
+    respond_to_spark(spark, accept=False)
+    respond_to_spark(spark, accept=True)  # must NOT flip a decided spark
+    spark.refresh_from_db()
+    assert spark.status == "declined"
+
+
+@pytest.mark.django_db
+def test_spark_compose_view_sends_spark(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F", premium=False)
+    _surface_in_drop(me, her)
+    _login_eligible(client, me)
+
+    url = f"/en/crush-connect/spark/{her.pk}/"
+    resp = client.get(url)
+    assert resp.status_code == 200
+
+    resp = client.post(url, data={"message": "Your story made me curious."})
+    assert resp.status_code in (302, 301)
+    spark = CuriositySpark.objects.get(sender=me, recipient=her)
+    assert spark.message == "Your story made me curious."
+
+
+@pytest.mark.django_db
+def test_spark_compose_rejected_when_not_surfaced(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F", premium=False)
+    _login_eligible(client, me)
+
+    resp = client.post(
+        f"/en/crush-connect/spark/{her.pk}/", data={"message": "hi"}
+    )
+    assert resp.status_code in (302, 301)
+    assert not CuriositySpark.objects.filter(sender=me, recipient=her).exists()
+
+
+@pytest.mark.django_db
+def test_sparks_received_page_lists_pending_and_responds(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F", premium=False)
+    _surface_in_drop(me, her)
+    spark = send_spark(me, her, message="Hello there")
+
+    _login_eligible(client, her)
+    resp = client.get(SPARKS_RECEIVED_URL)
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert "Hello there" in body
+    assert me.first_name in body
+
+    resp = client.post(
+        f"/en/crush-connect/sparks/{spark.pk}/respond/", data={"action": "accept"}
+    )
+    assert resp.status_code in (302, 301)
+    spark.refresh_from_db()
+    assert spark.status == "accepted"
+
+
+@pytest.mark.django_db
+def test_spark_respond_forbidden_for_non_recipient(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F", premium=False)
+    other = _make_user(username="other", gender="F", premium=False)
+    _surface_in_drop(me, her)
+    spark = send_spark(me, her)
+
+    _login_eligible(client, other)
+    resp = client.post(
+        f"/en/crush-connect/sparks/{spark.pk}/respond/", data={"action": "accept"}
+    )
+    assert resp.status_code == 404
+    spark.refresh_from_db()
+    assert spark.status == "pending"
+
+
+@pytest.mark.django_db
+def test_home_card_shows_spark_cta_and_sent_state(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])
+    _mark_attended(me)
+    targets = _seed_pool_for(me, n=3)
+    _login_eligible(client, me)
+
+    resp = client.get(CONNECT_HOME_URL)
+    body = resp.content.decode()
+    assert "Send a Curiosity Spark" in body
+    assert "coming soon" not in body
+
+
+@pytest.mark.django_db
+def test_can_send_spark_rechecks_recipient_eligibility():
+    """Drop snapshots are immutable — eligibility lost AFTER surfacing
+    (rejection, LuxID unlink, coach exclusion) must block new Sparks."""
+    me = _make_user(username="me", preferred_genders=["F"])
+
+    # Rejected after surfacing
+    rejected = _make_user(username="rejected", gender="F", premium=False)
+    _surface_in_drop(me, rejected)
+    rejected.crushprofile.is_approved = False
+    rejected.crushprofile.verification_status = "rejected"
+    rejected.crushprofile.save(
+        update_fields=["is_approved", "verification_status"]
+    )
+    assert can_send_spark(me, rejected) == (False, "recipient_unavailable")
+
+    # LuxID unlinked after surfacing
+    unlinked = _make_user(username="unlinked", gender="F", premium=False)
+    _surface_in_drop(me, unlinked)
+    SocialAccount.objects.filter(user=unlinked).delete()
+    assert can_send_spark(me, unlinked) == (False, "recipient_unavailable")
+
+    # Coach-excluded after surfacing
+    excluded = _make_user(username="excluded", gender="F", premium=False)
+    _surface_in_drop(me, excluded)
+    excluded.crush_connect_membership.excluded_by_coach = True
+    excluded.crush_connect_membership.save(update_fields=["excluded_by_coach"])
+    assert can_send_spark(me, excluded) == (False, "recipient_unavailable")
+
+
+@pytest.mark.django_db
+def test_respond_accept_blocked_when_recipient_lost_eligibility():
+    """An ineligible recipient must not be able to trigger the mutual
+    notification/coach queue from an old pending Spark."""
+    from crush_lu.models import Notification
+
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F", premium=False)
+    _surface_in_drop(me, her)
+    spark = send_spark(me, her)
+
+    SocialAccount.objects.filter(user=her).delete()  # LuxID unlinked
+
+    respond_to_spark(spark, accept=True)
+    spark.refresh_from_db()
+    assert spark.status == "pending"  # accept refused, no flip
+    assert not Notification.objects.filter(
+        user=me, notification_type="connect_spark_accepted"
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_sparks_views_blocked_when_recipient_lost_eligibility(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F", premium=False)
+    _surface_in_drop(me, her)
+    spark = send_spark(me, her)
+
+    her.crushprofile.is_approved = False
+    her.crushprofile.verification_status = "rejected"
+    her.crushprofile.save(update_fields=["is_approved", "verification_status"])
+
+    _login_eligible(client, her)
+    resp = client.get(SPARKS_RECEIVED_URL)
+    assert resp.status_code in (302, 301)
+    assert CONNECT_TEASER_URL in resp.url
+
+    resp = client.post(
+        f"/en/crush-connect/sparks/{spark.pk}/respond/", data={"action": "accept"}
+    )
+    assert resp.status_code in (302, 301)
+    spark.refresh_from_db()
+    assert spark.status == "pending"
+
+
+@pytest.mark.django_db
+def test_can_send_spark_blocks_inactive_recipient():
+    """The 30-day activity gate applies to Sparks, not just Drops — an old
+    snapshot or bookmarked compose URL must not reach inactive members."""
+    me = _make_user(username="me", preferred_genders=["F"])
+    dormant = _make_user(
+        username="dormant", gender="F", premium=False, last_login_days_ago=40
+    )
+    _surface_in_drop(me, dormant)
+    assert can_send_spark(me, dormant) == (False, "recipient_unavailable")
+
+
+@pytest.mark.django_db
+def test_respond_accept_blocked_when_sender_lost_eligibility():
+    """A sender who lost Premium (or got rejected/excluded) after sending
+    must not reach the accepted-sparks coach queue via an old pending Spark."""
+    from crush_lu.models import Notification
+
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F", premium=False)
+    _surface_in_drop(me, her)
+    spark = send_spark(me, her)
+
+    me.crushprofile.assigned_coach = None
+    me.crushprofile.save(update_fields=["assigned_coach"])
+
+    respond_to_spark(spark, accept=True)
+    spark.refresh_from_db()
+    assert spark.status == "pending"
+    assert not Notification.objects.filter(
+        user=me, notification_type="connect_spark_accepted"
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_sparks_received_hides_sparks_from_ineligible_sender(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F", premium=False)
+    _surface_in_drop(me, her)
+    send_spark(me, her, message="Hello there")
+
+    me.crushprofile.assigned_coach = None
+    me.crushprofile.save(update_fields=["assigned_coach"])
+
+    _login_eligible(client, her)
+    resp = client.get(SPARKS_RECEIVED_URL)
+    assert resp.status_code == 200
+    assert "Hello there" not in resp.content.decode()
+
+
+# ---------------------------------------------------------------------------
+# M7 — Coach Picks
+# ---------------------------------------------------------------------------
+
+
+from crush_lu.models import ConnectCoachPick
+from crush_lu.services.crush_connect import (
+    get_active_coach_pick,
+    propose_coach_pick,
+    respond_to_coach_pick,
+)
+
+
+def _coach_for(member):
+    return member.crushprofile.assigned_coach
+
+
+@pytest.mark.django_db
+def test_propose_coach_pick_validates_pool_and_pair():
+    member = _make_user(username="member", preferred_genders=["F"])
+    coach = _coach_for(member)
+    candidate = _make_user(username="cand", gender="F", premium=False)
+    stranger = _make_user(
+        username="stranger", gender="F", premium=False, has_luxid=False
+    )
+
+    with pytest.raises(ValueError, match="candidate_not_eligible"):
+        propose_coach_pick(coach, member, stranger)
+
+    pick = propose_coach_pick(coach, member, candidate, note="Great energy match")
+    assert pick.status == "proposed"
+
+    with pytest.raises(ValueError, match="already_picked"):
+        propose_coach_pick(coach, member, candidate)
+
+
+@pytest.mark.django_db
+def test_new_pick_withdraws_previous_proposal():
+    member = _make_user(username="member", preferred_genders=["F"])
+    coach = _coach_for(member)
+    c1 = _make_user(username="c1", gender="F", premium=False)
+    c2 = _make_user(username="c2", gender="F", premium=False)
+
+    p1 = propose_coach_pick(coach, member, c1)
+    p2 = propose_coach_pick(coach, member, c2)
+    p1.refresh_from_db()
+    assert p1.status == "withdrawn"
+    assert get_active_coach_pick(member).pk == p2.pk
+
+
+@pytest.mark.django_db
+def test_pick_respond_notifies_coach_both_ways():
+    from crush_lu.models import Notification
+
+    member = _make_user(username="member", preferred_genders=["F"])
+    coach = _coach_for(member)
+    cand = _make_user(username="cand", gender="F", premium=False)
+    pick = propose_coach_pick(coach, member, cand)
+
+    # Member got the bell
+    assert Notification.objects.filter(
+        user=member, notification_type="connect_coach_pick"
+    ).exists()
+
+    respond_to_coach_pick(pick, accept=True)
+    pick.refresh_from_db()
+    assert pick.status == "accepted"
+    assert Notification.objects.filter(
+        user=coach.user, notification_type="connect_coach_pick_response"
+    ).exists()
+    # Idempotent: decline after accept is a no-op
+    respond_to_coach_pick(pick, accept=False)
+    pick.refresh_from_db()
+    assert pick.status == "accepted"
+
+
+@pytest.mark.django_db
+def test_home_shows_coach_pick_instead_of_drop(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    member = _make_user(username="member", preferred_genders=["F"])
+    coach = _coach_for(member)
+    _seed_pool_for(member, n=4)
+    cand = _make_user(
+        username="pickme", gender="F", premium=False, preferred_genders=["M"]
+    )
+    propose_coach_pick(coach, member, cand, note="You both love hiking")
+
+    _login_eligible(client, member)
+    resp = client.get(CONNECT_HOME_URL)
+    body = resp.content.decode()
+    assert "Your Coach&#x27;s Pick" in body or "Your Coach's Pick" in body
+    assert "Pickme" in body
+    assert "You both love hiking" in body
+    assert "Send a Curiosity Spark" not in body  # drop replaced
+
+
+@pytest.mark.django_db
+def test_member_accepts_pick_via_view(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    member = _make_user(username="member", preferred_genders=["F"])
+    coach = _coach_for(member)
+    cand = _make_user(username="cand", gender="F", premium=False)
+    pick = propose_coach_pick(coach, member, cand)
+
+    _login_eligible(client, member)
+    resp = client.post(
+        f"/en/crush-connect/pick/{pick.pk}/respond/", data={"action": "accept"}
+    )
+    assert resp.status_code in (302, 301)
+    pick.refresh_from_db()
+    assert pick.status == "accepted"
+
+
+@pytest.mark.django_db
+def test_pick_respond_forbidden_for_non_member(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    member = _make_user(username="member", preferred_genders=["F"])
+    coach = _coach_for(member)
+    cand = _make_user(username="cand", gender="F", premium=False)
+    other = _make_user(username="other", gender="F", premium=False)
+    pick = propose_coach_pick(coach, member, cand)
+
+    _login_eligible(client, other)
+    resp = client.post(
+        f"/en/crush-connect/pick/{pick.pk}/respond/", data={"action": "accept"}
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.django_db
+def test_coach_connect_views_require_coach_and_own_member(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    member = _make_user(username="member", preferred_genders=["F"])
+    coach = _coach_for(member)
+    cand = _make_user(username="cand", gender="F", premium=False)
+
+    # Non-coach is redirected away
+    _login_eligible(client, member)
+    resp = client.get("/en/coach/connect/")
+    assert resp.status_code in (302, 301)
+
+    # The coach can curate and propose
+    _login_eligible(client, coach.user)
+    resp = client.get("/en/coach/connect/")
+    assert resp.status_code == 200
+    resp = client.get(f"/en/coach/connect/member/{member.pk}/")
+    assert resp.status_code == 200
+    assert "Cand" in resp.content.decode()
+
+    resp = client.post(
+        f"/en/coach/connect/member/{member.pk}/",
+        data={"candidate_id": cand.pk, "note": "Perfect fit"},
+    )
+    assert resp.status_code in (302, 301)
+    pick = ConnectCoachPick.objects.get(member=member, candidate=cand)
+    assert pick.note == "Perfect fit"
+
+
+@pytest.mark.django_db
+def test_stale_pick_candidate_hides_pick_and_falls_back():
+    member = _make_user(username="member", preferred_genders=["F"])
+    coach = _coach_for(member)
+    cand = _make_user(username="cand", gender="F", premium=False)
+    propose_coach_pick(coach, member, cand)
+
+    SocialAccount.objects.filter(user=cand).delete()  # LuxID unlinked
+    assert get_active_coach_pick(member) is None
+
+
+@pytest.mark.django_db
+def test_no_drop_created_while_pick_active(client, settings):
+    """Drop snapshots authorize Sparks — none may be persisted while the
+    coach's pick replaces the Drop."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    member = _make_user(username="member", preferred_genders=["F"])
+    coach = _coach_for(member)
+    _seed_pool_for(member, n=4)
+    cand = _make_user(
+        username="pickme", gender="F", premium=False, preferred_genders=["M"]
+    )
+    propose_coach_pick(coach, member, cand)
+
+    _login_eligible(client, member)
+    resp = client.get(CONNECT_HOME_URL)
+    assert resp.status_code == 200
+    assert ConnectDailyDrop.objects.filter(user=member).count() == 0
+
+
+@pytest.mark.django_db
+def test_pick_accept_blocked_when_candidate_lost_eligibility():
+    from crush_lu.models import Notification
+
+    member = _make_user(username="member", preferred_genders=["F"])
+    coach = _coach_for(member)
+    cand = _make_user(username="cand", gender="F", premium=False)
+    pick = propose_coach_pick(coach, member, cand)
+
+    SocialAccount.objects.filter(user=cand).delete()  # LuxID unlinked
+
+    respond_to_coach_pick(pick, accept=True)
+    pick.refresh_from_db()
+    assert pick.status == "proposed"
+    assert not Notification.objects.filter(
+        user=coach.user, notification_type="connect_coach_pick_response"
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_pick_accept_blocked_when_either_party_coach_excluded():
+    """The panic button (excluded_by_coach) is enforced via is_onboarded
+    inside both eligibility helpers — an exclusion after proposal makes
+    accept a no-op for candidate AND member exclusions."""
+    member = _make_user(username="member", preferred_genders=["F"])
+    coach = _coach_for(member)
+    cand = _make_user(username="cand", gender="F", premium=False)
+    pick = propose_coach_pick(coach, member, cand)
+
+    cand.crush_connect_membership.excluded_by_coach = True
+    cand.crush_connect_membership.save(update_fields=["excluded_by_coach"])
+    respond_to_coach_pick(pick, accept=True)
+    pick.refresh_from_db()
+    assert pick.status == "proposed"
+
+    # Reset candidate, exclude the member instead
+    cand.crush_connect_membership.excluded_by_coach = False
+    cand.crush_connect_membership.save(update_fields=["excluded_by_coach"])
+    member.crush_connect_membership.excluded_by_coach = True
+    member.crush_connect_membership.save(update_fields=["excluded_by_coach"])
+    pick = type(pick).objects.get(pk=pick.pk)
+    respond_to_coach_pick(pick, accept=True)
+    pick.refresh_from_db()
+    assert pick.status == "proposed"
+
+
+@pytest.mark.django_db
+def test_pick_hidden_and_unacceptable_after_coach_reassignment():
+    """An ex-coach's proposed pick must neither surface nor be acceptable."""
+    member = _make_user(username="member", preferred_genders=["F"])
+    old_coach = _coach_for(member)
+    cand = _make_user(username="cand", gender="F", premium=False)
+    pick = propose_coach_pick(old_coach, member, cand)
+
+    new_coach_user = User.objects.create_user(
+        username="coach2", email="coach2@example.com", password="x"
+    )
+    new_coach = CrushCoach.objects.create(
+        user=new_coach_user, bio="b", specializations="g",
+        phone_number="+352999999", is_active=True,
+    )
+    member.crushprofile.assigned_coach = new_coach
+    member.crushprofile.save(update_fields=["assigned_coach"])
+
+    assert get_active_coach_pick(member) is None
+    respond_to_coach_pick(pick, accept=True)
+    pick.refresh_from_db()
+    assert pick.status == "proposed"
+
+
+@pytest.mark.django_db
+def test_stale_decline_recorded_but_ex_coach_not_notified():
+    from crush_lu.models import Notification
+
+    member = _make_user(username="member", preferred_genders=["F"])
+    old_coach = _coach_for(member)
+    cand = _make_user(username="cand", gender="F", premium=False)
+    pick = propose_coach_pick(old_coach, member, cand)
+
+    new_coach = CrushCoach.objects.create(
+        user=User.objects.create_user(
+            username="coach2", email="coach2@example.com", password="x"
+        ),
+        bio="b", specializations="g", phone_number="+352999998", is_active=True,
+    )
+    member.crushprofile.assigned_coach = new_coach
+    member.crushprofile.save(update_fields=["assigned_coach"])
+
+    respond_to_coach_pick(pick, accept=False)
+    pick.refresh_from_db()
+    assert pick.status == "declined"  # member's intent honored
+    assert not Notification.objects.filter(
+        user=old_coach.user, notification_type="connect_coach_pick_response"
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_stale_accept_view_shows_no_false_promise(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    member = _make_user(username="member", preferred_genders=["F"])
+    coach = _coach_for(member)
+    cand = _make_user(username="cand", gender="F", premium=False)
+    pick = propose_coach_pick(coach, member, cand)
+    SocialAccount.objects.filter(user=cand).delete()
+
+    _login_eligible(client, member)
+    resp = client.post(
+        f"/en/crush-connect/pick/{pick.pk}/respond/",
+        data={"action": "accept"},
+        follow=True,
+    )
+    body = resp.content.decode()
+    assert "no longer available" in body
+    assert "arrange your date" not in body
+
+
+@pytest.mark.django_db
+def test_pick_accept_blocked_when_candidate_left_member_pool():
+    """Accept re-checks the FULL pool: an EventConnection created after the
+    proposal (they already met) makes the accept a no-op."""
+    member = _make_user(username="member", preferred_genders=["F"])
+    coach = _coach_for(member)
+    cand = _make_user(username="cand", gender="F", premium=False)
+    pick = propose_coach_pick(coach, member, cand)
+
+    EventConnection.objects.create(
+        requester=member, recipient=cand, event=_make_event(), status="pending"
+    )
+    respond_to_coach_pick(pick, accept=True)
+    pick.refresh_from_db()
+    assert pick.status == "proposed"
+
+
+@pytest.mark.django_db
+def test_pick_hidden_when_candidate_leaves_member_pool():
+    """Display uses the same full-pool check as accept — a post-proposal
+    EventConnection hides the pick so the member is never stuck on it."""
+    member = _make_user(username="member", preferred_genders=["F"])
+    coach = _coach_for(member)
+    cand = _make_user(username="cand", gender="F", premium=False)
+    propose_coach_pick(coach, member, cand)
+
+    EventConnection.objects.create(
+        requester=member, recipient=cand, event=_make_event(), status="pending"
+    )
+    assert get_active_coach_pick(member) is None
+
+
+@pytest.mark.django_db
+def test_coach_hub_hides_stale_proposed_pick(client, settings):
+    """A proposed pick the member can no longer see must prompt the coach
+    to re-pick, not show 'awaiting their answer'."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    member = _make_user(username="member", preferred_genders=["F"])
+    coach = _coach_for(member)
+    cand = _make_user(username="cand", gender="F", premium=False)
+    propose_coach_pick(coach, member, cand)
+    SocialAccount.objects.filter(user=cand).delete()  # candidate left pool
+
+    _login_eligible(client, coach.user)
+    resp = client.get("/en/coach/connect/")
+    body = resp.content.decode()
+    assert "awaiting their answer" not in body
+    assert "No open pick" in body
