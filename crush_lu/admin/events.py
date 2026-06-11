@@ -1057,7 +1057,15 @@ class EventFeedbackAdmin(admin.ModelAdmin):
     list_select_related = ["user", "event"]
     list_filter = ("would_recommend", "nps_score", "created_at")
     search_fields = ("user__username", "user__email", "event__title")
-    readonly_fields = ("event", "user", "nps_score", "would_recommend", "created_at")
+    readonly_fields = (
+        "event",
+        "user",
+        "nps_score",
+        "would_recommend",
+        "what_worked",
+        "what_to_improve",
+        "created_at",
+    )
     date_hierarchy = "created_at"
     list_per_page = 50
 

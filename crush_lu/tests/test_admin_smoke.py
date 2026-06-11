@@ -105,6 +105,16 @@ class AdminChangelistSmokeTests(SiteTestMixin, TestCase):
                 f"{model.__name__} admin should not allow manual adds",
             )
 
+    def test_event_feedback_answers_are_read_only(self):
+        """Attendee survey answers must not be editable from the admin."""
+        model_admin = crush_admin_site._registry[EventFeedback]
+        for field in ("nps_score", "would_recommend", "what_worked", "what_to_improve"):
+            self.assertIn(
+                field,
+                model_admin.readonly_fields,
+                f"EventFeedback.{field} should be read-only in the admin",
+            )
+
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
 class EventRegistrationChangelistQueryTests(SiteTestMixin, TestCase):
