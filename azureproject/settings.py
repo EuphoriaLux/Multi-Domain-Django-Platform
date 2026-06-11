@@ -84,14 +84,15 @@ from azureproject.domains import get_all_hosts
 
 ALLOWED_HOSTS = get_all_hosts()
 
+CSRF_TRUSTED_ORIGINS = []
 if "CODESPACE_NAME" in os.environ:
-    CSRF_TRUSTED_ORIGINS = [
+    CSRF_TRUSTED_ORIGINS.append(
         f'https://{os.getenv("CODESPACE_NAME")}-8000.{os.getenv("GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN")}'
-    ]
+    )
 
 # Local development CSRF trusted origins (for .localhost domains)
 # These only apply locally - production uses real domains
-CSRF_TRUSTED_ORIGINS = getattr(globals(), "CSRF_TRUSTED_ORIGINS", []) + [
+CSRF_TRUSTED_ORIGINS += [
     "http://arborist.localhost:8000",
     "http://crush.localhost:8000",
     "http://power-up.localhost:8000",
@@ -332,10 +333,9 @@ SESSION_COOKIE_HTTPONLY = True  # Security: prevent JavaScript access
 # SEC-01: secure in production (HTTPS via Azure Front Door), relaxed for local HTTP dev.
 SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_SAMESITE = "Lax"  # CSRF protection while allowing navigation
-# CSRF cookie matches session cookie for symmetry. Leave HTTPONLY=False so JS
-# can read the token and send it as X-CSRFToken in fetch() calls.
+# CSRF cookie matches session cookie for symmetry. CSRF_COOKIE_HTTPONLY is set
+# further below (True — HTMX reads the token from a hidden input, not the cookie).
 CSRF_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = "Lax"
 SESSION_EXPIRE_AT_BROWSER_CLOSE = (
     False  # Keep session alive after browser close (critical for PWA)

@@ -434,8 +434,10 @@ class CrushProfileForm(forms.ModelForm):
         if not isinstance(photo, (InMemoryUploadedFile, TemporaryUploadedFile)):
             return photo
 
-        # Check file size (10MB limit)
-        max_size = 10 * 1024 * 1024  # 10MB in bytes
+        # Check file size (shared limit with process_uploaded_image)
+        from crush_lu.utils.image_processing import MAX_UPLOAD_BYTES
+
+        max_size = MAX_UPLOAD_BYTES
         if photo.size > max_size:
             raise ValidationError(
                 f"{field_name} must be less than 10MB. Your file is {photo.size / (1024*1024):.1f}MB."

@@ -237,26 +237,21 @@ class ProfileSubmissionProfileInline(admin.TabularInline):
 
 
 class CrushProfileAdmin(admin.ModelAdmin):
+    # Kept to the 10 highest-signal columns so the changelist stays fast and
+    # scannable. Everything removed is still one click away: location via
+    # search, verification_method / is_active / language via list_filter,
+    # consent / referrals / outlook sync in the detail fieldsets.
     list_display = (
         "get_user_link",
         "get_photo_preview",
         "get_email",
         "age",
         "gender",
-        "location",
-        "get_language_display",
-        "phone_verified_icon",
-        "get_consent_status",
         "verification_status",
-        "verification_method",
+        "phone_verified_icon",
         "get_assigned_coach",
-        "get_referral_code",
-        "get_referral_count",
         "is_approved",
-        "is_active",
-        "outlook_synced",
         "created_at",
-        "is_coach",
     )
 
     def save_model(self, request, obj, form, change):
@@ -2231,6 +2226,7 @@ class PremiumMembershipAdmin(admin.ModelAdmin):
         "payment_date",
         "created_at",
     )
+    list_select_related = ["user", "coach__user"]
     list_filter = ("status", "payment_confirmed")
     search_fields = (
         "user__email",
@@ -2264,3 +2260,67 @@ class PremiumMembershipAdmin(admin.ModelAdmin):
             )
         for err in errors:
             django_messages.error(request, err)
+
+
+class CallAttemptAdmin(admin.ModelAdmin):
+    """
+    📞 CALL ATTEMPT LOG
+
+    Standalone audit trail of verification calls / SMS / WhatsApp attempts
+    (the inline on ProfileSubmission only shows one submission at a time).
+    Useful for debugging phone verification issues across all users.
+    """
+
+    list_display = (
+        "attempt_date",
+        "get_target_user",
+        "coach",
+        "result",
+        "failure_reason",
+        "event",
+    )
+    list_select_related = [
+        "profile__user",
+        "submission__profile__user",
+        "coach__user",
+        "event",
+    ]
+    list_filter = ("result", "failure_reason", "attempt_date")
+    search_fields = (
+        "profile__user__username",
+        "profile__user__email",
+        "submission__profile__user__username",
+        "submission__profile__user__email",
+        "coach__user__username",
+        "notes",
+    )
+    # Fully read-only audit surface: corrections to result/notes happen via
+    # the CallAttemptInline on ProfileSubmission, the workflow's own surface.
+    readonly_fields = (
+        "submission",
+        "profile",
+        "attempt_date",
+        "result",
+        "failure_reason",
+        "notes",
+        "coach",
+        "event",
+    )
+    date_hierarchy = "attempt_date"
+    list_per_page = 50
+
+    @admin.display(description=_("User"))
+    def get_target_user(self, obj):
+        profile = obj.profile or (obj.submission.profile if obj.submission else None)
+        if profile:
+            return profile.user.get_full_name() or profile.user.username
+        return "—"
+
+    def has_add_permission(self, request):
+        # Attempts are logged by the coach call workflow, not created by hand.
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        # Preserve the verification audit trail (matches CallAttemptInline's
+        # can_delete = False); rows are only removed by app-level cascades.
+        return False

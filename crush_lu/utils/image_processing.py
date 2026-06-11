@@ -8,7 +8,9 @@ import io
 import logging
 import os
 
+from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import InMemoryUploadedFile
+from django.utils.translation import gettext_lazy as _
 from PIL import Image, ImageOps
 
 logger = logging.getLogger(__name__)
@@ -18,6 +20,22 @@ MAX_DIMENSION = 1200
 
 # JPEG quality for re-saved images
 JPEG_QUALITY = 90
+
+# Max accepted input size. Checked BEFORE Pillow opens the file so an
+# oversized/malformed upload can't exhaust memory during decoding.
+# Mirrors the 10MB limit enforced by CrushProfileForm.
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+
+
+def _file_size(image_file):
+    size = getattr(image_file, "size", None)
+    if size is not None:
+        return size
+    pos = image_file.tell()
+    image_file.seek(0, os.SEEK_END)
+    size = image_file.tell()
+    image_file.seek(pos)
+    return size
 
 
 def process_uploaded_image(image_file, filename=None):
@@ -30,7 +48,17 @@ def process_uploaded_image(image_file, filename=None):
 
     Returns:
         InMemoryUploadedFile with processed image data.
+
+    Raises:
+        ValidationError: If the file exceeds MAX_UPLOAD_BYTES.
     """
+    size = _file_size(image_file)
+    if size > MAX_UPLOAD_BYTES:
+        raise ValidationError(
+            _("Image must be less than %(max)dMB. Your file is %(size).1fMB.")
+            % {"max": MAX_UPLOAD_BYTES // (1024 * 1024), "size": size / (1024 * 1024)}
+        )
+
     image_file.seek(0)
     img = Image.open(image_file)
 

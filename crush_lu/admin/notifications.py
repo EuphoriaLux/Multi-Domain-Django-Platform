@@ -4,12 +4,13 @@ Push notification admin classes for Crush.lu Coach Panel.
 Includes:
 - PushSubscriptionAdmin
 - CoachPushSubscriptionAdmin
+- NotificationAdmin (in-app bell notifications)
 """
 
 from django.contrib import admin
 from django.contrib import messages as django_messages
 
-from crush_lu.models import PushSubscription, CoachPushSubscription
+from crush_lu.models import PushSubscription, CoachPushSubscription, Notification
 
 
 class PushSubscriptionAdmin(admin.ModelAdmin):
@@ -23,6 +24,7 @@ class PushSubscriptionAdmin(admin.ModelAdmin):
         'user', 'device_name', 'enabled', 'created_at',
         'last_used_at', 'failure_count', 'get_preferences'
     )
+    list_select_related = ["user"]
     list_filter = (
         'enabled', 'created_at', 'failure_count',
         'notify_new_messages', 'notify_event_reminders',
@@ -134,6 +136,7 @@ class CoachPushSubscriptionAdmin(admin.ModelAdmin):
         'coach', 'device_name', 'enabled', 'created_at',
         'last_used_at', 'failure_count', 'get_preferences'
     )
+    list_select_related = ["coach__user"]
     list_filter = (
         'enabled', 'created_at', 'failure_count',
         'notify_new_submissions', 'notify_screening_reminders',
@@ -231,3 +234,43 @@ class CoachPushSubscriptionAdmin(admin.ModelAdmin):
             level=django_messages.SUCCESS if success > 0 else django_messages.WARNING
         )
     send_test_notification.short_description = '📤 Send test notification'
+
+
+class NotificationAdmin(admin.ModelAdmin):
+    """
+    🔔 IN-APP NOTIFICATION LOG
+
+    Read-only view of bell notifications written by NotificationService.
+    Gives coaches/admins visibility into what users were notified about
+    and whether they read it.
+    """
+
+    list_display = (
+        'user', 'notification_type', 'title', 'get_read_status', 'created_at'
+    )
+    list_select_related = ['user']
+    list_filter = (
+        'notification_type',
+        ('read_at', admin.EmptyFieldListFilter),
+        'created_at',
+    )
+    search_fields = ('user__username', 'user__email', 'title', 'body')
+    readonly_fields = (
+        'user', 'notification_type', 'title', 'body', 'link_url',
+        'metadata', 'created_at', 'read_at'
+    )
+    date_hierarchy = 'created_at'
+    list_per_page = 50
+
+    @admin.display(description='Read', boolean=True)
+    def get_read_status(self, obj):
+        return not obj.is_unread
+
+    def has_add_permission(self, request):
+        # Notifications are written by NotificationService, never by hand.
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        # Preserve notification history; rows are only removed by
+        # app-level cascades (e.g. account deletion).
+        return False

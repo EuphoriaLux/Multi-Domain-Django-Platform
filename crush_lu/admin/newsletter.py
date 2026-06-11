@@ -587,6 +587,8 @@ class NewsletterRecipientAdmin(admin.ModelAdmin):
     """
 
     list_display = ('newsletter', 'email', 'status', 'sent_at', 'short_error')
+    list_per_page = 50
+    list_select_related = ["newsletter"]
     list_filter = ('status', 'newsletter')
     search_fields = ('email', 'user__username', 'user__first_name')
     readonly_fields = (
