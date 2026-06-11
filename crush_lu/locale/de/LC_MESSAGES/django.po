@@ -34316,6 +34316,79 @@ msgstr "Noch keine Bio (optional)"
 msgid "None selected yet"
 msgstr "Noch nichts ausgewählt"
 
+#: .\admin\events.py:635
+#, fuzzy
+msgid ""
+"Profile requirement level for registration:\n"
+"• Approved profile required (recommended): Only users with coach-approved profiles can register\n"
+"• Premium member — coach assigned: Only members who have a personal coach assigned can register\n"
+"• Unverified profile only: Only users with a profile NOT yet verified by a coach can register\n"
+"• Profile must exist: Any user with a Crush profile can register (pending or incomplete OK)\n"
+"• No profile required: Any authenticated user can register"
+msgstr ""
+"Profilanforderung für die Anmeldung:\n"
+"• Genehmigtes Profil erforderlich (empfohlen): Nur Benutzer mit vom Coach genehmigten Profilen können sich anmelden\n"
+"• Profil muss vorhanden sein: Jeder Benutzer mit einem Crush-Profil kann sich anmelden (ausstehend oder unvollständig OK)\n"
+"• Kein Profil erforderlich: Jeder authentifizierte Benutzer kann sich anmelden• Deaktiviert: Jeder authentifizierte Benutzer kann sich anmelden (kein Profil nötig)"
+
+#: .\templates\crush_lu\base.html .\templates\crush_lu\coach_dashboard.html
+msgid "Coach Picks"
+msgstr "Coach-Auswahl"
+
+#: .\templates\crush_lu\create_profile.html:1044
+msgid ""
+"Who would you like to meet? These are soft preferences — your coach uses "
+"them as a starting point, not a hard filter."
+msgstr ""
+"Wen möchtest du kennenlernen? Das sind weiche Präferenzen — dein Coach nutzt"
+" sie als Ausgangspunkt, nicht als strengen Filter."
+
+#: .\templates\crush_lu\crush_connect\onboarding.html:17
+msgid ""
+"Pick the question that feels most like you and answer it in one line. That "
+"sentence is the only thing other members read before they decide to send you"
+" a Spark."
+msgstr ""
+"Wähle die Frage, die am besten zu dir passt, und beantworte sie in einem "
+"Satz. Dieser Satz ist das Einzige, was andere Mitglieder lesen, bevor sie "
+"dir einen Spark senden."
+
+#: .\templates\crush_lu\emails\profile_incomplete_72h.html:51
+#| msgid "Why Become a Coach?"
+msgid "Why a coach?"
+msgstr "Warum ein Coach?"
+
+#: .\templates\crush_lu\partials\_verification_options.html:27
+#| msgid ""
+#| "Connect your LuxID account and get approved in seconds — no screening call, "
+#| "no waiting."
+msgid ""
+"Connect your LuxID government identity and get verified in seconds — no "
+"call, no waiting."
+msgstr ""
+"Verbinde deine LuxID-Behördenidentität und werde in Sekunden verifiziert – "
+"kein Anruf, keine Wartezeit."
+
+#: .\templates\crush_lu\partials\profile_completion_banner.html:15
+#| msgid "Step 1 of 4 - Let's get started with the basics!"
+msgid "Step 1 of 5 - Let's get started with the basics!"
+msgstr "Schritt 1 von 5 – Beginnen wir mit den Grundlagen!"
+
+#: .\templates\crush_lu\partials\profile_completion_banner.html:17
+#| msgid "Step 2 of 4 - Tell us about yourself"
+msgid "Step 2 of 5 - Tell us about yourself"
+msgstr "Schritt 2 von 5 – Erzähl uns etwas über dich"
+
+#: .\templates\crush_lu\partials\profile_completion_banner.html:19
+#| msgid "Step 3 of 4 - Add your photos"
+msgid "Step 3 of 5 - Add your photos"
+msgstr "Schritt 3 von 5 – Füge deine Fotos hinzu"
+
+#: .\templates\crush_lu\partials\profile_completion_banner.html:23
+#| msgid "Step 4 of 4 - Review and submit"
+msgid "Step 5 of 5 - Review and submit"
+msgstr "Schritt 5 von 5 – Überprüfen und absenden"
+
 #~ msgid "Approved profile required"
 #~ msgstr "Genehmigtes Profil erforderlich"
 
@@ -36522,3 +36595,14 @@ msgstr "Noch nichts ausgewählt"
 
 #~ msgid "Please create a profile first."
 #~ msgstr "Bitte erstellen Sie zuerst ein Profil."
+
+#~ msgid "View Event"
+#~ msgstr "Veranstaltung ansehen"
+
+#, fuzzy
+#~ msgid "Your Coach"
+#~ msgstr "Lernen Sie Ihren Coach kennen"
+
+#, fuzzy
+#~ msgid "Currently at capacity"
+#~ msgstr "Aktuelles Kapitel"
