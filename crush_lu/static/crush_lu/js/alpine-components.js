@@ -912,9 +912,7 @@ document.addEventListener("alpine:init", function () {
             },
 
             getCsrfToken: function () {
-                var input = document.querySelector(
-                    'input[name="csrfmiddlewaretoken"]',
-                );
+                var input = document.querySelector('input[name="csrfmiddlewaretoken"]');
                 if (input && input.value) return input.value;
                 var cookie = document.cookie.split("; ").find(function (row) {
                     return row.startsWith("csrftoken=");
@@ -3403,12 +3401,53 @@ document.addEventListener("alpine:init", function () {
                 this._removePhoto(2);
             },
             _removePhoto: function (index) {
-                this.photos[index].preview = "";
-                this.photos[index].hasImage = false;
-                var input = document.getElementById("photo" + (index + 1));
-                if (input) {
-                    input.value = "";
-                }
+                var self = this;
+                var photoNumber = index + 1;
+
+                var clearLocal = function () {
+                    self.photos[index].preview = "";
+                    self.photos[index].hasImage = false;
+                    self.photos[index].uploadedUrl = "";
+                    var input = document.getElementById("photo" + photoNumber);
+                    if (input) {
+                        input.value = "";
+                    }
+                };
+
+                // Photos auto-upload to the profile the moment they're picked,
+                // so removing one must also delete it server-side — otherwise
+                // it silently reappears on refresh and gets submitted. Always
+                // call the endpoint: deleting an empty slot is a no-op, and a
+                // just-picked file may already have finished uploading.
+                var csrfToken = document.querySelector("[name=csrfmiddlewaretoken]");
+                var formData = new FormData();
+                formData.append("photo_number", photoNumber);
+
+                fetch("/api/profile/draft/delete-photo/", {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": csrfToken ? csrfToken.value : "",
+                    },
+                    body: formData,
+                })
+                    .then(function (response) {
+                        return response.json();
+                    })
+                    .then(function (result) {
+                        if (result.success) {
+                            clearLocal();
+                        } else {
+                            console.error(
+                                "[PHOTO REMOVE] ❌ Delete failed:",
+                                result.error,
+                            );
+                            alert("Could not remove the photo: " + result.error);
+                        }
+                    })
+                    .catch(function (err) {
+                        console.error("[PHOTO REMOVE] ❌ Network error:", err);
+                        alert("Could not remove the photo. Please try again.");
+                    });
             },
         };
     });
@@ -3418,7 +3457,7 @@ document.addEventListener("alpine:init", function () {
     Alpine.data("profileWizard", function () {
         return {
             currentStep: 1,
-            totalSteps: 5,
+            totalSteps: 4,
             isSubmitting: false,
             phoneVerified: false,
             showErrors: false,
@@ -3426,7 +3465,6 @@ document.addEventListener("alpine:init", function () {
             isEditing: false,
             step1Valid: false,
             step2Valid: true,
-            step4Valid: true, // Preferences always has defaults; validated server-side
 
             // Step 1 required fields tracking
             gender: "",
@@ -3458,9 +3496,6 @@ document.addEventListener("alpine:init", function () {
             },
             get step4Completed() {
                 return this.currentStep > 4;
-            },
-            get step5Completed() {
-                return this.currentStep > 5;
             },
             // Progress bar for mobile wizard
             get progressBarStyle() {
@@ -3498,9 +3533,6 @@ document.addEventListener("alpine:init", function () {
             get isStep4() {
                 return this.currentStep === 4;
             },
-            get isStep5() {
-                return this.currentStep === 5;
-            },
             get step1NotCompleted() {
                 return !this.step1Completed;
             },
@@ -3512,9 +3544,6 @@ document.addEventListener("alpine:init", function () {
             },
             get step4NotCompleted() {
                 return !this.step4Completed;
-            },
-            get step5NotCompleted() {
-                return !this.step5Completed;
             },
             get notPhoneVerified() {
                 return !this.phoneVerified;
@@ -3613,16 +3642,6 @@ document.addEventListener("alpine:init", function () {
                     ? "text-purple-600 font-medium"
                     : "text-gray-400";
             },
-            get step5CircleClass() {
-                return this.currentStep >= 5
-                    ? "bg-gradient-to-r from-purple-500 to-pink-500"
-                    : "bg-gray-300";
-            },
-            get step5TextClass() {
-                return this.currentStep >= 5
-                    ? "text-purple-600 font-medium"
-                    : "text-gray-400";
-            },
             get step1ConnectorClass() {
                 return this.step1Completed
                     ? "bg-gradient-to-r from-purple-500 to-pink-500"
@@ -3638,12 +3657,6 @@ document.addEventListener("alpine:init", function () {
                     ? "bg-gradient-to-r from-purple-500 to-pink-500"
                     : "bg-gray-200";
             },
-            get step4ConnectorClass() {
-                return this.step4Completed
-                    ? "bg-gradient-to-r from-purple-500 to-pink-500"
-                    : "bg-gray-200";
-            },
-
             // Step navigation button classes (for breadcrumb quick navigation)
             get step1ButtonClass() {
                 return this.isStep1
@@ -3662,11 +3675,6 @@ document.addEventListener("alpine:init", function () {
             },
             get step4ButtonClass() {
                 return this.isStep4
-                    ? "bg-purple-100 text-purple-700 font-medium"
-                    : "text-gray-500 hover:text-purple-600 hover:bg-purple-50";
-            },
-            get step5ButtonClass() {
-                return this.isStep5
                     ? "bg-purple-100 text-purple-700 font-medium"
                     : "text-gray-500 hover:text-purple-600 hover:bg-purple-50";
             },
@@ -3691,17 +3699,26 @@ document.addEventListener("alpine:init", function () {
                 var sep = el.getAttribute("data-step-label-sep");
                 if (sep) this.stepLabelSep = sep;
 
+                // Translated auto-save pill copy (same pattern as the step
+                // labels above).
+                var savedJustNow = el.getAttribute("data-saved-just-now");
+                if (savedJustNow) this.savedJustNowLabel = savedJustNow;
+                var savedAgo = el.getAttribute("data-saved-ago");
+                if (savedAgo) this.savedAgoLabel = savedAgo;
+                var savedEarlier = el.getAttribute("data-saved-earlier");
+                if (savedEarlier) this.savedEarlierLabel = savedEarlier;
+
                 // Map DB completion_status values → wizard sub-step numbers.
-                // Wizard has 5 sub-steps: 1 Basic Info · 2 About You · 3 Photos
-                // · 4 Preferences · 5 Review. step4 is a legacy DB value from
-                // the old coach-picker wizard and now lands users on Review.
+                // Wizard has 4 sub-steps: 1 Basic Info · 2 About You · 3 Photos
+                // · 4 Review. step4 is a legacy DB value (old Preferences step)
+                // — both step3 and step4 land users on Review.
                 var stepMap = {
                     not_started: 1,
                     step1: 2,
                     step2: 3,
                     step3: 4,
-                    step4: 5,
-                    submitted: 5,
+                    step4: 4,
+                    submitted: 4,
                 };
 
                 if (initialStep && stepMap[initialStep]) {
@@ -3882,38 +3899,105 @@ document.addEventListener("alpine:init", function () {
                 return step === this.currentStep;
             },
 
+            // Refresh the Review-step summary from the live form state.
+            // Fallback copy comes from each element's data-empty attribute
+            // (translated server-side); elements keep their server-rendered
+            // initial content until a fresher client-side value exists.
             updateReview: function () {
+                var emptyLabel = function (el) {
+                    return el.getAttribute("data-empty") || "";
+                };
+
                 var phone = document.querySelector("[name=phone_number]");
                 var genderEl = document.querySelector("[name=gender]:checked");
-                var location = document.querySelector("[name=location]");
 
                 var reviewPhone = this.$refs.reviewPhone;
                 var reviewDob = this.$refs.reviewDob;
                 var reviewGender = this.$refs.reviewGender;
                 var reviewLocation = this.$refs.reviewLocation;
+                var reviewBio = this.$refs.reviewBio;
+                var reviewLanguages = this.$refs.reviewLanguages;
+                var reviewPhotos = this.$refs.reviewPhotos;
 
                 if (reviewPhone) {
-                    reviewPhone.textContent = phone
-                        ? phone.value || "Not provided"
-                        : "Not provided";
+                    reviewPhone.textContent =
+                        (phone && phone.value) || emptyLabel(reviewPhone);
                 }
-                if (reviewDob) {
-                    // Use formatted date from dobPicker if available
-                    reviewDob.textContent = this.dobFormatted || "Not provided";
+                if (reviewDob && this.dobFormatted) {
+                    // Only overwrite when the dobPicker produced a formatted
+                    // date this session — otherwise keep the server-rendered
+                    // value (resume-on-Review case).
+                    reviewDob.textContent = this.dobFormatted;
                 }
-                if (reviewGender && genderEl) {
-                    var label = genderEl.nextElementSibling;
-                    if (label) {
-                        var genderLabel = label.querySelector(".gender-label");
-                        reviewGender.textContent = genderLabel
-                            ? genderLabel.textContent
-                            : "Not selected";
+                if (reviewGender) {
+                    var genderText = "";
+                    if (genderEl) {
+                        var label = genderEl.nextElementSibling;
+                        var genderLabel = label && label.querySelector(".gender-label");
+                        genderText = genderLabel ? genderLabel.textContent.trim() : "";
                     }
-                } else if (reviewGender) {
-                    reviewGender.textContent = "Not selected";
+                    reviewGender.textContent = genderText || emptyLabel(reviewGender);
                 }
                 if (reviewLocation) {
-                    reviewLocation.textContent = this.locationName || "Not selected";
+                    reviewLocation.textContent =
+                        this.locationName || emptyLabel(reviewLocation);
+                }
+
+                if (reviewBio) {
+                    var bioEl = document.querySelector('[name="bio"]');
+                    var bio = bioEl ? bioEl.value.trim() : "";
+                    if (bio.length > 140) {
+                        bio = bio.slice(0, 139) + "…";
+                    }
+                    reviewBio.textContent = bio || emptyLabel(reviewBio);
+                }
+
+                if (reviewLanguages) {
+                    var checked = document.querySelectorAll(
+                        '[name="event_languages"]:checked',
+                    );
+                    var labels = [];
+                    for (var i = 0; i < checked.length; i++) {
+                        var span = checked[i].nextElementSibling;
+                        if (span) {
+                            labels.push(span.textContent.trim().replace(/\s+/g, " "));
+                        }
+                    }
+                    reviewLanguages.textContent = labels.length
+                        ? labels.join(" · ")
+                        : emptyLabel(reviewLanguages);
+                }
+
+                if (reviewPhotos) {
+                    // Mirror the step-3 photo previews (server photos + any
+                    // picked this session; x-show hides empty slots).
+                    var srcs = [];
+                    var photoImgs = document.querySelectorAll(
+                        '[data-wizard-step="3"] img',
+                    );
+                    for (var j = 0; j < photoImgs.length; j++) {
+                        var src = photoImgs[j].getAttribute("src");
+                        var wrapper = photoImgs[j].parentElement;
+                        var hidden = wrapper && wrapper.style.display === "none";
+                        if (src && !hidden) {
+                            srcs.push(src);
+                        }
+                    }
+                    reviewPhotos.innerHTML = "";
+                    if (srcs.length) {
+                        for (var k = 0; k < srcs.length; k++) {
+                            var img = document.createElement("img");
+                            img.src = srcs[k];
+                            img.alt = "";
+                            img.className = "h-14 w-14 rounded-lg object-cover";
+                            reviewPhotos.appendChild(img);
+                        }
+                    } else {
+                        var p = document.createElement("p");
+                        p.className = "font-medium dark:text-white";
+                        p.textContent = emptyLabel(reviewPhotos);
+                        reviewPhotos.appendChild(p);
+                    }
                 }
             },
 
@@ -4245,9 +4329,7 @@ document.addEventListener("alpine:init", function () {
                 });
             },
 
-            // Save Step 3 (Photos) and advance to the Preferences step.
-            // Coach is never assigned by the user — submissions land in the
-            // verification channel; any coach can claim them.
+            // Save Step 3 (Photos) and advance to the Review step.
             saveAndNextStep3: function () {
                 var self = this;
 
@@ -4255,86 +4337,6 @@ document.addEventListener("alpine:init", function () {
                     if (result.success) {
                         self.saveError = "";
                         self.currentStep = 4;
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                    }
-                });
-            },
-
-            // Collect the Preferences step fields from the DOM.
-            collectStep4Data: function () {
-                var genderNodes = document.querySelectorAll(
-                    "input[name=preferred_genders]:checked",
-                );
-                var genders = [];
-                for (var i = 0; i < genderNodes.length; i++) {
-                    genders.push(genderNodes[i].value);
-                }
-                var minInput = document.querySelector("[name=preferred_age_min]");
-                var maxInput = document.querySelector("[name=preferred_age_max]");
-                return {
-                    preferred_genders: genders,
-                    preferred_age_min: minInput ? parseInt(minInput.value, 10) : null,
-                    preferred_age_max: maxInput ? parseInt(maxInput.value, 10) : null,
-                };
-            },
-
-            // Save Step 4 (Preferences) to the backend.
-            savePreferences: function () {
-                var self = this;
-                self.isSaving = true;
-                self.saveError = "";
-                self.fieldErrors = {};
-
-                var data = self.collectStep4Data();
-
-                return fetch("/api/profile/save-preferences/", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRFToken": self.getCsrfToken(),
-                    },
-                    body: JSON.stringify(data),
-                })
-                    .then(function (response) {
-                        return response.json().then(function (d) {
-                            return { ok: response.ok, data: d };
-                        });
-                    })
-                    .then(function (result) {
-                        self.isSaving = false;
-                        if (result.ok && result.data.success) {
-                            self.fieldErrors = {};
-                            if (result.data.csrfToken) {
-                                self.updateAllCsrfTokens(result.data.csrfToken);
-                            }
-                            return { success: true };
-                        }
-                        self.saveError =
-                            (result.data && result.data.error) ||
-                            "Failed to save preferences. Please try again.";
-                        if (result.data && result.data.errors) {
-                            self.fieldErrors = result.data.errors;
-                        }
-                        return {
-                            success: false,
-                            error: self.saveError,
-                            errors: result.data && result.data.errors,
-                        };
-                    })
-                    .catch(function () {
-                        self.isSaving = false;
-                        self.saveError = "Network error. Please check your connection.";
-                        return { success: false, error: self.saveError };
-                    });
-            },
-
-            // Save Preferences and advance to the Review step.
-            saveAndNextStep4: function () {
-                var self = this;
-                self.savePreferences().then(function (result) {
-                    if (result.success) {
-                        self.saveError = "";
-                        self.currentStep = 5;
                         self.updateReview();
                         window.scrollTo({ top: 0, behavior: "smooth" });
                     }
@@ -4356,13 +4358,40 @@ document.addEventListener("alpine:init", function () {
             lastSavedAt: null,
             autoSaveTimer: null,
             draftData: {},
+            draftRestored: false,
+
+            // Auto-save pill copy — overridden from data attributes in init()
+            // so Django's {% trans %} can translate it (JS stays copy-free).
+            savedJustNowLabel: "Saved just now",
+            savedAgoLabel: "Saved %s ago",
+            savedEarlierLabel: "Saved earlier",
 
             // CSP-safe getters for auto-save UI
+            get showDraftRestored() {
+                return this.draftRestored;
+            },
+            dismissDraftNotice: function () {
+                this.draftRestored = false;
+            },
             get showAutoSaving() {
                 return this.isAutoSaving;
             },
+            // The pill flashes for a few seconds after each save instead of
+            // sitting in the corner forever (on mobile it overlaps the
+            // sticky Continue button). The restored-draft banner answers
+            // "did my work survive?" on page load.
+            savedPillVisible: false,
+            _savedPillTimer: null,
             get showLastSaved() {
-                return this.lastSavedAt !== null;
+                return this.savedPillVisible && this.lastSavedAt !== null;
+            },
+            _flashSavedPill: function () {
+                var self = this;
+                this.savedPillVisible = true;
+                clearTimeout(this._savedPillTimer);
+                this._savedPillTimer = setTimeout(function () {
+                    self.savedPillVisible = false;
+                }, 4000);
             },
             get lastSavedMessage() {
                 if (!this.lastSavedAt) return "";
@@ -4371,11 +4400,15 @@ document.addEventListener("alpine:init", function () {
                 var diffMs = now - saved;
                 var diffSec = Math.floor(diffMs / 1000);
 
-                if (diffSec < 10) return "Saved just now";
-                if (diffSec < 60) return "Saved " + diffSec + "s ago";
+                if (diffSec < 10) return this.savedJustNowLabel;
+                if (diffSec < 60) {
+                    return this.savedAgoLabel.replace("%s", diffSec + "s");
+                }
                 var diffMin = Math.floor(diffSec / 60);
-                if (diffMin < 60) return "Saved " + diffMin + "m ago";
-                return "Saved earlier";
+                if (diffMin < 60) {
+                    return this.savedAgoLabel.replace("%s", diffMin + "m");
+                }
+                return this.savedEarlierLabel;
             },
 
             // Load draft data on init
@@ -4390,6 +4423,22 @@ document.addEventListener("alpine:init", function () {
                         if (result.success && result.data) {
                             self.draftData = result.data.merged || {};
                             self.lastSavedAt = result.data.last_saved;
+
+                            // Show the "we restored your answers" notice only
+                            // when actual UNSAVED draft input exists — the
+                            // merged blob is non-empty for any returning user.
+                            var rawDraft = result.data.draft || {};
+                            for (var stepKey in rawDraft) {
+                                var stepDraft = rawDraft[stepKey];
+                                if (
+                                    stepDraft &&
+                                    typeof stepDraft === "object" &&
+                                    Object.keys(stepDraft).length > 0
+                                ) {
+                                    self.draftRestored = true;
+                                    break;
+                                }
+                            }
 
                             self.populateFieldsFromDraft();
                         }
@@ -4413,6 +4462,13 @@ document.addEventListener("alpine:init", function () {
 
                     // CRITICAL: Skip file inputs (photos) - cannot be set programmatically for security
                     if (key === "photo_1" || key === "photo_2" || key === "photo_3") {
+                        continue;
+                    }
+
+                    // NEVER restore a persisted CSRF token (old drafts may
+                    // contain one): it would clobber the fresh token and
+                    // 403 every save after a re-login.
+                    if (key === "csrfmiddlewaretoken") {
                         continue;
                     }
 
@@ -4495,6 +4551,18 @@ document.addEventListener("alpine:init", function () {
                     } catch (e) {
                         this.dobFormatted = this.draftData.date_of_birth; // Fallback to raw value
                     }
+
+                    // Tell the dobPicker so its stepped UI reflects the
+                    // restored date instead of sitting on the empty
+                    // age-range step.
+                    var dobPickerEl = document.querySelector('[x-data="dobPicker"]');
+                    if (dobPickerEl) {
+                        dobPickerEl.dispatchEvent(
+                            new CustomEvent("dob-restore", {
+                                detail: { value: this.draftData.date_of_birth },
+                            }),
+                        );
+                    }
                 }
                 if (this.draftData.gender) {
                     this.gender = this.draftData.gender;
@@ -4518,6 +4586,14 @@ document.addEventListener("alpine:init", function () {
                             } else {
                                 this.locationName = this.draftData.location;
                             }
+                            // Tell the cantonMap so the SVG highlight and
+                            // selection label reflect the restored region
+                            // instead of the placeholder.
+                            mapContainer.dispatchEvent(
+                                new CustomEvent("location-restore", {
+                                    detail: { location: this.draftData.location },
+                                }),
+                            );
                         } else {
                             this.locationName = this.draftData.location;
                         }
@@ -4598,6 +4674,7 @@ document.addEventListener("alpine:init", function () {
                         self.isDirty = false;
                         if (result.success) {
                             self.lastSavedAt = result.saved_at;
+                            self._flashSavedPill();
                         } else {
                             console.error("[DRAFT SAVE] Save failed:", result.error);
                         }
@@ -4608,7 +4685,11 @@ document.addEventListener("alpine:init", function () {
                     });
             },
 
-            // Gather current step form data
+            // Gather current step form data.
+            // Scoped to the ACTIVE step's container ([data-wizard-step="N"]):
+            // a full-form snapshot stored under one step key would survive
+            // that other step's official save (which only clears its own key)
+            // and silently override newer profile data on the next restore.
             gatherCurrentStepData: function () {
                 var form = this.$el.querySelector("form");
                 if (!form) {
@@ -4616,59 +4697,59 @@ document.addEventListener("alpine:init", function () {
                     return {};
                 }
 
-                var formData = new FormData(form);
+                var container =
+                    form.querySelector(
+                        '[data-wizard-step="' + this.currentStep + '"]',
+                    ) || form;
+
                 var data = {};
                 var checkboxGroups = {}; // Track checkbox arrays
 
-                // Collect all form data from FormData
-                for (var pair of formData.entries()) {
-                    var key = pair[0];
-                    var value = pair[1];
+                var fields = container.querySelectorAll("input, textarea, select");
+                for (var i = 0; i < fields.length; i++) {
+                    var field = fields[i];
+                    var key = field.name;
+                    if (!key) continue;
 
                     // Skip file inputs (photos) - they're uploaded separately
-                    if (key === "photo_1" || key === "photo_2" || key === "photo_3") {
+                    if (field.type === "file") continue;
+
+                    // NEVER persist the CSRF token: it is session-scoped, and
+                    // restoring a stale one after re-login would overwrite the
+                    // fresh token and 403 every subsequent save.
+                    if (key === "csrfmiddlewaretoken") continue;
+
+                    if (field.type === "checkbox") {
+                        // Collected per-group below (FormData-style iteration
+                        // would overwrite instead of building an array)
+                        if (!checkboxGroups[key]) {
+                            checkboxGroups[key] = [];
+                        }
+                        checkboxGroups[key].push(field);
                         continue;
                     }
 
-                    // CRITICAL FIX: Skip checkboxes - they're handled separately below
-                    // FormData returns each checked checkbox as a separate entry, which would
-                    // overwrite the previous value instead of building an array
-                    var field = form.querySelector('[name="' + key + '"]');
-                    if (field && field.type === "checkbox") {
-                        continue; // Let the checkbox handling code process these
+                    if (field.type === "radio") {
+                        if (field.checked) {
+                            data[key] = field.value;
+                        }
+                        continue;
                     }
 
                     // Only add non-empty values
-                    if (value !== "") {
-                        data[key] = value;
+                    if (field.value !== "") {
+                        data[key] = field.value;
                     }
                 }
 
-                // CRITICAL: Handle checkboxes properly
-                // Single checkboxes (privacy settings) are stored as boolean
-                // Multiple checkboxes with same name (event_languages) are stored as array
-                var checkboxes = form.querySelectorAll('input[type="checkbox"]');
-
-                // First pass: identify checkbox groups (multiple checkboxes with same name)
-                for (var i = 0; i < checkboxes.length; i++) {
-                    var checkbox = checkboxes[i];
-                    if (checkbox.name) {
-                        if (!checkboxGroups[checkbox.name]) {
-                            checkboxGroups[checkbox.name] = [];
-                        }
-                        checkboxGroups[checkbox.name].push(checkbox);
-                    }
-                }
-
-                // Second pass: process each checkbox group
+                // Single checkboxes (privacy settings) are stored as boolean;
+                // multiple checkboxes with same name (event_languages) as array
                 for (var name in checkboxGroups) {
                     var group = checkboxGroups[name];
 
                     if (group.length === 1) {
-                        // Single checkbox - store as boolean
                         data[name] = group[0].checked;
                     } else {
-                        // Multiple checkboxes with same name - store as array of checked values
                         var checkedValues = [];
                         for (var j = 0; j < group.length; j++) {
                             if (group[j].checked) {
@@ -4680,12 +4761,6 @@ document.addEventListener("alpine:init", function () {
                 }
 
                 return data;
-            },
-
-            // Get CSRF token from form
-            getCsrfToken: function () {
-                var token = document.querySelector("[name=csrfmiddlewaretoken]");
-                return token ? token.value : "";
             },
 
             // Setup periodic checkpoint (every 60 seconds if dirty)
@@ -4779,6 +4854,19 @@ document.addEventListener("alpine:init", function () {
                     self._buildRegionsArray();
                     self._setupEventDelegation();
                     self._setupKeyboardNavigation();
+                });
+
+                // Restore from a draft value written into the hidden input
+                // AFTER init (profileWizard.populateFieldsFromDraft) — the
+                // map would otherwise show the placeholder while the hidden
+                // field already holds a region.
+                this.$el.addEventListener("location-restore", function (e) {
+                    var regionId = e.detail && e.detail.location;
+                    if (!regionId) return;
+                    var path = document.getElementById(regionId);
+                    var name =
+                        (path && path.getAttribute("data-region-name")) || regionId;
+                    self.selectRegion(regionId, name);
                 });
 
                 // Check for reduced motion preference
@@ -5311,6 +5399,17 @@ document.addEventListener("alpine:init", function () {
                     }
                 });
 
+                // Restore from a draft value written into the hidden input
+                // AFTER init (profileWizard.populateFieldsFromDraft) —
+                // without this the picker UI stays on the empty age-range
+                // step while the hidden field already holds a date.
+                this.$el.addEventListener("dob-restore", function (e) {
+                    var value = (e.detail && e.detail.value) || "";
+                    if (value) {
+                        self._parseInitialDate(value);
+                    }
+                });
+
                 // Listen for external resets if needed
                 this.$el.addEventListener("dob-reset", function () {
                     self.step = 1;
@@ -5350,13 +5449,15 @@ document.addEventListener("alpine:init", function () {
                 }
             },
 
-            _parseInitialDate: function () {
-                // Prefer the data-initial-dob attribute on the component
-                // root (set by the server template) so we don't depend on
-                // when Alpine decides to scan the inner hidden input during
-                // $nextTick. Fall back to the hidden input for callers that
-                // run after the user picks a date.
-                var initialValue = this.$el.getAttribute("data-initial-dob") || "";
+            _parseInitialDate: function (explicitValue) {
+                // Prefer an explicit value (draft restore), then the
+                // data-initial-dob attribute on the component root (set by
+                // the server template) so we don't depend on when Alpine
+                // decides to scan the inner hidden input during $nextTick.
+                // Fall back to the hidden input for callers that run after
+                // the user picks a date.
+                var initialValue =
+                    explicitValue || this.$el.getAttribute("data-initial-dob") || "";
                 if (!initialValue) {
                     var hiddenInput = this.$el.querySelector(
                         'input[name="date_of_birth"]',
@@ -5434,7 +5535,7 @@ document.addEventListener("alpine:init", function () {
                     var btn = document.createElement("button");
                     btn.type = "button";
                     btn.className =
-                        "w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 hover:scale-105";
+                        "w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200";
                     btn.className +=
                         self.selectedAgeRange === range.label
                             ? " " + self._clsSelected
@@ -5476,7 +5577,7 @@ document.addEventListener("alpine:init", function () {
                         var btn = document.createElement("button");
                         btn.type = "button";
                         btn.className =
-                            "px-3 py-2 rounded-lg text-sm font-medium border-2 transition-all duration-150 hover:scale-105";
+                            "px-3 py-2 rounded-lg text-sm font-medium border-2 transition-all duration-150";
                         btn.className +=
                             self.selectedYear === year
                                 ? " " + self._clsSelected
@@ -5501,7 +5602,7 @@ document.addEventListener("alpine:init", function () {
                     var btn = document.createElement("button");
                     btn.type = "button";
                     btn.className =
-                        "px-3 py-2.5 rounded-lg text-sm font-medium border-2 transition-all duration-150 hover:scale-105";
+                        "px-3 py-2.5 rounded-lg text-sm font-medium border-2 transition-all duration-150";
                     btn.className +=
                         self.selectedMonth === month.num
                             ? " " + self._clsSelected
@@ -5533,7 +5634,7 @@ document.addEventListener("alpine:init", function () {
                         var btn = document.createElement("button");
                         btn.type = "button";
                         btn.className =
-                            "w-full aspect-square flex items-center justify-center rounded-lg text-sm font-medium border-2 transition-all duration-150 hover:scale-105";
+                            "w-full aspect-square flex items-center justify-center rounded-lg text-sm font-medium border-2 transition-all duration-150";
                         btn.className +=
                             self.selectedDay === day
                                 ? " " + self._clsSelected
@@ -12935,6 +13036,97 @@ document.addEventListener("alpine:init", function () {
                 } else {
                     this.label = "Wouldn't recommend";
                 }
+            },
+        };
+    });
+
+    // Crush Connect 4-step onboarding wizard.
+    Alpine.data("connectOnboarding", function () {
+        return {
+            currentStep: 1,
+            totalSteps: 4,
+            relationshipGoal: "",
+            lifestyleEnergy: "",
+            lifestyleSocial: "",
+            lifestylePace: "",
+            _showSecondStory: false,
+
+            get isStep1() {
+                return this.currentStep === 1;
+            },
+            get isStep2() {
+                return this.currentStep === 2;
+            },
+            get isStep3() {
+                return this.currentStep === 3;
+            },
+            get isStep4() {
+                return this.currentStep === 4;
+            },
+
+            get step1Valid() {
+                return this.relationshipGoal !== "";
+            },
+            get notStep1Valid() {
+                return this.relationshipGoal === "";
+            },
+            get step2Valid() {
+                return (
+                    this.lifestyleEnergy !== "" &&
+                    this.lifestyleSocial !== "" &&
+                    this.lifestylePace !== ""
+                );
+            },
+            get notStep2Valid() {
+                return !this.step2Valid;
+            },
+            get showSecondStory() {
+                return this._showSecondStory;
+            },
+            get notShowSecondStory() {
+                return !this._showSecondStory;
+            },
+
+            get progressPct() {
+                return Math.round(
+                    ((this.currentStep - 1) / (this.totalSteps - 1)) * 100,
+                );
+            },
+
+            init: function () {
+                var el = this.$el;
+                var goal = el.getAttribute("data-relationship-goal");
+                if (goal) this.relationshipGoal = goal;
+                var energy = el.getAttribute("data-lifestyle-energy");
+                if (energy) this.lifestyleEnergy = energy;
+                var social = el.getAttribute("data-lifestyle-social");
+                if (social) this.lifestyleSocial = social;
+                var pace = el.getAttribute("data-lifestyle-pace");
+                if (pace) this.lifestylePace = pace;
+            },
+
+            nextStep: function () {
+                if (this.currentStep < this.totalSteps) {
+                    this.currentStep++;
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                }
+            },
+            prevStep: function () {
+                if (this.currentStep > 1) {
+                    this.currentStep--;
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                }
+            },
+            selectGoal: function (val) {
+                this.relationshipGoal = val;
+            },
+            selectLifestyle: function (axis, val) {
+                if (axis === "energy") this.lifestyleEnergy = val;
+                if (axis === "social") this.lifestyleSocial = val;
+                if (axis === "pace") this.lifestylePace = val;
+            },
+            toggleSecondStory: function () {
+                this._showSecondStory = !this._showSecondStory;
             },
         };
     });

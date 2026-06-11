@@ -218,6 +218,7 @@ urlpatterns = [
     path('api/profile/draft/get/', views_profile_draft.get_draft, name='api_get_draft'),
     path('api/profile/draft/clear/', views_profile_draft.clear_draft, name='api_clear_draft'),
     path('api/profile/draft/upload-photo/', views_profile.upload_photo_draft, name='api_upload_photo_draft'),
+    path('api/profile/draft/delete-photo/', views_profile.delete_photo_draft, name='api_delete_photo_draft'),
 
     # Social Photo Import APIs (called from alpine-components.js with hardcoded paths)
     path('api/profile/social-photos/', views_profile.get_social_photos_api, name='api_get_social_photos'),

@@ -155,6 +155,49 @@ class PhoneStepViewTests(_SiteMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "2/5")
 
+    def test_luxid_option_promoted_when_not_linked(self):
+        """Without a linked LuxID account, the page offers LuxID as the
+        promoted option next to the SMS flow."""
+        CrushProfile.objects.create(user=self.user, welcome_seen_at=timezone.now())
+        response = self.client.get("/onboarding/phone/", follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Verify with LuxID")
+        self.assertContains(response, "or verify by SMS")
+
+    def test_luxid_notice_when_linked_but_phone_unverified(self):
+        """A linked LuxID that could not confirm a phone number (no claim,
+        untrusted prefix, number on another account) must explain itself
+        instead of silently re-rendering the step — and must not offer the
+        LuxID connect button again."""
+        from allauth.socialaccount.models import SocialAccount
+
+        CrushProfile.objects.create(user=self.user, welcome_seen_at=timezone.now())
+        SocialAccount.objects.create(
+            user=self.user, provider="luxid", uid="lux-123"
+        )
+        response = self.client.get("/onboarding/phone/", follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Your LuxID is connected")
+        self.assertNotContains(response, "Verify with LuxID")
+
+    def test_no_luxid_notice_once_phone_verified(self):
+        """Backtracking to step 2 with LuxID linked and the phone verified
+        shows the verified state, not the warning notice."""
+        from allauth.socialaccount.models import SocialAccount
+
+        CrushProfile.objects.create(
+            user=self.user,
+            welcome_seen_at=timezone.now(),
+            phone_verified=True,
+            phone_number="+352621000000",
+        )
+        SocialAccount.objects.create(
+            user=self.user, provider="luxid", uid="lux-123"
+        )
+        response = self.client.get("/onboarding/phone/", follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Your LuxID is connected")
+
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
 class CoachIntroStepViewTests(_SiteMixin, TestCase):

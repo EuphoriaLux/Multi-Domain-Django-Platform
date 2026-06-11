@@ -824,10 +824,12 @@ class CrushProfile(models.Model):
 
         The numbers match the Alpine create-profile wizard sub-steps so the
         value can be written straight to ``data-initial-step``:
-            1 Basic Info · 2 About You · 3 Photos · 4 Preferences · 5 Review
+            1 Basic Info · 2 About You · 3 Photos · 4 Review
         "About You" (step 2) holds only optional fields, so it is never a
         resume target — a returning user is taken to the first *required*
         missing step instead.
+        Preferences (Ideal Crush) were removed from the wizard and moved to
+        the Crush Connect onboarding flow.
 
         Mirrors get_missing_fields() requirements: phone_verified is required
         for non-LuxId users; LuxId users have it set automatically by the signal.
@@ -840,10 +842,11 @@ class CrushProfile(models.Model):
             and self.phone_verified
         ):
             return 1  # Basic Info
-        if not self.photo_1:
-            return 3  # Photos
-        if not self.event_languages:
-            return 4  # Preferences
+        # event_languages lives on the Photos sub-step and is required by
+        # get_missing_fields() — without this check a user missing only their
+        # event languages would resume on Basic Info instead of step 3.
+        if not self.photo_1 or not self.event_languages:
+            return 3  # Photos & event languages
         return None  # complete — can submit
 
     @property

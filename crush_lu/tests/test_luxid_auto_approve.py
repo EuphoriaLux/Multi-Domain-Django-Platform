@@ -534,6 +534,30 @@ class TestProfileSubmittedLuxidContext(_SiteMixin, TestCase):
         if response.status_code == 302:
             self.assertNotIn("dashboard", response["Location"])
 
+    def test_lazy_fixup_failure_does_not_break_page(self):
+        """If the direct-verify call blows up, the status page must still
+        render (200) and the profile stays pending — the failure is logged
+        instead of silently swallowed or 500ing."""
+        from allauth.socialaccount.models import SocialApp
+
+        site = Site.objects.get_current()
+        app = SocialApp.objects.create(
+            provider="luxid", name="LuxID", client_id="test", secret="test"
+        )
+        app.sites.add(site)
+        SocialAccount.objects.create(user=self.user, provider="luxid", uid="lux-123")
+
+        with patch(
+            "crush_lu.signals._execute_luxid_direct_verify",
+            side_effect=Exception("verify service down"),
+        ):
+            with self.assertLogs("crush_lu.views", level="ERROR"):
+                response = self._get_profile_submitted()
+
+        self.assertEqual(response.status_code, 200)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.verification_status, "pending")
+
     def test_approved_submission_no_cta(self):
         """CTA is only shown for pending submissions."""
         self.submission.status = "approved"
@@ -665,3 +689,79 @@ class TestLuxidProfileDataOverwrite(TestCase):
         )
         profile.refresh_from_db()
         self.assertEqual(profile.gender, "F")
+
+    # --- phone verification via LuxID -------------------------------------
+
+    def test_same_number_unverified_gets_verified(self):
+        """A user who typed their number but abandoned the SMS OTP, then
+        connected LuxID releasing the SAME number, must end up verified —
+        LuxID confirming the number IS the verification."""
+        user, profile, _ = _make_user_with_pending_profile()
+        profile.phone_number = "+352621123456"
+        profile.save(update_fields=["phone_number"])
+        self.assertFalse(profile.phone_verified)
+
+        self._run_pre_social_login(
+            user,
+            claims={"phone_number": "+352621123456"},
+            provider="luxid",
+        )
+        profile.refresh_from_db()
+        self.assertTrue(profile.phone_verified)
+        self.assertIsNotNone(profile.phone_verified_at)
+        self.assertEqual(profile.phone_number, "+352621123456")
+
+    def test_same_number_already_verified_left_untouched(self):
+        """An already-verified matching number must not be re-stamped."""
+        user, profile, _ = _make_user_with_pending_profile()
+        verified_at = timezone.now() - timedelta(days=30)
+        profile.phone_number = "+352621123456"
+        profile.phone_verified = True
+        profile.phone_verified_at = verified_at
+        profile.save(
+            update_fields=["phone_number", "phone_verified", "phone_verified_at"]
+        )
+
+        self._run_pre_social_login(
+            user,
+            claims={"phone_number": "+352621123456"},
+            provider="luxid",
+        )
+        profile.refresh_from_db()
+        self.assertTrue(profile.phone_verified)
+        self.assertEqual(profile.phone_verified_at, verified_at)
+
+    def test_different_number_overwrites_and_verifies(self):
+        """LuxID is the stronger trust anchor — its number replaces whatever
+        was stored and arrives verified."""
+        user, profile, _ = _make_user_with_pending_profile()
+        profile.phone_number = "+352621000000"
+        profile.save(update_fields=["phone_number"])
+
+        self._run_pre_social_login(
+            user,
+            claims={"phone_number": "+352621999999"},
+            provider="luxid",
+        )
+        profile.refresh_from_db()
+        self.assertEqual(profile.phone_number, "+352621999999")
+        self.assertTrue(profile.phone_verified)
+
+    def test_number_owned_by_other_profile_is_skipped(self):
+        """A LuxID number already on another account must not be claimed
+        (the partial-unique constraint on phone_number would be violated)."""
+        other_user, other_profile, _ = _make_user_with_pending_profile()
+        other_profile.phone_number = "+352621123456"
+        other_profile.phone_verified = True
+        other_profile.save(update_fields=["phone_number", "phone_verified"])
+
+        user, profile, _ = _make_user_with_pending_profile()
+
+        self._run_pre_social_login(
+            user,
+            claims={"phone_number": "+352621123456"},
+            provider="luxid",
+        )
+        profile.refresh_from_db()
+        self.assertFalse(profile.phone_verified)
+        self.assertEqual(profile.phone_number, "")
