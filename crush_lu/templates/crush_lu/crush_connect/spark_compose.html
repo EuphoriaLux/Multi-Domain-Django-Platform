@@ -29,7 +29,7 @@
             <label for="spark-message" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
                 {% trans "What made you curious? (optional)" %}
             </label>
-            <div x-data="charCounter">
+            <div x-data="charCounter" data-max-length="200">
                 <textarea
                     name="message"
                     id="spark-message"
@@ -37,10 +37,10 @@
                     maxlength="200"
                     placeholder="{% trans 'One honest line — it goes a long way.' %}"
                     class="input-crush w-full"
-                    @input="update"
+                    @input="updateCount"
                 ></textarea>
                 <div class="mt-1 text-right text-xs text-gray-400 dark:text-gray-500">
-                    <span x-text="count"></span>/200
+                    <span x-text="charDisplay"></span>
                 </div>
             </div>
         </div>

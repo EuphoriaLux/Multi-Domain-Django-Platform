@@ -13100,23 +13100,6 @@ document.addEventListener("alpine:init", function () {
         };
     });
 
-    // Reusable textarea character counter. CSP-friendly (the Alpine CSP build
-    // forbids inline expressions like `count = $event.target.value.length`):
-    // wrap a single <textarea> and bind `@input="update"` + `x-text="count"`.
-    Alpine.data("charCounter", function () {
-        return {
-            count: 0,
-            init: function () {
-                var ta = this.$el.querySelector("textarea");
-                this.count = ta ? ta.value.length : 0;
-            },
-            update: function () {
-                var ta = this.$el.querySelector("textarea");
-                this.count = ta ? ta.value.length : 0;
-            },
-        };
-    });
-
     // Auto-redirect countdown shown on the profile-approved state of profile_submitted.html.
     // Reads the destination URL from data-dashboard-url to stay language-prefix–safe.
     Alpine.data("approvedCountdown", () => ({
