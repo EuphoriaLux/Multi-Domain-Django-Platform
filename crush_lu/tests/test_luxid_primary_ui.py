@@ -31,17 +31,24 @@ class FrontDoorProviderOrderTests(_SiteMixin, TestCase):
     """LuxID must lead the provider list on the unified auth page."""
 
     def setUp(self):
-        site = Site.objects.get(id=1)
+        # allauth filters providers by the *current* site, and which Site that
+        # resolves to differs by test runner: pytest's conftest forces
+        # SITE_ID=1, while `manage.py test` leaves SITE_ID unset so the site is
+        # resolved from the request host ("testserver", seeded at id=10 by the
+        # entreprinder 0006 data migration — id=1 is crush.lu there). Attach the
+        # apps to every Site so the buttons render regardless of which one is
+        # current.
+        sites = list(Site.objects.all())
         # Create google first so the natural queryset order would put LuxID
         # AFTER it — the template must still float LuxID to the top.
         google = SocialApp.objects.create(
             provider="google", name="Google", client_id="g", secret="g"
         )
-        google.sites.add(site)
+        google.sites.set(sites)
         luxid = SocialApp.objects.create(
             provider="luxid", name="LuxID", client_id="l", secret="l"
         )
-        luxid.sites.add(site)
+        luxid.sites.set(sites)
         self.client = Client()
 
     def _assert_luxid_first(self, html):
