@@ -2167,9 +2167,7 @@ def test_autosave_step4_persists_story_without_min_length(client, settings):
     _login_eligible(client, me)
 
     prompt = SparkPrompt.objects.filter(is_active=True).first()
-    resp = _autosave(
-        client, 4, {"story_prompt": str(prompt.pk), "story_answer": "hi"}
-    )
+    resp = _autosave(client, 4, {"story_prompt": str(prompt.pk), "story_answer": "hi"})
     assert resp.status_code == 200
     membership = CrushConnectMembership.objects.get(user=me)
     assert membership.story_prompt_id == prompt.pk

@@ -119,7 +119,9 @@ class CrushConnectMembership(models.Model):
     # live fields — this cursor only restores the visible step.
     draft_step = models.PositiveSmallIntegerField(
         default=1,
-        help_text=_("Last onboarding wizard step the user reached (1–4); used to resume."),
+        help_text=_(
+            "Last onboarding wizard step the user reached (1–4); used to resume."
+        ),
     )
 
     # Coach panic button

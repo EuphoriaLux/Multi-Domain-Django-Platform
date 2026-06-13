@@ -193,7 +193,9 @@ def _apply_connect_preferences(
         if isinstance(quality_ids_raw, (list, tuple)):
             ids = [int(i) for i in quality_ids_raw if str(i).strip().isdigit()]
         else:
-            ids = [int(i) for i in str(quality_ids_raw).split(",") if i.strip().isdigit()]
+            ids = [
+                int(i) for i in str(quality_ids_raw).split(",") if i.strip().isdigit()
+            ]
         profile.sought_qualities.set(
             Trait.objects.filter(pk__in=ids[:5], trait_type="quality")
         )
