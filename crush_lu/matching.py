@@ -636,7 +636,7 @@ def update_match_scores_for_user(user):
     )
 
     count = 0
-    filtered_out_pairs = []
+    valid_counterpart_ids = set()
     for other_membership in other_members:
         other_user = other_membership.user
         other_profile = getattr(other_user, "crushprofile", None)
@@ -655,7 +655,6 @@ def update_match_scores_for_user(user):
 
         # Hard filter: skip incompatible pairs
         if not passes_hard_filters(user_data, other_data):
-            filtered_out_pairs.append((user_a.pk, user_b.pk))
             continue
 
         scores = compute_match_score(user_data, other_data)
@@ -673,19 +672,21 @@ def update_match_scores_for_user(user):
             },
         )
         count += 1
+        valid_counterpart_ids.add(other_user.pk)
 
-    # Clean up stale MatchScore rows for pairs that now fail hard filters
-    if filtered_out_pairs:
-        from django.db.models import Q
-
-        filter_q = Q()
-        for pk_a, pk_b in filtered_out_pairs:
-            filter_q |= Q(user_a_id=pk_a, user_b_id=pk_b)
-        deleted, _ = MatchScore.objects.filter(filter_q).delete()
-        if deleted:
-            logger.info(
-                "Deleted %d stale match scores for user %s", deleted, user.pk
-            )
+    # Connect-only scoring: the only valid MatchScore rows for this user are the
+    # ones we just (re)computed against eligible onboarded members. Delete every
+    # OTHER stored row involving the user — stale legacy pairs to people who
+    # never opted in, opted out, were coach-excluded, or now fail the hard
+    # filters — so get_matches_for_user / coach views never surface a
+    # non-Connect match after the switch to Connect-only scoring.
+    stale = MatchScore.objects.filter(Q(user_a=user) | Q(user_b=user)).exclude(
+        Q(user_a=user, user_b_id__in=valid_counterpart_ids)
+        | Q(user_b=user, user_a_id__in=valid_counterpart_ids)
+    )
+    deleted, _ = stale.delete()
+    if deleted:
+        logger.info("Deleted %d stale match scores for user %s", deleted, user.pk)
 
     logger.info(
         "Updated %d match scores for user %s (pk=%s)", count, user, user.pk

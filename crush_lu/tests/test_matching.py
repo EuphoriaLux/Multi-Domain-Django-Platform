@@ -793,6 +793,50 @@ class MatchScorePersistenceTests(TestCase):
         count = update_match_scores_for_user(self.user_a)
         self.assertEqual(count, 0)
 
+    def test_recompute_purges_scores_to_non_connect_users(self):
+        """Switching to Connect-only scoring must delete stale legacy rows to
+        users who never opted in — not just pairs the recompute iterated."""
+        from django.db.models import Q
+
+        # A non-onboarded (never opted-in) approved user with a stale legacy
+        # MatchScore against user_a from the pre-Connect era.
+        user_c = User.objects.create_user("user_c", password="test")
+        CrushProfile.objects.create(
+            user=user_c,
+            location="canton-luxembourg",
+            date_of_birth=date(1991, 1, 1),
+            is_approved=True,
+            is_active=True,
+        )
+        a, c = sorted([self.user_a, user_c], key=lambda u: u.pk)
+        MatchScore.objects.create(
+            user_a=a,
+            user_b=c,
+            score_qualities=0.0,
+            score_zodiac_west=0.0,
+            score_zodiac_cn=0.0,
+            score_language=0.0,
+            score_age_fit=0.0,
+            score_final=0.9,
+        )
+
+        update_match_scores_for_user(self.user_a)
+
+        # Stale cross-pair to the non-Connect user is purged...
+        self.assertFalse(
+            MatchScore.objects.filter(
+                Q(user_a=self.user_a, user_b=user_c)
+                | Q(user_a=user_c, user_b=self.user_a)
+            ).exists()
+        )
+        # ...while the valid pair to the onboarded user_b remains.
+        self.assertTrue(
+            MatchScore.objects.filter(
+                Q(user_a=self.user_a, user_b=self.user_b)
+                | Q(user_a=self.user_b, user_b=self.user_a)
+            ).exists()
+        )
+
 
 # =============================================================================
 # View Tests
