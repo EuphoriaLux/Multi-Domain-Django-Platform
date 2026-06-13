@@ -2,6 +2,7 @@
 {% load i18n %}
 {% load analytics %}
 {% load seo_tags %}
+{% load crush_connect_tags %}
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE|default:'en' }}">
 <head>
@@ -398,6 +399,12 @@
                                             {% trans "Ideal Crush" %}
                                             <span class="inline-block rounded-full bg-crush-pink px-1.5 py-0.5 text-[10px] font-bold text-white uppercase leading-none ml-1">{% trans "New" %}</span>
                                         </a>
+                                        {% if user|crush_connect_nav_visible %}
+                                        <a class="dropdown-item" href="{% url 'crush_lu:crush_connect_profile_edit' %}">
+                                            {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
+                                            {% trans "Edit your Connect profile" %}
+                                        </a>
+                                        {% endif %}
                                         {% elif profile_completion_status == 'incomplete' %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:create_profile' %}">
                                             {% include "shared/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
@@ -662,6 +669,12 @@
                                             {% trans "Ideal Crush" %}
                                             <span class="inline-block rounded-full bg-crush-pink px-1.5 py-0.5 text-[10px] font-bold text-white uppercase leading-none ml-1">{% trans "New" %}</span>
                                         </a>
+                                        {% if user|crush_connect_nav_visible %}
+                                        <a class="dropdown-item" href="{% url 'crush_lu:crush_connect_profile_edit' %}">
+                                            {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
+                                            {% trans "Edit your Connect profile" %}
+                                        </a>
+                                        {% endif %}
                                         {% elif profile_completion_status == 'incomplete' %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:create_profile' %}">
                                             {% include "shared/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
@@ -902,6 +915,12 @@
                                     {% trans "Ideal Crush" %}
                                     <span class="inline-block rounded-full bg-crush-pink px-1.5 py-0.5 text-[10px] font-bold text-white uppercase leading-none ml-1">{% trans "New" %}</span>
                                 </a>
+                                {% if user|crush_connect_nav_visible %}
+                                <a class="nav-link block" href="{% url 'crush_lu:crush_connect_profile_edit' %}">
+                                    {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
+                                    {% trans "Edit your Connect profile" %}
+                                </a>
+                                {% endif %}
                                 {% elif profile_completion_status == 'incomplete' %}
                                 <a class="nav-link block" href="{% url 'crush_lu:create_profile' %}">
                                     {% include "shared/icons/arrow-path.html" with class="w-4 h-4 inline mr-2" %}
@@ -972,6 +991,12 @@
                                     {% trans "Ideal Crush" %}
                                     <span class="inline-block rounded-full bg-crush-pink px-1.5 py-0.5 text-[10px] font-bold text-white uppercase leading-none ml-1">{% trans "New" %}</span>
                                 </a>
+                                {% if user|crush_connect_nav_visible %}
+                                <a class="nav-link block" href="{% url 'crush_lu:crush_connect_profile_edit' %}">
+                                    {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
+                                    {% trans "Edit your Connect profile" %}
+                                </a>
+                                {% endif %}
 
                             {% elif profile_status == 'pending' %}
                                 {# PENDING REVIEW: Status + browse events #}

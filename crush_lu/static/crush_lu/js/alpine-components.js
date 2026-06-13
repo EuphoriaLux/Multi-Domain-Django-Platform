@@ -13048,6 +13048,7 @@ document.addEventListener("alpine:init", function () {
         return {
             interestMax: 8,
             interestCount: 0,
+            storyCount: 0,
             _showSecondStory: false,
 
             get showSecondStory() {
@@ -13056,24 +13057,43 @@ document.addEventListener("alpine:init", function () {
             get notShowSecondStory() {
                 return !this._showSecondStory;
             },
-            get atInterestCap() {
-                return this.interestCount >= this.interestMax;
-            },
 
             init: function () {
-                // Pre-checked interests (back-edit / validation re-render).
-                this.interestCount = this.$el.querySelectorAll(
-                    'input[name="interests"]:checked',
-                ).length;
+                // Interests (step 3): count pre-checked boxes and enforce the
+                // cap by toggling `disabled` imperatively. The CSP-friendly
+                // Alpine build forbids expressions (e.g. "atCap && !checked")
+                // inside x-bind:disabled, so the cap is handled here in JS.
+                this._syncInterests();
+                // Story answer (step 7): seed the character counter from the
+                // server-rendered value.
+                var ta = this.$el.querySelector('textarea[name="story_answer"]');
+                this.storyCount = ta ? ta.value.length : 0;
                 this._showSecondStory =
                     this.$el.getAttribute("data-show-second-story") === "true";
             },
 
             onInterestChange: function () {
-                this.interestCount = this.$el.querySelectorAll(
-                    'input[name="interests"]:checked',
-                ).length;
+                this._syncInterests();
             },
+
+            _syncInterests: function () {
+                var boxes = this.$el.querySelectorAll('input[name="interests"]');
+                var checked = 0;
+                boxes.forEach(function (b) {
+                    if (b.checked) checked++;
+                });
+                this.interestCount = checked;
+                var atCap = checked >= this.interestMax;
+                boxes.forEach(function (b) {
+                    b.disabled = atCap && !b.checked;
+                });
+            },
+
+            onStoryInput: function () {
+                var ta = this.$el.querySelector('textarea[name="story_answer"]');
+                this.storyCount = ta ? ta.value.length : 0;
+            },
+
             toggleSecondStory: function () {
                 this._showSecondStory = !this._showSecondStory;
             },
