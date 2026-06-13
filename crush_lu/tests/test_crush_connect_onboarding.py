@@ -505,6 +505,92 @@ def test_legacy_traits_prefill_wizard(client, settings):
     assert CrushConnectMembership.objects.get(user=me).qualities.count() == 0
 
 
+@pytest.mark.django_db
+def test_legacy_age_gender_prefill_step6(client, settings):
+    """Legacy Ideal Crush age/gender preferences pre-fill step 6 so a first-time
+    opt-in doesn't overwrite them with the wizard's open defaults."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"], onboarded=False)
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    # Legacy profile prefs that differ from the membership's defaults.
+    me.crushprofile.preferred_genders = ["F", "NB"]
+    me.crushprofile.preferred_age_min = 28
+    me.crushprofile.preferred_age_max = 42
+    me.crushprofile.save()
+
+    _complete_steps(client, 1, 5)  # pointer → 6
+    resp = client.get(_step_url(6))
+    assert resp.status_code == 200
+    form = resp.context["form"]
+    assert list(form["preferred_genders"].value()) == ["F", "NB"]
+    assert int(form["preferred_age_min"].value()) == 28
+    assert int(form["preferred_age_max"].value()) == 42
+
+
+@pytest.mark.django_db
+def test_migration_0165_backfills_onboarded_member_traits():
+    """The 0165 data migration copies legacy CrushProfile traits onto an
+    already-onboarded membership whose trait fields are still empty."""
+    from importlib import import_module
+
+    from django.apps import apps as django_apps
+
+    mig = import_module(
+        "crush_lu.migrations.0165_migrate_legacy_traits_to_memberships"
+    )
+    me = _make_user(username="legacy", preferred_genders=["F"], onboarded=True)
+    quals = list(
+        Trait.objects.filter(trait_type="quality").order_by("pk").values_list("pk", flat=True)
+    )
+    defs = list(
+        Trait.objects.filter(trait_type="defect").order_by("pk").values_list("pk", flat=True)
+    )
+    me.crushprofile.qualities.set(quals[:3])
+    me.crushprofile.defects.set(defs[:2])
+    me.crushprofile.sought_qualities.set(quals[5:7])
+    me.crushprofile.first_step_preference = "i_initiate"
+    me.crushprofile.save()
+
+    membership = CrushConnectMembership.objects.get(user=me)
+    assert membership.qualities.count() == 0  # empty before migration
+
+    mig.copy_legacy_traits(django_apps, None)
+
+    membership.refresh_from_db()
+    assert set(membership.qualities.values_list("pk", flat=True)) == set(quals[:3])
+    assert set(membership.defects.values_list("pk", flat=True)) == set(defs[:2])
+    assert set(membership.sought_qualities.values_list("pk", flat=True)) == set(quals[5:7])
+    assert membership.first_step_preference == "i_initiate"
+
+
+@pytest.mark.django_db
+def test_migration_0165_does_not_clobber_existing_member_traits():
+    """The backfill is only-if-empty — a member who already has membership traits
+    keeps them (a deliberate edit is never overwritten by stale profile data)."""
+    from importlib import import_module
+
+    from django.apps import apps as django_apps
+
+    mig = import_module(
+        "crush_lu.migrations.0165_migrate_legacy_traits_to_memberships"
+    )
+    me = _make_user(username="hasdata", preferred_genders=["F"], onboarded=True)
+    quals = list(
+        Trait.objects.filter(trait_type="quality").order_by("pk").values_list("pk", flat=True)
+    )
+    me.crushprofile.qualities.set(quals[:3])
+    me.crushprofile.save()
+    membership = CrushConnectMembership.objects.get(user=me)
+    membership.qualities.set(quals[5:7])  # member already chose different traits
+
+    mig.copy_legacy_traits(django_apps, None)
+
+    membership.refresh_from_db()
+    assert set(membership.qualities.values_list("pk", flat=True)) == set(quals[5:7])
+
+
 # ---------------------------------------------------------------------------
 # Blended Drop weighting
 # ---------------------------------------------------------------------------

@@ -362,6 +362,13 @@ def crush_connect_onboarding_step(request, step: int):
                 if profile.first_step_preference:
                     initial["first_step_preference"] = profile.first_step_preference
                 initial["astro_enabled"] = profile.astro_enabled
+                # Age/gender prefs migrate from the legacy Ideal Crush too, so a
+                # first-time opt-in with existing profile preferences doesn't
+                # overwrite them with the wizard's open defaults.
+                if profile.preferred_genders:
+                    initial["preferred_genders"] = list(profile.preferred_genders)
+                initial["preferred_age_min"] = profile.preferred_age_min
+                initial["preferred_age_max"] = profile.preferred_age_max
         form = form_class(instance=membership, initial=initial)
 
     is_receiver = _user_is_connect_receiver_eligible(request.user) or request.user.is_staff
