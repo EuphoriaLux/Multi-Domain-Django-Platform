@@ -395,6 +395,10 @@
                                             {% trans "Edit Profile" %}
                                         </a>
                                         {% if user|crush_connect_nav_visible %}
+                                        <a class="dropdown-item" href="{% url 'crush_lu:crush_connect_hub' %}">
+                                            {% include "shared/icons/sparkles.html" with class="w-4 h-4 inline mr-2" %}
+                                            {% trans "Crush Connect" %}
+                                        </a>
                                         <a class="dropdown-item" href="{% url 'crush_lu:crush_connect_profile_edit' %}">
                                             {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
                                             {% trans "Edit your Connect profile" %}
@@ -660,6 +664,10 @@
                                             {% trans "Edit Profile" %}
                                         </a>
                                         {% if user|crush_connect_nav_visible %}
+                                        <a class="dropdown-item" href="{% url 'crush_lu:crush_connect_hub' %}">
+                                            {% include "shared/icons/sparkles.html" with class="w-4 h-4 inline mr-2" %}
+                                            {% trans "Crush Connect" %}
+                                        </a>
                                         <a class="dropdown-item" href="{% url 'crush_lu:crush_connect_profile_edit' %}">
                                             {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
                                             {% trans "Edit your Connect profile" %}
@@ -901,6 +909,10 @@
                                     {% trans "Edit Profile" %}
                                 </a>
                                 {% if user|crush_connect_nav_visible %}
+                                <a class="nav-link block" href="{% url 'crush_lu:crush_connect_hub' %}">
+                                    {% include "shared/icons/sparkles.html" with class="w-4 h-4 inline mr-2" %}
+                                    {% trans "Crush Connect" %}
+                                </a>
                                 <a class="nav-link block" href="{% url 'crush_lu:crush_connect_profile_edit' %}">
                                     {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
                                     {% trans "Edit your Connect profile" %}
@@ -972,6 +984,10 @@
                                     {% trans "Edit Profile" %}
                                 </a>
                                 {% if user|crush_connect_nav_visible %}
+                                <a class="nav-link block" href="{% url 'crush_lu:crush_connect_hub' %}">
+                                    {% include "shared/icons/sparkles.html" with class="w-4 h-4 inline mr-2" %}
+                                    {% trans "Crush Connect" %}
+                                </a>
                                 <a class="nav-link block" href="{% url 'crush_lu:crush_connect_profile_edit' %}">
                                     {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
                                     {% trans "Edit your Connect profile" %}

@@ -102,6 +102,28 @@ def _patch_static_storage():
     # No cleanup needed
 
 
+@pytest.fixture(autouse=True)
+def _reset_active_language():
+    """Start every test with the default language active.
+
+    Some i18n/request tests activate a non-default language (e.g. via a
+    ``/de/`` URL) and don't reset it. Under ``pytest-xdist`` that active
+    language can leak into a later test on the same worker — most visibly with
+    ``modeltranslation`` fields, where an object saved under the leaked language
+    reads back empty in another (e.g. the newsletter body). Resetting to
+    ``LANGUAGE_CODE`` before each test (and deactivating after) keeps tests
+    isolated regardless of execution order.
+    """
+    from django.conf import settings as dj_settings
+    from django.utils import translation
+
+    translation.activate(getattr(dj_settings, "LANGUAGE_CODE", "en"))
+    try:
+        yield
+    finally:
+        translation.deactivate()
+
+
 if TYPE_CHECKING:
     from playwright.sync_api import Page
 

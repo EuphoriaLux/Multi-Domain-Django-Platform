@@ -1,0 +1,104 @@
+{% extends 'crush_lu/crush_connect/_base_connect.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Crush Connect" %}{% endblock %}
+{% block mobile_page_title %}{% trans "Crush Connect" %}{% endblock %}
+
+{% block connect_content %}
+<div class="max-w-2xl mx-auto px-4 py-6 pb-24 lg:pb-10">
+
+    <header class="mb-6">
+        <h1 class="text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white mb-1">
+            {% trans "Crush Connect" %}
+        </h1>
+        <p class="text-sm text-gray-600 dark:text-gray-300">
+            {% if is_receiver %}
+                {% trans "Your coach-curated matches, your Sparks and your profile — all in one place." %}
+            {% else %}
+                {% trans "You're in the catalogue. Manage your Sparks and profile here." %}
+            {% endif %}
+        </p>
+    </header>
+
+    {# Coach's pick takes the hero slot for receivers when one is open. #}
+    {% if coach_pick %}
+    <a href="{% url 'crush_lu:crush_connect_home' %}"
+       class="block rounded-2xl ring-1 ring-crush-purple/40 bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 p-5 mb-4 no-underline hover:ring-crush-purple/70 transition-colors">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-crush-purple/15 flex items-center justify-center flex-shrink-0">
+                {% include "shared/icons/heart.html" with class="w-5 h-5 text-crush-purple" %}
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="font-semibold text-gray-900 dark:text-white mb-0">{% trans "Your Crush Coach picked a match" %}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Take a look and decide." %}</p>
+            </div>
+            {% include "shared/icons/arrow-right.html" with class="w-4 h-4 text-crush-purple flex-shrink-0" %}
+        </div>
+    </a>
+    {% endif %}
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+        {# Primary: Today's Drop (receivers) or Catalogue status (candidates). #}
+        {% if is_receiver %}
+        <a href="{% url 'crush_lu:crush_connect_home' %}"
+           class="block rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 p-5 no-underline hover:ring-crush-purple/40 transition-colors">
+            <div class="w-10 h-10 rounded-full bg-crush-purple/10 flex items-center justify-center mb-3">
+                {% include "shared/icons/sparkles.html" with class="w-5 h-5 text-crush-purple" %}
+            </div>
+            <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Today's Drop" %}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Your hand-picked match for today." %}</p>
+        </a>
+        {% else %}
+        <a href="{% url 'crush_lu:crush_connect_catalogue_status' %}"
+           class="block rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 p-5 no-underline hover:ring-crush-purple/40 transition-colors">
+            <div class="w-10 h-10 rounded-full bg-crush-purple/10 flex items-center justify-center mb-3">
+                {% include "shared/icons/sparkles.html" with class="w-5 h-5 text-crush-purple" %}
+            </div>
+            <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "You're in the catalogue" %}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "A coach can introduce you as a match." %}</p>
+        </a>
+        {% endif %}
+
+        {# Sparks (with pending badge). #}
+        <a href="{% url 'crush_lu:crush_connect_sparks_received' %}"
+           class="block rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 p-5 no-underline hover:ring-crush-purple/40 transition-colors">
+            <div class="w-10 h-10 rounded-full bg-crush-purple/10 flex items-center justify-center mb-3 relative">
+                {% include "shared/icons/bell.html" with class="w-5 h-5 text-crush-purple" %}
+                {% if pending_sparks_count %}<span class="absolute -top-1 -right-1 badge badge-primary">{{ pending_sparks_count }}</span>{% endif %}
+            </div>
+            <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Your Sparks" %}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">
+                {% if pending_sparks_count %}
+                    {% blocktrans count count=pending_sparks_count %}{{ count }} person is curious about you{% plural %}{{ count }} people are curious about you{% endblocktrans %}
+                {% else %}
+                    {% trans "Who's curious about you." %}
+                {% endif %}
+            </p>
+        </a>
+
+        {# Connect profile editor. #}
+        <a href="{% url 'crush_lu:crush_connect_profile_edit' %}"
+           class="block rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 p-5 no-underline hover:ring-crush-purple/40 transition-colors">
+            <div class="w-10 h-10 rounded-full bg-crush-purple/10 flex items-center justify-center mb-3">
+                {% include "shared/icons/pencil.html" with class="w-5 h-5 text-crush-purple" %}
+            </div>
+            <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Edit your Connect profile" %}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Story, preferences, languages and more." %}</p>
+        </a>
+
+        {# Coach curation hub. #}
+        {% if is_coach %}
+        <a href="{% url 'crush_lu:coach_connect_members' %}"
+           class="block rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 p-5 no-underline hover:ring-crush-purple/40 transition-colors">
+            <div class="w-10 h-10 rounded-full bg-crush-purple/10 flex items-center justify-center mb-3">
+                {% include "shared/icons/users.html" with class="w-5 h-5 text-crush-purple" %}
+            </div>
+            <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Curate matches" %}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Pick matches for your Premium members." %}</p>
+        </a>
+        {% endif %}
+
+    </div>
+</div>
+{% endblock %}

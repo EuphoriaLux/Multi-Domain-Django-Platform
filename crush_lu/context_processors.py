@@ -82,6 +82,27 @@ def crush_user_context(request):
         ).count()
         context["actionable_sparks_count"] = actionable_sparks_count
 
+        # Crush Connect: pending received Sparks — drives the Connect nav badge
+        # (sub-nav, navbar menu, mobile bottom-nav). Computed only when the
+        # Connect nav is actually visible (onboarded membership, or staff) so it
+        # stays off every other page's query budget.
+        connect_pending_sparks_count = 0
+        try:
+            launched = getattr(settings, "CRUSH_CONNECT_LAUNCHED", False)
+            membership = getattr(request.user, "crush_connect_membership", None)
+            nav_visible = request.user.is_staff or (
+                launched and membership is not None and membership.is_onboarded
+            )
+            if nav_visible:
+                from .models import CuriositySpark
+
+                connect_pending_sparks_count = CuriositySpark.objects.filter(
+                    recipient=request.user, status="pending"
+                ).count()
+        except Exception:
+            connect_pending_sparks_count = 0
+        context["connect_pending_sparks_count"] = connect_pending_sparks_count
+
         # Profile submission status for visual indicators
         profile_submission = None
         profile = CrushProfile.objects.filter(user=request.user).first()
