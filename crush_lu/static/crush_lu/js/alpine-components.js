@@ -13271,17 +13271,22 @@ document.addEventListener("alpine:init", function () {
             },
 
             scheduleAutoSave: function () {
-                // Capture the step + data NOW: currentStep can advance
-                // (Next/Back) before the 2s debounce fires, which would
-                // otherwise queue the wrong step and drop the edit that
-                // triggered this save (e.g. a step-3 slider tweak posted as
-                // step 4 after clicking Next).
-                this._debouncedSnap = {
-                    step: this.currentStep,
-                    data: this.gatherCurrentStepData(),
-                };
-                this.isDirty = true;
+                // Lock the step NOW: currentStep can advance (Next/Back) before
+                // the 2s debounce fires, which would otherwise queue the wrong
+                // step. But gather the DATA on $nextTick: the nested step-3
+                // controls (age slider, trait pills, astro toggle) write their
+                // x-bind hidden inputs on the next tick, so reading them
+                // synchronously in this same DOM event would capture the
+                // pre-edit value and restore a stale preference on resume.
                 var self = this;
+                var step = this.currentStep;
+                this.isDirty = true;
+                this.$nextTick(function () {
+                    self._debouncedSnap = {
+                        step: step,
+                        data: self.gatherCurrentStepData(),
+                    };
+                });
                 clearTimeout(this.autoSaveTimer);
                 this.autoSaveTimer = setTimeout(function () {
                     self._flushDebounced();
