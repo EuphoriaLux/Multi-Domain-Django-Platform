@@ -693,3 +693,37 @@ def test_admin_pages_load(client):
     assert client.get(
         f"/crush-admin/crush_lu/crushconnectmembership/{m.pk}/change/"
     ).status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Edit-page discoverability (links into crush_connect_profile_edit)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_today_drop_shows_edit_profile_link(client, settings):
+    """Premium (receiver) members land on Today's Drop — it must link to the
+    Connect profile editor (the gap this change closes)."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"], onboarded=True)
+    _mark_attended(me)
+    _seed_pool_for(me, n=3)
+    _login_eligible(client, me)
+
+    resp = client.get("/en/crush-connect/today/")
+    assert resp.status_code == 200
+    assert "/crush-connect/profile/" in resp.content.decode()
+
+
+@pytest.mark.django_db
+def test_nav_edit_link_gated_on_onboarded(settings):
+    """The nav 'Edit your Connect profile' item is gated by
+    crush_connect_nav_visible — shown to onboarded members, hidden otherwise."""
+    from crush_lu.templatetags.crush_connect_tags import crush_connect_nav_visible
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    onboarded = _make_user(username="on", onboarded=True)
+    not_onboarded = _make_user(username="off", onboarded=False)
+
+    assert crush_connect_nav_visible(onboarded) is True
+    assert crush_connect_nav_visible(not_onboarded) is False
