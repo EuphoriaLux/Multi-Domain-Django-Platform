@@ -39,7 +39,7 @@
                             </div>
                         </div>
                         <p class="mt-3 text-center text-[11px] text-gray-500 dark:text-gray-400">
-                            {% trans "≈ 15 min to set up · Get verified at an event or with LuxID" %}
+                            {% trans "≈ 15 min to set up · Get verified instantly with LuxID, or at an event" %}
                         </p>
                     </div>
 
@@ -62,6 +62,33 @@
                 {% get_providers as socialaccount_providers %}
                 {% if socialaccount_providers %}
                 <div class="flex flex-col gap-3 mb-6">
+                    {% comment %}
+                      LuxID is the promoted, primary path: it verifies email,
+                      phone, AND identity in one tap. Render it first, on its own,
+                      ahead of the other providers — regardless of the order
+                      allauth returns them in. The trailing divider only appears
+                      when LuxID is actually configured for this site.
+                    {% endcomment %}
+                    {% for provider in socialaccount_providers %}
+                        {% if provider.id == "luxid" or provider.app.provider_id == "luxid" %}
+                    <a href="{% provider_login_url provider %}" class="social-login-btn luxid-btn"
+                       data-oauth-url="{% provider_login_url provider %}" data-provider="LuxID"
+                       style="background: linear-gradient(to right, #8B5CF6, #3B82F6, #10B981); color: white;">
+                        <span class="social-icon">
+                            <img src="{% static 'crush_lu/images/Logo-LuxID_small.webp' %}" alt="LuxID" style="width: 20px; height: 20px; border-radius: 3px;">
+                        </span>
+                        <span class="flex flex-col items-start leading-tight text-left">
+                            <span class="flex items-center gap-2">
+                                {% trans "Continue with LuxID" %}
+                                <span class="rounded bg-white/25 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide">{% trans "Recommended" %}</span>
+                            </span>
+                            <span class="text-[11px] font-normal opacity-90">{% trans "Verified instantly — no SMS code, no waiting" %}</span>
+                        </span>
+                    </a>
+                    <div class="social-login-divider">{% trans "or continue with" %}</div>
+                        {% endif %}
+                    {% endfor %}
+
                     {% for provider in socialaccount_providers %}
                         {% if provider.id == "google" %}
                     <a href="{% provider_login_url 'google' %}" class="social-login-btn google-btn"
@@ -111,16 +138,6 @@
                             </svg>
                         </span>
                         {% trans "Continue with Apple" %}
-                    </a>
-                        {% endif %}
-                        {% if provider.id == "luxid" or provider.app.provider_id == "luxid" %}
-                    <a href="{% provider_login_url provider %}" class="social-login-btn luxid-btn"
-                       data-oauth-url="{% provider_login_url provider %}" data-provider="LuxID"
-                       style="background: linear-gradient(to right, #8B5CF6, #3B82F6, #10B981); color: white;">
-                        <span class="social-icon">
-                            <img src="{% static 'crush_lu/images/Logo-LuxID_small.webp' %}" alt="LuxID" style="width: 20px; height: 20px; border-radius: 3px;">
-                        </span>
-                        {% trans "Continue with LuxID" %}
                     </a>
                         {% endif %}
                     {% endfor %}
