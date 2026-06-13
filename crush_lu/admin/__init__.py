@@ -179,6 +179,7 @@ from .event_polls import (
 
 from .crush_connect import (
     ConnectDailyDropAdmin,
+    ConnectInterestAdmin,
     CrushConnectMembershipAdmin,
     CrushConnectWaitlistAdmin,
     ConnectCoachPickAdmin,
@@ -263,6 +264,7 @@ from crush_lu.models import (
     EventPollVote,
     ConnectCoachPick,
     ConnectDailyDrop,
+    ConnectInterest,
     CuriositySpark,
     CrushConnectMembership,
     CrushConnectWaitlist,
@@ -393,6 +395,7 @@ crush_admin_site.register(CrushConnectWaitlist, CrushConnectWaitlistAdmin)
 crush_admin_site.register(CrushConnectMembership, CrushConnectMembershipAdmin)
 crush_admin_site.register(ConnectDailyDrop, ConnectDailyDropAdmin)
 crush_admin_site.register(SparkPrompt, SparkPromptAdmin)
+crush_admin_site.register(ConnectInterest, ConnectInterestAdmin)
 crush_admin_site.register(CuriositySpark, CuriositySparkAdmin)
 crush_admin_site.register(ConnectCoachPick, ConnectCoachPickAdmin)
 
@@ -568,6 +571,7 @@ __all__ = [
     'CrushConnectWaitlistAdmin',
     'CrushConnectMembershipAdmin',
     'ConnectDailyDropAdmin',
+    'ConnectInterestAdmin',
     'SparkPromptAdmin',
     'CuriositySparkAdmin',
     'ConnectCoachPickAdmin',

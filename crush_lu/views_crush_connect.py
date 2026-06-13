@@ -15,13 +15,23 @@ from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from crush_lu.decorators import crush_login_required
 from crush_lu.email_helpers import send_crush_connect_catalogue_welcome
-from crush_lu.forms_crush_connect import CrushConnectOnboardingForm
-from crush_lu.models import CrushConnectMembership, CrushProfile, Trait
+from crush_lu.models import CrushConnectMembership
+from crush_lu.onboarding_connect import (
+    CONNECT_STEPS,
+    TOTAL_STEPS,
+    annotate_steps,
+    clamp_step,
+    form_for_step,
+    progress_pct,
+    step_for,
+    step_for_key,
+)
 from crush_lu.services import get_or_create_daily_drop
 
 
@@ -132,125 +142,224 @@ def _next_drop_at(now=None):
     return tomorrow_six
 
 
-@crush_login_required
-def crush_connect_onboarding(request):
-    """
-    One-page Crush Connect opt-in, shared by both tracks:
-      - RECEIVER (Premium): finishing lands on Today's Drop.
-      - CANDIDATE (LuxID, no Premium): finishing lands on the catalogue
-        status page — they're discoverable, not receiving.
-
-    Pre-conditions: approved profile + (Premium coach OR LuxID linked),
-    flag on (or staff). If already onboarded, forward to the right page.
-    """
-    user = request.user
-
-    if not user.is_staff and not getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
-        return redirect("crush_lu:crush_connect_teaser")
-    if not user.is_staff and not _user_passes_pre_onboarding_gate(user):
-        return redirect("crush_lu:crush_connect_teaser")
-
+def _connect_done_url(user) -> str:
+    """Where a finished member lands: receivers (Premium) → Today's Drop,
+    candidates (LuxID-only) → catalogue status. Staff count as receivers so
+    they can preview the Drop."""
     is_receiver = _user_is_connect_receiver_eligible(user) or user.is_staff
-    done_url = (
+    return (
         "crush_lu:crush_connect_home"
         if is_receiver
         else "crush_lu:crush_connect_catalogue_status"
     )
 
-    membership, _created = CrushConnectMembership.objects.get_or_create(user=user)
-    if membership.excluded_by_coach:
-        return redirect("crush_lu:crush_connect_teaser")
-    if membership.is_onboarded:
-        return redirect(done_url)
 
-    profile = getattr(user, "crushprofile", None)
+def _onboarding_gate(request):
+    """
+    Guard shared by the wizard routes. Returns ``(response, membership, done_url)``:
+      - ``response`` is a redirect that should bounce the user, or ``None`` to
+        proceed.
+      - ``membership`` is the get_or_create'd ``CrushConnectMembership`` (``None``
+        when bounced before it's created).
+      - ``done_url`` is the named URL a finished member belongs on.
+
+    Order mirrors the legacy inline gate: staff bypass the launch flag (not the
+    eligibility-for-redirect), flag off → teaser, ineligible → teaser, excluded
+    → teaser, already onboarded → done_url.
+    """
+    user = request.user
+    done_url = _connect_done_url(user)
+
+    if not user.is_staff and not getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
+        return redirect("crush_lu:crush_connect_teaser"), None, done_url
+    if not user.is_staff and not _user_passes_pre_onboarding_gate(user):
+        return redirect("crush_lu:crush_connect_teaser"), None, done_url
+
+    membership, _created = CrushConnectMembership.objects.get_or_create(user=user)
+
+    if membership.excluded_by_coach:
+        # Excluded members go to the teaser, never to done_url — keep this check
+        # before the onboarded check (order matters).
+        return redirect("crush_lu:crush_connect_teaser"), membership, done_url
+    if membership.is_onboarded:
+        return redirect(done_url), membership, done_url
+
+    return None, membership, done_url
+
+
+@crush_login_required
+def crush_connect_onboarding(request):
+    """
+    Smart-resume entry for the Crush Connect wizard. Routes the user to their
+    current step. URL name unchanged so every existing redirect target still
+    points here.
+    """
+    response, membership, _done = _onboarding_gate(request)
+    if response is not None:
+        return response
+    return redirect(
+        "crush_lu:crush_connect_onboarding_step",
+        step=clamp_step(membership.onboarding_step),
+    )
+
+
+def _emit_onboarding_complete(request, done_url):
+    """Success message (per track) + candidate welcome email. Ported from the
+    legacy single-page view."""
+    user = request.user
+    is_receiver = _user_is_connect_receiver_eligible(user) or user.is_staff
+    if is_receiver:
+        messages.success(
+            request, _("Welcome to Crush Connect — your first Drop is ready.")
+        )
+    else:
+        messages.success(
+            request,
+            _(
+                "Welcome to Crush Connect — you're now in the "
+                "catalogue and can be matched by a Crush Coach."
+            ),
+        )
+        send_crush_connect_catalogue_welcome(user, request)
+
+
+def _step3_selection_context(form):
+    """Selected language codes + interest ids for the step-3 / edit-section
+    chip ``checked`` state, read from the bound form so an invalid re-render
+    keeps the user's just-submitted choices."""
+    langs = form["languages"].value() or []
+    raw_ids = form["interests"].value() or []
+    selected_ids = set()
+    for v in raw_ids:
+        try:
+            selected_ids.add(int(getattr(v, "pk", v)))
+        except (TypeError, ValueError):
+            continue
+    return {
+        "selected_languages": set(langs),
+        "selected_interest_ids": selected_ids,
+    }
+
+
+@crush_login_required
+def crush_connect_onboarding_step(request, step: int):
+    """One server-side wizard step. Saves immediately, resumable, no skipping
+    ahead (but completed steps stay editable)."""
+    response, membership, done_url = _onboarding_gate(request)
+    if response is not None:
+        return response
+
+    step = clamp_step(step)
+    pointer = clamp_step(membership.onboarding_step)
+    # Block skipping ahead: revisit any completed step (step <= pointer) but
+    # never jump past the furthest-reached step.
+    if step > pointer:
+        return redirect("crush_lu:crush_connect_onboarding_step", step=pointer)
+
+    profile = getattr(request.user, "crushprofile", None)
+    cfg = step_for(step)
+    form_class = form_for_step(step)
 
     if request.method == "POST":
-        form = CrushConnectOnboardingForm(request.POST, instance=membership)
+        form = form_class(request.POST, instance=membership)
         if form.is_valid():
-            obj = form.save(commit=False)
-            obj.onboarded_at = timezone.now()
-            obj.save()
+            # Stamp the start time exactly once, on first successful POST.
+            if membership.onboarding_started_at is None:
+                membership.onboarding_started_at = timezone.now()
+            obj = form.save()  # commit=True → fields AND M2M (interests) persist
+            new_pointer = max(pointer, step + 1)
 
-            # Persist ideal-match preferences back onto CrushProfile —
-            # everything _preferences_fields.html posts, not just a subset.
-            if profile is not None:
-                valid_genders = dict(CrushProfile.GENDER_CHOICES).keys()
-                profile.preferred_genders = [
-                    g for g in request.POST.getlist("preferred_genders")
-                    if g in valid_genders
-                ]
-                try:
-                    profile.preferred_age_min = int(request.POST.get("preferred_age_min", 18))
-                    profile.preferred_age_max = int(request.POST.get("preferred_age_max", 99))
-                except (ValueError, TypeError):
-                    pass
-                if profile.preferred_age_min > profile.preferred_age_max:
-                    profile.preferred_age_min, profile.preferred_age_max = (
-                        profile.preferred_age_max,
-                        profile.preferred_age_min,
-                    )
-                # Radio may be absent when the user picked nothing — keep the
-                # stored value in that case.
-                first_step = request.POST.get("first_step_preference", "")
-                if first_step in dict(CrushProfile.FIRST_STEP_CHOICES):
-                    profile.first_step_preference = first_step
-                # The astro toggle posts "true"/"false" via a hidden input.
-                astro_raw = request.POST.get("astro_enabled")
-                if astro_raw is not None:
-                    profile.astro_enabled = astro_raw == "true"
-                profile.save(update_fields=[
-                    "preferred_age_min",
-                    "preferred_age_max",
-                    "preferred_genders",
-                    "first_step_preference",
-                    "astro_enabled",
+            if step == TOTAL_STEPS:
+                obj.onboarded_at = timezone.now()
+                obj.onboarding_step = TOTAL_STEPS
+                obj.save(update_fields=[
+                    "onboarded_at", "onboarding_step", "onboarding_started_at",
                 ])
-                ids_raw = request.POST.get("sought_qualities_ids", "")
-                if ids_raw:
-                    ids = [int(i) for i in ids_raw.split(",") if i.strip().isdigit()]
-                    profile.sought_qualities.set(
-                        Trait.objects.filter(pk__in=ids[:5], trait_type="quality")
-                    )
+                _emit_onboarding_complete(request, done_url)
+                return redirect(done_url)
 
-            if is_receiver:
-                messages.success(
-                    request,
-                    _("Welcome to Crush Connect — your first Drop is ready."),
-                )
-            else:
-                messages.success(
-                    request,
-                    _(
-                        "Welcome to Crush Connect — you're now in the "
-                        "catalogue and can be matched by a Crush Coach."
-                    ),
-                )
-                send_crush_connect_catalogue_welcome(user, request)
-            return redirect(done_url)
+            obj.onboarding_step = new_pointer
+            obj.save(update_fields=["onboarding_step", "onboarding_started_at"])
+            return redirect("crush_lu:crush_connect_onboarding_step", step=step + 1)
+        # invalid → fall through and re-render with errors
     else:
-        form = CrushConnectOnboardingForm(instance=membership)
+        initial = {}
+        # Step 3: seed languages from the user's event_languages the FIRST time
+        # only (membership field still empty), so a deliberate clear on a
+        # back-edit isn't re-populated.
+        if cfg.key == "languages" and not membership.languages and profile:
+            initial = {"languages": list(profile.event_languages or [])}
+        form = form_class(instance=membership, initial=initial)
 
-    # Build rich context for the 4-step wizard (Step 3: Ideal Match).
-    # _render_preferences_section also returns "form" (IdealCrushPreferencesForm)
-    # and "profile" — we drop those to avoid overwriting our onboarding form.
-    from crush_lu.views import _render_preferences_section
-    prefs_ctx = {}
-    if profile is not None:
-        raw = _render_preferences_section(request, profile)
-        prefs_ctx = {k: v for k, v in raw.items() if k not in ("form", "profile", "section")}
+    is_receiver = _user_is_connect_receiver_eligible(request.user) or request.user.is_staff
+    context = {
+        "form": form,
+        "membership": membership,
+        "profile": profile,
+        "step": step,
+        "step_cfg": cfg,
+        "step_template": cfg.template,
+        "total_steps": TOTAL_STEPS,
+        "progress_pct": progress_pct(step),
+        "connect_steps": annotate_steps(step),
+        "prev_step": step - 1 if step > 1 else None,
+        "is_final_step": step == TOTAL_STEPS,
+        "is_candidate_only": not is_receiver,
+    }
+    if cfg.key == "languages":
+        context.update(_step3_selection_context(form))
+    return render(request, "crush_lu/crush_connect/onboarding.html", context)
 
-    return render(
-        request,
-        "crush_lu/crush_connect/onboarding.html",
-        {
-            "form": form,
-            "membership": membership,
-            "is_candidate_only": not is_receiver,
-            "profile": profile,
-            **prefs_ctx,
-        },
-    )
+
+@crush_login_required
+def crush_connect_profile_edit(request):
+    """
+    Post-onboarding editor for Connect/catalogue answers. One page, one section
+    per wizard step; each section POSTs its step form via ``?section=<key>``.
+    Never touches ``onboarded_at`` / ``onboarding_step``.
+    """
+    user = request.user
+    if not user.is_staff and not getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
+        return redirect("crush_lu:crush_connect_teaser")
+
+    membership = getattr(user, "crush_connect_membership", None)
+    if membership is None or not membership.is_onboarded:
+        # Not finished yet → into the wizard, not the editor.
+        return redirect("crush_lu:crush_connect_onboarding")
+
+    profile = getattr(user, "crushprofile", None)
+    section_key = request.POST.get("section") or request.GET.get("section")
+
+    forms_by_key = {}
+    for s in CONNECT_STEPS:
+        form_class = form_for_step(s.n)
+        # The story form drops its consent gate in edit mode.
+        form_kwargs = {"for_edit": True} if s.key == "story" else {}
+        if request.method == "POST" and section_key == s.key:
+            form = form_class(request.POST, instance=membership, **form_kwargs)
+            if form.is_valid():
+                form.save()  # commit=True → interests M2M included
+                messages.success(request, _("Your changes have been saved."))
+                return redirect(
+                    f"{reverse('crush_lu:crush_connect_profile_edit')}?section={s.key}"
+                )
+            forms_by_key[s.key] = form  # invalid: re-render with errors
+        else:
+            forms_by_key[s.key] = form_class(instance=membership, **form_kwargs)
+
+    # Selection state for the languages/interests section chips.
+    selection = _step3_selection_context(forms_by_key["languages"])
+
+    edit_sections = [{"cfg": s, "form": forms_by_key[s.key]} for s in CONNECT_STEPS]
+
+    context = {
+        "membership": membership,
+        "profile": profile,
+        "edit_sections": edit_sections,
+        "active_section": section_key,
+        **selection,
+    }
+    return render(request, "crush_lu/crush_connect/profile_edit.html", context)
 
 
 @crush_login_required

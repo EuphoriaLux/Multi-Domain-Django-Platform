@@ -10,6 +10,7 @@ class CrushConnectMembershipAdmin(admin.ModelAdmin):
     list_display = [
         "user",
         "is_onboarded_display",
+        "onboarding_step",
         "excluded_by_coach",
         "onboarded_at",
         "excluded_at",
@@ -26,9 +27,10 @@ class CrushConnectMembershipAdmin(admin.ModelAdmin):
         "exclusion_reason",
     ]
     raw_id_fields = ["user", "excluded_by", "story_prompt", "story_prompt_2"]
-    readonly_fields = ["created_at", "updated_at"]
+    filter_horizontal = ["interests"]
+    readonly_fields = ["created_at", "updated_at", "onboarding_started_at"]
     fieldsets = (
-        (None, {"fields": ("user", "onboarded_at")}),
+        (None, {"fields": ("user", "onboarded_at", "onboarding_step", "onboarding_started_at")}),
         (
             _("Onboarding — Intent"),
             {"fields": ("relationship_goal",)},
@@ -36,6 +38,29 @@ class CrushConnectMembershipAdmin(admin.ModelAdmin):
         (
             _("Onboarding — Lifestyle"),
             {"fields": ("lifestyle_energy", "lifestyle_social", "lifestyle_pace")},
+        ),
+        (
+            _("Match preferences (hard filters)"),
+            {
+                "fields": ("preferred_genders", "preferred_age_min", "preferred_age_max"),
+                "description": _(
+                    "These are the Connect catalogue's gender/age filters. They are "
+                    "separate from the member's main profile 'Interested in' — editing "
+                    "the main profile no longer affects Crush Connect Drops."
+                ),
+            },
+        ),
+        (
+            _("Languages & interests"),
+            {"fields": ("languages", "interests")},
+        ),
+        (
+            _("Life situation"),
+            {"fields": ("height_cm", "work_field", "education_level", "smoking", "drinking")},
+        ),
+        (
+            _("Family & future"),
+            {"fields": ("has_children", "wants_children", "relationship_timeline")},
         ),
         (
             _("Story"),
@@ -257,6 +282,27 @@ class SparkPromptAdmin(admin.ModelAdmin):
             },
         ),
         (_("Audit"), {"fields": ("created_at", "updated_at")}),
+    )
+
+
+class ConnectInterestAdmin(admin.ModelAdmin):
+    list_display = ["label", "slug", "category", "is_active", "sort_order"]
+    list_filter = ["category", "is_active"]
+    list_editable = ["category", "is_active", "sort_order"]
+    search_fields = ["slug", "label", "label_en", "label_de", "label_fr"]
+    prepopulated_fields = {"slug": ("label",)}
+    ordering = ["category", "sort_order", "label"]
+    fieldsets = (
+        (None, {"fields": ("slug", "category", "is_active", "sort_order")}),
+        (
+            _("Label (translations)"),
+            {
+                "fields": ("label", "label_en", "label_de", "label_fr"),
+                "description": _(
+                    "Edit each language version. ``label`` is the fallback for users in unmatched locales."
+                ),
+            },
+        ),
     )
 
 

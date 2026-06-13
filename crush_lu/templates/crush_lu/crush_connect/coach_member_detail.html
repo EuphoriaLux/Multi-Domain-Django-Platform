@@ -66,6 +66,20 @@
                 {% if mem.story_answer_2 %}
                 <p class="text-xs italic text-gray-500 dark:text-gray-400 mb-0 border-l-2 border-crush-purple/30 pl-2">&ldquo;{{ mem.story_answer_2 }}&rdquo;</p>
                 {% endif %}
+                {# Languages + interests #}
+                {% if mem.languages or mem.interests.all %}
+                <div class="flex flex-wrap gap-1">
+                    {% for lang in mem.languages_display %}<span class="badge badge-info text-xs">{{ lang }}</span>{% endfor %}
+                    {% for interest in mem.interests.all %}<span class="badge badge-primary text-xs">{{ interest.label }}</span>{% endfor %}
+                </div>
+                {% endif %}
+                {# Life situation + family/future — coaches see everything (blanks/prefer-not-say skipped) #}
+                {% if mem.life_situation_display %}
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{{ mem.life_situation_display|join:" · " }}</p>
+                {% endif %}
+                {% if mem.family_future_display %}
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{{ mem.family_future_display|join:" · " }}</p>
+                {% endif %}
                 {% endwith %}
                 {# Sought qualities #}
                 {% with sought=candidate.crushprofile.sought_qualities.all %}

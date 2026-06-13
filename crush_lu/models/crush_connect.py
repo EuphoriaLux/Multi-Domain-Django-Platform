@@ -8,8 +8,24 @@ Crush Connect models.
 """
 
 from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+
+
+# Languages spoken, shared in the Crush Connect catalogue. Uses ``"lu"`` (not
+# ISO "lb") so prefilling from ``CrushProfile.event_languages`` is a straight
+# copy. Overlap math is done in Python (SQLite JSON containment is unreliable).
+CONNECT_LANGUAGE_CHOICES = [
+    ("lu", _("Lëtzebuergesch")),
+    ("fr", _("Français")),
+    ("de", _("Deutsch")),
+    ("en", _("English")),
+    ("pt", _("Português")),
+    ("it", _("Italiano")),
+    ("es", _("Español")),
+    ("other", _("Other")),
+]
 
 
 class CrushConnectWaitlist(models.Model):
@@ -205,6 +221,138 @@ class CrushConnectMembership(models.Model):
         blank=True,
     )
 
+    # --- Connect match preferences (hard filters) -------------------------
+    # Moved off CrushProfile so the catalogue's "who do I want to see" lives
+    # next to the rest of the Connect-shared data. The eligible-pool service
+    # reads these (not the profile's) for gender/age filtering. Non-null age
+    # defaults keep the pool query shape unchanged for migrated members.
+    preferred_genders = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=_("Genders this member wants to see in their Drop (empty = open to all)"),
+    )
+    preferred_age_min = models.PositiveSmallIntegerField(default=18)
+    preferred_age_max = models.PositiveSmallIntegerField(default=99)
+
+    # --- Languages & interests (soft signals, shown on the card) ----------
+    languages = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=_("Languages this member speaks (codes from CONNECT_LANGUAGE_CHOICES)"),
+    )
+    interests = models.ManyToManyField(
+        "crush_lu.ConnectInterest",
+        blank=True,
+        related_name="interested_members",
+        help_text=_("Curated interests & hobbies (cap of 8 enforced in the wizard)"),
+    )
+
+    # --- Life situation ---------------------------------------------------
+    height_cm = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(120), MaxValueValidator(230)],
+        help_text=_("Height in centimetres (optional)"),
+    )
+    WORK_FIELD_CHOICES = [
+        ("finance", _("Finance")),
+        ("eu_public", _("EU institutions & public sector")),
+        ("it", _("IT & tech")),
+        ("health", _("Healthcare")),
+        ("education", _("Education")),
+        ("legal", _("Legal")),
+        ("construction", _("Construction & trades")),
+        ("hospitality", _("Hospitality")),
+        ("logistics", _("Logistics & transport")),
+        ("creative", _("Creative & media")),
+        ("entrepreneur", _("Entrepreneur / self-employed")),
+        ("student", _("Student")),
+        ("other", _("Other")),
+        ("prefer_not_say", _("Prefer not to say")),
+    ]
+    work_field = models.CharField(
+        max_length=20,
+        blank=True,
+        choices=WORK_FIELD_CHOICES,
+    )
+    EDUCATION_LEVEL_CHOICES = [
+        ("high_school", _("High school")),
+        ("vocational", _("Vocational training")),
+        ("bachelor", _("Bachelor's degree")),
+        ("master", _("Master's degree")),
+        ("doctorate", _("Doctorate")),
+        ("prefer_not_say", _("Prefer not to say")),
+    ]
+    education_level = models.CharField(
+        max_length=20,
+        blank=True,
+        choices=EDUCATION_LEVEL_CHOICES,
+    )
+    SMOKING_CHOICES = [
+        ("no", _("Non-smoker")),
+        ("occasionally", _("Occasionally")),
+        ("yes", _("Smoker")),
+        ("prefer_not_say", _("Prefer not to say")),
+    ]
+    smoking = models.CharField(
+        max_length=20,
+        blank=True,
+        choices=SMOKING_CHOICES,
+    )
+    DRINKING_CHOICES = [
+        ("no", _("Doesn't drink")),
+        ("socially", _("Socially")),
+        ("regularly", _("Regularly")),
+        ("prefer_not_say", _("Prefer not to say")),
+    ]
+    drinking = models.CharField(
+        max_length=20,
+        blank=True,
+        choices=DRINKING_CHOICES,
+    )
+
+    # --- Family & future (sensitive — every field has prefer_not_say) -----
+    HAS_CHILDREN_CHOICES = [
+        ("no", _("No children")),
+        ("yes", _("Has children")),
+        ("prefer_not_say", _("Prefer not to say")),
+    ]
+    has_children = models.CharField(
+        max_length=20,
+        blank=True,
+        choices=HAS_CHILDREN_CHOICES,
+    )
+    WANTS_CHILDREN_CHOICES = [
+        ("yes", _("Wants children")),
+        ("open", _("Open to it")),
+        ("no", _("Doesn't want children")),
+        ("prefer_not_say", _("Prefer not to say")),
+    ]
+    wants_children = models.CharField(
+        max_length=20,
+        blank=True,
+        choices=WANTS_CHILDREN_CHOICES,
+    )
+    RELATIONSHIP_TIMELINE_CHOICES = [
+        ("ready_now", _("Ready for a relationship now")),
+        ("few_months", _("Open in the next few months")),
+        ("no_rush", _("No rush, taking it slow")),
+        ("prefer_not_say", _("Prefer not to say")),
+    ]
+    relationship_timeline = models.CharField(
+        max_length=20,
+        blank=True,
+        choices=RELATIONSHIP_TIMELINE_CHOICES,
+    )
+
+    # --- Wizard progress pointer ------------------------------------------
+    # ``onboarding_step`` doubles as minimal resume state: the highest step the
+    # member may land on. Already-onboarded members are parked past the end by
+    # the data migration. ``onboarding_started_at`` is stamped once, on the
+    # first successful step POST.
+    onboarding_step = models.PositiveSmallIntegerField(default=1)
+    onboarding_started_at = models.DateTimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -221,6 +369,36 @@ class CrushConnectMembership(models.Model):
     @property
     def is_onboarded(self) -> bool:
         return self.onboarded_at is not None and not self.excluded_by_coach
+
+    @property
+    def languages_display(self):
+        """Translated labels for the member's stored language codes."""
+        labels = dict(CONNECT_LANGUAGE_CHOICES)
+        return [labels.get(code, code) for code in (self.languages or [])]
+
+    @property
+    def life_situation_display(self):
+        """Human labels for the life-situation answers, skipping blanks and
+        ``prefer_not_say`` — for coach views (coaches see everything)."""
+        parts = []
+        if self.height_cm:
+            parts.append(f"{self.height_cm} cm")
+        for field in ("work_field", "education_level", "smoking", "drinking"):
+            value = getattr(self, field)
+            if value and value != "prefer_not_say":
+                parts.append(getattr(self, f"get_{field}_display")())
+        return parts
+
+    @property
+    def family_future_display(self):
+        """Human labels for the family/future answers, skipping blanks and
+        ``prefer_not_say``."""
+        parts = []
+        for field in ("has_children", "wants_children", "relationship_timeline"):
+            value = getattr(self, field)
+            if value and value != "prefer_not_say":
+                parts.append(getattr(self, f"get_{field}_display")())
+        return parts
 
 
 class ConnectDailyDrop(models.Model):
@@ -300,6 +478,54 @@ class SparkPrompt(models.Model):
 
     def __str__(self):
         return self.text
+
+
+class ConnectInterest(models.Model):
+    """
+    A curated interest/hobby a member can attach to their Crush Connect
+    catalogue profile (mirrors ``Trait``/``SparkPrompt``).
+
+    Curated rather than free-text so the shared data needs no moderation,
+    can't leak identifying details, and translates cleanly. ``label`` is
+    translated via modeltranslation; set ``is_active=False`` to retire an
+    interest without breaking members who already selected it.
+    """
+
+    class Category(models.TextChoices):
+        SPORTS = "sports", _("Sports")
+        MUSIC = "music", _("Music")
+        TRAVEL = "travel", _("Travel")
+        FOOD = "food", _("Food & Drink")
+        ARTS = "arts", _("Arts & Culture")
+        OUTDOORS = "outdoors", _("Outdoors")
+        GAMES = "games", _("Games")
+        WELLNESS = "wellness", _("Wellness")
+
+    slug = models.SlugField(
+        max_length=40,
+        unique=True,
+        help_text=_("Unique identifier, e.g. 'hiking' or 'live-music'"),
+    )
+    label = models.CharField(
+        max_length=50,
+        help_text=_("Display label (translated via modeltranslation)"),
+    )
+    category = models.CharField(
+        max_length=20,
+        choices=Category.choices,
+        db_index=True,
+    )
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["category", "sort_order", "label"]
+        verbose_name = _("Connect Interest")
+        verbose_name_plural = _("Connect Interests")
+
+    def __str__(self):
+        return self.label
+
 
 class CuriositySpark(models.Model):
     """
