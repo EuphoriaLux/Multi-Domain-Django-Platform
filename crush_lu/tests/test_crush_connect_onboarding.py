@@ -486,6 +486,27 @@ def test_onboarded_member_without_luxid_grandfathered(client, settings):
 
 
 @pytest.mark.django_db
+def test_premium_without_luxid_sees_teaser_not_redirect_loop(client, settings):
+    """Regression: a launched-Connect Premium member without LuxID and not
+    onboarded must land on the teaser (with the Connect-LuxID CTA), not bounce
+    in a teaser <-> onboarding redirect loop."""
+    from django.urls import reverse
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="me", preferred_genders=["F"], onboarded=False,
+        premium=True, has_luxid=False,
+    )
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    resp = client.get(reverse("crush_lu:crush_connect_teaser"))
+    assert resp.status_code == 200  # renders the teaser — no redirect loop
+    assert resp.context["profile_approved"] is True
+    assert resp.context["has_luxid_connected"] is False
+
+
+@pytest.mark.django_db
 def test_legacy_traits_prefill_wizard(client, settings):
     """The legacy Ideal Crush traits on CrushProfile pre-fill the Connect wizard
     the first time (the lazy migration) — confirmed/consented before they persist."""

@@ -185,16 +185,21 @@ def crush_connect_teaser(request):
             membership = getattr(request.user, "crush_connect_membership", None)
             excluded = membership and membership.excluded_by_coach
             if not excluded:
-                if profile.assigned_coach_id:
-                    # Receiver track (Premium).
-                    if membership and membership.is_onboarded:
-                        return redirect("crush_lu:crush_connect_home")
+                onboarded = bool(membership and membership.is_onboarded)
+                if onboarded and profile.assigned_coach_id:
+                    # Onboarded Premium receiver → their Drop (grandfathered;
+                    # receiving Drops doesn't require LuxID).
+                    return redirect("crush_lu:crush_connect_home")
+                if onboarded and profile.has_luxid_connected:
+                    # Onboarded candidate (LuxID) → catalogue status.
+                    return redirect("crush_lu:crush_connect_catalogue_status")
+                if not onboarded and profile.has_luxid_connected:
+                    # Eligible to opt in (LuxID-first) → into the wizard.
                     return redirect("crush_lu:crush_connect_onboarding")
-                if profile.has_luxid_connected:
-                    # Candidate track (LuxID, no Premium).
-                    if membership and membership.is_onboarded:
-                        return redirect("crush_lu:crush_connect_catalogue_status")
-                    return redirect("crush_lu:crush_connect_onboarding")
+                # Otherwise — a Premium/candidate member WITHOUT LuxID, or an
+                # onboarded member who unlinked it — fall through and render the
+                # teaser so they see the "Connect LuxID" CTA. Never redirect
+                # them, or they'd loop teaser ⇄ onboarding against the gate.
 
     context = {
         "on_waitlist": False,
