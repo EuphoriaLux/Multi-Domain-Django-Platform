@@ -13063,6 +13063,12 @@ document.addEventListener("alpine:init", function () {
             draftRestored: false,
             savedPillVisible: false,
             _savedPillTimer: null,
+            // Serialized-save plumbing: at most one request in flight, the
+            // latest snapshot coalesced into _pending; _debouncedSnap holds a
+            // pending debounced edit (captured at its own step) until it fires.
+            _pending: null,
+            _inFlight: false,
+            _debouncedSnap: null,
 
             // Pill copy — overridden from data attributes so Django {% trans %}
             // owns the translation (JS stays copy-free).
@@ -13172,6 +13178,9 @@ document.addEventListener("alpine:init", function () {
 
             nextStep: function () {
                 if (this.currentStep < this.totalSteps) {
+                    // Persist any pending debounced edit as the step it was
+                    // made on before currentStep changes underneath it.
+                    this._flushDebounced();
                     this.currentStep++;
                     window.scrollTo({ top: 0, behavior: "smooth" });
                     this.saveDraft();
@@ -13179,6 +13188,7 @@ document.addEventListener("alpine:init", function () {
             },
             prevStep: function () {
                 if (this.currentStep > 1) {
+                    this._flushDebounced();
                     this.currentStep--;
                     window.scrollTo({ top: 0, behavior: "smooth" });
                     this.saveDraft();
@@ -13199,9 +13209,7 @@ document.addEventListener("alpine:init", function () {
             },
 
             getCsrfToken: function () {
-                var input = document.querySelector(
-                    'input[name="csrfmiddlewaretoken"]',
-                );
+                var input = document.querySelector('input[name="csrfmiddlewaretoken"]');
                 if (input && input.value) return input.value;
                 var cookie = document.cookie.split("; ").find(function (row) {
                     return row.startsWith("csrftoken=");
@@ -13223,9 +13231,7 @@ document.addEventListener("alpine:init", function () {
                     if (
                         t &&
                         t.matches &&
-                        t.matches(
-                            "input[type=radio], input[type=checkbox], select",
-                        )
+                        t.matches("input[type=radio], input[type=checkbox], select")
                     ) {
                         self.saveDraft();
                     }
@@ -13248,12 +13254,30 @@ document.addEventListener("alpine:init", function () {
             },
 
             scheduleAutoSave: function () {
-                clearTimeout(this.autoSaveTimer);
+                // Capture the step + data NOW: currentStep can advance
+                // (Next/Back) before the 2s debounce fires, which would
+                // otherwise queue the wrong step and drop the edit that
+                // triggered this save (e.g. a step-3 slider tweak posted as
+                // step 4 after clicking Next).
+                this._debouncedSnap = {
+                    step: this.currentStep,
+                    data: this.gatherCurrentStepData(),
+                };
                 this.isDirty = true;
                 var self = this;
+                clearTimeout(this.autoSaveTimer);
                 this.autoSaveTimer = setTimeout(function () {
-                    self.saveDraft();
+                    self._flushDebounced();
                 }, 2000);
+            },
+
+            _flushDebounced: function () {
+                clearTimeout(this.autoSaveTimer);
+                if (this._debouncedSnap) {
+                    var snap = this._debouncedSnap;
+                    this._debouncedSnap = null;
+                    this._queueSave(snap.step, snap.data);
+                }
             },
 
             _flashSavedPill: function () {
@@ -13316,9 +13340,7 @@ document.addEventListener("alpine:init", function () {
                     );
                     if (qualities) data.sought_qualities_ids = qualities.value;
 
-                    var astro = container.querySelector(
-                        'input[name="astro_enabled"]',
-                    );
+                    var astro = container.querySelector('input[name="astro_enabled"]');
                     if (astro) data.astro_enabled = astro.value;
                 } else if (step === 4) {
                     var prompt = container.querySelector(
@@ -13342,41 +13364,64 @@ document.addEventListener("alpine:init", function () {
             },
 
             saveDraft: function () {
+                this._queueSave(this.currentStep, this.gatherCurrentStepData());
+            },
+
+            // Serialize autosaves: keep at most one request in flight and
+            // coalesce newer edits into _pending (latest wins). An older POST
+            // can therefore never start after — and land behind — a newer one
+            // and overwrite fresher draft text. The server row lock orders the
+            // writes but not their arrival; this orders their arrival.
+            _queueSave: function (step, data) {
+                this._pending = { step: step, data: data };
+                this.isDirty = true;
+                this._drainSaves();
+            },
+
+            _drainSaves: function () {
+                if (this._inFlight || !this._pending || !this.autosaveUrl) return;
                 var self = this;
-                if (!this.autosaveUrl) return;
+                var snap = this._pending;
+                this._pending = null;
+                this._inFlight = true;
                 this.isAutoSaving = true;
-                var payload = JSON.stringify({
-                    step: this.currentStep,
-                    data: this.gatherCurrentStepData(),
-                });
                 fetch(this.autosaveUrl, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
                         "X-CSRFToken": this.getCsrfToken(),
                     },
-                    body: payload,
+                    body: JSON.stringify(snap),
                 })
                     .then(function (r) {
                         return r.json();
                     })
                     .then(function (result) {
+                        self._inFlight = false;
                         self.isAutoSaving = false;
-                        self.isDirty = false;
                         if (result && result.success) {
                             self.lastSavedAt = result.saved_at;
                             self._flashSavedPill();
                         }
+                        self.isDirty = self._pending !== null;
+                        // Flush anything queued while this request was in flight.
+                        self._drainSaves();
                     })
                     .catch(function () {
+                        self._inFlight = false;
                         self.isAutoSaving = false;
+                        // Preserve the edit so the next trigger retries it.
+                        if (!self._pending) self._pending = snap;
                     });
             },
 
             setupPeriodicCheckpoint: function () {
                 var self = this;
                 setInterval(function () {
-                    if (self.isDirty) self.saveDraft();
+                    if (self.isDirty) {
+                        self._flushDebounced();
+                        self._drainSaves();
+                    }
                 }, 60000);
             },
         };
