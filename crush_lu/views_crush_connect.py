@@ -15,13 +15,13 @@ from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+from django.utils.translation import ngettext
 
 from crush_lu.decorators import crush_login_required
 from crush_lu.email_helpers import send_crush_connect_catalogue_welcome
-from crush_lu.models import CrushConnectMembership
+from crush_lu.models import CrushConnectMembership, CrushProfile
 from crush_lu.onboarding_connect import (
     CONNECT_STEPS,
     TOTAL_STEPS,
@@ -311,12 +311,84 @@ def crush_connect_onboarding_step(request, step: int):
     return render(request, "crush_lu/crush_connect/onboarding.html", context)
 
 
+# Header emoji per edit section — mirrors the emoji each wizard step partial
+# shows in its own card header, so the index list reads as the same sections.
+_CONNECT_SECTION_EMOJI = {
+    "intention": "🌱",
+    "lifestyle": "✨",
+    "languages": "🗣️",
+    "life": "🧩",
+    "family": "🪴",
+    "ideal_match": "💘",
+    "story": "✍️",
+}
+
+
+def _connect_section_summaries(membership):
+    """One-line current-value summary per edit section, keyed by section key.
+
+    Powers the drill-down index so a member sees what each section currently
+    holds without opening it. A blank string means "nothing set yet" — the
+    template renders the fallback for those.
+    """
+    m = membership
+
+    intention = m.get_relationship_goal_display() if m.relationship_goal else ""
+
+    lifestyle = " · ".join(
+        getattr(m, f"get_{field}_display")()
+        for field in ("lifestyle_energy", "lifestyle_social", "lifestyle_pace")
+        if getattr(m, field)
+    )
+
+    lang_bits = []
+    labels = [str(label) for label in m.languages_display]
+    if labels:
+        lang_bits.append(", ".join(labels))
+    n_interests = m.interests.count()
+    if n_interests:
+        lang_bits.append(
+            ngettext("%(count)d interest", "%(count)d interests", n_interests)
+            % {"count": n_interests}
+        )
+    languages = " · ".join(lang_bits)
+
+    life = " · ".join(str(part) for part in m.life_situation_display)
+    family = " · ".join(str(part) for part in m.family_future_display)
+
+    gender_labels = dict(CrushProfile.GENDER_CHOICES)
+    genders = m.preferred_genders or []
+    who = (
+        ", ".join(str(gender_labels.get(code, code)) for code in genders)
+        if genders
+        else _("Open to all")
+    )
+    ideal_match = _("%(who)s · ages %(lo)s–%(hi)s") % {
+        "who": who,
+        "lo": m.preferred_age_min,
+        "hi": m.preferred_age_max,
+    }
+
+    story = m.story_answer or ""
+
+    return {
+        "intention": intention,
+        "lifestyle": lifestyle,
+        "languages": languages,
+        "life": life,
+        "family": family,
+        "ideal_match": ideal_match,
+        "story": story,
+    }
+
+
 @crush_login_required
 def crush_connect_profile_edit(request):
     """
-    Post-onboarding editor for Connect/catalogue answers. One page, one section
-    per wizard step; each section POSTs its step form via ``?section=<key>``.
-    Never touches ``onboarded_at`` / ``onboarding_step``.
+    Post-onboarding editor for Connect/catalogue answers. Mobile-first
+    drill-down (mirrors the main profile editor): a tappable section index,
+    each opening one focused section via ``?section=<key>``. Never touches
+    ``onboarded_at`` / ``onboarding_step``.
     """
     user = request.user
     if not user.is_staff and not getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
@@ -329,35 +401,54 @@ def crush_connect_profile_edit(request):
 
     profile = getattr(user, "crushprofile", None)
     section_key = request.POST.get("section") or request.GET.get("section")
+    active = step_for_key(section_key)
 
-    forms_by_key = {}
-    for s in CONNECT_STEPS:
-        form_class = form_for_step(s.n)
+    def _build_form(cfg, data=None):
         # The story form drops its consent gate in edit mode.
-        form_kwargs = {"for_edit": True} if s.key == "story" else {}
-        if request.method == "POST" and section_key == s.key:
-            form = form_class(request.POST, instance=membership, **form_kwargs)
-            if form.is_valid():
-                form.save()  # commit=True → interests M2M included
-                messages.success(request, _("Your changes have been saved."))
-                return redirect(
-                    f"{reverse('crush_lu:crush_connect_profile_edit')}?section={s.key}"
-                )
-            forms_by_key[s.key] = form  # invalid: re-render with errors
-        else:
-            forms_by_key[s.key] = form_class(instance=membership, **form_kwargs)
+        form_kwargs = {"for_edit": True} if cfg.key == "story" else {}
+        return form_for_step(cfg.n)(data, instance=membership, **form_kwargs)
 
-    # Selection state for the languages/interests section chips.
-    selection = _step3_selection_context(forms_by_key["languages"])
+    # POST a known section → validate + save, then drop back to the index so
+    # the member sees the updated summary. Invalid → re-render that section.
+    if request.method == "POST" and active is not None:
+        form = _build_form(active, request.POST)
+        if form.is_valid():
+            form.save()  # commit=True → interests M2M included
+            messages.success(request, _("Your changes have been saved."))
+            return redirect("crush_lu:crush_connect_profile_edit")
+    else:
+        form = None
 
-    edit_sections = [{"cfg": s, "form": forms_by_key[s.key]} for s in CONNECT_STEPS]
+    # Detail mode: a known section is targeted (GET or invalid POST).
+    if active is not None:
+        if form is None:
+            form = _build_form(active)
+        context = {
+            "mode": "detail",
+            "membership": membership,
+            "profile": profile,
+            "cfg": active,
+            "form": form,
+        }
+        if active.key == "languages":
+            context.update(_step3_selection_context(form))
+        return render(request, "crush_lu/crush_connect/profile_edit.html", context)
 
+    # Index mode: the tappable section list with current-value summaries.
+    summaries = _connect_section_summaries(membership)
+    index_sections = [
+        {
+            "cfg": s,
+            "emoji": _CONNECT_SECTION_EMOJI.get(s.key, ""),
+            "summary": summaries.get(s.key, ""),
+        }
+        for s in CONNECT_STEPS
+    ]
     context = {
+        "mode": "index",
         "membership": membership,
         "profile": profile,
-        "edit_sections": edit_sections,
-        "active_section": section_key,
-        **selection,
+        "index_sections": index_sections,
     }
     return render(request, "crush_lu/crush_connect/profile_edit.html", context)
 

@@ -34399,3 +34399,34 @@ msgstr "Réponse soumise anonymement !"
 #: views_voting.py:599
 msgid "Response updated!"
 msgstr "Réponse mise à jour !"
+
+# Crush Connect profile editor — mobile-first drill-down (index & detail)
+#: templates/crush_lu/crush_connect/profile_edit.html
+msgid "Back to your profile"
+msgstr "Retour à votre profil"
+
+#: templates/crush_lu/crush_connect/profile_edit.html
+msgid "Tap a section to edit — this is what matches and coaches see."
+msgstr ""
+"Touchez une section pour la modifier — c'est ce que voient les profils et les "
+"coachs."
+
+#: templates/crush_lu/crush_connect/profile_edit.html
+msgid "Not set yet"
+msgstr "Pas encore renseigné"
+
+#: views_crush_connect.py
+msgid "Open to all"
+msgstr "Ouvert·e à tous"
+
+#: views_crush_connect.py
+#, python-format
+msgid "%(who)s · ages %(lo)s–%(hi)s"
+msgstr "%(who)s · %(lo)s–%(hi)s ans"
+
+#: views_crush_connect.py
+#, python-format
+msgid "%(count)d interest"
+msgid_plural "%(count)d interests"
+msgstr[0] "%(count)d centre d'intérêt"
+msgstr[1] "%(count)d centres d'intérêt"
