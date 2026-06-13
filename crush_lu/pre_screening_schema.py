@@ -64,7 +64,9 @@ PRE_SCREENING_SCHEMA: dict[str, Any] = {
                     "min_choices": 1,
                     "label": _("Languages you can comfortably speak at a social event"),
                     "profile_field": "event_languages",
-                    "edit_section": "preferences",
+                    # event_languages is edited in the About section; the legacy
+                    # "preferences" (Ideal Crush) section has been retired.
+                    "edit_section": "about",
                     "choices": [
                         {"value": "en", "label": _("English")},
                         {"value": "fr", "label": _("French")},
