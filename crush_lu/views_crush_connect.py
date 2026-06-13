@@ -15,6 +15,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -375,53 +376,72 @@ def crush_connect_onboarding_autosave(request):
     if not isinstance(data, dict):
         data = {}
 
-    touched = ["draft_step", "updated_at"]
-
-    if step == 1:
-        goal = data.get("relationship_goal", "")
-        if goal in dict(CrushConnectMembership.RELATIONSHIP_GOAL_CHOICES):
-            membership.relationship_goal = goal
-            touched.append("relationship_goal")
-
-    elif step == 2:
-        axes = {
-            "lifestyle_energy": CrushConnectMembership.LIFESTYLE_ENERGY_CHOICES,
-            "lifestyle_social": CrushConnectMembership.LIFESTYLE_SOCIAL_CHOICES,
-            "lifestyle_pace": CrushConnectMembership.LIFESTYLE_PACE_CHOICES,
-        }
-        for field, choices in axes.items():
-            value = data.get(field, "")
-            if value in dict(choices):
-                setattr(membership, field, value)
-                touched.append(field)
-
-    elif step == 3:
-        # Step-3 preferences live on CrushProfile; reuse the shared writer.
-        _apply_connect_preferences(
-            getattr(user, "crushprofile", None),
-            genders=data.get("preferred_genders"),
-            age_min=data.get("preferred_age_min"),
-            age_max=data.get("preferred_age_max"),
-            first_step=data.get("first_step_preference"),
-            astro=data.get("astro_enabled"),
-            quality_ids_raw=data.get("sought_qualities_ids"),
+    # Re-fetch under a row lock and re-check completion inside the transaction.
+    # The early check above can go stale: a final submit may land while a
+    # debounced step-4 autosave is in flight, and that stale draft must not
+    # clobber the finished Story / onboarded state. Under the lock a concurrent
+    # final submit either already committed (we observe is_onboarded and skip)
+    # or blocks on the same row until we're done — so the final answer always
+    # wins. The submit writes onboarded_at before its CrushProfile prefs, so
+    # holding this lock guards the step-3 profile writes too.
+    with transaction.atomic():
+        membership = CrushConnectMembership.objects.select_for_update().get(
+            pk=membership.pk
         )
+        if membership.excluded_by_coach or membership.is_onboarded:
+            return JsonResponse(
+                {"success": True, "saved_at": membership.updated_at.isoformat()}
+            )
 
-    elif step == 4:
-        _set_story_prompt(membership, "story_prompt", data.get("story_prompt"), touched)
-        _set_story_prompt(
-            membership, "story_prompt_2", data.get("story_prompt_2"), touched
-        )
-        if "story_answer" in data:
-            membership.story_answer = str(data.get("story_answer") or "")[:200]
-            touched.append("story_answer")
-        if "story_answer_2" in data:
-            membership.story_answer_2 = str(data.get("story_answer_2") or "")[:200]
-            touched.append("story_answer_2")
+        touched = ["draft_step", "updated_at"]
 
-    # Land back on the step the user is actually on ("where they stopped").
-    membership.draft_step = step
-    membership.save(update_fields=list(dict.fromkeys(touched)))
+        if step == 1:
+            goal = data.get("relationship_goal", "")
+            if goal in dict(CrushConnectMembership.RELATIONSHIP_GOAL_CHOICES):
+                membership.relationship_goal = goal
+                touched.append("relationship_goal")
+
+        elif step == 2:
+            axes = {
+                "lifestyle_energy": CrushConnectMembership.LIFESTYLE_ENERGY_CHOICES,
+                "lifestyle_social": CrushConnectMembership.LIFESTYLE_SOCIAL_CHOICES,
+                "lifestyle_pace": CrushConnectMembership.LIFESTYLE_PACE_CHOICES,
+            }
+            for field, choices in axes.items():
+                value = data.get(field, "")
+                if value in dict(choices):
+                    setattr(membership, field, value)
+                    touched.append(field)
+
+        elif step == 3:
+            # Step-3 preferences live on CrushProfile; reuse the shared writer.
+            _apply_connect_preferences(
+                getattr(user, "crushprofile", None),
+                genders=data.get("preferred_genders"),
+                age_min=data.get("preferred_age_min"),
+                age_max=data.get("preferred_age_max"),
+                first_step=data.get("first_step_preference"),
+                astro=data.get("astro_enabled"),
+                quality_ids_raw=data.get("sought_qualities_ids"),
+            )
+
+        elif step == 4:
+            _set_story_prompt(
+                membership, "story_prompt", data.get("story_prompt"), touched
+            )
+            _set_story_prompt(
+                membership, "story_prompt_2", data.get("story_prompt_2"), touched
+            )
+            if "story_answer" in data:
+                membership.story_answer = str(data.get("story_answer") or "")[:200]
+                touched.append("story_answer")
+            if "story_answer_2" in data:
+                membership.story_answer_2 = str(data.get("story_answer_2") or "")[:200]
+                touched.append("story_answer_2")
+
+        # Land back on the step the user is actually on ("where they stopped").
+        membership.draft_step = step
+        membership.save(update_fields=list(dict.fromkeys(touched)))
 
     return JsonResponse(
         {"success": True, "saved_at": membership.updated_at.isoformat()}
