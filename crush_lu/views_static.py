@@ -204,6 +204,7 @@ def crush_connect_teaser(request):
         "profile_approved": False,
         "is_premium": False,
         "has_luxid_connected": False,
+        "luxid_connect_url": None,
         "selected_as_tester": False,
         "tester_payment_confirmed": False,
     }
@@ -225,5 +226,11 @@ def crush_connect_teaser(request):
         context["has_luxid_connected"] = bool(
             _profile and _profile.has_luxid_connected
         )
+        # LuxID is the entry requirement for opting into Crush Connect — offer a
+        # "Connect LuxID" CTA to approved members who haven't linked it yet.
+        if context["profile_approved"] and not context["has_luxid_connected"]:
+            from crush_lu.luxid import get_luxid_connect_url
+
+            context["luxid_connect_url"] = get_luxid_connect_url(request)
 
     return render(request, "crush_lu/crush_connect.html", context)

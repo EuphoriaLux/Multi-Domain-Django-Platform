@@ -33,6 +33,45 @@ from crush_lu.models import CrushCoach, CrushProfile, MatchScore, Trait
 from crush_lu.models.profiles import UserDataConsent
 
 
+def _onboard_with_traits(
+    profile,
+    *,
+    qualities=None,
+    defects=None,
+    sought=None,
+    preferred_genders=None,
+    preferred_age_min=18,
+    preferred_age_max=99,
+    astro_enabled=True,
+):
+    """Give ``profile``'s user an onboarded CrushConnectMembership mirroring the
+    trait/preference data the matcher now reads from the membership (not the
+    profile). Trait scoring is Crush Connect-only, so an onboarded membership is
+    required for ``update_match_scores_for_user`` to produce any MatchScore."""
+    from django.utils import timezone
+
+    from crush_lu.models import CrushConnectMembership
+
+    membership, _ = CrushConnectMembership.objects.get_or_create(user=profile.user)
+    membership.onboarded_at = timezone.now()
+    membership.preferred_genders = (
+        preferred_genders
+        if preferred_genders is not None
+        else list(profile.preferred_genders or [])
+    )
+    membership.preferred_age_min = preferred_age_min
+    membership.preferred_age_max = preferred_age_max
+    membership.astro_enabled = astro_enabled
+    membership.save()
+    if qualities is not None:
+        membership.qualities.set(qualities)
+    if defects is not None:
+        membership.defects.set(defects)
+    if sought is not None:
+        membership.sought_qualities.set(sought)
+    return membership
+
+
 # =============================================================================
 # Model Tests
 # =============================================================================
@@ -571,6 +610,14 @@ class HardFilterTests(TestCase):
         self.profile_b.defects.set(all_d[5:10])
         self.profile_b.sought_qualities.set(all_q[:5])
 
+        # Trait scoring is membership-sourced now — onboard both with the traits.
+        _onboard_with_traits(
+            self.profile_a, qualities=all_q[:5], defects=all_d[:5], sought=all_q[5:10]
+        )
+        _onboard_with_traits(
+            self.profile_b, qualities=all_q[5:10], defects=all_d[5:10], sought=all_q[:5]
+        )
+
         # First compute — should create a score
         update_match_scores_for_user(self.user_a)
         self.assertEqual(MatchScore.objects.count(), 1)
@@ -710,6 +757,15 @@ class MatchScorePersistenceTests(TestCase):
         self.profile_b.qualities.set(all_q[5:10])
         self.profile_b.defects.set(all_d[5:10])
         self.profile_b.sought_qualities.set(all_q[:5])
+
+        # Trait scoring is Crush Connect-only — mirror the traits onto onboarded
+        # memberships so update_match_scores_for_user has data to score.
+        _onboard_with_traits(
+            self.profile_a, qualities=all_q[:5], defects=all_d[:5], sought=all_q[5:10]
+        )
+        _onboard_with_traits(
+            self.profile_b, qualities=all_q[5:10], defects=all_d[5:10], sought=all_q[:5]
+        )
 
     def test_update_creates_score(self):
         count = update_match_scores_for_user(self.user_a)
@@ -921,6 +977,14 @@ class CoachMemberMatchesViewTests(TestCase):
         profile_b.qualities.set(all_q[5:10])
         profile_b.defects.set(all_d[5:10])
         profile_b.sought_qualities.set(all_q[:5])
+
+        # Trait scoring is membership-sourced now — onboard both with the traits.
+        _onboard_with_traits(
+            self.member_profile, qualities=all_q[:5], defects=all_d[:5], sought=all_q[5:10]
+        )
+        _onboard_with_traits(
+            profile_b, qualities=all_q[5:10], defects=all_d[5:10], sought=all_q[:5]
+        )
 
         update_match_scores_for_user(self.member)
 

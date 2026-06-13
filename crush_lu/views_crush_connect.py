@@ -85,10 +85,20 @@ def _user_is_connect_candidate_eligible(user) -> bool:
 
 
 def _user_passes_pre_onboarding_gate(user) -> bool:
-    """Either track may onboard: receivers (Premium) or candidates (LuxID)."""
-    return _user_is_connect_receiver_eligible(
-        user
-    ) or _user_is_connect_candidate_eligible(user)
+    """LuxID-first: a verified profile with LuxID connected may opt in.
+
+    LuxID is the entry requirement for collecting ANY extended Crush Connect
+    data — both tracks (Premium receivers and candidate-only members) must
+    connect LuxID before they can start the onboarding wizard. The Premium-
+    coach distinction only decides where a finished member lands afterwards
+    (Today's Drop vs. catalogue status) — see ``_connect_done_url`` /
+    ``_connect_access_blocker``. Already-onboarded members are grandfathered
+    by the callers (they completed opt-in under the rules that applied then).
+    """
+    profile = getattr(user, "crushprofile", None)
+    if profile is None or not profile.is_approved:
+        return False
+    return profile.has_luxid_connected
 
 
 def _connect_access_blocker(user):
@@ -112,13 +122,15 @@ def _connect_access_blocker(user):
     if not getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
         return redirect("crush_lu:crush_connect_teaser")
 
-    if not _user_passes_pre_onboarding_gate(user):
-        return redirect("crush_lu:crush_connect_teaser")
-
     membership = getattr(user, "crush_connect_membership", None)
     if membership is not None and membership.excluded_by_coach:
         return redirect("crush_lu:crush_connect_teaser")
+
+    # Not onboarded yet → the LuxID-first opt-in gate decides teaser vs. wizard.
+    # (Onboarded members are grandfathered past the gate below.)
     if membership is None or membership.onboarded_at is None:
+        if not _user_passes_pre_onboarding_gate(user):
+            return redirect("crush_lu:crush_connect_teaser")
         return redirect("crush_lu:crush_connect_onboarding")
 
     if not _user_is_connect_receiver_eligible(user):
@@ -172,18 +184,22 @@ def _onboarding_gate(request):
 
     if not user.is_staff and not getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
         return redirect("crush_lu:crush_connect_teaser"), None, done_url
+
+    # Grandfather already-onboarded members (and bounce excluded ones) BEFORE the
+    # LuxID gate, so the gate only ever guards NEW opt-ins / data collection.
+    # Read the membership without creating one for an ineligible user.
+    existing = getattr(user, "crush_connect_membership", None)
+    if existing is not None:
+        if existing.excluded_by_coach:
+            return redirect("crush_lu:crush_connect_teaser"), existing, done_url
+        if existing.is_onboarded:
+            return redirect(done_url), existing, done_url
+
+    # LuxID-first opt-in gate: no extended data is collected without LuxID.
     if not user.is_staff and not _user_passes_pre_onboarding_gate(user):
-        return redirect("crush_lu:crush_connect_teaser"), None, done_url
+        return redirect("crush_lu:crush_connect_teaser"), existing, done_url
 
     membership, _created = CrushConnectMembership.objects.get_or_create(user=user)
-
-    if membership.excluded_by_coach:
-        # Excluded members go to the teaser, never to done_url — keep this check
-        # before the onboarded check (order matters).
-        return redirect("crush_lu:crush_connect_teaser"), membership, done_url
-    if membership.is_onboarded:
-        return redirect(done_url), membership, done_url
-
     return None, membership, done_url
 
 
@@ -223,6 +239,22 @@ def _emit_onboarding_complete(request, done_url):
         send_crush_connect_catalogue_welcome(user, request)
 
 
+def _recompute_member_match_scores(user):
+    """Refresh the member's trait-based MatchScores after their Connect traits
+    change. Best-effort — scoring is a soft signal for the Drop (missing pairs
+    are neutral), so a failure must never block onboarding or an edit save."""
+    try:
+        from crush_lu.matching import update_match_scores_for_user
+
+        update_match_scores_for_user(user)
+    except Exception:  # pragma: no cover - never block the user flow
+        import logging
+
+        logging.getLogger(__name__).exception(
+            "Crush Connect match-score recompute failed for user %s", user.pk
+        )
+
+
 def _step3_selection_context(form):
     """Selected language codes + interest ids for the step-3 / edit-section
     chip ``checked`` state, read from the bound form so an invalid re-render
@@ -239,6 +271,31 @@ def _step3_selection_context(form):
         "selected_languages": set(langs),
         "selected_interest_ids": selected_ids,
     }
+
+
+def _selected_trait_ids(form, field_name):
+    """Selected Trait ids for a checkbox field, read from the bound form so an
+    invalid re-render (and the legacy prefill) keep their checked state."""
+    raw = form[field_name].value() or []
+    out = set()
+    for v in raw:
+        try:
+            out.add(int(getattr(v, "pk", v)))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def _connect_trait_context(cfg_key, form):
+    """Chip ``checked`` state for the trait steps, keyed per step."""
+    if cfg_key == "lifestyle":
+        return {
+            "selected_quality_ids": _selected_trait_ids(form, "qualities"),
+            "selected_defect_ids": _selected_trait_ids(form, "defects"),
+        }
+    if cfg_key == "ideal_match":
+        return {"selected_sought_ids": _selected_trait_ids(form, "sought_qualities")}
+    return {}
 
 
 @crush_login_required
@@ -276,6 +333,9 @@ def crush_connect_onboarding_step(request, step: int):
                     "onboarded_at", "onboarding_step", "onboarding_started_at",
                 ])
                 _emit_onboarding_complete(request, done_url)
+                # Member is now in the pool — score them against other members so
+                # their first Drop (and theirs in others') reflects their traits.
+                _recompute_member_match_scores(request.user)
                 return redirect(done_url)
 
             obj.onboarding_step = new_pointer
@@ -284,11 +344,24 @@ def crush_connect_onboarding_step(request, step: int):
         # invalid → fall through and re-render with errors
     else:
         initial = {}
-        # Step 3: seed languages from the user's event_languages the FIRST time
-        # only (membership field still empty), so a deliberate clear on a
-        # back-edit isn't re-populated.
+        # FIRST-time-only prefill (membership field still empty), so a deliberate
+        # clear on a back-edit isn't re-populated. The trait prefill is the lazy
+        # migration of the legacy "Ideal Crush" data off CrushProfile: the member
+        # confirms (and consents to) it through the wizard before it persists.
         if cfg.key == "languages" and not membership.languages and profile:
-            initial = {"languages": list(profile.event_languages or [])}
+            initial["languages"] = list(profile.event_languages or [])
+        elif cfg.key == "lifestyle" and profile:
+            if not membership.qualities.exists() and profile.qualities.exists():
+                initial["qualities"] = list(profile.qualities.all())
+            if not membership.defects.exists() and profile.defects.exists():
+                initial["defects"] = list(profile.defects.all())
+        elif cfg.key == "ideal_match" and profile:
+            if not membership.sought_qualities.exists():
+                if profile.sought_qualities.exists():
+                    initial["sought_qualities"] = list(profile.sought_qualities.all())
+                if profile.first_step_preference:
+                    initial["first_step_preference"] = profile.first_step_preference
+                initial["astro_enabled"] = profile.astro_enabled
         form = form_class(instance=membership, initial=initial)
 
     is_receiver = _user_is_connect_receiver_eligible(request.user) or request.user.is_staff
@@ -308,6 +381,7 @@ def crush_connect_onboarding_step(request, step: int):
     }
     if cfg.key == "languages":
         context.update(_step3_selection_context(form))
+    context.update(_connect_trait_context(cfg.key, form))
     return render(request, "crush_lu/crush_connect/onboarding.html", context)
 
 
@@ -413,7 +487,10 @@ def crush_connect_profile_edit(request):
     if request.method == "POST" and active is not None:
         form = _build_form(active, request.POST)
         if form.is_valid():
-            form.save()  # commit=True → interests M2M included
+            form.save()  # commit=True → interests/trait M2Ms included
+            # Trait/preference edits change compatibility — refresh the scores.
+            if active.key in ("lifestyle", "ideal_match"):
+                _recompute_member_match_scores(user)
             messages.success(request, _("Your changes have been saved."))
             return redirect("crush_lu:crush_connect_profile_edit")
     else:
@@ -432,6 +509,7 @@ def crush_connect_profile_edit(request):
         }
         if active.key == "languages":
             context.update(_step3_selection_context(form))
+        context.update(_connect_trait_context(active.key, form))
         return render(request, "crush_lu/crush_connect/profile_edit.html", context)
 
     # Index mode: the tappable section list with current-value summaries.
