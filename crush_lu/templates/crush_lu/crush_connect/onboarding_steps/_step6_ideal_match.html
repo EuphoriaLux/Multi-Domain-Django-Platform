@@ -1,0 +1,58 @@
+{% load i18n %}
+{# Step 6 — Ideal match (the only HARD filters: gender + age). Gender peer-checked
+   tiles + the ageRangeSlider block (copied from _preferences_fields.html, bound
+   to the membership/form values). Empty gender selection = open to all. #}
+<div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-6 md:p-8 space-y-7">
+    <div class="text-center">
+        <div class="text-4xl mb-2">💘</div>
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{% trans "Who are you looking for?" %}</h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{% trans "Gender and age are the only firm filters — everything else just guides who you see first." %}</p>
+    </div>
+
+    {# Age range slider #}
+    <div x-data="ageRangeSlider"
+         data-label-any-age="{% trans 'Any age' %}"
+         data-initial-min="{{ form.preferred_age_min.value|default:'18' }}"
+         data-initial-max="{{ form.preferred_age_max.value|default:'99' }}">
+        <div class="flex items-center justify-between mb-2">
+            <label class="block text-sm font-semibold text-gray-900 dark:text-white">{% trans "Preferred age range" %}</label>
+            <div class="flex items-center gap-2">
+                <span class="text-sm font-semibold text-purple-600 dark:text-purple-400" x-text="rangeLabel"></span>
+                <button type="button" x-show="notDefaultRange" @click="resetRange" x-cloak
+                        class="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 underline">{% trans "Reset" %}</button>
+            </div>
+        </div>
+        <div class="age-range-slider-track" x-bind:style="trackStyle">
+            <div class="age-range-bubble" x-bind:style="minBubbleStyle" x-show="notDefaultRange" x-transition.opacity x-cloak><span x-text="minAge"></span></div>
+            <div class="age-range-bubble" x-bind:style="maxBubbleStyle" x-show="notDefaultRange" x-transition.opacity x-cloak><span x-text="maxAge"></span></div>
+            <input type="range" class="age-range-input age-range-input-min" min="18" max="99" x-bind:value="minAge" @input="updateMin">
+            <input type="range" class="age-range-input age-range-input-max" min="18" max="99" x-bind:value="maxAge" @input="updateMax">
+        </div>
+        <div class="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1"><span>18</span><span>99</span></div>
+        <input type="hidden" name="preferred_age_min" x-bind:value="minAge">
+        <input type="hidden" name="preferred_age_max" x-bind:value="maxAge">
+        {% if form.preferred_age_min.errors %}<p class="text-sm text-red-600 dark:text-red-400 mt-1">{{ form.preferred_age_min.errors|join:" " }}</p>{% endif %}
+        {% if form.preferred_age_max.errors %}<p class="text-sm text-red-600 dark:text-red-400 mt-1">{{ form.preferred_age_max.errors|join:" " }}</p>{% endif %}
+    </div>
+
+    {# Gender preference tiles #}
+    <div>
+        <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">{% trans "Interested in" %}</label>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {% for value, label in form.preferred_genders.field.choices %}{% if value != 'P' %}
+            <label class="cursor-pointer block">
+                <input type="checkbox" name="preferred_genders" value="{{ value }}" class="peer hidden"
+                       {% if value in form.preferred_genders.value %}checked{% endif %}>
+                <div class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border-2 transition-all duration-200
+                            border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-pink-300 hover:bg-pink-50 dark:hover:bg-pink-900/30
+                            peer-checked:border-pink-500 peer-checked:bg-pink-100 dark:peer-checked:bg-pink-900/40 peer-checked:text-pink-700 dark:peer-checked:text-pink-300">
+                    <span class="text-lg flex-shrink-0">{% if value == 'M' %}👨{% elif value == 'F' %}👩{% elif value == 'NB' %}🧑{% else %}✨{% endif %}</span>
+                    <span class="whitespace-nowrap">{{ label }}</span>
+                </div>
+            </label>
+            {% endif %}{% endfor %}
+        </div>
+        <p class="text-gray-400 dark:text-gray-500 text-xs mt-2">{% trans "Select all that apply. Leave empty if you're open to everyone." %}</p>
+        {% if form.preferred_genders.errors %}<p class="text-sm text-red-600 dark:text-red-400 mt-1">{{ form.preferred_genders.errors|join:" " }}</p>{% endif %}
+    </div>
+</div>

@@ -148,11 +148,24 @@ urlpatterns = [
     path('how-it-works/', views.how_it_works, name='how_it_works'),
     path('crush-coach/', views.crush_coach, name='crush_coach'),
     path('crush-connect/', views.crush_connect_teaser, name='crush_connect_teaser'),
-    # Crush Connect opt-in onboarding (M4.5).
+    # Crush Connect opt-in onboarding — resumable 7-step wizard. The bare
+    # path is the smart-resume entry (name unchanged so existing redirects
+    # keep working); the numbered path renders/saves a single step.
     path(
         'crush-connect/onboarding/',
         views_crush_connect.crush_connect_onboarding,
         name='crush_connect_onboarding',
+    ),
+    path(
+        'crush-connect/onboarding/<int:step>/',
+        views_crush_connect.crush_connect_onboarding_step,
+        name='crush_connect_onboarding_step',
+    ),
+    # Post-onboarding editor for Connect/catalogue answers.
+    path(
+        'crush-connect/profile/',
+        views_crush_connect.crush_connect_profile_edit,
+        name='crush_connect_profile_edit',
     ),
     # Today's Drop — user-facing Crush Connect home (M4).
     path(

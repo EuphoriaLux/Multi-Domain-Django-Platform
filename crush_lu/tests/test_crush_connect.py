@@ -928,104 +928,18 @@ def test_onboarding_redirects_to_teaser_when_ineligible(client, settings):
 
 
 @pytest.mark.django_db
-def test_onboarding_renders_form_for_eligible_user(client, settings):
+def test_onboarding_resume_redirects_eligible_user_to_step(client, settings):
+    """The bare onboarding URL is now a smart-resume entry: it routes an
+    eligible, not-yet-onboarded user to their current wizard step. Full
+    step-by-step coverage lives in test_crush_connect_onboarding.py."""
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(username="me", preferred_genders=["F"], onboarded=False)
     _mark_attended(me)
     _login_eligible(client, me)
 
     resp = client.get(ONBOARDING_URL)
-    assert resp.status_code == 200
-    body = resp.content.decode()
-    assert "Welcome to Crush Connect" in body
-    assert "story_prompt" in body
-    assert "story_answer" in body
-
-
-@pytest.mark.django_db
-def test_onboarding_submission_stamps_membership(client, settings):
-    settings.CRUSH_CONNECT_LAUNCHED = True
-    me = _make_user(username="me", preferred_genders=["F"], onboarded=False)
-    _mark_attended(me)
-    _login_eligible(client, me)
-
-    prompt = SparkPrompt.objects.filter(is_active=True).first()
-    resp = client.post(
-        ONBOARDING_URL,
-        data={
-            "story_prompt": prompt.pk,
-            "story_answer": "I love foggy walks along the Pétrusse valley.",
-            "confirm_terms": "on",
-        },
-    )
     assert resp.status_code in (302, 301)
-    assert "/crush-connect/today/" in resp.url
-
-    membership = CrushConnectMembership.objects.get(user=me)
-    assert membership.onboarded_at is not None
-    assert membership.story_prompt_id == prompt.pk
-    assert "Pétrusse" in membership.story_answer
-
-
-@pytest.mark.django_db
-def test_onboarding_persists_all_posted_preferences(client, settings):
-    """Step 3 posts first_step_preference and astro_enabled alongside
-    age/genders/qualities — none of them may be silently discarded."""
-    settings.CRUSH_CONNECT_LAUNCHED = True
-    me = _make_user(username="me", preferred_genders=["F"], onboarded=False)
-    _mark_attended(me)
-    _login_eligible(client, me)
-
-    profile = me.crushprofile
-    profile.astro_enabled = True
-    profile.save(update_fields=["astro_enabled"])
-
-    prompt = SparkPrompt.objects.filter(is_active=True).first()
-    resp = client.post(
-        ONBOARDING_URL,
-        data={
-            "story_prompt": prompt.pk,
-            "story_answer": "I love foggy walks along the Pétrusse valley.",
-            "confirm_terms": "on",
-            "preferred_genders": ["F", "NB"],
-            # Crossed range must be re-ordered, not saved inverted
-            "preferred_age_min": "45",
-            "preferred_age_max": "30",
-            "first_step_preference": "they_initiate",
-            "astro_enabled": "false",
-        },
-    )
-    assert resp.status_code in (302, 301)
-
-    profile.refresh_from_db()
-    assert profile.preferred_genders == ["F", "NB"]
-    assert profile.preferred_age_min == 30
-    assert profile.preferred_age_max == 45
-    assert profile.first_step_preference == "they_initiate"
-    assert profile.astro_enabled is False
-
-
-@pytest.mark.django_db
-def test_onboarding_rejects_short_answer(client, settings):
-    settings.CRUSH_CONNECT_LAUNCHED = True
-    me = _make_user(username="me", preferred_genders=["F"], onboarded=False)
-    _mark_attended(me)
-    _login_eligible(client, me)
-
-    prompt = SparkPrompt.objects.filter(is_active=True).first()
-    resp = client.post(
-        ONBOARDING_URL,
-        data={
-            "story_prompt": prompt.pk,
-            "story_answer": "hi",
-            "confirm_terms": "on",
-        },
-    )
-    # Form re-renders with error; no membership stamping
-    assert resp.status_code == 200
-    me.refresh_from_db()
-    membership = CrushConnectMembership.objects.get(user=me)
-    assert membership.onboarded_at is None
+    assert "/crush-connect/onboarding/1/" in resp.url
 
 
 @pytest.mark.django_db
@@ -1073,8 +987,10 @@ CATALOGUE_STATUS_URL = "/en/crush-connect/catalogue/"
 
 
 @pytest.mark.django_db
-def test_onboarding_renders_for_luxid_non_premium_user(client, settings):
-    """LuxID-only members may opt in as catalogue candidates."""
+def test_onboarding_resume_redirects_luxid_candidate_to_step(client, settings):
+    """LuxID-only (candidate-track) members may opt in too — resume routes
+    them into the wizard. Candidate completion → catalogue is covered in
+    test_crush_connect_onboarding.py."""
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(
         username="me", preferred_genders=["F"], onboarded=False, premium=False
@@ -1082,33 +998,8 @@ def test_onboarding_renders_for_luxid_non_premium_user(client, settings):
     _login_eligible(client, me)
 
     resp = client.get(ONBOARDING_URL)
-    assert resp.status_code == 200
-    assert "story_prompt" in resp.content.decode()
-
-
-@pytest.mark.django_db
-def test_onboarding_redirects_candidate_to_catalogue_status(client, settings):
-    """Candidate-track submit lands on the catalogue page, not Today's Drop."""
-    settings.CRUSH_CONNECT_LAUNCHED = True
-    me = _make_user(
-        username="me", preferred_genders=["F"], onboarded=False, premium=False
-    )
-    _login_eligible(client, me)
-
-    prompt = SparkPrompt.objects.filter(is_active=True).first()
-    resp = client.post(
-        ONBOARDING_URL,
-        data={
-            "story_prompt": prompt.pk,
-            "story_answer": "I love foggy walks along the Pétrusse valley.",
-            "confirm_terms": "on",
-        },
-    )
     assert resp.status_code in (302, 301)
-    assert "/crush-connect/catalogue/" in resp.url
-
-    membership = CrushConnectMembership.objects.get(user=me)
-    assert membership.onboarded_at is not None
+    assert "/crush-connect/onboarding/1/" in resp.url
 
 
 @pytest.mark.django_db

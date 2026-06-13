@@ -13041,89 +13041,38 @@ document.addEventListener("alpine:init", function () {
     });
 
     // Crush Connect 4-step onboarding wizard.
+    // Crush Connect onboarding — per-step selection helpers only. Step
+    // navigation is now server-side (one URL per step), so this just powers the
+    // step-3 interest 8-cap counter and the step-7 second-story toggle.
     Alpine.data("connectOnboarding", function () {
         return {
-            currentStep: 1,
-            totalSteps: 4,
-            relationshipGoal: "",
-            lifestyleEnergy: "",
-            lifestyleSocial: "",
-            lifestylePace: "",
+            interestMax: 8,
+            interestCount: 0,
             _showSecondStory: false,
 
-            get isStep1() {
-                return this.currentStep === 1;
-            },
-            get isStep2() {
-                return this.currentStep === 2;
-            },
-            get isStep3() {
-                return this.currentStep === 3;
-            },
-            get isStep4() {
-                return this.currentStep === 4;
-            },
-
-            get step1Valid() {
-                return this.relationshipGoal !== "";
-            },
-            get notStep1Valid() {
-                return this.relationshipGoal === "";
-            },
-            get step2Valid() {
-                return (
-                    this.lifestyleEnergy !== "" &&
-                    this.lifestyleSocial !== "" &&
-                    this.lifestylePace !== ""
-                );
-            },
-            get notStep2Valid() {
-                return !this.step2Valid;
-            },
             get showSecondStory() {
                 return this._showSecondStory;
             },
             get notShowSecondStory() {
                 return !this._showSecondStory;
             },
-
-            get progressPct() {
-                return Math.round(
-                    ((this.currentStep - 1) / (this.totalSteps - 1)) * 100,
-                );
+            get atInterestCap() {
+                return this.interestCount >= this.interestMax;
             },
 
             init: function () {
-                var el = this.$el;
-                var goal = el.getAttribute("data-relationship-goal");
-                if (goal) this.relationshipGoal = goal;
-                var energy = el.getAttribute("data-lifestyle-energy");
-                if (energy) this.lifestyleEnergy = energy;
-                var social = el.getAttribute("data-lifestyle-social");
-                if (social) this.lifestyleSocial = social;
-                var pace = el.getAttribute("data-lifestyle-pace");
-                if (pace) this.lifestylePace = pace;
+                // Pre-checked interests (back-edit / validation re-render).
+                this.interestCount = this.$el.querySelectorAll(
+                    'input[name="interests"]:checked',
+                ).length;
+                this._showSecondStory =
+                    this.$el.getAttribute("data-show-second-story") === "true";
             },
 
-            nextStep: function () {
-                if (this.currentStep < this.totalSteps) {
-                    this.currentStep++;
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                }
-            },
-            prevStep: function () {
-                if (this.currentStep > 1) {
-                    this.currentStep--;
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                }
-            },
-            selectGoal: function (val) {
-                this.relationshipGoal = val;
-            },
-            selectLifestyle: function (axis, val) {
-                if (axis === "energy") this.lifestyleEnergy = val;
-                if (axis === "social") this.lifestyleSocial = val;
-                if (axis === "pace") this.lifestylePace = val;
+            onInterestChange: function () {
+                this.interestCount = this.$el.querySelectorAll(
+                    'input[name="interests"]:checked',
+                ).length;
             },
             toggleSecondStory: function () {
                 this._showSecondStory = !this._showSecondStory;

@@ -1,0 +1,44 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Edit your Crush Connect profile" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-10 pb-24 lg:pb-10">
+
+    <header class="mb-8">
+        <a href="{% url 'crush_lu:crush_connect_catalogue_status' %}" class="text-sm text-crush-purple dark:text-crush-pink hover:underline">← {% trans "Back" %}</a>
+        <h1 class="text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white mt-2">
+            {% trans "Your Crush Connect profile" %}
+        </h1>
+        <p class="text-gray-600 dark:text-gray-300 mt-1">
+            {% trans "This is what other members and coaches see. Update any section and save." %}
+        </p>
+    </header>
+
+    {% for sec in edit_sections %}
+    <section id="{{ sec.cfg.key }}" class="mb-6">
+        <form method="post" action="{% url 'crush_lu:crush_connect_profile_edit' %}?section={{ sec.cfg.key }}" novalidate>
+            {% csrf_token %}
+            <input type="hidden" name="section" value="{{ sec.cfg.key }}">
+
+            {% if sec.form.non_field_errors %}
+            <div class="mb-3 rounded-xl bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+                {{ sec.form.non_field_errors|join:" " }}
+            </div>
+            {% endif %}
+
+            {% include sec.cfg.template with form=sec.form %}
+
+            <div class="mt-3 flex justify-end">
+                <button type="submit"
+                        class="rounded-xl bg-gradient-to-r from-crush-purple to-crush-pink px-6 py-2.5 text-sm font-semibold text-white shadow-lg transition-all duration-200 hover:scale-[1.02]">
+                    {% trans "Save changes" %}
+                </button>
+            </div>
+        </form>
+    </section>
+    {% endfor %}
+
+</div>
+{% endblock %}

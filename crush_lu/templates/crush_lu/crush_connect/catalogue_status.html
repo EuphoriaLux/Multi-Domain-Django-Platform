@@ -37,6 +37,24 @@
                 {% trans "You haven't shared a story yet." %}
             </p>
         {% endif %}
+
+        {# Languages + interests chips — the rest of what matches read about you. #}
+        {% if membership.languages or membership.interests.all %}
+        <div class="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-100 dark:border-slate-700">
+            {% for lang in membership.languages_display %}
+                <span class="badge badge-info">{{ lang }}</span>
+            {% endfor %}
+            {% for interest in membership.interests.all|slice:":3" %}
+                <span class="badge badge-primary">{{ interest.label }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="mt-4">
+            <a href="{% url 'crush_lu:crush_connect_profile_edit' %}" class="text-sm font-medium text-crush-purple dark:text-crush-pink hover:underline">
+                {% trans "Edit your Connect profile" %} →
+            </a>
+        </div>
     </div>
 
     {# Pending Sparks #}

@@ -4,12 +4,7 @@
 {% block title %}{% trans "Welcome to Crush Connect" %}{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto px-4 py-10 pb-24 lg:pb-10"
-     x-data="connectOnboarding"
-     data-relationship-goal="{{ membership.relationship_goal }}"
-     data-lifestyle-energy="{{ membership.lifestyle_energy }}"
-     data-lifestyle-social="{{ membership.lifestyle_social }}"
-     data-lifestyle-pace="{{ membership.lifestyle_pace }}">
+<div class="max-w-2xl mx-auto px-4 py-10 pb-24 lg:pb-10">
 
     <!-- Header -->
     <header class="mb-8 text-center">
@@ -24,328 +19,44 @@
         </p>
     </header>
 
-    <!-- Progress bar -->
+    <!-- Progress bar (server-side) -->
     <div class="mb-8">
         <div class="flex justify-between text-xs text-gray-400 dark:text-gray-500 mb-1.5">
-            <span x-text="'{% trans "Step" %} ' + currentStep + ' {% trans "of" %} ' + totalSteps"></span>
-            <span x-text="progressPct + '%'"></span>
+            <span>{% blocktrans %}Step {{ step }} of {{ total_steps }}{% endblocktrans %}</span>
+            <span>{{ progress_pct|floatformat:0 }}%</span>
         </div>
         <div class="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
             <div class="h-full bg-gradient-to-r from-crush-purple to-crush-pink rounded-full transition-all duration-500"
-                 x-bind:style="'width:' + progressPct + '%'"></div>
+                 style="width: {{ progress_pct|floatformat:0 }}%"></div>
         </div>
     </div>
 
-    <form method="post" id="connectOnboardingForm">
+    <form method="post" id="connectOnboardingForm" novalidate>
         {% csrf_token %}
 
-        <!-- ── Step 1: Your Intention ──────────────────────────────────────── -->
-        <div x-show="isStep1"
-             x-transition:enter="transition ease-out duration-300"
-             x-transition:enter-start="opacity-0 translate-x-4"
-             x-transition:enter-end="opacity-100 translate-x-0"
-             x-cloak
-             class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-6 md:p-8">
-
-            <div class="text-center mb-6">
-                <div class="text-4xl mb-2">🌱</div>
-                <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{% trans "What brings you here?" %}</h2>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{% trans "No wrong answers — your coach just needs a starting point." %}</p>
-            </div>
-
-            <input type="hidden" name="relationship_goal" x-bind:value="relationshipGoal">
-            <div class="flex flex-col gap-3">
-                <button type="button"
-                        @click="selectGoal('serious')"
-                        class="flex items-center gap-4 rounded-xl border-2 px-4 py-4 text-left transition-all duration-200 cursor-pointer"
-                        x-bind:class="relationshipGoal === 'serious' ? 'border-crush-purple bg-crush-purple/10 text-crush-purple' : 'border-gray-200 dark:border-gray-700 hover:border-crush-purple/50'">
-                    <span class="text-2xl flex-shrink-0">💍</span>
-                    <div>
-                        <div class="font-semibold text-gray-900 dark:text-white text-sm">{% trans "Looking for something serious" %}</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">{% trans "Ready to invest in the right person" %}</div>
-                    </div>
-                </button>
-                <button type="button"
-                        @click="selectGoal('open')"
-                        class="flex items-center gap-4 rounded-xl border-2 px-4 py-4 text-left transition-all duration-200 cursor-pointer"
-                        x-bind:class="relationshipGoal === 'open' ? 'border-crush-purple bg-crush-purple/10 text-crush-purple' : 'border-gray-200 dark:border-gray-700 hover:border-crush-purple/50'">
-                    <span class="text-2xl flex-shrink-0">🌊</span>
-                    <div>
-                        <div class="font-semibold text-gray-900 dark:text-white text-sm">{% trans "Open to see where it goes" %}</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">{% trans "No pressure, just genuine connection" %}</div>
-                    </div>
-                </button>
-                <button type="button"
-                        @click="selectGoal('curious')"
-                        class="flex items-center gap-4 rounded-xl border-2 px-4 py-4 text-left transition-all duration-200 cursor-pointer"
-                        x-bind:class="relationshipGoal === 'curious' ? 'border-crush-purple bg-crush-purple/10 text-crush-purple' : 'border-gray-200 dark:border-gray-700 hover:border-crush-purple/50'">
-                    <span class="text-2xl flex-shrink-0">🔍</span>
-                    <div>
-                        <div class="font-semibold text-gray-900 dark:text-white text-sm">{% trans "Here to explore" %}</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">{% trans "Meeting interesting people, keeping options open" %}</div>
-                    </div>
-                </button>
-            </div>
-
-            <div class="mt-6 flex justify-end">
-                <button type="button"
-                        @click="nextStep"
-                        x-bind:disabled="notStep1Valid"
-                        class="rounded-xl bg-gradient-to-r from-crush-purple to-crush-pink px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-200 hover:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed">
-                    {% trans "Next" %} →
-                </button>
-            </div>
+        {% if form.non_field_errors %}
+        <div class="mb-4 rounded-xl bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+            {{ form.non_field_errors|join:" " }}
         </div>
+        {% endif %}
 
-        <!-- ── Step 2: Your Lifestyle ──────────────────────────────────────── -->
-        <div x-show="isStep2"
-             x-transition:enter="transition ease-out duration-300"
-             x-transition:enter-start="opacity-0 translate-x-4"
-             x-transition:enter-end="opacity-100 translate-x-0"
-             x-cloak
-             class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-6 md:p-8">
+        {% include step_template %}
 
-            <div class="text-center mb-6">
-                <div class="text-4xl mb-2">✨</div>
-                <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{% trans "How do you live?" %}</h2>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{% trans "These help your coach find someone whose rhythm matches yours." %}</p>
-            </div>
+        <div class="mt-6 flex justify-between">
+            {% if prev_step %}
+            <a href="{% url 'crush_lu:crush_connect_onboarding_step' step=prev_step %}"
+               class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-5 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                ← {% trans "Back" %}
+            </a>
+            {% else %}
+            <span></span>
+            {% endif %}
 
-            <input type="hidden" name="lifestyle_energy" x-bind:value="lifestyleEnergy">
-            <input type="hidden" name="lifestyle_social" x-bind:value="lifestyleSocial">
-            <input type="hidden" name="lifestyle_pace" x-bind:value="lifestylePace">
-
-            <!-- Energy axis -->
-            <fieldset class="mb-5">
-                <legend class="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{% trans "Your energy" %}</legend>
-                <div class="grid grid-cols-3 gap-2">
-                    <button type="button" @click="selectLifestyle('energy','homebody')"
-                            class="flex flex-col items-center gap-1 rounded-xl border-2 px-2 py-3 text-xs font-medium transition-all duration-200 cursor-pointer"
-                            x-bind:class="lifestyleEnergy === 'homebody' ? 'border-crush-purple bg-crush-purple/10 text-crush-purple' : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-crush-purple/50'">
-                        <span class="text-xl">🏠</span>{% trans "Homebody" %}
-                    </button>
-                    <button type="button" @click="selectLifestyle('energy','mix')"
-                            class="flex flex-col items-center gap-1 rounded-xl border-2 px-2 py-3 text-xs font-medium transition-all duration-200 cursor-pointer"
-                            x-bind:class="lifestyleEnergy === 'mix' ? 'border-crush-purple bg-crush-purple/10 text-crush-purple' : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-crush-purple/50'">
-                        <span class="text-xl">⚖️</span>{% trans "Mix of both" %}
-                    </button>
-                    <button type="button" @click="selectLifestyle('energy','adventurer')"
-                            class="flex flex-col items-center gap-1 rounded-xl border-2 px-2 py-3 text-xs font-medium transition-all duration-200 cursor-pointer"
-                            x-bind:class="lifestyleEnergy === 'adventurer' ? 'border-crush-purple bg-crush-purple/10 text-crush-purple' : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-crush-purple/50'">
-                        <span class="text-xl">🧗</span>{% trans "Adventurer" %}
-                    </button>
-                </div>
-            </fieldset>
-
-            <!-- Social axis -->
-            <fieldset class="mb-5">
-                <legend class="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{% trans "Your social style" %}</legend>
-                <div class="grid grid-cols-3 gap-2">
-                    <button type="button" @click="selectLifestyle('social','intimate')"
-                            class="flex flex-col items-center gap-1 rounded-xl border-2 px-2 py-3 text-xs font-medium transition-all duration-200 cursor-pointer"
-                            x-bind:class="lifestyleSocial === 'intimate' ? 'border-crush-purple bg-crush-purple/10 text-crush-purple' : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-crush-purple/50'">
-                        <span class="text-xl">💬</span>{% trans "Deep 1:1s" %}
-                    </button>
-                    <button type="button" @click="selectLifestyle('social','flexible')"
-                            class="flex flex-col items-center gap-1 rounded-xl border-2 px-2 py-3 text-xs font-medium transition-all duration-200 cursor-pointer"
-                            x-bind:class="lifestyleSocial === 'flexible' ? 'border-crush-purple bg-crush-purple/10 text-crush-purple' : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-crush-purple/50'">
-                        <span class="text-xl">🎭</span>{% trans "Depends on mood" %}
-                    </button>
-                    <button type="button" @click="selectLifestyle('social','social')"
-                            class="flex flex-col items-center gap-1 rounded-xl border-2 px-2 py-3 text-xs font-medium transition-all duration-200 cursor-pointer"
-                            x-bind:class="lifestyleSocial === 'social' ? 'border-crush-purple bg-crush-purple/10 text-crush-purple' : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-crush-purple/50'">
-                        <span class="text-xl">🎉</span>{% trans "Group energy" %}
-                    </button>
-                </div>
-            </fieldset>
-
-            <!-- Pace axis -->
-            <fieldset class="mb-5">
-                <legend class="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{% trans "Your rhythm" %}</legend>
-                <div class="grid grid-cols-3 gap-2">
-                    <button type="button" @click="selectLifestyle('pace','structured')"
-                            class="flex flex-col items-center gap-1 rounded-xl border-2 px-2 py-3 text-xs font-medium transition-all duration-200 cursor-pointer"
-                            x-bind:class="lifestylePace === 'structured' ? 'border-crush-purple bg-crush-purple/10 text-crush-purple' : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-crush-purple/50'">
-                        <span class="text-xl">📅</span>{% trans "Structured" %}
-                    </button>
-                    <button type="button" @click="selectLifestyle('pace','balanced')"
-                            class="flex flex-col items-center gap-1 rounded-xl border-2 px-2 py-3 text-xs font-medium transition-all duration-200 cursor-pointer"
-                            x-bind:class="lifestylePace === 'balanced' ? 'border-crush-purple bg-crush-purple/10 text-crush-purple' : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-crush-purple/50'">
-                        <span class="text-xl">☯️</span>{% trans "Balanced" %}
-                    </button>
-                    <button type="button" @click="selectLifestyle('pace','spontaneous')"
-                            class="flex flex-col items-center gap-1 rounded-xl border-2 px-2 py-3 text-xs font-medium transition-all duration-200 cursor-pointer"
-                            x-bind:class="lifestylePace === 'spontaneous' ? 'border-crush-purple bg-crush-purple/10 text-crush-purple' : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-crush-purple/50'">
-                        <span class="text-xl">🌪️</span>{% trans "Spontaneous" %}
-                    </button>
-                </div>
-            </fieldset>
-
-            <div class="mt-6 flex justify-between">
-                <button type="button" @click="prevStep"
-                        class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-5 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
-                    ← {% trans "Back" %}
-                </button>
-                <button type="button" @click="nextStep"
-                        x-bind:disabled="notStep2Valid"
-                        class="rounded-xl bg-gradient-to-r from-crush-purple to-crush-pink px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-200 hover:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed">
-                    {% trans "Next" %} →
-                </button>
-            </div>
+            <button type="submit"
+                    class="rounded-xl bg-gradient-to-r from-crush-purple to-crush-pink px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-200 hover:scale-[1.02]">
+                {% if is_final_step %}{% trans "Finish & join Crush Connect" %}{% else %}{% trans "Next" %} →{% endif %}
+            </button>
         </div>
-
-        <!-- ── Step 3: Your Ideal Match ────────────────────────────────────── -->
-        <div x-show="isStep3"
-             x-transition:enter="transition ease-out duration-300"
-             x-transition:enter-start="opacity-0 translate-x-4"
-             x-transition:enter-end="opacity-100 translate-x-0"
-             x-cloak>
-
-            <div class="text-center mb-6 bg-white dark:bg-slate-800 rounded-2xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-5">
-                <div class="text-4xl mb-2">💘</div>
-                <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{% trans "Who are you looking for?" %}</h2>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{% trans "Soft preferences — your coach uses these as a guide, not a hard filter." %}</p>
-            </div>
-
-            {% include "crush_lu/partials/_preferences_fields.html" %}
-
-            <div class="mt-6 flex justify-between">
-                <button type="button" @click="prevStep"
-                        class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-5 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
-                    ← {% trans "Back" %}
-                </button>
-                <button type="button" @click="nextStep"
-                        class="rounded-xl bg-gradient-to-r from-crush-purple to-crush-pink px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-200 hover:scale-[1.02]">
-                    {% trans "Next" %} →
-                </button>
-            </div>
-        </div>
-
-        <!-- ── Step 4: Your Story ──────────────────────────────────────────── -->
-        <div x-show="isStep4"
-             x-transition:enter="transition ease-out duration-300"
-             x-transition:enter-start="opacity-0 translate-x-4"
-             x-transition:enter-end="opacity-100 translate-x-0"
-             x-cloak
-             class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-6 md:p-8 space-y-7">
-
-            <div class="text-center">
-                <div class="text-4xl mb-2">✍️</div>
-                <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{% trans "Your story" %}</h2>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    {% if is_candidate_only %}
-                        {% trans "This sentence is what a Premium member reads when a Crush Coach picks you as their match." %}
-                    {% else %}
-                        {% trans "This sentence is the only thing other members read before they decide to send you a Spark." %}
-                    {% endif %}
-                </p>
-            </div>
-
-            <!-- Primary prompt picker -->
-            <fieldset class="space-y-3">
-                <legend class="text-sm font-semibold text-gray-900 dark:text-white mb-2">
-                    {{ form.story_prompt.label }}
-                </legend>
-                {% for radio in form.story_prompt %}
-                <label class="flex items-start gap-3 rounded-xl border border-gray-200 dark:border-slate-700 p-3 cursor-pointer hover:border-crush-purple/60 hover:bg-crush-purple/5 transition has-[:checked]:border-crush-purple has-[:checked]:bg-crush-purple/10">
-                    {{ radio.tag }}
-                    <span class="text-sm text-gray-800 dark:text-gray-100">{{ radio.choice_label }}</span>
-                </label>
-                {% endfor %}
-                {% if form.story_prompt.errors %}
-                <p class="text-sm text-red-600 dark:text-red-400 mt-1">{{ form.story_prompt.errors|join:" " }}</p>
-                {% endif %}
-            </fieldset>
-
-            <!-- Story answer -->
-            <div>
-                <label for="{{ form.story_answer.id_for_label }}" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
-                    {{ form.story_answer.label }}
-                </label>
-                <div x-data="{ count: '{{ form.story_answer.value|default_if_none:"" }}'.length }">
-                    <textarea
-                        name="{{ form.story_answer.name }}"
-                        id="{{ form.story_answer.id_for_label }}"
-                        rows="3"
-                        maxlength="200"
-                        placeholder="{% trans 'Keep it human — one sentence the right kind of person will recognise.' %}"
-                        class="input-crush w-full"
-                        x-on:input="count = $event.target.value.length"
-                    >{{ form.story_answer.value|default_if_none:"" }}</textarea>
-                    <div class="mt-1 flex items-center justify-between text-xs">
-                        <span class="text-gray-400 dark:text-gray-500">{% trans "Edit anytime from your settings later." %}</span>
-                        <span class="text-gray-400 dark:text-gray-500"><span x-text="count"></span>/200</span>
-                    </div>
-                </div>
-                {% if form.story_answer.errors %}
-                <p class="text-sm text-red-600 dark:text-red-400 mt-1">{{ form.story_answer.errors|join:" " }}</p>
-                {% endif %}
-            </div>
-
-            <!-- Optional second story -->
-            <div>
-                <button type="button" @click="toggleSecondStory"
-                        x-show="notShowSecondStory"
-                        class="flex items-center gap-2 text-sm font-medium text-crush-purple hover:underline">
-                    <span>+</span> {% trans "Add a second story card (optional)" %}
-                </button>
-
-                <div x-show="showSecondStory" x-cloak class="space-y-4 border-t border-gray-100 dark:border-gray-700 pt-4 mt-2">
-                    <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Give your coach an extra window into who you are." %}</p>
-
-                    <fieldset class="space-y-3">
-                        <legend class="text-sm font-semibold text-gray-900 dark:text-white mb-2">{% trans "Second prompt" %}</legend>
-                        {% for radio in form.story_prompt_2 %}
-                        <label class="flex items-start gap-3 rounded-xl border border-gray-200 dark:border-slate-700 p-3 cursor-pointer hover:border-crush-purple/60 hover:bg-crush-purple/5 transition has-[:checked]:border-crush-purple has-[:checked]:bg-crush-purple/10">
-                            {{ radio.tag }}
-                            <span class="text-sm text-gray-800 dark:text-gray-100">{{ radio.choice_label }}</span>
-                        </label>
-                        {% endfor %}
-                        {% if form.story_prompt_2.errors %}
-                        <p class="text-sm text-red-600 dark:text-red-400 mt-1">{{ form.story_prompt_2.errors|join:" " }}</p>
-                        {% endif %}
-                    </fieldset>
-
-                    <div>
-                        <label for="{{ form.story_answer_2.id_for_label }}" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
-                            {{ form.story_answer_2.label }}
-                        </label>
-                        <textarea
-                            name="{{ form.story_answer_2.name }}"
-                            id="{{ form.story_answer_2.id_for_label }}"
-                            rows="3"
-                            maxlength="200"
-                            class="input-crush w-full"
-                        >{{ form.story_answer_2.value|default_if_none:"" }}</textarea>
-                        {% if form.story_answer_2.errors %}
-                        <p class="text-sm text-red-600 dark:text-red-400 mt-1">{{ form.story_answer_2.errors|join:" " }}</p>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-
-            <!-- Confirm terms -->
-            <div>
-                <label class="flex items-start gap-3 text-sm text-gray-700 dark:text-gray-200 cursor-pointer">
-                    {{ form.confirm_terms }}
-                    <span>{{ form.confirm_terms.label }}</span>
-                </label>
-                {% if form.confirm_terms.errors %}
-                <p class="text-sm text-red-600 dark:text-red-400 mt-1">{{ form.confirm_terms.errors|join:" " }}</p>
-                {% endif %}
-            </div>
-
-            <div class="flex justify-between pt-2">
-                <button type="button" @click="prevStep"
-                        class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-5 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
-                    ← {% trans "Back" %}
-                </button>
-                <button type="submit" class="rounded-xl bg-gradient-to-r from-crush-purple to-crush-pink px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-200 hover:scale-[1.02]">
-                    {% trans "Finish & join Crush Connect" %}
-                </button>
-            </div>
-        </div>
-
     </form>
 
     <p class="mt-6 text-center text-xs text-gray-500 dark:text-gray-400">

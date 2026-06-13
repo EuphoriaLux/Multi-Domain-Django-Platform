@@ -376,6 +376,30 @@ class CrushConnectMembership(models.Model):
         labels = dict(CONNECT_LANGUAGE_CHOICES)
         return [labels.get(code, code) for code in (self.languages or [])]
 
+    @property
+    def life_situation_display(self):
+        """Human labels for the life-situation answers, skipping blanks and
+        ``prefer_not_say`` — for coach views (coaches see everything)."""
+        parts = []
+        if self.height_cm:
+            parts.append(f"{self.height_cm} cm")
+        for field in ("work_field", "education_level", "smoking", "drinking"):
+            value = getattr(self, field)
+            if value and value != "prefer_not_say":
+                parts.append(getattr(self, f"get_{field}_display")())
+        return parts
+
+    @property
+    def family_future_display(self):
+        """Human labels for the family/future answers, skipping blanks and
+        ``prefer_not_say``."""
+        parts = []
+        for field in ("has_children", "wants_children", "relationship_timeline"):
+            value = getattr(self, field)
+            if value and value != "prefer_not_say":
+                parts.append(getattr(self, f"get_{field}_display")())
+        return parts
+
 
 class ConnectDailyDrop(models.Model):
     """
