@@ -13386,6 +13386,15 @@ document.addEventListener("alpine:init", function () {
             },
 
             saveDraft: function () {
+                // An immediate full-step save supersedes any pending debounced
+                // snapshot for the same step (gatherCurrentStepData captures the
+                // whole step fresh), so cancel it — otherwise that older copy
+                // would post afterwards and revert a field this save just updated
+                // (e.g. a slider's debounce reverting a gender box ticked during
+                // the 2s window). _debouncedSnap is only ever set for the current
+                // step (Next/Back flush it), so clearing it here is safe.
+                clearTimeout(this.autoSaveTimer);
+                this._debouncedSnap = null;
                 this._queueSave(this.currentStep, this.gatherCurrentStepData());
             },
 
