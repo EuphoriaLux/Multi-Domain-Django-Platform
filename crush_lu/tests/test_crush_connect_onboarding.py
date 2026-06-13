@@ -493,7 +493,9 @@ def test_edit_page_requires_onboarded(client, settings):
 
 
 @pytest.mark.django_db
-def test_edit_page_renders_for_onboarded(client, settings):
+def test_edit_page_renders_index_for_onboarded(client, settings):
+    """Bare GET renders the drill-down index: tappable section links, not a
+    wall of forms."""
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(username="me", preferred_genders=["F"], onboarded=True)
     _mark_attended(me)
@@ -501,6 +503,45 @@ def test_edit_page_renders_for_onboarded(client, settings):
 
     resp = client.get(PROFILE_EDIT_URL)
     assert resp.status_code == 200
+    body = resp.content.decode()
+    # A representative section title is listed…
+    assert "Languages &amp; interests" in body
+    # …and each row links into its focused editor.
+    assert "?section=story" in body
+    assert "?section=intention" in body
+
+
+@pytest.mark.django_db
+def test_edit_section_detail_renders(client, settings):
+    """GET ?section=<key> opens just that one section's editor."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"], onboarded=True)
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    resp = client.get(PROFILE_EDIT_URL + "?section=story")
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert 'name="section" value="story"' in body
+    assert "Back to your profile" in body
+
+
+@pytest.mark.django_db
+def test_edit_index_shows_current_value_summary(client, settings):
+    """The index previews each section's current value so members don't have
+    to open one to remember what's in it."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"], onboarded=True)
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    m = me.crush_connect_membership
+    m.relationship_goal = "serious"
+    m.save()
+
+    resp = client.get(PROFILE_EDIT_URL)
+    assert resp.status_code == 200
+    assert m.get_relationship_goal_display() in resp.content.decode()
 
 
 @pytest.mark.django_db
