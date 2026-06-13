@@ -13063,10 +13063,12 @@ document.addEventListener("alpine:init", function () {
             draftRestored: false,
             savedPillVisible: false,
             _savedPillTimer: null,
-            // Serialized-save plumbing: at most one request in flight, the
-            // latest snapshot coalesced into _pending; _debouncedSnap holds a
-            // pending debounced edit (captured at its own step) until it fires.
-            _pending: null,
+            // Serialized-save plumbing: at most one request in flight; pending
+            // edits are coalesced per step in _pendingByStep so a save for one
+            // step can't drop a still-unsent save for a different step.
+            // _debouncedSnap holds a pending debounced edit (captured at its own
+            // step) until it fires.
+            _pendingByStep: {},
             _inFlight: false,
             _debouncedSnap: null,
 
@@ -13367,31 +13369,47 @@ document.addEventListener("alpine:init", function () {
                 this._queueSave(this.currentStep, this.gatherCurrentStepData());
             },
 
-            // Serialize autosaves: keep at most one request in flight and
-            // coalesce newer edits into _pending (latest wins). An older POST
-            // can therefore never start after — and land behind — a newer one
-            // and overwrite fresher draft text. The server row lock orders the
-            // writes but not their arrival; this orders their arrival.
+            // Serialize autosaves: keep at most one request in flight. Pending
+            // edits are coalesced per step in _pendingByStep — within a step the
+            // latest data wins, but a save for one step never overwrites a
+            // still-unsent save for a different step (e.g. a flushed step-3 edit
+            // followed by a step-4 checkpoint on Next). Draining one at a time
+            // also keeps an older POST from starting after, and landing behind,
+            // a newer one.
             _queueSave: function (step, data) {
-                this._pending = { step: step, data: data };
+                this._pendingByStep[step] = data;
                 this.isDirty = true;
                 this._drainSaves();
             },
 
+            _hasPending: function () {
+                return Object.keys(this._pendingByStep).length > 0;
+            },
+
             _drainSaves: function () {
-                if (this._inFlight || !this._pending || !this.autosaveUrl) return;
-                var self = this;
-                var snap = this._pending;
-                this._pending = null;
+                if (this._inFlight || !this.autosaveUrl) return;
+                var steps = Object.keys(this._pendingByStep);
+                if (steps.length === 0) return;
+                // Send the lowest pending step first (earlier wizard step =
+                // earlier edit). Steps write disjoint fields, so order only
+                // affects niceness, never correctness.
+                steps.sort(function (a, b) {
+                    return a - b;
+                });
+                var stepKey = steps[0];
+                var step = parseInt(stepKey, 10);
+                var data = this._pendingByStep[stepKey];
+                delete this._pendingByStep[stepKey];
                 this._inFlight = true;
                 this.isAutoSaving = true;
+                var self = this;
                 fetch(this.autosaveUrl, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
                         "X-CSRFToken": this.getCsrfToken(),
                     },
-                    body: JSON.stringify(snap),
+                    body: JSON.stringify({ step: step, data: data }),
                 })
                     .then(function (r) {
                         return r.json();
@@ -13403,15 +13421,18 @@ document.addEventListener("alpine:init", function () {
                             self.lastSavedAt = result.saved_at;
                             self._flashSavedPill();
                         }
-                        self.isDirty = self._pending !== null;
-                        // Flush anything queued while this request was in flight.
+                        self.isDirty = self._hasPending();
+                        // Drain the next pending step, if any.
                         self._drainSaves();
                     })
                     .catch(function () {
                         self._inFlight = false;
                         self.isAutoSaving = false;
-                        // Preserve the edit so the next trigger retries it.
-                        if (!self._pending) self._pending = snap;
+                        // Preserve the edit (unless a newer one arrived for this
+                        // step meanwhile) so the next trigger retries it.
+                        if (!(stepKey in self._pendingByStep)) {
+                            self._pendingByStep[stepKey] = data;
+                        }
                     });
             },
 
