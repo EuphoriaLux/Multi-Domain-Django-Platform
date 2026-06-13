@@ -439,8 +439,13 @@ def crush_connect_onboarding_autosave(request):
                 membership.story_answer_2 = str(data.get("story_answer_2") or "")[:200]
                 touched.append("story_answer_2")
 
-        # Land back on the step the user is actually on ("where they stopped").
-        membership.draft_step = step
+        # Advance the resume cursor monotonically. Two autosaves can be in
+        # flight at once (e.g. a step-1 select POST racing the step-2 Next
+        # POST); if the older one committed last, a plain assignment would drag
+        # draft_step backward and resume the user on an earlier step. Reading
+        # max() under the select_for_update lock above makes the cursor
+        # never-decreasing without needing a client revision/timestamp.
+        membership.draft_step = max(membership.draft_step, step)
         membership.save(update_fields=list(dict.fromkeys(touched)))
 
     return JsonResponse(

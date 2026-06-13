@@ -2277,3 +2277,23 @@ def test_onboarding_final_submit_still_stamps_after_autosave(client, settings):
     assert profile.preferred_genders == ["F", "NB"]
     assert profile.first_step_preference == "no_preference"
     assert profile.astro_enabled is True
+
+
+@pytest.mark.django_db
+def test_autosave_draft_step_never_regresses(client, settings):
+    """A late step-1 autosave must not drag the resume cursor back below a step
+    the user already advanced past (concurrent in-flight autosaves)."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"], onboarded=False)
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    _autosave(client, 2, {"lifestyle_energy": "mix"})
+    # An older step-1 POST landing afterwards must keep the cursor at 2.
+    _autosave(client, 1, {"relationship_goal": "serious"})
+
+    membership = CrushConnectMembership.objects.get(user=me)
+    assert membership.draft_step == 2
+    # ...but its data still persists — only the cursor is monotonic.
+    assert membership.relationship_goal == "serious"
+    assert membership.lifestyle_energy == "mix"
