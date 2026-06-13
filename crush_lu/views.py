@@ -801,7 +801,7 @@ def _render_edit_profile_form(request):
 
     Supports section-based navigation:
     - No section param → card list (section overview)
-    - ?section=photos|about|preferences|privacy|account → section detail
+    - ?section=photos|about|privacy|account → section detail
     - HTMX request + section → return section partial only
     - Non-HTMX + section → full page with section pre-expanded
     """
