@@ -34,14 +34,6 @@ AUTOSAVE_ABOUT_FIELDS = {
     "qualities_ids",
     "defects_ids",
 }
-AUTOSAVE_PREFERENCES_FIELDS = {
-    "preferred_age_min",
-    "preferred_age_max",
-    "preferred_genders",
-    "first_step_preference",
-    "sought_qualities_ids",
-    "astro_enabled",
-}
 AUTOSAVE_PRIVACY_FIELDS = {
     "show_full_name",
     "show_exact_age",
@@ -58,7 +50,6 @@ from .models import (
 from .models.crush_connect import CrushConnectWaitlist
 from .forms import (
     CrushProfileForm,
-    IdealCrushPreferencesForm,
 )
 from .decorators import crush_login_required, ratelimit
 from . import onboarding
@@ -361,12 +352,6 @@ def dashboard(request):
 
         coach = latest_submission.coach if latest_submission else None
 
-        has_crush_preferences = (
-            bool(profile.preferred_genders)
-            or (profile.preferred_age_min != 18 or profile.preferred_age_max != 99)
-            or bool(profile.first_step_preference)
-        )
-
         # Crush Connect waitlist status
         on_crush_connect_waitlist = False
         crush_connect_position = None
@@ -443,7 +428,6 @@ def dashboard(request):
             "registrations": registrations,
             "connection_count": connection_count,
             "referral_url": referral_url,
-            "has_crush_preferences": has_crush_preferences,
             "on_crush_connect_waitlist": on_crush_connect_waitlist,
             "crush_connect_position": crush_connect_position,
             "crush_connect_total": crush_connect_total,
@@ -835,7 +819,6 @@ def _render_edit_profile_form(request):
     valid_sections = (
         "photos",
         "about",
-        "preferences",
         "privacy",
         "account",
         "about_crushlu",
@@ -849,9 +832,10 @@ def _render_edit_profile_form(request):
     if section == "about":
         return _edit_section_about(request, profile)
 
-    # --- Section: Preferences (ideal crush) ---
-    if section == "preferences":
-        return _edit_section_preferences(request, profile)
+    # The "Ideal Crush" preferences section has moved to the opt-in Crush
+    # Connect onboarding (crush_lu:crush_connect_profile_edit) so members who
+    # never opt in are not asked to complete it. A stale ?section=preferences
+    # link falls through to the default card list below.
 
     # --- Section: Privacy ---
     if section == "privacy":
@@ -866,16 +850,9 @@ def _render_edit_profile_form(request):
         return _edit_section_about_crushlu(request, profile)
 
     # --- Default: Card-based section list ---
-    has_crush_preferences = (
-        bool(profile.preferred_genders)
-        or (profile.preferred_age_min and profile.preferred_age_min != 18)
-        or (profile.preferred_age_max and profile.preferred_age_max != 99)
-    )
-
     context = {
         "profile": profile,
         "section": section,
-        "has_crush_preferences": has_crush_preferences,
     }
     return render(request, "crush_lu/edit_profile.html", context)
 
@@ -942,19 +919,6 @@ def _get_profile_form_initial_data(profile):
     }
 
 
-def _get_preferences_form_initial_data(profile):
-    return {
-        "preferred_age_min": profile.preferred_age_min or 18,
-        "preferred_age_max": profile.preferred_age_max or 99,
-        "preferred_genders": list(profile.preferred_genders or []),
-        "first_step_preference": profile.first_step_preference or "",
-        "sought_qualities_ids": ",".join(
-            str(pk) for pk in profile.sought_qualities.values_list("pk", flat=True)
-        ),
-        "astro_enabled": bool(profile.astro_enabled),
-    }
-
-
 def _merge_autosave_payload(base_data, payload, allowed_fields):
     from django.http import QueryDict
 
@@ -996,42 +960,6 @@ def _render_about_section(request, profile, form=None):
     }
 
 
-def _render_preferences_section(request, profile, form=None):
-    from .models import Trait
-    from .matching import (
-        get_western_zodiac,
-        get_chinese_zodiac,
-        ZODIAC_SIGN_EMOJIS,
-        CHINESE_ANIMAL_EMOJIS,
-        ZODIAC_SIGN_LABELS,
-        CHINESE_ANIMAL_LABELS,
-    )
-
-    if form is None:
-        form = IdealCrushPreferencesForm(instance=profile)
-
-    qualities_list = list(Trait.objects.filter(trait_type="quality"))
-    qualities_grouped = _group_traits_by_category(qualities_list)
-    selected_sought = list(profile.sought_qualities.values_list("pk", flat=True))
-
-    zodiac_sign = get_western_zodiac(profile.date_of_birth)
-    chinese_animal = get_chinese_zodiac(profile.date_of_birth)
-
-    return {
-        "form": form,
-        "profile": profile,
-        "section": "preferences",
-        "qualities_grouped": qualities_grouped,
-        "selected_sought_json": json.dumps(selected_sought),
-        "zodiac_sign": ZODIAC_SIGN_LABELS.get(zodiac_sign, zodiac_sign),
-        "zodiac_emoji": ZODIAC_SIGN_EMOJIS.get(zodiac_sign, ""),
-        "chinese_animal": CHINESE_ANIMAL_LABELS.get(chinese_animal, chinese_animal),
-        "chinese_emoji": CHINESE_ANIMAL_EMOJIS.get(chinese_animal, ""),
-        "profile_gender_choices": IdealCrushPreferencesForm.PREFERRED_GENDER_CHOICES,
-        "first_step_choices": CrushProfile.FIRST_STEP_CHOICES,
-    }
-
-
 def _render_privacy_section(profile, form=None):
     if form is None:
         form = CrushProfileForm(instance=profile)
@@ -1067,36 +995,6 @@ def _edit_section_about(request, profile):
 
     context = _render_about_section(request, profile, form=form)
     template = "crush_lu/partials/edit_about.html"
-    if request.htmx:
-        return render(request, template, context)
-    return render(
-        request, "crush_lu/edit_profile.html", {**context, "section_template": template}
-    )
-
-
-def _edit_section_preferences(request, profile):
-    """Handle ideal crush preferences section."""
-    from .matching import (
-        update_match_scores_for_user,
-    )
-
-    if request.method == "POST":
-        form = IdealCrushPreferencesForm(request.POST, instance=profile)
-        if form.is_valid():
-            form.save()
-            transaction.on_commit(lambda: update_match_scores_for_user(request.user))
-            if request.htmx:
-                context = _render_preferences_section(request, profile)
-                return render(
-                    request, "crush_lu/partials/edit_preferences.html", context
-                )
-            messages.success(request, _("Preferences saved!"))
-            return redirect("crush_lu:edit_profile")
-    else:
-        form = IdealCrushPreferencesForm(instance=profile)
-
-    context = _render_preferences_section(request, profile, form=form)
-    template = "crush_lu/partials/edit_preferences.html"
     if request.htmx:
         return render(request, template, context)
     return render(
@@ -1457,51 +1355,6 @@ def api_profile_settings_autosave(request):
             status=400,
         )
 
-    if section == "preferences":
-        data = _merge_autosave_payload(
-            _get_preferences_form_initial_data(profile),
-            payload,
-            AUTOSAVE_PREFERENCES_FIELDS,
-        )
-        form = IdealCrushPreferencesForm(data, instance=profile)
-        if form.is_valid():
-            updated_profile = form.save()
-            from .matching import update_match_scores_for_user
-
-            transaction.on_commit(lambda: update_match_scores_for_user(request.user))
-            return JsonResponse(
-                {
-                    "success": True,
-                    "saved_fields": sorted(
-                        AUTOSAVE_PREFERENCES_FIELDS & set(payload.keys())
-                    ),
-                    "values": {
-                        "preferred_age_min": updated_profile.preferred_age_min or 18,
-                        "preferred_age_max": updated_profile.preferred_age_max or 99,
-                        "preferred_genders": list(
-                            updated_profile.preferred_genders or []
-                        ),
-                        "first_step_preference": updated_profile.first_step_preference
-                        or "",
-                        "sought_qualities_ids": list(
-                            updated_profile.sought_qualities.values_list(
-                                "pk", flat=True
-                            )
-                        ),
-                        "astro_enabled": bool(updated_profile.astro_enabled),
-                    },
-                }
-            )
-
-        return JsonResponse(
-            {
-                "success": False,
-                "errors": _normalize_form_errors(form.errors),
-                "non_field_errors": [str(error) for error in form.non_field_errors()],
-            },
-            status=400,
-        )
-
     if section == "privacy":
         data = _merge_autosave_payload(
             _get_profile_form_initial_data(profile),
@@ -1701,12 +1554,11 @@ def _group_traits_by_category(qs):
 
 @crush_login_required
 def crush_preferences(request):
-    """Redirect to new section-based preferences page.
-    Kept for backwards compatibility with existing URL."""
+    """The standalone "Ideal Crush" preferences page has been retired — the
+    preferences now live in the opt-in Crush Connect onboarding. Kept as a
+    redirect so old links/bookmarks don't 404."""
 
-    return HttpResponseRedirect(
-        reverse("crush_lu:edit_profile") + "?section=preferences"
-    )
+    return redirect("crush_lu:dashboard")
 
 
 @crush_login_required
