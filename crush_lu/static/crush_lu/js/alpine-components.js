@@ -208,6 +208,9 @@ document.addEventListener("alpine:init", function () {
             get isCoachActive() {
                 return this.currentPath.indexOf("/coach/") === 0;
             },
+            get isCrushConnectActive() {
+                return this.currentPath.indexOf("/crush-connect/") === 0;
+            },
 
             get homeActiveClass() {
                 return this.isHomeActive ? "bottom-nav-item-active" : "";
@@ -223,6 +226,9 @@ document.addEventListener("alpine:init", function () {
             },
             get coachActiveClass() {
                 return this.isCoachActive ? "bottom-nav-item-active" : "";
+            },
+            get crushConnectActiveClass() {
+                return this.isCrushConnectActive ? "bottom-nav-item-active" : "";
             },
 
             get hasEventsBadge() {

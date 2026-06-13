@@ -1,0 +1,51 @@
+{% load i18n crush_connect_tags %}
+{% comment %}
+Crush Connect sub-navigation — the dedicated menu shown across all Connect pages.
+Track-aware (receiver -> Today's Drop, candidate -> Catalogue) and coach-aware
+(Curation). Active tab via request.resolver_match.url_name. Reuses existing
+chip/pill utility classes already in the Tailwind build.
+{% endcomment %}
+{% if user|crush_connect_nav_visible %}
+<nav class="max-w-2xl mx-auto px-4 pt-5" aria-label="{% trans 'Crush Connect' %}">
+  <div class="flex items-center gap-2 overflow-x-auto pb-1">
+    {% with active=request.resolver_match.url_name base="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium border-2 no-underline transition-colors" on="border-crush-purple bg-crush-purple/10 text-crush-purple" off="border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-crush-purple/50" %}
+
+    <a href="{% url 'crush_lu:crush_connect_hub' %}"
+       class="{{ base }} {% if active == 'crush_connect_hub' %}{{ on }}{% else %}{{ off }}{% endif %}">
+      {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}<span>{% trans "Home" %}</span>
+    </a>
+
+    {% if user.crushprofile.assigned_coach_id %}
+    <a href="{% url 'crush_lu:crush_connect_home' %}"
+       class="{{ base }} {% if active == 'crush_connect_home' %}{{ on }}{% else %}{{ off }}{% endif %}">
+      {% include "shared/icons/heart.html" with class="w-4 h-4" %}<span>{% trans "Today's Drop" %}</span>
+    </a>
+    {% else %}
+    <a href="{% url 'crush_lu:crush_connect_catalogue_status' %}"
+       class="{{ base }} {% if active == 'crush_connect_catalogue_status' %}{{ on }}{% else %}{{ off }}{% endif %}">
+      {% include "shared/icons/heart.html" with class="w-4 h-4" %}<span>{% trans "Catalogue" %}</span>
+    </a>
+    {% endif %}
+
+    <a href="{% url 'crush_lu:crush_connect_sparks_received' %}"
+       class="{{ base }} {% if active == 'crush_connect_sparks_received' %}{{ on }}{% else %}{{ off }}{% endif %}">
+      {% include "shared/icons/bell.html" with class="w-4 h-4" %}<span>{% trans "Sparks" %}</span>
+      {% if connect_pending_sparks_count %}<span class="badge badge-primary ml-1">{{ connect_pending_sparks_count }}</span>{% endif %}
+    </a>
+
+    <a href="{% url 'crush_lu:crush_connect_profile_edit' %}"
+       class="{{ base }} {% if active == 'crush_connect_profile_edit' %}{{ on }}{% else %}{{ off }}{% endif %}">
+      {% include "shared/icons/pencil.html" with class="w-4 h-4" %}<span>{% trans "Profile" %}</span>
+    </a>
+
+    {% if user.crushcoach.is_active %}
+    <a href="{% url 'crush_lu:coach_connect_members' %}"
+       class="{{ base }} {% if active == 'coach_connect_members' %}{{ on }}{% else %}{{ off }}{% endif %}">
+      {% include "shared/icons/users.html" with class="w-4 h-4" %}<span>{% trans "Curation" %}</span>
+    </a>
+    {% endif %}
+
+    {% endwith %}
+  </div>
+</nav>
+{% endif %}

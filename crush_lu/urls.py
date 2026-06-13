@@ -167,7 +167,15 @@ urlpatterns = [
         views_crush_connect.crush_connect_profile_edit,
         name='crush_connect_profile_edit',
     ),
-    # Today's Drop — user-facing Crush Connect home (M4).
+    # Crush Connect hub — the member's home that aggregates every Connect
+    # surface (Today's Drop / catalogue, Sparks, Coach's Pick, profile). The
+    # dedicated nav menu and the mobile bottom-nav 'Connect' tab point here.
+    path(
+        'crush-connect/home/',
+        views_crush_connect.crush_connect_hub,
+        name='crush_connect_hub',
+    ),
+    # Today's Drop — the algorithmic / coach-picked Drop page (M4).
     path(
         'crush-connect/today/',
         views_crush_connect.crush_connect_home,

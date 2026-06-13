@@ -140,6 +140,31 @@ def _connect_access_blocker(user):
     return None
 
 
+def _hub_access_blocker(user):
+    """Gate for the Crush Connect hub.
+
+    Mirrors ``_connect_access_blocker`` but the hub is the shared landing for
+    BOTH onboarded tracks, so it never bounces a candidate onward to the
+    catalogue page — both receivers and candidates render the hub.
+    """
+    if user.is_staff:
+        return None
+
+    if not getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
+        return redirect("crush_lu:crush_connect_teaser")
+
+    membership = getattr(user, "crush_connect_membership", None)
+    if membership is not None and membership.excluded_by_coach:
+        return redirect("crush_lu:crush_connect_teaser")
+
+    if membership is None or membership.onboarded_at is None:
+        if not _user_passes_pre_onboarding_gate(user):
+            return redirect("crush_lu:crush_connect_teaser")
+        return redirect("crush_lu:crush_connect_onboarding")
+
+    return None
+
+
 def _next_drop_at(now=None):
     """
     Return the next time tomorrow's Drop becomes available — used by the
@@ -577,6 +602,43 @@ def crush_connect_catalogue_status(request):
             "pending_sparks_count": pending_sparks_count,
         },
     )
+
+
+@crush_login_required
+def crush_connect_hub(request):
+    """Crush Connect home — the member's hub that aggregates every Connect
+    surface (Today's Drop / catalogue, Sparks, Coach's Pick, profile) with
+    quick links and status badges. Shared landing for both onboarded tracks;
+    the dedicated nav menu and the mobile bottom-nav 'Connect' tab point here.
+    """
+    from crush_lu.models import CuriositySpark
+    from crush_lu.services.crush_connect import get_active_coach_pick
+
+    user = request.user
+    blocker = _hub_access_blocker(user)
+    if blocker is not None:
+        return blocker
+
+    is_receiver = _user_is_connect_receiver_eligible(user) or user.is_staff
+    membership = getattr(user, "crush_connect_membership", None)
+    coach = getattr(user, "crushcoach", None)
+
+    pending_sparks_count = CuriositySpark.objects.filter(
+        recipient=user, status="pending"
+    ).count()
+    # Coach pick replaces the Drop for receivers; surface it on the hub too.
+    coach_pick = get_active_coach_pick(user) if is_receiver else None
+
+    context = {
+        "membership": membership,
+        "track": "receiver" if is_receiver else "candidate",
+        "is_receiver": is_receiver,
+        "is_coach": bool(coach and coach.is_active),
+        "pending_sparks_count": pending_sparks_count,
+        "coach_pick": coach_pick,
+        "next_drop_at": _next_drop_at(),
+    }
+    return render(request, "crush_lu/crush_connect/hub.html", context)
 
 
 @crush_login_required
