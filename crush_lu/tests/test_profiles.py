@@ -183,6 +183,10 @@ class RegistrationFlowTests(TestCase):
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class CrushPreferencesTests(TestCase):
+    """The standalone "Ideal Crush" preferences page has been retired — its data
+    now lives in the opt-in Crush Connect onboarding. The old URL redirects to
+    the dashboard and edit_profile no longer serves a preferences section."""
+
     def setUp(self):
         self.user = User.objects.create_user(
             username="pref@example.com",
@@ -190,39 +194,7 @@ class CrushPreferencesTests(TestCase):
             password="testpass123",
         )
 
-    def test_unapproved_user_redirected(self):
-        """Unapproved users cannot access the preferences page."""
-        CrushProfile.objects.create(
-            user=self.user,
-            location="canton-luxembourg",
-            is_approved=False,
-        )
-        self.client.login(username="pref@example.com", password="testpass123")
-        response = self.client.get(
-            reverse("crush_lu:crush_preferences"), HTTP_HOST="crush.lu"
-        )
-        self.assertEqual(response.status_code, 302)
-
-    def test_old_url_redirects_to_section(self):
-        """Old crush_preferences URL redirects to new section-based URL."""
-        CrushProfile.objects.create(
-            user=self.user,
-            location="canton-luxembourg",
-            is_approved=True,
-        )
-        self._grant_consent()
-        self.client.login(username="pref@example.com", password="testpass123")
-        response = self.client.get(
-            reverse("crush_lu:crush_preferences"),
-            HTTP_HOST="crush.lu",
-        )
-        self.assertEqual(response.status_code, 302)
-        self.assertIn("section=preferences", response.url)
-
     def _grant_consent(self):
-        """Grant consent + mark primary email verified so submission-gated
-        views accept this fixture user. Skips email creation if the user
-        has no email (some tests use username-only)."""
         from allauth.account.models import EmailAddress
 
         consent, _ = UserDataConsent.objects.get_or_create(user=self.user)
@@ -235,67 +207,30 @@ class CrushPreferencesTests(TestCase):
                 defaults={"verified": True, "primary": True},
             )
 
-    def test_approved_user_can_view(self):
-        """Approved users can access the preferences section."""
+    def test_old_url_redirects_to_dashboard(self):
         CrushProfile.objects.create(
-            user=self.user,
-            location="canton-luxembourg",
-            is_approved=True,
+            user=self.user, location="canton-luxembourg", is_approved=True
+        )
+        self._grant_consent()
+        self.client.login(username="pref@example.com", password="testpass123")
+        response = self.client.get(
+            reverse("crush_lu:crush_preferences"), HTTP_HOST="crush.lu"
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("crush_lu:dashboard"), response.url)
+
+    def test_preferences_section_retired(self):
+        """edit_profile no longer serves an Ideal Crush preferences form — a
+        stale ?section=preferences link falls through to the section card list."""
+        CrushProfile.objects.create(
+            user=self.user, location="canton-luxembourg", is_approved=True
         )
         self._grant_consent()
         self.client.login(username="pref@example.com", password="testpass123")
         url = reverse("crush_lu:edit_profile") + "?section=preferences"
         response = self.client.get(url, HTTP_HOST="crush.lu")
         self.assertEqual(response.status_code, 200)
-
-    def test_save_preferences(self):
-        """Approved users can save preferences via section URL."""
-        profile = CrushProfile.objects.create(
-            user=self.user,
-            location="canton-luxembourg",
-            is_approved=True,
-        )
-        self._grant_consent()
-        self.client.login(username="pref@example.com", password="testpass123")
-        url = reverse("crush_lu:edit_profile") + "?section=preferences"
-        response = self.client.post(
-            url,
-            {
-                "preferred_age_min": 25,
-                "preferred_age_max": 35,
-                "preferred_genders": ["F", "NB"],
-                "first_step_preference": "i_initiate",
-            },
-            HTTP_HOST="crush.lu",
-        )
-        self.assertEqual(response.status_code, 302)
-        profile.refresh_from_db()
-        self.assertEqual(profile.preferred_age_min, 25)
-        self.assertEqual(profile.preferred_age_max, 35)
-        self.assertEqual(profile.preferred_genders, ["F", "NB"])
-        self.assertEqual(profile.first_step_preference, "i_initiate")
-
-    def test_first_step_preference_is_optional(self):
-        """Submitting without first_step_preference keeps it blank."""
-        profile = CrushProfile.objects.create(
-            user=self.user,
-            location="canton-luxembourg",
-            is_approved=True,
-        )
-        self._grant_consent()
-        self.client.login(username="pref@example.com", password="testpass123")
-        url = reverse("crush_lu:edit_profile") + "?section=preferences"
-        response = self.client.post(
-            url,
-            {
-                "preferred_age_min": 18,
-                "preferred_age_max": 99,
-            },
-            HTTP_HOST="crush.lu",
-        )
-        self.assertEqual(response.status_code, 302)
-        profile.refresh_from_db()
-        self.assertEqual(profile.first_step_preference, "")
+        self.assertNotIn("selected_sought_json", response.context)
 
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
@@ -409,40 +344,25 @@ class ProfileSettingsAutosaveTests(TestCase):
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.location, "canton-luxembourg")
 
-    @patch("crush_lu.matching.update_match_scores_for_user")
-    def test_preferences_autosave_updates_profile_and_triggers_match_recalc(
-        self, mock_update
-    ):
-        with self.captureOnCommitCallbacks(execute=True):
-            response = self.client.post(
-                self.url,
-                data=json.dumps(
-                    {
-                        "section": "preferences",
-                        "preferred_age_min": 25,
-                        "preferred_age_max": 35,
-                        "preferred_genders": ["F", "NB"],
-                        "first_step_preference": "i_initiate",
-                        "astro_enabled": False,
-                        "sought_qualities_ids": str(self.sought.pk),
-                    }
-                ),
-                content_type="application/json",
-                HTTP_HOST="crush.lu",
-            )
-
-        self.assertEqual(response.status_code, 200)
-        self.profile.refresh_from_db()
-        self.assertEqual(self.profile.preferred_age_min, 25)
-        self.assertEqual(self.profile.preferred_age_max, 35)
-        self.assertEqual(self.profile.preferred_genders, ["F", "NB"])
-        self.assertEqual(self.profile.first_step_preference, "i_initiate")
-        self.assertFalse(self.profile.astro_enabled)
-        self.assertEqual(
-            list(self.profile.sought_qualities.values_list("pk", flat=True)),
-            [self.sought.pk],
+    def test_preferences_autosave_section_retired(self):
+        """The 'preferences' (Ideal Crush) autosave section has been removed —
+        those answers now live in Crush Connect, so the endpoint rejects it."""
+        response = self.client.post(
+            self.url,
+            data=json.dumps(
+                {
+                    "section": "preferences",
+                    "preferred_age_min": 25,
+                    "preferred_age_max": 35,
+                }
+            ),
+            content_type="application/json",
+            HTTP_HOST="crush.lu",
         )
-        mock_update.assert_called_once_with(self.user)
+        self.assertEqual(response.status_code, 400)
+        self.profile.refresh_from_db()
+        # Profile preferences are untouched by the retired endpoint.
+        self.assertNotEqual(self.profile.preferred_age_min, 25)
 
     def test_privacy_autosave_updates_booleans(self):
         response = self.client.post(

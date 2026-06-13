@@ -2894,7 +2894,11 @@ def coach_member_matches(request, user_id):
         messages.warning(request, _("This profile is not yet approved."))
         return redirect("crush_lu:coach_member_overview", user_id=user_id)
 
-    has_traits = profile.sought_qualities.exists()
+    # Trait matching is Crush Connect-only now — sought-qualities live on the
+    # membership (not the profile), and that's what the scorer reads. Gate the
+    # match list on the membership so coaches see the matches that actually exist.
+    membership = getattr(member, "crush_connect_membership", None)
+    has_traits = bool(membership and membership.sought_qualities.exists())
     matches = []
 
     if has_traits:

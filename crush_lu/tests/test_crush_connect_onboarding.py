@@ -20,6 +20,7 @@ from crush_lu.models import (
     CrushConnectMembership,
     CrushProfile,
     SparkPrompt,
+    Trait,
 )
 from crush_lu.services.crush_connect import (
     INTEREST_OVERLAP_BOOST_PER,
@@ -60,6 +61,22 @@ def _interest_pks(n):
     )
 
 
+def _trait_pks(trait_type, n=2):
+    """Return ``n`` Trait pks of the given type, creating them if the test DB
+    has none seeded (traits live on the membership now)."""
+    existing = list(Trait.objects.filter(trait_type=trait_type).order_by("pk"))
+    while len(existing) < n:
+        idx = len(existing) + 1
+        existing.append(
+            Trait.objects.create(
+                slug=f"{trait_type}-{idx}",
+                label=f"{trait_type.title()} {idx}",
+                trait_type=trait_type,
+            )
+        )
+    return [t.pk for t in existing[:n]]
+
+
 def _valid_step_data(step):
     if step == 1:
         return {"relationship_goal": "serious"}
@@ -68,6 +85,8 @@ def _valid_step_data(step):
             "lifestyle_energy": "mix",
             "lifestyle_social": "flexible",
             "lifestyle_pace": "balanced",
+            "qualities": _trait_pks("quality", 2),
+            "defects": _trait_pks("defect", 2),
         }
     if step == 3:
         return {"languages": ["lu", "fr"], "interests": _interest_pks(2)}
@@ -89,6 +108,9 @@ def _valid_step_data(step):
             "preferred_genders": ["F"],
             "preferred_age_min": "25",
             "preferred_age_max": "40",
+            "sought_qualities": _trait_pks("quality", 2),
+            "first_step_preference": "no_preference",
+            "astro_enabled": "on",
         }
     if step == 7:
         return {
@@ -152,6 +174,8 @@ def test_back_edit_allowed_without_pointer_regression(client, settings):
         "lifestyle_energy": "homebody",
         "lifestyle_social": "intimate",
         "lifestyle_pace": "structured",
+        "qualities": _trait_pks("quality", 2),
+        "defects": _trait_pks("defect", 2),
     })
     assert resp.status_code in (301, 302)
     m = CrushConnectMembership.objects.get(user=me)
@@ -258,6 +282,9 @@ def test_crossed_age_range_swapped(client, settings):
         "preferred_genders": ["F"],
         "preferred_age_min": "40",
         "preferred_age_max": "25",
+        "sought_qualities": _trait_pks("quality", 2),
+        "first_step_preference": "no_preference",
+        "astro_enabled": "on",
     })
     m = CrushConnectMembership.objects.get(user=me)
     assert m.preferred_age_min == 25
@@ -400,6 +427,189 @@ def test_step_redirects_onboarded_user_away(client, settings):
     resp = client.get(_step_url(1))
     assert resp.status_code in (301, 302)
     assert "/crush-connect/today/" in resp.url
+
+
+# ---------------------------------------------------------------------------
+# LuxID-first opt-in gate
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_premium_without_luxid_blocked_from_onboarding(client, settings):
+    """LuxID is the entry requirement for opt-in: a Premium member without LuxID
+    can no longer start the wizard (previously the Premium coach alone let them in)."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="me", preferred_genders=["F"], onboarded=False,
+        premium=True, has_luxid=False,
+    )
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    resp = client.get(_step_url(1))
+    assert resp.status_code in (301, 302)
+    assert resp.url.endswith("/crush-connect/")  # teaser, not the wizard
+    assert "/onboarding/" not in resp.url
+    # They can't opt in, so onboarding never starts for them.
+    assert CrushConnectMembership.objects.get(user=me).onboarded_at is None
+
+
+@pytest.mark.django_db
+def test_luxid_candidate_without_premium_can_onboard(client, settings):
+    """The LuxID-only (candidate) track may opt in and complete onboarding."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="me", preferred_genders=["F"], onboarded=False,
+        premium=False, has_luxid=True,
+    )
+    _login_eligible(client, me)
+
+    resp = client.get(_step_url(1))
+    assert resp.status_code == 200  # in the wizard
+
+
+@pytest.mark.django_db
+def test_onboarded_member_without_luxid_grandfathered(client, settings):
+    """A member who onboarded before the LuxID-first gate keeps access — the gate
+    only guards new opt-ins / data collection, not already-onboarded members."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="me", preferred_genders=["F"], onboarded=True,
+        premium=True, has_luxid=False,
+    )
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    resp = client.get(_step_url(1))
+    assert resp.status_code in (301, 302)
+    assert "/crush-connect/today/" in resp.url  # sent to their Drop, not the teaser
+
+
+@pytest.mark.django_db
+def test_premium_without_luxid_sees_teaser_not_redirect_loop(client, settings):
+    """Regression: a launched-Connect Premium member without LuxID and not
+    onboarded must land on the teaser (with the Connect-LuxID CTA), not bounce
+    in a teaser <-> onboarding redirect loop."""
+    from django.urls import reverse
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="me", preferred_genders=["F"], onboarded=False,
+        premium=True, has_luxid=False,
+    )
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    resp = client.get(reverse("crush_lu:crush_connect_teaser"))
+    assert resp.status_code == 200  # renders the teaser — no redirect loop
+    assert resp.context["profile_approved"] is True
+    assert resp.context["has_luxid_connected"] is False
+
+
+@pytest.mark.django_db
+def test_legacy_traits_prefill_wizard(client, settings):
+    """The legacy Ideal Crush traits on CrushProfile pre-fill the Connect wizard
+    the first time (the lazy migration) — confirmed/consented before they persist."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"], onboarded=False)
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    legacy_q = _trait_pks("quality", 3)
+    me.crushprofile.qualities.set(legacy_q)
+
+    client.post(_step_url(1), data=_valid_step_data(1))  # pointer → 2
+    resp = client.get(_step_url(2))
+    assert resp.status_code == 200
+    assert set(resp.context["selected_quality_ids"]) == set(legacy_q)
+    # Prefill is form-initial only — nothing persisted onto the membership yet.
+    assert CrushConnectMembership.objects.get(user=me).qualities.count() == 0
+
+
+@pytest.mark.django_db
+def test_legacy_age_gender_prefill_step6(client, settings):
+    """Legacy Ideal Crush age/gender preferences pre-fill step 6 so a first-time
+    opt-in doesn't overwrite them with the wizard's open defaults."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"], onboarded=False)
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    # Legacy profile prefs that differ from the membership's defaults.
+    me.crushprofile.preferred_genders = ["F", "NB"]
+    me.crushprofile.preferred_age_min = 28
+    me.crushprofile.preferred_age_max = 42
+    me.crushprofile.save()
+
+    _complete_steps(client, 1, 5)  # pointer → 6
+    resp = client.get(_step_url(6))
+    assert resp.status_code == 200
+    form = resp.context["form"]
+    assert list(form["preferred_genders"].value()) == ["F", "NB"]
+    assert int(form["preferred_age_min"].value()) == 28
+    assert int(form["preferred_age_max"].value()) == 42
+
+
+@pytest.mark.django_db
+def test_migration_0165_backfills_onboarded_member_traits():
+    """The 0165 data migration copies legacy CrushProfile traits onto an
+    already-onboarded membership whose trait fields are still empty."""
+    from importlib import import_module
+
+    from django.apps import apps as django_apps
+
+    mig = import_module(
+        "crush_lu.migrations.0165_migrate_legacy_traits_to_memberships"
+    )
+    me = _make_user(username="legacy", preferred_genders=["F"], onboarded=True)
+    quals = list(
+        Trait.objects.filter(trait_type="quality").order_by("pk").values_list("pk", flat=True)
+    )
+    defs = list(
+        Trait.objects.filter(trait_type="defect").order_by("pk").values_list("pk", flat=True)
+    )
+    me.crushprofile.qualities.set(quals[:3])
+    me.crushprofile.defects.set(defs[:2])
+    me.crushprofile.sought_qualities.set(quals[5:7])
+    me.crushprofile.first_step_preference = "i_initiate"
+    me.crushprofile.save()
+
+    membership = CrushConnectMembership.objects.get(user=me)
+    assert membership.qualities.count() == 0  # empty before migration
+
+    mig.copy_legacy_traits(django_apps, None)
+
+    membership.refresh_from_db()
+    assert set(membership.qualities.values_list("pk", flat=True)) == set(quals[:3])
+    assert set(membership.defects.values_list("pk", flat=True)) == set(defs[:2])
+    assert set(membership.sought_qualities.values_list("pk", flat=True)) == set(quals[5:7])
+    assert membership.first_step_preference == "i_initiate"
+
+
+@pytest.mark.django_db
+def test_migration_0165_does_not_clobber_existing_member_traits():
+    """The backfill is only-if-empty — a member who already has membership traits
+    keeps them (a deliberate edit is never overwritten by stale profile data)."""
+    from importlib import import_module
+
+    from django.apps import apps as django_apps
+
+    mig = import_module(
+        "crush_lu.migrations.0165_migrate_legacy_traits_to_memberships"
+    )
+    me = _make_user(username="hasdata", preferred_genders=["F"], onboarded=True)
+    quals = list(
+        Trait.objects.filter(trait_type="quality").order_by("pk").values_list("pk", flat=True)
+    )
+    me.crushprofile.qualities.set(quals[:3])
+    me.crushprofile.save()
+    membership = CrushConnectMembership.objects.get(user=me)
+    membership.qualities.set(quals[5:7])  # member already chose different traits
+
+    mig.copy_legacy_traits(django_apps, None)
+
+    membership.refresh_from_db()
+    assert set(membership.qualities.values_list("pk", flat=True)) == set(quals[5:7])
 
 
 # ---------------------------------------------------------------------------

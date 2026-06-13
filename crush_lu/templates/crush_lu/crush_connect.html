@@ -249,6 +249,20 @@
                 {% endif %}
             </div>
 
+            {% if profile_approved and not has_luxid_connected and luxid_connect_url %}
+            <!-- LuxID is required before opting in — offer the connect CTA -->
+            <div class="rounded-lg bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-800 p-4">
+                <p class="text-sm text-gray-700 dark:text-gray-300 mb-3">
+                    {% trans "Crush Connect needs your LuxID verified first. It's free, takes a minute, and confirms you're a real person." %}
+                </p>
+                <a href="{{ luxid_connect_url }}"
+                   class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-pink-600 hover:bg-pink-700 text-white font-semibold transition-colors">
+                    {% trans "Connect LuxID" %}
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                </a>
+            </div>
+            {% endif %}
+
             <!-- Selected as a beta tester -->
             <div class="flex items-center gap-3">
                 {% if selected_as_tester %}

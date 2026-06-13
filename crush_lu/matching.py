@@ -8,10 +8,20 @@ Combines three signals into a single compatibility score:
 
 Formula: score = 0.70 * qualities + 0.20 * zodiac_west + 0.10 * zodiac_cn
 When either user disables astrology: score = qualities (100%)
+
+Data source: the "Ideal Crush" trait/preference data (qualities, defects,
+sought_qualities, astro_enabled, preferred gender/age) now lives on the opt-in
+``CrushConnectMembership``, not ``CrushProfile`` — so trait matching is
+Crush Connect-only. Identity used by the scorer (gender, date_of_birth, age,
+event_languages) still comes from ``CrushProfile``. The scoring helpers are
+duck-typed on attribute access, so they work for either source; the driver
+``update_match_scores_for_user`` feeds them a ``_member_match_data`` adapter
+that bundles membership traits with profile identity.
 """
 
 import logging
 from datetime import date
+from types import SimpleNamespace
 
 from django.db import models, transaction
 from django.db.models import Q
@@ -570,48 +580,84 @@ def get_score_display(score):
 # =============================================================================
 
 
+def _member_match_data(profile, membership):
+    """Bundle the fields the scorer reads into one duck-typed object.
+
+    Traits and match preferences come from the Crush Connect ``membership``;
+    identity (gender, date_of_birth, age, event_languages) stays on the
+    ``profile``. The scoring helpers only do attribute access, so this works as
+    a drop-in for the CrushProfile they used to receive.
+    """
+    return SimpleNamespace(
+        qualities=membership.qualities,
+        defects=membership.defects,
+        sought_qualities=membership.sought_qualities,
+        astro_enabled=membership.astro_enabled,
+        preferred_genders=membership.preferred_genders,
+        preferred_age_min=membership.preferred_age_min,
+        preferred_age_max=membership.preferred_age_max,
+        gender=profile.gender,
+        date_of_birth=profile.date_of_birth,
+        age=profile.age,
+        event_languages=profile.event_languages,
+    )
+
+
 def update_match_scores_for_user(user):
-    """Recalculate all match scores for a given user against all other
-    approved profiles that have sought_qualities set.
+    """Recalculate all match scores for a Crush Connect member against every
+    other onboarded member.
+
+    Trait matching is Crush Connect-only: a user who hasn't opted in (no
+    onboarded ``CrushConnectMembership``) gets no MatchScore rows. The Crush
+    Connect Drop weighting treats a missing pair as neutral, so absent scores
+    are safe.
 
     Convention: user_a.pk < user_b.pk to avoid duplicates.
 
     Returns:
         int: number of scores created or updated
     """
-    from crush_lu.models import CrushProfile, MatchScore
+    from crush_lu.models import CrushConnectMembership, MatchScore
 
-    try:
-        profile = CrushProfile.objects.get(user=user)
-    except CrushProfile.DoesNotExist:
+    profile = getattr(user, "crushprofile", None)
+    if profile is None or not profile.is_approved:
+        return 0
+    membership = getattr(user, "crush_connect_membership", None)
+    if membership is None or not membership.is_onboarded:
         return 0
 
-    if not profile.is_approved:
-        return 0
+    user_data = _member_match_data(profile, membership)
 
-    # Find all other approved profiles with at least some traits set
-    other_profiles = (
-        CrushProfile.objects.filter(verification_status="verified", is_active=True)
+    # All other onboarded Connect members (the only candidates for trait scoring).
+    other_members = (
+        CrushConnectMembership.objects.filter(onboarded_at__isnull=False)
         .exclude(user=user)
-        .select_related("user")
-        .prefetch_related("qualities", "defects", "sought_qualities")
+        .select_related("user", "user__crushprofile")
     )
 
     count = 0
-    filtered_out_pairs = []
-    for other_profile in other_profiles:
-        # Enforce user_a.pk < user_b.pk
-        if user.pk < other_profile.user.pk:
-            user_a, user_b = user, other_profile.user
-        else:
-            user_a, user_b = other_profile.user, user
-
-        # Hard filter: skip incompatible pairs
-        if not passes_hard_filters(profile, other_profile):
-            filtered_out_pairs.append((user_a.pk, user_b.pk))
+    valid_counterpart_ids = set()
+    for other_membership in other_members:
+        other_user = other_membership.user
+        other_profile = getattr(other_user, "crushprofile", None)
+        if other_profile is None or not other_profile.is_approved:
+            continue
+        if other_membership.excluded_by_coach:
             continue
 
-        scores = compute_match_score(profile, other_profile)
+        other_data = _member_match_data(other_profile, other_membership)
+
+        # Enforce user_a.pk < user_b.pk
+        if user.pk < other_user.pk:
+            user_a, user_b = user, other_user
+        else:
+            user_a, user_b = other_user, user
+
+        # Hard filter: skip incompatible pairs
+        if not passes_hard_filters(user_data, other_data):
+            continue
+
+        scores = compute_match_score(user_data, other_data)
 
         MatchScore.objects.update_or_create(
             user_a=user_a,
@@ -626,19 +672,21 @@ def update_match_scores_for_user(user):
             },
         )
         count += 1
+        valid_counterpart_ids.add(other_user.pk)
 
-    # Clean up stale MatchScore rows for pairs that now fail hard filters
-    if filtered_out_pairs:
-        from django.db.models import Q
-
-        filter_q = Q()
-        for pk_a, pk_b in filtered_out_pairs:
-            filter_q |= Q(user_a_id=pk_a, user_b_id=pk_b)
-        deleted, _ = MatchScore.objects.filter(filter_q).delete()
-        if deleted:
-            logger.info(
-                "Deleted %d stale match scores for user %s", deleted, user.pk
-            )
+    # Connect-only scoring: the only valid MatchScore rows for this user are the
+    # ones we just (re)computed against eligible onboarded members. Delete every
+    # OTHER stored row involving the user — stale legacy pairs to people who
+    # never opted in, opted out, were coach-excluded, or now fail the hard
+    # filters — so get_matches_for_user / coach views never surface a
+    # non-Connect match after the switch to Connect-only scoring.
+    stale = MatchScore.objects.filter(Q(user_a=user) | Q(user_b=user)).exclude(
+        Q(user_a=user, user_b_id__in=valid_counterpart_ids)
+        | Q(user_b=user, user_a_id__in=valid_counterpart_ids)
+    )
+    deleted, _ = stale.delete()
+    if deleted:
+        logger.info("Deleted %d stale match scores for user %s", deleted, user.pk)
 
     logger.info(
         "Updated %d match scores for user %s (pk=%s)", count, user, user.pk

@@ -247,6 +247,49 @@ class CrushConnectMembership(models.Model):
         help_text=_("Curated interests & hobbies (cap of 8 enforced in the wizard)"),
     )
 
+    # --- Trait matching (migrated off CrushProfile) -----------------------
+    # The "Ideal Crush" personality data now lives here, not on CrushProfile,
+    # so members who never opt into Connect are never asked to complete it.
+    # Trait-based scoring (crush_lu.matching) reads these; identity fields
+    # (date_of_birth, gender, event_languages) stay on CrushProfile.
+    FIRST_STEP_CHOICES = [
+        ("i_initiate", _("I prefer to make the first step")),
+        ("they_initiate", _("I prefer the other person to make the first step")),
+        ("no_preference", _("No preference")),
+    ]
+    qualities = models.ManyToManyField(
+        "crush_lu.Trait",
+        blank=True,
+        related_name="connect_profiles_as_quality",
+        limit_choices_to={"trait_type": "quality"},
+        help_text=_("This member's top 5 qualities (max 5)"),
+    )
+    defects = models.ManyToManyField(
+        "crush_lu.Trait",
+        blank=True,
+        related_name="connect_profiles_as_defect",
+        limit_choices_to={"trait_type": "defect"},
+        help_text=_("This member's top 5 defects (max 5)"),
+    )
+    sought_qualities = models.ManyToManyField(
+        "crush_lu.Trait",
+        blank=True,
+        related_name="connect_profiles_seeking",
+        limit_choices_to={"trait_type": "quality"},
+        help_text=_("Top 5 qualities this member seeks in a partner (max 5)"),
+    )
+    astro_enabled = models.BooleanField(
+        default=True,
+        help_text=_("Include zodiac compatibility in this member's match score"),
+    )
+    first_step_preference = models.CharField(
+        max_length=20,
+        choices=FIRST_STEP_CHOICES,
+        blank=True,
+        default="",
+        help_text=_("Who should make the first step?"),
+    )
+
     # --- Life situation ---------------------------------------------------
     height_cm = models.PositiveSmallIntegerField(
         null=True,

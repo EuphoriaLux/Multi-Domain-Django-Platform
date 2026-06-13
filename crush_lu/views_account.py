@@ -361,42 +361,10 @@ def data_deletion_status(request):
     )
 
 
-def _luxid_connect_url(available_providers, oidc_app=None):
-    """Return the correct OAuth connect URL for LuxID given available providers.
-
-    Prefers the custom 'luxid' provider (fixed URL, no path kwargs). Falls back
-    to allauth's generic openid_connect URL when the SocialApp is configured
-    with provider='openid_connect' instead. In that case the openid_connect URL
-    requires a provider_id path kwarg (allauth 0.61+), so the caller must pass
-    the SocialApp object as oidc_app to supply it.
-    """
-    # In local dev with the stub app, allauth would try to reach luxid.gov.lu to
-    # fetch the OIDC discovery document — which doesn't exist locally. Redirect
-    # to the dev simulation endpoint instead so the full approval flow can be
-    # tested without real LuxID credentials.
-    if settings.DEBUG and oidc_app is not None:
-        if getattr(oidc_app, "client_id", None) == "dev-stub-client-id":
-            try:
-                return reverse("crush_lu:dev_simulate_luxid_connect")
-            except Exception:
-                pass
-
-    if "luxid" in available_providers:
-        try:
-            return reverse("luxid_login") + "?process=connect"
-        except Exception:
-            pass
-    if "openid_connect" in available_providers and oidc_app is not None:
-        try:
-            pid = getattr(oidc_app, "provider_id", None) or getattr(oidc_app, "slug", None)
-            if pid:
-                return (
-                    reverse("openid_connect_login", kwargs={"provider_id": pid})
-                    + "?process=connect"
-                )
-        except Exception:
-            pass
-    return None
+# LuxID connect-URL resolution lives in crush_lu.luxid so the Crush Connect
+# teaser can share it. Re-exported here under the original private name to keep
+# the existing call site (account_settings) unchanged.
+from crush_lu.luxid import luxid_connect_url as _luxid_connect_url
 
 
 @login_required

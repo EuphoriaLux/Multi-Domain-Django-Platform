@@ -394,11 +394,6 @@
                                             {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
                                             {% trans "Edit Profile" %}
                                         </a>
-                                        <a class="dropdown-item" href="{% url 'crush_lu:crush_preferences' %}">
-                                            {% include "shared/icons/heart.html" with class="w-4 h-4 inline mr-2" %}
-                                            {% trans "Ideal Crush" %}
-                                            <span class="inline-block rounded-full bg-crush-pink px-1.5 py-0.5 text-[10px] font-bold text-white uppercase leading-none ml-1">{% trans "New" %}</span>
-                                        </a>
                                         {% if user|crush_connect_nav_visible %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:crush_connect_profile_edit' %}">
                                             {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
@@ -664,11 +659,6 @@
                                             {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
                                             {% trans "Edit Profile" %}
                                         </a>
-                                        <a class="dropdown-item" href="{% url 'crush_lu:crush_preferences' %}">
-                                            {% include "shared/icons/heart.html" with class="w-4 h-4 inline mr-2" %}
-                                            {% trans "Ideal Crush" %}
-                                            <span class="inline-block rounded-full bg-crush-pink px-1.5 py-0.5 text-[10px] font-bold text-white uppercase leading-none ml-1">{% trans "New" %}</span>
-                                        </a>
                                         {% if user|crush_connect_nav_visible %}
                                         <a class="dropdown-item" href="{% url 'crush_lu:crush_connect_profile_edit' %}">
                                             {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
@@ -910,11 +900,6 @@
                                     {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
                                     {% trans "Edit Profile" %}
                                 </a>
-                                <a class="nav-link block" href="{% url 'crush_lu:crush_preferences' %}">
-                                    {% include "shared/icons/heart.html" with class="w-4 h-4 inline mr-2" %}
-                                    {% trans "Ideal Crush" %}
-                                    <span class="inline-block rounded-full bg-crush-pink px-1.5 py-0.5 text-[10px] font-bold text-white uppercase leading-none ml-1">{% trans "New" %}</span>
-                                </a>
                                 {% if user|crush_connect_nav_visible %}
                                 <a class="nav-link block" href="{% url 'crush_lu:crush_connect_profile_edit' %}">
                                     {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
@@ -985,11 +970,6 @@
                                 <a class="nav-link block" href="{% url 'crush_lu:edit_profile' %}">
                                     {% include "shared/icons/pencil.html" with class="w-4 h-4 inline mr-2" %}
                                     {% trans "Edit Profile" %}
-                                </a>
-                                <a class="nav-link block" href="{% url 'crush_lu:crush_preferences' %}">
-                                    {% include "shared/icons/heart.html" with class="w-4 h-4 inline mr-2" %}
-                                    {% trans "Ideal Crush" %}
-                                    <span class="inline-block rounded-full bg-crush-pink px-1.5 py-0.5 text-[10px] font-bold text-white uppercase leading-none ml-1">{% trans "New" %}</span>
                                 </a>
                                 {% if user|crush_connect_nav_visible %}
                                 <a class="nav-link block" href="{% url 'crush_lu:crush_connect_profile_edit' %}">

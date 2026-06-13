@@ -18,11 +18,34 @@ from crush_lu.models import (
     CrushConnectMembership,
     CrushProfile,
     SparkPrompt,
+    Trait,
 )
 
 # Interests: at least one, at most this many (the "n/8" counter cap).
 MAX_INTERESTS = 8
 MIN_INTERESTS = 1
+
+# Traits (Ideal Crush, migrated onto the membership): pick 1..5 per category.
+MAX_TRAITS = 5
+MIN_TRAITS = 1
+
+
+class _TraitMultipleChoiceField(forms.ModelMultipleChoiceField):
+    """Trait checkbox field that labels options by their display label only
+    (the model ``__str__`` appends the trait type, which we don't want in
+    the chip)."""
+
+    def label_from_instance(self, obj):
+        return obj.label
+
+
+def _validate_trait_count(traits, *, min_msg, max_msg):
+    count = len(traits) if traits is not None else 0
+    if count < MIN_TRAITS:
+        raise forms.ValidationError(min_msg)
+    if count > MAX_TRAITS:
+        raise forms.ValidationError(max_msg % {"max": MAX_TRAITS})
+    return traits
 
 
 def _require(form, *field_names):
@@ -51,13 +74,46 @@ class ConnectIntentionForm(forms.ModelForm):
 # Step 2 — Lifestyle
 # ---------------------------------------------------------------------------
 class ConnectLifestyleForm(forms.ModelForm):
+    qualities = _TraitMultipleChoiceField(
+        queryset=Trait.objects.filter(trait_type="quality"),
+        required=True,
+        widget=forms.CheckboxSelectMultiple,
+        label=_("Your top qualities"),
+    )
+    defects = _TraitMultipleChoiceField(
+        queryset=Trait.objects.filter(trait_type="defect"),
+        required=True,
+        widget=forms.CheckboxSelectMultiple,
+        label=_("Your honest flaws"),
+    )
+
     class Meta:
         model = CrushConnectMembership
-        fields = ("lifestyle_energy", "lifestyle_social", "lifestyle_pace")
+        fields = (
+            "lifestyle_energy",
+            "lifestyle_social",
+            "lifestyle_pace",
+            "qualities",
+            "defects",
+        )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         _require(self, "lifestyle_energy", "lifestyle_social", "lifestyle_pace")
+
+    def clean_qualities(self):
+        return _validate_trait_count(
+            self.cleaned_data.get("qualities"),
+            min_msg=_("Pick at least one quality."),
+            max_msg=_("Pick at most %(max)d qualities."),
+        )
+
+    def clean_defects(self):
+        return _validate_trait_count(
+            self.cleaned_data.get("defects"),
+            min_msg=_("Pick at least one flaw."),
+            max_msg=_("Pick at most %(max)d flaws."),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -143,10 +199,33 @@ class ConnectIdealMatchForm(forms.ModelForm):
         widget=forms.CheckboxSelectMultiple,
         label=_("Who would you like to see?"),
     )
+    sought_qualities = _TraitMultipleChoiceField(
+        queryset=Trait.objects.filter(trait_type="quality"),
+        required=True,
+        widget=forms.CheckboxSelectMultiple,
+        label=_("Qualities you're looking for"),
+    )
+    first_step_preference = forms.ChoiceField(
+        choices=CrushConnectMembership.FIRST_STEP_CHOICES,
+        required=True,
+        widget=forms.RadioSelect,
+        label=_("Who makes the first step?"),
+    )
+    astro_enabled = forms.BooleanField(
+        required=False,
+        label=_("Include zodiac compatibility in my matches"),
+    )
 
     class Meta:
         model = CrushConnectMembership
-        fields = ("preferred_genders", "preferred_age_min", "preferred_age_max")
+        fields = (
+            "preferred_genders",
+            "preferred_age_min",
+            "preferred_age_max",
+            "sought_qualities",
+            "first_step_preference",
+            "astro_enabled",
+        )
         widgets = {
             "preferred_age_min": forms.NumberInput(attrs={"min": 18, "max": 99}),
             "preferred_age_max": forms.NumberInput(attrs={"min": 18, "max": 99}),
@@ -155,6 +234,13 @@ class ConnectIdealMatchForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         _require(self, "preferred_age_min", "preferred_age_max")
+
+    def clean_sought_qualities(self):
+        return _validate_trait_count(
+            self.cleaned_data.get("sought_qualities"),
+            min_msg=_("Pick at least one quality you're looking for."),
+            max_msg=_("Pick at most %(max)d sought qualities."),
+        )
 
     def clean(self):
         cleaned = super().clean()
@@ -208,10 +294,10 @@ class ConnectStoryForm(forms.ModelForm):
     confirm_terms = forms.BooleanField(
         required=True,
         label=_(
-            "I understand my Story, first name, age range, languages, interests "
-            "and the life details I chose to share appear on a blurred-photo card "
-            "to other members and coaches, and I can be removed from Crush Connect "
-            "at any time."
+            "I understand my Story, first name, age range, languages, interests, "
+            "the personality traits I picked and the life details I chose to share "
+            "appear on a blurred-photo card to other members and coaches, and I can "
+            "be removed from Crush Connect at any time."
         ),
     )
 

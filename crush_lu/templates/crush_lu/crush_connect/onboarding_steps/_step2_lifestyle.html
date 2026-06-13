@@ -60,4 +60,11 @@
         </div>
         {% if form.lifestyle_pace.errors %}<p class="text-sm text-red-600 dark:text-red-400 mt-1">{{ form.lifestyle_pace.errors|join:" " }}</p>{% endif %}
     </fieldset>
+
+    {# Personality traits (migrated from the old Ideal Crush) #}
+    {% trans "Pick up to 5." as trait_hint %}
+    <div class="mt-7 space-y-6 border-t border-gray-100 dark:border-slate-700 pt-6">
+        {% include "crush_lu/crush_connect/onboarding_steps/_trait_chips.html" with field_name="qualities" choices_qs=form.qualities.field.queryset selected_ids=selected_quality_ids heading=form.qualities.label hint=trait_hint field_errors=form.qualities.errors %}
+        {% include "crush_lu/crush_connect/onboarding_steps/_trait_chips.html" with field_name="defects" choices_qs=form.defects.field.queryset selected_ids=selected_defect_ids heading=form.defects.label hint=trait_hint field_errors=form.defects.errors %}
+    </div>
 </div>
