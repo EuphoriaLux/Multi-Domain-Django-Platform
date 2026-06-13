@@ -13040,7 +13040,10 @@ document.addEventListener("alpine:init", function () {
         };
     });
 
-    // Crush Connect 4-step onboarding wizard.
+    // Crush Connect 4-step onboarding wizard — with per-step autosave so an
+    // abandoned wizard resumes exactly where the user left off. Mirrors the
+    // profileWizard auto-save pattern (getCsrfToken / scheduleAutoSave /
+    // saveDraft / gatherCurrentStepData scoped to [data-wizard-step]).
     Alpine.data("connectOnboarding", function () {
         return {
             currentStep: 1,
@@ -13050,6 +13053,22 @@ document.addEventListener("alpine:init", function () {
             lifestyleSocial: "",
             lifestylePace: "",
             _showSecondStory: false,
+
+            // Autosave state
+            autosaveUrl: "",
+            isDirty: false,
+            isAutoSaving: false,
+            lastSavedAt: null,
+            autoSaveTimer: null,
+            draftRestored: false,
+            savedPillVisible: false,
+            _savedPillTimer: null,
+
+            // Pill copy — overridden from data attributes so Django {% trans %}
+            // owns the translation (JS stays copy-free).
+            savedJustNowLabel: "Saved just now",
+            savedAgoLabel: "Saved %s ago",
+            savedEarlierLabel: "Saved earlier",
 
             get isStep1() {
                 return this.currentStep === 1;
@@ -13093,6 +13112,33 @@ document.addEventListener("alpine:init", function () {
                 );
             },
 
+            // Autosave UI getters (CSP-safe)
+            get showDraftRestored() {
+                return this.draftRestored;
+            },
+            get showAutoSaving() {
+                return this.isAutoSaving;
+            },
+            get showLastSaved() {
+                return this.savedPillVisible && this.lastSavedAt !== null;
+            },
+            get lastSavedMessage() {
+                if (!this.lastSavedAt) return "";
+                var diffSec = Math.floor(
+                    (new Date() - new Date(this.lastSavedAt)) / 1000,
+                );
+                if (diffSec < 10) return this.savedJustNowLabel;
+                if (diffSec < 60)
+                    return this.savedAgoLabel.replace("%s", diffSec + "s");
+                var diffMin = Math.floor(diffSec / 60);
+                if (diffMin < 60)
+                    return this.savedAgoLabel.replace("%s", diffMin + "m");
+                return this.savedEarlierLabel;
+            },
+            dismissDraftNotice: function () {
+                this.draftRestored = false;
+            },
+
             init: function () {
                 var el = this.$el;
                 var goal = el.getAttribute("data-relationship-goal");
@@ -13103,30 +13149,235 @@ document.addEventListener("alpine:init", function () {
                 if (social) this.lifestyleSocial = social;
                 var pace = el.getAttribute("data-lifestyle-pace");
                 if (pace) this.lifestylePace = pace;
+
+                this.autosaveUrl = el.getAttribute("data-autosave-url") || "";
+                this.savedJustNowLabel =
+                    el.getAttribute("data-saved-just-now") || this.savedJustNowLabel;
+                this.savedAgoLabel =
+                    el.getAttribute("data-saved-ago") || this.savedAgoLabel;
+                this.savedEarlierLabel =
+                    el.getAttribute("data-saved-earlier") || this.savedEarlierLabel;
+                this.lastSavedAt = el.getAttribute("data-last-saved") || null;
+                this.draftRestored = el.getAttribute("data-has-progress") === "1";
+
+                // Resume on the step the user last reached.
+                var step = parseInt(el.getAttribute("data-current-step"), 10);
+                if (!isNaN(step) && step >= 1 && step <= this.totalSteps) {
+                    this.currentStep = step;
+                }
+
+                this.setupAutoSaveListeners();
+                this.setupPeriodicCheckpoint();
             },
 
             nextStep: function () {
                 if (this.currentStep < this.totalSteps) {
                     this.currentStep++;
                     window.scrollTo({ top: 0, behavior: "smooth" });
+                    this.saveDraft();
                 }
             },
             prevStep: function () {
                 if (this.currentStep > 1) {
                     this.currentStep--;
                     window.scrollTo({ top: 0, behavior: "smooth" });
+                    this.saveDraft();
                 }
             },
             selectGoal: function (val) {
                 this.relationshipGoal = val;
+                this.saveDraft();
             },
             selectLifestyle: function (axis, val) {
                 if (axis === "energy") this.lifestyleEnergy = val;
                 if (axis === "social") this.lifestyleSocial = val;
                 if (axis === "pace") this.lifestylePace = val;
+                this.saveDraft();
             },
             toggleSecondStory: function () {
                 this._showSecondStory = !this._showSecondStory;
+            },
+
+            getCsrfToken: function () {
+                var input = document.querySelector(
+                    'input[name="csrfmiddlewaretoken"]',
+                );
+                if (input && input.value) return input.value;
+                var cookie = document.cookie.split("; ").find(function (row) {
+                    return row.startsWith("csrftoken=");
+                });
+                return cookie ? cookie.split("=")[1] : "";
+            },
+
+            // Wire DOM events for the steps that use real form controls (3 & 4).
+            // Steps 1–2 save straight from their click handlers above — their
+            // hidden inputs are Alpine-bound and never fire native change events.
+            setupAutoSaveListeners: function () {
+                var self = this;
+                var form = this.$el.querySelector("form");
+                if (!form) return;
+
+                // Real radios/checkboxes/selects → immediate save on change.
+                form.addEventListener("change", function (e) {
+                    var t = e.target;
+                    if (
+                        t &&
+                        t.matches &&
+                        t.matches(
+                            "input[type=radio], input[type=checkbox], select",
+                        )
+                    ) {
+                        self.saveDraft();
+                    }
+                });
+                // Story textareas and the age range sliders → debounced save.
+                form.addEventListener("input", function (e) {
+                    var t = e.target;
+                    if (t && t.matches && t.matches("textarea, input[type=range]")) {
+                        self.scheduleAutoSave();
+                    }
+                });
+                // Trait pills and the astro toggle are buttons that write hidden
+                // inputs (no native change), so catch their clicks in step 3.
+                var step3 = form.querySelector('[data-wizard-step="3"]');
+                if (step3) {
+                    step3.addEventListener("click", function (e) {
+                        if (e.target.closest("button")) self.scheduleAutoSave();
+                    });
+                }
+            },
+
+            scheduleAutoSave: function () {
+                clearTimeout(this.autoSaveTimer);
+                this.isDirty = true;
+                var self = this;
+                this.autoSaveTimer = setTimeout(function () {
+                    self.saveDraft();
+                }, 2000);
+            },
+
+            _flashSavedPill: function () {
+                var self = this;
+                this.savedPillVisible = true;
+                clearTimeout(this._savedPillTimer);
+                this._savedPillTimer = setTimeout(function () {
+                    self.savedPillVisible = false;
+                }, 4000);
+            },
+
+            // Build the active step's payload. Steps 1–2 read component state
+            // (avoids hidden-input bind timing); 3–4 read the scoped DOM.
+            gatherCurrentStepData: function () {
+                var step = this.currentStep;
+                if (step === 1) {
+                    return { relationship_goal: this.relationshipGoal };
+                }
+                if (step === 2) {
+                    return {
+                        lifestyle_energy: this.lifestyleEnergy,
+                        lifestyle_social: this.lifestyleSocial,
+                        lifestyle_pace: this.lifestylePace,
+                    };
+                }
+
+                var form = this.$el.querySelector("form");
+                var container = form
+                    ? form.querySelector('[data-wizard-step="' + step + '"]')
+                    : null;
+                if (!container) return {};
+
+                var data = {};
+                if (step === 3) {
+                    var genders = [];
+                    var checked = container.querySelectorAll(
+                        'input[name="preferred_genders"]:checked',
+                    );
+                    for (var i = 0; i < checked.length; i++) {
+                        genders.push(checked[i].value);
+                    }
+                    data.preferred_genders = genders;
+
+                    var ageMin = container.querySelector(
+                        'input[name="preferred_age_min"]',
+                    );
+                    var ageMax = container.querySelector(
+                        'input[name="preferred_age_max"]',
+                    );
+                    if (ageMin) data.preferred_age_min = ageMin.value;
+                    if (ageMax) data.preferred_age_max = ageMax.value;
+
+                    var firstStep = container.querySelector(
+                        'input[name="first_step_preference"]:checked',
+                    );
+                    if (firstStep) data.first_step_preference = firstStep.value;
+
+                    var qualities = container.querySelector(
+                        'input[name="sought_qualities_ids"]',
+                    );
+                    if (qualities) data.sought_qualities_ids = qualities.value;
+
+                    var astro = container.querySelector(
+                        'input[name="astro_enabled"]',
+                    );
+                    if (astro) data.astro_enabled = astro.value;
+                } else if (step === 4) {
+                    var prompt = container.querySelector(
+                        'input[name="story_prompt"]:checked',
+                    );
+                    data.story_prompt = prompt ? prompt.value : "";
+                    var answer = container.querySelector(
+                        'textarea[name="story_answer"]',
+                    );
+                    if (answer) data.story_answer = answer.value;
+                    var prompt2 = container.querySelector(
+                        'input[name="story_prompt_2"]:checked',
+                    );
+                    data.story_prompt_2 = prompt2 ? prompt2.value : "";
+                    var answer2 = container.querySelector(
+                        'textarea[name="story_answer_2"]',
+                    );
+                    if (answer2) data.story_answer_2 = answer2.value;
+                }
+                return data;
+            },
+
+            saveDraft: function () {
+                var self = this;
+                if (!this.autosaveUrl) return;
+                this.isAutoSaving = true;
+                var payload = JSON.stringify({
+                    step: this.currentStep,
+                    data: this.gatherCurrentStepData(),
+                });
+                fetch(this.autosaveUrl, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": this.getCsrfToken(),
+                    },
+                    body: payload,
+                })
+                    .then(function (r) {
+                        return r.json();
+                    })
+                    .then(function (result) {
+                        self.isAutoSaving = false;
+                        self.isDirty = false;
+                        if (result && result.success) {
+                            self.lastSavedAt = result.saved_at;
+                            self._flashSavedPill();
+                        }
+                    })
+                    .catch(function () {
+                        self.isAutoSaving = false;
+                    });
+            },
+
+            setupPeriodicCheckpoint: function () {
+                var self = this;
+                setInterval(function () {
+                    if (self.isDirty) self.saveDraft();
+                }, 60000);
             },
         };
     });

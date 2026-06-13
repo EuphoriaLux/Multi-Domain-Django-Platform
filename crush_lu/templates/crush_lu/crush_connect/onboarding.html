@@ -9,7 +9,14 @@
      data-relationship-goal="{{ membership.relationship_goal }}"
      data-lifestyle-energy="{{ membership.lifestyle_energy }}"
      data-lifestyle-social="{{ membership.lifestyle_social }}"
-     data-lifestyle-pace="{{ membership.lifestyle_pace }}">
+     data-lifestyle-pace="{{ membership.lifestyle_pace }}"
+     data-current-step="{{ draft_step|default:1 }}"
+     data-autosave-url="{% url 'crush_lu:crush_connect_onboarding_autosave' %}"
+     data-has-progress="{{ has_saved_progress|yesno:'1,0' }}"
+     data-last-saved="{{ last_saved|date:'c' }}"
+     data-saved-just-now="{% trans 'Saved just now' %}"
+     data-saved-ago="{% trans 'Saved %s ago' %}"
+     data-saved-earlier="{% trans 'Saved earlier' %}">
 
     <!-- Header -->
     <header class="mb-8 text-center">
@@ -36,11 +43,48 @@
         </div>
     </div>
 
+    <!-- "Welcome back" banner — shown when an earlier visit left saved progress. -->
+    <div x-show="showDraftRestored" x-cloak x-transition
+         class="mb-6 flex items-start gap-3 rounded-xl border border-purple-200 bg-purple-50 px-4 py-3 text-sm text-purple-900 dark:border-purple-700 dark:bg-purple-900/20 dark:text-purple-100">
+        <svg class="mt-0.5 h-5 w-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+        </svg>
+        <p class="flex-1">
+            {% trans "Welcome back — we saved your answers, so you can pick up right where you left off." %}
+        </p>
+        <button type="button" @click="dismissDraftNotice"
+                class="flex-shrink-0 text-purple-400 hover:text-purple-600 dark:hover:text-purple-200"
+                aria-label="{% trans 'Dismiss' %}">
+            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+            </svg>
+        </button>
+    </div>
+
+    <!-- Auto-save indicators (fixed) — every answer syncs as you go. -->
+    <div class="fixed bottom-4 right-4 z-50 space-y-2">
+        <div x-show="showAutoSaving" x-transition x-cloak
+             class="bg-white dark:bg-slate-800 rounded-full shadow-lg px-4 py-2 flex items-center gap-2">
+            <svg class="w-4 h-4 animate-spin text-crush-purple" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span class="text-sm text-gray-600 dark:text-gray-300">{% trans "Saving…" %}</span>
+        </div>
+        <div x-show="showLastSaved" x-transition x-cloak
+             class="bg-white dark:bg-slate-800 rounded-full shadow-lg px-4 py-2 flex items-center gap-2">
+            <svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+            </svg>
+            <span class="text-sm text-gray-600 dark:text-gray-300" x-text="lastSavedMessage"></span>
+        </div>
+    </div>
+
     <form method="post" id="connectOnboardingForm">
         {% csrf_token %}
 
         <!-- ── Step 1: Your Intention ──────────────────────────────────────── -->
-        <div x-show="isStep1"
+        <div x-show="isStep1" data-wizard-step="1"
              x-transition:enter="transition ease-out duration-300"
              x-transition:enter-start="opacity-0 translate-x-4"
              x-transition:enter-end="opacity-100 translate-x-0"
@@ -98,7 +142,7 @@
         </div>
 
         <!-- ── Step 2: Your Lifestyle ──────────────────────────────────────── -->
-        <div x-show="isStep2"
+        <div x-show="isStep2" data-wizard-step="2"
              x-transition:enter="transition ease-out duration-300"
              x-transition:enter-start="opacity-0 translate-x-4"
              x-transition:enter-end="opacity-100 translate-x-0"
@@ -195,7 +239,7 @@
         </div>
 
         <!-- ── Step 3: Your Ideal Match ────────────────────────────────────── -->
-        <div x-show="isStep3"
+        <div x-show="isStep3" data-wizard-step="3"
              x-transition:enter="transition ease-out duration-300"
              x-transition:enter-start="opacity-0 translate-x-4"
              x-transition:enter-end="opacity-100 translate-x-0"
@@ -222,7 +266,7 @@
         </div>
 
         <!-- ── Step 4: Your Story ──────────────────────────────────────────── -->
-        <div x-show="isStep4"
+        <div x-show="isStep4" data-wizard-step="4"
              x-transition:enter="transition ease-out duration-300"
              x-transition:enter-start="opacity-0 translate-x-4"
              x-transition:enter-end="opacity-100 translate-x-0"

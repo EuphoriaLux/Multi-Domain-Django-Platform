@@ -154,6 +154,12 @@ urlpatterns = [
         views_crush_connect.crush_connect_onboarding,
         name='crush_connect_onboarding',
     ),
+    # Per-step autosave for the onboarding wizard (resume where you left off).
+    path(
+        'crush-connect/onboarding/autosave/',
+        views_crush_connect.crush_connect_onboarding_autosave,
+        name='crush_connect_onboarding_autosave',
+    ),
     # Today's Drop — user-facing Crush Connect home (M4).
     path(
         'crush-connect/today/',

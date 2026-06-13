@@ -5,6 +5,7 @@ M1: eligible-pool query, SparkPrompt seed, CrushConnectMembership gating.
 Later milestones append to this module.
 """
 
+import json
 from datetime import date, timedelta
 
 import pytest
@@ -24,6 +25,7 @@ from crush_lu.models import (
     EventRegistration,
     MeetupEvent,
     SparkPrompt,
+    Trait,
 )
 from crush_lu.services.crush_connect import (
     DAILY_DROP_SIZE,
@@ -2034,3 +2036,246 @@ def test_coach_hub_hides_stale_proposed_pick(client, settings):
     body = resp.content.decode()
     assert "awaiting their answer" not in body
     assert "No open pick" in body
+
+
+# ---------------------------------------------------------------------------
+# M4.5 — Onboarding wizard autosave & resume
+# ---------------------------------------------------------------------------
+
+
+AUTOSAVE_URL = "/en/crush-connect/onboarding/autosave/"
+
+
+def _autosave(client, step, data):
+    return client.post(
+        AUTOSAVE_URL,
+        data=json.dumps({"step": step, "data": data}),
+        content_type="application/json",
+    )
+
+
+@pytest.mark.django_db
+def test_autosave_requires_login(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    resp = _autosave(client, 1, {"relationship_goal": "serious"})
+    # crush_login_required → redirect to login; nothing persisted.
+    assert resp.status_code in (301, 302)
+
+
+@pytest.mark.django_db
+def test_autosave_step1_persists_without_onboarding(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"], onboarded=False)
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    resp = _autosave(client, 1, {"relationship_goal": "serious"})
+    assert resp.status_code == 200
+    assert resp.json()["success"] is True
+
+    membership = CrushConnectMembership.objects.get(user=me)
+    assert membership.relationship_goal == "serious"
+    assert membership.draft_step == 1
+    # Critically, a draft must NOT mark the user onboarded.
+    assert membership.onboarded_at is None
+    assert membership.is_onboarded is False
+
+
+@pytest.mark.django_db
+def test_autosave_step2_persists_lifestyle_and_advances_cursor(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"], onboarded=False)
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    resp = _autosave(
+        client,
+        2,
+        {
+            "lifestyle_energy": "adventurer",
+            "lifestyle_social": "intimate",
+            "lifestyle_pace": "spontaneous",
+        },
+    )
+    assert resp.status_code == 200
+    membership = CrushConnectMembership.objects.get(user=me)
+    assert membership.lifestyle_energy == "adventurer"
+    assert membership.lifestyle_social == "intimate"
+    assert membership.lifestyle_pace == "spontaneous"
+    assert membership.draft_step == 2
+    assert membership.onboarded_at is None
+
+
+@pytest.mark.django_db
+def test_autosave_step2_ignores_invalid_choice(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"], onboarded=False)
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    resp = _autosave(client, 2, {"lifestyle_energy": "bogus"})
+    assert resp.status_code == 200
+    membership = CrushConnectMembership.objects.get(user=me)
+    assert membership.lifestyle_energy == ""  # invalid value never written
+
+
+@pytest.mark.django_db
+def test_autosave_step3_persists_profile_preferences(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"], onboarded=False)
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    # Reuse seeded quality traits (slugs are unique and pre-populated).
+    q1, q2 = list(Trait.objects.filter(trait_type="quality")[:2])
+
+    resp = _autosave(
+        client,
+        3,
+        {
+            "preferred_genders": ["F", "NB"],
+            "preferred_age_min": "45",
+            "preferred_age_max": "30",  # crossed → re-ordered
+            "first_step_preference": "they_initiate",
+            "astro_enabled": "true",
+            "sought_qualities_ids": f"{q1.pk},{q2.pk}",
+        },
+    )
+    assert resp.status_code == 200
+
+    profile = me.crushprofile
+    profile.refresh_from_db()
+    assert profile.preferred_genders == ["F", "NB"]
+    assert profile.preferred_age_min == 30
+    assert profile.preferred_age_max == 45
+    assert profile.first_step_preference == "they_initiate"
+    assert profile.astro_enabled is True
+    assert set(profile.sought_qualities.values_list("pk", flat=True)) == {q1.pk, q2.pk}
+
+    membership = CrushConnectMembership.objects.get(user=me)
+    assert membership.draft_step == 3
+    assert membership.onboarded_at is None
+
+
+@pytest.mark.django_db
+def test_autosave_step4_persists_story_without_min_length(client, settings):
+    """Drafts tolerate partial input — a 2-char answer the final form would
+    reject must still be saved so it survives a reload."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"], onboarded=False)
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    prompt = SparkPrompt.objects.filter(is_active=True).first()
+    resp = _autosave(
+        client, 4, {"story_prompt": str(prompt.pk), "story_answer": "hi"}
+    )
+    assert resp.status_code == 200
+    membership = CrushConnectMembership.objects.get(user=me)
+    assert membership.story_prompt_id == prompt.pk
+    assert membership.story_answer == "hi"
+    assert membership.draft_step == 4
+    assert membership.onboarded_at is None
+
+
+@pytest.mark.django_db
+def test_autosave_noop_for_already_onboarded(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"], onboarded=True)
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    resp = _autosave(client, 1, {"relationship_goal": "curious"})
+    assert resp.status_code == 200
+    assert resp.json()["success"] is True
+    membership = CrushConnectMembership.objects.get(user=me)
+    # A completed membership is never mutated by a late autosave.
+    assert membership.relationship_goal == ""
+
+
+@pytest.mark.django_db
+def test_autosave_rejects_invalid_step(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"], onboarded=False)
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    resp = _autosave(client, 9, {})
+    assert resp.status_code == 400
+
+
+@pytest.mark.django_db
+def test_onboarding_resumes_at_saved_step_with_banner(client, settings):
+    """After autosaving past step 1, the GET page resumes on the saved step
+    and flags saved progress so the 'welcome back' banner renders."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"], onboarded=False)
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    _autosave(
+        client,
+        2,
+        {
+            "lifestyle_energy": "mix",
+            "lifestyle_social": "social",
+            "lifestyle_pace": "balanced",
+        },
+    )
+
+    resp = client.get(ONBOARDING_URL)
+    assert resp.status_code == 200
+    assert resp.context["draft_step"] == 2
+    assert resp.context["has_saved_progress"] is True
+    body = resp.content.decode()
+    assert 'data-current-step="2"' in body
+    assert 'data-has-progress="1"' in body
+    # The saved lifestyle pre-fills the wizard via data-attributes.
+    assert 'data-lifestyle-energy="mix"' in body
+
+
+@pytest.mark.django_db
+def test_onboarding_final_submit_still_stamps_after_autosave(client, settings):
+    """Autosaving drafts then submitting the form completes onboarding —
+    onboarded_at gets stamped and prefs persist through the shared writer."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"], onboarded=False)
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    _autosave(client, 1, {"relationship_goal": "open"})
+
+    # The browser re-submits the draft's goal/lifestyle via the Alpine-bound
+    # hidden inputs (pre-filled from the saved membership on page load).
+    prompt = SparkPrompt.objects.filter(is_active=True).first()
+    resp = client.post(
+        ONBOARDING_URL,
+        data={
+            "relationship_goal": "open",
+            "lifestyle_energy": "mix",
+            "lifestyle_social": "social",
+            "lifestyle_pace": "balanced",
+            "story_prompt": prompt.pk,
+            "story_answer": "I love foggy walks along the Pétrusse valley.",
+            "confirm_terms": "on",
+            "preferred_genders": ["F", "NB"],
+            "preferred_age_min": "25",
+            "preferred_age_max": "40",
+            "first_step_preference": "no_preference",
+            "astro_enabled": "true",
+        },
+    )
+    assert resp.status_code in (301, 302)
+    assert "/crush-connect/today/" in resp.url
+
+    membership = CrushConnectMembership.objects.get(user=me)
+    assert membership.onboarded_at is not None
+    assert membership.relationship_goal == "open"
+    assert membership.lifestyle_energy == "mix"
+    assert membership.story_prompt_id == prompt.pk
+
+    profile = me.crushprofile
+    profile.refresh_from_db()
+    assert profile.preferred_genders == ["F", "NB"]
+    assert profile.first_step_preference == "no_preference"
+    assert profile.astro_enabled is True

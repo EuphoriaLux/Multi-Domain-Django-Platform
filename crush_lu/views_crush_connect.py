@@ -8,20 +8,23 @@ The full user-facing surface (Today's Drop, Pending Sparks, journey reveal)
 will continue to grow in this module across M5–M7.
 """
 
+import json
 from datetime import timedelta
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+from django.views.decorators.http import require_http_methods
 
 from crush_lu.decorators import crush_login_required
 from crush_lu.email_helpers import send_crush_connect_catalogue_welcome
 from crush_lu.forms_crush_connect import CrushConnectOnboardingForm
-from crush_lu.models import CrushConnectMembership, CrushProfile, Trait
+from crush_lu.models import CrushConnectMembership, CrushProfile, SparkPrompt, Trait
 from crush_lu.services import get_or_create_daily_drop
 
 
@@ -132,6 +135,70 @@ def _next_drop_at(now=None):
     return tomorrow_six
 
 
+def _apply_connect_preferences(
+    profile,
+    *,
+    genders=None,
+    age_min=None,
+    age_max=None,
+    first_step=None,
+    astro=None,
+    quality_ids_raw=None,
+):
+    """
+    Persist Crush Connect ideal-match (step 3) preferences onto ``CrushProfile``.
+
+    Shared by the final onboarding submit (parsing ``request.POST``) and the
+    per-step autosave endpoint (parsing JSON). Every argument is optional —
+    ``None`` means "not provided, leave the stored value untouched" — so a
+    partial step-3 payload only writes the fields it actually carries.
+    """
+    if profile is None:
+        return
+
+    update_fields = []
+
+    if genders is not None:
+        valid_genders = dict(CrushProfile.GENDER_CHOICES).keys()
+        profile.preferred_genders = [g for g in genders if g in valid_genders]
+        update_fields.append("preferred_genders")
+
+    if age_min is not None or age_max is not None:
+        try:
+            lo = int(age_min) if age_min is not None else profile.preferred_age_min
+            hi = int(age_max) if age_max is not None else profile.preferred_age_max
+            if lo > hi:
+                lo, hi = hi, lo
+            profile.preferred_age_min = lo
+            profile.preferred_age_max = hi
+            update_fields += ["preferred_age_min", "preferred_age_max"]
+        except (ValueError, TypeError):
+            pass
+
+    # Radio may be absent/empty when nothing was picked — keep the stored value.
+    if first_step and first_step in dict(CrushProfile.FIRST_STEP_CHOICES):
+        profile.first_step_preference = first_step
+        update_fields.append("first_step_preference")
+
+    if astro is not None:
+        # The hidden astro toggle posts "true"/"false"; the JSON client may
+        # also send a real boolean.
+        profile.astro_enabled = astro is True or astro == "true"
+        update_fields.append("astro_enabled")
+
+    if update_fields:
+        profile.save(update_fields=update_fields)
+
+    if quality_ids_raw is not None:
+        if isinstance(quality_ids_raw, (list, tuple)):
+            ids = [int(i) for i in quality_ids_raw if str(i).strip().isdigit()]
+        else:
+            ids = [int(i) for i in str(quality_ids_raw).split(",") if i.strip().isdigit()]
+        profile.sought_qualities.set(
+            Trait.objects.filter(pk__in=ids[:5], trait_type="quality")
+        )
+
+
 @crush_login_required
 def crush_connect_onboarding(request):
     """
@@ -174,44 +241,16 @@ def crush_connect_onboarding(request):
 
             # Persist ideal-match preferences back onto CrushProfile —
             # everything _preferences_fields.html posts, not just a subset.
-            if profile is not None:
-                valid_genders = dict(CrushProfile.GENDER_CHOICES).keys()
-                profile.preferred_genders = [
-                    g for g in request.POST.getlist("preferred_genders")
-                    if g in valid_genders
-                ]
-                try:
-                    profile.preferred_age_min = int(request.POST.get("preferred_age_min", 18))
-                    profile.preferred_age_max = int(request.POST.get("preferred_age_max", 99))
-                except (ValueError, TypeError):
-                    pass
-                if profile.preferred_age_min > profile.preferred_age_max:
-                    profile.preferred_age_min, profile.preferred_age_max = (
-                        profile.preferred_age_max,
-                        profile.preferred_age_min,
-                    )
-                # Radio may be absent when the user picked nothing — keep the
-                # stored value in that case.
-                first_step = request.POST.get("first_step_preference", "")
-                if first_step in dict(CrushProfile.FIRST_STEP_CHOICES):
-                    profile.first_step_preference = first_step
-                # The astro toggle posts "true"/"false" via a hidden input.
-                astro_raw = request.POST.get("astro_enabled")
-                if astro_raw is not None:
-                    profile.astro_enabled = astro_raw == "true"
-                profile.save(update_fields=[
-                    "preferred_age_min",
-                    "preferred_age_max",
-                    "preferred_genders",
-                    "first_step_preference",
-                    "astro_enabled",
-                ])
-                ids_raw = request.POST.get("sought_qualities_ids", "")
-                if ids_raw:
-                    ids = [int(i) for i in ids_raw.split(",") if i.strip().isdigit()]
-                    profile.sought_qualities.set(
-                        Trait.objects.filter(pk__in=ids[:5], trait_type="quality")
-                    )
+            # Same writer the per-step autosave endpoint uses (single source).
+            _apply_connect_preferences(
+                profile,
+                genders=request.POST.getlist("preferred_genders"),
+                age_min=request.POST.get("preferred_age_min", 18),
+                age_max=request.POST.get("preferred_age_max", 99),
+                first_step=request.POST.get("first_step_preference", ""),
+                astro=request.POST.get("astro_enabled"),
+                quality_ids_raw=request.POST.get("sought_qualities_ids", ""),
+            )
 
             if is_receiver:
                 messages.success(
@@ -240,6 +279,18 @@ def crush_connect_onboarding(request):
         raw = _render_preferences_section(request, profile)
         prefs_ctx = {k: v for k, v in raw.items() if k not in ("form", "profile", "section")}
 
+    # Resume support: which step to land on, and whether there's saved progress
+    # worth announcing with a "welcome back" banner.
+    has_saved_progress = (
+        membership.draft_step > 1
+        or bool(membership.relationship_goal)
+        or bool(membership.lifestyle_energy)
+        or bool(membership.lifestyle_social)
+        or bool(membership.lifestyle_pace)
+        or bool(membership.story_answer)
+        or membership.story_prompt_id is not None
+    )
+
     return render(
         request,
         "crush_lu/crush_connect/onboarding.html",
@@ -248,8 +299,130 @@ def crush_connect_onboarding(request):
             "membership": membership,
             "is_candidate_only": not is_receiver,
             "profile": profile,
+            "draft_step": membership.draft_step,
+            "has_saved_progress": has_saved_progress,
+            "last_saved": membership.updated_at,
             **prefs_ctx,
         },
+    )
+
+
+def _set_story_prompt(membership, field, raw, touched_fields):
+    """
+    Set a story-prompt FK (``story_prompt`` / ``story_prompt_2``) from a raw id
+    during autosave. ``""`` clears it; an unknown id is ignored so a stray value
+    never raises an FK integrity error. ``field`` (not its ``_id`` attname) is
+    appended to ``touched_fields`` for ``update_fields``.
+    """
+    if raw is None:
+        return
+    field_id = f"{field}_id"
+    if raw == "":
+        setattr(membership, field_id, None)
+        touched_fields.append(field)
+        return
+    try:
+        pk = int(raw)
+    except (TypeError, ValueError):
+        return
+    if SparkPrompt.objects.filter(pk=pk).exists():
+        setattr(membership, field_id, pk)
+        touched_fields.append(field)
+
+
+@crush_login_required
+@require_http_methods(["POST"])
+def crush_connect_onboarding_autosave(request):
+    """
+    Per-step autosave for the Crush Connect onboarding wizard.
+
+    Each selection (and debounced text input) POSTs the active step's data here
+    so an abandoned wizard resumes exactly where the user left off. Writes land
+    directly on the live ``CrushConnectMembership`` / ``CrushProfile`` fields,
+    but ``onboarded_at`` is *never* set here — completion only happens on the
+    final form submit, so a half-finished member stays out of every pool.
+
+    Request JSON:  ``{"step": 1, "data": {"relationship_goal": "serious"}}``
+    Response JSON: ``{"success": true, "saved_at": "2026-06-13T08:42:10Z"}``
+    """
+    user = request.user
+    membership, _created = CrushConnectMembership.objects.get_or_create(user=user)
+
+    # Never mutate a completed or coach-excluded membership — no-op so the
+    # client's pill still flips to "saved" without surfacing the exclusion.
+    if membership.excluded_by_coach or membership.is_onboarded:
+        return JsonResponse(
+            {"success": True, "saved_at": membership.updated_at.isoformat()}
+        )
+
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"success": False, "error": "Invalid JSON"}, status=400)
+
+    try:
+        step = int(payload.get("step", 0))
+    except (TypeError, ValueError):
+        step = 0
+    if step < 1 or step > 4:
+        return JsonResponse(
+            {"success": False, "error": "Invalid step (1-4)."}, status=400
+        )
+
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        data = {}
+
+    touched = ["draft_step", "updated_at"]
+
+    if step == 1:
+        goal = data.get("relationship_goal", "")
+        if goal in dict(CrushConnectMembership.RELATIONSHIP_GOAL_CHOICES):
+            membership.relationship_goal = goal
+            touched.append("relationship_goal")
+
+    elif step == 2:
+        axes = {
+            "lifestyle_energy": CrushConnectMembership.LIFESTYLE_ENERGY_CHOICES,
+            "lifestyle_social": CrushConnectMembership.LIFESTYLE_SOCIAL_CHOICES,
+            "lifestyle_pace": CrushConnectMembership.LIFESTYLE_PACE_CHOICES,
+        }
+        for field, choices in axes.items():
+            value = data.get(field, "")
+            if value in dict(choices):
+                setattr(membership, field, value)
+                touched.append(field)
+
+    elif step == 3:
+        # Step-3 preferences live on CrushProfile; reuse the shared writer.
+        _apply_connect_preferences(
+            getattr(user, "crushprofile", None),
+            genders=data.get("preferred_genders"),
+            age_min=data.get("preferred_age_min"),
+            age_max=data.get("preferred_age_max"),
+            first_step=data.get("first_step_preference"),
+            astro=data.get("astro_enabled"),
+            quality_ids_raw=data.get("sought_qualities_ids"),
+        )
+
+    elif step == 4:
+        _set_story_prompt(membership, "story_prompt", data.get("story_prompt"), touched)
+        _set_story_prompt(
+            membership, "story_prompt_2", data.get("story_prompt_2"), touched
+        )
+        if "story_answer" in data:
+            membership.story_answer = str(data.get("story_answer") or "")[:200]
+            touched.append("story_answer")
+        if "story_answer_2" in data:
+            membership.story_answer_2 = str(data.get("story_answer_2") or "")[:200]
+            touched.append("story_answer_2")
+
+    # Land back on the step the user is actually on ("where they stopped").
+    membership.draft_step = step
+    membership.save(update_fields=list(dict.fromkeys(touched)))
+
+    return JsonResponse(
+        {"success": True, "saved_at": membership.updated_at.isoformat()}
     )
 
 

@@ -113,6 +113,14 @@ class CrushConnectMembership(models.Model):
         blank=True,
         help_text=_("Set when the user completes Crush Connect onboarding. Null = waitlisted/not opted-in."),
     )
+    # Furthest wizard step the user reached, so an abandoned onboarding resumes
+    # where they left off. The onboarding fields below are auto-saved per step
+    # (without stamping onboarded_at), so a partial draft lives directly on the
+    # live fields — this cursor only restores the visible step.
+    draft_step = models.PositiveSmallIntegerField(
+        default=1,
+        help_text=_("Last onboarding wizard step the user reached (1–4); used to resume."),
+    )
 
     # Coach panic button
     excluded_by_coach = models.BooleanField(
