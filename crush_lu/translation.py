@@ -15,7 +15,7 @@ from .models.events import MeetupEvent
 from .models.event_polls import EventPoll, EventPollOption
 from .models.quiz import QuizRound, QuizQuestion
 from .models.changelog import PatchRelease, PatchNote
-from .models.crush_connect import SparkPrompt
+from .models.crush_connect import ConnectInterest, SparkPrompt
 from .models.journey import (
     JourneyConfiguration,
     JourneyChapter,
@@ -139,6 +139,12 @@ class SparkPromptTranslationOptions(TranslationOptions):
     fields = ('text',)
 
 
+class ConnectInterestTranslationOptions(TranslationOptions):
+    """Translatable label for Crush Connect curated interests."""
+
+    fields = ('label',)
+
+
 # Register models with translation options
 translator.register(Newsletter, NewsletterTranslationOptions)
 translator.register(Trait, TraitTranslationOptions)
@@ -157,3 +163,4 @@ translator.register(QuizQuestion, QuizQuestionTranslationOptions)
 translator.register(PatchRelease, PatchReleaseTranslationOptions)
 translator.register(PatchNote, PatchNoteTranslationOptions)
 translator.register(SparkPrompt, SparkPromptTranslationOptions)
+translator.register(ConnectInterest, ConnectInterestTranslationOptions)

@@ -50,6 +50,14 @@ DAILY_DROP_SIZE = 3
 NEW_MEMBER_BOOST = 1.5
 NEW_MEMBER_BOOST_WINDOW_DAYS = 30
 
+# Soft-signal boosts for Drop selection (all multiplicative and >= 1.0, so they
+# only ever lift a candidate, never zero them out). Gender/age stay the only
+# HARD filters (in get_eligible_pool); everything here just reweights the pool.
+SHARED_LANGUAGE_BOOST = 1.3          # any overlap in spoken languages
+INTEREST_OVERLAP_BOOST_PER = 0.1     # per shared interest …
+INTEREST_OVERLAP_CAP = 3             # … capped at 3 shared → max ×1.3
+MATCHSCORE_NEUTRAL = 0.5             # missing MatchScore pair → neutral 0.5
+
 
 def _years_ago(years: int) -> date:
     """Approximate date offset by ``years``; good enough for age-range filters."""
@@ -121,8 +129,13 @@ def get_eligible_pool(user) -> "QuerySet[User]":
         .select_related("crushprofile", "crush_connect_membership")
     )
 
+    # Match preferences (gender + age) now live on CrushConnectMembership, not
+    # CrushProfile — that's the catalogue/profile data split. The requester's
+    # own gender/age/date_of_birth are still core identity on CrushProfile; only
+    # the *preferences* (who they want to see) read from the membership.
+
     # --- Mutual gender preference (empty list = no preference, pass-through)
-    user_pref_genders = user_profile.preferred_genders or []
+    user_pref_genders = user_membership.preferred_genders or []
     if user_pref_genders:
         qs = qs.filter(crushprofile__gender__in=user_pref_genders)
 
@@ -130,11 +143,11 @@ def get_eligible_pool(user) -> "QuerySet[User]":
         gender = user_profile.gender
         # JSONField array-containment lookups are unreliable on SQLite across
         # all supported versions. Evaluate in Python after select_related has
-        # already loaded crushprofile — no extra per-row queries needed.
+        # already loaded crush_connect_membership — no extra per-row queries.
         eligible_pks = [
             u.pk for u in qs
-            if not u.crushprofile.preferred_genders
-            or gender in u.crushprofile.preferred_genders
+            if not u.crush_connect_membership.preferred_genders
+            or gender in u.crush_connect_membership.preferred_genders
         ]
         qs = (
             User.objects.filter(pk__in=eligible_pks)
@@ -142,15 +155,17 @@ def get_eligible_pool(user) -> "QuerySet[User]":
         )
 
     # --- Mutual age range ----------------------------------------------------
+    # Targets' preferred range lives on membership (non-null defaults 18/99 keep
+    # the query shape: migrated members never drop out for a missing value).
     user_age = user_profile.age
     if user_age is not None:
         qs = qs.filter(
-            crushprofile__preferred_age_min__lte=user_age,
-            crushprofile__preferred_age_max__gte=user_age,
+            crush_connect_membership__preferred_age_min__lte=user_age,
+            crush_connect_membership__preferred_age_max__gte=user_age,
         )
 
-    pref_min = user_profile.preferred_age_min or 18
-    pref_max = user_profile.preferred_age_max or 99
+    pref_min = user_membership.preferred_age_min or 18
+    pref_max = user_membership.preferred_age_max or 99
     latest_dob = _years_ago(pref_min)
     earliest_dob = _years_ago(pref_max + 1) + timedelta(days=1)
     qs = qs.filter(
@@ -166,23 +181,61 @@ def get_eligible_pool(user) -> "QuerySet[User]":
 # ---------------------------------------------------------------------------
 
 
-def _weight_for(candidate, *, today) -> float:
+def _weight_for(
+    candidate,
+    *,
+    today,
+    viewer_languages,
+    viewer_interest_ids,
+    match_scores,
+) -> float:
     """
-    Compute the selection weight for a candidate.
+    Blended selection weight for a candidate:
 
-    Currently: base weight 1.0, with a ×NEW_MEMBER_BOOST multiplier for users
-    who onboarded into Crush Connect within the last NEW_MEMBER_BOOST_WINDOW_DAYS.
-    Reflection point — geography/language/interest-overlap boosts can land here
-    without touching call sites.
+        weight = (0.5 + match_score) * language_boost * interest_boost * new_member_boost
+
+    - ``match_score``: cached Ideal-Crush ``MatchScore.score_final`` for the
+      (viewer, candidate) pair, in [0, 1]; a missing pair uses
+      ``MATCHSCORE_NEUTRAL`` (0.5). The ``0.5 + score`` term spans [0.5, 1.5]
+      and is *exactly* 1.0 at the neutral 0.5 — so a migrated member with no
+      MatchScore contributes the same base weight as the old flat 1.0.
+    - ``language_boost``: ``SHARED_LANGUAGE_BOOST`` when any spoken language
+      overlaps, else 1.0.
+    - ``interest_boost``: ``1 + 0.1 * min(overlap, 3)`` → 1.0 .. 1.3.
+    - ``new_member_boost``: unchanged ×``NEW_MEMBER_BOOST`` inside the window.
+
+    ``viewer_languages`` / ``viewer_interest_ids`` are frozensets and
+    ``match_scores`` is a ``{candidate_pk: score_final}`` dict — all precomputed
+    once by the caller so this stays a pure, allocation-light function.
+
+    Parity: an un-enriched member (empty languages/interests, missing
+    MatchScore) yields ``(0.5 + 0.5) * 1 * 1 * boost`` = exactly the old
+    ``1.0`` / ``1.5`` — behaviour is identical to before this change.
     """
     membership = getattr(candidate, "crush_connect_membership", None)
     if membership is None or membership.onboarded_at is None:
         # Shouldn't happen — eligible-pool filter already requires onboarded.
         return 1.0
+
+    # A *missing* pair is neutral (0.5 → base 1.0); a *stored* score_final of 0
+    # is intentionally distinct (base 0.5, lower odds) — don't collapse them.
+    match_score = match_scores.get(candidate.pk, MATCHSCORE_NEUTRAL)
+
+    cand_languages = frozenset(membership.languages or [])
+    language_boost = SHARED_LANGUAGE_BOOST if (viewer_languages & cand_languages) else 1.0
+
+    cand_interest_ids = frozenset(i.pk for i in membership.interests.all())  # prefetched
+    overlap = len(viewer_interest_ids & cand_interest_ids)
+    interest_boost = 1.0 + INTEREST_OVERLAP_BOOST_PER * min(overlap, INTEREST_OVERLAP_CAP)
+
     days_since_onboarding = (today - timezone.localtime(membership.onboarded_at).date()).days
-    if 0 <= days_since_onboarding <= NEW_MEMBER_BOOST_WINDOW_DAYS:
-        return NEW_MEMBER_BOOST
-    return 1.0
+    new_member_boost = (
+        NEW_MEMBER_BOOST
+        if 0 <= days_since_onboarding <= NEW_MEMBER_BOOST_WINDOW_DAYS
+        else 1.0
+    )
+
+    return (MATCHSCORE_NEUTRAL + match_score) * language_boost * interest_boost * new_member_boost
 
 
 def _seeded_weighted_pick(
@@ -234,7 +287,7 @@ def get_or_create_daily_drop(user, drop_date: date | None = None):
     Returns ``None`` if the user isn't eligible for Connect at all (e.g. not
     onboarded yet). M4 will translate this into the teaser/empty-state UI.
     """
-    from crush_lu.models import ConnectDailyDrop
+    from crush_lu.models import ConnectDailyDrop, MatchScore
 
     if drop_date is None:
         # Drops unlock at 06:00 local time. Visiting between 00:00–05:59 should
@@ -247,7 +300,12 @@ def get_or_create_daily_drop(user, drop_date: date | None = None):
     except ConnectDailyDrop.DoesNotExist:
         pass
 
-    pool_qs = get_eligible_pool(user)
+    # Prefetch the candidates' interests so _weight_for's overlap math is in
+    # memory. The prefetch lives on the *caller's* queryset so it survives the
+    # Python gender-fallback rebuild inside get_eligible_pool.
+    pool_qs = get_eligible_pool(user).prefetch_related(
+        "crush_connect_membership__interests"
+    )
     if not pool_qs.exists():
         # Still record an empty Drop so we don't recompute the empty pool
         # every page load and so coaches can see "no candidates" in admin.
@@ -257,8 +315,41 @@ def get_or_create_daily_drop(user, drop_date: date | None = None):
             )
         return drop
 
-    candidates = list(pool_qs)
-    weights = [_weight_for(c, today=drop_date) for c in candidates]
+    candidates = list(pool_qs)  # order_by("pk") preserved from get_eligible_pool
+
+    # --- Precompute the viewer's soft-signal inputs (once) ------------------
+    viewer_membership = getattr(user, "crush_connect_membership", None)
+    viewer_languages = frozenset(
+        (viewer_membership.languages or []) if viewer_membership else []
+    )
+    viewer_interest_ids = frozenset(
+        viewer_membership.interests.values_list("pk", flat=True)
+        if viewer_membership
+        else []
+    )
+
+    # One query for every cached MatchScore involving the viewer + pool. The
+    # store is symmetric (user_a.pk < user_b.pk), so normalise into
+    # {other_user_pk: score_final}; missing pairs fall back to neutral inside
+    # _weight_for.
+    pool_ids = [c.pk for c in candidates]
+    match_scores = {}
+    for row in MatchScore.objects.filter(
+        Q(user_a=user, user_b__in=pool_ids) | Q(user_b=user, user_a__in=pool_ids)
+    ).values("user_a_id", "user_b_id", "score_final"):
+        other = row["user_b_id"] if row["user_a_id"] == user.pk else row["user_a_id"]
+        match_scores[other] = row["score_final"]
+
+    weights = [
+        _weight_for(
+            c,
+            today=drop_date,
+            viewer_languages=viewer_languages,
+            viewer_interest_ids=viewer_interest_ids,
+            match_scores=match_scores,
+        )
+        for c in candidates
+    ]
     seed = int.from_bytes(
         hashlib.sha256(f"{user.pk}:{drop_date.isoformat()}".encode()).digest()[:8],
         "big",

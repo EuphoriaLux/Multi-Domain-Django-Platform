@@ -126,10 +126,16 @@ def _make_user(
     if has_luxid:
         SocialAccount.objects.create(user=user, provider="luxid", uid=username)
 
+    # Match preferences live on the membership now (the catalogue/profile data
+    # split). The profile fields above are kept populated only so divergence
+    # tests can set contradictory profile prefs and assert they're ignored.
     CrushConnectMembership.objects.create(
         user=user,
         onboarded_at=timezone.now() if onboarded else None,
         excluded_by_coach=excluded_by_coach,
+        preferred_genders=preferred_genders if preferred_genders is not None else [],
+        preferred_age_min=preferred_age_min,
+        preferred_age_max=preferred_age_max,
     )
     return user
 
