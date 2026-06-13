@@ -2297,3 +2297,35 @@ def test_autosave_draft_step_never_regresses(client, settings):
     # ...but its data still persists — only the cursor is monotonic.
     assert membership.relationship_goal == "serious"
     assert membership.lifestyle_energy == "mix"
+
+
+@pytest.mark.django_db
+def test_autosave_rejects_ineligible_user(client, settings):
+    """A logged-in user who can't enter Connect (no premium, no LuxID) must not
+    persist drafts via a direct POST to the endpoint."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="me",
+        preferred_genders=["F"],
+        onboarded=False,
+        premium=False,
+        has_luxid=False,
+    )
+    _login_eligible(client, me)
+
+    resp = _autosave(client, 1, {"relationship_goal": "serious"})
+    assert resp.status_code == 403
+    membership = CrushConnectMembership.objects.get(user=me)
+    assert membership.relationship_goal == ""
+
+
+@pytest.mark.django_db
+def test_autosave_rejects_when_flag_off(client, settings):
+    """Even an eligible user can't persist drafts while the feature is hidden."""
+    settings.CRUSH_CONNECT_LAUNCHED = False
+    me = _make_user(username="me", preferred_genders=["F"], onboarded=False)
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    resp = _autosave(client, 1, {"relationship_goal": "serious"})
+    assert resp.status_code == 403

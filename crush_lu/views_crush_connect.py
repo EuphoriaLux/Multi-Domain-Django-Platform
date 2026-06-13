@@ -349,6 +349,22 @@ def crush_connect_onboarding_autosave(request):
     Response JSON: ``{"success": true, "saved_at": "2026-06-13T08:42:10Z"}``
     """
     user = request.user
+
+    # Same gate as the onboarding page: a direct POST must not let users who
+    # aren't allowed into Connect (flag off, or neither track eligible) persist
+    # story drafts / step-3 preferences. Staff bypass to exercise the UI early.
+    if not user.is_staff:
+        if not getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
+            return JsonResponse(
+                {"success": False, "error": "Crush Connect is not available."},
+                status=403,
+            )
+        if not _user_passes_pre_onboarding_gate(user):
+            return JsonResponse(
+                {"success": False, "error": "Not eligible for Crush Connect."},
+                status=403,
+            )
+
     membership, _created = CrushConnectMembership.objects.get_or_create(user=user)
 
     # Never mutate a completed or coach-excluded membership — no-op so the

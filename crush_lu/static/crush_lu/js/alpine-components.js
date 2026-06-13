@@ -13174,6 +13174,21 @@ document.addEventListener("alpine:init", function () {
                     this.currentStep = step;
                 }
 
+                // Open the optional second-story section when a restored draft
+                // (or a re-rendered failed submit) populated it — otherwise its
+                // controls and any validation error stay hidden behind the
+                // toggle, so the user can't see or fix them.
+                var form = el.querySelector("form");
+                if (form) {
+                    var answer2 = form.querySelector('textarea[name="story_answer_2"]');
+                    var prompt2 = form.querySelector(
+                        'input[name="story_prompt_2"]:checked',
+                    );
+                    if ((answer2 && answer2.value.trim() !== "") || prompt2) {
+                        this._showSecondStory = true;
+                    }
+                }
+
                 this.setupAutoSaveListeners();
                 this.setupPeriodicCheckpoint();
             },
