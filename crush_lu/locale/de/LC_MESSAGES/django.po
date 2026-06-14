@@ -34402,3 +34402,6 @@ msgid ""
 msgstr ""
 "Im Moment gibt es nichts abzustimmen. Schau bald wieder vorbei – wir fragen "
 "dich nach deiner Meinung zu kommenden Events."
+
+msgid "Section "
+msgstr "Abschnitt "

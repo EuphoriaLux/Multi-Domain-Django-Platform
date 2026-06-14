@@ -34446,3 +34446,6 @@ msgid ""
 msgstr ""
 "Rien à voter pour le moment. Reviens bientôt — on te demandera ton avis sur "
 "les prochains événements."
+
+msgid "Section "
+msgstr "Section "

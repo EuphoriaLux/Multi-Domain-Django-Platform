@@ -32,7 +32,7 @@
      data-phone-verified="{% if profile and profile.phone_verified %}true{% else %}false{% endif %}"
      data-is-editing="{{ is_editing|lower|default:'false' }}"
      data-step-labels="{% trans 'Basic Info' %}|{% trans 'About You' %}|{% trans 'Photos' %}|{% trans 'Review' %}"
-     data-step-label-prefix="{% trans 'Step ' %}"
+     data-step-label-prefix="{% trans 'Section ' %}"
      data-step-label-of="{% trans ' of ' %}"
      data-step-label-sep="{% trans ' — ' %}"
      data-saved-just-now="{% trans 'Saved just now' %}"
@@ -502,7 +502,6 @@
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                         {% include "shared/icons/map-pin.html" with class="w-5 h-5" %} {% trans "Location in Luxembourg" %} *
                     </label>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">{% trans "Click the map or use the dropdown to select your region" %}</p>
 
                     <div x-data="cantonMap"
                          data-initial-value="{% if form.location.value %}{{ form.location.value }}{% elif profile and profile.location %}{{ profile.location }}{% endif %}"

@@ -1317,6 +1317,8 @@ def coach_intro_step(request):
 
     coaches = (
         CrushCoach.objects.filter(is_active=True)
+        .exclude(user__first_name="")
+        .exclude(user__username__startswith="slot_test")
         .select_related("user")
         .order_by("user__first_name", "user__username")[:6]
     )
