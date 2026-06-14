@@ -1,6 +1,5 @@
 {% load i18n %}
-{# HTMX target: renders the list of availability windows. Swapped in after
-   add/remove POSTs from coach_settings.html. #}
+{# HTMX target: renders the list of availability windows. Swapped in after add/remove POSTs from coach_settings.html. #}
 <ul id="availability-list" class="space-y-2">
     {% for window in availability_windows %}
     <li class="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">

@@ -101,10 +101,7 @@ Privacy contract (Crush Connect):
             </div>
         {% endif %}
 
-        {# Tag chips: languages + interests. Prefer the Connect membership data;
-           fall back to the legacy profile fields for migrated members who
-           haven't filled in the new wizard yet. Life/family details never
-           appear on the card. #}
+        {# Tag chips: languages + interests. Prefer the Connect membership data; fall back to the legacy profile fields for migrated members who haven't filled in the new wizard yet. Life/family details never appear on the card. #}
         {% if target_membership.languages or target_membership.interests.all %}
             <div class="flex flex-wrap gap-2 pt-1">
                 {% for lang in target_membership.languages_display %}

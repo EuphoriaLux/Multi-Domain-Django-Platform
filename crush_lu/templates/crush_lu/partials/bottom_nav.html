@@ -63,8 +63,7 @@
     </a>
 
     {% if user|crush_connect_nav_visible %}
-    {# Crush Connect tab — opens the Connect hub. Only when launched + onboarded
-       (staff bypass for preview). #}
+    {# Crush Connect tab — opens the Connect hub. Only when launched + onboarded (staff bypass for preview). #}
     <a href="{% url 'crush_lu:crush_connect_hub' %}"
        class="bottom-nav-item"
        x-bind:class="crushConnectActiveClass"

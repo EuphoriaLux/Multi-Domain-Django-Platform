@@ -8,8 +8,7 @@
 <div class="flex justify-center px-4 pb-10">
   <div class="w-full max-w-3xl">
     {% if path_locked %}
-    {# A premium path is already chosen — don't re-offer all three (avoids
-       accidentally picking a second coach). Show a single summary instead. #}
+    {# A premium path is already chosen — don't re-offer all three (avoids accidentally picking a second coach). Show a single summary instead. #}
     <div class="mb-4 text-center">
       <h3 class="text-lg font-bold text-gray-900 dark:text-white">
         {% trans "You're on the Premium path" %}
@@ -79,7 +78,7 @@
           {% trans "Prefer to meet first? Our team verifies you in person at any event — no LuxID needed, and you start meeting people right away." %}
         </p>
         <a href="{% url 'crush_lu:event_list' %}" class="inline-flex w-full items-center justify-center rounded-lg bg-crush-purple px-4 py-2 text-sm font-semibold text-white no-underline transition-colors hover:bg-crush-purple/90">
-          {% trans "Browse events" %}
+          {% trans "Browse Events" %}
         </a>
       </div>
 
