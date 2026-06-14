@@ -69,11 +69,15 @@ VIEWPORTS = {
 #   "member"     -> approved + consented member
 #   "onboarding" -> pre-submission user (steps 1-4, incl. the create-profile
 #                   builder form, which only renders before a profile is submitted)
-#   "review"     -> post-submission user whose profile is under coach review
-#                   (renders meet-coach / screening-call / profile-submitted)
+#   "verify"     -> finished profile, awaiting verification via the default path
+#                   (event/LuxID) with no submission -> the "get verified" state
+#                   that ends the normal onboarding flow
+#   "review"     -> Premium coach path only: post-submission user under coach
+#                   review (meet-coach / screening-call / profile-submitted)
 ANON = None
 MEMBER = "member"
 ONBOARDING = "onboarding"
+VERIFY = "verify"
 REVIEW = "review"
 # Staff user with an onboarded Crush Connect membership. Crush Connect gates
 # every page behind beta enrolment, but staff bypass the gates "to preview the
@@ -124,18 +128,23 @@ PAGES = [
     ("Onboarding", "onboarding-phone", "/onboarding/phone/", ONBOARDING),
     ("Onboarding", "onboarding-coach-intro", "/onboarding/coach-intro/", ONBOARDING),
     ("Onboarding", "create-profile", "/create-profile/", ONBOARDING),
-    # ── Coach review (post-submission user) ────────────────────────────────
-    ("Review", "onboarding-meet-coach", "/onboarding/meet-coach/", REVIEW),
-    ("Review", "onboarding-screening-call", "/onboarding/screening-call/", REVIEW),
-    ("Review", "profile-submitted", "/profile-submitted/", REVIEW),
+    # The real end of the default flow: profile done, awaiting event/LuxID
+    # verification (no submission → "get verified" state, not coach review).
+    ("Onboarding", "get-verified", "/profile-submitted/", VERIFY),
+    # ── Premium coach path (post-submission user; NOT the default flow) ──────
+    # Coach review only exists on the paid/Premium path. Grouped on its own so
+    # the gallery never presents it as the normal onboarding journey.
+    ("Premium (coach path)", "onboarding-meet-coach", "/onboarding/meet-coach/", REVIEW),
+    ("Premium (coach path)", "onboarding-screening-call", "/onboarding/screening-call/", REVIEW),
+    ("Premium (coach path)", "profile-submitted", "/profile-submitted/", REVIEW),
 ]
 
 # Which named page set maps to which user keys.
 PAGE_SETS = {
     "public": {ANON},
     "member": {MEMBER, CC},
-    "onboarding": {ONBOARDING, REVIEW},
-    "all": {ANON, MEMBER, CC, ONBOARDING, REVIEW},
+    "onboarding": {ONBOARDING, VERIFY, REVIEW},
+    "all": {ANON, MEMBER, CC, ONBOARDING, VERIFY, REVIEW},
 }
 
 # Paths that signal a page bounced us off the requested view.
@@ -218,7 +227,7 @@ class Command(BaseCommand):
         # Safety: the authenticated personas create/promote test users (incl. a
         # staff account) and write to the DB. Only do that against a local
         # target unless explicitly overridden. A public-only run is read-only.
-        needs_writes = bool(wanted_users & {MEMBER, CC, ONBOARDING, REVIEW})
+        needs_writes = bool(wanted_users & {MEMBER, CC, ONBOARDING, VERIFY, REVIEW})
         if (
             needs_writes
             and not options["allow_nonlocal"]
@@ -242,6 +251,8 @@ class Command(BaseCommand):
             sessions[ONBOARDING] = self._session_for(
                 self._ensure_onboarding_user(options["onboarding_user"])
             )
+        if VERIFY in wanted_users:
+            sessions[VERIFY] = self._session_for(self._ensure_verify_user())
         if REVIEW in wanted_users:
             sessions[REVIEW] = self._session_for(self._ensure_review_user())
         if CC in wanted_users:
@@ -277,7 +288,7 @@ class Command(BaseCommand):
                 (run_dir / viewport).mkdir(exist_ok=True)
                 self.stdout.write(self.style.MIGRATE_HEADING(f"\n[{viewport}]"))
                 # Group by user so each session needs only one browser context.
-                for user_key in (ANON, MEMBER, CC, ONBOARDING, REVIEW):
+                for user_key in (ANON, MEMBER, CC, ONBOARDING, VERIFY, REVIEW):
                     group = [pg for pg in pages if pg["user_key"] == user_key]
                     if not group:
                         continue
@@ -504,6 +515,34 @@ class Command(BaseCommand):
 
         self._grant_consent(user)
         self.stdout.write(f"  review user: {user.username}")
+        return user
+
+    def _ensure_verify_user(self):
+        """Default-path user: profile finished, awaiting verification via event
+        or LuxID, with NO ProfileSubmission — so /profile-submitted/ renders the
+        default 'get verified' state (the real end of onboarding) instead of the
+        Premium coach-review branch."""
+        username = "screenshot_verify@crush.lu"
+        user, _ = User.objects.get_or_create(
+            username=username,
+            defaults={"email": username, "first_name": "Screenshot", "last_name": "Verify"},
+        )
+        now = timezone.now()
+        profile, _ = CrushProfile.objects.get_or_create(user=user)
+        profile.welcome_seen_at = profile.welcome_seen_at or now
+        profile.phone_verified = True
+        profile.phone_verified_at = profile.phone_verified_at or now
+        profile.coach_intro_seen_at = profile.coach_intro_seen_at or now
+        # 'pending' (not 'incomplete'/'verified') keeps the user on the verify
+        # step without redirecting; no submission => the default branch.
+        profile.verification_status = "pending"
+        profile.is_active = True
+        profile.is_approved = False
+        profile.save()
+        ProfileSubmission.objects.filter(profile=profile).delete()
+
+        self._grant_consent(user)
+        self.stdout.write(f"  verify user: {user.username}")
         return user
 
     def _grant_consent(self, user):

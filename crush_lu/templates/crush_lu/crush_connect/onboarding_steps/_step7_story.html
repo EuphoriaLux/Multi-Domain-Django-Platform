@@ -1,6 +1,5 @@
 {% load i18n %}
-{# Step 7 — Your story. Prompt picker + one-line answer (+ optional second).
-   Consent is shown only in the wizard (hidden/relaxed on the edit page). #}
+{# Step 7 — Your story. Prompt picker + one-line answer (+ optional second). Consent is shown only in the wizard (hidden/relaxed on the edit page). #}
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-6 md:p-8 space-y-7"
      x-data="connectOnboarding"
      data-show-second-story="{% if form.story_answer_2.value %}true{% else %}false{% endif %}">

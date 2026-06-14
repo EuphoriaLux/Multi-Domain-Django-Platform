@@ -35,8 +35,7 @@
             <h2 class="mt-4 mb-1 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Your profile is ready — now get verified" %}</h2>
             <p class="text-sm text-gray-500 dark:text-gray-400 mb-8">{% trans "One last step to activate your Crush.lu profile and start meeting real people." %}</p>
 
-            {# If the user already connected LuxID but isn't verified yet, reassure them.
-               (The view lazily verifies + redirects in the normal case, so this is an edge state.) #}
+            {# If the user already connected LuxID but isn't verified yet, reassure them (view lazily verifies + redirects normally; this is an edge state). #}
             {% if not luxid_connect_url %}
             <div class="mb-4 rounded-2xl border border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20 px-6 py-5 text-left">
                 <div class="flex items-center gap-3">
@@ -49,8 +48,7 @@
             </div>
             {% endif %}
 
-            {# Verification options (come to an event / LuxID) plus the Premium
-               teaser are presented by _verification_options.html at the bottom. #}
+            {# Verification options (event / LuxID) plus the Premium teaser are presented by _verification_options.html at the bottom. #}
 
             {% else %}
             {# ═══════════════════════════════════════════════════════════════ #}
