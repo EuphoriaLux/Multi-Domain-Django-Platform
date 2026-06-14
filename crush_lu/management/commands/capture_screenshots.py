@@ -182,6 +182,16 @@ class Command(BaseCommand):
             default="screenshot_onboarding@crush.lu",
             help="Username of the onboarding capture user (created if missing).",
         )
+        parser.add_argument(
+            "--allow-nonlocal",
+            action="store_true",
+            help=(
+                "Override the local-only safety guard. The authenticated page "
+                "sets create/promote test users (incl. a staff account) and "
+                "write to the DB, so they are blocked unless the target looks "
+                "local. Only use this against a disposable database."
+            ),
+        )
 
     # ── Entry point ────────────────────────────────────────────────────────
 
@@ -203,6 +213,23 @@ class Command(BaseCommand):
         if bad:
             raise CommandError(
                 f"Unknown viewport(s): {', '.join(bad)}. Choose from: {', '.join(VIEWPORTS)}"
+            )
+
+        # Safety: the authenticated personas create/promote test users (incl. a
+        # staff account) and write to the DB. Only do that against a local
+        # target unless explicitly overridden. A public-only run is read-only.
+        needs_writes = bool(wanted_users & {MEMBER, CC, ONBOARDING, REVIEW})
+        if (
+            needs_writes
+            and not options["allow_nonlocal"]
+            and not self._is_local_target(base_url)
+        ):
+            raise CommandError(
+                "Refusing to seed capture users: this writes to the database and "
+                "promotes a staff account, which is only safe against a local dev "
+                "environment. The target doesn't look local (expected DEBUG=True, "
+                "a local DB host, and a localhost --base-url). Use `--pages public` "
+                "for a read-only run, or pass --allow-nonlocal against a disposable DB."
             )
 
         # Resolve capture users + sample object ids (ORM access).
@@ -275,6 +302,26 @@ class Command(BaseCommand):
         self._print_summary(pages, viewports, results, index)
 
     # ── Capture users ──────────────────────────────────────────────────────
+
+    def _is_local_target(self, base_url):
+        """True only when everything looks like local dev: DEBUG on, a local DB
+        host (or sqlite), and a localhost --base-url. Guards the DB-mutating
+        seeding from accidentally running against staging/production."""
+        db = settings.DATABASES.get("default", {})
+        host = (db.get("HOST") or "").lower()
+        local_db = "sqlite" in db.get("ENGINE", "") or host in (
+            "",
+            "localhost",
+            "127.0.0.1",
+            "::1",
+        )
+        local_url = urlparse(base_url).hostname in (
+            "localhost",
+            "127.0.0.1",
+            "::1",
+            "0.0.0.0",
+        )
+        return bool(settings.DEBUG and local_db and local_url)
 
     def _ensure_member_user(self, override):
         """Approved + consented member used for member-journey pages."""
@@ -606,6 +653,10 @@ class Command(BaseCommand):
         try:
             resp = page.goto(url, wait_until="load", timeout=25000)
             result["status"] = resp.status if resp else None
+            # page.goto resolves for 4xx/5xx too, so flag error responses
+            # explicitly — otherwise an error page is captured and labelled "ok".
+            if result["status"] and result["status"] >= 400:
+                result["error"] = f"HTTP {result['status']}"
         except Exception as exc:
             result["error"] = str(exc).splitlines()[0]
 
