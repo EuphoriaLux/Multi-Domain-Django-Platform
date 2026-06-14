@@ -6820,7 +6820,7 @@ html.dark .home-page .feature-title {
 }
 
 .home-page .feature-text {
-    color: var(--crush-gray);
+    color: #4b5563;
     font-size: clamp(0.95rem, 2vw, 1.05rem);
     line-height: 1.7;
 }

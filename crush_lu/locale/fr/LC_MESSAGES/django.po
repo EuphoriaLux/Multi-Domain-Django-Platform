@@ -34408,8 +34408,8 @@ msgstr "Retour à votre profil"
 #: templates/crush_lu/crush_connect/profile_edit.html
 msgid "Tap a section to edit — this is what matches and coaches see."
 msgstr ""
-"Touchez une section pour la modifier — c'est ce que voient les profils et les "
-"coachs."
+"Touchez une section pour la modifier — c'est ce que voient les profils et "
+"les coachs."
 
 #: templates/crush_lu/crush_connect/profile_edit.html
 msgid "Not set yet"
@@ -34430,3 +34430,22 @@ msgid "%(count)d interest"
 msgid_plural "%(count)d interests"
 msgstr[0] "%(count)d centre d'intérêt"
 msgstr[1] "%(count)d centres d'intérêt"
+
+msgid "Save email preferences"
+msgstr "Enregistrer les préférences e-mail"
+
+msgid "Save WhatsApp preferences"
+msgstr "Enregistrer les préférences WhatsApp"
+
+msgid "No polls yet"
+msgstr "Pas encore de sondages"
+
+msgid ""
+"There's nothing to vote on right now. Check back soon — we'll ask for your "
+"take on upcoming events."
+msgstr ""
+"Rien à voter pour le moment. Reviens bientôt — on te demandera ton avis sur "
+"les prochains événements."
+
+msgid "Section "
+msgstr "Section "

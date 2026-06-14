@@ -195,14 +195,10 @@
 
 {# ─── Stats row (compact) ─── #}
 {% if profile.verification_status == 'verified' %}
-<div class="grid grid-cols-3 gap-3 mb-5">
+<div class="grid grid-cols-2 gap-3 mb-5">
     <div class="card-bordered p-4 text-center">
         <p class="text-2xl font-bold text-gray-900 dark:text-white mb-0.5">{{ registrations|length }}</p>
         <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{% trans "Events" %}</p>
-    </div>
-    <div class="card-bordered p-4 text-center">
-        <p class="text-2xl font-bold text-gray-900 dark:text-white mb-0.5">{{ profile.age|default:"—" }}</p>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{% trans "Age" %}</p>
     </div>
     <a href="{% url 'crush_lu:my_connections' %}" class="card-bordered p-4 text-center no-underline hover:border-crush-purple/40 transition-colors">
         <p class="text-2xl font-bold text-crush-purple mb-0.5">{{ connection_count|default:0 }}</p>

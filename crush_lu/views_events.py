@@ -911,7 +911,8 @@ def event_register(request, event_id):
         return redirect("crush_lu:event_detail", event_id=event_id)
 
     if not event.is_registration_accepting:
-        messages.error(request, _("Registration is not available for this event."))
+        # The event detail page already shows a "Registration is closed" banner,
+        # so skip the redundant (and alarming, red) flash on top of it.
         return redirect("crush_lu:event_detail", event_id=event_id)
 
     # Self-attestation checkbox only appears for events with NO age restriction
@@ -942,9 +943,7 @@ def event_register(request, event_id):
 
                 # Re-check registration deadline under lock to prevent race condition
                 if not locked_event.is_registration_accepting:
-                    messages.error(
-                        request, _("Registration is not available for this event.")
-                    )
+                    # Detail page shows the "closed" banner; skip the redundant flash.
                     return redirect("crush_lu:event_detail", event_id=event_id)
 
                 # Defense-in-depth: re-verify age under lock against the freshly
