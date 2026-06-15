@@ -18,7 +18,7 @@ google-auth==2.53.0  # Required for Google Wallet API authentication
 
 # Storage
 django-storages==1.14.6  # Updated from 1.14.2
-azure-storage-blob==12.29.0
+azure-storage-blob==12.30.0
 azure-identity==1.25.3  # Managed Identity & Azure CLI authentication
 
 # Image processing
