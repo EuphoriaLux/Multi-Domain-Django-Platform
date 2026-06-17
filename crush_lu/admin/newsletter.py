@@ -86,7 +86,23 @@ class NewsletterAdminForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         segment_field = self.fields.get('segment_key')
         if segment_field:
-            segment_field.widget = forms.Select(choices=_get_segment_choices())
+            choices = _get_segment_choices()
+            # Preserve a stored segment_key that the current definitions no
+            # longer offer (e.g. a segment that was split or retired) so an
+            # existing draft stays editable and keeps its target instead of
+            # tripping the "must select a segment" validation on save.
+            current = getattr(self.instance, 'segment_key', '') or ''
+            known = set()
+            for value, label in choices:
+                if isinstance(label, (list, tuple)):
+                    known.update(key for key, _ in label)
+                else:
+                    known.add(value)
+            if current and current not in known:
+                choices.append(
+                    ('Retired', [(current, f'{current} (retired segment)')])
+                )
+            segment_field.widget = forms.Select(choices=choices)
             segment_field.help_text = (
                 'Only used when audience is "Specific user segment".'
             )
