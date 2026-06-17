@@ -1,53 +1,93 @@
 {% extends 'crush_lu/crush_connect/_base_connect.html' %}
-{% load i18n %}
+{% load i18n crush_media %}
 
 {% block title %}{% trans "Your Sparks — Crush Connect" %}{% endblock %}
 
 {% block connect_content %}
-<div class="max-w-2xl mx-auto px-4 py-10 pb-24 lg:pb-10">
+<div class="max-w-2xl mx-auto px-4 py-8 pb-24 lg:pb-10">
 
-    <header class="mb-8">
-        <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-gray-900 dark:text-white mb-2">
+    <header class="mb-6">
+        <h1 class="font-display text-3xl md:text-4xl font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
             {% trans "Your Sparks" %}
         </h1>
-        <p class="text-gray-600 dark:text-gray-300">
-            {% trans "People who saw your card and got curious. Accept, and your Crush Coach arranges the date. Decline, and they'll never know." %}
+        <p class="text-gray-600 dark:text-gray-300 max-w-sm">
+            {% trans "People who saw your card and got curious. Say curious too and your coach arranges the date — decline and they'll never know." %}
         </p>
     </header>
 
     {% if sparks %}
-        <div class="grid grid-cols-1 gap-6">
-            {% for spark in sparks %}
-            <div>
-                {% include "crush_lu/crush_connect/_drop_card.html" with target=spark.sender target_profile=spark.sender.crushprofile target_membership=spark.sender.crush_connect_membership %}
+        <p class="text-xs font-bold uppercase tracking-[0.08em] text-gray-400 dark:text-gray-500 mb-3 px-0.5">
+            {% trans "Curious about you" %}
+        </p>
 
+        <div class="flex flex-col gap-3">
+            {% for spark in sparks %}
+            {% with sender=spark.sender %}
+            <div class="rounded-2xl bg-white dark:bg-slate-800 ring-1 ring-gray-200 dark:ring-slate-700 shadow-crush-sm p-4">
+
+                {# Identity row — blurred mini-avatar + first name + age range + goal chip. #}
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="relative w-14 h-14 shrink-0 rounded-2xl overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">
+                        {% profile_photo sender.crushprofile 'photo_1' css_class='w-full h-full object-cover' alt_text=sender.first_name is_blurred=True %}
+                        <span class="absolute inset-x-0 bottom-1 flex justify-center text-white">
+                            {% include "shared/icons/lock-closed.html" with class="w-3 h-3" %}
+                        </span>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-baseline gap-2">
+                            <span class="font-display text-lg font-semibold text-gray-900 dark:text-white truncate">
+                                {{ sender.first_name|default:_("A member") }}
+                            </span>
+                            {% if sender.crushprofile.age %}
+                            <span class="text-xs text-gray-400 dark:text-gray-500 shrink-0">{{ sender.crushprofile.age_range }}</span>
+                            {% endif %}
+                        </div>
+                        {% with goal=sender.crush_connect_membership %}
+                        {% if goal.relationship_goal %}
+                        <span class="inline-block mt-1 text-xs font-medium rounded-full px-2.5 py-0.5
+                                     {% if goal.relationship_goal == 'serious' %}bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300
+                                     {% elif goal.relationship_goal == 'open' %}bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300
+                                     {% else %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                            {{ goal.get_relationship_goal_display }}
+                        </span>
+                        {% endif %}
+                        {% endwith %}
+                    </div>
+                </div>
+
+                {# Their one-line message. #}
                 {% if spark.message %}
-                <div class="mt-3 px-4 py-3 rounded-xl bg-crush-purple/5 dark:bg-crush-pink/10 ring-1 ring-crush-purple/15">
-                    <p class="text-xs font-medium uppercase tracking-wide text-crush-purple/80 dark:text-crush-pink/80 mb-1">
-                        {% trans "Their message" %}
-                    </p>
-                    <p class="text-[15px] text-gray-700 dark:text-gray-200 italic mb-0">&ldquo;{{ spark.message }}&rdquo;</p>
+                <div class="rounded-r-xl bg-crush-purple/5 dark:bg-crush-pink/10 border-l-2 border-crush-purple/35 px-3.5 py-2.5 mb-3">
+                    <p class="text-sm leading-relaxed italic text-gray-700 dark:text-gray-200 mb-0">&ldquo;{{ spark.message }}&rdquo;</p>
                 </div>
                 {% endif %}
 
-                <form method="post" action="{% url 'crush_lu:crush_connect_spark_respond' spark.pk %}" class="mt-3 flex items-center gap-3">
+                <form method="post" action="{% url 'crush_lu:crush_connect_spark_respond' spark.pk %}" class="flex items-center gap-2.5">
                     {% csrf_token %}
                     <button type="submit" name="action" value="accept" class="btn-crush-primary flex-1">
                         {% trans "I'm curious too" %}
                     </button>
-                    <button type="submit" name="action" value="decline" class="btn-crush-outline flex-1">
-                        {% trans "Not for me" %}
+                    <button type="submit" name="action" value="decline" class="btn-crush-outline">
+                        {% trans "Pass" %}
                     </button>
                 </form>
             </div>
+            {% endwith %}
             {% endfor %}
+        </div>
+
+        <div class="mt-5 flex items-start gap-2.5">
+            {% include "shared/icons/shield-check.html" with class="w-4 h-4 text-crush-purple shrink-0 mt-0.5" %}
+            <p class="text-xs leading-relaxed text-gray-500 dark:text-gray-400 mb-0">
+                {% trans "Photos stay blurred and full names hidden until your coach confirms a mutual date. Declines are always silent." %}
+            </p>
         </div>
     {% else %}
         <div class="text-center py-16 px-6 rounded-2xl bg-gradient-to-br from-crush-purple/5 to-crush-pink/5 ring-1 ring-gray-200 dark:ring-slate-700">
-            <div class="mx-auto w-16 h-16 rounded-full bg-white dark:bg-slate-800 ring-1 ring-gray-200 dark:ring-slate-700 flex items-center justify-center mb-5">
-                {% include "shared/icons/sparkles.html" with class="w-8 h-8 text-crush-purple" %}
+            <div class="mx-auto w-20 h-20 mb-5">
+                {% include "crush_lu/includes/ghost-story-discover.html" with class="w-full h-full" %}
             </div>
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+            <h2 class="font-display text-2xl font-semibold text-gray-900 dark:text-white mb-2">
                 {% trans "No Sparks waiting." %}
             </h2>
             <p class="text-sm text-gray-600 dark:text-gray-300 max-w-md mx-auto mb-0">
@@ -55,10 +95,6 @@
             </p>
         </div>
     {% endif %}
-
-    <p class="mt-6 text-center text-xs text-gray-500 dark:text-gray-400">
-        {% trans "Privacy: photos stay blurred and full names hidden until your coach confirms a mutual date." %}
-    </p>
 
 </div>
 {% endblock %}

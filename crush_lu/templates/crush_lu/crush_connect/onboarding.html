@@ -4,31 +4,38 @@
 {% block title %}{% trans "Welcome to Crush Connect" %}{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto px-4 py-10 pb-24 lg:pb-10">
+<div class="max-w-2xl mx-auto px-4 py-6 pb-28 lg:pb-10">
 
-    <!-- Header -->
-    <header class="mb-8 text-center">
-        <span class="inline-block rounded-full bg-gradient-to-r from-crush-purple to-crush-pink px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white mb-4">
-            {% trans "Crush Connect" %}
-        </span>
-        <h1 class="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-white mb-3">
-            {% trans "Let's set the scene." %}
-        </h1>
-        <p class="text-gray-600 dark:text-gray-300 max-w-xl mx-auto">
-            {% trans "A few questions so your coach can find someone genuinely right for you." %}
-        </p>
-    </header>
+    {# Top bar: back · "Step X of 7 · Label" · save & exit #}
+    <div class="flex items-center justify-between gap-3 mb-3">
+        {% if prev_step %}
+        <a href="{% url 'crush_lu:crush_connect_onboarding_step' step=prev_step %}"
+           class="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 hover:border-crush-purple/50 transition-colors no-underline"
+           aria-label="{% trans 'Back' %}">
+            {% include "shared/icons/chevron-left.html" with class="w-5 h-5" %}
+        </a>
+        {% else %}
+        <span class="w-9 h-9"></span>
+        {% endif %}
 
-    <!-- Progress bar (server-side) -->
-    <div class="mb-8">
-        <div class="flex justify-between text-xs text-gray-400 dark:text-gray-500 mb-1.5">
-            <span>{% blocktrans %}Step {{ step }} of {{ total_steps }}{% endblocktrans %}</span>
-            <span>{{ progress_pct|floatformat:0 }}%</span>
+        <div class="text-sm font-medium text-gray-600 dark:text-gray-300">
+            {% blocktrans %}Step {{ step }} of {{ total_steps }}{% endblocktrans %} ·
+            <span class="text-crush-purple dark:text-crush-pink">{{ step_cfg.title }}</span>
         </div>
-        <div class="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-            <div class="h-full bg-gradient-to-r from-crush-purple to-crush-pink rounded-full transition-all duration-500"
-                 style="width: {{ progress_pct|floatformat:0 }}%"></div>
-        </div>
+
+        <a href="{% url 'crush_lu:crush_connect_hub' %}"
+           class="text-sm font-medium text-gray-400 dark:text-gray-500 hover:text-crush-purple dark:hover:text-crush-pink transition-colors no-underline">
+            {% trans "Save & exit" %}
+        </a>
+    </div>
+
+    {# Segmented progress — makes a long form feel short. #}
+    <div class="flex gap-1.5 mb-7" role="progressbar"
+         aria-valuenow="{{ progress_pct|floatformat:0 }}" aria-valuemin="0" aria-valuemax="100">
+        {% for s in connect_steps %}
+        <span class="flex-1 h-1.5 rounded-full transition-colors duration-300
+                     {% if s.state == 'upcoming' %}bg-gray-200 dark:bg-gray-700{% else %}bg-gradient-to-r from-crush-purple to-crush-pink{% endif %}"></span>
+        {% endfor %}
     </div>
 
     <form method="post" id="connectOnboardingForm" novalidate>
@@ -42,25 +49,29 @@
 
         {% include step_template %}
 
-        <div class="mt-6 flex justify-between">
+        <div class="mt-6 flex items-center gap-3">
             {% if prev_step %}
             <a href="{% url 'crush_lu:crush_connect_onboarding_step' step=prev_step %}"
-               class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-5 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
-                ← {% trans "Back" %}
+               class="btn-crush-outline">
+                {% trans "Back" %}
             </a>
-            {% else %}
-            <span></span>
             {% endif %}
 
-            <button type="submit"
-                    class="rounded-xl bg-gradient-to-r from-crush-purple to-crush-pink px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-200 hover:scale-[1.02]">
-                {% if is_final_step %}{% trans "Finish & join Crush Connect" %}{% else %}{% trans "Next" %} →{% endif %}
+            <button type="submit" class="btn-crush-primary flex-1 inline-flex items-center justify-center gap-2">
+                {% if is_final_step %}
+                    {% trans "Finish & join Crush Connect" %}
+                    {% include "shared/icons/check.html" with class="w-4 h-4" %}
+                {% else %}
+                    {% trans "Continue" %}
+                    {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
+                {% endif %}
             </button>
         </div>
     </form>
 
-    <p class="mt-6 text-center text-xs text-gray-500 dark:text-gray-400">
-        {% trans "Privacy: your full name and exact age are never shown to other members. Photos stay blurred until both of you have Sparked each other." %}
+    <p class="mt-6 flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400">
+        {% include "shared/icons/shield-check.html" with class="w-4 h-4 text-crush-purple shrink-0 mt-px" %}
+        <span>{% trans "Your full name and exact age are never shown to other members. Photos stay blurred until both of you have Sparked each other." %}</span>
     </p>
 
 </div>

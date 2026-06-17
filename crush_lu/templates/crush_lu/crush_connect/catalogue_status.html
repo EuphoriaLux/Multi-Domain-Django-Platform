@@ -4,41 +4,56 @@
 {% block title %}{% trans "You're in the catalogue — Crush Connect" %}{% endblock %}
 
 {% block connect_content %}
-<div class="max-w-2xl mx-auto px-4 py-10 pb-24 lg:pb-10">
+<div class="max-w-2xl mx-auto px-4 py-8 pb-24 lg:pb-10">
 
-    <header class="mb-8 text-center">
-        <span class="inline-block rounded-full bg-gradient-to-r from-crush-purple to-crush-pink px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white mb-4">
-            {% trans "Crush Connect" %}
+    <header class="mb-5">
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-crush-purple to-crush-pink px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white mb-4">
+            {% include "shared/icons/sparkles.html" with class="w-3.5 h-3.5" %}
+            {% trans "In the catalogue" %}
         </span>
-        <h1 class="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-white mb-3">
+        <h1 class="font-display text-3xl md:text-4xl font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
             {% trans "You're in the catalogue." %}
         </h1>
-        <p class="text-gray-600 dark:text-gray-300 max-w-xl mx-auto">
-            {% trans "Your LuxID is verified and your story is live. A Crush Coach can now introduce you to a Premium member as a hand-picked match — we'll let you know the moment that happens." %}
+        <p class="text-gray-600 dark:text-gray-300">
+            {% trans "Your LuxID is verified and your story is live. A Crush Coach can now introduce you to a Premium member as a hand-picked match — we'll tell you the moment it happens." %}
         </p>
     </header>
 
-    {# Story card preview #}
-    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-6 md:p-8 mb-6">
-        <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">
+    {# Verified status chips. #}
+    <div class="flex flex-wrap gap-2 mb-5">
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-green-100 dark:bg-green-900/30 px-3 py-1.5 text-xs font-medium text-green-700 dark:text-green-300">
+            {% include "shared/icons/check.html" with class="w-3.5 h-3.5" %}
+            {% trans "LuxID verified" %}
+        </span>
+        {% if membership.story_answer %}
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-green-100 dark:bg-green-900/30 px-3 py-1.5 text-xs font-medium text-green-700 dark:text-green-300">
+            {% include "shared/icons/check.html" with class="w-3.5 h-3.5" %}
+            {% trans "Story live" %}
+        </span>
+        {% endif %}
+    </div>
+
+    {# Story card preview — exactly what matches read about you. #}
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-crush-sm ring-1 ring-gray-200 dark:ring-slate-700 p-5 md:p-6 mb-4">
+        <p class="text-xs font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2.5">
             {% trans "What matches read about you" %}
-        </h2>
+        </p>
         {% if membership.story_answer %}
             {% if membership.story_prompt %}
-            <p class="text-sm font-medium text-crush-purple dark:text-crush-pink mb-1">
+            <p class="text-xs font-semibold text-crush-purple dark:text-crush-pink mb-1.5">
                 {{ membership.story_prompt.text }}
             </p>
             {% endif %}
-            <blockquote class="text-lg text-gray-800 dark:text-gray-100 italic">
+            <p class="font-display text-[17px] leading-snug italic text-gray-900 dark:text-white mb-0">
                 &ldquo;{{ membership.story_answer }}&rdquo;
-            </blockquote>
+            </p>
         {% else %}
-            <p class="text-sm text-gray-500 dark:text-gray-400">
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-0">
                 {% trans "You haven't shared a story yet." %}
             </p>
         {% endif %}
 
-        {# Languages + interests chips — the rest of what matches read about you. #}
+        {# Languages + interests chips. #}
         {% if membership.languages or membership.interests.all %}
         <div class="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-100 dark:border-slate-700">
             {% for lang in membership.languages_display %}
@@ -50,17 +65,18 @@
         </div>
         {% endif %}
 
-        <div class="mt-4">
-            <a href="{% url 'crush_lu:crush_connect_profile_edit' %}" class="text-sm font-medium text-crush-purple dark:text-crush-pink hover:underline">
-                {% trans "Edit your Connect profile" %} →
-            </a>
-        </div>
+        <a href="{% url 'crush_lu:crush_connect_profile_edit' %}"
+           class="inline-flex items-center gap-1.5 mt-4 text-sm font-semibold text-crush-purple dark:text-crush-pink hover:underline no-underline">
+            {% trans "Edit your Connect profile" %}
+            {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
+        </a>
     </div>
 
-    {# Pending Sparks #}
+    {# Pending Sparks banner. #}
     {% if pending_sparks_count %}
-    <a href="{% url 'crush_lu:crush_connect_sparks_received' %}" class="flex items-center gap-3 mb-6 p-4 rounded-xl border border-crush-purple/30 bg-crush-purple/5 dark:bg-crush-pink/10 no-underline group hover:border-crush-purple/60 transition-colors">
-        <div class="w-9 h-9 rounded-full bg-crush-purple/10 flex items-center justify-center flex-shrink-0">
+    <a href="{% url 'crush_lu:crush_connect_sparks_received' %}"
+       class="flex items-center gap-3 mb-5 p-4 rounded-2xl ring-1 ring-crush-purple/25 bg-crush-purple/5 dark:bg-crush-pink/10 no-underline group hover:ring-crush-purple/50 transition-colors">
+        <div class="w-10 h-10 rounded-xl bg-crush-purple/10 flex items-center justify-center shrink-0">
             {% include "shared/icons/sparkles.html" with class="w-5 h-5 text-crush-purple" %}
         </div>
         <div class="flex-1 min-w-0">
@@ -69,26 +85,29 @@
             </p>
             <p class="text-xs text-gray-600 dark:text-gray-300 mb-0">{% trans "View their Spark and decide — declines stay silent." %}</p>
         </div>
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-crush-purple group-hover:translate-x-0.5 transition-transform flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
+        {% include "shared/icons/arrow-right.html" with class="w-4 h-4 text-crush-purple shrink-0 group-hover:translate-x-0.5 transition-transform" %}
     </a>
     {% endif %}
 
-    {# Premium upsell #}
-    <div class="rounded-2xl bg-gradient-to-br from-crush-purple/5 to-crush-pink/5 ring-1 ring-gray-200 dark:ring-slate-700 p-6 md:p-8 text-center">
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-            {% trans "Want your own coach-curated matches?" %}
+    {# Premium upsell. #}
+    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 ring-1 ring-gray-200 dark:ring-slate-700 p-6 text-center">
+        <div class="absolute -right-4 -top-3 w-24 h-24 opacity-50 pointer-events-none">
+            {% include "crush_lu/includes/ghost-story-inlove.html" with class="w-full h-full" %}
+        </div>
+        <h2 class="relative font-display text-xl font-semibold text-gray-900 dark:text-white mb-2">
+            {% trans "Want your own curated matches?" %}
         </h2>
-        <p class="text-sm text-gray-600 dark:text-gray-300 max-w-md mx-auto mb-5">
-            {% trans "Being in the catalogue means others can be matched with you. With Premium, a personal Crush Coach picks matches for you — delivered in your own Drop." %}
+        <p class="relative text-sm leading-relaxed text-gray-600 dark:text-gray-300 max-w-sm mx-auto mb-5">
+            {% trans "In the catalogue, others can be matched with you. With Premium, a personal coach picks matches for you — delivered in your own weekly Drop." %}
         </p>
-        <a href="{% url 'crush_lu:premium_choose_coach' %}" class="btn-crush-primary inline-flex">
+        <a href="{% url 'crush_lu:premium_choose_coach' %}" class="btn-crush-primary inline-flex items-center gap-2">
             {% trans "Discover Premium" %}
             {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
         </a>
     </div>
 
-    <p class="mt-6 text-center text-sm text-gray-700 dark:text-gray-300">
-        {% trans "Privacy: your full name and exact age are never shown to other members. Photos stay blurred until both of you have Sparked each other. You can leave the catalogue anytime from your settings." %}
+    <p class="mt-5 text-center text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+        {% trans "Your full name and exact age are never shown. Photos stay blurred until you both Spark. Leave the catalogue anytime from settings." %}
     </p>
 
 </div>

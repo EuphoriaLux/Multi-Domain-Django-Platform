@@ -1,60 +1,95 @@
 {% extends 'crush_lu/base.html' %}
-{% load i18n %}
+{% load i18n crush_media %}
 
 {% block title %}{% trans "Send a Curiosity Spark — Crush Connect" %}{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto px-4 py-10 pb-24 lg:pb-10">
+<div class="max-w-2xl mx-auto px-4 py-6 pb-28 lg:pb-10">
 
-    <header class="mb-8 text-center">
-        <span class="inline-block rounded-full bg-gradient-to-r from-crush-purple to-crush-pink px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white mb-4">
+    {# Header bar: back + Spark pill. #}
+    <div class="flex items-center gap-3 mb-6">
+        <a href="{% url 'crush_lu:crush_connect_home' %}"
+           class="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 hover:border-crush-purple/50 transition-colors no-underline"
+           aria-label="{% trans 'Back' %}">
+            {% include "shared/icons/chevron-left.html" with class="w-5 h-5" %}
+        </a>
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-crush-purple to-crush-pink px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white">
+            {% include "shared/icons/sparkles.html" with class="w-3.5 h-3.5" %}
             {% trans "Curiosity Spark" %}
         </span>
-        <h1 class="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-white mb-3">
+    </div>
+
+    <header class="mb-5">
+        <h1 class="font-display text-3xl font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
             {% blocktrans with name=target.first_name|default:_("this member") %}Curious about {{ name }}?{% endblocktrans %}
         </h1>
-        <p class="text-gray-600 dark:text-gray-300 max-w-xl mx-auto">
-            {% trans "One Spark, one line. If they're curious too, your Crush Coach arranges the date. If not, they simply won't reply — no awkwardness." %}
+        <p class="text-gray-600 dark:text-gray-300 max-w-sm">
+            {% blocktrans with name=target.first_name|default:_("they") %}One Spark, one line. If {{ name }} is curious too, your coach arranges the date. If not, they simply won't reply — no awkwardness.{% endblocktrans %}
         </p>
     </header>
 
-    {# The card being sparked #}
-    <div class="mb-6">
-        {% include "crush_lu/crush_connect/_drop_card.html" with target=target target_profile=target_profile target_membership=target_membership %}
+    {# Recipient mini-card — blurred avatar + first name + age range + story teaser. #}
+    <div class="flex items-center gap-3.5 rounded-2xl bg-white dark:bg-slate-800 ring-1 ring-gray-200 dark:ring-slate-700 shadow-crush-sm p-3.5 mb-5">
+        <div class="relative w-16 h-16 shrink-0 rounded-2xl overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">
+            {% profile_photo target_profile 'photo_1' css_class='w-full h-full object-cover' alt_text=target.first_name is_blurred=True %}
+            <span class="absolute top-1.5 left-1.5 flex items-center justify-center w-5 h-5 rounded-full bg-white/25 text-white">
+                {% include "shared/icons/lock-closed.html" with class="w-2.5 h-2.5" %}
+            </span>
+        </div>
+        <div class="min-w-0 flex-1">
+            <div class="flex items-baseline gap-2">
+                <span class="font-display text-lg font-semibold text-gray-900 dark:text-white truncate">{{ target.first_name|default:_("A member") }}</span>
+                {% if target_profile.age %}<span class="text-xs text-gray-400 dark:text-gray-500 shrink-0">{{ target_profile.age_range }}</span>{% endif %}
+            </div>
+            {% if target_membership.story_answer %}
+            <p class="mt-1 text-xs leading-relaxed italic text-gray-500 dark:text-gray-400 line-clamp-2 mb-0">&ldquo;{{ target_membership.story_answer }}&rdquo;</p>
+            {% endif %}
+        </div>
     </div>
 
-    <form method="post" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-6 md:p-8 space-y-5">
+    <form method="post" class="bg-white dark:bg-slate-800 rounded-2xl shadow-crush-sm ring-1 ring-gray-200 dark:ring-slate-700 p-5 md:p-6">
         {% csrf_token %}
-        <div>
-            <label for="spark-message" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
-                {% trans "What made you curious? (optional)" %}
-            </label>
-            <div x-data="charCounter" data-max-length="200">
-                <textarea
-                    name="message"
-                    id="spark-message"
-                    rows="3"
-                    maxlength="200"
-                    placeholder="{% trans 'One honest line — it goes a long way.' %}"
-                    class="input-crush w-full"
-                    @input="updateCount"
-                ></textarea>
-                <div class="mt-1 text-right text-xs text-gray-400 dark:text-gray-500">
-                    <span x-text="charDisplay"></span>
-                </div>
+        <label for="spark-message" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+            {% trans "What made you curious?" %} <span class="font-normal text-gray-400 dark:text-gray-500">{% trans "(optional)" %}</span>
+        </label>
+        <div x-data="charCounter" data-max-length="200">
+            <textarea
+                name="message"
+                id="spark-message"
+                rows="4"
+                maxlength="200"
+                placeholder="{% trans 'One honest line — it goes a long way.' %}"
+                class="input-crush w-full"
+                @input="updateCount"
+            ></textarea>
+            <div class="mt-1.5 flex items-center justify-between text-xs text-gray-400 dark:text-gray-500">
+                <span>{% trans "Your name & photo stay hidden until it's mutual." %}</span>
+                <span x-text="charDisplay"></span>
             </div>
         </div>
-        <div class="flex items-center gap-3">
-            <button type="submit" class="btn-crush-primary flex-1">
-                {% trans "Send Spark" %}
-            </button>
+
+        {# Tip — nudge toward a personal opener. #}
+        <div class="mt-4 flex items-start gap-2.5">
+            <span class="shrink-0 w-8 h-8 rounded-full bg-crush-purple/10 flex items-center justify-center">
+                {% include "shared/icons/information-circle.html" with class="w-4 h-4 text-crush-purple" %}
+            </span>
+            <p class="text-xs leading-relaxed text-gray-500 dark:text-gray-400 mb-0">
+                {% trans "Keep it about them — reference their story or a shared interest. Generic openers rarely get a curious-back." %}
+            </p>
+        </div>
+
+        <div class="mt-5 flex items-center gap-3">
             <a href="{% url 'crush_lu:crush_connect_home' %}" class="btn-crush-outline">
                 {% trans "Back" %}
             </a>
+            <button type="submit" class="btn-crush-primary flex-1 inline-flex items-center justify-center gap-2">
+                {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
+                {% trans "Send Spark" %}
+            </button>
         </div>
     </form>
 
-    <p class="mt-6 text-center text-xs text-gray-500 dark:text-gray-400">
+    <p class="mt-5 text-center text-xs text-gray-500 dark:text-gray-400">
         {% trans "Declines are silent — you'll only hear back when it's mutual." %}
     </p>
 

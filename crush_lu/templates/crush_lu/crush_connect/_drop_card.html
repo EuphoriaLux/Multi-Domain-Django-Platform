@@ -3,8 +3,8 @@ Crush Connect Drop card.
 
 Renders ONE card from a user's Daily Drop. The viewer sees a blurred photo,
 first name only, age range (never exact age), one coach-curated Story line,
-and language/interest tag chips. No CTA in M3 — the "Send a Curiosity Spark"
-button is added in M5.
+and language/interest tag chips. The "Send a Curiosity Spark" CTA is shown
+when the page passes show_spark_cta.
 
 Context:
     target       — the User being shown
@@ -15,68 +15,83 @@ Privacy contract (Crush Connect):
     - first_name only, never user.get_full_name or username
     - age_range, never exact age (independent of the target's show_exact_age
       preference — Crush Connect ALWAYS coarsens age until mutual reveal)
-    - photo always blurred until mutual interest is reached (handled in M6)
+    - photo always blurred until mutual interest is reached
 {% endcomment %}
 {% load i18n crush_media %}
 <article
-    class="card card-bordered overflow-hidden flex flex-col bg-white dark:bg-slate-800 ring-1 ring-gray-200/60 dark:ring-slate-700/60"
+    class="card card-bordered overflow-hidden flex flex-col bg-white dark:bg-slate-800 ring-1 ring-gray-200/60 dark:ring-slate-700/60 rounded-2xl shadow-crush-md"
     aria-label="{% blocktrans with name=target.first_name|default:_('A Crush Connect member') %}Drop card for {{ name }}{% endblocktrans %}"
 >
-    {# Blurred photo header #}
-    <div class="relative aspect-[5/4] overflow-hidden bg-gradient-to-br from-crush-purple/15 to-crush-pink/15">
-        {% profile_photo target_profile 'photo_1' css_class='w-full h-full' alt_text=target.first_name is_blurred=True %}
-        {# Soft brand gradient overlay to soften the blur edge #}
-        <div class="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent pointer-events-none"></div>
-        <div class="absolute top-3 left-3">
-            <span class="inline-flex items-center gap-1 rounded-full bg-white/85 dark:bg-slate-900/80 px-3 py-1 text-xs font-medium text-crush-purple dark:text-crush-pink backdrop-blur-sm">
-                {% include "shared/icons/sparkles.html" with class="w-3.5 h-3.5" %}
-                {% trans "Crush Connect" %}
+    {# Blurred photo header — privacy reframed as an intentional, reassuring moment. #}
+    <div class="relative aspect-[5/4] overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">
+        {% profile_photo target_profile 'photo_1' css_class='w-full h-full object-cover' alt_text=target.first_name is_blurred=True %}
+        {# Bottom scrim so the overlaid name stays legible over any photo. #}
+        <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/15 pointer-events-none"></div>
+
+        {# Privacy lock chip — centred, glassy: "this is on purpose". #}
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[60%]">
+            <span class="inline-flex items-center gap-1.5 rounded-full bg-white/20 ring-1 ring-white/40 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm">
+                {% include "shared/icons/lock-closed.html" with class="w-3.5 h-3.5" %}
+                {% trans "Blurred until you both Spark" %}
             </span>
+        </div>
+
+        {# Name + age range overlaid at the foot of the photo. #}
+        <div class="absolute inset-x-4 bottom-4 flex items-end justify-between gap-3">
+            <div class="min-w-0">
+                <h3 class="font-display text-2xl font-semibold leading-none text-white truncate">
+                    {{ target.first_name|default:_("A member") }}
+                </h3>
+                {% if target_profile.location %}
+                <p class="mt-1.5 inline-flex items-center gap-1 text-xs text-white/80 mb-0">
+                    {% include "shared/icons/map-pin.html" with class="w-3 h-3" %}
+                    {{ target_profile.location }}
+                </p>
+                {% endif %}
+            </div>
+            {% if target_profile.age %}
+            <span class="shrink-0 rounded-full bg-white/90 px-3 py-1 text-xs font-bold text-crush-purple-dark">
+                {{ target_profile.age_range }}
+            </span>
+            {% endif %}
         </div>
     </div>
 
-    {# Identity row #}
+    {# Card body #}
     <div class="p-5 flex flex-col gap-4">
-        <header class="flex items-baseline justify-between gap-3">
-            <h3 class="text-xl font-semibold text-gray-900 dark:text-white truncate">
-                {{ target.first_name|default:_("A member") }}
-            </h3>
-            {% if target_profile.age %}
-                <span class="text-sm font-medium text-gray-500 dark:text-gray-400 shrink-0">
-                    {{ target_profile.age_range }}
-                </span>
-            {% endif %}
-        </header>
 
         {# Relationship goal badge #}
         {% if target_membership.relationship_goal %}
-            <span class="inline-block text-xs font-medium rounded-full px-2.5 py-0.5
+            <span class="self-start inline-flex items-center gap-1.5 text-xs font-medium rounded-full px-3 py-1
                          {% if target_membership.relationship_goal == 'serious' %}bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300
                          {% elif target_membership.relationship_goal == 'open' %}bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300
                          {% else %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                {% include "shared/icons/heart.html" with class="w-3.5 h-3.5" %}
                 {{ target_membership.get_relationship_goal_display }}
             </span>
         {% endif %}
 
-        {# Story (one coach-curated line) — fallback copy if not yet onboarded with a story #}
+        {# Story (one coach-curated line) — editorial Fraunces; fallback copy if not yet onboarded with a story. #}
         {% if target_membership.story_answer %}
-            <p class="text-[15px] leading-relaxed text-gray-700 dark:text-gray-200 italic">
+            <div>
                 {% if target_membership.story_prompt %}
-                    <span class="not-italic block text-xs font-medium uppercase tracking-wide text-crush-purple/80 dark:text-crush-pink/80 mb-1">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1.5">
                         {{ target_membership.story_prompt.text }}
-                    </span>
+                    </p>
                 {% endif %}
-                &ldquo;{{ target_membership.story_answer }}&rdquo;
-            </p>
+                <p class="font-display text-[17px] leading-snug italic text-gray-900 dark:text-white mb-0">
+                    &ldquo;{{ target_membership.story_answer }}&rdquo;
+                </p>
+            </div>
         {% else %}
-            <p class="text-sm text-gray-400 dark:text-gray-500 italic">
+            <p class="text-sm text-gray-400 dark:text-gray-500 italic mb-0">
                 {% trans "This member hasn't shared a story yet." %}
             </p>
         {% endif %}
 
         {# Optional second story #}
         {% if target_membership.story_answer_2 %}
-            <p class="text-sm leading-relaxed text-gray-600 dark:text-gray-300 italic border-l-2 border-crush-purple/30 pl-3">
+            <p class="text-sm leading-relaxed text-gray-600 dark:text-gray-300 italic border-l-2 border-crush-purple/30 pl-3 mb-0">
                 {% if target_membership.story_prompt_2 %}
                     <span class="not-italic block text-xs font-medium uppercase tracking-wide text-crush-purple/60 dark:text-crush-pink/60 mb-1">
                         {{ target_membership.story_prompt_2.text }}
@@ -128,7 +143,7 @@ Privacy contract (Crush Connect):
             </div>
         {% endif %}
 
-        {# Footer / CTA slot — the M5 Spark button (show_spark_cta) or the legacy M3 placeholder. #}
+        {# Footer / CTA slot — the Spark button (show_spark_cta) or the legacy placeholder. #}
         {% if show_spark_cta %}
             <div class="mt-2 pt-3 border-t border-gray-100 dark:border-slate-700/60">
                 {% if target.pk in sparked_ids %}
@@ -137,7 +152,7 @@ Privacy contract (Crush Connect):
                         {% trans "Spark sent — you'll hear back if it's mutual." %}
                     </p>
                 {% else %}
-                    <a href="{% url 'crush_lu:crush_connect_spark_compose' target.pk %}" class="btn-crush-primary btn-sm inline-flex items-center gap-1.5 no-underline">
+                    <a href="{% url 'crush_lu:crush_connect_spark_compose' target.pk %}" class="btn-crush-primary btn-block inline-flex items-center justify-center gap-1.5 no-underline">
                         {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
                         {% trans "Send a Curiosity Spark" %}
                     </a>
@@ -145,7 +160,7 @@ Privacy contract (Crush Connect):
             </div>
         {% elif show_spark_placeholder %}
             <div class="mt-2 pt-3 border-t border-gray-100 dark:border-slate-700/60">
-                <p class="text-xs text-gray-400 dark:text-gray-500">
+                <p class="text-xs text-gray-400 dark:text-gray-500 mb-0">
                     {% trans "Send a Curiosity Spark — coming soon." %}
                 </p>
             </div>
