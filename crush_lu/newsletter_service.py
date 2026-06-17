@@ -109,12 +109,28 @@ def get_newsletter_recipients(newsletter):
     return users.distinct()
 
 
+# Segment keys retired when their bucket was split into finer segments.
+# Existing newsletters may still reference the old key, so we expand it to
+# the union of the current keys it became (issue #190: age 40+ -> 5 bands).
+LEGACY_SEGMENT_ALIASES = {
+    "age_40_plus": (
+        "age_40_44",
+        "age_45_49",
+        "age_50_54",
+        "age_55_59",
+        "age_60_plus",
+    ),
+}
+
+
 def _get_segment_users(segment_key):
     """
     Resolve a segment key to a User queryset.
 
     Uses get_segment_definitions() from user_segments.py to find the queryset,
-    then maps profile/activity querysets to User objects.
+    then maps profile/activity querysets to User objects. Retired keys are
+    resolved via LEGACY_SEGMENT_ALIASES so older newsletters still reach
+    recipients.
     """
     from .admin.user_segments import get_segment_definitions
 
@@ -148,6 +164,13 @@ def _get_segment_users(segment_key):
                         f"'{model_name}' has no user mapping"
                     )
                     return User.objects.none()
+
+    alias_keys = LEGACY_SEGMENT_ALIASES.get(segment_key)
+    if alias_keys:
+        users = User.objects.none()
+        for alias_key in alias_keys:
+            users = users | _get_segment_users(alias_key)
+        return users.distinct()
 
     logger.error(f"Segment key not found: {segment_key}")
     return User.objects.none()
