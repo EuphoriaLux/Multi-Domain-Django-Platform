@@ -125,61 +125,28 @@ def coach_dashboard(request):
             "date_of_birth", "gender"
         )
     )
+    # 5-year age bands with only 60+ grouped together (see issue #190).
     age_buckets = [
         {
-            "label": "18-24",
-            "min": 18,
-            "max": 24,
+            "label": label,
+            "min": lo,
+            "max": hi,
             "count": 0,
             "count_f": 0,
             "count_m": 0,
             "count_other": 0,
-        },
-        {
-            "label": "25-30",
-            "min": 25,
-            "max": 30,
-            "count": 0,
-            "count_f": 0,
-            "count_m": 0,
-            "count_other": 0,
-        },
-        {
-            "label": "31-35",
-            "min": 31,
-            "max": 35,
-            "count": 0,
-            "count_f": 0,
-            "count_m": 0,
-            "count_other": 0,
-        },
-        {
-            "label": "36-40",
-            "min": 36,
-            "max": 40,
-            "count": 0,
-            "count_f": 0,
-            "count_m": 0,
-            "count_other": 0,
-        },
-        {
-            "label": "41-50",
-            "min": 41,
-            "max": 50,
-            "count": 0,
-            "count_f": 0,
-            "count_m": 0,
-            "count_other": 0,
-        },
-        {
-            "label": "50+",
-            "min": 51,
-            "max": 999,
-            "count": 0,
-            "count_f": 0,
-            "count_m": 0,
-            "count_other": 0,
-        },
+        }
+        for label, lo, hi in [
+            ("18-24", 18, 24),
+            ("25-29", 25, 29),
+            ("30-34", 30, 34),
+            ("35-39", 35, 39),
+            ("40-44", 40, 44),
+            ("45-49", 45, 49),
+            ("50-54", 50, 54),
+            ("55-59", 55, 59),
+            ("60+", 60, 999),
+        ]
     ]
     for dob, gender in dob_gender_list:
         age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))

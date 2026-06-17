@@ -109,13 +109,17 @@ def get_demographic_stats():
             else 0
         )
 
-    # Age range distribution (using helper)
+    # Age range distribution (using helper). 5-year bands, only 60+ grouped.
     age_ranges = [
         ("18-24", 18, 24),
         ("25-29", 25, 29),
         ("30-34", 30, 34),
         ("35-39", 35, 39),
-        ("40+", 40, None),
+        ("40-44", 40, 44),
+        ("45-49", 45, 49),
+        ("50-54", 50, 54),
+        ("55-59", 55, 59),
+        ("60+", 60, None),
     ]
     age_dist = []
     profiles_with_dob = active_profiles.exclude(date_of_birth__isnull=True)
@@ -139,7 +143,11 @@ def get_demographic_stats():
         ("25-29", 25, 29),
         ("30-34", 30, 34),
         ("35-39", 35, 39),
-        ("40+", 40, None),
+        ("40-44", 40, 44),
+        ("45-49", 45, 49),
+        ("50-54", 50, 54),
+        ("55-59", 55, 59),
+        ("60+", 60, None),
     ]
     gender_age_matrix = []
     for gender_code, gender_label in matrix_genders:
@@ -292,7 +300,11 @@ def get_segment_definitions():
     age_25_29 = _age_range_queryset(active, 25, 29)
     age_30_34 = _age_range_queryset(active, 30, 34)
     age_35_39 = _age_range_queryset(active, 35, 39)
-    age_40_plus = _age_range_queryset(active, 40)
+    age_40_44 = _age_range_queryset(active, 40, 44)
+    age_45_49 = _age_range_queryset(active, 45, 49)
+    age_50_54 = _age_range_queryset(active, 50, 54)
+    age_55_59 = _age_range_queryset(active, 55, 59)
+    age_60_plus = _age_range_queryset(active, 60)
 
     # Gender x Age cross-segments (approved profiles, wider bands)
     gender_m_age_18_24 = _age_range_queryset(approved.filter(gender="M"), 18, 24)
@@ -663,11 +675,43 @@ def get_segment_definitions():
                     "color": "orange",
                 },
                 {
-                    "name": "Age 40+",
-                    "key": "age_40_plus",
-                    "description": "Active profiles aged 40 and over",
-                    "queryset": age_40_plus,
-                    "count": age_40_plus.count(),
+                    "name": "Age 40-44",
+                    "key": "age_40_44",
+                    "description": "Active profiles aged 40-44",
+                    "queryset": age_40_44,
+                    "count": age_40_44.count(),
+                    "color": "orange",
+                },
+                {
+                    "name": "Age 45-49",
+                    "key": "age_45_49",
+                    "description": "Active profiles aged 45-49",
+                    "queryset": age_45_49,
+                    "count": age_45_49.count(),
+                    "color": "red",
+                },
+                {
+                    "name": "Age 50-54",
+                    "key": "age_50_54",
+                    "description": "Active profiles aged 50-54",
+                    "queryset": age_50_54,
+                    "count": age_50_54.count(),
+                    "color": "red",
+                },
+                {
+                    "name": "Age 55-59",
+                    "key": "age_55_59",
+                    "description": "Active profiles aged 55-59",
+                    "queryset": age_55_59,
+                    "count": age_55_59.count(),
+                    "color": "red",
+                },
+                {
+                    "name": "Age 60+",
+                    "key": "age_60_plus",
+                    "description": "Active profiles aged 60 and over",
+                    "queryset": age_60_plus,
+                    "count": age_60_plus.count(),
                     "color": "red",
                 },
             ],
@@ -1093,11 +1137,14 @@ def user_segments_dashboard(request):
     today = date.today()
     age_ranges = [
         {"label": "18-24", "min": 18, "max": 24},
-        {"label": "25-30", "min": 25, "max": 30},
-        {"label": "31-35", "min": 31, "max": 35},
-        {"label": "36-40", "min": 36, "max": 40},
-        {"label": "41-50", "min": 41, "max": 50},
-        {"label": "50+", "min": 51, "max": 999},
+        {"label": "25-29", "min": 25, "max": 29},
+        {"label": "30-34", "min": 30, "max": 34},
+        {"label": "35-39", "min": 35, "max": 39},
+        {"label": "40-44", "min": 40, "max": 44},
+        {"label": "45-49", "min": 45, "max": 49},
+        {"label": "50-54", "min": 50, "max": 54},
+        {"label": "55-59", "min": 55, "max": 59},
+        {"label": "60+", "min": 60, "max": 999},
     ]
     age_lang_matrix = [
         {"label": ar["label"], "cells": [0] * len(lang_codes), "total": 0}

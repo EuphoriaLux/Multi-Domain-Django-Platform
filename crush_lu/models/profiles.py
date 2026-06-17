@@ -744,8 +744,16 @@ class CrushProfile(models.Model):
             return "30-34"
         elif age < 40:
             return "35-39"
+        elif age < 45:
+            return "40-44"
+        elif age < 50:
+            return "45-49"
+        elif age < 55:
+            return "50-54"
+        elif age < 60:
+            return "55-59"
         else:
-            return "40+"
+            return "60+"
 
     def get_age_range(self):
         """Method version of age_range for templates"""
