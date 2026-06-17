@@ -18,30 +18,36 @@ msgstr ""
 
 #: .\azureproject\admin_translation_mixin.py:74
 msgid "🌐 Auto-translate empty fields"
-msgstr ""
+msgstr "🌐 Leere Felder automatisch übersetzen"
 
 #: .\azureproject\admin_translation_mixin.py:83
 msgid ""
 "Azure Translator is not configured. Set AZURE_TRANSLATOR_KEY in environment "
 "variables."
 msgstr ""
+"Azure Translator ist nicht konfiguriert. Legen Sie AZURE_TRANSLATOR_KEY in "
+"den Umgebungsvariablen fest."
 
 #: .\azureproject\admin_translation_mixin.py:94
 msgid "No translatable fields found for this model."
-msgstr ""
+msgstr "Für dieses Modell wurden keine übersetzbaren Felder gefunden."
 
 #: .\azureproject\admin_translation_mixin.py:175
 #, python-format
 msgid "Translated %(fields)d field(s) across %(objects)d object(s)."
-msgstr ""
+msgstr "%(fields)d Feld(er) in %(objects)d Objekt(en) übersetzt."
 
 #: .\azureproject\admin_translation_mixin.py:184
 msgid "Translation failed. Check server logs for details."
 msgstr ""
+"Übersetzung fehlgeschlagen. Einzelheiten finden Sie in den "
+"Serverprotokollen."
 
 #: .\azureproject\admin_translation_mixin.py:190
 msgid "No empty translation fields found. All languages are already filled."
 msgstr ""
+"Keine leeren Übersetzungsfelder gefunden. Alle Sprachen sind bereits "
+"ausgefüllt."
 
 #: .\azureproject\settings.py:714
 msgid "English"
@@ -65,13 +71,15 @@ msgstr "Django-Verwaltung"
 
 #: .\core\templates\admin\login.html:103
 msgid "Coach & Staff Access"
-msgstr ""
+msgstr "Zugang für Coaches & Mitarbeitende"
 
 #: .\core\templates\admin\login.html:104
 msgid ""
 "Microsoft login is restricted to organization employees. Google login is "
 "available for authorized coaches."
 msgstr ""
+"Die Microsoft-Anmeldung ist auf Mitarbeitende der Organisation beschränkt. "
+"Die Google-Anmeldung steht autorisierten Coaches zur Verfügung."
 
 #: .\core\templates\admin\login.html:107
 msgid "Sign in with your account"
@@ -140,15 +148,15 @@ msgstr "Immer aktiv"
 #, fuzzy
 #| msgid ""
 #| "These cookies are necessary for the website to function and cannot "
-#| "beswitched off. They are usually only set in response to actions madeby "
-#| "you such as logging in or filling in forms."
+#| "beswitched off. They are usually only set in response to actions madeby you "
+#| "such as logging in or filling in forms."
 msgid ""
 "These cookies are necessary for the website to function and cannot be "
 "switched off. They are usually only set in response to actions made by you "
 "such as logging in or filling in forms."
 msgstr ""
-"Diese Cookies sind für die Funktion der Website erforderlich undkönnen nicht "
-"deaktiviert werden. Sie werden normalerweise nur alsReaktion auf Ihre "
+"Diese Cookies sind für die Funktion der Website erforderlich undkönnen nicht"
+" deaktiviert werden. Sie werden normalerweise nur alsReaktion auf Ihre "
 "Aktionen wie Anmeldung oder Ausfüllen vonFormularen gesetzt."
 
 #: .\core\templates\includes\cookie_banner.html:59
@@ -158,12 +166,12 @@ msgstr "Analyse-Cookies"
 #: .\core\templates\includes\cookie_banner.html:63
 #, fuzzy
 #| msgid ""
-#| "These cookies allow us to count visits and traffic sources so we "
-#| "canmeasure and improve the performance of our site. They help us "
-#| "knowwhich pages are the most and least popular."
+#| "These cookies allow us to count visits and traffic sources so we canmeasure "
+#| "and improve the performance of our site. They help us knowwhich pages are "
+#| "the most and least popular."
 msgid ""
-"These cookies allow us to count visits and traffic sources so we can measure "
-"and improve the performance of our site. They help us know which pages are "
+"These cookies allow us to count visits and traffic sources so we can measure"
+" and improve the performance of our site. They help us know which pages are "
 "the most and least popular."
 msgstr ""
 "Diese Cookies ermöglichen es uns, Besuche und Verkehrsquellen zuzählen, um "
@@ -177,9 +185,9 @@ msgstr "Marketing-Cookies"
 #: .\core\templates\includes\cookie_banner.html:78
 #, fuzzy
 #| msgid ""
-#| "These cookies may be set through our site by our advertisingpartners. "
-#| "They may be used to build a profile of your interests andshow you "
-#| "relevant adverts on other sites."
+#| "These cookies may be set through our site by our advertisingpartners. They "
+#| "may be used to build a profile of your interests andshow you relevant "
+#| "adverts on other sites."
 msgid ""
 "These cookies may be set through our site by our advertising partners. They "
 "may be used to build a profile of your interests and show you relevant "
@@ -191,7 +199,7 @@ msgstr ""
 
 #: .\core\templates\includes\cookie_banner.html:83
 msgid "Cancel"
-msgstr ""
+msgstr "Abbrechen"
 
 #: .\core\templates\includes\cookie_banner.html:84
 msgid "Save Preferences"
@@ -199,51 +207,58 @@ msgstr "Einstellungen speichern"
 
 #: .\vinsdelux\templates\vinsdelux\base.html:40
 msgid "Home"
-msgstr ""
+msgstr "Startseite"
 
 #: .\vinsdelux\templates\vinsdelux\base.html:45
 msgid "The Journey"
-msgstr ""
+msgstr "Die Reise"
 
 #: .\vinsdelux\templates\vinsdelux\base.html:50
 msgid "About"
-msgstr ""
+msgstr "Über uns"
 
 #: .\vinsdelux\templates\vinsdelux\base.html:70
 msgid "A concept demonstration of a wine vineyard adoption platform."
-msgstr ""
+msgstr "Eine Konzeptdemonstration einer Plattform zur Weinbergpatenschaft."
 
 #: .\vinsdelux\templates\vinsdelux\base.html:71
 msgid ""
-"This project showcases the idea of connecting wine enthusiasts with vineyard "
-"plots in Luxembourg's Moselle region."
+"This project showcases the idea of connecting wine enthusiasts with vineyard"
+" plots in Luxembourg's Moselle region."
 msgstr ""
+"Dieses Projekt veranschaulicht die Idee, Weinliebhaber mit Weinbergparzellen"
+" in der luxemburgischen Moselregion zu verbinden."
 
 #: .\vinsdelux\templates\vinsdelux\index.html:4
 msgid "VinsDelux - Wine Adoption Concept"
-msgstr ""
+msgstr "VinsDelux – Konzept zur Weinpatenschaft"
 
 #: .\vinsdelux\templates\vinsdelux\index.html:10
 msgid "VinsDelux Wine Adoption"
-msgstr ""
+msgstr "VinsDelux Weinpatenschaft"
 
 #: .\vinsdelux\templates\vinsdelux\index.html:11
 msgid ""
 "Adopt a vineyard plot in Luxembourg's Moselle region and receive wines from "
 "your personal vines."
 msgstr ""
+"Übernehmen Sie die Patenschaft für eine Weinbergparzelle in der "
+"luxemburgischen Moselregion und erhalten Sie Weine von Ihren persönlichen "
+"Reben."
 
 #: .\vinsdelux\templates\vinsdelux\index.html:12
 msgid "Concept Showcase"
-msgstr ""
+msgstr "Konzeptpräsentation"
 
 #: .\vinsdelux\templates\vinsdelux\index.html:20
 msgid "The Adoption Journey"
-msgstr ""
+msgstr "Die Reise der Patenschaft"
 
 #: .\vinsdelux\templates\vinsdelux\index.html:21
 msgid "Five steps from vineyard plot selection to creating your wine legacy"
 msgstr ""
+"Fünf Schritte von der Auswahl der Weinbergparzelle bis zur Schaffung Ihres "
+"Weinvermächtnisses"
 
 #: .\vinsdelux\templates\vinsdelux\index.html:28
 #: .\vinsdelux\templates\vinsdelux\index.html:36
@@ -251,73 +266,90 @@ msgstr ""
 #: .\vinsdelux\templates\vinsdelux\index.html:52
 #: .\vinsdelux\templates\vinsdelux\index.html:60
 msgid "Step"
-msgstr ""
+msgstr "Schritt"
 
 #: .\vinsdelux\templates\vinsdelux\index.html:29
 msgid "Plot Selection"
-msgstr ""
+msgstr "Parzellenauswahl"
 
 #: .\vinsdelux\templates\vinsdelux\index.html:30
 msgid ""
-"Choose the vineyard plot that matches your preferences and vision. Each plot "
-"offers a unique terroir and a story to tell."
+"Choose the vineyard plot that matches your preferences and vision. Each plot"
+" offers a unique terroir and a story to tell."
 msgstr ""
+"Wählen Sie die Weinbergparzelle, die Ihren Vorlieben und Vorstellungen "
+"entspricht. Jede Parzelle bietet ein einzigartiges Terroir und eine eigene "
+"Geschichte."
 
 #: .\vinsdelux\templates\vinsdelux\index.html:37
 msgid "Personalize Your Wine"
-msgstr ""
+msgstr "Gestalten Sie Ihren Wein"
 
 #: .\vinsdelux\templates\vinsdelux\index.html:38
 msgid ""
 "Collaborate with our expert winemakers to personalize every aspect of your "
 "wine, from the grape variety to the winemaking techniques."
 msgstr ""
+"Arbeiten Sie mit unseren erfahrenen Winzern zusammen, um jeden Aspekt Ihres "
+"Weins zu gestalten – von der Rebsorte bis zu den Weinbereitungstechniken."
 
 #: .\vinsdelux\templates\vinsdelux\index.html:45
 msgid "Follow the Production"
-msgstr ""
+msgstr "Verfolgen Sie die Produktion"
 
 #: .\vinsdelux\templates\vinsdelux\index.html:46
 msgid ""
 "Receive regular updates on the growth of your vine and the winemaking "
 "process, complete with detailed photos and reports."
 msgstr ""
+"Erhalten Sie regelmäßige Updates über das Wachstum Ihrer Rebe und den "
+"Weinbereitungsprozess, ergänzt durch detaillierte Fotos und Berichte."
 
 #: .\vinsdelux\templates\vinsdelux\index.html:53
 msgid "Receive and Taste"
-msgstr ""
+msgstr "Empfangen und Verkosten"
 
 #: .\vinsdelux\templates\vinsdelux\index.html:54
 msgid ""
 "Your personalized bottles are delivered directly to your home, ready to be "
 "tasted and shared with loved ones."
 msgstr ""
+"Ihre personalisierten Flaschen werden direkt zu Ihnen nach Hause geliefert, "
+"bereit, verkostet und mit Ihren Liebsten geteilt zu werden."
 
 #: .\vinsdelux\templates\vinsdelux\index.html:61
 msgid "Create Your Legacy"
-msgstr ""
+msgstr "Schaffen Sie Ihr Vermächtnis"
 
 #: .\vinsdelux\templates\vinsdelux\index.html:62
 msgid ""
 "Your wine becomes a family legacy, a unique expression of your passion for "
 "wine, and an investment in the future."
 msgstr ""
+"Ihr Wein wird zu einem Familienvermächtnis, einem einzigartigen Ausdruck "
+"Ihrer Leidenschaft für Wein und einer Investition in die Zukunft."
 
 #: .\vinsdelux\templates\vinsdelux\index.html:72
 msgid "About This Concept"
-msgstr ""
+msgstr "Über dieses Konzept"
 
 #: .\vinsdelux\templates\vinsdelux\index.html:74
 msgid ""
 "VinsDelux is a concept for a premium wine e-commerce platform connecting "
 "wine enthusiasts with vineyard plots in Luxembourg's Moselle region."
 msgstr ""
+"VinsDelux ist ein Konzept für eine Premium-E-Commerce-Plattform für Wein, "
+"die Weinliebhaber mit Weinbergparzellen in der luxemburgischen Moselregion "
+"verbindet."
 
 #: .\vinsdelux\templates\vinsdelux\index.html:80
 msgid ""
 "This page presents the vineyard adoption concept — adopt a plot, follow the "
 "winemaking journey, and receive wines crafted from your personal vines."
 msgstr ""
+"Diese Seite stellt das Konzept der Weinbergpatenschaft vor – übernehmen Sie "
+"eine Parzelle, verfolgen Sie die Reise der Weinbereitung und erhalten Sie "
+"Weine, die aus Ihren persönlichen Reben gekeltert wurden."
 
 #~ msgid "Display"
 #~ msgstr "Anzeige"
