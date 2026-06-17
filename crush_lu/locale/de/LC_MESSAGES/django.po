@@ -233,17 +233,20 @@ msgstr "Unsere Geschichte"
 
 #: admin/crush_connect.py:70
 msgid "Coach exclusion (panic button)"
-msgstr ""
+msgstr "Coach-Ausschluss (Notausschalter)"
 
 #: admin/crush_connect.py:79
 msgid ""
 "Flipping ``excluded_by_coach`` removes this user from every other user's "
 "Crush Connect pool immediately. Add a reason for the audit trail."
 msgstr ""
+"Das Umschalten von ``excluded_by_coach`` entfernt diesen Nutzer sofort aus "
+"dem Crush-Connect-Pool aller anderen Nutzer. Geben Sie einen Grund für den "
+"Prüfprotokoll-Eintrag an."
 
 #: admin/crush_connect.py:84 admin/crush_connect.py:284
 msgid "Audit"
-msgstr ""
+msgstr "Prüfprotokoll"
 
 #: admin/crush_connect.py:91 templates/crush_lu/coach_event_detail.html:189
 msgid "Onboarded"
@@ -257,11 +260,11 @@ msgstr "Belohnung"
 
 #: admin/crush_connect.py:138
 msgid "Preview today's Drop (idempotent)"
-msgstr ""
+msgstr "Heutigen Drop in der Vorschau anzeigen (idempotent)"
 
 #: admin/crush_connect.py:142
 msgid "Preview tomorrow's Drop (idempotent)"
-msgstr ""
+msgstr "Morgigen Drop in der Vorschau anzeigen (idempotent)"
 
 #: admin/crush_connect.py:154
 #, fuzzy
@@ -273,8 +276,8 @@ msgstr "Wählen Sie eine Vorlage und einen Benutzer für die E-Mail-Vorschau"
 #, python-format
 msgid "Previewed Drop for %(n)d user on %(date)s."
 msgid_plural "Previewed Drops for %(n)d users on %(date)s."
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Drop für %(n)d Nutzer am %(date)s in der Vorschau angezeigt."
+msgstr[1] "Drops für %(n)d Nutzer am %(date)s in der Vorschau angezeigt."
 
 #: admin/crush_connect.py:204
 #, fuzzy
@@ -302,18 +305,20 @@ msgstr "10 €/Monat-Zahlung bestätigen"
 #, python-format
 msgid "%(n)d payment confirmed."
 msgid_plural "%(n)d payments confirmed."
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%(n)d Zahlung bestätigt."
+msgstr[1] "%(n)d Zahlungen bestätigt."
 
 #: admin/crush_connect.py:276
 msgid "Prompt text (translations)"
-msgstr ""
+msgstr "Prompt-Text (Übersetzungen)"
 
 #: admin/crush_connect.py:280
 msgid ""
 "Edit each language version. ``text`` is the fallback for users in unmatched "
 "locales."
 msgstr ""
+"Bearbeiten Sie jede Sprachversion. ``text`` ist die Ausweichoption für "
+"Nutzer in nicht zugeordneten Sprachräumen."
 
 #: admin/crush_connect.py:298
 msgid "Label (translations)"
@@ -370,6 +375,9 @@ msgid ""
 "Cannot register %(user)s: this event has age restrictions (%(min)d–%(max)d) "
 "and the user has no date of birth on file."
 msgstr ""
+"%(user)s kann nicht registriert werden: Diese Veranstaltung hat "
+"Altersbeschränkungen (%(min)d–%(max)d) und für den Nutzer ist kein "
+"Geburtsdatum hinterlegt."
 
 #: admin/events.py:90
 #, python-format
@@ -377,6 +385,8 @@ msgid ""
 "Cannot register %(user)s (age %(age)d): this event is restricted to ages "
 "%(min)d–%(max)d."
 msgstr ""
+"%(user)s (Alter %(age)d) kann nicht registriert werden: Diese Veranstaltung "
+"ist auf das Alter %(min)d–%(max)d beschränkt."
 
 #: admin/events.py:350
 msgid "📝 Total Registrations"
@@ -550,6 +560,8 @@ msgid ""
 "Skipped %(count)s registration(s) that do not meet the event's age "
 "requirements."
 msgstr ""
+"%(count)s Registrierung(en) übersprungen, die die Altersanforderungen der "
+"Veranstaltung nicht erfüllen."
 
 #: admin/events.py:780
 msgid "⏳ Move to waitlist"
@@ -796,6 +808,10 @@ msgid ""
 "hybrid_features_enabled must be on AND settings.HYBRID_COACH_SYSTEM_ENABLED "
 "must be true for the new pipeline to route submissions here."
 msgstr ""
+"Einstellungen pro Coach für das hybride Coach-Review-System. "
+"hybrid_features_enabled muss aktiviert sein UND "
+"settings.HYBRID_COACH_SYSTEM_ENABLED muss true sein, damit die neue Pipeline"
+" Einreichungen hierher leitet."
 
 #: admin/profiles.py:165 admin/profiles.py:636 admin/profiles.py:1653
 #: admin/wallet.py:139 templates/account/login_crush.html:28
@@ -888,6 +904,8 @@ msgid ""
 "Optional preferences the user set on their profile (soft preferences, not "
 "hard filters)"
 msgstr ""
+"Optionale Präferenzen, die der Nutzer in seinem Profil festgelegt hat "
+"(weiche Präferenzen, keine harten Filter)"
 
 #: admin/profiles.py:433
 msgid "View which coach is assigned to review this profile."
@@ -900,18 +918,27 @@ msgid ""
 "coach_intro_seen_at are set by the views when the user advances past those "
 "steps; intent_probe stores the answer they chose on /welcome/."
 msgstr ""
+"Verfolgt, wo sich der Nutzer in der 7-stufigen Onboarding-Journey befindet. "
+"welcome_seen_at / coach_intro_seen_at werden von den Views gesetzt, wenn der"
+" Nutzer diese Schritte überschreitet; intent_probe speichert die auf "
+"/welcome/ gewählte Antwort."
 
 #: admin/profiles.py:465
 msgid ""
 "Auto-saved form state from the profile-build wizard. Cleared on successful "
 "submission. Useful for debugging stuck users."
 msgstr ""
+"Automatisch gespeicherter Formularzustand aus dem Profil-Assistenten. Wird "
+"bei erfolgreicher Einreichung gelöscht. Nützlich zur Fehlersuche bei "
+"feststeckenden Nutzern."
 
 #: admin/profiles.py:483
 msgid ""
 "verification_method records HOW the profile was verified (LuxID / coach at "
 "event / premium coach / legacy)."
 msgstr ""
+"verification_method erfasst, WIE das Profil verifiziert wurde (LuxID / Coach"
+" bei Veranstaltung / Premium-Coach / Alt-System)."
 
 #: admin/profiles.py:499
 msgid "User event history and registrations"
@@ -1044,16 +1071,16 @@ msgstr "{count} Reise(n) deaktiviert"
 
 #: admin/profiles.py:1263
 msgid "🚫 Ban selected users from Crush.lu"
-msgstr ""
+msgstr "🚫 Ausgewählte Nutzer von Crush.lu sperren"
 
 #: admin/profiles.py:1281
 #, python-format
 msgid "Banned %(count)s user(s) from Crush.lu."
-msgstr ""
+msgstr "%(count)s Nutzer von Crush.lu gesperrt."
 
 #: admin/profiles.py:1284
 msgid "No users to ban (already banned)."
-msgstr ""
+msgstr "Keine Nutzer zum Sperren (bereits gesperrt)."
 
 #: admin/profiles.py:1286
 #, fuzzy
@@ -1069,7 +1096,7 @@ msgstr "✅ Ausgewählte Anmeldungen bestätigen"
 
 #: admin/profiles.py:1306
 msgid "No users to unban (none were banned)."
-msgstr ""
+msgstr "Keine Nutzer zum Entsperren (keine waren gesperrt)."
 
 #: admin/profiles.py:1308
 msgid "Reset phone verification (allows re-verification)"
@@ -1077,7 +1104,7 @@ msgstr "Telefonverifizierung zurücksetzen (ermöglicht erneute Verifizierung)"
 
 #: admin/profiles.py:1328
 msgid "Reset onboarding journey (send back to /welcome/)"
-msgstr ""
+msgstr "Onboarding-Journey zurücksetzen (zurück zu /welcome/ senden)"
 
 #: admin/profiles.py:1346
 #, python-format
@@ -1085,6 +1112,8 @@ msgid ""
 "Reset onboarding journey for %(count)s profile(s). They'll land on /welcome/"
 " on their next visit."
 msgstr ""
+"Onboarding-Journey für %(count)s Profil(e) zurückgesetzt. Sie landen bei "
+"ihrem nächsten Besuch auf /welcome/."
 
 #: admin/profiles.py:1352
 #, fuzzy
@@ -1135,11 +1164,11 @@ msgstr "Massen-E-Mail an ausgewählte Benutzer senden"
 
 #: admin/profiles.py:1511
 msgid "Merge two accounts (select exactly 2, superuser only)"
-msgstr ""
+msgstr "Zwei Konten zusammenführen (genau 2 auswählen, nur Superuser)"
 
 #: admin/profiles.py:1516
 msgid "Only superusers can merge accounts."
-msgstr ""
+msgstr "Nur Superuser können Konten zusammenführen."
 
 #: admin/profiles.py:1521
 #, fuzzy
@@ -1263,7 +1292,7 @@ msgstr "Ausgewählte Profile als CSV exportieren"
 
 #: admin/profiles.py:2241
 msgid "Confirm payment & assign coach"
-msgstr ""
+msgstr "Zahlung bestätigen & Coach zuweisen"
 
 #: admin/profiles.py:2258
 #, fuzzy, python-format
@@ -1280,19 +1309,19 @@ msgstr "%(field)s: %(error)s"
 #: admin/quiz.py:116
 #, python-format
 msgid "'%(event)s': %(warning)s"
-msgstr ""
+msgstr "'%(event)s': %(warning)s"
 
 #: admin/quiz.py:179
 msgid "Generate Quiz Night table rotation"
-msgstr ""
+msgstr "Tischrotation für den Quiz-Abend generieren"
 
 #: admin/quiz.py:199
 msgid "Mark unchecked-in registrations as No Show"
-msgstr ""
+msgstr "Nicht eingecheckte Registrierungen als „Nicht erschienen“ markieren"
 
 #: admin/quiz.py:227
 msgid "Populate Crush Quiz questions (6 rounds, 36 questions)"
-msgstr ""
+msgstr "Crush-Quiz-Fragen befüllen (6 Runden, 36 Fragen)"
 
 #: admin/quiz.py:283 templates/crush_lu/coach_quiz_config.html:105
 msgid "Readiness Check"
@@ -1309,6 +1338,8 @@ msgid ""
 "Show banner only to users with these submission statuses. Leave all "
 "unchecked to show to ALL authenticated users."
 msgstr ""
+"Banner nur Nutzern mit diesen Einreichungsstatus anzeigen. Lassen Sie alle "
+"deaktiviert, um es ALLEN angemeldeten Nutzern anzuzeigen."
 
 #: admin/site_config.py:32
 #, fuzzy
@@ -1348,6 +1379,8 @@ msgid ""
 "Show a persistent banner to users based on their profile status. Banner "
 "message and link text support EN/DE/FR translations."
 msgstr ""
+"Zeigt Nutzern basierend auf ihrem Profilstatus ein dauerhaftes Banner an. "
+"Bannernachricht und Linktext unterstützen EN/DE/FR-Übersetzungen."
 
 #: admin/special.py:148
 #, fuzzy, python-format
@@ -1819,7 +1852,7 @@ msgstr "Letzte Chance, Ihr Profil zu vervollständigen - Crush.lu"
 #: email_helpers.py:1559
 #: templates/crush_lu/emails/crush_connect_catalogue_welcome.html:4
 msgid "You're in the Crush Connect catalogue"
-msgstr ""
+msgstr "Sie sind im Crush-Connect-Katalog"
 
 #: email_helpers.py:1605
 #, fuzzy
@@ -3061,39 +3094,40 @@ msgstr "Neues Abenteuer"
 
 #: models/changelog.py:21
 msgid "Improvements"
-msgstr ""
+msgstr "Verbesserungen"
 
 #: models/changelog.py:22
 msgid "Fixes"
-msgstr ""
+msgstr "Fehlerbehebungen"
 
 #: models/changelog.py:23
 msgid "Under the Hood"
-msgstr ""
+msgstr "Unter der Haube"
 
 #: models/changelog.py:39
 msgid "Semantic version string, e.g. 'v1.1'."
-msgstr ""
+msgstr "Semantische Versionszeichenfolge, z. B. 'v1.1'."
 
 #: models/changelog.py:44
 msgid "URL slug, e.g. 'v1-1-quiz-night'."
-msgstr ""
+msgstr "URL-Slug, z. B. 'v1-1-quiz-night'."
 
 #: models/changelog.py:48
 msgid "Headline for the release, e.g. 'Quiz Night goes live'."
-msgstr ""
+msgstr "Überschrift für die Veröffentlichung, z. B. 'Quiz-Abend geht live'."
 
 #: models/changelog.py:53
 msgid "One-line lede shown at the top of the release card."
 msgstr ""
+"Einzeiliger Einleitungstext, der oben auf der Release-Karte angezeigt wird."
 
 #: models/changelog.py:56
 msgid "Public release date."
-msgstr ""
+msgstr "Öffentliches Veröffentlichungsdatum."
 
 #: models/changelog.py:61
 msgid "Toggle to show on the public /changelog/ page."
-msgstr ""
+msgstr "Umschalten, um auf der öffentlichen /changelog/-Seite anzuzeigen."
 
 # Coach Dashboard translations
 #: models/changelog.py:70
@@ -3111,21 +3145,24 @@ msgstr "Coach-Foto"
 
 #: models/changelog.py:102
 msgid "Short, warm, user-facing headline."
-msgstr ""
+msgstr "Kurze, freundliche, nutzerseitige Überschrift."
 
 #: models/changelog.py:106
 msgid "Longer plain-text description. Newlines are preserved."
-msgstr ""
+msgstr "Längere Klartextbeschreibung. Zeilenumbrüche bleiben erhalten."
 
 #: models/changelog.py:111
 msgid "List of commit SHAs that back this note."
-msgstr ""
+msgstr "Liste der Commit-SHAs, die diesen Hinweis untermauern."
 
 #: models/changelog.py:120
 msgid ""
 "Internal: True for notes produced by generate_patch_notes, False once a "
 "human has edited them. The generator only replaces rows where this is True."
 msgstr ""
+"Intern: True für Hinweise, die von generate_patch_notes erzeugt wurden, "
+"False sobald ein Mensch sie bearbeitet hat. Der Generator ersetzt nur "
+"Zeilen, bei denen dies True ist."
 
 # Coach Dashboard translations
 #: models/changelog.py:128
@@ -3220,11 +3257,13 @@ msgstr "Möchte benachrichtigt werden, wenn Crush Connect startet"
 
 #: models/crush_connect.py:55
 msgid "Marked as one of the 20 beta testers"
-msgstr ""
+msgstr "Als einer der 20 Beta-Tester markiert"
 
 #: models/crush_connect.py:60
 msgid "€10/month payment confirmed by staff (manual, no processor)"
 msgstr ""
+"Zahlung von 10 €/Monat vom Personal bestätigt (manuell, ohne "
+"Zahlungsdienstleister)"
 
 #: models/crush_connect.py:69
 #, fuzzy
@@ -3247,22 +3286,27 @@ msgid ""
 "Set when the user completes Crush Connect onboarding. Null = waitlisted/not "
 "opted-in."
 msgstr ""
+"Wird gesetzt, wenn der Nutzer das Crush-Connect-Onboarding abschließt. Null "
+"= auf Warteliste/nicht angemeldet."
 
 #: models/crush_connect.py:136
 msgid "Coach exclusion — removes the user from every Crush Connect pool"
-msgstr ""
+msgstr "Coach-Ausschluss – entfernt den Nutzer aus jedem Crush-Connect-Pool"
 
 #: models/crush_connect.py:148
 msgid "Why this user was excluded (audit trail; never shown to the user)"
 msgstr ""
+"Warum dieser Nutzer ausgeschlossen wurde (Prüfprotokoll; wird dem Nutzer nie"
+" angezeigt)"
 
 #: models/crush_connect.py:160
 msgid "The prompt this member chose to answer for their Drop card"
-msgstr ""
+msgstr "Der Prompt, den dieses Mitglied für seine Drop-Karte beantwortet hat"
 
 #: models/crush_connect.py:165
 msgid "One-line answer shown on the member's Drop card"
 msgstr ""
+"Einzeilige Antwort, die auf der Drop-Karte des Mitglieds angezeigt wird"
 
 #: models/crush_connect.py:170
 msgid "Looking for something serious"
@@ -3279,6 +3323,7 @@ msgstr "Ich bin neugierig"
 #: models/crush_connect.py:178
 msgid "Member's relationship intent, set during Connect onboarding"
 msgstr ""
+"Beziehungsabsicht des Mitglieds, festgelegt während des Connect-Onboardings"
 
 #: models/crush_connect.py:181
 msgid "Homebody"
@@ -3481,7 +3526,7 @@ msgstr "Crush.lu-Mitgliedschaft"
 
 #: models/crush_connect.py:422
 msgid "The local date this Drop was generated for"
-msgstr ""
+msgstr "Das lokale Datum, für das dieser Drop generiert wurde"
 
 #: models/crush_connect.py:432
 #, fuzzy
@@ -3506,14 +3551,16 @@ msgid ""
 "Inactive prompts stop being offered to senders but stay linked from "
 "historical Sparks"
 msgstr ""
+"Inaktive Prompts werden Sendern nicht mehr angeboten, bleiben aber mit "
+"früheren Sparks verknüpft"
 
 #: models/crush_connect.py:469
 msgid "Rotation weight (higher = more often)"
-msgstr ""
+msgstr "Rotationsgewicht (höher = häufiger)"
 
 #: models/crush_connect.py:476
 msgid "Spark Prompt"
-msgstr ""
+msgstr "Spark-Prompt"
 
 #: models/crush_connect.py:477
 #, fuzzy
@@ -3588,6 +3635,7 @@ msgstr "Abgelehnt"
 #: models/crush_connect.py:575
 msgid "The sender's one-line opener ('What made you curious?')"
 msgstr ""
+"Der einzeilige Einstieg des Senders ('Was hat deine Neugier geweckt?')"
 
 #: models/crush_connect.py:587
 #: templates/crush_lu/crush_connect/spark_compose.html:11
@@ -3629,6 +3677,7 @@ msgstr "Warum ein Coach?"
 #: models/crush_connect.py:648
 msgid "Coach's 'why I picked them' — shown to the member"
 msgstr ""
+"Das 'Warum ich sie ausgewählt habe' des Coachs – dem Mitglied angezeigt"
 
 #: models/crush_connect.py:657
 #, fuzzy
@@ -3871,7 +3920,7 @@ msgstr ""
 
 #: models/events.py:111
 msgid "Reserved premium seats"
-msgstr ""
+msgstr "Reservierte Premium-Plätze"
 
 #: models/events.py:113
 msgid ""
@@ -3879,6 +3928,9 @@ msgid ""
 "members. General members fill only (max participants − reserved). 0 = no "
 "reservation."
 msgstr ""
+"Plätze innerhalb der Gesamtkapazität, die für Premium-Mitglieder (vom Coach "
+"zugewiesen) zurückgehalten werden. Allgemeine Mitglieder füllen nur (max. "
+"Teilnehmer − reserviert). 0 = keine Reservierung."
 
 #: models/events.py:121
 msgid "Max spots (Men)"
@@ -4025,6 +4077,9 @@ msgid ""
 " 24 = 1 day). After the window closes, attendees are redirected to the Crush"
 " Connect teaser."
 msgstr ""
+"Stunden nach Veranstaltungsbeginn, bis Verbindungsanfragen nach der "
+"Veranstaltung schließen (Standard: 24 = 1 Tag). Nach Ablauf des Zeitfensters"
+" werden Teilnehmer zum Crush-Connect-Teaser weitergeleitet."
 
 #: models/events.py:264
 msgid ""
@@ -4203,10 +4258,13 @@ msgstr "Apple Wallet Pass-Seriennummer"
 #: models/events.py:648
 msgid "Timestamp the post-event feedback survey email was sent"
 msgstr ""
+"Zeitstempel, wann die Feedback-Umfrage-E-Mail nach der Veranstaltung "
+"gesendet wurde"
 
 #: models/events.py:655
 msgid "Timestamp the post-event recap email was sent"
 msgstr ""
+"Zeitstempel, wann die Rückblick-E-Mail nach der Veranstaltung gesendet wurde"
 
 #: models/events.py:713
 msgid "Guest's email address"
@@ -4310,7 +4368,7 @@ msgstr "Abstimmungs-Startzeit + 30 Minuten"
 
 #: models/events.py:1186
 msgid "Whether this person left a positive first impression"
-msgstr ""
+msgstr "Ob diese Person einen positiven ersten Eindruck hinterlassen hat"
 
 #: models/events.py:1240
 msgid "Which speed dating round (1, 2, 3...)"
@@ -4329,18 +4387,24 @@ msgstr ""
 msgid ""
 "Net Promoter Score: 0 (would not recommend) to 10 (would strongly recommend)"
 msgstr ""
+"Net Promoter Score: 0 (würde nicht empfehlen) bis 10 (würde dringend "
+"empfehlen)"
 
 #: models/events.py:1292
 msgid "Quick yes/no convenience flag derived from NPS at submission time"
 msgstr ""
+"Schnelles Ja/Nein-Komfort-Flag, abgeleitet aus dem NPS zum Zeitpunkt der "
+"Einreichung"
 
 #: models/events.py:1297
 msgid "Free-text: what the attendee enjoyed. Visible to coaches only."
-msgstr ""
+msgstr "Freitext: Was dem Teilnehmer gefallen hat. Nur für Coaches sichtbar."
 
 #: models/events.py:1301
 msgid "Free-text: suggestions for next event. Visible to coaches only."
 msgstr ""
+"Freitext: Vorschläge für die nächste Veranstaltung. Nur für Coaches "
+"sichtbar."
 
 #: models/journey.py:68
 msgid "The Wonderland of You"
@@ -4957,11 +5021,11 @@ msgstr "Newsletter-Empfänger"
 
 #: models/notifications.py:21
 msgid "Matches NotificationType.value (e.g. 'profile_approved')"
-msgstr ""
+msgstr "Entspricht NotificationType.value (z. B. 'profile_approved')"
 
 #: models/notifications.py:28
 msgid "Where the notification deep-links to when clicked"
-msgstr ""
+msgstr "Wohin die Benachrichtigung beim Anklicken per Deeplink führt"
 
 #: models/oauth_state.py:50
 msgid "Unique state identifier passed through OAuth flow"
@@ -5169,6 +5233,7 @@ msgstr "Maximale gleichzeitig zu überprüfende Profile"
 #: models/profiles.py:294
 msgid "Show this coach in the premium directory for members to choose"
 msgstr ""
+"Diesen Coach im Premium-Verzeichnis zur Auswahl durch Mitglieder anzeigen"
 
 #: models/profiles.py:298
 #, fuzzy
@@ -5348,11 +5413,12 @@ msgstr "Verfolgen, welchen Schritt der Benutzer abgeschlossen hat"
 
 #: models/profiles.py:455
 msgid "User's verification and profile completion state"
-msgstr ""
+msgstr "Verifizierungs- und Profilvervollständigungsstatus des Nutzers"
 
 #: models/profiles.py:463
 msgid "How the profile became verified (set at the verification point)"
 msgstr ""
+"Wie das Profil verifiziert wurde (zum Verifizierungszeitpunkt gesetzt)"
 
 #: models/profiles.py:468 onboarding.py:162
 msgid "I want to meet people at real events"
@@ -5532,6 +5598,7 @@ msgstr "Mitgliedschaftsstufe basierend auf Empfehlungsaktivität"
 #: models/profiles.py:693
 msgid "Permanently assigned coach (set at first event attendance)"
 msgstr ""
+"Dauerhaft zugewiesener Coach (bei erster Veranstaltungsteilnahme festgelegt)"
 
 #: models/profiles.py:698
 #, fuzzy
@@ -5612,6 +5679,9 @@ msgid ""
 "coach issues a 'revision' verdict so the next review surfaces the "
 "resubmission banner."
 msgstr ""
+"Anzahl abgeschlossener Überarbeitungszyklen. 0 = erste Prüfung. Wird erhöht,"
+" wenn ein Coach ein 'revision'-Urteil fällt, sodass die nächste Prüfung das "
+"Banner zur erneuten Einreichung anzeigt."
 
 #: models/profiles.py:997
 msgid "When coach completed the screening call"
@@ -6267,7 +6337,7 @@ msgstr "Aktiv"
 
 #: models/profiles.py:2245
 msgid "The coach the member chose"
-msgstr ""
+msgstr "Der vom Mitglied gewählte Coach"
 
 #: models/profiles.py:2258
 #, fuzzy
@@ -6742,11 +6812,11 @@ msgstr "Vor-Screening-Erinnerungs-SMS (Französisch)"
 
 #: models/site_config.py:153
 msgid "High energy"
-msgstr ""
+msgstr "Energiegeladen"
 
 #: models/site_config.py:154
 msgid "Thoughtful"
-msgstr ""
+msgstr "Nachdenklich"
 
 #: models/site_config.py:155
 #, fuzzy
@@ -6756,7 +6826,7 @@ msgstr "Teilen Sie Ihre Biografie und Interessen"
 
 #: models/site_config.py:156
 msgid "Similar life stage"
-msgstr ""
+msgstr "Ähnliche Lebensphase"
 
 #: models/site_config.py:191
 #, fuzzy
@@ -6769,6 +6839,8 @@ msgid ""
 "List of {category, language, body, is_active} entries used as starter text "
 "on the coach connection-review page."
 msgstr ""
+"Liste von {category, language, body, is_active}-Einträgen, die als Starttext"
+" auf der Coach-Verbindungsprüfungsseite verwendet werden."
 
 #: models/site_config.py:201
 msgid "Banner enabled"
@@ -6920,7 +6992,7 @@ msgstr "Ihre Verbindungsanfrage wurde akzeptiert!"
 
 #: notification_service.py:319
 msgid "Open your connections to start chatting."
-msgstr ""
+msgstr "Öffne deine Verbindungen, um zu chatten."
 
 #: notification_service.py:327
 #, fuzzy
@@ -6930,7 +7002,7 @@ msgstr "Es ist ein Match!"
 
 #: notification_service.py:328
 msgid "You both said yes — say hi."
-msgstr ""
+msgstr "Ihr habt beide Ja gesagt – sag Hallo."
 
 #: notification_service.py:336
 #, fuzzy, python-brace-format
@@ -6940,7 +7012,7 @@ msgstr "Event-Erinnerung - {title} in {days}"
 
 #: notification_service.py:337
 msgid "Make sure you're ready — check the details."
-msgstr ""
+msgstr "Stell sicher, dass du bereit bist – prüfe die Details."
 
 #: notification_service.py:346
 #, fuzzy, python-brace-format
@@ -7451,6 +7523,8 @@ msgstr ""
 msgid ""
 "Your LuxID is now connected — you can join the Crush Connect catalogue."
 msgstr ""
+"Deine LuxID ist jetzt verbunden – du kannst dem Crush-Connect-Katalog "
+"beitreten."
 
 #: signals.py:2823
 msgid "Email verified — please sign in to continue."
@@ -8325,11 +8399,11 @@ msgstr "Türnummer (1-24)"
 
 #: templates/admin/crush_lu/dashboard.html:102
 msgid "Top flags this week"
-msgstr ""
+msgstr "Top-Markierungen diese Woche"
 
 #: templates/admin/crush_lu/dashboard.html:107
 msgid "no flags"
-msgstr ""
+msgstr "keine Markierungen"
 
 #: templates/admin/crush_lu/dashboard.html:114
 #, fuzzy
@@ -8559,6 +8633,8 @@ msgstr ""
 #, python-format
 msgid "%(count)s members are awaiting review - check coach review throughput."
 msgstr ""
+"%(count)s Mitglieder warten auf die Prüfung – überprüfen Sie den Coach-"
+"Prüfungsdurchsatz."
 
 #: templates/admin/crush_lu/dashboard.html:350
 #, fuzzy
@@ -8569,7 +8645,7 @@ msgstr ""
 
 #: templates/admin/crush_lu/dashboard.html:357
 msgid "Submission Pipeline Outcomes"
-msgstr ""
+msgstr "Ergebnisse der Einreichungs-Pipeline"
 
 #: templates/admin/crush_lu/dashboard.html:359
 #, fuzzy, python-format
@@ -8707,7 +8783,7 @@ msgstr "Empfehlungszuordnung"
 
 #: templates/admin/crush_lu/dashboard.html:537
 msgid "Trending Locations (Last 30 Days)"
-msgstr ""
+msgstr "Beliebte Standorte (letzte 30 Tage)"
 
 #: templates/admin/crush_lu/dashboard.html:543
 #, fuzzy
@@ -8844,7 +8920,7 @@ msgstr "Coach-Bedienfeld"
 
 #: templates/admin/crush_lu/dashboard.html:707
 msgid "Caseload"
-msgstr ""
+msgstr "Fallzahl"
 
 #: templates/admin/crush_lu/dashboard.html:708
 #: templates/admin/crush_lu/user_segments.html:549
@@ -8919,7 +8995,7 @@ msgstr "Genehmigen"
 
 #: templates/admin/crush_lu/dashboard.html:769
 msgid "Of capacity (past events)"
-msgstr ""
+msgstr "Der Kapazität (vergangene Veranstaltungen)"
 
 #: templates/admin/crush_lu/dashboard.html:773
 #, fuzzy
@@ -9006,11 +9082,11 @@ msgstr "Event-Anmeldungen"
 
 #: templates/admin/crush_lu/dashboard.html:874
 msgid "Fill Rate"
-msgstr ""
+msgstr "Auslastungsrate"
 
 #: templates/admin/crush_lu/dashboard.html:877
 msgid "Avg NPS"
-msgstr ""
+msgstr "Durchschn. NPS"
 
 #: templates/admin/crush_lu/dashboard.html:912
 #: templates/crush_lu/my_events.html:143
@@ -9036,12 +9112,12 @@ msgstr "Event-Feedback"
 
 #: templates/admin/crush_lu/dashboard.html:957
 msgid "Net Promoter Score"
-msgstr ""
+msgstr "Net Promoter Score"
 
 #: templates/admin/crush_lu/dashboard.html:959
 #, python-format
 msgid "Avg rating %(avg)s / 10"
-msgstr ""
+msgstr "Durchschn. Bewertung %(avg)s / 10"
 
 #: templates/admin/crush_lu/dashboard.html:963
 #: templates/admin/crush_lu/dashboard.html:988
@@ -9053,7 +9129,7 @@ msgstr "Stimmen"
 
 #: templates/admin/crush_lu/dashboard.html:965
 msgid "Score 9–10"
-msgstr ""
+msgstr "Wert 9–10"
 
 #: templates/admin/crush_lu/dashboard.html:969
 #: templates/admin/crush_lu/dashboard.html:989
@@ -9065,7 +9141,7 @@ msgstr "Weiter"
 
 #: templates/admin/crush_lu/dashboard.html:971
 msgid "Score 7–8"
-msgstr ""
+msgstr "Wert 7–8"
 
 #: templates/admin/crush_lu/dashboard.html:975
 #: templates/admin/crush_lu/dashboard.html:990
@@ -9077,7 +9153,7 @@ msgstr "Match-Faktoren"
 
 #: templates/admin/crush_lu/dashboard.html:977
 msgid "Score 0–6"
-msgstr ""
+msgstr "Wert 0–6"
 
 #: templates/admin/crush_lu/dashboard.html:981
 #, fuzzy
@@ -9426,7 +9502,7 @@ msgstr "Einstellung"
 
 #: templates/admin/crush_lu/dashboard.html:1278
 msgid "approved users configured"
-msgstr ""
+msgstr "genehmigte Nutzer konfiguriert"
 
 #: templates/admin/crush_lu/dashboard.html:1282
 #, fuzzy
@@ -9448,7 +9524,7 @@ msgstr "Altersbereich"
 
 #: templates/admin/crush_lu/dashboard.html:1290
 msgid "among custom-range users"
-msgstr ""
+msgstr "unter Nutzern mit benutzerdefiniertem Bereich"
 
 #: templates/admin/crush_lu/dashboard.html:1294
 #, fuzzy
@@ -9809,11 +9885,11 @@ msgstr "Durchschn. / Tag"
 
 #: templates/admin/crush_lu/dashboard.html:1604
 msgid "Max DAU"
-msgstr ""
+msgstr "Max. DAU"
 
 #: templates/admin/crush_lu/dashboard.html:1609
 msgid "Min DAU"
-msgstr ""
+msgstr "Min. DAU"
 
 #: templates/admin/crush_lu/dashboard.html:1620
 #, fuzzy
@@ -10407,7 +10483,7 @@ msgstr "Anonymisierte Analysen"
 
 #: templates/admin/crush_lu/poll_analytics.html:44
 msgid "Results and insights from event preference polls"
-msgstr ""
+msgstr "Ergebnisse und Erkenntnisse aus Veranstaltungspräferenz-Umfragen"
 
 #: templates/admin/crush_lu/poll_analytics.html:49
 #, fuzzy
@@ -10462,7 +10538,7 @@ msgstr "Stimmen"
 
 #: templates/admin/crush_lu/poll_analytics.html:74
 msgid "Ends"
-msgstr ""
+msgstr "Endet"
 
 #: templates/admin/crush_lu/poll_analytics.html:86
 #: templates/admin/crush_lu/poll_analytics.html:114
@@ -10488,7 +10564,7 @@ msgstr "Schließen"
 
 #: templates/admin/crush_lu/poll_analytics.html:122
 msgid "Drafts (Unpublished)"
-msgstr ""
+msgstr "Entwürfe (unveröffentlicht)"
 
 #: templates/admin/crush_lu/poll_analytics.html:128
 #: templates/crush_lu/coach_member_overview.html:614
@@ -18093,6 +18169,10 @@ msgid ""
 "subscription needed. LuxID identity verification is what keeps the catalogue"
 " real people only."
 msgstr ""
+"Verbinde deine LuxID und melde dich für Crush Connect an – du erscheinst als"
+" Kandidat, den ein Crush-Coach für das Match eines Premium-Mitglieds "
+"auswählen kann, ohne Abo. Die LuxID-Identitätsprüfung sorgt dafür, dass der "
+"Katalog nur echte Menschen enthält."
 
 #: templates/crush_lu/crush_connect.html:141
 msgid "Your 4 weeks"
@@ -18188,11 +18268,11 @@ msgstr "Noch nicht auf der Warteliste"
 
 #: templates/crush_lu/crush_connect.html:243
 msgid "LuxID verified — you can enter the candidate catalogue"
-msgstr ""
+msgstr "LuxID verifiziert – du kannst den Kandidatenkatalog betreten"
 
 #: templates/crush_lu/crush_connect.html:248
 msgid "Connect LuxID to enter the candidate catalogue"
-msgstr ""
+msgstr "LuxID verbinden, um den Kandidatenkatalog zu betreten"
 
 #: templates/crush_lu/crush_connect.html:258
 msgid "Selected as a beta tester"
@@ -18252,7 +18332,7 @@ msgstr "Dieses Mitglied hat noch keine Story geteilt."
 
 #: templates/crush_lu/crush_connect/_drop_card.html:140
 msgid "Spark sent — you'll hear back if it's mutual."
-msgstr ""
+msgstr "Spark gesendet – du hörst zurück, wenn es beidseitig ist."
 
 #: templates/crush_lu/crush_connect/_drop_card.html:145
 #, fuzzy
@@ -18282,6 +18362,9 @@ msgid ""
 "introduce you to a Premium member as a hand-picked match — we'll let you "
 "know the moment that happens."
 msgstr ""
+"Deine LuxID ist verifiziert und deine Story ist online. Ein Crush-Coach kann"
+" dich nun einem Premium-Mitglied als handverlesenes Match vorstellen – wir "
+"benachrichtigen dich, sobald das passiert."
 
 #: templates/crush_lu/crush_connect/catalogue_status.html:24
 #, fuzzy
@@ -18311,7 +18394,7 @@ msgstr[1] "Erzähl uns von dir"
 
 #: templates/crush_lu/crush_connect/catalogue_status.html:70
 msgid "View their Spark and decide — declines stay silent."
-msgstr ""
+msgstr "Sieh dir ihren Spark an und entscheide – Absagen bleiben still."
 
 #: templates/crush_lu/crush_connect/catalogue_status.html:79
 #: templates/crush_lu/emails/crush_connect_catalogue_welcome.html:21
@@ -18327,6 +18410,9 @@ msgid ""
 "Being in the catalogue means others can be matched with you. With Premium, a"
 " personal Crush Coach picks matches for you — delivered in your own Drop."
 msgstr ""
+"Im Katalog zu sein bedeutet, dass andere mit dir gematcht werden können. Mit"
+" Premium wählt ein persönlicher Crush-Coach Matches für dich aus – geliefert"
+" in deinem eigenen Drop."
 
 #: templates/crush_lu/crush_connect/catalogue_status.html:85
 #: templates/crush_lu/emails/crush_connect_catalogue_welcome.html:25
@@ -18370,18 +18456,20 @@ msgid ""
 "Their eligible pool (mutual preferences, LuxID-verified, opted in). Your "
 "pick replaces their algorithmic Drop."
 msgstr ""
+"Ihr infrage kommender Pool (beidseitige Präferenzen, LuxID-verifiziert, "
+"angemeldet). Deine Auswahl ersetzt ihren algorithmischen Drop."
 
 #: templates/crush_lu/crush_connect/coach_member_detail.html:20
 msgid "Pick history"
-msgstr ""
+msgstr "Auswahlverlauf"
 
 #: templates/crush_lu/crush_connect/coach_member_detail.html:99
 msgid "Already proposed to this member"
-msgstr ""
+msgstr "Diesem Mitglied bereits vorgeschlagen"
 
 #: templates/crush_lu/crush_connect/coach_member_detail.html:105
 msgid "Why this match? (shown to your member)"
-msgstr ""
+msgstr "Warum dieses Match? (deinem Mitglied angezeigt)"
 
 #: templates/crush_lu/crush_connect/coach_member_detail.html:107
 #, fuzzy
@@ -18394,6 +18482,8 @@ msgid ""
 "No eligible candidates right now — the pool requires LuxID-verified, opted-"
 "in members matching their preferences."
 msgstr ""
+"Derzeit keine infrage kommenden Kandidaten – der Pool erfordert LuxID-"
+"verifizierte, angemeldete Mitglieder, die ihren Präferenzen entsprechen."
 
 #: templates/crush_lu/crush_connect/coach_members.html:4
 #, fuzzy
@@ -18412,6 +18502,8 @@ msgid ""
 "Your Premium members. Pick the right candidate for each — your pick becomes "
 "their match of the week."
 msgstr ""
+"Deine Premium-Mitglieder. Wähle für jedes den richtigen Kandidaten – deine "
+"Auswahl wird ihr Match der Woche."
 
 #: templates/crush_lu/crush_connect/coach_members.html:25
 #, fuzzy
@@ -18428,11 +18520,11 @@ msgstr "%(name)s hat die Antworten aktualisiert"
 #: templates/crush_lu/crush_connect/coach_members.html:30
 #, python-format
 msgid "Accepted: %(name)s — arrange their date!"
-msgstr ""
+msgstr "Angenommen: %(name)s – vereinbare ihr Date!"
 
 #: templates/crush_lu/crush_connect/coach_members.html:33
 msgid "No open pick — choose a candidate"
-msgstr ""
+msgstr "Keine offene Auswahl – wähle einen Kandidaten"
 
 #: templates/crush_lu/crush_connect/coach_members.html:39
 #, fuzzy
@@ -18554,11 +18646,11 @@ msgstr "Lernen Sie Ihren Coach kennen"
 #: templates/crush_lu/crush_connect/home.html:50
 #, python-format
 msgid "Why %(name)s picked them for you"
-msgstr ""
+msgstr "Warum %(name)s sie für dich ausgewählt hat"
 
 #: templates/crush_lu/crush_connect/home.html:58
 msgid "Yes — arrange a date"
-msgstr ""
+msgstr "Ja – ein Date vereinbaren"
 
 #: templates/crush_lu/crush_connect/home.html:61
 #: templates/crush_lu/crush_connect/sparks_received.html:39
@@ -18572,6 +18664,8 @@ msgid ""
 "Accept and your Crush Coach contacts them personally to confirm interest and"
 " arrange your date."
 msgstr ""
+"Nimm an, und dein Crush-Coach kontaktiert sie persönlich, um das Interesse "
+"zu bestätigen und dein Date zu vereinbaren."
 
 #: templates/crush_lu/crush_connect/home.html:75
 #, python-format
@@ -18854,6 +18948,9 @@ msgid ""
 "One Spark, one line. If they're curious too, your Crush Coach arranges the "
 "date. If not, they simply won't reply — no awkwardness."
 msgstr ""
+"Ein Spark, eine Zeile. Wenn sie auch neugierig sind, vereinbart dein Crush-"
+"Coach das Date. Falls nicht, antworten sie einfach nicht – keine "
+"Peinlichkeit."
 
 #: templates/crush_lu/crush_connect/spark_compose.html:30
 #, fuzzy
@@ -18865,7 +18962,7 @@ msgstr ""
 
 #: templates/crush_lu/crush_connect/spark_compose.html:38
 msgid "One honest line — it goes a long way."
-msgstr ""
+msgstr "Eine ehrliche Zeile – sie bewirkt viel."
 
 #: templates/crush_lu/crush_connect/spark_compose.html:49
 #, fuzzy
@@ -18875,7 +18972,7 @@ msgstr "Crush Spark senden"
 
 #: templates/crush_lu/crush_connect/spark_compose.html:58
 msgid "Declines are silent — you'll only hear back when it's mutual."
-msgstr ""
+msgstr "Absagen sind still – du hörst nur zurück, wenn es beidseitig ist."
 
 #: templates/crush_lu/crush_connect/sparks_received.html:4
 #, fuzzy
@@ -18894,6 +18991,8 @@ msgid ""
 "People who saw your card and got curious. Accept, and your Crush Coach "
 "arranges the date. Decline, and they'll never know."
 msgstr ""
+"Menschen, die deine Karte gesehen haben und neugierig wurden. Nimm an, und "
+"dein Crush-Coach vereinbart das Date. Lehne ab, und sie erfahren es nie."
 
 #: templates/crush_lu/crush_connect/sparks_received.html:27
 #, fuzzy
@@ -18909,19 +19008,23 @@ msgstr "Ich bin neugierig, schaue mich noch um"
 
 #: templates/crush_lu/crush_connect/sparks_received.html:51
 msgid "No Sparks waiting."
-msgstr ""
+msgstr "Keine Sparks in Wartestellung."
 
 #: templates/crush_lu/crush_connect/sparks_received.html:54
 msgid ""
 "When someone gets curious about your card, you'll find them here — we'll "
 "also send you an email."
 msgstr ""
+"Wenn jemand neugierig auf deine Karte wird, findest du ihn hier – wir senden"
+" dir auch eine E-Mail."
 
 #: templates/crush_lu/crush_connect/sparks_received.html:60
 msgid ""
 "Privacy: photos stay blurred and full names hidden until your coach confirms"
 " a mutual date."
 msgstr ""
+"Datenschutz: Fotos bleiben verschwommen und vollständige Namen verborgen, "
+"bis dein Coach ein beidseitiges Date bestätigt."
 
 #: templates/crush_lu/crush_preferences.html:4
 msgid "Your Ideal Crush - Crush.lu"
@@ -19055,13 +19158,15 @@ msgstr "Verbinde LuxID oder besuche ein Event, um dein Profil zu aktivieren."
 
 #: templates/crush_lu/dashboard.html:95
 msgid "Connect LuxID to join the Crush Connect catalogue"
-msgstr ""
+msgstr "LuxID verbinden, um dem Crush-Connect-Katalog beizutreten"
 
 #: templates/crush_lu/dashboard.html:96
 msgid ""
 "LuxID-verified members can be hand-picked by a Crush Coach as a match for "
 "Premium members — free, no subscription needed."
 msgstr ""
+"LuxID-verifizierte Mitglieder können von einem Crush-Coach als Match für "
+"Premium-Mitglieder handverlesen werden – kostenlos, kein Abo nötig."
 
 #: templates/crush_lu/dashboard.html:100
 #: templates/crush_lu/partials/_verification_options.html:72
@@ -20392,12 +20497,16 @@ msgid ""
 "Your LuxID is verified and your story is live — a Crush Coach can now hand-"
 "pick you as a match for a Premium member."
 msgstr ""
+"Deine LuxID ist verifiziert und deine Story ist online – ein Crush-Coach "
+"kann dich nun als Match für ein Premium-Mitglied handverlesen."
 
 #: templates/crush_lu/emails/crush_connect_catalogue_welcome.html:15
 msgid ""
 "A real Crush Coach — not an algorithm — may introduce you to a Premium "
 "member as a curated match"
 msgstr ""
+"Ein echter Crush-Coach – kein Algorithmus – kann dich einem Premium-Mitglied"
+" als kuratiertes Match vorstellen"
 
 #: templates/crush_lu/emails/crush_connect_catalogue_welcome.html:16
 #, fuzzy
@@ -20414,13 +20523,15 @@ msgstr ""
 
 #: templates/crush_lu/emails/crush_connect_catalogue_welcome.html:17
 msgid "We'll let you know the moment a coach picks you"
-msgstr ""
+msgstr "Wir benachrichtigen dich, sobald ein Coach dich auswählt"
 
 #: templates/crush_lu/emails/crush_connect_catalogue_welcome.html:22
 msgid ""
 "With Premium, a personal Crush Coach picks matches for you — delivered in "
 "your own weekly Drop."
 msgstr ""
+"Mit Premium wählt ein persönlicher Crush-Coach Matches für dich aus – "
+"geliefert in deinem eigenen wöchentlichen Drop."
 
 #: templates/crush_lu/emails/crush_connect_catalogue_welcome.html:27
 #, python-format
@@ -20428,6 +20539,9 @@ msgid ""
 "You can review your story or leave the catalogue anytime from your <a "
 "href=\"%(dashboard_url)s\">dashboard</a>."
 msgstr ""
+"Du kannst deine Story jederzeit über dein <a "
+"href=\"%(dashboard_url)s\">Dashboard</a> überprüfen oder den Katalog "
+"verlassen."
 
 #: templates/crush_lu/emails/crush_connect_catalogue_welcome.html:30
 #: templates/crush_lu/emails/crush_connect_spark_accepted.html:18
@@ -20447,13 +20561,15 @@ msgstr "Es ist ein Match!"
 #: templates/crush_lu/emails/crush_connect_spark_accepted.html:11
 #, python-format
 msgid "%(name)s is curious about you too."
-msgstr ""
+msgstr "%(name)s ist auch neugierig auf dich."
 
 #: templates/crush_lu/emails/crush_connect_spark_accepted.html:13
 msgid ""
 "Your Crush Coach has been looped in and will be in touch to arrange your "
 "date — a real meeting, the way Crush works best."
 msgstr ""
+"Dein Crush-Coach wurde einbezogen und meldet sich, um dein Date zu "
+"vereinbaren – ein echtes Treffen, so wie Crush am besten funktioniert."
 
 #: templates/crush_lu/emails/crush_connect_spark_received.html:9
 #: templates/crush_lu/emails/existing_user_invitation.html:108
@@ -20483,6 +20599,9 @@ msgid ""
 "decide whether you're curious too. If you accept, your Crush Coach will be "
 "in touch to arrange a date. If you decline, they'll never know."
 msgstr ""
+"Sieh dir ihre Karte an – nur Vorname, Story und Interessen – und entscheide,"
+" ob du auch neugierig bist. Wenn du annimmst, meldet sich dein Crush-Coach, "
+"um ein Date zu vereinbaren. Wenn du ablehnst, erfahren sie es nie."
 
 #: templates/crush_lu/emails/crush_connect_spark_received.html:22
 #, fuzzy
@@ -26745,6 +26864,8 @@ msgid ""
 "Connect LuxID to enter the Crush Connect catalogue and become discoverable "
 "to Premium members."
 msgstr ""
+"LuxID verbinden, um den Crush-Connect-Katalog zu betreten und für Premium-"
+"Mitglieder auffindbar zu werden."
 
 #: templates/crush_lu/partials/_verification_journey.html:53
 msgid "Please contact support — we'll sort it out together."
@@ -26773,7 +26894,7 @@ msgstr ""
 
 #: templates/crush_lu/partials/_verification_journey.html:103
 msgid "Premium — payment pending"
-msgstr ""
+msgstr "Premium – Zahlung ausstehend"
 
 #: templates/crush_lu/partials/_verification_journey.html:104
 #, fuzzy, python-format
@@ -26817,6 +26938,8 @@ msgid ""
 "A coach will verify you in person when you attend — no further action needed"
 " before then. See you there!"
 msgstr ""
+"Ein Coach verifiziert dich persönlich, wenn du teilnimmst – bis dahin ist "
+"keine weitere Aktion nötig. Wir sehen uns dort!"
 
 #: templates/crush_lu/partials/_verification_journey.html:113
 #, fuzzy
@@ -26846,6 +26969,8 @@ msgstr "Du bist auf der Warteliste"
 msgid ""
 "No need to pick another option — just complete your premium membership."
 msgstr ""
+"Du musst keine andere Option wählen – schließe einfach deine Premium-"
+"Mitgliedschaft ab."
 
 #: templates/crush_lu/partials/_verification_options.html:27
 #, fuzzy, python-format
@@ -26864,6 +26989,8 @@ msgid ""
 "Payment pending — we'll be in touch. You can change your coach or cancel "
 "from here."
 msgstr ""
+"Zahlung ausstehend – wir melden uns. Du kannst hier deinen Coach ändern oder"
+" kündigen."
 
 #: templates/crush_lu/partials/_verification_options.html:38
 msgid "Two ways to get verified"
@@ -26918,6 +27045,10 @@ msgid ""
 "pick you for a Premium member's match. Go Premium to receive your own — 4 "
 "matches over 4 weeks, one hand-picked each week. Free for the first month."
 msgstr ""
+"Verbinde LuxID (kostenlos), um den Kandidatenkatalog zu betreten, damit ein "
+"Crush-Coach dich für das Match eines Premium-Mitglieds auswählen kann. Werde"
+" Premium, um deine eigenen zu erhalten – 4 Matches über 4 Wochen, jede Woche"
+" eines handverlesen. Den ersten Monat kostenlos."
 
 #: templates/crush_lu/partials/_verifier_card.html:36
 msgid "Official"
@@ -33666,14 +33797,17 @@ msgstr "Die Bio darf höchstens 500 Zeichen lang sein"
 #: views_crush_connect.py:520
 msgid "Spark sent. If they're curious too, your coach takes it from there."
 msgstr ""
+"Spark gesendet. Wenn sie auch neugierig sind, übernimmt dein Coach von dort."
 
 #: views_crush_connect.py:602
 msgid "It's mutual! Your Crush Coach will be in touch to arrange your date."
 msgstr ""
+"Es ist beidseitig! Dein Crush-Coach meldet sich, um dein Date zu "
+"vereinbaren."
 
 #: views_crush_connect.py:605
 msgid "Spark declined — they won't be told."
-msgstr ""
+msgstr "Spark abgelehnt – sie werden nicht informiert."
 
 #: views_crush_connect.py:686
 #, fuzzy
@@ -33683,7 +33817,7 @@ msgstr "Du hast diese Herausforderung gelöst!"
 
 #: views_crush_connect.py:687
 msgid "This candidate isn't in their eligible pool."
-msgstr ""
+msgstr "Dieser Kandidat ist nicht in ihrem infrage kommenden Pool."
 
 #: views_crush_connect.py:688
 #, fuzzy
@@ -33693,25 +33827,28 @@ msgstr "Dieses Mitglied hat noch keine Story geteilt."
 
 #: views_crush_connect.py:691
 msgid "This pick isn't possible right now."
-msgstr ""
+msgstr "Diese Auswahl ist derzeit nicht möglich."
 
 #: views_crush_connect.py:696
 #, python-format
 msgid "Pick proposed — %(name)s will see it on their next visit."
-msgstr ""
+msgstr "Auswahl vorgeschlagen – %(name)s sieht sie bei ihrem nächsten Besuch."
 
 #: views_crush_connect.py:749
 msgid ""
 "This pick is no longer available — your coach will propose someone new."
 msgstr ""
+"Diese Auswahl ist nicht mehr verfügbar – dein Coach schlägt jemand Neuen "
+"vor."
 
 #: views_crush_connect.py:754
 msgid "Wonderful — your Crush Coach will contact them and arrange your date."
 msgstr ""
+"Wunderbar – dein Crush-Coach kontaktiert sie und vereinbart dein Date."
 
 #: views_crush_connect.py:759
 msgid "No problem — your coach will pick someone else for you."
-msgstr ""
+msgstr "Kein Problem – dein Coach wählt jemand anderen für dich aus."
 
 #: views_crush_spark.py:50 views_crush_spark.py:243
 msgid "You must have attended this event to send a Crush Spark."
@@ -34160,7 +34297,7 @@ msgstr ""
 
 #: views_premium.py:152
 msgid "You have no pending premium request to cancel."
-msgstr ""
+msgstr "Du hast keine ausstehende Premium-Anfrage zum Kündigen."
 
 #: views_profile.py:146
 msgid "Please select your gender"
