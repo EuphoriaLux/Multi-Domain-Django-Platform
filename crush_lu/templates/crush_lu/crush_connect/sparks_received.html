@@ -55,6 +55,18 @@
                     </div>
                 </div>
 
+                {# Sender's story — the Drop-card context recipients decide on. #}
+                {% with m=sender.crush_connect_membership %}
+                {% if m.story_answer %}
+                <div class="mb-3">
+                    {% if m.story_prompt %}
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1">{{ m.story_prompt.text }}</p>
+                    {% endif %}
+                    <p class="font-display text-[15px] leading-snug italic text-gray-900 dark:text-white mb-0">&ldquo;{{ m.story_answer }}&rdquo;</p>
+                </div>
+                {% endif %}
+                {% endwith %}
+
                 {# Their one-line message. #}
                 {% if spark.message %}
                 <div class="rounded-r-xl bg-crush-purple/5 dark:bg-crush-pink/10 border-l-2 border-crush-purple/35 px-3.5 py-2.5 mb-3">

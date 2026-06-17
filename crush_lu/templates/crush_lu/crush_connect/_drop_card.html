@@ -36,18 +36,13 @@ Privacy contract (Crush Connect):
             </span>
         </div>
 
-        {# Name + age range overlaid at the foot of the photo. #}
+        {# Name + age range overlaid at the foot of the photo. Per the privacy
+           contract above, no location is shown pre-reveal. #}
         <div class="absolute inset-x-4 bottom-4 flex items-end justify-between gap-3">
             <div class="min-w-0">
                 <h3 class="font-display text-2xl font-semibold leading-none text-white truncate">
                     {{ target.first_name|default:_("A member") }}
                 </h3>
-                {% if target_profile.location %}
-                <p class="mt-1.5 inline-flex items-center gap-1 text-xs text-white/80 mb-0">
-                    {% include "shared/icons/map-pin.html" with class="w-3 h-3" %}
-                    {{ target_profile.location }}
-                </p>
-                {% endif %}
             </div>
             {% if target_profile.age %}
             <span class="shrink-0 rounded-full bg-white/90 px-3 py-1 text-xs font-bold text-crush-purple-dark">

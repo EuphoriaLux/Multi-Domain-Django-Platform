@@ -23,10 +23,10 @@
             <span class="text-crush-purple dark:text-crush-pink">{{ step_cfg.title }}</span>
         </div>
 
-        <a href="{% url 'crush_lu:crush_connect_hub' %}"
-           class="text-sm font-medium text-gray-400 dark:text-gray-500 hover:text-crush-purple dark:hover:text-crush-pink transition-colors no-underline">
-            {% trans "Save & exit" %}
-        </a>
+        {# Balancing spacer (mirrors the back button) so the step label stays centred.
+           Progress is saved per step on Continue; there is no standalone save-and-exit
+           action, so we don't surface a link that would loop back through the gate. #}
+        <span class="w-9 h-9"></span>
     </div>
 
     {# Segmented progress — makes a long form feel short. #}
