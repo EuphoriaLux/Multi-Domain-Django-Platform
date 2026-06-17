@@ -8,7 +8,6 @@ Includes:
 - EventVotingSessionAdmin
 - PresentationQueueAdmin
 - PresentationRatingAdmin
-- SpeedDatingPairAdmin
 """
 
 from django.contrib import admin
@@ -17,7 +16,7 @@ from django.utils.translation import gettext_lazy as _
 
 from crush_lu.models import (
     GlobalActivityOption, EventActivityOption, EventActivityVote,
-    EventVotingSession, PresentationQueue, PresentationRating, SpeedDatingPair,
+    EventVotingSession, PresentationQueue, PresentationRating,
 )
 
 
@@ -216,25 +215,3 @@ class PresentationRatingAdmin(admin.ModelAdmin):
     )
 
 
-class SpeedDatingPairAdmin(admin.ModelAdmin):
-    list_display = ('event', 'round_number', 'user1', 'user2', 'mutual_rating_score', 'is_top_match', 'duration_minutes')
-    list_select_related = ["event", "user1", "user2"]
-    list_filter = ('is_top_match', 'event', 'round_number')
-    search_fields = ('user1__username', 'user2__username', 'event__title')
-    readonly_fields = ('created_at', 'duration_minutes')
-    ordering = ['event', 'round_number']
-
-    fieldsets = (
-        ('Pairing Details', {
-            'fields': ('event', 'user1', 'user2', 'round_number')
-        }),
-        ('Matching Data', {
-            'fields': ('mutual_rating_score', 'is_top_match', 'duration_minutes')
-        }),
-        ('Timing', {
-            'fields': ('started_at', 'completed_at')
-        }),
-        ('Metadata', {
-            'fields': ('created_at',)
-        }),
-    )

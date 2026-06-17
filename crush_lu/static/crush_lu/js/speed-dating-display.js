@@ -26,8 +26,6 @@ document.addEventListener("alpine:init", function () {
         var strPresented = el.dataset.strPresented || "presented";
         var strTotal = el.dataset.strTotal || "total";
         var strPresenter = el.dataset.strPresenter || "Presenter";
-        var strRound = el.dataset.strRound || "Round";
-        var strCouplesRound = el.dataset.strCouplesRound || "couples this round";
 
         // ─────────────────────────────────────────────────────────────────
         // GENDER HELPERS
@@ -58,7 +56,7 @@ document.addEventListener("alpine:init", function () {
         // ─────────────────────────────────────────────────────────────────
         // PHASE DISPLAY NAMES (for the top-bar phase indicator)
         // ─────────────────────────────────────────────────────────────────
-        var PHASE_ORDER = ["welcome", "voting", "presentations", "speed_dating"];
+        var PHASE_ORDER = ["welcome", "voting", "presentations"];
         var PHASE_GROUPS = { voting_results: "voting" }; // voting_results is part of "voting" step
 
         // ─────────────────────────────────────────────────────────────────
@@ -243,10 +241,6 @@ document.addEventListener("alpine:init", function () {
                     key: "presentations",
                     label: el.dataset.strPhasePresents || "Presentations",
                 },
-                {
-                    key: "speed_dating",
-                    label: el.dataset.strPhaseDating || "Speed Dating",
-                },
             ],
 
             // ── Computed ──────────────────────────────────────────────────
@@ -277,9 +271,6 @@ document.addEventListener("alpine:init", function () {
             get isPresentations() {
                 return this.screen === "presentations";
             },
-            get isSpeedDating() {
-                return this.screen === "speed_dating";
-            },
             get ringOffset() {
                 return 100 - this.attendancePct;
             },
@@ -306,12 +297,6 @@ document.addEventListener("alpine:init", function () {
             },
             get progressStyle() {
                 return "width:" + (this.phaseData.progress_pct || 0) + "%";
-            },
-            get currentRound() {
-                return this.phaseData.current_round || 1;
-            },
-            get totalPairs() {
-                return this.phaseData.total_pairs || 0;
             },
 
             // ── Countdown formatter ───────────────────────────────────────
