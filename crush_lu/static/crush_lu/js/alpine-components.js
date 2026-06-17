@@ -142,13 +142,13 @@ document.addEventListener("alpine:init", function () {
                             );
                         } else {
                             self.error = true;
-                            self.errorMsg = data.error || "Failed to generate ticket.";
+                            self.errorMsg = data.error || gettext("Failed to generate ticket.");
                         }
                     })
                     .catch(function (err) {
                         self.loading = false;
                         self.error = true;
-                        self.errorMsg = "Network error. Please try again.";
+                        self.errorMsg = gettext("Network error. Please try again.");
                     });
             },
         };
@@ -754,7 +754,7 @@ document.addEventListener("alpine:init", function () {
                 if (typeof Html5Qrcode === "undefined") {
                     self.result = true;
                     self.errorState = true;
-                    self.message = "QR scanner library not loaded.";
+                    self.message = gettext("QR scanner library not loaded.");
                     return;
                 }
 
@@ -780,20 +780,20 @@ document.addEventListener("alpine:init", function () {
                             errStr.indexOf("Permission") !== -1
                         ) {
                             self.message =
-                                "Camera permission denied. Please allow camera access in your browser settings (click the lock icon in the address bar) and try again.";
+                                gettext("Camera permission denied. Please allow camera access in your browser settings (click the lock icon in the address bar) and try again.");
                         } else if (
                             errStr.indexOf("NotFoundError") !== -1 ||
                             errStr.indexOf("DevicesNotFound") !== -1
                         ) {
-                            self.message = "No camera found on this device.";
+                            self.message = gettext("No camera found on this device.");
                         } else if (
                             errStr.indexOf("NotReadableError") !== -1 ||
                             errStr.indexOf("TrackStartError") !== -1
                         ) {
                             self.message =
-                                "Camera is in use by another application. Please close other apps using the camera and try again.";
+                                gettext("Camera is in use by another application. Please close other apps using the camera and try again.");
                         } else {
-                            self.message = "Could not start camera: " + errStr;
+                            self.message = gettext("Could not start camera: ") + errStr;
                         }
                         readerEl.style.display = "none";
                     });
@@ -850,7 +850,7 @@ document.addEventListener("alpine:init", function () {
                         } else {
                             self.success = false;
                             self.errorState = true;
-                            self.message = data.error || "Check-in failed.";
+                            self.message = data.error || gettext("Check-in failed.");
                         }
                         setTimeout(function () {
                             if (self.scanner && self.scannerActive) {
@@ -864,7 +864,7 @@ document.addEventListener("alpine:init", function () {
                         self.result = true;
                         self.success = false;
                         self.errorState = true;
-                        self.message = "Network error or invalid QR code.";
+                        self.message = gettext("Network error or invalid QR code.");
                         setTimeout(function () {
                             if (self.scanner && self.scannerActive) {
                                 try {
@@ -2188,7 +2188,7 @@ document.addEventListener("alpine:init", function () {
                     })
                     .catch(function (err) {
                         self.isEnabling = false;
-                        self.errorMessage = "An error occurred. Please try again.";
+                        self.errorMessage = gettext("An error occurred. Please try again.");
                         console.error("[Push] Enable error:", err);
                     });
             },
@@ -2215,7 +2215,7 @@ document.addEventListener("alpine:init", function () {
                     })
                     .catch(function (err) {
                         self.isDisabling = false;
-                        self.errorMessage = "An error occurred. Please try again.";
+                        self.errorMessage = gettext("An error occurred. Please try again.");
                         console.error("[Push] Disable error:", err);
                     });
             },
@@ -2250,7 +2250,7 @@ document.addEventListener("alpine:init", function () {
                     })
                     .catch(function (err) {
                         self.isDisabling = false;
-                        self.errorMessage = "An error occurred. Please try again.";
+                        self.errorMessage = gettext("An error occurred. Please try again.");
                         console.error("[Push] Remote disable error:", err);
                     });
             },
@@ -2395,19 +2395,19 @@ document.addEventListener("alpine:init", function () {
                         .then(function (success) {
                             if (success) {
                                 // Show success and reload
-                                alert("Subscription refreshed successfully");
+                                alert(gettext("Subscription refreshed successfully"));
                                 window.location.reload();
                             } else {
-                                alert("Failed to refresh subscription");
+                                alert(gettext("Failed to refresh subscription"));
                             }
                         })
                         .catch(function (error) {
                             console.error("Error refreshing:", error);
-                            alert("Error refreshing subscription");
+                            alert(gettext("Error refreshing subscription"));
                         });
                 } else {
                     alert(
-                        "Push notification system not loaded. Please refresh the page and try again.",
+                        gettext("Push notification system not loaded. Please refresh the page and try again."),
                     );
                 }
             },
@@ -3063,7 +3063,7 @@ document.addEventListener("alpine:init", function () {
                     })
                     .catch(function (err) {
                         self.isDisabling = false;
-                        self.errorMessage = "An error occurred. Please try again.";
+                        self.errorMessage = gettext("An error occurred. Please try again.");
                         console.error("[CoachPush] Remote disable error:", err);
                     });
             },
@@ -3388,12 +3388,12 @@ document.addEventListener("alpine:init", function () {
                                     "[PHOTO UPLOAD] ❌ Upload failed:",
                                     result.error,
                                 );
-                                alert("Photo upload failed: " + result.error);
+                                alert(gettext("Photo upload failed: ") + result.error);
                             }
                         })
                         .catch(function (err) {
                             console.error("[PHOTO UPLOAD] ❌ Network error:", err);
-                            alert("Photo upload failed. Please try again.");
+                            alert(gettext("Photo upload failed. Please try again."));
                         });
                 }
             },
@@ -3447,12 +3447,12 @@ document.addEventListener("alpine:init", function () {
                                 "[PHOTO REMOVE] ❌ Delete failed:",
                                 result.error,
                             );
-                            alert("Could not remove the photo: " + result.error);
+                            alert(gettext("Could not remove the photo: ") + result.error);
                         }
                     })
                     .catch(function (err) {
                         console.error("[PHOTO REMOVE] ❌ Network error:", err);
-                        alert("Could not remove the photo. Please try again.");
+                        alert(gettext("Could not remove the photo. Please try again."));
                     });
             },
         };
@@ -4185,7 +4185,7 @@ document.addEventListener("alpine:init", function () {
                         } else {
                             self.saveError =
                                 result.data.error ||
-                                "Failed to save. Please try again.";
+                                gettext("Failed to save. Please try again.");
                             // Handle field-specific errors from backend
                             if (result.data.errors) {
                                 self.fieldErrors = result.data.errors;
@@ -4199,7 +4199,7 @@ document.addEventListener("alpine:init", function () {
                     })
                     .catch(function (err) {
                         self.isSaving = false;
-                        self.saveError = "Network error. Please check your connection.";
+                        self.saveError = gettext("Network error. Please check your connection.");
                         return { success: false, error: self.saveError };
                     });
             },
@@ -4237,7 +4237,7 @@ document.addEventListener("alpine:init", function () {
                         } else {
                             self.saveError =
                                 result.data.error ||
-                                "Failed to save. Please try again.";
+                                gettext("Failed to save. Please try again.");
                             // Handle field-specific errors from backend
                             if (result.data.errors) {
                                 self.fieldErrors = result.data.errors;
@@ -4251,7 +4251,7 @@ document.addEventListener("alpine:init", function () {
                     })
                     .catch(function (err) {
                         self.isSaving = false;
-                        self.saveError = "Network error. Please check your connection.";
+                        self.saveError = gettext("Network error. Please check your connection.");
                         return { success: false, error: self.saveError };
                     });
             },
@@ -4296,13 +4296,13 @@ document.addEventListener("alpine:init", function () {
                         } else {
                             self.saveError =
                                 result.data.error ||
-                                "Failed to save. Please try again.";
+                                gettext("Failed to save. Please try again.");
                             return { success: false, error: self.saveError };
                         }
                     })
                     .catch(function (err) {
                         self.isSaving = false;
-                        self.saveError = "Network error. Please check your connection.";
+                        self.saveError = gettext("Network error. Please check your connection.");
                         return { success: false, error: self.saveError };
                     });
             },
@@ -8913,10 +8913,10 @@ document.addEventListener("alpine:init", function () {
                     this.$el.dataset.i18nSuccess || "Thank you for your response!";
                 this.i18nError =
                     this.$el.dataset.i18nError ||
-                    "An error occurred. Please try again.";
+                    gettext("An error occurred. Please try again.");
                 this.i18nNetworkError =
                     this.$el.dataset.i18nNetworkError ||
-                    "Network error. Please check your connection and try again.";
+                    gettext("Network error. Please check your connection and try again.");
             },
 
             submitYes: function () {
@@ -11504,7 +11504,7 @@ document.addEventListener("alpine:init", function () {
             _textSubmitting: "Submitting...",
             _textSubmitted: "Vote Submitted",
             _textError: "Failed to submit vote",
-            _textNetworkError: "Network error. Please try again.",
+            _textNetworkError: gettext("Network error. Please try again."),
 
             init() {
                 var el = this.$el;
@@ -11725,7 +11725,7 @@ document.addEventListener("alpine:init", function () {
                     })
                     .catch(function () {
                         self.loading = false;
-                        self.error = "Something went wrong. Please try again.";
+                        self.error = gettext("Something went wrong. Please try again.");
                     });
             },
         };
@@ -11873,12 +11873,12 @@ document.addEventListener("alpine:init", function () {
                                 window.location.reload();
                             }, 1500);
                         } else {
-                            self.claimError = result.data.error || "Claim failed";
+                            self.claimError = result.data.error || gettext("Claim failed");
                         }
                     })
                     .catch(function () {
                         self.claimingId = null;
-                        self.claimError = "Network error";
+                        self.claimError = gettext("Network error");
                     });
             },
 
@@ -12568,7 +12568,7 @@ document.addEventListener("alpine:init", function () {
                     })
                     .catch(function () {
                         self.noteSending = false;
-                        self.noteError = "Network error. Please try again.";
+                        self.noteError = gettext("Network error. Please try again.");
                     });
             },
 
@@ -12731,11 +12731,11 @@ document.addEventListener("alpine:init", function () {
                             }
                             self.close();
                         } else {
-                            self.error = data.error || "Import failed.";
+                            self.error = data.error || gettext("Import failed.");
                         }
                     })
                     .catch(function () {
-                        self.error = "Network error. Please try again.";
+                        self.error = gettext("Network error. Please try again.");
                     })
                     .finally(function () {
                         self.pending = false;

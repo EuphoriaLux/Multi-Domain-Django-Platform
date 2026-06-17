@@ -111,7 +111,11 @@ def invitation_accept(request, code):
                     date_of_birth=date_of_birth,  # SECURITY: Use actual DOB from form
                     is_approved=False,
                     verification_status="incomplete",
-                    completion_status="step3",  # legacy field; remove after migration cleanup
+                    # Guest account has only a DOB at this point; the profile
+                    # wizard is not done. verification_status (above) is the
+                    # source of truth; this legacy field just reflects no steps
+                    # completed yet. See #204.
+                    completion_status="not_started",
                     preferred_language=preferred_lang,
                 )
 
