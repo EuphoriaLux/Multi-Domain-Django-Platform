@@ -9,7 +9,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from django.db.models import Count, Max
+from django.db.models import Count
 
 from .models import (
     CrushCoach,
@@ -21,7 +21,6 @@ from .models import (
     EventVotingSession,
     PresentationQueue,
     PresentationRating,
-    SpeedDatingPair,
 )
 from .decorators import crush_login_required, coach_required
 
@@ -890,18 +889,7 @@ def speed_dating_tv_display_data(request, event_id):
     # seeds the queue the instant voting ends, and a queue can also be seeded
     # early by the coach, so checking the queue first would make the TV jump to
     # "presentations" while attendees are still voting.
-    pairs_qs = SpeedDatingPair.objects.filter(event=event)
-
-    if pairs_qs.exists():
-        # Phase 3 — Speed Dating (most advanced phase wins)
-        phase = "speed_dating"
-        agg = pairs_qs.aggregate(max_round=Max("round_number"))
-        current_round = agg["max_round"] or 1
-        phase_data = {
-            "current_round": current_round,
-            "total_pairs": pairs_qs.filter(round_number=current_round).count(),
-        }
-    elif voting_session and voting_session.is_voting_open:
+    if voting_session and voting_session.is_voting_open:
         # Phase 1 — Voting (open window takes precedence over a seeded queue)
         phase = "voting"
         pres_votes = (
@@ -943,12 +931,11 @@ def speed_dating_tv_display_data(request, event_id):
             ],
         }
     elif PresentationQueue.objects.filter(event=event).exists():
-        # Phase 2 — Presentations
-        # Stay in this phase for the entire lifetime of the PresentationQueue —
-        # from the moment end_voting() seeds waiting rows until SpeedDatingPair
-        # rows appear. Checking only for un-finished rows would cause the TV to
-        # regress to voting/welcome in the handoff window after the last presenter
-        # finishes but before the coach creates pairs.
+        # Phase 2 — Presentations (terminal phase)
+        # Stay in this phase for the entire lifetime of the PresentationQueue,
+        # from the moment end_voting() seeds waiting rows onward. Checking only
+        # for un-finished rows would cause the TV to regress to voting/welcome in
+        # the handoff window after the last presenter finishes.
         phase = "presentations"
         # Prefer the currently presenting row; fall back to next waiting.
         # Both can be None when all presentations are done (100 % progress).
