@@ -7,70 +7,86 @@
 {% block connect_content %}
 <div class="max-w-2xl mx-auto px-4 py-6 pb-24 lg:pb-10">
 
-    <header class="mb-6">
-        <h1 class="text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white mb-1">
-            {% trans "Crush Connect" %}
+    {# Editorial hero — sells the "curated, not swiped" promise. #}
+    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-crush-purple to-crush-pink p-6 mb-5">
+        <div class="absolute -right-6 top-2 w-36 h-36 opacity-50 pointer-events-none">
+            {% include "crush_lu/includes/ghost-story-discover.html" with class="w-full h-full" %}
+        </div>
+        <p class="relative text-xs font-bold uppercase tracking-[0.14em] text-white/90 mb-3">{% trans "Crush Connect" %}</p>
+        <h1 class="relative font-display text-3xl font-semibold tracking-tight text-white mb-2 max-w-[15rem]">
+            {% trans "Curated, never swiped." %}
         </h1>
-        <p class="text-sm text-gray-600 dark:text-gray-300">
+        <p class="relative text-sm leading-relaxed text-white/90 max-w-[16rem] mb-0">
             {% if is_receiver %}
-                {% trans "Your coach-curated matches, your Sparks and your profile — all in one place." %}
+                {% trans "Your coach hand-picks one match a week. No feed, no games — just a real introduction when it's right." %}
             {% else %}
-                {% trans "You're in the catalogue. Manage your Sparks and profile here." %}
+                {% trans "You're in the catalogue. A coach can introduce you as a hand-picked match — no feed, no games." %}
             {% endif %}
         </p>
-    </header>
+        <div class="relative flex flex-wrap gap-2 mt-4">
+            <span class="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 text-xs font-medium text-white">👥 {% trans "Human-curated" %}</span>
+            <span class="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 text-xs font-medium text-white">🔒 {% trans "Privacy-first" %}</span>
+            <span class="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 text-xs font-medium text-white">🇱🇺 {% trans "Luxembourg" %}</span>
+        </div>
+    </div>
 
     {# Coach's pick takes the hero slot for receivers when one is open. #}
     {% if coach_pick %}
     <a href="{% url 'crush_lu:crush_connect_home' %}"
-       class="block rounded-2xl ring-1 ring-crush-purple/40 bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 p-5 mb-4 no-underline hover:ring-crush-purple/70 transition-colors">
-        <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-full bg-crush-purple/15 flex items-center justify-center flex-shrink-0">
+       class="block rounded-2xl p-0.5 bg-gradient-to-r from-crush-purple to-crush-pink shadow-crush-purple mb-4 no-underline">
+        <div class="flex items-center gap-3 rounded-[14px] bg-white dark:bg-slate-800 p-4">
+            <div class="w-11 h-11 rounded-xl bg-crush-purple/15 flex items-center justify-center shrink-0">
                 {% include "shared/icons/heart.html" with class="w-5 h-5 text-crush-purple" %}
             </div>
             <div class="flex-1 min-w-0">
-                <p class="font-semibold text-gray-900 dark:text-white mb-0">{% trans "Your Crush Coach picked a match" %}</p>
-                <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Take a look and decide." %}</p>
+                <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Your coach picked a match" %}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "This week's Drop is ready — take a look." %}</p>
             </div>
-            {% include "shared/icons/arrow-right.html" with class="w-4 h-4 text-crush-purple flex-shrink-0" %}
+            {% include "shared/icons/arrow-right.html" with class="w-5 h-5 text-crush-purple shrink-0" %}
         </div>
     </a>
     {% endif %}
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div class="grid grid-cols-2 gap-3">
 
-        {# Primary: Today's Drop (receivers) or Catalogue status (candidates). #}
+        {# Primary: Today's Drop (receivers) or Catalogue status (candidates) — full width. #}
         {% if is_receiver %}
         <a href="{% url 'crush_lu:crush_connect_home' %}"
-           class="block rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 p-5 no-underline hover:ring-crush-purple/40 transition-colors">
-            <div class="w-10 h-10 rounded-full bg-crush-purple/10 flex items-center justify-center mb-3">
-                {% include "shared/icons/sparkles.html" with class="w-5 h-5 text-crush-purple" %}
+           class="col-span-2 flex items-center gap-3 rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 transition-colors">
+            <div class="w-11 h-11 rounded-xl bg-crush-purple/10 flex items-center justify-center shrink-0">
+                {% include "shared/icons/star.html" with class="w-5 h-5 text-crush-purple" %}
             </div>
-            <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Today's Drop" %}</p>
-            <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Your hand-picked match for today." %}</p>
+            <div class="flex-1 min-w-0">
+                <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Today's Drop" %}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Your hand-picked match for this week." %}</p>
+            </div>
+            {% include "shared/icons/chevron-right.html" with class="w-5 h-5 text-gray-400 shrink-0" %}
         </a>
         {% else %}
         <a href="{% url 'crush_lu:crush_connect_catalogue_status' %}"
-           class="block rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 p-5 no-underline hover:ring-crush-purple/40 transition-colors">
-            <div class="w-10 h-10 rounded-full bg-crush-purple/10 flex items-center justify-center mb-3">
+           class="col-span-2 flex items-center gap-3 rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 transition-colors">
+            <div class="w-11 h-11 rounded-xl bg-crush-purple/10 flex items-center justify-center shrink-0">
                 {% include "shared/icons/sparkles.html" with class="w-5 h-5 text-crush-purple" %}
             </div>
-            <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "You're in the catalogue" %}</p>
-            <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "A coach can introduce you as a match." %}</p>
+            <div class="flex-1 min-w-0">
+                <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "You're in the catalogue" %}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "A coach can introduce you as a match." %}</p>
+            </div>
+            {% include "shared/icons/chevron-right.html" with class="w-5 h-5 text-gray-400 shrink-0" %}
         </a>
         {% endif %}
 
         {# Sparks (with pending badge). #}
         <a href="{% url 'crush_lu:crush_connect_sparks_received' %}"
-           class="block rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 p-5 no-underline hover:ring-crush-purple/40 transition-colors">
-            <div class="w-10 h-10 rounded-full bg-crush-purple/10 flex items-center justify-center mb-3 relative">
+           class="rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 transition-colors">
+            <div class="relative w-11 h-11 rounded-xl bg-crush-purple/10 flex items-center justify-center mb-3">
                 {% include "shared/icons/bell.html" with class="w-5 h-5 text-crush-purple" %}
-                {% if pending_sparks_count %}<span class="absolute -top-1 -right-1 badge badge-primary">{{ pending_sparks_count }}</span>{% endif %}
+                {% if pending_sparks_count %}<span class="absolute -top-1.5 -right-1.5 badge badge-primary ring-2 ring-white dark:ring-slate-800">{{ pending_sparks_count }}</span>{% endif %}
             </div>
             <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Your Sparks" %}</p>
             <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">
                 {% if pending_sparks_count %}
-                    {% blocktrans count count=pending_sparks_count %}{{ count }} person is curious about you{% plural %}{{ count }} people are curious about you{% endblocktrans %}
+                    {% blocktrans count count=pending_sparks_count %}{{ count }} person is curious about you.{% plural %}{{ count }} people are curious about you.{% endblocktrans %}
                 {% else %}
                     {% trans "Who's curious about you." %}
                 {% endif %}
@@ -79,26 +95,36 @@
 
         {# Connect profile editor. #}
         <a href="{% url 'crush_lu:crush_connect_profile_edit' %}"
-           class="block rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 p-5 no-underline hover:ring-crush-purple/40 transition-colors">
-            <div class="w-10 h-10 rounded-full bg-crush-purple/10 flex items-center justify-center mb-3">
+           class="rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 transition-colors">
+            <div class="w-11 h-11 rounded-xl bg-crush-purple/10 flex items-center justify-center mb-3">
                 {% include "shared/icons/pencil.html" with class="w-5 h-5 text-crush-purple" %}
             </div>
-            <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Edit your Connect profile" %}</p>
-            <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Story, preferences, languages and more." %}</p>
+            <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Edit profile" %}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Story, preferences & photos." %}</p>
         </a>
 
         {# Coach curation hub. #}
         {% if is_coach %}
         <a href="{% url 'crush_lu:coach_connect_members' %}"
-           class="block rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 p-5 no-underline hover:ring-crush-purple/40 transition-colors">
-            <div class="w-10 h-10 rounded-full bg-crush-purple/10 flex items-center justify-center mb-3">
+           class="col-span-2 flex items-center gap-3 rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 transition-colors">
+            <div class="w-11 h-11 rounded-xl bg-crush-purple/10 flex items-center justify-center shrink-0">
                 {% include "shared/icons/users.html" with class="w-5 h-5 text-crush-purple" %}
             </div>
-            <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Curate matches" %}</p>
-            <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Pick matches for your Premium members." %}</p>
+            <div class="flex-1 min-w-0">
+                <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Curate matches" %}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Pick matches for your Premium members." %}</p>
+            </div>
+            {% include "shared/icons/chevron-right.html" with class="w-5 h-5 text-gray-400 shrink-0" %}
         </a>
         {% endif %}
 
+    </div>
+
+    <div class="mt-5 flex items-start gap-2.5">
+        {% include "shared/icons/shield-check.html" with class="w-4 h-4 text-crush-purple shrink-0 mt-0.5" %}
+        <p class="text-xs leading-relaxed text-gray-500 dark:text-gray-400 mb-0">
+            {% trans "No public browsing. No one can search for you. Your card is only ever shown to a match your coach chose." %}
+        </p>
     </div>
 </div>
 {% endblock %}
