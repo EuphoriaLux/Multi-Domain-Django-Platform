@@ -146,51 +146,39 @@ class PhoneVerificationFilter(admin.SimpleListFilter):
 
 
 class AgeRangeFilter(admin.SimpleListFilter):
-    """Filter profiles by age range"""
+    """Filter profiles by age range (5-year bands, only 60+ grouped)."""
     title = 'Age Range'
     parameter_name = 'age_range'
 
+    # value -> (min_age, max_age); max_age None means open-ended (60+)
+    RANGES = {
+        '18-24': (18, 24),
+        '25-29': (25, 29),
+        '30-34': (30, 34),
+        '35-39': (35, 39),
+        '40-44': (40, 44),
+        '45-49': (45, 49),
+        '50-54': (50, 54),
+        '55-59': (55, 59),
+        '60+': (60, None),
+    }
+
     def lookups(self, request, model_admin):
-        return (
-            ('18-24', '18-24 years'),
-            ('25-29', '25-29 years'),
-            ('30-34', '30-34 years'),
-            ('35-39', '35-39 years'),
-            ('40-49', '40-49 years'),
-            ('50+', '50+ years'),
-        )
+        return tuple((value, f'{value} years') for value in self.RANGES)
 
     def queryset(self, request, queryset):
-        if not self.value():
+        if not self.value() or self.value() not in self.RANGES:
             return queryset
 
         today = date.today()
+        min_age, max_age = self.RANGES[self.value()]
 
-        if self.value() == '18-24':
-            max_birth = date(today.year - 18, today.month, today.day)
-            min_birth = date(today.year - 25, today.month, today.day)
-        elif self.value() == '25-29':
-            max_birth = date(today.year - 25, today.month, today.day)
-            min_birth = date(today.year - 30, today.month, today.day)
-        elif self.value() == '30-34':
-            max_birth = date(today.year - 30, today.month, today.day)
-            min_birth = date(today.year - 35, today.month, today.day)
-        elif self.value() == '35-39':
-            max_birth = date(today.year - 35, today.month, today.day)
-            min_birth = date(today.year - 40, today.month, today.day)
-        elif self.value() == '40-49':
-            max_birth = date(today.year - 40, today.month, today.day)
-            min_birth = date(today.year - 50, today.month, today.day)
-        elif self.value() == '50+':
-            max_birth = date(today.year - 50, today.month, today.day)
-            min_birth = date(today.year - 100, today.month, today.day)
-        else:
-            return queryset
-
-        return queryset.filter(
-            date_of_birth__gt=min_birth,
-            date_of_birth__lte=max_birth
-        )
+        max_birth = date(today.year - min_age, today.month, today.day)
+        queryset = queryset.filter(date_of_birth__lte=max_birth)
+        if max_age is not None:
+            min_birth = date(today.year - max_age - 1, today.month, today.day)
+            queryset = queryset.filter(date_of_birth__gt=min_birth)
+        return queryset
 
 
 class LastLoginFilter(admin.SimpleListFilter):
