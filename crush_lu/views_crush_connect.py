@@ -257,8 +257,8 @@ def _emit_onboarding_complete(request, done_url):
         messages.success(
             request,
             _(
-                "Welcome to Crush Connect — you're now in the "
-                "catalogue and can be matched by a Crush Coach."
+                "Welcome to Crush Connect — you're in the mix and can "
+                "be matched by a Crush Coach."
             ),
         )
         send_crush_connect_catalogue_welcome(user, request)

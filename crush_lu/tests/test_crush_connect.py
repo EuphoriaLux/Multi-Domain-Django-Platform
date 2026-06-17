@@ -1013,7 +1013,7 @@ def test_catalogue_status_renders_for_onboarded_candidate(client, settings):
     resp = client.get(CATALOGUE_STATUS_URL)
     assert resp.status_code == 200
     body = resp.content.decode()
-    assert "catalogue" in body.lower()
+    assert "in the mix" in body.lower()
 
 
 @pytest.mark.django_db

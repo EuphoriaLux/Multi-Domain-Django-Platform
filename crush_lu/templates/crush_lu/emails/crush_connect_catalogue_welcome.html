@@ -1,14 +1,14 @@
 {% extends "crush_lu/emails/base_email.html" %}
 {% load i18n %}
 
-{% block title %}{% trans "You're in the Crush Connect catalogue" %} - Crush.lu{% endblock %}
+{% block title %}{% trans "You're in Crush Connect" %} - Crush.lu{% endblock %}
 
-{% block header_title %}{% trans "You're in the catalogue!" %} ✨{% endblock %}
+{% block header_title %}{% trans "You're in the mix!" %} ✨{% endblock %}
 
 {% block content %}
 <h2>{% blocktrans with first_name=first_name %}Great news, {{ first_name }}!{% endblocktrans %}</h2>
 
-<p><strong>{% trans "You're now in the Crush Connect catalogue." %}</strong> {% trans "Your LuxID is verified and your story is live — a Crush Coach can now hand-pick you as a match for a Premium member." %}</p>
+<p><strong>{% trans "You've opted in to Crush Connect." %}</strong> {% trans "Your LuxID is verified and your story is live — a Crush Coach can now hand-pick you as a match for a Premium member." %}</p>
 
 <p><strong>{% trans "What this means:" %}</strong></p>
 <ul>
@@ -24,7 +24,7 @@
 
 <a href="{{ premium_url }}" class="button">{% trans "Discover Premium" %}</a>
 
-<p>{% blocktrans %}You can review your story or leave the catalogue anytime from your <a href="{{ dashboard_url }}">dashboard</a>.{% endblocktrans %}</p>
+<p>{% blocktrans %}You can review your story or leave Crush Connect anytime from your <a href="{{ dashboard_url }}">dashboard</a>.{% endblocktrans %}</p>
 
 <p>
     {% trans "Cheers," %}<br>
