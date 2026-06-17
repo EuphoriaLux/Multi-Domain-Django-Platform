@@ -2236,8 +2236,8 @@ def auto_approve_profile_on_luxid_connect(sender, request, sociallogin, **kwargs
             messages.success(
                 request,
                 _(
-                    "Your LuxID is now connected — you can join the "
-                    "Crush Connect catalogue."
+                    "Your LuxID is now connected — you can join "
+                    "Crush Connect."
                 ),
             )
         return

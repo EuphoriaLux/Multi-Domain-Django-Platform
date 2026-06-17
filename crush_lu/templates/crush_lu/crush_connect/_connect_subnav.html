@@ -23,7 +23,7 @@ chip/pill utility classes already in the Tailwind build.
     {% else %}
     <a href="{% url 'crush_lu:crush_connect_catalogue_status' %}"
        class="{{ base }} {% if active == 'crush_connect_catalogue_status' %}{{ on }}{% else %}{{ off }}{% endif %}">
-      {% include "shared/icons/heart.html" with class="w-4 h-4" %}<span>{% trans "Catalogue" %}</span>
+      {% include "shared/icons/heart.html" with class="w-4 h-4" %}<span>{% trans "My Connect" %}</span>
     </a>
     {% endif %}
 

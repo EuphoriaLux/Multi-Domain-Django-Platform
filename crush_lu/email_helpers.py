@@ -1556,7 +1556,7 @@ def send_crush_connect_catalogue_welcome(user, request):
         )
 
         with translation.override(lang):
-            subject = _("You're in the Crush Connect catalogue")
+            subject = _("You're in Crush Connect")
             html_message = render_to_string(
                 'crush_lu/emails/crush_connect_catalogue_welcome.html', context
             )
