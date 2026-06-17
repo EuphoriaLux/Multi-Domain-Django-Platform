@@ -1224,49 +1224,6 @@ class PresentationRating(models.Model):
         return 0.0
 
 
-class SpeedDatingPair(models.Model):
-    """Speed dating pairs generated from Phase 2 ratings"""
-
-    event = models.ForeignKey(
-        MeetupEvent, on_delete=models.CASCADE, related_name="speed_dating_pairs"
-    )
-    user1 = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="speed_dating_as_user1"
-    )
-    user2 = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="speed_dating_as_user2"
-    )
-    round_number = models.PositiveIntegerField(
-        help_text=_("Which speed dating round (1, 2, 3...)")
-    )
-    mutual_rating_score = models.FloatField(
-        help_text=_("Combined rating score from Phase 2"), default=0
-    )
-    is_top_match = models.BooleanField(
-        default=False,
-        help_text=_("True if this is user's #1 rated match (gets extended time)"),
-    )
-
-    # Timing
-    started_at = models.DateTimeField(null=True, blank=True)
-    completed_at = models.DateTimeField(null=True, blank=True)
-
-    # Metadata
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["event", "round_number"]
-        unique_together = ("event", "user1", "user2", "round_number")
-
-    def __str__(self):
-        return f"{self.event.title} - Round {self.round_number}: {self.user1.username} ↔ {self.user2.username}"
-
-    @property
-    def duration_minutes(self):
-        """Standard duration is 5 minutes per round"""
-        return 5
-
-
 class EventFeedback(models.Model):
     """Post-event survey response from an attendee.
 

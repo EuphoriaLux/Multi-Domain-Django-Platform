@@ -76,7 +76,6 @@ from .events import (
     EventInvitationInline,
     EventVotingSessionInline,
     PresentationQueueInline,
-    SpeedDatingPairInline,
     MeetupEventAdmin,
     EventRegistrationAdmin,
     EventInvitationAdmin,
@@ -96,7 +95,6 @@ from .activities import (
     EventVotingSessionAdmin,
     PresentationQueueAdmin,
     PresentationRatingAdmin,
-    SpeedDatingPairAdmin,
 )
 
 from .journey import (
@@ -231,7 +229,6 @@ from crush_lu.models import (
     EventVotingSession,
     PresentationQueue,
     PresentationRating,
-    SpeedDatingPair,
     JourneyConfiguration,
     JourneyChapter,
     JourneyChallenge,
@@ -333,7 +330,6 @@ crush_admin_site.register(EventActivityVote, EventActivityVoteAdmin)
 crush_admin_site.register(EventVotingSession, EventVotingSessionAdmin)
 crush_admin_site.register(PresentationQueue, PresentationQueueAdmin)
 crush_admin_site.register(PresentationRating, PresentationRatingAdmin)
-crush_admin_site.register(SpeedDatingPair, SpeedDatingPairAdmin)
 
 # Journey System
 crush_admin_site.register(JourneyConfiguration, JourneyConfigurationAdmin)
@@ -472,7 +468,6 @@ __all__ = [
     'EventInvitationInline',
     'EventVotingSessionInline',
     'PresentationQueueInline',
-    'SpeedDatingPairInline',
     'MeetupEventAdmin',
     'EventRegistrationAdmin',
     'EventInvitationAdmin',
@@ -494,7 +489,6 @@ __all__ = [
     'EventVotingSessionAdmin',
     'PresentationQueueAdmin',
     'PresentationRatingAdmin',
-    'SpeedDatingPairAdmin',
 
     # Journey
     'JourneyChapterInline',

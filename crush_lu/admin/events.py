@@ -26,7 +26,6 @@ from crush_lu.models import (
     EventFeedback,
     EventVotingSession,
     PresentationQueue,
-    SpeedDatingPair,
 )
 from .filters import EventCapacityFilter
 from .quiz import QuizEventInline
@@ -165,25 +164,6 @@ class PresentationQueueInline(admin.TabularInline):
     show_change_link = True
 
 
-# Inline admin for Speed Dating Pairs
-class SpeedDatingPairInline(admin.TabularInline):
-    model = SpeedDatingPair
-    extra = 0
-    autocomplete_fields = ['user1', 'user2']
-    fields = (
-        "round_number",
-        "user1",
-        "user2",
-        "mutual_rating_score",
-        "is_top_match",
-        "duration_minutes",
-    )
-    readonly_fields = ("mutual_rating_score", "duration_minutes")
-    can_delete = False
-    ordering = ["round_number"]
-    show_change_link = True
-
-
 class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
     list_display = (
         "title",
@@ -225,7 +205,6 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         "get_revenue",
         "get_voting_status",
         "get_presentation_status",
-        "get_speed_dating_status",
     )
     inlines = [
         QuizEventInline,
@@ -233,7 +212,6 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         EventInvitationInline,
         EventVotingSessionInline,
         PresentationQueueInline,
-        SpeedDatingPairInline,
     ]
     actions = [
         "publish_events",
@@ -333,10 +311,9 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 "fields": (
                     "get_voting_status",
                     "get_presentation_status",
-                    "get_speed_dating_status",
                 ),
                 "classes": ("collapse",),
-                "description": "Track progress through the 3-phase event system",
+                "description": "Track progress through the event voting/presentation phases",
             },
         ),
         ("Status", {"fields": ("is_published", "is_cancelled")}),
@@ -447,29 +424,6 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             return f"⏳ Ready to Start (0/{total})"
 
     get_presentation_status.short_description = _("🎤 Phase 2: Presentations")
-
-    def get_speed_dating_status(self, obj):
-        """Display Phase 3 speed dating status"""
-        pairs = obj.speed_dating_pairs.all()
-        if not pairs.exists():
-            return "❌ Not Initialized"
-
-        total_pairs = pairs.count()
-        completed_pairs = pairs.filter(completed_at__isnull=False).count()
-        in_progress = pairs.filter(
-            started_at__isnull=False, completed_at__isnull=True
-        ).exists()
-
-        if completed_pairs == total_pairs:
-            return f"✅ All Rounds Complete ({total_pairs} pairs)"
-        elif in_progress:
-            return f"🟢 IN PROGRESS ({completed_pairs}/{total_pairs} rounds done)"
-        elif completed_pairs > 0:
-            return f"⏸️ Paused ({completed_pairs}/{total_pairs} rounds done)"
-        else:
-            return f"⏳ Ready to Start (0/{total_pairs} pairs)"
-
-    get_speed_dating_status.short_description = _("💕 Phase 3: Speed Dating")
 
     @admin.action(description=_("✅ Publish selected events"))
     def publish_events(self, request, queryset):
