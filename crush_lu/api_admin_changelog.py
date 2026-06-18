@@ -144,17 +144,21 @@ def ingest_changelog(request):
         )
 
         # Idempotency: a merge webhook can fire more than once. Skip any note
-        # whose backing commit SHA already appears on this release.
-        existing_shas: set[str] = set()
+        # whose backing commit SHA was *already persisted* on this release by an
+        # earlier request. We snapshot the pre-request SHAs and never add this
+        # request's own SHAs to it — otherwise multiple notes in a single
+        # payload that share the merge SHA would drop everything after the first.
+        # On a re-delivery those SHAs are persisted, so the whole payload is
+        # correctly skipped.
+        preexisting_shas: set[str] = set()
         for sha_list in release.notes.values_list("related_commits", flat=True):
-            existing_shas.update(sha_list or [])
+            preexisting_shas.update(sha_list or [])
 
         notes_added = 0
         for nd in clean_notes:
-            if nd["related_commits"] and any(s in existing_shas for s in nd["related_commits"]):
+            if nd["related_commits"] and any(s in preexisting_shas for s in nd["related_commits"]):
                 continue
             PatchNote.objects.create(release=release, auto_generated=True, **nd)
-            existing_shas.update(nd["related_commits"])
             notes_added += 1
 
     logger.info(

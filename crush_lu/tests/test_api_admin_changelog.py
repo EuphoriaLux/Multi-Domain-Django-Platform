@@ -114,6 +114,27 @@ class ChangelogIngestWriteTests(TestCase):
         self.assertEqual(second.json()["notes_added"], 0)
         self.assertEqual(PatchRelease.objects.get(slug="catchup-2026-06").notes.count(), 1)
 
+    def test_multiple_notes_sharing_merge_sha_are_all_kept(self):
+        # A single PR (one merge SHA) may yield several user-facing notes; the
+        # within-request dedupe must not drop notes 2..N just because they share
+        # the SHA. A re-delivery of the same payload must then add nothing.
+        payload = _valid_payload(sha="multi-sha")
+        payload["notes"].append({
+            "category": "feature",
+            "title": "Quiz Night",
+            "body": "A second user-facing item from the same merge.",
+            "related_commits": ["multi-sha"],
+            "order": 1,
+        })
+        first = self._post(payload)
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(first.json()["notes_added"], 2)
+        self.assertEqual(PatchRelease.objects.get(slug="catchup-2026-06").notes.count(), 2)
+
+        second = self._post(payload)
+        self.assertEqual(second.json()["notes_added"], 0)
+        self.assertEqual(PatchRelease.objects.get(slug="catchup-2026-06").notes.count(), 2)
+
     def test_release_fields_update_on_repost(self):
         self._post(_valid_payload())
         payload = _valid_payload(sha="another-sha")
