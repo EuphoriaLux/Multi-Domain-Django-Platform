@@ -8,6 +8,7 @@ Secured with Bearer token authentication
 import json
 import logging
 import threading
+from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
