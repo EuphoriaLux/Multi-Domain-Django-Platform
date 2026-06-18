@@ -7,37 +7,14 @@ Secured with Bearer token authentication
 
 import json
 import logging
-import secrets
 import threading
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
-from django.conf import settings
+from crush_lu.api_admin_auth import authenticate_admin_request as _authenticate_admin_request
 from crush_lu.services.graph_contacts import GraphContactsService, is_sync_enabled
 
 logger = logging.getLogger(__name__)
-
-
-def _authenticate_admin_request(request) -> bool:
-    """
-    Authenticate admin API request using Bearer token.
-
-    Returns:
-        bool: True if authenticated, False otherwise
-    """
-    auth_header = request.headers.get('Authorization', '')
-
-    if not auth_header.startswith('Bearer '):
-        return False
-
-    token = auth_header.replace('Bearer ', '', 1)
-    expected_token = getattr(settings, 'ADMIN_API_KEY', None)
-
-    if not expected_token:
-        logger.error("ADMIN_API_KEY not configured in settings")
-        return False
-
-    return secrets.compare_digest(token, expected_token)
 
 
 @csrf_exempt
