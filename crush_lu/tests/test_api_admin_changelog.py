@@ -181,6 +181,25 @@ class ChangelogIngestValidationTests(TestCase):
     def test_missing_release_is_400(self):
         self.assertEqual(self._post({"notes": []}).status_code, 400)
 
+    def test_empty_related_commits_is_400(self):
+        # A note with no commit SHA can never be deduped, so the ingest must
+        # reject it rather than accept a payload that would duplicate on retry.
+        payload = _valid_payload()
+        payload["notes"][0]["related_commits"] = []
+        resp = self._post(payload)
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(PatchRelease.objects.count(), 0)
+
+    def test_missing_related_commits_is_400(self):
+        payload = _valid_payload()
+        del payload["notes"][0]["related_commits"]
+        self.assertEqual(self._post(payload).status_code, 400)
+
+    def test_blank_only_related_commits_is_400(self):
+        payload = _valid_payload()
+        payload["notes"][0]["related_commits"] = ["   ", ""]
+        self.assertEqual(self._post(payload).status_code, 400)
+
 
 @override_settings(**CRUSH_URLS)
 class ChangelogIngestScrubTests(TestCase):

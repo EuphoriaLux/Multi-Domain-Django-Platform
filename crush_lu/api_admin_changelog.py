@@ -122,6 +122,16 @@ def ingest_changelog(request):
         related = note.get("related_commits", [])
         if not isinstance(related, list) or not all(isinstance(s, str) for s in related):
             return _bad_request(f"notes[{i}].related_commits must be a list of strings.")
+        # At least one SHA is required: idempotency is keyed on related_commits,
+        # so a note with none could never be deduped and every webhook
+        # re-delivery would publish a duplicate. Reject rather than accept a
+        # note that cannot be made idempotent.
+        related = [s.strip() for s in related if s.strip()]
+        if not related:
+            return _bad_request(
+                f"notes[{i}].related_commits must contain at least one commit SHA "
+                f"(required so re-delivered merges stay idempotent)."
+            )
         clean_notes.append({
             "category": category,
             "title": n_title,

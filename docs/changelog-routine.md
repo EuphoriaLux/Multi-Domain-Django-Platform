@@ -256,6 +256,7 @@ curl -sS -X POST "$CHANGELOG_INGEST_URL" \
 | `401 Unauthorized` | `ADMIN_API_KEY` in the routine ≠ the server's value, or the server's is unset. |
 | POST times out / DNS error | Network policy blocks egress to `crush.lu`. Choose a policy that allows it. |
 | `400 ... category must be one of [...]` | `category` not in `feature/improvement/fix/under_hood`. |
+| `400 ... related_commits must contain at least one commit SHA` | A note omitted the merge SHA (or sent an empty/blank list). It is required so re-deliveries dedupe. |
 | `400 ... exceeds N characters` | A field is over its limit (title 160, release.title 140, hero_summary 280). |
 | Entry not on `/changelog/` | `is_published` was sent as `false`, or the release window matched a different (unpublished) slug. |
 | Note missing after a re-run | Expected — the merge SHA was already recorded (idempotency). |
