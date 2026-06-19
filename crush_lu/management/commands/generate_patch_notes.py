@@ -27,6 +27,7 @@ from pathlib import Path
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
+from crush_lu.changelog_text import scrub  # noqa: F401  (re-exported for callers/tests)
 from crush_lu.models import PatchNote, PatchNoteCategory, PatchRelease
 
 
@@ -122,27 +123,10 @@ SCOPE_BUCKETS = {
     "logging": "Under the hood",
 }
 
-# Red-line filter patterns — we never surface these in public copy
-SECRET_PATTERNS = [
-    re.compile(r"[\w\.-]+@[\w\.-]+\.\w+"),                       # emails
-    re.compile(r"https?://[\w\.-]+\.(azurewebsites|azure)\.net"),  # internal hosts
-    re.compile(r"https?://claude\.ai/code/\S+"),                  # co-author session urls
-    re.compile(r"co-authored-by:?[^\n]*", re.IGNORECASE),
-    re.compile(r"signed-off-by:?[^\n]*", re.IGNORECASE),
-]
-
 CONVENTIONAL_RE = re.compile(
     r"^(?P<type>[a-z]+)(?:\((?P<scope>[^)]+)\))?!?:\s*(?P<subject>.+)$",
     re.IGNORECASE,
 )
-
-
-def scrub(text: str) -> str:
-    """Strip red-line patterns and collapse whitespace."""
-    cleaned = text or ""
-    for pat in SECRET_PATTERNS:
-        cleaned = pat.sub("", cleaned)
-    return re.sub(r"\s+", " ", cleaned).strip()
 
 
 def classify_commit(subject: str):

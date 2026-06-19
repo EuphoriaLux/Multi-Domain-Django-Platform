@@ -20,7 +20,6 @@ thin scheduler. The contact-sync pattern in production already does this.
 from __future__ import annotations
 
 import logging
-import secrets
 import uuid
 from datetime import timedelta
 
@@ -31,31 +30,10 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
+from crush_lu.api_admin_auth import authenticate_admin_request as _authenticate_admin_request
+from crush_lu.api_admin_auth import unauthorized as _unauthorized
+
 logger = logging.getLogger(__name__)
-
-
-# -------------------------------------------------------------------------
-# Bearer-token authentication (identical to api_admin_sync)
-# -------------------------------------------------------------------------
-
-def _authenticate_admin_request(request) -> bool:
-    auth_header = request.headers.get("Authorization", "")
-    if not auth_header.startswith("Bearer "):
-        return False
-    token = auth_header.replace("Bearer ", "", 1)
-    expected = getattr(settings, "ADMIN_API_KEY", None)
-    if not expected:
-        logger.error("ADMIN_API_KEY not configured; rejecting admin request")
-        return False
-    return secrets.compare_digest(token, expected)
-
-
-def _unauthorized(request) -> JsonResponse:
-    logger.warning(
-        "Unauthorized hybrid admin endpoint call from %s",
-        request.META.get("REMOTE_ADDR"),
-    )
-    return JsonResponse({"error": "Unauthorized"}, status=401)
 
 
 def _hybrid_disabled() -> JsonResponse:

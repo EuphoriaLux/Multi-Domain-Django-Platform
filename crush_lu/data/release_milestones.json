@@ -70,5 +70,14 @@
         "released_on": "2026-04-17",
         "since": "2026-04-07",
         "until": "2026-04-18"
+    },
+    {
+        "version": "v1.8",
+        "slug": "v1-8-crush-connect",
+        "title": "Crush Connect, reimagined",
+        "hero_summary": "A warmer, privacy-first Crush Connect — a redesigned mobile experience and clearer, kinder wording throughout.",
+        "released_on": "2026-06-18",
+        "since": "2026-04-18",
+        "until": "2026-07-01"
     }
 ]
