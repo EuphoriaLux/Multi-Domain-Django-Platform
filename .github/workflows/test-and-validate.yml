@@ -7,6 +7,8 @@ on:
       - '**.py'
       - '**.js'
       - '**.html'
+      - '**.po'
+      - '**.mo'
       - 'requirements.txt'
       - 'package.json'
       - '.github/workflows/test-and-validate.yml'
