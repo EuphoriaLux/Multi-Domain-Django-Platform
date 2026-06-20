@@ -107,10 +107,26 @@ class ComputeWeeklySnapshotTests(TestCase):
         # Weekly verified keys on approved_at, so the legacy (NULL) verified
         # member is NOT attributed to this week.
         self.assertEqual(m["profiles_verified"], 1)
-        # Cumulative includes everyone up to week_end (in-week + legacy users).
-        self.assertEqual(m["cumulative_total_users"], 3)
+        # Cumulative counts Crush users (those with a CrushProfile) up to
+        # week_end: the in-week user + the legacy verified one. out_user has no
+        # CrushProfile (e.g. an account from another platform) and is excluded.
+        self.assertEqual(m["cumulative_total_users"], 2)
         # Both the in-week verified member AND the legacy NULL-approved_at one.
         self.assertEqual(m["cumulative_verified_members"], 2)
+
+    def test_signups_exclude_non_crush_users(self):
+        # An account created in-week on another platform (no CrushProfile) must
+        # not inflate the crush.lu signup numbers.
+        User.objects.create_user(
+            username="entreprinder@example.com",
+            email="entreprinder@example.com",
+            password="x",
+            date_joined=_aware(date(2026, 6, 10)),
+        )
+        m = compute_weekly_snapshot(WEEK_START)["acquisition"]
+        # Still only the in-week Crush user counts.
+        self.assertEqual(m["new_signups"], 1)
+        self.assertEqual(m["cumulative_total_users"], 2)
 
     def test_engagement_distinguishes_active_and_dormant(self):
         m = compute_weekly_snapshot(WEEK_START)["engagement"]

@@ -65,8 +65,14 @@ def compute_weekly_snapshot(week_start: date) -> dict:
             **{f"{field}__date__gte": week_start, f"{field}__date__lte": week_end}
         )
 
+    # auth.User is shared across all 9 platforms; only crush.lu logins get a
+    # CrushProfile (create_crush_profile_on_login is host-gated and skips other
+    # domains), so scope every User-based count to Crush users — otherwise an
+    # Entreprinder / Power-Up signup would inflate the crush.lu digest.
+    crush_users = User.objects.filter(crushprofile__isnull=False)
+
     # ── Acquisition funnel (new in the week) ─────────────────────────
-    new_signups = in_week(User.objects.all(), "date_joined").count()
+    new_signups = in_week(crush_users, "date_joined").count()
     new_profiles = in_week(CrushProfile.objects.all(), "created_at").count()
     phone_verifications = in_week(
         CrushProfile.objects.filter(phone_verified=True), "phone_verified_at"
@@ -88,8 +94,8 @@ def compute_weekly_snapshot(week_start: date) -> dict:
         # in the same week are different people; useful as a trend, not a truth).
         "signup_to_verified_pct": _pct(profiles_verified, new_signups),
         "submitted_to_verified_pct": _pct(profiles_verified, profiles_submitted),
-        # Cumulative position at the end of the week.
-        "cumulative_total_users": User.objects.filter(
+        # Cumulative position at the end of the week (Crush users only).
+        "cumulative_total_users": crush_users.filter(
             date_joined__date__lte=week_end
         ).count(),
         # Count every verified member as of week_end. Legacy profiles verified
