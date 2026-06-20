@@ -122,12 +122,16 @@ def send_otp(recipient: str, code: str, language: str = "en") -> WhatsAppSendRes
         return WhatsAppSendResult(ok=True, wa_message_id=wa_id)
 
     err = (body.get("error") or {}) if isinstance(body, dict) else {}
-    code_val = err.get("code")
+    meta_error_code = err.get("code")
+    # Log only the HTTP status and a derived flag — never the raw error payload,
+    # which in this OTP context a scanner can't distinguish from a passcode.
     logger.warning(
-        "WhatsApp OTP send failed: http=%s code=%s", resp.status_code, code_val
+        "WhatsApp OTP send failed: http=%s not_on_whatsapp=%s",
+        resp.status_code,
+        meta_error_code == ERROR_NOT_ON_WHATSAPP,
     )
     return WhatsAppSendResult(
         ok=False,
-        error_code=code_val,
+        error_code=meta_error_code,
         error_message=err.get("message") or f"HTTP {resp.status_code}",
     )
