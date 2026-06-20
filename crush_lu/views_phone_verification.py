@@ -321,9 +321,13 @@ def send_whatsapp_otp(request):
             status=400,
         )
 
-    # Don't send to a number already verified by a different account.
+    # Match the DB-level unique_non_empty_phone_number scope — any non-empty
+    # phone on another account, verified or not. Checking only verified profiles
+    # would let a number squatted in someone's draft pass here and burn a
+    # billable send, since verify_whatsapp_otp()'s save() could only ever fail
+    # that number with an IntegrityError.
     already_taken = CrushProfile.objects.filter(
-        phone_number=phone_number, phone_verified=True,
+        phone_number=phone_number,
     ).exclude(user=request.user).exists()
     if already_taken:
         return JsonResponse({
@@ -451,8 +455,9 @@ def verify_whatsapp_otp(request):
             "csrfToken": get_token(request),
         })
 
+    # Same non-empty uniqueness scope as the send check and the DB constraint.
     existing = CrushProfile.objects.filter(
-        phone_number=otp.phone_number, phone_verified=True,
+        phone_number=otp.phone_number,
     ).exclude(pk=profile.pk).exists()
     if existing:
         return JsonResponse({

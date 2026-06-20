@@ -157,6 +157,20 @@ class WhatsAppOTPTests(SiteTestMixin, TestCase):
         mock_send.assert_not_called()
         self.assertFalse(PhoneOTP.objects.filter(user=self.user).exists())
 
+    @patch("crush_lu.services.whatsapp.is_configured", return_value=True)
+    @patch("crush_lu.services.whatsapp.send_otp")
+    def test_send_rejects_number_in_another_unverified_profile(self, mock_send, _cfg):
+        # The unique_non_empty_phone_number constraint covers unverified drafts
+        # too, so we must reject (not burn a send) before Meta is called.
+        other = User.objects.create_user(username="o3@e.com", email="o3@e.com", password="pw")
+        CrushProfile.objects.create(
+            user=other, phone_number=PHONE, phone_verified=False
+        )
+        resp = self._post(self.send_url, {"phone_number": PHONE})
+        self.assertEqual(resp.status_code, 409)
+        self.assertEqual(resp.json()["error_code"], "phone_already_in_use")
+        mock_send.assert_not_called()
+
     def test_send_missing_number_is_400(self):
         resp = self._post(self.send_url, {})
         self.assertEqual(resp.status_code, 400)
