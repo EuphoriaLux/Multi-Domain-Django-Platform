@@ -63,7 +63,10 @@ class ComputeWeeklySnapshotTests(TestCase):
             submitted_at=_aware(date(2026, 6, 9))
         )
         ua = UserActivity.objects.create(
-            user=self.in_user, last_seen=_aware(date(2026, 6, 11)), is_pwa_user=True
+            user=self.in_user,
+            last_seen=_aware(date(2026, 6, 11)),
+            is_pwa_user=True,
+            last_pwa_visit=_aware(date(2026, 6, 11)),
         )
         UserActivity.objects.filter(pk=ua.pk).update(
             first_seen=_aware(date(2026, 6, 10))
@@ -116,6 +119,28 @@ class ComputeWeeklySnapshotTests(TestCase):
         self.assertEqual(m["pwa_active"], 1)
         # The out-of-week user last seen 2026-05-01 is dormant.
         self.assertEqual(m["dormant"], 1)
+
+    def test_pwa_active_keys_on_visit_not_sticky_flag(self):
+        # A user who installed the PWA long ago (is_pwa_user stays True forever)
+        # but whose last PWA visit predates the week must NOT count as PWA-active,
+        # even though they were active via a normal browser this week.
+        stale = User.objects.create_user(
+            username="stalepwa@example.com",
+            email="stalepwa@example.com",
+            password="x",
+            date_joined=_aware(date(2026, 5, 1)),
+        )
+        UserActivity.objects.create(
+            user=stale,
+            last_seen=_aware(date(2026, 6, 11)),  # active this week (browser)
+            is_pwa_user=True,
+            last_pwa_visit=_aware(date(2026, 5, 20)),  # but PWA visit is pre-week
+        )
+        m = compute_weekly_snapshot(WEEK_START)["engagement"]
+        # Only the in-week user's PWA visit falls inside the window.
+        self.assertEqual(m["pwa_active"], 1)
+        # Sanity: the stale user still counts as active this week (browser visit).
+        self.assertEqual(m["wau"], 2)
 
 
 class UpsertIdempotencyTests(TestCase):
@@ -181,3 +206,71 @@ class LastCompletedWeekTests(TestCase):
     def test_returns_prior_monday(self):
         # 2026-06-17 is a Wednesday; the last full week began Mon 2026-06-08.
         self.assertEqual(last_completed_week_start(date(2026, 6, 17)), WEEK_START)
+
+
+class EventRegistrationAdminPaymentDateTests(TestCase):
+    """Guard the admin path that feeds the 'paid event registrations' KPI.
+
+    The KPI windows confirmed registrations on payment_date, so the admin must
+    stamp that timestamp whenever staff flip payment_confirmed (including via the
+    changelist's list_editable checkbox, which routes through save_model).
+    """
+
+    def _admin_and_request(self):
+        from django.contrib.admin.sites import AdminSite
+        from django.test import RequestFactory
+
+        from crush_lu.admin.events import EventRegistrationAdmin
+        from crush_lu.models import EventRegistration
+
+        request = RequestFactory().post("/admin/")
+        request.user = self.staff
+        return EventRegistrationAdmin(EventRegistration, AdminSite()), request
+
+    class _FakeForm:
+        def __init__(self, changed_data):
+            self.changed_data = changed_data
+
+    def setUp(self):
+        from crush_lu.models import EventRegistration, MeetupEvent
+
+        self.staff = User.objects.create_user(
+            username="staff@example.com", email="staff@example.com", password="x"
+        )
+        attendee = User.objects.create_user(
+            username="attendee@example.com", email="attendee@example.com", password="x"
+        )
+        event = MeetupEvent.objects.create(
+            title="Paid Night",
+            description="event",
+            date_time=timezone.now() + timezone.timedelta(days=7),
+            registration_deadline=timezone.now() + timezone.timedelta(days=5),
+            location="Luxembourg",
+            address="1 Test St",
+            max_participants=20,
+        )
+        self.reg = EventRegistration.objects.create(
+            user=attendee, event=event, status="pending"
+        )
+
+    def test_confirming_payment_stamps_payment_date(self):
+        admin_obj, request = self._admin_and_request()
+        self.assertIsNone(self.reg.payment_date)
+        self.reg.payment_confirmed = True
+        admin_obj.save_model(
+            request, self.reg, self._FakeForm(["payment_confirmed"]), change=True
+        )
+        self.reg.refresh_from_db()
+        self.assertIsNotNone(self.reg.payment_date)
+
+    def test_unconfirming_payment_clears_payment_date(self):
+        self.reg.payment_confirmed = True
+        self.reg.payment_date = timezone.now()
+        self.reg.save()
+        admin_obj, request = self._admin_and_request()
+        self.reg.payment_confirmed = False
+        admin_obj.save_model(
+            request, self.reg, self._FakeForm(["payment_confirmed"]), change=True
+        )
+        self.reg.refresh_from_db()
+        self.assertIsNone(self.reg.payment_date)

@@ -114,7 +114,14 @@ def compute_weekly_snapshot(week_start: date) -> dict:
         "returning_active": active_qs.filter(
             first_seen__date__lt=week_start
         ).count(),
-        "pwa_active": active_qs.filter(is_pwa_user=True).count(),
+        # PWA-active = users whose most recent PWA visit landed in this week.
+        # is_pwa_user is sticky ("ever used the installed PWA"), so keying on it
+        # would count browser-only visitors who installed the PWA long ago; the
+        # activity middleware stamps last_pwa_visit per real PWA request, so
+        # window on that instead (its NULLs for non-PWA users drop out for free).
+        "pwa_active": in_week(
+            UserActivity.objects.all(), "last_pwa_visit"
+        ).count(),
         # Tracked users who went quiet: last seen before the week even started.
         "dormant": UserActivity.objects.filter(last_seen__date__lt=week_start).count(),
     }

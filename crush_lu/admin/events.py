@@ -12,6 +12,7 @@ from django import forms
 from django.contrib import admin
 from django.contrib import messages as django_messages
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
@@ -634,6 +635,19 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         ("Payment", {"fields": ("payment_confirmed", "payment_date")}),
         ("Timestamps", {"fields": ("registered_at", "updated_at")}),
     )
+
+    def save_model(self, request, obj, form, change):
+        # Stamp payment_date when staff flips payment_confirmed — in the change
+        # form OR via the changelist's list_editable checkbox, which also routes
+        # through save_model. Without this the weekly "paid event registrations"
+        # KPI, which windows on payment_date, silently drops confirmed-but-undated
+        # rows (mirrors the CrushConnect / PremiumMembership admins).
+        if "payment_confirmed" in form.changed_data:
+            if obj.payment_confirmed:
+                obj.payment_date = obj.payment_date or timezone.now()
+            else:
+                obj.payment_date = None
+        super().save_model(request, obj, form, change)
 
     def get_user_display(self, obj):
         full_name = obj.user.get_full_name()
