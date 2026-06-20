@@ -58,6 +58,15 @@ ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
 # with per-coach CrushCoach.hybrid_features_enabled for staged rollout.
 HYBRID_COACH_SYSTEM_ENABLED = _env_bool("HYBRID_COACH_SYSTEM_ENABLED", False)
 
+# Recipients for the weekly Crush.lu KPI digest email (send_weekly_kpis command,
+# driven on Mondays by the hybrid-maintenance Azure Function). Comma-separated
+# env var; empty means "compute + persist the snapshot but email no one".
+WEEKLY_KPI_RECIPIENTS = [
+    addr.strip()
+    for addr in os.getenv("WEEKLY_KPI_RECIPIENTS", "").split(",")
+    if addr.strip()
+]
+
 # Use DJANGO_DEBUG env var to control debug mode (default False)
 DEBUG = _env_bool("DJANGO_DEBUG", False)
 

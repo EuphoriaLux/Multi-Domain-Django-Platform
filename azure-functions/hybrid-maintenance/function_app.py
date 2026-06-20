@@ -17,6 +17,7 @@ log the outcome.
 Environment Variables Required:
     - DJANGO_PRE_SCREENING_INVITES_URL: e.g. https://crush.lu/api/admin/pre-screening-invites/
     - DJANGO_HYBRID_SLA_SWEEP_URL: e.g. https://crush.lu/api/admin/hybrid-coach-sla-sweep/
+    - DJANGO_WEEKLY_KPIS_URL: e.g. https://crush.lu/api/admin/weekly-kpis/
     - ADMIN_API_KEY: Bearer token shared with the Django ADMIN_API_KEY setting
     - HYBRID_MAINTENANCE_ENABLED: Should be 'true' in production; anything
       else skips both triggers (safe-default: functions are deployed disabled
@@ -132,3 +133,23 @@ def hybrid_sla_sweep(timer: func.TimerRequest) -> None:
         logging.warning("HybridSLASweep: timer past due at %s", ts)
     logging.info("HybridSLASweep: starting at %s", ts)
     _call_admin_endpoint("HybridSLASweep", "DJANGO_HYBRID_SLA_SWEEP_URL")
+
+
+@app.function_name(name="WeeklyKPIs")
+@app.timer_trigger(
+    schedule="0 0 7 * * 1",  # Mondays at 07:00 UTC (NCRONTAB: sec min hour day month dow)
+    arg_name="timer",
+    run_on_startup=False,
+    use_monitor=True,
+)
+def weekly_kpis(timer: func.TimerRequest) -> None:
+    """Compute + persist the last full week's KPIs and email the digest.
+
+    The Django command ``update_or_create``s the snapshot, so a retried or
+    catch-up invocation just refreshes the same week's row.
+    """
+    ts = datetime.utcnow().isoformat()
+    if timer.past_due:
+        logging.warning("WeeklyKPIs: timer past due at %s", ts)
+    logging.info("WeeklyKPIs: starting at %s", ts)
+    _call_admin_endpoint("WeeklyKPIs", "DJANGO_WEEKLY_KPIS_URL")
