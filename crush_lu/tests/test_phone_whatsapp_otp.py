@@ -212,12 +212,19 @@ class WhatsAppOTPTests(SiteTestMixin, TestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertFalse(self._has_verified_profile())
 
-    def test_verify_single_use(self):
+    def test_verify_retry_after_success_is_idempotent(self):
+        # A double-submit/retry after the first verify succeeded must not look
+        # like a failure even though the OTP is now consumed.
         self._issue(code="444444")
         self.assertEqual(
             self._post(self.verify_url, {"code": "444444"}).status_code, 200
         )
-        # Replaying the consumed code is treated as expired/no open OTP.
+        resp = self._post(self.verify_url, {"code": "444444"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()["phone_verified"])
+
+    def test_verify_unverified_user_with_no_open_otp_is_expired(self):
+        # No prior issue() and the user isn't verified -> genuine expired/missing.
         resp = self._post(self.verify_url, {"code": "444444"})
         self.assertEqual(resp.status_code, 400)
         self.assertEqual(resp.json()["error_code"], "otp_expired")

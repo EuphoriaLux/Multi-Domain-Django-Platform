@@ -381,6 +381,23 @@ def verify_whatsapp_otp(request):
     Mirrors the verified-phone write and "already in use" race guards from
     mark_phone_verified() so both channels behave identically.
     """
+    # Idempotency: a retry or double-submit after a successful first verify
+    # finds the OTP already consumed. Return success when the profile is already
+    # verified instead of a misleading otp_expired (a lost first response must
+    # not look like a failure).
+    try:
+        verified_profile = request.user.crushprofile
+    except CrushProfile.DoesNotExist:
+        verified_profile = None
+    if verified_profile is not None and verified_profile.phone_verified:
+        return JsonResponse({
+            "success": True,
+            "message": _("Your phone number is already verified."),
+            "phone_verified": True,
+            "phone_number": verified_profile.phone_number,
+            "csrfToken": get_token(request),
+        })
+
     try:
         payload = json.loads(request.body.decode("utf-8"))
     except (json.JSONDecodeError, UnicodeDecodeError):
