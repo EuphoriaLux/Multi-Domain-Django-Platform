@@ -60,6 +60,11 @@
                 <p class="mb-4">
                     {% trans "We sent a 6-digit code to" %}<br>
                     <strong x-text="maskedPhone"></strong>
+                    <span x-show="isWhatsAppChannel" x-cloak
+                          class="mt-1 inline-flex items-center justify-center gap-1 text-xs font-medium text-green-600 dark:text-green-400">
+                        {% include "shared/icons/whatsapp.html" with class="w-4 h-4" %}
+                        {% trans "via WhatsApp" %}
+                    </span>
                 </p>
 
                 <!-- OTP Inputs - CSP-compatible: using :value + @input with method names only (no $event) -->
@@ -140,6 +145,23 @@
                     </a>
                 </div>
                 {% endif %}
+            </div>
+
+            <!-- Step: WhatsApp send failed — offer SMS as the universal fallback -->
+            <div x-show="isFallbackStep" x-cloak class="text-center py-6">
+                <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
+                    {% include "shared/icons/exclamation-circle.html" with class="w-6 h-6 text-amber-500" %}
+                </div>
+                <p class="mb-4 text-sm text-gray-700 dark:text-gray-300" x-text="error"></p>
+                <button x-show="canFallbackToSms"
+                        @click="switchToSms"
+                        class="w-full py-3 bg-crush-purple text-white rounded-xl font-semibold hover:bg-crush-purple/90 transition">
+                    {% trans "Verify by SMS instead" %}
+                </button>
+                <button @click="close"
+                        class="mt-2 w-full py-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                    {% trans "Cancel" %}
+                </button>
             </div>
 
             <!-- Step: Verifying -->

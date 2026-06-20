@@ -225,10 +225,16 @@ def firebase_config(request):
     These values come from environment variables and are safe to expose
     to the client (they are client-side API keys, protected by domain restrictions).
     """
+    from .services import whatsapp
+
     return {
         "firebase_api_key": getattr(settings, "FIREBASE_API_KEY", ""),
         "firebase_auth_domain": getattr(settings, "FIREBASE_AUTH_DOMAIN", ""),
         "firebase_project_id": getattr(settings, "FIREBASE_PROJECT_ID", ""),
+        # Whether WhatsApp is usable as an OTP delivery channel (Meta creds set).
+        # Gates the "Verify via WhatsApp" button so we never show an option that
+        # the send endpoint would only reject with a 503.
+        "whatsapp_otp_enabled": whatsapp.is_configured(),
     }
 
 
