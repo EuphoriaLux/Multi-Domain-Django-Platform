@@ -112,6 +112,39 @@ class WhatsAppOTPTests(SiteTestMixin, TestCase):
         self.assertEqual(resp.json()["error_code"], "phone_already_in_use")
         mock_send.assert_not_called()
 
+    @patch("crush_lu.services.whatsapp.is_configured", return_value=True)
+    @patch("crush_lu.services.whatsapp.send_otp")
+    def test_send_rejects_same_number_different_spelling(self, mock_send, _cfg):
+        # Existing verified profile stored in canonical "+" form.
+        other = User.objects.create_user(username="o2@e.com", email="o2@e.com", password="pw")
+        CrushProfile.objects.create(
+            user=other, phone_number="+352621123456", phone_verified=True
+        )
+        # Same real number entered without the leading "+" and with spaces.
+        resp = self._post(self.send_url, {"phone_number": "352 621 123 456"})
+        self.assertEqual(resp.status_code, 409)
+        self.assertEqual(resp.json()["error_code"], "phone_already_in_use")
+        mock_send.assert_not_called()
+
+    @patch("crush_lu.services.whatsapp.is_configured", return_value=True)
+    @patch("crush_lu.services.whatsapp.send_otp")
+    def test_send_canonicalizes_stored_number(self, mock_send, _cfg):
+        captured = {}
+        mock_send.side_effect = lambda recipient, code, language="en": (
+            captured.__setitem__("recipient", recipient)
+            or WhatsAppSendResult(ok=True, wa_message_id="z")
+        )
+        # "00" international prefix collapses to the same canonical "+" form.
+        resp = self._post(self.send_url, {"phone_number": "00352621123456"})
+        self.assertEqual(resp.status_code, 200)
+        otp = PhoneOTP.objects.get(user=self.user)
+        self.assertEqual(otp.phone_number, "+352621123456")
+        self.assertEqual(captured["recipient"], "+352621123456")
+
+    def test_send_rejects_too_short_number(self):
+        resp = self._post(self.send_url, {"phone_number": "12345"})
+        self.assertEqual(resp.status_code, 400)
+
     def test_send_missing_number_is_400(self):
         resp = self._post(self.send_url, {})
         self.assertEqual(resp.status_code, 400)

@@ -30,13 +30,22 @@ from .decorators import ratelimit
 from .utils.i18n import validate_language
 
 
-def _normalize_phone(raw: str) -> str:
-    """Strip spaces/dashes/parens but keep the leading ``+`` (E.164-ish).
+def _canonicalize_phone(raw: str) -> str:
+    """Collapse a typed number to a single canonical ``+<digits>`` form.
 
-    Mirrors the normalization in ``check_phone_available`` so the number we
-    send to, store on the OTP, and write to the profile all match.
+    ``+352621…``, ``352621…`` and ``00352621…`` must all map to one string, or
+    the string-based uniqueness constraint and the dedup query miss a match: a
+    second account could verify the same real number under a different spelling
+    (Meta normalizes them all to the same recipient anyway). save() does not run
+    the model's ``+``-prefixed validator, so we must canonicalize here.
+
+    Returns "" when there aren't enough digits to be a plausible E.164 number.
     """
-    return re.sub(r"[\s\-\(\)]", "", raw or "")
+    digits = re.sub(r"[^\d]", "", raw or "")
+    digits = re.sub(r"^00", "", digits)  # international call prefix -> "+"
+    if len(digits) < 8:
+        return ""
+    return f"+{digits}"
 
 logger = logging.getLogger(__name__)
 
@@ -290,10 +299,11 @@ def send_whatsapp_otp(request):
     except (json.JSONDecodeError, UnicodeDecodeError):
         return JsonResponse({"success": False, "error": "Invalid JSON format"}, status=400)
 
-    phone_number = _normalize_phone(payload.get("phone_number", ""))
+    phone_number = _canonicalize_phone(payload.get("phone_number", ""))
     if not phone_number:
         return JsonResponse(
-            {"success": False, "error": _("Phone number is required")}, status=400
+            {"success": False, "error": _("A valid phone number is required")},
+            status=400,
         )
 
     # Don't send to a number already verified by a different account.
