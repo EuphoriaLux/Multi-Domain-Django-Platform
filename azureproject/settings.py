@@ -617,6 +617,18 @@ META_WABA_ID = os.environ.get("META_WABA_ID", "")
 META_WHATSAPP_APP_SECRET = os.environ.get("META_WHATSAPP_APP_SECRET", "")
 META_WHATSAPP_VERIFY_TOKEN = os.environ.get("META_WHATSAPP_VERIFY_TOKEN", "")
 
+# WhatsApp phone-verification (OTP) — sends an approved Authentication-category
+# template. The template is named "<prefix>_phone_verification" and exists once
+# per language (en/de/fr) under that single name, so the send call passes the
+# user's language code. The prefix differs per environment (crush_staging vs
+# crush) so staging and production use separate templates/WABAs.
+WHATSAPP_OTP_TEMPLATE_PREFIX = os.environ.get(
+    "WHATSAPP_OTP_TEMPLATE_PREFIX", "crush_staging"
+)
+# Minutes an OTP stays valid — keep in sync with the template's expiration
+# warning and message validity period configured in WhatsApp Manager (3 min).
+WHATSAPP_OTP_TTL_MINUTES = int(os.environ.get("WHATSAPP_OTP_TTL_MINUTES", "3"))
+
 # CORS — scoped to the SPA origins that call the api.crush.lu subdomain.
 # JWT Bearer auth means we do NOT need CORS_ALLOW_CREDENTIALS (no cookies sent
 # cross-origin). Leave it False so a compromised origin can't replay sessions.
