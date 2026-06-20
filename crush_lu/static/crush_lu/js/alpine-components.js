@@ -5852,6 +5852,13 @@ document.addEventListener("alpine:init", function () {
                     }
                 }
 
+                // WhatsApp → SMS fallback: the modal dispatches this when the
+                // number isn't on WhatsApp so we run the normal SMS flow (which
+                // reuses the open modal, reCAPTCHA, and Firebase send).
+                window.addEventListener("start-sms-verification", function (e) {
+                    self._doStartVerification(e.detail);
+                });
+
                 // Listen for verification success event
                 window.addEventListener("phone-verified", function (e) {
                     self.verified = true;
@@ -6019,6 +6026,24 @@ document.addEventListener("alpine:init", function () {
                 }
             },
 
+            // WhatsApp channel: hand the number to the OTP modal, which owns the
+            // send/verify against the api/phone/whatsapp/ endpoints. Unlike SMS
+            // there is no Firebase pre-flight or reCAPTCHA — the backend send
+            // already rejects in-use numbers (409), so no check-available call.
+            startWhatsAppVerification: function () {
+                if (this.iti && !this.iti.isValidNumber()) {
+                    this.errorMessage = gettext("Please enter a valid phone number");
+                    return;
+                }
+                var phoneNumber = this.iti
+                    ? this.iti.getNumber()
+                    : document.getElementById(this.phoneInputId).value;
+                this.errorMessage = "";
+                window.dispatchEvent(
+                    new CustomEvent("open-whatsapp-modal", { detail: phoneNumber }),
+                );
+            },
+
             resetVerification: function () {
                 this.verified = false;
                 this.canVerify = false;
@@ -6109,7 +6134,13 @@ document.addEventListener("alpine:init", function () {
     Alpine.data("phoneVerificationModal", function () {
         return {
             isOpen: false,
-            step: "sending", // sending, code, verifying, success
+            step: "sending", // sending, code, verifying, success, fallback
+            // "sms" (Firebase) or "whatsapp" (Meta). Drives which send/verify
+            // path verifyCode()/resendCode() take and the channel UI hints.
+            channel: "sms",
+            // Full E.164 number — WhatsApp send/verify has no Firebase
+            // confirmationResult to carry it, so the modal keeps it for resend.
+            phoneNumber: "",
             // CSP-compatible: individual properties instead of array (array index access requires eval)
             otp0: "",
             otp1: "",
@@ -6128,11 +6159,21 @@ document.addEventListener("alpine:init", function () {
             get showPhoneInUseError() {
                 return this.phoneAlreadyInUse;
             },
+            get isWhatsAppChannel() {
+                return this.channel === "whatsapp";
+            },
             get isSendingStep() {
                 return this.step === "sending";
             },
             get isCodeStep() {
                 return this.step === "code";
+            },
+            get isFallbackStep() {
+                return this.step === "fallback";
+            },
+            get canFallbackToSms() {
+                // SMS won't help when the number is already on another account.
+                return !this.phoneAlreadyInUse;
             },
             get isVerifyingStep() {
                 return this.step === "verifying";
@@ -6219,7 +6260,15 @@ document.addEventListener("alpine:init", function () {
                 // Listen for modal open event
                 var self = this;
                 window.addEventListener("open-phone-modal", function () {
+                    self.channel = "sms";
                     self.open();
+                });
+
+                // WhatsApp: open the modal and immediately kick off the send.
+                window.addEventListener("open-whatsapp-modal", function (e) {
+                    self.channel = "whatsapp";
+                    self.open();
+                    self.sendWhatsApp(e.detail);
                 });
 
                 // Keyboard navigation: Escape key closes modal
@@ -6322,12 +6371,17 @@ document.addEventListener("alpine:init", function () {
                 var self = this;
                 var code = this.otpCode;
                 if (code.length !== 6) {
-                    this.error = "Please enter the 6-digit code";
+                    this.error = gettext("Please enter the 6-digit code");
                     return;
                 }
 
                 this.step = "verifying";
                 this.error = "";
+
+                if (this.channel === "whatsapp") {
+                    this.verifyWhatsApp(code);
+                    return;
+                }
 
                 if (window.phoneVerification) {
                     window.phoneVerification.verifyCode(code).then(function (result) {
@@ -6365,6 +6419,11 @@ document.addEventListener("alpine:init", function () {
                 var self = this;
                 this.step = "sending";
                 this.error = "";
+                if (this.channel === "whatsapp") {
+                    // sendWhatsApp() drives showCodeStep()/fallback on its own.
+                    this.sendWhatsApp(this.phoneNumber);
+                    return;
+                }
                 if (window.phoneVerification) {
                     window.phoneVerification
                         .sendVerificationCode()
@@ -6376,11 +6435,169 @@ document.addEventListener("alpine:init", function () {
                             } else {
                                 self.failureCount =
                                     window.phoneVerification.getFailureCount();
-                                self.error = result.error || "Failed to resend code";
+                                self.error =
+                                    result.error || gettext("Failed to resend code");
                                 self.step = "code";
                             }
                         });
                 }
+            },
+
+            // ── WhatsApp OTP channel (Meta delivery, server-side verify) ──────
+            getCsrfToken: function () {
+                // The SMS instance already carries the freshest token (it gets
+                // rotated server-side on POST); fall back to a form input, then
+                // the cookie, so the modal works on pages without a <form>.
+                if (window.phoneVerification && window.phoneVerification.csrfToken) {
+                    return window.phoneVerification.csrfToken;
+                }
+                var input = document.querySelector(
+                    'input[name="csrfmiddlewaretoken"]',
+                );
+                if (input) {
+                    return input.value;
+                }
+                var match = document.cookie.match(/csrftoken=([^;]+)/);
+                return match ? match[1] : "";
+            },
+
+            updateCsrf: function (token) {
+                if (!token) return;
+                if (window.phoneVerification) {
+                    window.phoneVerification.csrfToken = token;
+                }
+                var inputs = document.querySelectorAll(
+                    'input[name="csrfmiddlewaretoken"]',
+                );
+                for (var i = 0; i < inputs.length; i++) {
+                    inputs[i].value = token;
+                }
+            },
+
+            clearOtp: function () {
+                this.otp0 = "";
+                this.otp1 = "";
+                this.otp2 = "";
+                this.otp3 = "";
+                this.otp4 = "";
+                this.otp5 = "";
+            },
+
+            sendWhatsApp: function (phone) {
+                var self = this;
+                this.phoneNumber = phone;
+                this.step = "sending";
+                this.error = "";
+                this.phoneAlreadyInUse = false;
+                fetch("/api/phone/whatsapp/send/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                        "X-CSRFToken": this.getCsrfToken(),
+                    },
+                    credentials: "same-origin",
+                    body: JSON.stringify({ phone_number: phone }),
+                })
+                    .then(function (response) {
+                        return response.json().catch(function () {
+                            return {};
+                        });
+                    })
+                    .then(function (data) {
+                        if (data.success) {
+                            if (data.already_verified) {
+                                self.step = "success";
+                                window.dispatchEvent(
+                                    new CustomEvent("phone-verified", {
+                                        detail: data.phone_number,
+                                    }),
+                                );
+                                setTimeout(function () {
+                                    self.close();
+                                }, 2000);
+                                return;
+                            }
+                            self.clearOtp();
+                            self.showCodeStep(phone);
+                            return;
+                        }
+                        // Failed send: route everything to the fallback step.
+                        // not_on_whatsapp / transient errors offer SMS; an
+                        // in-use number doesn't (SMS would fail the same way).
+                        self.phoneAlreadyInUse =
+                            data.error_code === "phone_already_in_use";
+                        self.error =
+                            data.error ||
+                            gettext(
+                                "Could not send the WhatsApp code. Please try again.",
+                            );
+                        self.step = "fallback";
+                    })
+                    .catch(function () {
+                        self.error = gettext(
+                            "Could not send the WhatsApp code. Please try again.",
+                        );
+                        self.step = "fallback";
+                    });
+            },
+
+            verifyWhatsApp: function (code) {
+                var self = this;
+                fetch("/api/phone/whatsapp/verify/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                        "X-CSRFToken": this.getCsrfToken(),
+                    },
+                    credentials: "same-origin",
+                    body: JSON.stringify({ code: code }),
+                })
+                    .then(function (response) {
+                        return response.json().catch(function () {
+                            return {};
+                        });
+                    })
+                    .then(function (data) {
+                        self.updateCsrf(data.csrfToken);
+                        if (data.success && data.phone_verified) {
+                            self.step = "success";
+                            window.dispatchEvent(
+                                new CustomEvent("phone-verified", {
+                                    detail: data.phone_number,
+                                }),
+                            );
+                            setTimeout(function () {
+                                self.close();
+                            }, 2000);
+                        } else if (data.error_code === "phone_already_in_use") {
+                            self.phoneAlreadyInUse = true;
+                            self.step = "code";
+                            self.error = data.error;
+                        } else {
+                            self.step = "code";
+                            self.error =
+                                data.error ||
+                                gettext("Incorrect code. Please try again.");
+                            self.clearOtp();
+                        }
+                    })
+                    .catch(function () {
+                        self.step = "code";
+                        self.error = gettext("Verification failed. Please try again.");
+                        self.clearOtp();
+                    });
+            },
+
+            switchToSms: function () {
+                // Hand off to the SMS flow; the component re-opens this modal in
+                // "sms" mode (resetting channel/step) and starts the Firebase send.
+                window.dispatchEvent(
+                    new CustomEvent("start-sms-verification", {
+                        detail: this.phoneNumber,
+                    }),
+                );
             },
 
             startResendTimer: function () {
