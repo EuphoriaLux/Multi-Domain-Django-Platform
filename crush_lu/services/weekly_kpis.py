@@ -111,6 +111,12 @@ def compute_weekly_snapshot(week_start: date) -> dict:
     }
 
     # ── Engagement / retention ───────────────────────────────────────
+    # CAVEAT: UserActivity stores only the *latest* last_seen / last_pwa_visit
+    # (overwritten per request), not a per-day history. So a member active during
+    # the week who returns before this job runs has their timestamp bumped into
+    # the next week and falls outside this window — undercounting WAU on late or
+    # retried runs. Acceptable for an on-time Monday run; a proper fix needs a
+    # daily activity rollup (tracked as a follow-up in issue #523).
     active_qs = in_week(UserActivity.objects.all(), "last_seen")
     wau = active_qs.count()
     new_active = active_qs.filter(first_seen__date__gte=week_start).count()
