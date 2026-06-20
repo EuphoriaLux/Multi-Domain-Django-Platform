@@ -467,11 +467,13 @@ def verify_whatsapp_otp(request):
         if otp is None or otp.is_expired:
             # The OTP may have just been consumed by a concurrent verify that
             # promoted the profile in the same transaction; if so this is a
-            # success, not an expiry.
-            if CrushProfile.objects.filter(
+            # success, not an expiry. Query fresh — the early crushprofile
+            # access above may have cached a missing reverse relation.
+            verified = CrushProfile.objects.filter(
                 user=request.user, phone_verified=True
-            ).exists():
-                return already_verified_response(request.user.crushprofile)
+            ).first()
+            if verified is not None:
+                return already_verified_response(verified)
             return JsonResponse({
                 "success": False,
                 "error": _("Your code has expired. Please request a new one."),
@@ -488,9 +490,10 @@ def verify_whatsapp_otp(request):
             }, status=400)
 
         # Code valid — promote to a verified phone (get-or-create profile first).
-        try:
-            profile = request.user.crushprofile
-        except CrushProfile.DoesNotExist:
+        # Query fresh rather than via request.user.crushprofile, whose missing
+        # reverse relation may have been cached by the early access above.
+        profile = CrushProfile.objects.filter(user=request.user).first()
+        if profile is None:
             preferred_lang = validate_language(
                 getattr(request, "LANGUAGE_CODE", "en"), default="en"
             )
