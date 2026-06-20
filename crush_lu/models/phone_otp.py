@@ -88,6 +88,10 @@ class PhoneOTP(models.Model):
 
         Returns True only for a live (unconsumed, unexpired, under attempt cap)
         code that matches. On success the row is consumed (single-use).
+
+        Read-modify-writes ``attempts``/``consumed``, so callers must hold a row
+        lock (``select_for_update`` inside a transaction) to keep concurrent
+        verifies from sharing a pre-increment count and exceeding MAX_ATTEMPTS.
         """
         if self.consumed or self.is_expired or self.attempts >= self.MAX_ATTEMPTS:
             return False

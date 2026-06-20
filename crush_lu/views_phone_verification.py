@@ -14,7 +14,7 @@ import json
 import logging
 import re
 from django.conf import settings
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST, require_GET
 from django.contrib.auth.decorators import login_required
@@ -434,20 +434,26 @@ def verify_whatsapp_otp(request):
             {"success": False, "error": _("Code is required")}, status=400
         )
 
-    otp = (
-        PhoneOTP.objects
-        .filter(user=request.user, channel=PhoneOTP.Channel.WHATSAPP, consumed=False)
-        .order_by("-created_at")
-        .first()
-    )
-    if otp is None or otp.is_expired:
-        return JsonResponse({
-            "success": False,
-            "error": _("Your code has expired. Please request a new one."),
-            "error_code": "otp_expired",
-        }, status=400)
+    # Lock the OTP row while we check and increment attempts so concurrent
+    # verifies can't each pass the cap on the same pre-increment count and
+    # exceed MAX_ATTEMPTS in a race (no-op on SQLite; enforced on Postgres).
+    with transaction.atomic():
+        otp = (
+            PhoneOTP.objects
+            .select_for_update()
+            .filter(user=request.user, channel=PhoneOTP.Channel.WHATSAPP, consumed=False)
+            .order_by("-created_at")
+            .first()
+        )
+        if otp is None or otp.is_expired:
+            return JsonResponse({
+                "success": False,
+                "error": _("Your code has expired. Please request a new one."),
+                "error_code": "otp_expired",
+            }, status=400)
+        verified_ok = otp.verify(code)
 
-    if not otp.verify(code):
+    if not verified_ok:
         remaining = max(0, PhoneOTP.MAX_ATTEMPTS - otp.attempts)
         return JsonResponse({
             "success": False,
