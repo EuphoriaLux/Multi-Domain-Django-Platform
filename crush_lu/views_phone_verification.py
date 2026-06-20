@@ -12,6 +12,8 @@ Security:
 """
 import json
 import logging
+import re
+from django.conf import settings
 from django.db import IntegrityError
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST, require_GET
@@ -22,9 +24,19 @@ from django.middleware.csrf import get_token
 
 from django.utils.translation import gettext as _
 from .google_idp_verify import verify_firebase_id_token, get_phone_from_token, get_firebase_uid_from_token
-from .models import CrushProfile
+from .models import CrushProfile, PhoneOTP
+from .services import whatsapp
 from .decorators import ratelimit
 from .utils.i18n import validate_language
+
+
+def _normalize_phone(raw: str) -> str:
+    """Strip spaces/dashes/parens but keep the leading ``+`` (E.164-ish).
+
+    Mirrors the normalization in ``check_phone_available`` so the number we
+    send to, store on the OTP, and write to the profile all match.
+    """
+    return re.sub(r"[\s\-\(\)]", "", raw or "")
 
 logger = logging.getLogger(__name__)
 
@@ -253,5 +265,185 @@ def phone_verification_status(request):
             "phone_verified_at": None,
             "phone_number": None
         })
+
+
+# ─── WhatsApp OTP (third channel, alongside Firebase SMS and LuxID) ──────────
+#
+# Unlike Firebase, Meta is delivery-only: we generate, store (hashed), and
+# verify the code ourselves. A successful verify sets phone_verified exactly
+# like mark_phone_verified() does for the Firebase path.
+
+
+@login_required
+@require_POST
+@csrf_protect
+@ratelimit(key='user', rate='3/15m', method='POST')  # cap WhatsApp sends (cost + abuse)
+def send_whatsapp_otp(request):
+    """Generate a code, store it hashed, and deliver it over WhatsApp.
+
+    The code is only persisted after a successful send, so failed sends don't
+    invalidate a previously delivered code. If the number isn't on WhatsApp
+    (Meta error 131026) we signal the client to offer SMS instead.
+    """
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({"success": False, "error": "Invalid JSON format"}, status=400)
+
+    phone_number = _normalize_phone(payload.get("phone_number", ""))
+    if not phone_number:
+        return JsonResponse(
+            {"success": False, "error": _("Phone number is required")}, status=400
+        )
+
+    # Don't send to a number already verified by a different account.
+    already_taken = CrushProfile.objects.filter(
+        phone_number=phone_number, phone_verified=True,
+    ).exclude(user=request.user).exists()
+    if already_taken:
+        return JsonResponse({
+            "success": False,
+            "error": _("This phone number is already associated with another account."),
+            "error_code": "phone_already_in_use",
+        }, status=409)
+
+    if not whatsapp.is_configured():
+        return JsonResponse({
+            "success": False,
+            "error": _("WhatsApp verification is currently unavailable."),
+        }, status=503)
+
+    lang = validate_language(getattr(request, "LANGUAGE_CODE", "en"), default="en")
+    code = PhoneOTP.generate_code()
+    result = whatsapp.send_otp(phone_number, code, language=lang)
+
+    if not result.ok:
+        if result.not_on_whatsapp:
+            return JsonResponse({
+                "success": False,
+                "error": _("This number isn't on WhatsApp. Try SMS verification instead."),
+                "error_code": "not_on_whatsapp",
+            }, status=422)
+        logger.warning("WhatsApp OTP send failed for user %s", request.user.id)
+        return JsonResponse({
+            "success": False,
+            "error": _("Could not send the WhatsApp code. Please try again."),
+        }, status=502)
+
+    ttl = getattr(settings, "WHATSAPP_OTP_TTL_MINUTES", 3)
+    PhoneOTP.issue(
+        user=request.user,
+        phone_number=phone_number,
+        code=code,
+        channel=PhoneOTP.Channel.WHATSAPP,
+        ttl_minutes=ttl,
+    )
+    logger.info("WhatsApp OTP sent for user ID: %s", request.user.id)
+    return JsonResponse({
+        "success": True,
+        "message": _("Verification code sent to your WhatsApp."),
+        "ttl_minutes": ttl,
+    })
+
+
+@login_required
+@require_POST
+@csrf_protect
+@ratelimit(key='user', rate='10/15m', method='POST')  # cap verify attempts
+def verify_whatsapp_otp(request):
+    """Check a WhatsApp OTP and, on success, mark the phone verified.
+
+    Mirrors the verified-phone write and "already in use" race guards from
+    mark_phone_verified() so both channels behave identically.
+    """
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({"success": False, "error": "Invalid JSON format"}, status=400)
+
+    code = (payload.get("code") or "").strip()
+    if not code:
+        return JsonResponse(
+            {"success": False, "error": _("Code is required")}, status=400
+        )
+
+    otp = (
+        PhoneOTP.objects
+        .filter(user=request.user, channel=PhoneOTP.Channel.WHATSAPP, consumed=False)
+        .order_by("-created_at")
+        .first()
+    )
+    if otp is None or otp.is_expired:
+        return JsonResponse({
+            "success": False,
+            "error": _("Your code has expired. Please request a new one."),
+            "error_code": "otp_expired",
+        }, status=400)
+
+    if not otp.verify(code):
+        remaining = max(0, PhoneOTP.MAX_ATTEMPTS - otp.attempts)
+        return JsonResponse({
+            "success": False,
+            "error": _("Incorrect code. Please try again."),
+            "error_code": "otp_invalid",
+            "attempts_remaining": remaining,
+        }, status=400)
+
+    # Code valid — promote to a verified phone (get-or-create profile first).
+    try:
+        profile = request.user.crushprofile
+    except CrushProfile.DoesNotExist:
+        preferred_lang = validate_language(
+            getattr(request, "LANGUAGE_CODE", "en"), default="en"
+        )
+        profile = CrushProfile.objects.create(
+            user=request.user, preferred_language=preferred_lang
+        )
+
+    if profile.phone_verified:
+        return JsonResponse({
+            "success": True,
+            "message": _("Your phone number is already verified."),
+            "phone_verified": True,
+            "phone_number": profile.phone_number,
+            "csrfToken": get_token(request),
+        })
+
+    existing = CrushProfile.objects.filter(
+        phone_number=otp.phone_number, phone_verified=True,
+    ).exclude(pk=profile.pk).exists()
+    if existing:
+        return JsonResponse({
+            "success": False,
+            "error": _("This phone number is already associated with another account."),
+            "error_code": "phone_already_in_use",
+        }, status=409)
+
+    profile.phone_number = otp.phone_number
+    profile.phone_verified = True
+    profile.phone_verified_at = timezone.now()
+    profile.phone_verification_uid = f"whatsapp:{otp.pk}"
+    try:
+        profile.save(update_fields=[
+            "phone_number",
+            "phone_verified",
+            "phone_verified_at",
+            "phone_verification_uid",
+        ])
+    except IntegrityError:
+        return JsonResponse({
+            "success": False,
+            "error": _("This phone number is already associated with another account."),
+            "error_code": "phone_already_in_use",
+        }, status=409)
+
+    logger.info("Phone verified via WhatsApp for user ID: %s", request.user.id)
+    return JsonResponse({
+        "success": True,
+        "message": _("Phone number verified successfully"),
+        "phone_verified": True,
+        "phone_number": otp.phone_number,
+        "csrfToken": get_token(request),
+    })
 
 

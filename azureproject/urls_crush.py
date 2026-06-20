@@ -105,6 +105,8 @@ urlpatterns = [
     path('api/phone/mark-verified/', views_phone_verification.mark_phone_verified, name='api_phone_mark_verified'),
     path('api/phone/check-available/', views_phone_verification.check_phone_available, name='api_phone_check_available'),
     path('api/phone/status/', views_phone_verification.phone_verification_status, name='api_phone_status'),
+    path('api/phone/whatsapp/send/', views_phone_verification.send_whatsapp_otp, name='api_phone_whatsapp_send'),
+    path('api/phone/whatsapp/verify/', views_phone_verification.verify_whatsapp_otp, name='api_phone_whatsapp_verify'),
 
     # ============================================================================
     # LANGUAGE-NEUTRAL API ENDPOINTS

@@ -1,4 +1,5 @@
 from .profiles import *
+from .phone_otp import *
 from .events import *
 from .connections import *
 from .journey import *
