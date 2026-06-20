@@ -17126,9 +17126,7 @@ msgstr "Optionnel"
 msgid "Tell us about yourself... What do you love? What makes you smile?"
 msgstr ""
 "Parle-nous de toi... Qu'est-ce que tu aimes ? Qu'est-ce qui te fait sourire "
-"?Parle-nous de toi... Qu'est-ce que tu aimes ? Qu'est-ce qui te faitsourire "
-"?Parlez-nous de vous... Qu'est-ce que vous aimez ? Qu'est-cequi vous fait "
-"sourire ? (Optionnel)"
+"?"
 
 #: templates/crush_lu/create_profile.html:656
 #: templates/crush_lu/create_profile.html:734
@@ -26574,17 +26572,14 @@ msgid "LuxID"
 msgstr "LuxID"
 
 #: templates/crush_lu/partials/_verification_options.html:68
-#| msgid ""
-#| "Connect your LuxID government identity and get verified in seconds — no "
-#| "call, no waiting."
 msgid ""
 "Connect your LuxID government identity and get verified in seconds — no "
-"call, no waiting. LuxID also unlocks the Crush Connect catalogue, where a "
-"Crush Coach can pick you as a match."
+"call, no waiting. LuxID also unlocks Crush Connect, where a Crush Coach can "
+"pick you as a match."
 msgstr ""
 "Connectez votre identité gouvernementale LuxID et soyez vérifié en quelques "
-"secondes — sans appel, sans attente. LuxID débloque aussi le catalogue Crush"
-" Connect, où un Crush Coach peut vous choisir comme match."
+"secondes — sans appel, sans attente. LuxID débloque aussi Crush Connect, où "
+"un Crush Coach peut vous choisir comme match."
 
 #: templates/crush_lu/partials/_verification_options.html:76
 msgid "Not available right now — come to an event to get verified instead."
@@ -34083,3 +34078,23 @@ msgstr ""
 
 msgid "Section "
 msgstr "Section "
+
+#: templates/crush_lu/partials/_verification_options.html
+msgid ""
+"Prefer to meet first? Our team verifies you in person at any event — no "
+"LuxID needed, and you start meeting people right away."
+msgstr ""
+"Vous préférez d'abord vous rencontrer ? Notre équipe vous vérifie en "
+"personne lors de n'importe quel événement — pas besoin de LuxID, et vous "
+"commencez à rencontrer des gens tout de suite."
+
+#: templates/crush_lu/partials/_verification_options.html
+msgid ""
+"Connect LuxID (free) to join Crush Connect so a Crush Coach can pick you for"
+" a Premium member's match. Go Premium to receive your own — 4 matches over 4"
+" weeks, one hand-picked each week. Free for the first month."
+msgstr ""
+"Connectez LuxID (gratuit) pour rejoindre Crush Connect afin qu'un Crush "
+"Coach puisse vous choisir pour le match d'un membre Premium. Passez à "
+"Premium pour recevoir les vôtres — 4 matchs sur 4 semaines, un sélectionné à"
+" la main chaque semaine. Gratuit le premier mois."
