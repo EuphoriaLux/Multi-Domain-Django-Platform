@@ -294,6 +294,21 @@ def send_whatsapp_otp(request):
     invalidate a previously delivered code. If the number isn't on WhatsApp
     (Meta error 131026) we signal the client to offer SMS instead.
     """
+    # A verified phone can't be changed through this flow (the model's save()
+    # protects it), so never burn a billable send for an already-verified user
+    # — otherwise they could fire OTPs at arbitrary numbers up to the rate limit.
+    try:
+        existing_profile = request.user.crushprofile
+    except CrushProfile.DoesNotExist:
+        existing_profile = None
+    if existing_profile is not None and existing_profile.phone_verified:
+        return JsonResponse({
+            "success": True,
+            "already_verified": True,
+            "message": _("Your phone number is already verified."),
+            "phone_number": existing_profile.phone_number,
+        })
+
     try:
         payload = json.loads(request.body.decode("utf-8"))
     except (json.JSONDecodeError, UnicodeDecodeError):

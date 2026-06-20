@@ -145,6 +145,18 @@ class WhatsAppOTPTests(SiteTestMixin, TestCase):
         resp = self._post(self.send_url, {"phone_number": "12345"})
         self.assertEqual(resp.status_code, 400)
 
+    @patch("crush_lu.services.whatsapp.is_configured", return_value=True)
+    @patch("crush_lu.services.whatsapp.send_otp")
+    def test_send_short_circuits_when_already_verified(self, mock_send, _cfg):
+        CrushProfile.objects.create(
+            user=self.user, phone_number="+352600000000", phone_verified=True
+        )
+        resp = self._post(self.send_url, {"phone_number": "+352621123456"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()["already_verified"])
+        mock_send.assert_not_called()
+        self.assertFalse(PhoneOTP.objects.filter(user=self.user).exists())
+
     def test_send_missing_number_is_400(self):
         resp = self._post(self.send_url, {})
         self.assertEqual(resp.status_code, 400)
