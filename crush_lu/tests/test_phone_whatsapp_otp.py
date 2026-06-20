@@ -147,6 +147,17 @@ class WhatsAppOTPTests(SiteTestMixin, TestCase):
 
     @patch("crush_lu.services.whatsapp.is_configured", return_value=True)
     @patch("crush_lu.services.whatsapp.send_otp")
+    def test_send_rejects_too_long_number(self, mock_send, _cfg):
+        # 20+ digits exceed E.164's 15 and CrushProfile/PhoneOTP max_length=20.
+        # Must be rejected before any billable Meta send (no value-too-long
+        # error after the fact, no usable OTP stored).
+        resp = self._post(self.send_url, {"phone_number": "+" + "1" * 21})
+        self.assertEqual(resp.status_code, 400)
+        mock_send.assert_not_called()
+        self.assertFalse(PhoneOTP.objects.filter(user=self.user).exists())
+
+    @patch("crush_lu.services.whatsapp.is_configured", return_value=True)
+    @patch("crush_lu.services.whatsapp.send_otp")
     def test_send_short_circuits_when_already_verified(self, mock_send, _cfg):
         CrushProfile.objects.create(
             user=self.user, phone_number="+352600000000", phone_verified=True

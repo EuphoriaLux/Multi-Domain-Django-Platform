@@ -39,11 +39,16 @@ def _canonicalize_phone(raw: str) -> str:
     (Meta normalizes them all to the same recipient anyway). save() does not run
     the model's ``+``-prefixed validator, so we must canonicalize here.
 
-    Returns "" when there aren't enough digits to be a plausible E.164 number.
+    Returns "" when the digit count is outside E.164's plausible range. The
+    upper bound matters before sending: a 20+ digit input still yields a
+    non-empty ``+<digits>`` string, so the send would reach Meta (billable) and
+    only then fail when ``PhoneOTP``/``CrushProfile`` try to store it in their
+    ``max_length=20`` columns. E.164 caps a real number at 15 digits, so reject
+    here and never burn a send on a number we can't store.
     """
     digits = re.sub(r"[^\d]", "", raw or "")
     digits = re.sub(r"^00", "", digits)  # international call prefix -> "+"
-    if len(digits) < 8:
+    if not 8 <= len(digits) <= 15:  # E.164: up to 15 digits
         return ""
     return f"+{digits}"
 
