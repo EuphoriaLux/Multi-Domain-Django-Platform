@@ -434,46 +434,7 @@ def verify_whatsapp_otp(request):
             {"success": False, "error": _("Code is required")}, status=400
         )
 
-    # Lock the OTP row while we check and increment attempts so concurrent
-    # verifies can't each pass the cap on the same pre-increment count and
-    # exceed MAX_ATTEMPTS in a race (no-op on SQLite; enforced on Postgres).
-    with transaction.atomic():
-        otp = (
-            PhoneOTP.objects
-            .select_for_update()
-            .filter(user=request.user, channel=PhoneOTP.Channel.WHATSAPP, consumed=False)
-            .order_by("-created_at")
-            .first()
-        )
-        if otp is None or otp.is_expired:
-            return JsonResponse({
-                "success": False,
-                "error": _("Your code has expired. Please request a new one."),
-                "error_code": "otp_expired",
-            }, status=400)
-        verified_ok = otp.verify(code)
-
-    if not verified_ok:
-        remaining = max(0, PhoneOTP.MAX_ATTEMPTS - otp.attempts)
-        return JsonResponse({
-            "success": False,
-            "error": _("Incorrect code. Please try again."),
-            "error_code": "otp_invalid",
-            "attempts_remaining": remaining,
-        }, status=400)
-
-    # Code valid — promote to a verified phone (get-or-create profile first).
-    try:
-        profile = request.user.crushprofile
-    except CrushProfile.DoesNotExist:
-        preferred_lang = validate_language(
-            getattr(request, "LANGUAGE_CODE", "en"), default="en"
-        )
-        profile = CrushProfile.objects.create(
-            user=request.user, preferred_language=preferred_lang
-        )
-
-    if profile.phone_verified:
+    def already_verified_response(profile):
         return JsonResponse({
             "success": True,
             "message": _("Your phone number is already verified."),
@@ -482,31 +443,84 @@ def verify_whatsapp_otp(request):
             "csrfToken": get_token(request),
         })
 
-    # Same canonical, non-empty uniqueness scope as the send check.
-    if _phone_taken_by_other(otp.phone_number, exclude_pk=profile.pk):
+    def phone_in_use_response():
         return JsonResponse({
             "success": False,
             "error": _("This phone number is already associated with another account."),
             "error_code": "phone_already_in_use",
         }, status=409)
 
-    profile.phone_number = otp.phone_number
-    profile.phone_verified = True
-    profile.phone_verified_at = timezone.now()
-    profile.phone_verification_uid = f"whatsapp:{otp.pk}"
-    try:
-        profile.save(update_fields=[
-            "phone_number",
-            "phone_verified",
-            "phone_verified_at",
-            "phone_verification_uid",
-        ])
-    except IntegrityError:
-        return JsonResponse({
-            "success": False,
-            "error": _("This phone number is already associated with another account."),
-            "error_code": "phone_already_in_use",
-        }, status=409)
+    # Consume the OTP and promote the profile in ONE locked transaction. This
+    # serializes the attempts counter (no-op on SQLite; enforced on Postgres)
+    # AND keeps consumption and verification atomic — a racing double-submit
+    # then either sees an unconsumed OTP or an already-verified profile, never a
+    # consumed OTP with an unverified profile.
+    with transaction.atomic():
+        otp = (
+            PhoneOTP.objects
+            .select_for_update()
+            .filter(user=request.user, channel=PhoneOTP.Channel.WHATSAPP, consumed=False)
+            .order_by("-created_at")
+            .first()
+        )
+
+        if otp is None or otp.is_expired:
+            # The OTP may have just been consumed by a concurrent verify that
+            # promoted the profile in the same transaction; if so this is a
+            # success, not an expiry.
+            if CrushProfile.objects.filter(
+                user=request.user, phone_verified=True
+            ).exists():
+                return already_verified_response(request.user.crushprofile)
+            return JsonResponse({
+                "success": False,
+                "error": _("Your code has expired. Please request a new one."),
+                "error_code": "otp_expired",
+            }, status=400)
+
+        if not otp.verify(code):
+            remaining = max(0, PhoneOTP.MAX_ATTEMPTS - otp.attempts)
+            return JsonResponse({
+                "success": False,
+                "error": _("Incorrect code. Please try again."),
+                "error_code": "otp_invalid",
+                "attempts_remaining": remaining,
+            }, status=400)
+
+        # Code valid — promote to a verified phone (get-or-create profile first).
+        try:
+            profile = request.user.crushprofile
+        except CrushProfile.DoesNotExist:
+            preferred_lang = validate_language(
+                getattr(request, "LANGUAGE_CODE", "en"), default="en"
+            )
+            profile = CrushProfile.objects.create(
+                user=request.user, preferred_language=preferred_lang
+            )
+
+        if profile.phone_verified:
+            return already_verified_response(profile)
+
+        # Same canonical, non-empty uniqueness scope as the send check.
+        if _phone_taken_by_other(otp.phone_number, exclude_pk=profile.pk):
+            return phone_in_use_response()
+
+        profile.phone_number = otp.phone_number
+        profile.phone_verified = True
+        profile.phone_verified_at = timezone.now()
+        profile.phone_verification_uid = f"whatsapp:{otp.pk}"
+        try:
+            # Savepoint so a unique-constraint race rolls back just this save,
+            # not the whole transaction, and we can return a clean 409.
+            with transaction.atomic():
+                profile.save(update_fields=[
+                    "phone_number",
+                    "phone_verified",
+                    "phone_verified_at",
+                    "phone_verification_uid",
+                ])
+        except IntegrityError:
+            return phone_in_use_response()
 
     logger.info("Phone verified via WhatsApp for user ID: %s", request.user.id)
     return JsonResponse({
