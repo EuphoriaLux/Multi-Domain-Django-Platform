@@ -17,3 +17,4 @@ from .matching import *
 from .quiz import *
 from .changelog import *
 from .notifications import *
+from .metrics import *
