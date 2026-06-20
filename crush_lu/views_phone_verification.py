@@ -47,6 +47,31 @@ def _canonicalize_phone(raw: str) -> str:
         return ""
     return f"+{digits}"
 
+
+def _phone_taken_by_other(canonical_phone, *, exclude_user=None, exclude_pk=None):
+    """True if another profile already holds this real number.
+
+    Compares in canonical form because existing rows aren't guaranteed
+    canonical: save_profile_step1 stores the raw stripped value and the DB
+    uniqueness constraint is string-based, so a number saved elsewhere as
+    "+352 621 123 456" would slip past an exact match on "+352621123456".
+    (Repo-wide normalization is the real fix; this guards just this flow.)
+    """
+    qs = CrushProfile.objects.exclude(phone_number="")
+    if exclude_user is not None:
+        qs = qs.exclude(user=exclude_user)
+    if exclude_pk is not None:
+        qs = qs.exclude(pk=exclude_pk)
+    # Fast path: an exact (already-canonical) row uses the phone_number index.
+    if qs.filter(phone_number=canonical_phone).exists():
+        return True
+    # Otherwise compare canonically to catch formatting variants.
+    for stored in qs.values_list("phone_number", flat=True).iterator():
+        if _canonicalize_phone(stored) == canonical_phone:
+            return True
+    return False
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -321,15 +346,11 @@ def send_whatsapp_otp(request):
             status=400,
         )
 
-    # Match the DB-level unique_non_empty_phone_number scope — any non-empty
-    # phone on another account, verified or not. Checking only verified profiles
-    # would let a number squatted in someone's draft pass here and burn a
-    # billable send, since verify_whatsapp_otp()'s save() could only ever fail
-    # that number with an IntegrityError.
-    already_taken = CrushProfile.objects.filter(
-        phone_number=phone_number,
-    ).exclude(user=request.user).exists()
-    if already_taken:
+    # Reject any number already held by another profile (verified or not, in
+    # any spelling) — matching the unique_non_empty_phone_number scope so we
+    # never burn a billable send on a number verify_whatsapp_otp() could only
+    # fail with an IntegrityError.
+    if _phone_taken_by_other(phone_number, exclude_user=request.user):
         return JsonResponse({
             "success": False,
             "error": _("This phone number is already associated with another account."),
@@ -455,11 +476,8 @@ def verify_whatsapp_otp(request):
             "csrfToken": get_token(request),
         })
 
-    # Same non-empty uniqueness scope as the send check and the DB constraint.
-    existing = CrushProfile.objects.filter(
-        phone_number=otp.phone_number,
-    ).exclude(pk=profile.pk).exists()
-    if existing:
+    # Same canonical, non-empty uniqueness scope as the send check.
+    if _phone_taken_by_other(otp.phone_number, exclude_pk=profile.pk):
         return JsonResponse({
             "success": False,
             "error": _("This phone number is already associated with another account."),

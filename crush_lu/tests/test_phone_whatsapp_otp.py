@@ -171,6 +171,20 @@ class WhatsAppOTPTests(SiteTestMixin, TestCase):
         self.assertEqual(resp.json()["error_code"], "phone_already_in_use")
         mock_send.assert_not_called()
 
+    @patch("crush_lu.services.whatsapp.is_configured", return_value=True)
+    @patch("crush_lu.services.whatsapp.send_otp")
+    def test_send_rejects_number_stored_with_formatting(self, mock_send, _cfg):
+        # Existing row saved non-canonically (spaces) must still match the
+        # canonical input, or the same real number verifies on two accounts.
+        other = User.objects.create_user(username="o4@e.com", email="o4@e.com", password="pw")
+        CrushProfile.objects.create(
+            user=other, phone_number="+352 621 123 456", phone_verified=True
+        )
+        resp = self._post(self.send_url, {"phone_number": "+352621123456"})
+        self.assertEqual(resp.status_code, 409)
+        self.assertEqual(resp.json()["error_code"], "phone_already_in_use")
+        mock_send.assert_not_called()
+
     def test_send_missing_number_is_400(self):
         resp = self._post(self.send_url, {})
         self.assertEqual(resp.status_code, 400)
