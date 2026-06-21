@@ -5,6 +5,7 @@ from .models import (
     HubRequest,
     HubResource,
     HubTimelineEvent,
+    WhatsAppInboundMessage,
     WhatsAppMessage,
 )
 
@@ -53,3 +54,18 @@ class WhatsAppMessageAdmin(admin.ModelAdmin):
     search_fields = ("template_name", "recipient", "wa_message_id", "user__email")
     date_hierarchy = "created_at"
     readonly_fields = ("wa_message_id", "status_history", "created_at", "updated_at")
+
+
+@admin.register(WhatsAppInboundMessage)
+class WhatsAppInboundMessageAdmin(admin.ModelAdmin):
+    list_display = (
+        "from_number",
+        "contact_name",
+        "message_type",
+        "is_read",
+        "received_at",
+    )
+    list_filter = ("is_read", "message_type")
+    search_fields = ("from_number", "contact_name", "text", "wa_message_id")
+    date_hierarchy = "received_at"
+    readonly_fields = ("wa_message_id", "payload", "received_at", "created_at")
