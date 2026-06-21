@@ -1,5 +1,5 @@
 {% extends 'crush_lu/base.html' %}
-{% load static i18n %}
+{% load static i18n analytics %}
 
 {% block title %}{% trans "Verify your phone number" %}{% endblock %}
 
@@ -10,6 +10,7 @@
 {% endblock %}
 
 {% block content %}
+{% ga4_event "onboarding_phone" %}
 <main class="min-h-screen bg-crush-light dark:bg-gray-900">
 
   {% include "crush_lu/includes/journey_stepper.html" %}

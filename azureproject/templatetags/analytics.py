@@ -20,12 +20,26 @@ APPLICATIONINSIGHTS_CONNECTION_STRING based on domain.
 """
 
 import json
+from decimal import Decimal
 
 from django import template
 from django.middleware.csp import get_nonce
 from django.utils.safestring import mark_safe
 
 register = template.Library()
+
+
+def _json_default(value):
+    """JSON serializer fallback for analytics params.
+
+    Model fields like ``DecimalField`` (e.g. event ``registration_fee``) are
+    common ``ga4_event``/``fb_event`` params but aren't JSON-serializable.
+    Convert Decimal to float so GA4/Pixel receive a numeric ``value``; fall
+    back to str for anything else exotic.
+    """
+    if isinstance(value, Decimal):
+        return float(value)
+    return str(value)
 
 
 def get_cookie_consent(request, cookie_group):
@@ -214,7 +228,7 @@ def ga4_event(context, event_name, **params):
 
     # Build params object — use json.dumps for safe JS serialization (prevents XSS)
     if params:
-        params_json = json.dumps(params)
+        params_json = json.dumps(params, default=_json_default)
         script = f"<script{nonce_attr}>gtag('event', {json.dumps(event_name)}, {params_json});</script>"
     else:
         script = f"<script{nonce_attr}>gtag('event', {json.dumps(event_name)});</script>"
@@ -242,7 +256,7 @@ def fb_event(context, event_name, **params):
 
     # Build params object — use json.dumps for safe JS serialization (prevents XSS)
     if params:
-        params_json = json.dumps(params)
+        params_json = json.dumps(params, default=_json_default)
         script = f"<script{nonce_attr}>if(window.fbq)fbq('track', {json.dumps(event_name)}, {params_json});</script>"
     else:
         script = f"<script{nonce_attr}>if(window.fbq)fbq('track', {json.dumps(event_name)});</script>"
