@@ -253,7 +253,7 @@ LUXID_CLIENT_SECRET=<client-secret>
 ## Project Structure
 
 ```
-entreprinder/
+Multi-Domain-Django-Platform/
 ├── azureproject/          # Django config, middleware, domain routing
 │   ├── domains.py         # Centralized domain configuration
 │   ├── middleware.py      # Domain routing, health checks
@@ -275,12 +275,13 @@ entreprinder/
 ├── entreprinder/          # Entrepreneur networking
 ├── power_up/              # Corporate site + CRM portal
 │   ├── crm/               # Agent CRM/ticketing module
-│   └── onboarding/        # Customer onboarding module
+│   ├── onboarding/        # Customer onboarding module
+│   └── finops/            # FinOps Hub - Azure cost analytics
 ├── tableau/               # AI Art shop (static)
 ├── delegations/           # Delegation features
-├── locale/                # i18n translations (en, de, fr)
+├── core/                  # Shared app: templates + locale (en, de, fr)
 ├── infra/                 # Azure Bicep templates
-├── static/                # Tailwind CSS, Alpine.js components
+├── tailwind-src/          # Tailwind CSS source (per-platform inputs)
 ├── .github/workflows/     # GitHub Actions CI/CD
 └── requirements.txt       # Python dependencies
 ```

@@ -26530,17 +26530,14 @@ msgid "LuxID"
 msgstr "LuxID"
 
 #: templates/crush_lu/partials/_verification_options.html:68
-#| msgid ""
-#| "Connect your LuxID government identity and get verified in seconds — no "
-#| "call, no waiting."
 msgid ""
 "Connect your LuxID government identity and get verified in seconds — no "
-"call, no waiting. LuxID also unlocks the Crush Connect catalogue, where a "
-"Crush Coach can pick you as a match."
+"call, no waiting. LuxID also unlocks Crush Connect, where a Crush Coach can "
+"pick you as a match."
 msgstr ""
 "Verbinde deine staatliche LuxID-Identität und werde in Sekunden verifiziert "
-"– kein Anruf, kein Warten. LuxID schaltet außerdem den Crush-Connect-Katalog"
-" frei, in dem ein Crush-Coach dich als Match auswählen kann."
+"– kein Anruf, kein Warten. LuxID schaltet außerdem Crush Connect frei, in "
+"dem ein Crush-Coach dich als Match auswählen kann."
 
 #: templates/crush_lu/partials/_verification_options.html:76
 msgid "Not available right now — come to an event to get verified instead."
@@ -34037,3 +34034,22 @@ msgstr ""
 
 msgid "Section "
 msgstr "Abschnitt "
+
+#: templates/crush_lu/partials/_verification_options.html
+msgid ""
+"Prefer to meet first? Our team verifies you in person at any event — no "
+"LuxID needed, and you start meeting people right away."
+msgstr ""
+"Lieber erst persönlich treffen? Unser Team verifiziert dich persönlich bei "
+"jedem Event – keine LuxID nötig, und du lernst sofort Leute kennen."
+
+#: templates/crush_lu/partials/_verification_options.html
+msgid ""
+"Connect LuxID (free) to join Crush Connect so a Crush Coach can pick you for"
+" a Premium member's match. Go Premium to receive your own — 4 matches over 4"
+" weeks, one hand-picked each week. Free for the first month."
+msgstr ""
+"Verbinde LuxID (kostenlos), um Crush Connect beizutreten, damit ein Crush-"
+"Coach dich für das Match eines Premium-Mitglieds auswählen kann. Werde "
+"Premium, um deine eigenen zu erhalten – 4 Matches über 4 Wochen, jede Woche "
+"eines handverlesen. Den ersten Monat kostenlos."

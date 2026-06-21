@@ -1,4 +1,5 @@
 from .profiles import *
+from .phone_otp import *
 from .events import *
 from .connections import *
 from .journey import *
@@ -16,3 +17,4 @@ from .matching import *
 from .quiz import *
 from .changelog import *
 from .notifications import *
+from .metrics import *

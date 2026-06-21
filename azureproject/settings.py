@@ -58,6 +58,15 @@ ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
 # with per-coach CrushCoach.hybrid_features_enabled for staged rollout.
 HYBRID_COACH_SYSTEM_ENABLED = _env_bool("HYBRID_COACH_SYSTEM_ENABLED", False)
 
+# Recipients for the weekly Crush.lu KPI digest email (send_weekly_kpis command,
+# driven on Mondays by the hybrid-maintenance Azure Function). Comma-separated
+# env var; empty means "compute + persist the snapshot but email no one".
+WEEKLY_KPI_RECIPIENTS = [
+    addr.strip()
+    for addr in os.getenv("WEEKLY_KPI_RECIPIENTS", "").split(",")
+    if addr.strip()
+]
+
 # Use DJANGO_DEBUG env var to control debug mode (default False)
 DEBUG = _env_bool("DJANGO_DEBUG", False)
 
@@ -616,6 +625,18 @@ META_PHONE_NUMBER_ID = os.environ.get("META_PHONE_NUMBER_ID", "")
 META_WABA_ID = os.environ.get("META_WABA_ID", "")
 META_WHATSAPP_APP_SECRET = os.environ.get("META_WHATSAPP_APP_SECRET", "")
 META_WHATSAPP_VERIFY_TOKEN = os.environ.get("META_WHATSAPP_VERIFY_TOKEN", "")
+
+# WhatsApp phone-verification (OTP) — sends an approved Authentication-category
+# template. The template is named "<prefix>_phone_verification" and exists once
+# per language (en/de/fr) under that single name, so the send call passes the
+# user's language code. The prefix differs per environment (crush_staging vs
+# crush) so staging and production use separate templates/WABAs.
+WHATSAPP_OTP_TEMPLATE_PREFIX = os.environ.get(
+    "WHATSAPP_OTP_TEMPLATE_PREFIX", "crush_staging"
+)
+# Minutes an OTP stays valid — keep in sync with the template's expiration
+# warning and message validity period configured in WhatsApp Manager (3 min).
+WHATSAPP_OTP_TTL_MINUTES = int(os.environ.get("WHATSAPP_OTP_TTL_MINUTES", "3"))
 
 # CORS — scoped to the SPA origins that call the api.crush.lu subdomain.
 # JWT Bearer auth means we do NOT need CORS_ALLOW_CREDENTIALS (no cookies sent

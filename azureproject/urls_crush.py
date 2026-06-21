@@ -36,7 +36,7 @@ from crush_lu.admin_views import (
     email_template_load_invitations,
     email_template_load_gifts,
 )
-from crush_lu import api_views, api_push, api_coach_push, api_pwa, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, api_admin_hybrid, api_admin_changelog, views_crush_spark, views_checkin, api_crush_connect, views_coach, api_quiz, views_quiz, views_notifications
+from crush_lu import api_views, api_push, api_coach_push, api_pwa, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, api_admin_hybrid, api_admin_metrics, api_admin_changelog, views_crush_spark, views_checkin, api_crush_connect, views_coach, api_quiz, views_quiz, views_notifications
 from crush_lu.wallet import passkit_service, google_callback
 from crush_lu.sitemaps import crush_sitemaps
 from crush_lu.views_seo import robots_txt
@@ -105,6 +105,8 @@ urlpatterns = [
     path('api/phone/mark-verified/', views_phone_verification.mark_phone_verified, name='api_phone_mark_verified'),
     path('api/phone/check-available/', views_phone_verification.check_phone_available, name='api_phone_check_available'),
     path('api/phone/status/', views_phone_verification.phone_verification_status, name='api_phone_status'),
+    path('api/phone/whatsapp/send/', views_phone_verification.send_whatsapp_otp, name='api_phone_whatsapp_send'),
+    path('api/phone/whatsapp/verify/', views_phone_verification.verify_whatsapp_otp, name='api_phone_whatsapp_verify'),
 
     # ============================================================================
     # LANGUAGE-NEUTRAL API ENDPOINTS
@@ -264,6 +266,10 @@ urlpatterns = [
     # Must stay language-neutral: the Function App uses hardcoded /api/admin/... paths.
     path('api/admin/hybrid-coach-sla-sweep/', api_admin_hybrid.sla_sweep, name='api_admin_sla_sweep'),
     path('api/admin/pre-screening-invites/', api_admin_hybrid.pre_screening_invites, name='api_admin_pre_screening_invites'),
+
+    # Weekly KPI digest (WeeklyKPIs Azure Function timer calls this on Mondays).
+    # Language-neutral path so the Function App can hardcode it.
+    path('api/admin/weekly-kpis/', api_admin_metrics.weekly_kpis_sweep, name='api_admin_weekly_kpis'),
 
     # Changelog ingest (called by the Claude Code changelog routine on PR merge).
     # Language-neutral path; auto-publishes to /changelog/. See docs/changelog-routine.md.

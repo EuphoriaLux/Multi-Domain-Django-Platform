@@ -1,0 +1,59 @@
+{% load i18n %}<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ site_name }} weekly KPIs</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a1a2e;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f7;padding:24px 0;">
+        <tr>
+            <td align="center">
+                <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+                    <!-- Header -->
+                    <tr>
+                        <td style="background:#E94B7B;padding:28px 32px;">
+                            <div style="color:#ffffff;font-size:20px;font-weight:700;">{{ site_name }} — Weekly KPIs</div>
+                            <div style="color:#ffe3ee;font-size:14px;margin-top:4px;">
+                                Week of {{ week_start|date:"d M Y" }} → {{ week_end|date:"d M Y" }}
+                                {% if previous_week_start %}<span style="opacity:0.85;">· vs week of {{ previous_week_start|date:"d M Y" }}</span>{% endif %}
+                            </div>
+                        </td>
+                    </tr>
+
+                    {% for section in sections %}
+                    <tr>
+                        <td style="padding:24px 32px 0 32px;">
+                            <div style="font-size:15px;font-weight:700;color:#E94B7B;text-transform:uppercase;letter-spacing:0.5px;border-bottom:2px solid #f0f0f4;padding-bottom:8px;">
+                                {{ section.title }}
+                            </div>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
+                                {% for row in section.rows %}
+                                <tr>
+                                    <td style="padding:7px 0;font-size:14px;color:#3a3a4a;border-bottom:1px solid #f6f6f9;">{{ row.label }}</td>
+                                    <td align="right" style="padding:7px 0;font-size:15px;font-weight:700;color:#1a1a2e;border-bottom:1px solid #f6f6f9;white-space:nowrap;">{{ row.value }}</td>
+                                    <td align="right" style="padding:7px 0 7px 12px;font-size:13px;color:#8a8a99;border-bottom:1px solid #f6f6f9;white-space:nowrap;min-width:70px;">{{ row.delta }}</td>
+                                </tr>
+                                {% endfor %}
+                            </table>
+                        </td>
+                    </tr>
+                    {% endfor %}
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding:24px 32px 28px 32px;">
+                            <div style="font-size:12px;color:#9a9aa8;line-height:1.5;border-top:1px solid #f0f0f4;padding-top:16px;">
+                                Deltas compare this week to the previous week. ★ marks the north-star metric.
+                                Activity metrics (active / PWA) reflect each member's most recent visit, so members
+                                who return after the week aren't retroactively counted — run on time for best accuracy.
+                                Generated automatically — full history lives in the admin under “Weekly KPI snapshots”.
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
