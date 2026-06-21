@@ -155,6 +155,15 @@ class CrushLuAdminSite(admin.AdminSite):
         """
         app_list = super().get_app_list(request, app_label)
 
+        # The grouping below splits the single crush_lu app into many sidebar
+        # "apps". That only makes sense for the dashboard index (app_label is
+        # None). The per-app index page (Django passes app_label='crush_lu')
+        # and its app_index.html template expect the standard single app —
+        # they read app_list.0.models for ALL crush_lu models — so return the
+        # default untouched there, otherwise only the first group's models show.
+        if app_label is not None:
+            return app_list
+
         # Custom ordering and grouping for admin sidebar
         # Each group uses sequential ordering (1, 2, 3...) for internal sorting
         # Icons provide visual identification without cluttering with numbers

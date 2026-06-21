@@ -213,6 +213,26 @@ class AdminMenuOrganizationTests(SiteTestMixin, TestCase):
         for shown in ("🧬 Matching", "📊 Analytics", "🗒️ Changelog", "🔧 Technical & Debug"):
             self.assertIn(shown, names)
 
+    def test_app_index_returns_flat_single_app(self):
+        """The per-app index page (app_label='crush_lu') must NOT be regrouped.
+
+        ``app_index.html`` iterates ``app_list.0.models`` for ALL crush_lu
+        models; if the sidebar grouping leaked in, only the first group's
+        models would render and the Profile/Event/Connection sections would go
+        empty. The override must return the standard single 'crush_lu' app here.
+        """
+        request = RequestFactory().get("/crush-admin/crush_lu/")
+        request.user = self.superuser
+        app_list = crush_admin_site.get_app_list(request, app_label="crush_lu")
+
+        self.assertEqual(len(app_list), 1)
+        self.assertEqual(app_list[0]["app_label"], "crush_lu")
+        names = {m["object_name"] for m in app_list[0]["models"]}
+        # Models from several would-be groups all live in the one flat app.
+        for obj in ("CrushProfile", "MeetupEvent", "EventConnection",
+                    "CrushConnectMembership"):
+            self.assertIn(obj, names)
+
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
 class EventRegistrationChangelistQueryTests(SiteTestMixin, TestCase):
