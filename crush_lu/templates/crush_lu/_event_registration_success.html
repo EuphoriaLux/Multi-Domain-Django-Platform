@@ -1,8 +1,20 @@
 {% load i18n analytics %}
-{% comment %}Conversion tracking — fired on the HTMX swap (gtag/fbq loaded in base.html head).{% endcomment %}
+{% comment %}
+  Conversion tracking — fired on the HTMX swap (gtag/fbq loaded in base.html head).
+  A confirmed RSVP only reserves a spot; for paid events payment is captured later
+  (EventRegistration.payment_confirmed is stamped by the payment flow, not here), so
+  we must NOT report registration_fee as revenue at this point — that would overstate
+  revenue and mis-train paid-campaign optimization on unpaid reservations.
+    - waitlist           -> join_waitlist / Lead
+    - paid + unpaid      -> event_reservation / Schedule (no revenue)
+    - free (or paid-and-already-confirmed) -> purchase with the genuine paid amount
+{% endcomment %}
 {% if registration.status == 'waitlist' %}
 {% ga4_event "join_waitlist" event_id=event.id item_name=event.title %}
 {% fb_event "Lead" content_name=event.title %}
+{% elif event.registration_fee > 0 and not registration.payment_confirmed %}
+{% ga4_event "event_reservation" item_id=event.id item_name=event.title %}
+{% fb_event "Schedule" content_name=event.title %}
 {% else %}
 {% ga4_event "purchase" transaction_id=registration.id value=event.registration_fee currency="EUR" item_id=event.id item_name=event.title %}
 {% fb_event "Purchase" value=event.registration_fee currency="EUR" content_name=event.title %}
