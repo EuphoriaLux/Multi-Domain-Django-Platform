@@ -160,6 +160,17 @@ class CrushLuAdminSite(admin.AdminSite):
         # Icons provide visual identification without cluttering with numbers
         custom_order = {
             # ═══════════════════════════════════════════════════════════════════
+            # GROUP: Crush Connect (the LuxID-gated matchmaking product)
+            # ═══════════════════════════════════════════════════════════════════
+            'crushconnectmembership': {'order': 1, 'icon': '💞', 'group': 'Crush Connect'},  # onboarding
+            'connectdailydrop': {'order': 2, 'icon': '🎁', 'group': 'Crush Connect'},
+            'curiosityspark': {'order': 3, 'icon': '✨', 'group': 'Crush Connect'},
+            'connectcoachpick': {'order': 4, 'icon': '🎯', 'group': 'Crush Connect'},
+            'crushconnectwaitlist': {'order': 5, 'icon': '📋', 'group': 'Crush Connect'},
+            'connectinterest': {'order': 6, 'icon': '🏷️', 'group': 'Crush Connect'},
+            'sparkprompt': {'order': 7, 'icon': '💬', 'group': 'Crush Connect'},
+
+            # ═══════════════════════════════════════════════════════════════════
             # GROUP 1: Users & Profiles (Core user management)
             # ═══════════════════════════════════════════════════════════════════
             'user': {'order': 0, 'icon': '🔑', 'group': 'Users & Profiles'},  # Django User accounts
@@ -176,6 +187,9 @@ class CrushLuAdminSite(admin.AdminSite):
             'inprocesssubmission': {'order': 11, 'icon': '🔄', 'group': 'Users & Profiles'},
             'crushcoach': {'order': 12, 'icon': '🎓', 'group': 'Users & Profiles'},
             'coachsession': {'order': 13, 'icon': '💬', 'group': 'Users & Profiles'},
+            'screeningslot': {'order': 14, 'icon': '📅', 'group': 'Users & Profiles'},
+            'premiummembership': {'order': 15, 'icon': '💎', 'group': 'Users & Profiles'},
+            'callattempt': {'order': 16, 'icon': '☎️', 'group': 'Users & Profiles'},
 
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 2: Events & Meetups (Event management)
@@ -183,11 +197,11 @@ class CrushLuAdminSite(admin.AdminSite):
             'meetupevent': {'order': 1, 'icon': '🎉', 'group': 'Events & Meetups'},
             'eventregistration': {'order': 2, 'icon': '✅', 'group': 'Events & Meetups'},
             'eventinvitation': {'order': 3, 'icon': '💌', 'group': 'Events & Meetups'},
-            'speeddatingpair': {'order': 4, 'icon': '💑', 'group': 'Events & Meetups'},
             'presentationqueue': {'order': 5, 'icon': '📋', 'group': 'Events & Meetups'},
             'presentationrating': {'order': 6, 'icon': '⭐', 'group': 'Events & Meetups'},
             'eventpoll': {'order': 7, 'icon': '🗳️', 'group': 'Events & Meetups'},
             'eventpollvote': {'order': 8, 'icon': '📊', 'group': 'Events & Meetups'},
+            'eventfeedback': {'order': 9, 'icon': '📝', 'group': 'Events & Meetups'},
 
             # ═══════════════════════════════════════════════════════════════════
             # GROUP: Quiz Night (Live quiz event management)
@@ -213,7 +227,6 @@ class CrushLuAdminSite(admin.AdminSite):
             'crushspark': {'order': 1, 'icon': '✨', 'group': 'Connections'},
             'eventconnection': {'order': 2, 'icon': '🔗', 'group': 'Connections'},
             'connectionmessage': {'order': 3, 'icon': '💬', 'group': 'Connections'},
-            'crushconnectwaitlist': {'order': 4, 'icon': '📋', 'group': 'Connections'},
 
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 5: Special Journey System (VIP personalized experiences)
@@ -241,6 +254,7 @@ class CrushLuAdminSite(admin.AdminSite):
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 7: Notifications & Settings (User preferences)
             # ═══════════════════════════════════════════════════════════════════
+            'notification': {'order': 0, 'icon': '🔔', 'group': 'Notifications'},  # in-app bell
             'pushsubscription': {'order': 1, 'icon': '🔔', 'group': 'Notifications'},
             'coachpushsubscription': {'order': 2, 'icon': '📣', 'group': 'Notifications'},
             'newsletter': {'order': 3, 'icon': '📰', 'group': 'Notifications'},
@@ -262,16 +276,37 @@ class CrushLuAdminSite(admin.AdminSite):
             'referralattribution': {'order': 2, 'icon': '🔗', 'group': 'Growth & Referrals'},
 
             # ═══════════════════════════════════════════════════════════════════
-            # GROUP 10: Technical & Debug (Developer tools)
-            # ═══════════════════════════════════════════════════════════════════
-            'pwadeviceinstallation': {'order': 1, 'icon': '📱', 'group': 'Technical & Debug'},
-            'oauthstate': {'order': 2, 'icon': '🔐', 'group': 'Technical & Debug'},
-
-            # ═══════════════════════════════════════════════════════════════════
             # GROUP 11: Site Settings (Global configuration)
             # ═══════════════════════════════════════════════════════════════════
             'crushsiteconfig': {'order': 1, 'icon': '⚙️', 'group': 'Site Settings'},
+
+            # ───────────────────────────────────────────────────────────────────
+            # SUPERUSER-ONLY GROUPS (dev / analytics / audit — hidden from coaches)
+            # See SUPERUSER_ONLY_GROUPS below.
+            # ───────────────────────────────────────────────────────────────────
+            # Matching engine (trait-based scoring behind Crush Connect Drops)
+            'trait': {'order': 1, 'icon': '🧬', 'group': 'Matching'},
+            'matchscore': {'order': 2, 'icon': '💯', 'group': 'Matching'},
+
+            # Analytics internals
+            'weeklymetricssnapshot': {'order': 1, 'icon': '📊', 'group': 'Analytics'},
+
+            # Changelog / patch notes
+            'patchrelease': {'order': 1, 'icon': '🚀', 'group': 'Changelog'},
+            'patchnote': {'order': 2, 'icon': '🗒️', 'group': 'Changelog'},
+
+            # Technical & Debug (Developer tools)
+            'pwadeviceinstallation': {'order': 1, 'icon': '📱', 'group': 'Technical & Debug'},
+            'oauthstate': {'order': 2, 'icon': '🔐', 'group': 'Technical & Debug'},
+            'userdataconsent': {'order': 3, 'icon': '🔏', 'group': 'Technical & Debug'},  # GDPR audit
         }
+
+        # Groups that only superusers may see in the menu. Coaches keep the
+        # operational groups (incl. Crush Connect); these stay hidden from them.
+        SUPERUSER_ONLY_GROUPS = {
+            'Matching', 'Analytics', 'Changelog', 'Technical & Debug', 'Other',
+        }
+        is_superuser = request.user.is_superuser
 
         # Create grouped app list - transform single crush_lu app into multiple sections
         new_app_list = []
@@ -333,11 +368,21 @@ class CrushLuAdminSite(admin.AdminSite):
                         if group_name not in groups:
                             groups[group_name] = []
                         groups[group_name].append(model)
+                    else:
+                        # Safety net: a registered model that isn't categorised
+                        # above must never silently vanish from the menu. Drop it
+                        # into the superuser-only "Other" catch-all so it stays
+                        # reachable until someone gives it a proper group.
+                        model['_order'] = 999
+                        if not model['name'].startswith('📦'):
+                            model['name'] = f"📦 {model['name']}"
+                        groups.setdefault('Other', []).append(model)
 
                 # Create separate "app" entry for each group
                 # Order determines sidebar display order - organized by frequency of use
                 group_order = [
                     # === DAILY USE (Coach Core Workflow) ===
+                    ('💞 Crush Connect', 'Crush Connect'),             # Memberships, Drops, Sparks, Coach Picks
                     ('👥 Users & Profiles', 'Users & Profiles'),       # Profile reviews, coach assignments
                     ('🎉 Events & Meetups', 'Events & Meetups'),       # Event management, registrations
                     ('💕 Connections', 'Connections'),                 # Post-event connections, messages
@@ -355,12 +400,20 @@ class CrushLuAdminSite(admin.AdminSite):
                     ('🎄 Advent Calendar', 'Advent Calendar'),         # December only
                     ('💳 Wallet & Passes', 'Wallet & Passes'),         # Apple/Google Wallet
 
-                    # === ADMIN / DEBUGGING ===
-                    ('🔧 Technical & Debug', 'Technical & Debug'),     # PWA, OAuth debugging
                     ('⚙️ Site Settings', 'Site Settings'),               # WhatsApp, site config
+
+                    # === SUPERUSER-ONLY (dev / analytics / audit) ===
+                    ('🧬 Matching', 'Matching'),                       # Traits, match scores
+                    ('📊 Analytics', 'Analytics'),                     # Weekly KPI snapshots
+                    ('🗒️ Changelog', 'Changelog'),                     # Patch releases / notes
+                    ('🔧 Technical & Debug', 'Technical & Debug'),     # PWA, OAuth, GDPR consent
+                    ('📦 Other', 'Other'),                             # Auto-catch for uncategorised models
                 ]
 
                 for display_name, group_key in group_order:
+                    # Hide dev/analytics/audit groups from non-superuser coaches.
+                    if group_key in SUPERUSER_ONLY_GROUPS and not is_superuser:
+                        continue
                     if group_key in groups:
                         # Sort models within each group
                         groups[group_key].sort(key=lambda x: x.get('_order', 999))
