@@ -1,10 +1,11 @@
 {% extends 'crush_lu/base.html' %}
-{% load static i18n %}
+{% load static i18n analytics %}
 
 {% block title %}{% trans "Welcome to Crush.lu" %}{% endblock %}
 {% block meta_description %}{% trans "One quick question to help us guide you, and a preview of the road ahead." %}{% endblock %}
 
 {% block content %}
+{% ga4_event "onboarding_welcome" %}
 <main class="min-h-screen bg-crush-light dark:bg-gray-900">
 
   {% include "crush_lu/includes/journey_stepper.html" %}
