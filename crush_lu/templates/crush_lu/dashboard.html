@@ -44,9 +44,7 @@
     </a>
 </div>
 
-{# ─── Profile completion / verification banners ─── #}
-{% include "crush_lu/partials/profile_completion_banner.html" %}
-
+{# ─── Verification journey ─── #}
 {% if profile and not profile.phone_verified %}
 <div class="alert alert-warning mb-5 flex-row justify-between items-center gap-3" role="alert">
     <div class="flex items-center min-w-0">
@@ -57,20 +55,6 @@
         {% include "shared/icons/phone.html" with class="w-4 h-4" %} {% trans "Verify Now" %}
     </a>
 </div>
-{% endif %}
-
-{# Pending verification banner #}
-{% if profile.verification_status == 'pending' %}
-<a href="{% url 'crush_lu:profile_submitted' %}" class="flex items-center gap-3 mb-5 p-4 rounded-xl border border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/20 no-underline group hover:border-amber-400 transition-colors">
-    <div class="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0">
-        {% include "shared/icons/shield-check.html" with class="w-5 h-5 text-amber-600 dark:text-amber-400" %}
-    </div>
-    <div class="flex-1 min-w-0">
-        <p class="font-semibold text-amber-900 dark:text-amber-200 text-sm mb-0">{% trans "One step left — verify your identity" %}</p>
-        <p class="text-amber-700 dark:text-amber-400 text-xs mb-0">{% trans "Connect LuxId or attend an event to activate your profile." %}</p>
-    </div>
-    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-amber-500 group-hover:translate-x-0.5 transition-transform flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
-</a>
 {% endif %}
 
 {# Verification status (Profile → Verify) #}
