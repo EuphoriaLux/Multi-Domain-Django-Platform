@@ -1,4 +1,12 @@
-{% load i18n %}
+{% load i18n analytics %}
+{% comment %}Conversion tracking — fired on the HTMX swap (gtag/fbq loaded in base.html head).{% endcomment %}
+{% if registration.status == 'waitlist' %}
+{% ga4_event "join_waitlist" event_id=event.id item_name=event.title %}
+{% fb_event "Lead" content_name=event.title %}
+{% else %}
+{% ga4_event "purchase" transaction_id=registration.id value=event.registration_fee currency="EUR" item_id=event.id item_name=event.title %}
+{% fb_event "Purchase" value=event.registration_fee currency="EUR" content_name=event.title %}
+{% endif %}
 <div id="registration-form-container" class="text-center py-8" role="status" aria-live="polite">
     {% if registration.status == 'waitlist' %}
         <div class="mb-4">

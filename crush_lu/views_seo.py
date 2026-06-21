@@ -8,6 +8,8 @@ This module provides views for:
 """
 
 from django.http import HttpResponse
+from django.shortcuts import render
+from django.template.loader import render_to_string
 from django.views.decorators.cache import cache_page
 from django.views.decorators.http import require_GET
 
@@ -89,3 +91,24 @@ def robots_txt(request):
     ]
 
     return HttpResponse("\n".join(lines), content_type="text/plain")
+
+
+def custom_404(request, exception):
+    """Crush-branded 404 page.
+
+    Wired as ``handler404`` in ``azureproject/urls_crush.py`` only, so it is
+    scoped to crush.lu — the other domains keep Django's default handler.
+    """
+    return render(request, "crush_lu/404.html", status=404)
+
+
+def custom_500(request):
+    """Crush-branded 500 page.
+
+    Rendered WITHOUT a request (no context processors) so a failing context
+    processor — a plausible cause of the 500 — can't cascade into a second
+    error. The template is therefore standalone and must not rely on request
+    context. Wired as ``handler500`` in ``azureproject/urls_crush.py`` only.
+    """
+    html = render_to_string("crush_lu/500.html")
+    return HttpResponse(html, status=500)

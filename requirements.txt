@@ -16,6 +16,12 @@ PyJWT==2.13.0  # Updated from 2.11.0 (CVE-2026-32597: crit header bypass)
 cryptography>=48.0.0  # Required for JWT token verification with RSA keys (CVE-2026-26007, OpenSSL fixes)
 google-auth==2.54.0  # Required for Google Wallet API authentication
 
+# Analytics reporting (GA4 Data API + Search Console) — used by scripts/ga4_report.py,
+# gsc_report.py, seo_funnel_report.py for SEO/traffic reporting.
+google-analytics-data==0.23.0
+google-api-python-client==2.197.0
+google-auth-oauthlib==1.4.0
+
 
 # Storage
 django-storages==1.14.6  # Updated from 1.14.2

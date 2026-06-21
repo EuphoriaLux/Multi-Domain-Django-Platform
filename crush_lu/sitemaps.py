@@ -28,6 +28,9 @@ class CrushStaticViewSitemap(Sitemap):
             'crush_lu:about',
             'crush_lu:how_it_works',
             'crush_lu:event_list',
+            'crush_lu:crush_coach',
+            'crush_lu:crush_connect_teaser',
+            'crush_lu:membership',
             'crush_lu:privacy_policy',
             'crush_lu:terms_of_service',
         ]
@@ -42,6 +45,9 @@ class CrushStaticViewSitemap(Sitemap):
             'crush_lu:event_list': 0.9,
             'crush_lu:about': 0.8,
             'crush_lu:how_it_works': 0.8,
+            'crush_lu:crush_coach': 0.7,
+            'crush_lu:membership': 0.7,
+            'crush_lu:crush_connect_teaser': 0.6,
             'crush_lu:privacy_policy': 0.3,
             'crush_lu:terms_of_service': 0.3,
         }
@@ -53,7 +59,13 @@ class CrushStaticViewSitemap(Sitemap):
             return 'daily'
         elif item == 'crush_lu:event_list':
             return 'daily'
-        elif item in ['crush_lu:about', 'crush_lu:how_it_works']:
+        elif item in [
+            'crush_lu:about',
+            'crush_lu:how_it_works',
+            'crush_lu:crush_coach',
+            'crush_lu:crush_connect_teaser',
+            'crush_lu:membership',
+        ]:
             return 'monthly'
         else:
             return 'yearly'  # Legal pages rarely change
