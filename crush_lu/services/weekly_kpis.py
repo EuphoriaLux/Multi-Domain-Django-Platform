@@ -139,23 +139,31 @@ def compute_weekly_snapshot(week_start: date) -> dict:
     }
 
     # ── Revenue / premium ────────────────────────────────────────────
+    # Cumulative totals are bounded at week_end (not "now") so a Monday-morning
+    # run reports the position *as of Sunday*, not whatever has accrued by the
+    # time the job fires — and so backfilling an older week yields that week's
+    # number rather than today's. Their relevant timestamps: payment_date for
+    # premium (always set when status flips to active via confirm()), onboarded_at
+    # for Connect, joined_at for the waitlist.
     revenue = {
         "new_premium": in_week(
             PremiumMembership.objects.filter(payment_confirmed=True), "payment_date"
         ).count(),
         "total_active_premium": PremiumMembership.objects.filter(
-            status="active"
+            status="active", payment_date__date__lte=week_end
         ).count(),
         "new_connect_optins": in_week(
             CrushConnectMembership.objects.all(), "onboarded_at"
         ).count(),
         "total_connect_onboarded": CrushConnectMembership.objects.filter(
-            onboarded_at__isnull=False
+            onboarded_at__date__lte=week_end
         ).count(),
         "waitlist_new": in_week(
             CrushConnectWaitlist.objects.all(), "joined_at"
         ).count(),
-        "waitlist_total": CrushConnectWaitlist.objects.count(),
+        "waitlist_total": CrushConnectWaitlist.objects.filter(
+            joined_at__date__lte=week_end
+        ).count(),
         "paid_event_registrations": in_week(
             EventRegistration.objects.filter(payment_confirmed=True), "payment_date"
         ).count(),

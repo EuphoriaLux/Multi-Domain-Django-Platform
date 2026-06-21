@@ -147,3 +147,34 @@ class WhatsAppMessage(models.Model):
 
     def __str__(self):
         return f"{self.template_name} → {self.recipient} [{self.status}]"
+
+
+class WhatsAppInboundMessage(models.Model):
+    """A message a user sent TO our WhatsApp number (Cloud API inbound).
+
+    A Cloud API number has no phone-app inbox, so an inbound reply is otherwise
+    only a transient webhook event that the status-only webhook used to drop.
+    Persisting each one lets the hub CRM show a support inbox.
+
+    ``wa_message_id`` is unique so Meta's webhook retries (it re-POSTs until it
+    gets a 200) are idempotent — the second delivery is a no-op.
+    """
+
+    wa_message_id = models.CharField(max_length=255, unique=True)
+    from_number = models.CharField(max_length=32, db_index=True)
+    contact_name = models.CharField(max_length=255, blank=True, default="")
+    message_type = models.CharField(max_length=32, default="text")
+    # Body for text messages; non-text types (image, audio, …) keep the full
+    # message object in ``payload`` and leave this blank.
+    text = models.TextField(blank=True, default="")
+    payload = models.JSONField(default=dict, blank=True)
+    received_at = models.DateTimeField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-received_at"]
+        indexes = [models.Index(fields=["is_read", "-received_at"])]
+
+    def __str__(self):
+        return f"{self.from_number} ({self.message_type}) @ {self.received_at:%Y-%m-%d %H:%M}"

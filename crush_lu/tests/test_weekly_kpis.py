@@ -158,6 +158,45 @@ class ComputeWeeklySnapshotTests(TestCase):
         # Sanity: the stale user still counts as active this week (browser visit).
         self.assertEqual(m["wau"], 2)
 
+    def test_revenue_cumulative_totals_bounded_to_week_end(self):
+        # The snapshot for a past week must report the *as-of-Sunday* position,
+        # not whatever has accrued by the time the (Monday-morning or backfill)
+        # job runs. A Connect onboarding and a waitlist entry dated AFTER the
+        # reported week must NOT leak into that week's cumulative totals.
+        from crush_lu.models.crush_connect import (
+            CrushConnectMembership,
+            CrushConnectWaitlist,
+        )
+
+        # One of each inside the reported week (2026-06-08 .. 06-14).
+        in_member = CrushConnectMembership.objects.create(user=self.in_user)
+        CrushConnectMembership.objects.filter(pk=in_member.pk).update(
+            onboarded_at=_aware(date(2026, 6, 10))
+        )
+        in_wait = CrushConnectWaitlist.objects.create(user=self.in_user)
+        CrushConnectWaitlist.objects.filter(pk=in_wait.pk).update(
+            joined_at=_aware(date(2026, 6, 10))
+        )
+
+        # One of each AFTER week_end — accrued before the job ran but belongs
+        # to a later week.
+        next_member = CrushConnectMembership.objects.create(user=self.out_user)
+        CrushConnectMembership.objects.filter(pk=next_member.pk).update(
+            onboarded_at=_aware(date(2026, 6, 16))
+        )
+        next_wait = CrushConnectWaitlist.objects.create(user=self.out_user)
+        CrushConnectWaitlist.objects.filter(pk=next_wait.pk).update(
+            joined_at=_aware(date(2026, 6, 16))
+        )
+
+        m = compute_weekly_snapshot(WEEK_START)["revenue"]
+        # Only the in-week rows count toward the week's cumulative position.
+        self.assertEqual(m["total_connect_onboarded"], 1)
+        self.assertEqual(m["waitlist_total"], 1)
+        # And the next-week rows are attributed to no in-week "new" bucket.
+        self.assertEqual(m["new_connect_optins"], 1)
+        self.assertEqual(m["waitlist_new"], 1)
+
 
 class UpsertIdempotencyTests(TestCase):
     def test_upsert_is_idempotent_per_week(self):

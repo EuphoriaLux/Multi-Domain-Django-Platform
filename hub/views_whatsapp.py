@@ -26,8 +26,11 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import WhatsAppMessage
-from .serializers import WhatsAppMessageSerializer
+from .models import WhatsAppInboundMessage, WhatsAppMessage
+from .serializers import (
+    WhatsAppInboundMessageSerializer,
+    WhatsAppMessageSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -250,6 +253,69 @@ class WhatsAppMessagesView(APIView):
         return Response({"items": serializer.data})
 
 
+class WhatsAppInboxView(APIView):
+    """List inbound (user→us) WhatsApp messages for the hub support inbox.
+
+    Shared across admins (not scoped to ``request.user`` like the outbound
+    list) — inbound replies belong to no single sender. Supports ``?since=``
+    (ISO timestamp) for polling and ``?unread=1`` to show only unread.
+    """
+
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        qs = WhatsAppInboundMessage.objects.all()
+        since = request.query_params.get("since")
+        if since:
+            try:
+                ts = datetime.fromisoformat(since.replace("Z", "+00:00"))
+                qs = qs.filter(received_at__gte=ts)
+            except ValueError:
+                pass
+        if request.query_params.get("unread") in ("1", "true", "True"):
+            qs = qs.filter(is_read=False)
+        serializer = WhatsAppInboundMessageSerializer(qs, many=True)
+        return Response(
+            {
+                "items": serializer.data,
+                "unread_count": WhatsAppInboundMessage.objects.filter(
+                    is_read=False
+                ).count(),
+            }
+        )
+
+
+class WhatsAppInboxReadView(APIView):
+    """Mark inbound messages as read.
+
+    Body: ``{"ids": [1, 2, ...]}`` to mark specific rows, or ``{"all": true}``
+    to clear the whole unread queue.
+    """
+
+    permission_classes = [IsAdminUser]
+
+    def post(self, request):
+        data = request.data or {}
+        ids = data.get("ids")
+        mark_all = bool(data.get("all"))
+        if not mark_all and not ids:
+            return Response(
+                {"detail": "Provide ids (a list) or all=true."},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
+
+        qs = WhatsAppInboundMessage.objects.filter(is_read=False)
+        if not mark_all:
+            if not isinstance(ids, list):
+                return Response(
+                    {"detail": "ids must be a list."},
+                    status=http_status.HTTP_400_BAD_REQUEST,
+                )
+            qs = qs.filter(id__in=ids)
+        updated = qs.update(is_read=True)
+        return Response({"updated": updated})
+
+
 # --- Webhook (public; signature-verified) ----------------------------------
 
 # Meta status → our model status
@@ -312,11 +378,56 @@ class WhatsAppWebhookView(View):
         for entry in payload.get("entry", []) or []:
             for change in entry.get("changes", []) or []:
                 value = change.get("value") or {}
+                # wa_id → profile name, attached to each inbound message below.
+                contacts = self._index_contacts(value.get("contacts", []) or [])
                 for status_event in value.get("statuses", []) or []:
                     self._apply_status(status_event)
+                for inbound in value.get("messages", []) or []:
+                    self._store_inbound(inbound, contacts)
 
         # Always 200 — Meta retries non-200 for hours.
         return JsonResponse({"ok": True})
+
+    @staticmethod
+    def _index_contacts(contacts: list) -> dict:
+        """Map each contact's wa_id → WhatsApp profile name."""
+        out = {}
+        for contact in contacts:
+            wa_id = contact.get("wa_id")
+            if wa_id:
+                out[wa_id] = (contact.get("profile") or {}).get("name") or ""
+        return out
+
+    def _store_inbound(self, msg: dict, contacts: dict) -> None:
+        """Persist one inbound (user→us) message; idempotent on wa_message_id."""
+        wa_id = msg.get("id")
+        from_number = msg.get("from")
+        if not wa_id or not from_number:
+            return
+
+        msg_type = msg.get("type") or "unknown"
+        text = ""
+        if msg_type == "text":
+            text = (msg.get("text") or {}).get("body") or ""
+
+        ts_raw = msg.get("timestamp")
+        try:
+            received_at = datetime.fromtimestamp(int(ts_raw), tz=timezone.utc)
+        except (TypeError, ValueError):
+            received_at = datetime.now(timezone.utc)
+
+        # get_or_create makes Meta's webhook retries a no-op (wa_id is unique).
+        WhatsAppInboundMessage.objects.get_or_create(
+            wa_message_id=wa_id,
+            defaults={
+                "from_number": from_number,
+                "contact_name": contacts.get(from_number, ""),
+                "message_type": msg_type,
+                "text": text,
+                "payload": msg,
+                "received_at": received_at,
+            },
+        )
 
     def _apply_status(self, event: dict) -> None:
         wa_id = event.get("id")

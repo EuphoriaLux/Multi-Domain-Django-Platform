@@ -1,6 +1,12 @@
 from rest_framework import serializers
 
-from .models import HubRequest, HubResource, HubTimelineEvent, WhatsAppMessage
+from .models import (
+    HubRequest,
+    HubResource,
+    HubTimelineEvent,
+    WhatsAppInboundMessage,
+    WhatsAppMessage,
+)
 
 
 class CustomerSerializer(serializers.Serializer):
@@ -70,3 +76,21 @@ class WhatsAppMessageSerializer(serializers.ModelSerializer):
 
     def get_wa_message_id(self, obj):
         return obj.wa_message_id or None
+
+
+class WhatsAppInboundMessageSerializer(serializers.ModelSerializer):
+    id = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = WhatsAppInboundMessage
+        fields = [
+            "id",
+            "wa_message_id",
+            "from_number",
+            "contact_name",
+            "message_type",
+            "text",
+            "received_at",
+            "is_read",
+        ]
+        read_only_fields = fields

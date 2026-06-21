@@ -2,6 +2,8 @@ from django.urls import path
 
 from . import views
 from .views_whatsapp import (
+    WhatsAppInboxReadView,
+    WhatsAppInboxView,
     WhatsAppMessagesView,
     WhatsAppSendView,
     WhatsAppTemplatesView,
@@ -32,4 +34,12 @@ urlpatterns = [
         name="whatsapp_messages",
     ),
     path("whatsapp/messages/", WhatsAppMessagesView.as_view()),
+    path("whatsapp/inbox", WhatsAppInboxView.as_view(), name="whatsapp_inbox"),
+    path("whatsapp/inbox/", WhatsAppInboxView.as_view()),
+    path(
+        "whatsapp/inbox/read",
+        WhatsAppInboxReadView.as_view(),
+        name="whatsapp_inbox_read",
+    ),
+    path("whatsapp/inbox/read/", WhatsAppInboxReadView.as_view()),
 ]
