@@ -93,12 +93,30 @@
       </div>
       <div class="flex-1">
         {% if vs == 'incomplete' %}
+          {% with cs=profile.completion_status %}
           <h4 class="font-bold text-white text-base mb-1">{% trans "Finish your profile" %}</h4>
-          <p class="text-white/80 text-sm leading-relaxed mb-4">{% trans "Add your photo, a few details, and the languages you speak. About 2 minutes." %}</p>
+          {# Per-step label — reuses the legacy banner's 4 translated strings (already in fr/de .po) #}
+          {% if cs == 'not_started' %}
+            <p class="text-white/80 text-sm leading-relaxed mb-3">{% trans "Step 1 of 4 - Let's get started with the basics!" %}</p>
+          {% elif cs == 'step1' %}
+            <p class="text-white/80 text-sm leading-relaxed mb-3">{% trans "Step 2 of 4 - Tell us about yourself" %}</p>
+          {% elif cs == 'step2' %}
+            <p class="text-white/80 text-sm leading-relaxed mb-3">{% trans "Step 3 of 4 - Add your photos" %}</p>
+          {% elif cs == 'step3' or cs == 'step4' %}
+            <p class="text-white/80 text-sm leading-relaxed mb-3">{% trans "Step 4 of 4 - Review and submit" %}</p>
+          {% else %}
+            <p class="text-white/80 text-sm leading-relaxed mb-3">{% trans "Add your photo, a few details, and the languages you speak. About 2 minutes." %}</p>
+          {% endif %}
+          {# Progress bar — width mirrors the legacy banner mapping #}
+          <div class="bg-white/30 rounded-full h-2.5 mb-4">
+            <div class="bg-white rounded-full h-2.5 transition-all duration-500 ease-out"
+                 style="width: {% if cs == 'not_started' %}0{% elif cs == 'step1' %}25{% elif cs == 'step2' %}50{% elif cs == 'step3' or cs == 'step4' %}75{% else %}100{% endif %}%"></div>
+          </div>
           <a href="{% url 'crush_lu:create_profile' %}" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-crush-purple font-bold text-sm hover:bg-purple-50 transition-colors shadow-sm">
             {% trans "Continue" %}
             <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
           </a>
+          {% endwith %}
         {% elif chosen_path == 'premium' %}
           <h4 class="font-bold text-white text-base mb-1">{% trans "Premium — payment pending" %}</h4>
           <p class="text-white/80 text-sm leading-relaxed mb-4">{% if premium_pending.coach %}{% blocktrans with coach=premium_pending.coach.user.first_name %}We've reserved {{ coach }} for you — we'll be in touch to complete your premium membership.{% endblocktrans %}{% else %}{% trans "We've reserved your coach — we'll be in touch to complete your premium membership." %}{% endif %}</p>
