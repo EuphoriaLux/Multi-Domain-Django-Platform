@@ -12,6 +12,7 @@ import logging
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 
@@ -23,9 +24,20 @@ User = get_user_model()
 
 
 def _back(request, default="crush_lu:crush_connect_sparks_received"):
-    """Redirect target after an action — honour ?next= or HTTP referer."""
-    nxt = request.POST.get("next") or request.META.get("HTTP_REFERER")
-    return redirect(nxt) if nxt else redirect(default)
+    """Redirect target after an action — honour a same-host ?next= / referer.
+
+    Only same-host targets are followed; an off-host or malformed value falls
+    back to ``default`` (open-redirect guard — same sanitiser the SPA auth flow
+    uses, ``azureproject/views_spa_auth.py``).
+    """
+    candidate = request.POST.get("next") or request.META.get("HTTP_REFERER")
+    if candidate and url_has_allowed_host_and_scheme(
+        candidate,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return redirect(candidate)
+    return redirect(default)
 
 
 @crush_login_required
