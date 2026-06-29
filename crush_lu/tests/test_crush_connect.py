@@ -1234,9 +1234,17 @@ def test_drop_new_member_boost_increases_selection_frequency():
     today = date.today()
     surfaced = 0
     old_surfaced = {u.pk: 0 for u in old}
+    newbie_membership = newbie.crush_connect_membership
     trials = 120
     for offset in range(trials):
         d = today + timedelta(days=offset)
+        # The boost only fires within NEW_MEMBER_BOOST_WINDOW_DAYS of onboarding
+        # (see _weight_for). A fixed onboarded_at would age the newcomer out for
+        # all but the first ~30 offsets, leaving most trials at the uniform rate
+        # and diluting the very signal under test. Re-anchor onboarding to just
+        # before each drop date so every trial actually exercises the boost.
+        newbie_membership.onboarded_at = timezone.now() + timedelta(days=offset - 1)
+        newbie_membership.save(update_fields=["onboarded_at"])
         drop = get_or_create_daily_drop(me, drop_date=d)
         recipients = set(drop.recipients.all())
         if newbie in recipients:
@@ -1245,11 +1253,12 @@ def test_drop_new_member_boost_increases_selection_frequency():
             if u in recipients:
                 old_surfaced[u.pk] += 1
 
-    # The ×1.5 new-member boost must lift the newcomer's selection frequency
-    # clearly above a typical established member. Comparing both on the same
-    # seeded date sequence keeps this stable across calendar dates: uniform
-    # chance gives every member 3/5, so without the boost the newcomer would
-    # only match the established average.
+    # With the ×1.5 boost active on every trial, the newcomer must surface
+    # clearly more often than a typical established member. Comparing both
+    # groups over the same seeded date sequence keeps this stable across
+    # calendar dates and DB-assigned PKs: uniform chance gives every member
+    # 3/5, so absent the boost the newcomer would only match the established
+    # average rather than exceed it.
     avg_old = sum(old_surfaced.values()) / len(old)
     assert surfaced > avg_old, (
         f"Boosted newcomer surfaced {surfaced}/{trials} times, "
