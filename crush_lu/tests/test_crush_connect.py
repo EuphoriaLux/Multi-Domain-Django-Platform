@@ -1200,9 +1200,24 @@ def test_teaser_context_exposes_tester_status(client, settings):
 
 @pytest.mark.django_db
 def test_drop_new_member_boost_increases_selection_frequency():
-    """A bulk-rate check: when 1 target is "new" (boosted) and 4 are old,
-    sampling Drops across many synthetic dates surfaces the new one more often
-    than uniform chance would predict (3/5 = 60%)."""
+    """The new-member boost must make the newcomer surface in *more* Drops than
+    they would without it.
+
+    The Drop RNG is seeded deterministically from ``user.pk + drop_date`` (see
+    ``get_or_create_daily_drop``), so any absolute hit-count threshold is
+    fragile — including a comparison against the established-member average,
+    which (because every Drop holds exactly ``DAILY_DROP_SIZE`` of the 5
+    candidates) reduces algebraically to the same strict ``> 60%`` bound and can
+    tie/fail on an unlucky date or PK assignment.
+
+    Instead we run each date twice with the *identical* seed (same viewer +
+    date), once with the newcomer inside its boost window and once aged out.
+    Raising a candidate's weight only ever raises its A-Res selection key
+    (``log(u) / w`` with the same ``u``), so the boost can only *add* the
+    newcomer to a Drop, never drop them: ``boosted >= unboosted`` holds for
+    every seed by construction, and the boost is doing its job iff it strictly
+    adds the newcomer on at least one date. This is a monotonic, date/PK-robust
+    property rather than a noisy threshold."""
     me = _make_user(username="me", preferred_genders=["F"])
     _mark_attended(me)
 
@@ -1225,18 +1240,37 @@ def test_drop_new_member_boost_increases_selection_frequency():
     newbie = _make_user(username="newbie", gender="F", preferred_genders=["M"])
     _mark_attended(newbie)
 
+    newbie_membership = newbie.crush_connect_membership
+
+    def _newcomer_surfaced(drop_date, onboarded_at):
+        # Same (viewer, date) → same seed and same per-candidate random draws;
+        # only the newcomer's onboarding (hence its boost weight) varies.
+        newbie_membership.onboarded_at = onboarded_at
+        newbie_membership.save(update_fields=["onboarded_at"])
+        ConnectDailyDrop.objects.filter(user=me, drop_date=drop_date).delete()
+        drop = get_or_create_daily_drop(me, drop_date=drop_date)
+        return newbie in drop.recipients.all()
+
     today = date.today()
-    surfaced = 0
-    trials = 60
+    trials = 90
+    boosted = 0
+    unboosted = 0
     for offset in range(trials):
         d = today + timedelta(days=offset)
-        drop = get_or_create_daily_drop(me, drop_date=d)
-        if newbie in drop.recipients.all():
-            surfaced += 1
+        # Boosted: onboarded just before the drop date (inside the window).
+        if _newcomer_surfaced(d, timezone.now() + timedelta(days=offset - 1)):
+            boosted += 1
+        # Control: onboarded long ago, well outside the boost window.
+        if _newcomer_surfaced(d, timezone.now() - timedelta(days=120)):
+            unboosted += 1
 
-    # Uniform would be ~3/5 = 36 of 60. Boosted (×1.5) should comfortably exceed
-    # that. We assert > 40 (≈67%) to leave plenty of slack.
-    assert surfaced > 40, f"Boosted newcomer surfaced only {surfaced}/{trials} times"
+    # boosted >= unboosted is guaranteed seed-by-seed (boosting only lifts the
+    # newcomer's selection key); a strictly greater total proves the boost
+    # actually surfaces them on dates where they'd otherwise miss the cut.
+    assert boosted > unboosted, (
+        f"New-member boost did not increase surfacing: boosted={boosted} vs "
+        f"unboosted={unboosted} over {trials} identically-seeded Drops"
+    )
 
 
 # ---------------------------------------------------------------------------

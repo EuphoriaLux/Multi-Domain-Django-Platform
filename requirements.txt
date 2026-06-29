@@ -13,8 +13,8 @@ psycopg2-binary==2.9.12  # Updated from 2.9.10 (security & bug fixes)
 # Authentication
 django-allauth==65.18.0  # Updated from 65.1.0 (latest stable)
 PyJWT==2.13.0  # Updated from 2.11.0 (CVE-2026-32597: crit header bypass)
-cryptography>=48.0.0  # Required for JWT token verification with RSA keys (CVE-2026-26007, OpenSSL fixes)
-google-auth==2.54.0  # Required for Google Wallet API authentication
+cryptography>=49.0.0  # Required for JWT token verification with RSA keys (CVE-2026-26007, OpenSSL fixes)
+google-auth==2.55.0  # Required for Google Wallet API authentication
 
 # Analytics reporting (GA4 Data API + Search Console) — used by scripts/ga4_report.py,
 # gsc_report.py, seo_funnel_report.py for SEO/traffic reporting.
@@ -71,7 +71,7 @@ django-modeltranslation==0.20.3
 polib==1.2.0  # .po file parsing for check_translations command and scripts/i18n/ tooling
 
 # Testing
-pytest==9.1.0
+pytest==9.1.1
 pytest-django==4.12.0
 pytest-playwright==0.8.0
 pytest-mock==3.15.1  # Provides 'mocker' fixture for mocking
