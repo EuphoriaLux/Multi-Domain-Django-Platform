@@ -78,6 +78,7 @@ def get_eligible_pool(user) -> "QuerySet[User]":
     requires LuxID + opt-in instead (asymmetric model).
     """
     from crush_lu.models import CrushProfile, EventConnection, EventRegistration
+    from crush_lu.services.blocking import block_exists_subquery
 
     # --- Requester self-eligibility -----------------------------------------
     user_profile = getattr(user, "crushprofile", None)
@@ -120,10 +121,12 @@ def get_eligible_pool(user) -> "QuerySet[User]":
         )
         .annotate(
             _has_connection=Exists(existing_connection_subq),
+            _has_block=block_exists_subquery(user),
             _has_luxid_native=Exists(luxid_native_subq),
             _has_luxid_oidc=Exists(luxid_oidc_subq),
         )
         .filter(_has_connection=False)
+        .filter(_has_block=False)
         .filter(Q(_has_luxid_native=True) | Q(_has_luxid_oidc=True))
         .exclude(pk=user.pk)
         .select_related("crushprofile", "crush_connect_membership")
@@ -426,10 +429,11 @@ def can_send_spark(sender, recipient) -> Tuple[bool, str]:
 
     Returns ``(allowed, reason)`` — ``reason`` is a machine-readable code for
     the view layer ("not_receiver", "not_surfaced", "already_sparked",
-    "recipient_unavailable", "ok").
+    "recipient_unavailable", "blocked", "ok").
 
     Rules (asymmetric model):
     - Only Drop receivers (Premium + onboarded, not excluded) can send.
+    - Neither party may have blocked the other.
     - The recipient must have actually appeared in one of the sender's Drops
       (the ConnectDailyDrop snapshot is the audit trail).
     - The recipient must STILL be catalogue-eligible — verified, LuxID
@@ -439,9 +443,13 @@ def can_send_spark(sender, recipient) -> Tuple[bool, str]:
     - One Spark per pair, in either direction.
     """
     from crush_lu.models import ConnectDailyDrop, CuriositySpark
+    from crush_lu.services.blocking import is_blocked_pair
 
     if not is_sender_eligible(sender):
         return False, "not_receiver"
+
+    if is_blocked_pair(sender, recipient):
+        return False, "blocked"
 
     if not is_catalogue_eligible(recipient):
         return False, "recipient_unavailable"
@@ -497,17 +505,22 @@ def respond_to_spark(spark, accept: bool, request=None):
     reveal itself is M6.
     Decline → silent. The sender is never notified of a decline.
     """
+    from crush_lu.services.blocking import is_blocked_pair
+
     if spark.status != "pending":
         return spark
-    if accept and not (
-        is_catalogue_eligible(spark.recipient)
-        and is_sender_eligible(spark.sender)
+    if accept and (
+        is_blocked_pair(spark.sender, spark.recipient)
+        or not (
+            is_catalogue_eligible(spark.recipient)
+            and is_sender_eligible(spark.sender)
+        )
     ):
         # Either party lost eligibility since the Spark was created
-        # (rejection, LuxID unlink, Premium loss, exclusion) — an accept
-        # must not fire the mutual notification or land in the coach
-        # queue. Leave the Spark pending; the views filter these out, so
-        # this is the race-condition safety net.
+        # (rejection, LuxID unlink, Premium loss, exclusion) or one blocked
+        # the other — an accept must not fire the mutual notification or land
+        # in the coach queue. Leave the Spark pending; the views filter these
+        # out, so this is the race-condition safety net.
         return spark
     spark.status = "accepted" if accept else "declined"
     spark.responded_at = timezone.now()

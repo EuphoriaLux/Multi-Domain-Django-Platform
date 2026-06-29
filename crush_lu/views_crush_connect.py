@@ -779,6 +779,7 @@ def crush_connect_sparks_received(request):
     the notification email) is where they meet the Sparks sent to them.
     """
     from crush_lu.models import CuriositySpark
+    from crush_lu.services.blocking import blocked_user_ids
     from crush_lu.services.crush_connect import (
         is_catalogue_eligible,
         is_sender_eligible,
@@ -794,8 +795,10 @@ def crush_connect_sparks_received(request):
     if not user.is_staff and not is_catalogue_eligible(user):
         return redirect("crush_lu:crush_connect_teaser")
 
+    blocked_ids = blocked_user_ids(user)
     sparks = (
         CuriositySpark.objects.filter(recipient=user, status="pending")
+        .exclude(sender_id__in=blocked_ids)
         .select_related(
             "sender__crushprofile", "sender__crush_connect_membership"
         )
@@ -803,7 +806,7 @@ def crush_connect_sparks_received(request):
     )
     # Hide Sparks whose sender lost eligibility since sending (rejection,
     # Premium loss, exclusion) — accepting them is a no-op anyway, so they
-    # must not be offered.
+    # must not be offered. (Blocked senders are already excluded above.)
     visible_sparks = [s for s in sparks if is_sender_eligible(s.sender)]
     return render(
         request,

@@ -642,3 +642,38 @@ def notify_profile_recontact(user, profile, coach, request=None) -> Notification
         context={'profile': profile, 'coach': coach},
         request=request
     )
+
+
+def notify_report_filed(report) -> int:
+    """Alert staff (in-app bell) that a member filed a report.
+
+    Reports land in the admin moderation queue; this just makes sure a human is
+    nudged toward it. Best-effort — a notification failure must never block the
+    report from being saved. Returns the number of staff notified.
+    """
+    from django.contrib.auth.models import User
+    from django.urls import NoReverseMatch, reverse
+
+    from .models import Notification
+
+    try:
+        link_url = reverse("crush_admin:crush_lu_userreport_changelist")
+    except NoReverseMatch:
+        link_url = ""
+
+    reporter_name = report.reporter.first_name or report.reporter.username
+    notified = 0
+    for staff in User.objects.filter(is_staff=True, is_active=True):
+        try:
+            Notification.objects.create(
+                user=staff,
+                notification_type="user_report_filed",
+                title="New member report",
+                body=f"{reporter_name} reported a member ({report.get_reason_display()}).",
+                link_url=link_url,
+                metadata={"report_id": report.pk},
+            )
+            notified += 1
+        except Exception:
+            logger.exception("Failed writing report notification for staff %s", staff.pk)
+    return notified

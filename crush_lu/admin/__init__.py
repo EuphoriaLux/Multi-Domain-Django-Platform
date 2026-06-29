@@ -187,6 +187,8 @@ from .crush_connect import (
 
 from .matching import TraitAdmin, MatchScoreAdmin
 
+from .moderation import UserReportAdmin, UserBlockAdmin
+
 from .metrics import WeeklyMetricsSnapshotAdmin
 
 from .changelog import PatchReleaseAdmin, PatchNoteAdmin, PatchNoteInline
@@ -277,6 +279,8 @@ from crush_lu.models import (
     TableRoundScore,
     IndividualScore,
     WeeklyMetricsSnapshot,
+    UserReport,
+    UserBlock,
 )
 
 
@@ -397,6 +401,10 @@ crush_admin_site.register(SparkPrompt, SparkPromptAdmin)
 crush_admin_site.register(ConnectInterest, ConnectInterestAdmin)
 crush_admin_site.register(CuriositySpark, CuriositySparkAdmin)
 crush_admin_site.register(ConnectCoachPick, ConnectCoachPickAdmin)
+
+# Trust & Safety (peer reporting + blocking)
+crush_admin_site.register(UserReport, UserReportAdmin)
+crush_admin_site.register(UserBlock, UserBlockAdmin)
 
 # Matching System
 crush_admin_site.register(Trait, TraitAdmin)

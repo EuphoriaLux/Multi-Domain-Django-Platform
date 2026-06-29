@@ -1,0 +1,45 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Blocked members - Crush.lu" %}{% endblock %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<div class="flex justify-center">
+    <div class="w-full max-w-2xl px-4 py-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">{% trans "Blocked members" %}</h1>
+        <p class="text-gray-600 dark:text-gray-300 mb-6">
+            {% trans "People you've blocked can't see you or reach you anywhere on Crush.lu, and you won't see them. Unblocking is immediate." %}
+        </p>
+
+        {% if blocks %}
+        <ul class="space-y-3">
+            {% for block in blocks %}
+            <li class="flex items-center justify-between gap-3 rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 px-4 py-3">
+                <div class="min-w-0">
+                    <p class="font-semibold text-gray-900 dark:text-white truncate mb-0">
+                        {{ block.blocked.first_name|default:block.blocked.username }}
+                    </p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500 mb-0">
+                        {% blocktrans with when=block.created_at|date:"M j, Y" %}Blocked {{ when }}{% endblocktrans %}
+                        {% if block.get_reason_display %}· {{ block.get_reason_display }}{% endif %}
+                    </p>
+                </div>
+                <form method="post" action="{% url 'crush_lu:unblock_user' block.blocked.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{% url 'crush_lu:blocked_members' %}">
+                    <button type="submit" class="text-sm font-semibold text-crush-purple hover:underline">
+                        {% trans "Unblock" %}
+                    </button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-center py-16 px-6 rounded-2xl bg-gray-50 dark:bg-gray-800/40 ring-1 ring-gray-200 dark:ring-gray-700">
+            <p class="text-gray-600 dark:text-gray-300 mb-0">{% trans "You haven't blocked anyone." %}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

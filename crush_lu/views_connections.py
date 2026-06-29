@@ -54,10 +54,14 @@ def event_attendees(request, event_id):
         )
         return redirect("crush_lu:event_detail", event_id=event_id)
 
-    # Get other attendees (status='attended')
+    # Get other attendees (status='attended'), hiding anyone in a block pair
+    # with the viewer (symmetric — see services.blocking).
+    from .services.blocking import blocked_user_ids
+
     attendees = (
         EventRegistration.objects.filter(event=event, status="attended")
         .exclude(user=request.user)
+        .exclude(user_id__in=blocked_user_ids(request.user))
         .select_related("user__crushprofile")
     )
 
@@ -197,6 +201,13 @@ def request_connection(request, event_id, user_id):
     # Prevent self-connections
     if recipient == request.user:
         messages.error(request, _("You cannot connect with yourself."))
+        return redirect("crush_lu:event_attendees", event_id=event_id)
+
+    # Refuse if either party has blocked the other.
+    from .services.blocking import is_blocked_pair
+
+    if is_blocked_pair(request.user, recipient):
+        messages.error(request, _("You cannot connect with this member."))
         return redirect("crush_lu:event_attendees", event_id=event_id)
 
     # Verify requester attended the event
@@ -362,6 +373,16 @@ def request_connection_inline(request, event_id, user_id):
             request,
             "crush_lu/_htmx_error.html",
             {"message": "You cannot connect with yourself."},
+        )
+
+    # Refuse if either party has blocked the other.
+    from .services.blocking import is_blocked_pair
+
+    if is_blocked_pair(request.user, recipient):
+        return render(
+            request,
+            "crush_lu/_htmx_error.html",
+            {"message": _("You cannot connect with this member.")},
         )
 
     # Verify requester attended the event
@@ -716,9 +737,15 @@ def respond_connection(request, connection_id, action):
 @crush_login_required
 def my_connections(request):
     """View all connections (sent, received, active)"""
+    # Hide connections whose counterpart is in a block pair with the viewer.
+    from .services.blocking import blocked_user_ids
+
+    blocked_ids = blocked_user_ids(request.user)
+
     # Sent requests
     sent = (
         EventConnection.objects.filter(requester=request.user)
+        .exclude(recipient_id__in=blocked_ids)
         .select_related("recipient__crushprofile", "event", "assigned_coach")
         .order_by("-requested_at")
     )
@@ -726,6 +753,7 @@ def my_connections(request):
     # Received requests (pending only)
     received_pending = (
         EventConnection.objects.filter(recipient=request.user, status="pending")
+        .exclude(requester_id__in=blocked_ids)
         .select_related("requester__crushprofile", "event")
         .order_by("-requested_at")
     )
@@ -733,6 +761,8 @@ def my_connections(request):
     # Active connections (accepted, coach_reviewing, coach_approved, shared)
     active = (
         EventConnection.objects.active_for_user(request.user)
+        .exclude(requester_id__in=blocked_ids)
+        .exclude(recipient_id__in=blocked_ids)
         .select_related(
             "requester__crushprofile",
             "recipient__crushprofile",
@@ -762,6 +792,14 @@ def connection_detail(request, connection_id):
 
     # Determine if current user is requester or recipient
     is_requester = connection.requester == request.user
+
+    # Block guard: once either party blocks the other, the connection is dead.
+    from .services.blocking import is_blocked_pair
+
+    other_user = connection.recipient if is_requester else connection.requester
+    if is_blocked_pair(request.user, other_user):
+        messages.error(request, _("This connection is no longer available."))
+        return redirect("crush_lu:my_connections")
 
     if request.method == "POST":
         # Handle consent

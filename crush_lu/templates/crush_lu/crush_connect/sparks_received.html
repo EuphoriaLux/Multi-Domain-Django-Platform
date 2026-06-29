@@ -1,5 +1,5 @@
 {% extends 'crush_lu/crush_connect/_base_connect.html' %}
-{% load i18n crush_media %}
+{% load i18n crush_media moderation_tags %}
 
 {% block title %}{% trans "Your Sparks — Crush Connect" %}{% endblock %}
 
@@ -83,6 +83,8 @@
                         {% trans "Pass" %}
                     </button>
                 </form>
+
+                {% block_report_menu sender source="spark" source_id=spark.pk %}
             </div>
             {% endwith %}
             {% endfor %}
