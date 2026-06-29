@@ -598,6 +598,21 @@ def respond_connection(request, connection_id, action):
         EventConnection, id=connection_id, recipient=request.user
     )
 
+    # Block guard: a block placed after the request arrived must stop the
+    # pending → accepted transition (an old notification / known accept URL
+    # could otherwise turn a blocked pair into a shared connection).
+    from .services.blocking import is_blocked_pair
+
+    if is_blocked_pair(request.user, connection.requester):
+        if request.headers.get("HX-Request"):
+            return render(
+                request,
+                "crush_lu/_htmx_error.html",
+                {"message": _("This connection is no longer available.")},
+            )
+        messages.error(request, _("This connection is no longer available."))
+        return redirect("crush_lu:my_connections")
+
     # Handle already-processed connections (e.g. auto-mutual-accept)
     if connection.status != "pending":
         if request.headers.get("HX-Request"):

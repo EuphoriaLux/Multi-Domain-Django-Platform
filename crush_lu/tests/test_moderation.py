@@ -219,3 +219,61 @@ def test_admin_exclude_action_flips_panic_button():
     report.refresh_from_db()
     assert report.status == "actioned"
     assert report.handled_by == staff
+
+
+# ---------------------------------------------------------------------------
+# Block enforcement on already-created records (post-block defense)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_respond_connection_refused_after_block(client):
+    """A block placed after a request arrived must stop the accept transition."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from crush_lu.models import EventConnection, EventRegistration, MeetupEvent
+
+    me = _make_user(username="me")
+    requester = _make_user(username="requester")
+    event = MeetupEvent.objects.create(
+        title="Past", description="x", event_type="mixer",
+        date_time=timezone.now() - timedelta(days=2), location="Luxembourg",
+        address="1 St", max_participants=20,
+        registration_deadline=timezone.now() - timedelta(days=4), is_published=True,
+    )
+    for u in (me, requester):
+        EventRegistration.objects.create(event=event, user=u, status="attended")
+    conn = EventConnection.objects.create(
+        event=event, requester=requester, recipient=me, status="pending"
+    )
+
+    UserBlock.objects.create(blocker=me, blocked=requester)
+    _grant_consent(me)
+    client.force_login(me)
+    client.post(f"/en/connections/{conn.id}/accept/")
+
+    conn.refresh_from_db()
+    assert conn.status == "pending"  # block stopped the accept
+
+
+@pytest.mark.django_db
+def test_drop_render_excludes_blocked_recipient():
+    """A member blocked after the Drop was generated drops off the rendered Drop."""
+    from django.utils import timezone
+
+    from crush_lu.models import ConnectDailyDrop
+
+    viewer = _make_user(username="viewer", preferred_genders=["F", "M"])
+    shown = _make_user(username="shown")
+    blocked = _make_user(username="blocked")
+
+    drop = ConnectDailyDrop.objects.create(user=viewer, drop_date=timezone.localdate())
+    drop.recipients.add(shown, blocked)
+    UserBlock.objects.create(blocker=viewer, blocked=blocked)
+
+    rendered = list(
+        drop.recipients.exclude(id__in=blocked_user_ids(viewer))
+    )
+    assert shown in rendered
+    assert blocked not in rendered

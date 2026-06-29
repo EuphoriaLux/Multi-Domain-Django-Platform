@@ -39,7 +39,7 @@
                 {% trans "Your Coach's Pick" %}
             </span>
         </div>
-        {% include "crush_lu/crush_connect/_drop_card.html" with target=coach_pick.candidate target_profile=coach_pick.candidate.crushprofile target_membership=coach_pick.candidate.crush_connect_membership %}
+        {% include "crush_lu/crush_connect/_drop_card.html" with target=coach_pick.candidate target_profile=coach_pick.candidate.crushprofile target_membership=coach_pick.candidate.crush_connect_membership can_moderate=True %}
         {% if coach_pick.note %}
         <div class="mt-4 rounded-2xl bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 ring-1 ring-gray-200/70 dark:ring-slate-700/60 p-4">
             <div class="flex items-center gap-2 mb-2">
@@ -69,7 +69,7 @@
     {% elif recipients %}
         <div class="grid grid-cols-1 gap-6">
             {% for target in recipients %}
-                {% include "crush_lu/crush_connect/_drop_card.html" with target=target target_profile=target.crushprofile target_membership=target.crush_connect_membership show_spark_cta=True sparked_ids=sparked_ids %}
+                {% include "crush_lu/crush_connect/_drop_card.html" with target=target target_profile=target.crushprofile target_membership=target.crush_connect_membership show_spark_cta=True sparked_ids=sparked_ids can_moderate=True %}
             {% endfor %}
         </div>
 
