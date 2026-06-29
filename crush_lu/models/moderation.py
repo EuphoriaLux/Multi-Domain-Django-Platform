@@ -122,6 +122,7 @@ class UserReport(models.Model):
         ("connection", _("Event connection")),
         ("message", _("Message")),
         ("profile", _("Profile")),
+        ("drop", _("Daily Drop")),
     ]
 
     STATUS_CHOICES = [

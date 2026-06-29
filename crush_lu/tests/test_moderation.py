@@ -175,6 +175,35 @@ def test_report_user_endpoint_creates_report_and_blocks(client):
 
 
 @pytest.mark.django_db
+def test_report_from_drop_stores_valid_source(client):
+    me = _make_user(username="me")
+    target = _make_user(username="target")
+    _grant_consent(me)
+    client.force_login(me)
+    client.post(
+        f"/en/members/{target.id}/report/",
+        {"reason": "fake_profile", "source": "drop", "source_id": "7"},
+    )
+    report = UserReport.objects.get(reporter=me, reported_user=target)
+    assert report.source == "drop"  # 'drop' is a valid SOURCE_CHOICES entry
+    assert report.source_id == 7
+
+
+@pytest.mark.django_db
+def test_report_rejects_unknown_source(client):
+    me = _make_user(username="me")
+    target = _make_user(username="target")
+    _grant_consent(me)
+    client.force_login(me)
+    client.post(
+        f"/en/members/{target.id}/report/",
+        {"reason": "spam", "source": "bogus"},
+    )
+    report = UserReport.objects.get(reporter=me, reported_user=target)
+    assert report.source == ""  # unknown source is dropped, not persisted
+
+
+@pytest.mark.django_db
 def test_unblock_user_endpoint(client):
     me = _make_user(username="me")
     target = _make_user(username="target")

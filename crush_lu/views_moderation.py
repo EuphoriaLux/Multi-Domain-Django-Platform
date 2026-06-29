@@ -91,13 +91,15 @@ def report_user(request, user_id: int):
 
     target = get_object_or_404(User, pk=user_id)
     reason = request.POST.get("reason", "other")
-    valid = {c for c, _label in UserReport.REASON_CHOICES}
+    valid_reasons = {c for c, _label in UserReport.REASON_CHOICES}
+    valid_sources = {c for c, _label in UserReport.SOURCE_CHOICES}
+    source = request.POST.get("source", "")
     report = UserReport.objects.create(
         reporter=request.user,
         reported_user=target,
-        reason=reason if reason in valid else "other",
+        reason=reason if reason in valid_reasons else "other",
         details=(request.POST.get("details", "") or "").strip()[:2000],
-        source=request.POST.get("source", ""),
+        source=source if source in valid_sources else "",
         source_id=request.POST.get("source_id") or None,
     )
 
