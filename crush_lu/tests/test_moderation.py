@@ -406,6 +406,39 @@ def test_block_withdraws_accepted_coach_pick(client):
 
 
 @pytest.mark.django_db
+def test_blocked_shared_connection_not_counted(client):
+    """A blocked `shared` pair must not inflate the active connection badge."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from crush_lu.models import EventConnection, EventRegistration, MeetupEvent
+
+    me = _make_user(username="me")
+    other = _make_user(username="other")
+    event = MeetupEvent.objects.create(
+        title="Past", description="x", event_type="mixer",
+        date_time=timezone.now() - timedelta(hours=2), location="Luxembourg",
+        address="1 St", max_participants=20,
+        registration_deadline=timezone.now() - timedelta(days=2), is_published=True,
+    )
+    for u in (me, other):
+        EventRegistration.objects.create(event=event, user=u, status="attended")
+    # 'shared' is intentionally NOT terminated on block (contact already exchanged).
+    EventConnection.objects.create(
+        event=event, requester=me, recipient=other, status="shared"
+    )
+    UserBlock.objects.create(blocker=me, blocked=other)
+
+    _grant_consent(me)
+    client.force_login(me)
+    resp = client.get(f"/en/events/{event.id}/attendees/")
+    assert resp.status_code == 200
+    # connection_count is injected site-wide by the context processor.
+    assert resp.context["connection_count"] == 0
+
+
+@pytest.mark.django_db
 def test_block_declines_accepted_spark(client):
     """Blocking declines a live/accepted Spark so it leaves the coach date queue."""
     from django.utils import timezone

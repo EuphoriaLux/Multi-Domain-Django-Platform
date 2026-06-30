@@ -340,8 +340,18 @@ def dashboard(request):
             .order_by("-event__date_time")
         )
 
-        # Get connection count
-        connection_count = EventConnection.objects.active_for_user(request.user).count()
+        # Get connection count (exclude blocked counterparts so a blocked
+        # `shared` pair doesn't keep inflating the dashboard badge).
+        from django.db.models import Q as _Q
+
+        from .services.blocking import blocked_user_ids
+
+        _blocked_ids = blocked_user_ids(request.user)
+        connection_count = (
+            EventConnection.objects.active_for_user(request.user)
+            .exclude(_Q(requester_id__in=_blocked_ids) | _Q(recipient_id__in=_blocked_ids))
+            .count()
+        )
 
         # Get or create referral code for this user's profile
         from .models import ReferralCode

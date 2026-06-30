@@ -61,22 +61,33 @@ def crush_user_context(request):
             # to avoid spurious banners.
             context["email_verified"] = True
 
-        # Connection count for badge
-        connection_count = EventConnection.objects.filter(
-            Q(requester=request.user) | Q(recipient=request.user),
-            status__in=["accepted", "coach_reviewing", "coach_approved", "shared"],
-        ).count()
+        # Blocked counterparts are hidden from every connection surface; reuse the
+        # same id set so badge counts can't advertise a pair the lists now hide.
+        from .services.blocking import blocked_user_ids
+
+        blocked_ids = blocked_user_ids(request.user)
+
+        # Connection count for badge. Excludes blocked counterparts — a `shared`
+        # connection isn't terminated on block (contact was already exchanged),
+        # so without this it would keep inflating the active count while
+        # my_connections hides it.
+        connection_count = (
+            EventConnection.objects.filter(
+                Q(requester=request.user) | Q(recipient=request.user),
+                status__in=["accepted", "coach_reviewing", "coach_approved", "shared"],
+            )
+            .exclude(Q(requester_id__in=blocked_ids) | Q(recipient_id__in=blocked_ids))
+            .count()
+        )
 
         # Pending connection requests (received). Exclude blocked requesters so
         # the nav/dashboard badge can't advertise a request the page itself hides
         # (defence-in-depth; blocking also declines the underlying connection).
-        from .services.blocking import blocked_user_ids
-
         pending_requests_count = (
             EventConnection.objects.filter(
                 recipient=request.user, status="pending"
             )
-            .exclude(requester_id__in=blocked_user_ids(request.user))
+            .exclude(requester_id__in=blocked_ids)
             .count()
         )
 
