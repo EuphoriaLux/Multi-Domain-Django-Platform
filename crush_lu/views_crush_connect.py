@@ -670,9 +670,12 @@ def crush_connect_home(request):
     # Don't create/persist an algorithmic Drop while a pick is open — drop
     # snapshots authorize Sparks, so hidden recipients would become
     # sparkable by id and bypass the "pick replaces the Drop" flow.
-    # A Drop snapshot is pinned for the day, but a block placed AFTER it was
-    # generated must hide the blocked member immediately — filter the persisted
-    # recipients at render time (the snapshot itself is left intact for audit).
+    # A Drop snapshot is pinned for the day, but eligibility lost AFTER it was
+    # generated must take effect immediately — filter the persisted recipients at
+    # render time (the snapshot itself is left intact for audit). Hides:
+    #   - block pairs (member blocked them, or they blocked the member)
+    #   - coach-excluded members (the panic button promises "drops out now")
+    #   - members who lost verified status (e.g. rejected after surfacing)
     from crush_lu.services.blocking import blocked_user_ids
 
     drop = None
@@ -681,6 +684,8 @@ def crush_connect_home(request):
         drop = get_or_create_daily_drop(user)
         recipients = list(
             drop.recipients.exclude(id__in=blocked_user_ids(user))
+            .exclude(crush_connect_membership__excluded_by_coach=True)
+            .filter(crushprofile__verification_status="verified")
             .select_related("crushprofile", "crush_connect_membership")
             .all()
         )

@@ -637,3 +637,68 @@ def test_drop_render_excludes_blocked_recipient():
     )
     assert shown in rendered
     assert blocked not in rendered
+
+
+@pytest.mark.django_db
+def test_drop_render_excludes_coach_excluded_recipient():
+    """A member excluded by the panic button drops off an already-generated Drop."""
+    from django.utils import timezone
+
+    from crush_lu.models import ConnectDailyDrop, CrushConnectMembership
+
+    viewer = _make_user(username="viewer", preferred_genders=["F", "M"])
+    shown = _make_user(username="shown")
+    excluded = _make_user(username="excluded")
+
+    drop = ConnectDailyDrop.objects.create(user=viewer, drop_date=timezone.localdate())
+    drop.recipients.add(shown, excluded)
+    CrushConnectMembership.objects.filter(user=excluded).update(excluded_by_coach=True)
+
+    rendered = list(
+        drop.recipients.exclude(id__in=blocked_user_ids(viewer))
+        .exclude(crush_connect_membership__excluded_by_coach=True)
+        .filter(crushprofile__verification_status="verified")
+    )
+    assert shown in rendered
+    assert excluded not in rendered
+
+
+@pytest.mark.django_db
+def test_block_cancels_legacy_crushspark(client):
+    """Blocking cancels an in-flight legacy CrushSpark between the pair."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from crush_lu.models import CrushSpark, EventRegistration, MeetupEvent
+
+    sender = _make_user(username="sender")
+    recipient = _make_user(username="recipient")
+    event = MeetupEvent.objects.create(
+        title="Past", description="x", event_type="mixer",
+        date_time=timezone.now() - timedelta(days=2), location="Luxembourg",
+        address="1 St", max_participants=20,
+        registration_deadline=timezone.now() - timedelta(days=4), is_published=True,
+    )
+    for u in (sender, recipient):
+        EventRegistration.objects.create(event=event, user=u, status="attended")
+    spark = CrushSpark.objects.create(
+        event=event, sender=sender, recipient=recipient, status="journey_created"
+    )
+
+    _grant_consent(recipient)
+    client.force_login(recipient)
+    client.post(f"/en/members/{sender.id}/block/")
+
+    spark.refresh_from_db()
+    assert spark.status == "cancelled"
+
+
+@pytest.mark.django_db
+def test_userblock_admin_no_delete():
+    from crush_lu.admin.moderation import UserBlockAdmin
+    from crush_lu.models import UserBlock as _UB
+
+    admin_obj = UserBlockAdmin(_UB, None)
+    assert admin_obj.has_add_permission(None) is False
+    assert admin_obj.has_delete_permission(None) is False

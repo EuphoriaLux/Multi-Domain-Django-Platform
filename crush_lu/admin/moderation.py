@@ -141,3 +141,9 @@ class UserBlockAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+
+    def has_delete_permission(self, request, obj=None):
+        # Block enforcement depends on these rows — deleting one silently
+        # re-enables contact. Unblocking is a deliberate user action, not an
+        # admin convenience.
+        return False

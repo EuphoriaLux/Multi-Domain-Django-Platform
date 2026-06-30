@@ -117,6 +117,27 @@ def decline_active_sparks(user_a, user_b) -> int:
     )
 
 
+def cancel_legacy_sparks(user_a, user_b) -> int:
+    """Cancel any in-flight legacy ``CrushSpark`` (Wonderland journey) between the pair.
+
+    The legacy post-event Spark routes (``sparks/``, ``spark_detail``,
+    ``spark_create_journey``) stay reachable, so a block must cancel an
+    identified-pair Spark too — otherwise the sender could still build/deliver
+    the journey and both sides keep seeing it. Only rows with an identified
+    recipient form a pair; terminal states are left alone. Returns the count.
+    """
+    from crush_lu.models import CrushSpark
+
+    return (
+        CrushSpark.objects.filter(
+            Q(sender=user_a, recipient=user_b)
+            | Q(sender=user_b, recipient=user_a)
+        )
+        .exclude(status__in=["completed", "cancelled", "expired"])
+        .update(status="cancelled")
+    )
+
+
 def purge_user_from_connect_queues(user) -> None:
     """Decline/withdraw every live Spark and coach pick involving ``user``.
 
