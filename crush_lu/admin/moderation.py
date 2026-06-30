@@ -83,6 +83,7 @@ class UserReportAdmin(admin.ModelAdmin):
         Connect pool immediately.
         """
         from crush_lu.models import CrushConnectMembership
+        from crush_lu.services.blocking import purge_user_from_connect_queues
 
         excluded = 0
         for report in queryset.select_related("reported_user"):
@@ -106,6 +107,9 @@ class UserReportAdmin(admin.ModelAdmin):
                     ]
                 )
                 excluded += 1
+            # Excluding from future pools isn't enough — clear any live Spark or
+            # coach pick so the excluded user can't linger in the coach queues.
+            purge_user_from_connect_queues(report.reported_user)
             report.status = "actioned"
             report.handled_by = request.user
             report.handled_at = timezone.now()

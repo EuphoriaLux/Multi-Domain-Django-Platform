@@ -663,7 +663,13 @@ def notify_report_filed(report) -> int:
 
     reporter_name = report.reporter.first_name or report.reporter.username
     notified = 0
-    for staff in User.objects.filter(is_staff=True, is_active=True):
+    # Never notify the reporter or the reported account — if the reported user
+    # is staff (e.g. a coach), alerting them (with the reporter's name) would
+    # reveal who reported them and invite retaliation.
+    staff_qs = User.objects.filter(is_staff=True, is_active=True).exclude(
+        pk__in=[report.reporter_id, report.reported_user_id]
+    )
+    for staff in staff_qs:
         try:
             Notification.objects.create(
                 user=staff,

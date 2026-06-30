@@ -283,6 +283,76 @@ def test_admin_exclude_action_flips_panic_button():
     assert report.handled_by == staff
 
 
+@pytest.mark.django_db
+def test_report_notification_skips_reported_staff():
+    """A reported staff account must not be alerted it was reported."""
+    from crush_lu.models import Notification
+    from crush_lu.notification_service import notify_report_filed
+
+    reporter = _make_user(username="reporter")
+    reporter.is_staff = True
+    reporter.save(update_fields=["is_staff"])
+    reported_staff = _make_user(username="reported_staff")
+    reported_staff.is_staff = True
+    reported_staff.save(update_fields=["is_staff"])
+    bystander = _make_user(username="bystander")
+    bystander.is_staff = True
+    bystander.save(update_fields=["is_staff"])
+
+    report = UserReport.objects.create(
+        reporter=reporter, reported_user=reported_staff, reason="harassment"
+    )
+    notify_report_filed(report)
+
+    # The reported (and the reporter) get no report alert; bystander staff do.
+    assert not Notification.objects.filter(
+        user=reported_staff, notification_type="user_report_filed"
+    ).exists()
+    assert not Notification.objects.filter(
+        user=reporter, notification_type="user_report_filed"
+    ).exists()
+    assert Notification.objects.filter(
+        user=bystander, notification_type="user_report_filed"
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_exclude_action_clears_connect_queues():
+    """The panic button clears the reported user's live Sparks and coach picks."""
+    from django.utils import timezone
+
+    from crush_lu.admin.moderation import UserReportAdmin
+    from crush_lu.models import ConnectCoachPick, ConnectDailyDrop, CuriositySpark
+
+    staff = _make_user(username="staff")
+    staff.is_staff = True
+    staff.save(update_fields=["is_staff"])
+    reported = _make_user(username="reported")
+    other = _make_user(username="other")
+
+    drop = ConnectDailyDrop.objects.create(user=other, drop_date=timezone.localdate())
+    drop.recipients.add(reported)
+    spark = CuriositySpark.objects.create(
+        sender=other, recipient=reported, drop=drop, status="accepted"
+    )
+    pick = ConnectCoachPick.objects.create(
+        coach=other.crushprofile.assigned_coach,
+        member=other, candidate=reported, status="accepted",
+    )
+    report = UserReport.objects.create(
+        reporter=staff, reported_user=reported, reason="harassment"
+    )
+
+    admin_obj = UserReportAdmin(UserReport, None)
+    request = _request_with_messages(staff)
+    admin_obj.exclude_reported_users(request, UserReport.objects.filter(pk=report.pk))
+
+    spark.refresh_from_db()
+    pick.refresh_from_db()
+    assert spark.status == "declined"
+    assert pick.status == "withdrawn"
+
+
 # ---------------------------------------------------------------------------
 # Block enforcement on already-created records (post-block defense)
 # ---------------------------------------------------------------------------

@@ -115,3 +115,27 @@ def decline_active_sparks(user_a, user_b) -> int:
         .exclude(status="declined")
         .update(status="declined", responded_at=timezone.now())
     )
+
+
+def purge_user_from_connect_queues(user) -> None:
+    """Decline/withdraw every live Spark and coach pick involving ``user``.
+
+    Used by the coach panic button (admin "exclude reported user") — flipping
+    ``excluded_by_coach`` removes the user from future pools but leaves any
+    already-accepted Spark or pick sitting in the coach date-arrangement queues
+    (``CuriositySparkAdmin`` / ``coach_connect_members``). This clears those too,
+    in every direction, so an excluded member can't linger there.
+    """
+    from django.utils import timezone
+
+    from crush_lu.models import ConnectCoachPick, CuriositySpark
+
+    now = timezone.now()
+    CuriositySpark.objects.filter(
+        Q(sender=user) | Q(recipient=user)
+    ).exclude(status="declined").update(status="declined", responded_at=now)
+    ConnectCoachPick.objects.filter(
+        Q(member=user) | Q(candidate=user)
+    ).exclude(status__in=["declined", "withdrawn"]).update(
+        status="withdrawn", responded_at=now
+    )

@@ -10,6 +10,7 @@ from .blocking import (
     blocked_user_ids,
     decline_active_sparks,
     is_blocked_pair,
+    purge_user_from_connect_queues,
     terminate_active_connections,
     withdraw_active_coach_picks,
 )
@@ -27,4 +28,5 @@ __all__ = [
     'terminate_active_connections',
     'withdraw_active_coach_picks',
     'decline_active_sparks',
+    'purge_user_from_connect_queues',
 ]
