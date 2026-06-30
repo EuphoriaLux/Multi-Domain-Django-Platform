@@ -9,6 +9,7 @@ from allauth.account.forms import LoginForm
 from . import views
 from . import views_pre_screening
 from . import views_crush_connect
+from . import views_moderation
 from .forms import CrushSignupForm
 from .throttling import LoginRateThrottle
 import logging
@@ -202,6 +203,27 @@ urlpatterns = [
         'crush-connect/sparks/<int:spark_id>/respond/',
         views_crush_connect.crush_connect_spark_respond,
         name='crush_connect_spark_respond',
+    ),
+    # Peer safety — block / unblock / report another member.
+    path(
+        'members/<int:user_id>/block/',
+        views_moderation.block_user,
+        name='block_user',
+    ),
+    path(
+        'members/<int:user_id>/unblock/',
+        views_moderation.unblock_user,
+        name='unblock_user',
+    ),
+    path(
+        'members/<int:user_id>/report/',
+        views_moderation.report_user,
+        name='report_user',
+    ),
+    path(
+        'settings/blocked/',
+        views_moderation.blocked_members,
+        name='blocked_members',
     ),
     # Coach Picks (M7): coach curation hub + member accept/decline.
     path(

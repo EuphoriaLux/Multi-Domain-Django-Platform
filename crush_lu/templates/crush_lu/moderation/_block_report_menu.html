@@ -1,0 +1,44 @@
+{% load i18n %}
+{# Reusable peer-safety disclosure. Caller passes:
+     member    — the User being shown (required)
+     source    — originating surface, e.g. "spark" (optional)
+     source_id — pk of the originating object (optional)
+   Plain forms (no JS dependency); each posts and redirects back via referer. #}
+<details class="mt-2 group">
+    <summary class="list-none cursor-pointer text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 select-none">
+        {% trans "Safety options" %}
+    </summary>
+    <div class="mt-2 rounded-xl bg-gray-50 dark:bg-slate-900/40 ring-1 ring-gray-200 dark:ring-slate-700 p-3 space-y-3">
+
+        {# Report — opens the moderation queue; option to block at the same time. #}
+        <form method="post" action="{% url 'crush_lu:report_user' member.id %}" class="space-y-2">
+            {% csrf_token %}
+            {% if source %}<input type="hidden" name="source" value="{{ source }}">{% endif %}
+            {% if source_id %}<input type="hidden" name="source_id" value="{{ source_id }}">{% endif %}
+            <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300">{% trans "Report this member" %}</label>
+            <select name="reason" class="w-full text-sm rounded-lg border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white">
+                {% for value, label in report_reasons %}
+                <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+            <textarea name="details" rows="2" maxlength="2000"
+                      placeholder="{% trans 'Anything we should know? (optional)' %}"
+                      class="w-full text-sm rounded-lg border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white"></textarea>
+            <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                <input type="checkbox" name="also_block" value="1" checked class="rounded border-gray-300 text-crush-purple">
+                {% trans "Also block them" %}
+            </label>
+            <button type="submit" class="text-sm font-semibold text-red-600 dark:text-red-400 hover:underline">
+                {% trans "Submit report" %}
+            </button>
+        </form>
+
+        {# Block on its own (no report). #}
+        <form method="post" action="{% url 'crush_lu:block_user' member.id %}">
+            {% csrf_token %}
+            <button type="submit" class="text-sm font-medium text-gray-600 dark:text-gray-300 hover:underline">
+                {% trans "Just block this member" %}
+            </button>
+        </form>
+    </div>
+</details>

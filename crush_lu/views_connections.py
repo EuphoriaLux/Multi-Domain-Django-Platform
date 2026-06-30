@@ -54,22 +54,34 @@ def event_attendees(request, event_id):
         )
         return redirect("crush_lu:event_detail", event_id=event_id)
 
-    # Get other attendees (status='attended')
+    # Get other attendees (status='attended'), hiding anyone in a block pair
+    # with the viewer (symmetric — see services.blocking).
+    from .services.blocking import blocked_user_ids
+
+    blocked_ids = blocked_user_ids(request.user)
+
     attendees = (
         EventRegistration.objects.filter(event=event, status="attended")
         .exclude(user=request.user)
+        .exclude(user_id__in=blocked_ids)
         .select_related("user__crushprofile")
     )
 
     # Pre-fetch all connections for this user+event into dicts for O(1) lookups
-    # This avoids N+1 queries (previously 1+2N queries in the loop)
+    # This avoids N+1 queries (previously 1+2N queries in the loop). Blocked
+    # counterparts are excluded so a pre-existing request from a now-blocked
+    # member never resurfaces (card, "someone wants to connect" hint, count).
     sent_connections = {
         c.recipient_id: c
-        for c in EventConnection.objects.filter(requester=request.user, event=event)
+        for c in EventConnection.objects.filter(
+            requester=request.user, event=event
+        ).exclude(recipient_id__in=blocked_ids)
     }
     received_connections = {
         c.requester_id: c
-        for c in EventConnection.objects.filter(recipient=request.user, event=event)
+        for c in EventConnection.objects.filter(
+            recipient=request.user, event=event
+        ).exclude(requester_id__in=blocked_ids)
     }
 
     # Spark feature is soft-removed; pre-fetch left at empty so any straggling
@@ -213,6 +225,15 @@ def request_connection(request, event_id, user_id):
 
     if not recipient_reg.can_make_connections:
         messages.error(request, _("This person did not attend the event."))
+        return redirect("crush_lu:event_attendees", event_id=event_id)
+
+    # Refuse if either party has blocked the other. Checked only AFTER the
+    # attendance checks above so block status isn't probeable by a non-attendee
+    # hitting arbitrary event/user URLs.
+    from .services.blocking import is_blocked_pair
+
+    if is_blocked_pair(request.user, recipient):
+        messages.error(request, _("You cannot connect with this member."))
         return redirect("crush_lu:event_attendees", event_id=event_id)
 
     # Check if connection already exists
@@ -382,6 +403,17 @@ def request_connection_inline(request, event_id, user_id):
             request,
             "crush_lu/_htmx_error.html",
             {"message": "This person did not attend the event."},
+        )
+
+    # Refuse if either party has blocked the other. After the attendance checks
+    # so block status isn't probeable by a non-attendee.
+    from .services.blocking import is_blocked_pair
+
+    if is_blocked_pair(request.user, recipient):
+        return render(
+            request,
+            "crush_lu/_htmx_error.html",
+            {"message": _("You cannot connect with this member.")},
         )
 
     # Check if connection already exists
@@ -577,6 +609,21 @@ def respond_connection(request, connection_id, action):
         EventConnection, id=connection_id, recipient=request.user
     )
 
+    # Block guard: a block placed after the request arrived must stop the
+    # pending → accepted transition (an old notification / known accept URL
+    # could otherwise turn a blocked pair into a shared connection).
+    from .services.blocking import is_blocked_pair
+
+    if is_blocked_pair(request.user, connection.requester):
+        if request.headers.get("HX-Request"):
+            return render(
+                request,
+                "crush_lu/_htmx_error.html",
+                {"message": _("This connection is no longer available.")},
+            )
+        messages.error(request, _("This connection is no longer available."))
+        return redirect("crush_lu:my_connections")
+
     # Handle already-processed connections (e.g. auto-mutual-accept)
     if connection.status != "pending":
         if request.headers.get("HX-Request"):
@@ -716,9 +763,15 @@ def respond_connection(request, connection_id, action):
 @crush_login_required
 def my_connections(request):
     """View all connections (sent, received, active)"""
+    # Hide connections whose counterpart is in a block pair with the viewer.
+    from .services.blocking import blocked_user_ids
+
+    blocked_ids = blocked_user_ids(request.user)
+
     # Sent requests
     sent = (
         EventConnection.objects.filter(requester=request.user)
+        .exclude(recipient_id__in=blocked_ids)
         .select_related("recipient__crushprofile", "event", "assigned_coach")
         .order_by("-requested_at")
     )
@@ -726,6 +779,7 @@ def my_connections(request):
     # Received requests (pending only)
     received_pending = (
         EventConnection.objects.filter(recipient=request.user, status="pending")
+        .exclude(requester_id__in=blocked_ids)
         .select_related("requester__crushprofile", "event")
         .order_by("-requested_at")
     )
@@ -733,6 +787,8 @@ def my_connections(request):
     # Active connections (accepted, coach_reviewing, coach_approved, shared)
     active = (
         EventConnection.objects.active_for_user(request.user)
+        .exclude(requester_id__in=blocked_ids)
+        .exclude(recipient_id__in=blocked_ids)
         .select_related(
             "requester__crushprofile",
             "recipient__crushprofile",
@@ -762,6 +818,14 @@ def connection_detail(request, connection_id):
 
     # Determine if current user is requester or recipient
     is_requester = connection.requester == request.user
+
+    # Block guard: once either party blocks the other, the connection is dead.
+    from .services.blocking import is_blocked_pair
+
+    other_user = connection.recipient if is_requester else connection.requester
+    if is_blocked_pair(request.user, other_user):
+        messages.error(request, _("This connection is no longer available."))
+        return redirect("crush_lu:my_connections")
 
     if request.method == "POST":
         # Handle consent

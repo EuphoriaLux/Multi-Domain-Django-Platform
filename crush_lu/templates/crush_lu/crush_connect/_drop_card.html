@@ -17,7 +17,7 @@ Privacy contract (Crush Connect):
       preference — Crush Connect ALWAYS coarsens age until mutual reveal)
     - photo always blurred until mutual interest is reached
 {% endcomment %}
-{% load i18n crush_media %}
+{% load i18n crush_media moderation_tags %}
 <article
     class="card card-bordered overflow-hidden flex flex-col bg-white dark:bg-slate-800 ring-1 ring-gray-200/60 dark:ring-slate-700/60 rounded-2xl shadow-crush-md"
     aria-label="{% blocktrans with name=target.first_name|default:_('A Crush Connect member') %}Drop card for {{ name }}{% endblocktrans %}"
@@ -159,6 +159,12 @@ Privacy contract (Crush Connect):
                     {% trans "Send a Curiosity Spark — coming soon." %}
                 </p>
             </div>
+        {% endif %}
+
+        {# Trust & Safety: report/block the member whose card this is. Only on the
+           live viewer surface (can_moderate), never the staff dev preview. #}
+        {% if can_moderate %}
+            {% block_report_menu target source="drop" %}
         {% endif %}
     </div>
 </article>

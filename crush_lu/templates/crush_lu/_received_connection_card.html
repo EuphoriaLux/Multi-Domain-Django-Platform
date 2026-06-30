@@ -1,4 +1,4 @@
-{% load i18n crush_media %}
+{% load i18n crush_media moderation_tags %}
 <div id="connection-{{ connection.id }}"
      class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4"
      role="status"
@@ -21,6 +21,7 @@
                         <span>"{{ connection.requester_note }}"</span>
                     </p>
                 {% endif %}
+                {% block_report_menu connection.requester source="connection" source_id=connection.id %}
             </div>
         </div>
 

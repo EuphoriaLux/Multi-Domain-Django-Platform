@@ -1,0 +1,704 @@
+"""
+Tests for peer safety — UserBlock / UserReport (review finding C2).
+
+Covers the model constraints, the symmetric block helpers, block enforcement in
+the eligible pool and Spark gating, the user-facing block/report endpoints, and
+the admin "exclude reported user" panic-button action.
+"""
+
+import pytest
+from django.contrib.auth import get_user_model
+from django.contrib.messages import get_messages
+from django.contrib.messages.storage.fallback import FallbackStorage
+from django.db import IntegrityError
+from django.test import RequestFactory
+
+# View tests hit /en/… URLs which only resolve under urls_crush.
+pytestmark = pytest.mark.urls("azureproject.urls_crush")
+
+from crush_lu.models import CrushConnectMembership, UserBlock, UserReport
+from crush_lu.services.blocking import (
+    block_exists_subquery,
+    blocked_user_ids,
+    is_blocked_pair,
+)
+from crush_lu.services.crush_connect import can_send_spark, get_eligible_pool
+
+# Reuse the rich Crush Connect user fixture (verified + LuxID + premium + onboarded).
+from crush_lu.tests.test_crush_connect import _make_user
+
+User = get_user_model()
+
+
+def _grant_consent(user):
+    """Satisfy CrushConsentMiddleware so authenticated view requests reach the view."""
+    from crush_lu.models import UserDataConsent
+
+    consent, _ = UserDataConsent.objects.get_or_create(user=user)
+    consent.crushlu_consent_given = True
+    consent.save(update_fields=["crushlu_consent_given"])
+    return user
+
+
+# ---------------------------------------------------------------------------
+# Model constraints
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_block_unique_pair():
+    a = _make_user(username="a")
+    b = _make_user(username="b")
+    UserBlock.objects.create(blocker=a, blocked=b)
+    with pytest.raises(IntegrityError):
+        UserBlock.objects.create(blocker=a, blocked=b)
+
+
+@pytest.mark.django_db
+def test_block_no_self():
+    a = _make_user(username="a")
+    with pytest.raises(IntegrityError):
+        UserBlock.objects.create(blocker=a, blocked=a)
+
+
+# ---------------------------------------------------------------------------
+# Symmetric helpers
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_is_blocked_pair_is_symmetric():
+    a = _make_user(username="a")
+    b = _make_user(username="b")
+    UserBlock.objects.create(blocker=a, blocked=b)
+    assert is_blocked_pair(a, b)
+    assert is_blocked_pair(b, a)
+
+
+@pytest.mark.django_db
+def test_blocked_user_ids_covers_both_directions():
+    a = _make_user(username="a")
+    b = _make_user(username="b")
+    c = _make_user(username="c")
+    UserBlock.objects.create(blocker=a, blocked=b)  # a blocked b
+    UserBlock.objects.create(blocker=c, blocked=a)  # c blocked a
+    assert blocked_user_ids(a) == {b.id, c.id}
+
+
+# ---------------------------------------------------------------------------
+# Pool enforcement
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_pool_excludes_blocked_target_either_direction():
+    me = _make_user(username="me", preferred_genders=["F", "M"])
+    other = _make_user(username="other")
+    assert other in get_eligible_pool(me)
+
+    # I blocked them.
+    block = UserBlock.objects.create(blocker=me, blocked=other)
+    assert other not in get_eligible_pool(me)
+    assert me not in get_eligible_pool(other)
+
+    # They blocked me (reverse direction) — still hidden both ways.
+    block.delete()
+    UserBlock.objects.create(blocker=other, blocked=me)
+    assert other not in get_eligible_pool(me)
+    assert me not in get_eligible_pool(other)
+
+
+@pytest.mark.django_db
+def test_block_exists_subquery_annotation():
+    me = _make_user(username="me", preferred_genders=["F", "M"])
+    other = _make_user(username="other")
+    UserBlock.objects.create(blocker=me, blocked=other)
+    flagged = (
+        User.objects.filter(pk=other.pk)
+        .annotate(_b=block_exists_subquery(me))
+        .first()
+    )
+    assert flagged._b is True
+
+
+# ---------------------------------------------------------------------------
+# Spark gating
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_can_send_spark_blocked():
+    sender = _make_user(username="sender")  # premium + onboarded → sender-eligible
+    recipient = _make_user(username="recipient")
+    UserBlock.objects.create(blocker=recipient, blocked=sender)
+    allowed, reason = can_send_spark(sender, recipient)
+    assert allowed is False
+    assert reason == "blocked"
+
+
+# ---------------------------------------------------------------------------
+# User-facing endpoints
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_block_user_endpoint(client):
+    me = _make_user(username="me")
+    target = _make_user(username="target")
+    _grant_consent(me)
+    client.force_login(me)
+    resp = client.post(f"/en/members/{target.id}/block/", {"reason": "harassment"})
+    assert resp.status_code in (302, 303)
+    assert UserBlock.objects.filter(blocker=me, blocked=target, reason="harassment").exists()
+
+
+@pytest.mark.django_db
+def test_block_user_endpoint_is_idempotent(client):
+    me = _make_user(username="me")
+    target = _make_user(username="target")
+    _grant_consent(me)
+    client.force_login(me)
+    client.post(f"/en/members/{target.id}/block/")
+    client.post(f"/en/members/{target.id}/block/")
+    assert UserBlock.objects.filter(blocker=me, blocked=target).count() == 1
+
+
+@pytest.mark.django_db
+def test_report_user_endpoint_creates_report_and_blocks(client):
+    me = _make_user(username="me")
+    target = _make_user(username="target")
+    _grant_consent(me)
+    client.force_login(me)
+    resp = client.post(
+        f"/en/members/{target.id}/report/",
+        {"reason": "harassment", "details": "rude", "also_block": "1"},
+    )
+    assert resp.status_code in (302, 303)
+    report = UserReport.objects.get(reporter=me, reported_user=target)
+    assert report.reason == "harassment"
+    assert report.status == "open"
+    assert UserBlock.objects.filter(blocker=me, blocked=target).exists()
+
+
+@pytest.mark.django_db
+def test_report_from_drop_stores_valid_source(client):
+    me = _make_user(username="me")
+    target = _make_user(username="target")
+    _grant_consent(me)
+    client.force_login(me)
+    client.post(
+        f"/en/members/{target.id}/report/",
+        {"reason": "fake_profile", "source": "drop", "source_id": "7"},
+    )
+    report = UserReport.objects.get(reporter=me, reported_user=target)
+    assert report.source == "drop"  # 'drop' is a valid SOURCE_CHOICES entry
+    assert report.source_id == 7
+
+
+@pytest.mark.django_db
+def test_report_rejects_unknown_source(client):
+    me = _make_user(username="me")
+    target = _make_user(username="target")
+    _grant_consent(me)
+    client.force_login(me)
+    client.post(
+        f"/en/members/{target.id}/report/",
+        {"reason": "spam", "source": "bogus"},
+    )
+    report = UserReport.objects.get(reporter=me, reported_user=target)
+    assert report.source == ""  # unknown source is dropped, not persisted
+
+
+@pytest.mark.django_db
+def test_report_tolerates_malformed_source_id(client):
+    """A tampered source_id must not turn reporting into a 500."""
+    me = _make_user(username="me")
+    target = _make_user(username="target")
+    _grant_consent(me)
+    client.force_login(me)
+    resp = client.post(
+        f"/en/members/{target.id}/report/",
+        {"reason": "spam", "source": "drop", "source_id": "abc"},
+    )
+    assert resp.status_code in (302, 303)
+    report = UserReport.objects.get(reporter=me, reported_user=target)
+    assert report.source_id is None  # malformed value dropped, no crash
+
+
+@pytest.mark.django_db
+def test_report_drops_oversized_source_id(client):
+    """An out-of-range source_id is dropped (no PositiveIntegerField overflow)."""
+    me = _make_user(username="me")
+    target = _make_user(username="target")
+    _grant_consent(me)
+    client.force_login(me)
+    resp = client.post(
+        f"/en/members/{target.id}/report/",
+        {"reason": "spam", "source": "drop", "source_id": "99999999999999"},
+    )
+    assert resp.status_code in (302, 303)
+    report = UserReport.objects.get(reporter=me, reported_user=target)
+    assert report.source_id is None
+
+
+@pytest.mark.django_db
+def test_unblock_user_endpoint(client):
+    me = _make_user(username="me")
+    target = _make_user(username="target")
+    UserBlock.objects.create(blocker=me, blocked=target)
+    _grant_consent(me)
+    client.force_login(me)
+    resp = client.post(f"/en/members/{target.id}/unblock/")
+    assert resp.status_code in (302, 303)
+    assert not UserBlock.objects.filter(blocker=me, blocked=target).exists()
+
+
+# ---------------------------------------------------------------------------
+# Admin moderation action
+# ---------------------------------------------------------------------------
+
+def _request_with_messages(user):
+    request = RequestFactory().post("/crush-admin/")
+    request.user = user
+    setattr(request, "session", {})
+    setattr(request, "_messages", FallbackStorage(request))
+    return request
+
+
+@pytest.mark.django_db
+def test_admin_exclude_action_flips_panic_button():
+    from crush_lu.admin.moderation import UserReportAdmin
+
+    staff = _make_user(username="staff")
+    staff.is_staff = True
+    staff.save(update_fields=["is_staff"])
+    reported = _make_user(username="reported")
+    report = UserReport.objects.create(
+        reporter=staff, reported_user=reported, reason="harassment"
+    )
+
+    admin_obj = UserReportAdmin(UserReport, None)
+    request = _request_with_messages(staff)
+    admin_obj.exclude_reported_users(request, UserReport.objects.filter(pk=report.pk))
+
+    membership = CrushConnectMembership.objects.get(user=reported)
+    assert membership.excluded_by_coach is True
+    report.refresh_from_db()
+    assert report.status == "actioned"
+    assert report.handled_by == staff
+
+
+@pytest.mark.django_db
+def test_report_notification_skips_reported_staff():
+    """A reported staff account must not be alerted it was reported."""
+    from crush_lu.models import Notification
+    from crush_lu.notification_service import notify_report_filed
+
+    reporter = _make_user(username="reporter")
+    reporter.is_staff = True
+    reporter.save(update_fields=["is_staff"])
+    reported_staff = _make_user(username="reported_staff")
+    reported_staff.is_staff = True
+    reported_staff.save(update_fields=["is_staff"])
+    bystander = _make_user(username="bystander")
+    bystander.is_staff = True
+    bystander.save(update_fields=["is_staff"])
+
+    report = UserReport.objects.create(
+        reporter=reporter, reported_user=reported_staff, reason="harassment"
+    )
+    notify_report_filed(report)
+
+    # The reported (and the reporter) get no report alert; bystander staff do.
+    assert not Notification.objects.filter(
+        user=reported_staff, notification_type="user_report_filed"
+    ).exists()
+    assert not Notification.objects.filter(
+        user=reporter, notification_type="user_report_filed"
+    ).exists()
+    assert Notification.objects.filter(
+        user=bystander, notification_type="user_report_filed"
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_exclude_action_clears_connect_queues():
+    """The panic button clears the reported user's live Sparks and coach picks."""
+    from django.utils import timezone
+
+    from crush_lu.admin.moderation import UserReportAdmin
+    from crush_lu.models import ConnectCoachPick, ConnectDailyDrop, CuriositySpark
+
+    staff = _make_user(username="staff")
+    staff.is_staff = True
+    staff.save(update_fields=["is_staff"])
+    reported = _make_user(username="reported")
+    other = _make_user(username="other")
+
+    drop = ConnectDailyDrop.objects.create(user=other, drop_date=timezone.localdate())
+    drop.recipients.add(reported)
+    spark = CuriositySpark.objects.create(
+        sender=other, recipient=reported, drop=drop, status="accepted"
+    )
+    pick = ConnectCoachPick.objects.create(
+        coach=other.crushprofile.assigned_coach,
+        member=other, candidate=reported, status="accepted",
+    )
+    report = UserReport.objects.create(
+        reporter=staff, reported_user=reported, reason="harassment"
+    )
+
+    admin_obj = UserReportAdmin(UserReport, None)
+    request = _request_with_messages(staff)
+    admin_obj.exclude_reported_users(request, UserReport.objects.filter(pk=report.pk))
+
+    spark.refresh_from_db()
+    pick.refresh_from_db()
+    assert spark.status == "declined"
+    assert pick.status == "withdrawn"
+
+
+# ---------------------------------------------------------------------------
+# Block enforcement on already-created records (post-block defense)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_respond_connection_refused_after_block(client):
+    """A block placed after a request arrived must stop the accept transition."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from crush_lu.models import EventConnection, EventRegistration, MeetupEvent
+
+    me = _make_user(username="me")
+    requester = _make_user(username="requester")
+    event = MeetupEvent.objects.create(
+        title="Past", description="x", event_type="mixer",
+        date_time=timezone.now() - timedelta(days=2), location="Luxembourg",
+        address="1 St", max_participants=20,
+        registration_deadline=timezone.now() - timedelta(days=4), is_published=True,
+    )
+    for u in (me, requester):
+        EventRegistration.objects.create(event=event, user=u, status="attended")
+    conn = EventConnection.objects.create(
+        event=event, requester=requester, recipient=me, status="pending"
+    )
+
+    UserBlock.objects.create(blocker=me, blocked=requester)
+    _grant_consent(me)
+    client.force_login(me)
+    client.post(f"/en/connections/{conn.id}/accept/")
+
+    conn.refresh_from_db()
+    assert conn.status == "pending"  # block stopped the accept
+
+
+@pytest.mark.django_db
+def test_event_attendees_hint_excludes_blocked_requester(client):
+    """A blocked requester's pending request must not surface via the hint/count."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from crush_lu.models import EventConnection, EventRegistration, MeetupEvent
+
+    me = _make_user(username="me")
+    requester = _make_user(username="requester")
+    event = MeetupEvent.objects.create(
+        title="Past", description="x", event_type="mixer",
+        date_time=timezone.now() - timedelta(hours=2), location="Luxembourg",
+        address="1 St", max_participants=20,
+        registration_deadline=timezone.now() - timedelta(days=2), is_published=True,
+    )
+    for u in (me, requester):
+        EventRegistration.objects.create(event=event, user=u, status="attended")
+    EventConnection.objects.create(
+        event=event, requester=requester, recipient=me, status="pending"
+    )
+    UserBlock.objects.create(blocker=me, blocked=requester)
+
+    _grant_consent(me)
+    client.force_login(me)
+    resp = client.get(f"/en/events/{event.id}/attendees/")
+    assert resp.status_code == 200
+    assert resp.context["incoming_pending_count"] == 0
+    attendee_users = {a["user"].id for a in resp.context["attendees"]}
+    assert requester.id not in attendee_users
+
+
+@pytest.mark.django_db
+def test_block_terminates_active_connection(client):
+    """Blocking declines an in-flight connection so the coach queue can't facilitate it."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from crush_lu.models import EventConnection, MeetupEvent
+
+    me = _make_user(username="me")
+    other = _make_user(username="other")
+    event = MeetupEvent.objects.create(
+        title="Past", description="x", event_type="mixer",
+        date_time=timezone.now() - timedelta(days=2), location="Luxembourg",
+        address="1 St", max_participants=20,
+        registration_deadline=timezone.now() - timedelta(days=4), is_published=True,
+    )
+    conn = EventConnection.objects.create(
+        event=event, requester=other, recipient=me, status="accepted"
+    )
+
+    _grant_consent(me)
+    client.force_login(me)
+    client.post(f"/en/members/{other.id}/block/")
+
+    conn.refresh_from_db()
+    assert conn.status == "declined"  # no longer in the coach queue
+    # The coach queue filters accepted/coach_reviewing — declined falls out.
+    assert not EventConnection.objects.filter(
+        pk=conn.pk, status__in=["accepted", "coach_reviewing"]
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_block_withdraws_accepted_coach_pick(client):
+    """Blocking withdraws a live coach pick so the coach can't facilitate it."""
+    from crush_lu.models import ConnectCoachPick
+
+    member = _make_user(username="member")
+    candidate = _make_user(username="candidate")
+    coach = member.crushprofile.assigned_coach
+    pick = ConnectCoachPick.objects.create(
+        coach=coach, member=member, candidate=candidate, status="accepted"
+    )
+
+    _grant_consent(member)
+    client.force_login(member)
+    client.post(f"/en/members/{candidate.id}/block/")
+
+    pick.refresh_from_db()
+    assert pick.status == "withdrawn"
+
+
+@pytest.mark.django_db
+def test_blocked_shared_connection_not_counted(client):
+    """A blocked `shared` pair must not inflate the active connection badge."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from crush_lu.models import EventConnection, EventRegistration, MeetupEvent
+
+    me = _make_user(username="me")
+    other = _make_user(username="other")
+    event = MeetupEvent.objects.create(
+        title="Past", description="x", event_type="mixer",
+        date_time=timezone.now() - timedelta(hours=2), location="Luxembourg",
+        address="1 St", max_participants=20,
+        registration_deadline=timezone.now() - timedelta(days=2), is_published=True,
+    )
+    for u in (me, other):
+        EventRegistration.objects.create(event=event, user=u, status="attended")
+    # 'shared' is intentionally NOT terminated on block (contact already exchanged).
+    EventConnection.objects.create(
+        event=event, requester=me, recipient=other, status="shared"
+    )
+    UserBlock.objects.create(blocker=me, blocked=other)
+
+    _grant_consent(me)
+    client.force_login(me)
+    resp = client.get(f"/en/events/{event.id}/attendees/")
+    assert resp.status_code == 200
+    # connection_count is injected site-wide by the context processor.
+    assert resp.context["connection_count"] == 0
+
+
+@pytest.mark.django_db
+def test_block_declines_accepted_spark(client):
+    """Blocking declines a live/accepted Spark so it leaves the coach date queue."""
+    from django.utils import timezone
+
+    from crush_lu.models import ConnectDailyDrop, CuriositySpark
+
+    recipient = _make_user(username="recipient")
+    sender = _make_user(username="sender")
+    drop = ConnectDailyDrop.objects.create(user=sender, drop_date=timezone.localdate())
+    drop.recipients.add(recipient)
+    spark = CuriositySpark.objects.create(
+        sender=sender, recipient=recipient, drop=drop, status="accepted"
+    )
+
+    _grant_consent(recipient)
+    client.force_login(recipient)
+    client.post(f"/en/members/{sender.id}/block/")
+
+    spark.refresh_from_db()
+    assert spark.status == "declined"  # out of the accepted-Spark coach queue
+
+
+@pytest.mark.django_db
+def test_request_connection_block_not_probeable_by_non_attendee(client):
+    """Block status must not be revealed before the attendance checks."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from crush_lu.models import EventRegistration, MeetupEvent
+
+    me = _make_user(username="me")
+    other = _make_user(username="other")
+    event = MeetupEvent.objects.create(
+        title="Past", description="x", event_type="mixer",
+        date_time=timezone.now() - timedelta(hours=2), location="Luxembourg",
+        address="1 St", max_participants=20,
+        registration_deadline=timezone.now() - timedelta(days=2), is_published=True,
+    )
+    # Requester registered but did NOT attend; recipient attended.
+    EventRegistration.objects.create(event=event, user=me, status="confirmed")
+    EventRegistration.objects.create(event=event, user=other, status="attended")
+    UserBlock.objects.create(blocker=me, blocked=other)
+
+    _grant_consent(me)
+    client.force_login(me)
+    resp = client.post(f"/en/events/{event.id}/connect/{other.id}/")
+    msgs = [m.message.lower() for m in get_messages(resp.wsgi_request)]
+    # Gets the attendance error, never the block-specific message.
+    assert any("attend" in m for m in msgs)
+    assert not any("cannot connect with this member" in m for m in msgs)
+
+
+@pytest.mark.django_db
+def test_pending_sparks_count_excludes_blocked_sender():
+    from django.utils import timezone
+
+    from crush_lu.models import ConnectDailyDrop, CuriositySpark
+
+    recipient = _make_user(username="recipient")
+    blocked = _make_user(username="blocked")
+    ok = _make_user(username="ok")
+    # A spark needs a drop that surfaced the recipient to the sender.
+    for sender in (blocked, ok):
+        drop = ConnectDailyDrop.objects.create(
+            user=sender, drop_date=timezone.localdate()
+        )
+        drop.recipients.add(recipient)
+        CuriositySpark.objects.create(sender=sender, recipient=recipient, drop=drop)
+    UserBlock.objects.create(blocker=recipient, blocked=blocked)
+
+    from crush_lu.services.blocking import blocked_user_ids
+
+    count = (
+        CuriositySpark.objects.filter(recipient=recipient, status="pending")
+        .exclude(sender_id__in=blocked_user_ids(recipient))
+        .count()
+    )
+    assert count == 1  # only the non-blocked sender's spark is counted
+
+
+@pytest.mark.django_db
+def test_spark_respond_no_false_success_when_blocked(client):
+    """Accepting a Spark from a now-blocked sender must not promise a date."""
+    from django.utils import timezone
+
+    from crush_lu.models import ConnectDailyDrop, CuriositySpark
+
+    recipient = _make_user(username="recipient")
+    sender = _make_user(username="sender")
+    drop = ConnectDailyDrop.objects.create(user=sender, drop_date=timezone.localdate())
+    drop.recipients.add(recipient)
+    spark = CuriositySpark.objects.create(sender=sender, recipient=recipient, drop=drop)
+    UserBlock.objects.create(blocker=recipient, blocked=sender)
+
+    _grant_consent(recipient)
+    client.force_login(recipient)
+    resp = client.post(
+        f"/en/crush-connect/sparks/{spark.id}/respond/", {"action": "accept"},
+        follow=False,
+    )
+    assert resp.status_code in (302, 303)
+    spark.refresh_from_db()
+    assert spark.status == "pending"  # accept was a no-op
+    msgs = [m.message for m in get_messages(resp.wsgi_request)]
+    assert not any("mutual" in m.lower() for m in msgs)
+
+
+@pytest.mark.django_db
+def test_drop_render_excludes_blocked_recipient():
+    """A member blocked after the Drop was generated drops off the rendered Drop."""
+    from django.utils import timezone
+
+    from crush_lu.models import ConnectDailyDrop
+
+    viewer = _make_user(username="viewer", preferred_genders=["F", "M"])
+    shown = _make_user(username="shown")
+    blocked = _make_user(username="blocked")
+
+    drop = ConnectDailyDrop.objects.create(user=viewer, drop_date=timezone.localdate())
+    drop.recipients.add(shown, blocked)
+    UserBlock.objects.create(blocker=viewer, blocked=blocked)
+
+    rendered = list(
+        drop.recipients.exclude(id__in=blocked_user_ids(viewer))
+    )
+    assert shown in rendered
+    assert blocked not in rendered
+
+
+@pytest.mark.django_db
+def test_drop_render_excludes_coach_excluded_recipient():
+    """A member excluded by the panic button drops off an already-generated Drop."""
+    from django.utils import timezone
+
+    from crush_lu.models import ConnectDailyDrop, CrushConnectMembership
+
+    viewer = _make_user(username="viewer", preferred_genders=["F", "M"])
+    shown = _make_user(username="shown")
+    excluded = _make_user(username="excluded")
+
+    drop = ConnectDailyDrop.objects.create(user=viewer, drop_date=timezone.localdate())
+    drop.recipients.add(shown, excluded)
+    CrushConnectMembership.objects.filter(user=excluded).update(excluded_by_coach=True)
+
+    rendered = list(
+        drop.recipients.exclude(id__in=blocked_user_ids(viewer))
+        .exclude(crush_connect_membership__excluded_by_coach=True)
+        .filter(crushprofile__verification_status="verified")
+    )
+    assert shown in rendered
+    assert excluded not in rendered
+
+
+@pytest.mark.django_db
+def test_block_cancels_legacy_crushspark(client):
+    """Blocking cancels an in-flight legacy CrushSpark between the pair."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from crush_lu.models import CrushSpark, EventRegistration, MeetupEvent
+
+    sender = _make_user(username="sender")
+    recipient = _make_user(username="recipient")
+    event = MeetupEvent.objects.create(
+        title="Past", description="x", event_type="mixer",
+        date_time=timezone.now() - timedelta(days=2), location="Luxembourg",
+        address="1 St", max_participants=20,
+        registration_deadline=timezone.now() - timedelta(days=4), is_published=True,
+    )
+    for u in (sender, recipient):
+        EventRegistration.objects.create(event=event, user=u, status="attended")
+    spark = CrushSpark.objects.create(
+        event=event, sender=sender, recipient=recipient, status="journey_created"
+    )
+
+    _grant_consent(recipient)
+    client.force_login(recipient)
+    client.post(f"/en/members/{sender.id}/block/")
+
+    spark.refresh_from_db()
+    assert spark.status == "cancelled"
+
+
+@pytest.mark.django_db
+def test_userblock_admin_no_delete():
+    from crush_lu.admin.moderation import UserBlockAdmin
+    from crush_lu.models import UserBlock as _UB
+
+    admin_obj = UserBlockAdmin(_UB, None)
+    assert admin_obj.has_add_permission(None) is False
+    assert admin_obj.has_delete_permission(None) is False

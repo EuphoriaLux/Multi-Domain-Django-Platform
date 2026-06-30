@@ -589,10 +589,13 @@ def crush_connect_catalogue_status(request):
         return redirect("crush_lu:crush_connect_onboarding")
 
     from crush_lu.models import CuriositySpark
+    from crush_lu.services.blocking import blocked_user_ids
 
-    pending_sparks_count = CuriositySpark.objects.filter(
-        recipient=user, status="pending"
-    ).count()
+    pending_sparks_count = (
+        CuriositySpark.objects.filter(recipient=user, status="pending")
+        .exclude(sender_id__in=blocked_user_ids(user))
+        .count()
+    )
 
     return render(
         request,
@@ -612,6 +615,7 @@ def crush_connect_hub(request):
     the dedicated nav menu and the mobile bottom-nav 'Connect' tab point here.
     """
     from crush_lu.models import CuriositySpark
+    from crush_lu.services.blocking import blocked_user_ids
     from crush_lu.services.crush_connect import get_active_coach_pick
 
     user = request.user
@@ -623,9 +627,11 @@ def crush_connect_hub(request):
     membership = getattr(user, "crush_connect_membership", None)
     coach = getattr(user, "crushcoach", None)
 
-    pending_sparks_count = CuriositySpark.objects.filter(
-        recipient=user, status="pending"
-    ).count()
+    pending_sparks_count = (
+        CuriositySpark.objects.filter(recipient=user, status="pending")
+        .exclude(sender_id__in=blocked_user_ids(user))
+        .count()
+    )
     # Coach pick replaces the Drop for receivers; surface it on the hub too.
     coach_pick = get_active_coach_pick(user) if is_receiver else None
 
@@ -664,14 +670,24 @@ def crush_connect_home(request):
     # Don't create/persist an algorithmic Drop while a pick is open — drop
     # snapshots authorize Sparks, so hidden recipients would become
     # sparkable by id and bypass the "pick replaces the Drop" flow.
+    # A Drop snapshot is pinned for the day, but eligibility lost AFTER it was
+    # generated must take effect immediately — filter the persisted recipients at
+    # render time (the snapshot itself is left intact for audit). Hides:
+    #   - block pairs (member blocked them, or they blocked the member)
+    #   - coach-excluded members (the panic button promises "drops out now")
+    #   - members who lost verified status (e.g. rejected after surfacing)
+    from crush_lu.services.blocking import blocked_user_ids
+
     drop = None
     recipients = []
     if not coach_pick:
         drop = get_or_create_daily_drop(user)
         recipients = list(
-            drop.recipients.select_related(
-                "crushprofile", "crush_connect_membership"
-            ).all()
+            drop.recipients.exclude(id__in=blocked_user_ids(user))
+            .exclude(crush_connect_membership__excluded_by_coach=True)
+            .filter(crushprofile__verification_status="verified")
+            .select_related("crushprofile", "crush_connect_membership")
+            .all()
         )
 
     # Card CTA state: which of today's cards this user has already Sparked.
@@ -779,6 +795,7 @@ def crush_connect_sparks_received(request):
     the notification email) is where they meet the Sparks sent to them.
     """
     from crush_lu.models import CuriositySpark
+    from crush_lu.services.blocking import blocked_user_ids
     from crush_lu.services.crush_connect import (
         is_catalogue_eligible,
         is_sender_eligible,
@@ -794,8 +811,10 @@ def crush_connect_sparks_received(request):
     if not user.is_staff and not is_catalogue_eligible(user):
         return redirect("crush_lu:crush_connect_teaser")
 
+    blocked_ids = blocked_user_ids(user)
     sparks = (
         CuriositySpark.objects.filter(recipient=user, status="pending")
+        .exclude(sender_id__in=blocked_ids)
         .select_related(
             "sender__crushprofile", "sender__crush_connect_membership"
         )
@@ -803,7 +822,7 @@ def crush_connect_sparks_received(request):
     )
     # Hide Sparks whose sender lost eligibility since sending (rejection,
     # Premium loss, exclusion) — accepting them is a no-op anyway, so they
-    # must not be offered.
+    # must not be offered. (Blocked senders are already excluded above.)
     visible_sparks = [s for s in sparks if is_sender_eligible(s.sender)]
     return render(
         request,
@@ -833,12 +852,19 @@ def crush_connect_spark_respond(request, spark_id: int):
         recipient=request.user,
     )
     accept = request.POST.get("action") == "accept"
-    respond_to_spark(spark, accept=accept, request=request)
+    updated = respond_to_spark(spark, accept=accept, request=request)
     if accept:
-        messages.success(
-            request,
-            _("It's mutual! Your Crush Coach will be in touch to arrange your date."),
-        )
+        if updated.status == "accepted":
+            messages.success(
+                request,
+                _("It's mutual! Your Crush Coach will be in touch to arrange your date."),
+            )
+        else:
+            # Accept was a no-op — the pair is blocked or the sender lost
+            # eligibility since the Spark arrived. Don't promise a date.
+            messages.info(
+                request, _("This Spark is no longer available.")
+            )
     else:
         messages.info(request, _("Spark declined — they won't be told."))
     return redirect("crush_lu:crush_connect_sparks_received")
