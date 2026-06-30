@@ -95,10 +95,15 @@ def crush_user_context(request):
             )
             if nav_visible:
                 from .models import CuriositySpark
+                from .services.blocking import blocked_user_ids
 
-                connect_pending_sparks_count = CuriositySpark.objects.filter(
-                    recipient=request.user, status="pending"
-                ).count()
+                connect_pending_sparks_count = (
+                    CuriositySpark.objects.filter(
+                        recipient=request.user, status="pending"
+                    )
+                    .exclude(sender_id__in=blocked_user_ids(request.user))
+                    .count()
+                )
         except Exception:
             connect_pending_sparks_count = 0
         context["connect_pending_sparks_count"] = connect_pending_sparks_count

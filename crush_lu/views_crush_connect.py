@@ -847,12 +847,19 @@ def crush_connect_spark_respond(request, spark_id: int):
         recipient=request.user,
     )
     accept = request.POST.get("action") == "accept"
-    respond_to_spark(spark, accept=accept, request=request)
+    updated = respond_to_spark(spark, accept=accept, request=request)
     if accept:
-        messages.success(
-            request,
-            _("It's mutual! Your Crush Coach will be in touch to arrange your date."),
-        )
+        if updated.status == "accepted":
+            messages.success(
+                request,
+                _("It's mutual! Your Crush Coach will be in touch to arrange your date."),
+            )
+        else:
+            # Accept was a no-op — the pair is blocked or the sender lost
+            # eligibility since the Spark arrived. Don't promise a date.
+            messages.info(
+                request, _("This Spark is no longer available.")
+            )
     else:
         messages.info(request, _("Spark declined — they won't be told."))
     return redirect("crush_lu:crush_connect_sparks_received")

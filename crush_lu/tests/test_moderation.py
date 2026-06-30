@@ -8,6 +8,7 @@ the admin "exclude reported user" panic-button action.
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.contrib.messages import get_messages
 from django.contrib.messages.storage.fallback import FallbackStorage
 from django.db import IntegrityError
 from django.test import RequestFactory
@@ -410,6 +411,33 @@ def test_pending_sparks_count_excludes_blocked_sender():
         .count()
     )
     assert count == 1  # only the non-blocked sender's spark is counted
+
+
+@pytest.mark.django_db
+def test_spark_respond_no_false_success_when_blocked(client):
+    """Accepting a Spark from a now-blocked sender must not promise a date."""
+    from django.utils import timezone
+
+    from crush_lu.models import ConnectDailyDrop, CuriositySpark
+
+    recipient = _make_user(username="recipient")
+    sender = _make_user(username="sender")
+    drop = ConnectDailyDrop.objects.create(user=sender, drop_date=timezone.localdate())
+    drop.recipients.add(recipient)
+    spark = CuriositySpark.objects.create(sender=sender, recipient=recipient, drop=drop)
+    UserBlock.objects.create(blocker=recipient, blocked=sender)
+
+    _grant_consent(recipient)
+    client.force_login(recipient)
+    resp = client.post(
+        f"/en/crush-connect/sparks/{spark.id}/respond/", {"action": "accept"},
+        follow=False,
+    )
+    assert resp.status_code in (302, 303)
+    spark.refresh_from_db()
+    assert spark.status == "pending"  # accept was a no-op
+    msgs = [m.message for m in get_messages(resp.wsgi_request)]
+    assert not any("mutual" in m.lower() for m in msgs)
 
 
 @pytest.mark.django_db
