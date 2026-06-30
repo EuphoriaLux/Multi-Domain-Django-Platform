@@ -406,6 +406,29 @@ def test_block_withdraws_accepted_coach_pick(client):
 
 
 @pytest.mark.django_db
+def test_block_declines_accepted_spark(client):
+    """Blocking declines a live/accepted Spark so it leaves the coach date queue."""
+    from django.utils import timezone
+
+    from crush_lu.models import ConnectDailyDrop, CuriositySpark
+
+    recipient = _make_user(username="recipient")
+    sender = _make_user(username="sender")
+    drop = ConnectDailyDrop.objects.create(user=sender, drop_date=timezone.localdate())
+    drop.recipients.add(recipient)
+    spark = CuriositySpark.objects.create(
+        sender=sender, recipient=recipient, drop=drop, status="accepted"
+    )
+
+    _grant_consent(recipient)
+    client.force_login(recipient)
+    client.post(f"/en/members/{sender.id}/block/")
+
+    spark.refresh_from_db()
+    assert spark.status == "declined"  # out of the accepted-Spark coach queue
+
+
+@pytest.mark.django_db
 def test_request_connection_block_not_probeable_by_non_attendee(client):
     """Block status must not be revealed before the attendance checks."""
     from datetime import timedelta

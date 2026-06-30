@@ -51,6 +51,7 @@ def _block(blocker, blocked, reason=""):
     in the coach-facilitation workflow, not just hide it from member pages.
     """
     from .services.blocking import (
+        decline_active_sparks,
         terminate_active_connections,
         withdraw_active_coach_picks,
     )
@@ -61,8 +62,11 @@ def _block(blocker, blocked, reason=""):
         blocked=blocked,
         defaults={"reason": reason if reason in valid else ""},
     )
+    # Take the pair out of every facilitation surface (member pages already
+    # filter; these terminate the coach-facing queues too).
     terminate_active_connections(blocker, blocked)
     withdraw_active_coach_picks(blocker, blocked)
+    decline_active_sparks(blocker, blocked)
 
 
 @crush_login_required

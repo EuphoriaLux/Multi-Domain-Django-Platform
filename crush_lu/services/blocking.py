@@ -93,3 +93,25 @@ def withdraw_active_coach_picks(user_a, user_b) -> int:
         .exclude(status__in=["declined", "withdrawn"])
         .update(status="withdrawn", responded_at=timezone.now())
     )
+
+
+def decline_active_sparks(user_a, user_b) -> int:
+    """Decline any live ``CuriositySpark`` between the two users on block.
+
+    An *accepted* Spark is the coach's date-arranging queue (``CuriositySparkAdmin``),
+    so — like EventConnections and coach picks — a block placed after acceptance
+    must take it out of that queue. Pending Sparks are declined too (the recipient
+    blocking the sender is an implicit pass). Symmetric; returns the count.
+    """
+    from django.utils import timezone
+
+    from crush_lu.models import CuriositySpark
+
+    return (
+        CuriositySpark.objects.filter(
+            Q(sender=user_a, recipient=user_b)
+            | Q(sender=user_b, recipient=user_a)
+        )
+        .exclude(status="declined")
+        .update(status="declined", responded_at=timezone.now())
+    )

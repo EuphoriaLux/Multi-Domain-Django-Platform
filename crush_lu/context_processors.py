@@ -67,10 +67,18 @@ def crush_user_context(request):
             status__in=["accepted", "coach_reviewing", "coach_approved", "shared"],
         ).count()
 
-        # Pending connection requests (received)
-        pending_requests_count = EventConnection.objects.filter(
-            recipient=request.user, status="pending"
-        ).count()
+        # Pending connection requests (received). Exclude blocked requesters so
+        # the nav/dashboard badge can't advertise a request the page itself hides
+        # (defence-in-depth; blocking also declines the underlying connection).
+        from .services.blocking import blocked_user_ids
+
+        pending_requests_count = (
+            EventConnection.objects.filter(
+                recipient=request.user, status="pending"
+            )
+            .exclude(requester_id__in=blocked_user_ids(request.user))
+            .count()
+        )
 
         context["connection_count"] = connection_count
         context["pending_requests_count"] = pending_requests_count

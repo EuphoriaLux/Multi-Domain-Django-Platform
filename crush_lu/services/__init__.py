@@ -8,6 +8,7 @@ Contains external integrations and service classes.
 from .blocking import (
     block_exists_subquery,
     blocked_user_ids,
+    decline_active_sparks,
     is_blocked_pair,
     terminate_active_connections,
     withdraw_active_coach_picks,
@@ -25,4 +26,5 @@ __all__ = [
     'is_blocked_pair',
     'terminate_active_connections',
     'withdraw_active_coach_picks',
+    'decline_active_sparks',
 ]
