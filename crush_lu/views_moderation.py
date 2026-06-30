@@ -40,6 +40,27 @@ def _back(request, default="crush_lu:crush_connect_sparks_received"):
     return redirect(default)
 
 
+# Largest value a PositiveIntegerField accepts on a 32-bit integer backend.
+_MAX_POSITIVE_INT = 2147483647
+
+
+def _block(blocker, blocked, reason=""):
+    """Create the block (idempotent) and terminate any in-flight connections.
+
+    Declining existing connections is what makes the block actually stop contact
+    in the coach-facilitation workflow, not just hide it from member pages.
+    """
+    from .services.blocking import terminate_active_connections
+
+    valid = {c for c, _label in UserBlock.REASON_CHOICES}
+    UserBlock.objects.get_or_create(
+        blocker=blocker,
+        blocked=blocked,
+        defaults={"reason": reason if reason in valid else ""},
+    )
+    terminate_active_connections(blocker, blocked)
+
+
 @crush_login_required
 @ratelimit(key="user", rate="30/h", method="POST")
 @require_POST
@@ -50,13 +71,7 @@ def block_user(request, user_id: int):
         return _back(request)
 
     target = get_object_or_404(User, pk=user_id)
-    reason = request.POST.get("reason", "")
-    valid = {c for c, _label in UserBlock.REASON_CHOICES}
-    UserBlock.objects.get_or_create(
-        blocker=request.user,
-        blocked=target,
-        defaults={"reason": reason if reason in valid else ""},
-    )
+    _block(request.user, target, request.POST.get("reason", ""))
     messages.success(
         request,
         _("You've blocked this member. They won't be able to reach you, and "
@@ -99,7 +114,7 @@ def report_user(request, user_id: int):
     # coerce it so a tampered value ("abc", "-1") can't turn reporting into a 500.
     try:
         source_id = int(request.POST.get("source_id"))
-        if source_id <= 0:
+        if source_id <= 0 or source_id > _MAX_POSITIVE_INT:
             source_id = None
     except (TypeError, ValueError):
         source_id = None
@@ -122,7 +137,7 @@ def report_user(request, user_id: int):
         logger.exception("Report-filed notification failed for report %s", report.pk)
 
     if request.POST.get("also_block"):
-        UserBlock.objects.get_or_create(blocker=request.user, blocked=target)
+        _block(request.user, target)
 
     messages.success(
         request,

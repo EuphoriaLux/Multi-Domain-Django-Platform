@@ -42,3 +42,30 @@ def block_exists_subquery(user, outer_field: str = "pk"):
             Q(blocker=user, blocked=ref) | Q(blocker=ref, blocked=user)
         )
     )
+
+
+def terminate_active_connections(user_a, user_b) -> int:
+    """Decline any in-flight EventConnection between the two users.
+
+    Hiding connections from member pages isn't enough: the coach-facilitation
+    queue (``views_coach``) still surfaces ``accepted``/``coach_reviewing`` pairs
+    and lets a coach approve them. Blocking must stop that too, so on block we
+    flip every non-terminal connection between the pair to ``declined``.
+
+    ``shared`` is left untouched — contact was already exchanged, so there's
+    nothing left to facilitate (and it can't be un-shared). The update is a bulk
+    ``.update()`` on purpose: it's silent (no decline notification), matching the
+    silent-block semantic. Returns the number of connections terminated.
+    """
+    from django.utils import timezone
+
+    from crush_lu.models import EventConnection
+
+    return (
+        EventConnection.objects.filter(
+            Q(requester=user_a, recipient=user_b)
+            | Q(requester=user_b, recipient=user_a)
+        )
+        .exclude(status__in=["declined", "shared"])
+        .update(status="declined", responded_at=timezone.now())
+    )

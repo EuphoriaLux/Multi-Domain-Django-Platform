@@ -5,7 +5,12 @@ Services package for Crush.lu business logic.
 Contains external integrations and service classes.
 """
 
-from .blocking import block_exists_subquery, blocked_user_ids, is_blocked_pair
+from .blocking import (
+    block_exists_subquery,
+    blocked_user_ids,
+    is_blocked_pair,
+    terminate_active_connections,
+)
 from .crush_connect import get_eligible_pool, get_or_create_daily_drop
 from .graph_contacts import GraphContactsService, is_sync_enabled
 
@@ -17,4 +22,5 @@ __all__ = [
     'block_exists_subquery',
     'blocked_user_ids',
     'is_blocked_pair',
+    'terminate_active_connections',
 ]

@@ -220,6 +220,22 @@ def test_report_tolerates_malformed_source_id(client):
 
 
 @pytest.mark.django_db
+def test_report_drops_oversized_source_id(client):
+    """An out-of-range source_id is dropped (no PositiveIntegerField overflow)."""
+    me = _make_user(username="me")
+    target = _make_user(username="target")
+    _grant_consent(me)
+    client.force_login(me)
+    resp = client.post(
+        f"/en/members/{target.id}/report/",
+        {"reason": "spam", "source": "drop", "source_id": "99999999999999"},
+    )
+    assert resp.status_code in (302, 303)
+    report = UserReport.objects.get(reporter=me, reported_user=target)
+    assert report.source_id is None
+
+
+@pytest.mark.django_db
 def test_unblock_user_endpoint(client):
     me = _make_user(username="me")
     target = _make_user(username="target")
@@ -333,6 +349,67 @@ def test_event_attendees_hint_excludes_blocked_requester(client):
     assert resp.context["incoming_pending_count"] == 0
     attendee_users = {a["user"].id for a in resp.context["attendees"]}
     assert requester.id not in attendee_users
+
+
+@pytest.mark.django_db
+def test_block_terminates_active_connection(client):
+    """Blocking declines an in-flight connection so the coach queue can't facilitate it."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from crush_lu.models import EventConnection, MeetupEvent
+
+    me = _make_user(username="me")
+    other = _make_user(username="other")
+    event = MeetupEvent.objects.create(
+        title="Past", description="x", event_type="mixer",
+        date_time=timezone.now() - timedelta(days=2), location="Luxembourg",
+        address="1 St", max_participants=20,
+        registration_deadline=timezone.now() - timedelta(days=4), is_published=True,
+    )
+    conn = EventConnection.objects.create(
+        event=event, requester=other, recipient=me, status="accepted"
+    )
+
+    _grant_consent(me)
+    client.force_login(me)
+    client.post(f"/en/members/{other.id}/block/")
+
+    conn.refresh_from_db()
+    assert conn.status == "declined"  # no longer in the coach queue
+    # The coach queue filters accepted/coach_reviewing — declined falls out.
+    assert not EventConnection.objects.filter(
+        pk=conn.pk, status__in=["accepted", "coach_reviewing"]
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_pending_sparks_count_excludes_blocked_sender():
+    from django.utils import timezone
+
+    from crush_lu.models import ConnectDailyDrop, CuriositySpark
+
+    recipient = _make_user(username="recipient")
+    blocked = _make_user(username="blocked")
+    ok = _make_user(username="ok")
+    # A spark needs a drop that surfaced the recipient to the sender.
+    for sender in (blocked, ok):
+        drop = ConnectDailyDrop.objects.create(
+            user=sender, drop_date=timezone.localdate()
+        )
+        drop.recipients.add(recipient)
+        CuriositySpark.objects.create(sender=sender, recipient=recipient, drop=drop)
+    UserBlock.objects.create(blocker=recipient, blocked=blocked)
+
+    from crush_lu.services.blocking import blocked_user_ids
+
+    count = (
+        CuriositySpark.objects.filter(recipient=recipient, status="pending")
+        .exclude(sender_id__in=blocked_user_ids(recipient))
+        .count()
+    )
+    assert count == 1  # only the non-blocked sender's spark is counted
 
 
 @pytest.mark.django_db

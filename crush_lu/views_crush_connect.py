@@ -589,10 +589,13 @@ def crush_connect_catalogue_status(request):
         return redirect("crush_lu:crush_connect_onboarding")
 
     from crush_lu.models import CuriositySpark
+    from crush_lu.services.blocking import blocked_user_ids
 
-    pending_sparks_count = CuriositySpark.objects.filter(
-        recipient=user, status="pending"
-    ).count()
+    pending_sparks_count = (
+        CuriositySpark.objects.filter(recipient=user, status="pending")
+        .exclude(sender_id__in=blocked_user_ids(user))
+        .count()
+    )
 
     return render(
         request,
@@ -612,6 +615,7 @@ def crush_connect_hub(request):
     the dedicated nav menu and the mobile bottom-nav 'Connect' tab point here.
     """
     from crush_lu.models import CuriositySpark
+    from crush_lu.services.blocking import blocked_user_ids
     from crush_lu.services.crush_connect import get_active_coach_pick
 
     user = request.user
@@ -623,9 +627,11 @@ def crush_connect_hub(request):
     membership = getattr(user, "crush_connect_membership", None)
     coach = getattr(user, "crushcoach", None)
 
-    pending_sparks_count = CuriositySpark.objects.filter(
-        recipient=user, status="pending"
-    ).count()
+    pending_sparks_count = (
+        CuriositySpark.objects.filter(recipient=user, status="pending")
+        .exclude(sender_id__in=blocked_user_ids(user))
+        .count()
+    )
     # Coach pick replaces the Drop for receivers; surface it on the hub too.
     coach_pick = get_active_coach_pick(user) if is_receiver else None
 
