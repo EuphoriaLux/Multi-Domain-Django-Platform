@@ -1,5 +1,5 @@
 {% extends 'crush_lu/base.html' %}
-{% load static i18n crush_media %}
+{% load static i18n crush_media moderation_tags %}
 
 {% block title %}{% blocktrans with name=other_profile.display_name %}Connection with {{ name }}{% endblocktrans %}{% endblock %}
 {% block mobile_page_title %}{% trans "Connection" %}{% endblock %}
@@ -138,6 +138,13 @@
                     <p class="text-sm text-gray-400 dark:text-gray-500 text-center italic">{% trans "Privacy-protected profile" %}</p>
                 {% endif %}
             </div>
+
+            {# Trust & Safety: report or block this member from the main contact surface. #}
+            {% if other_user %}
+                <div class="card-bordered p-4">
+                    {% block_report_menu other_user source="connection" source_id=connection.id %}
+                </div>
+            {% endif %}
         </div>
 
         {# ===== RIGHT COLUMN ===== #}
@@ -385,7 +392,7 @@
                             </a>
                         {% endif %}
                         {% if other_profile.phone_number %}
-                            <a href="tel:{{ other_profile.phone_number }}" class="btn-outline-primary inline-flex items-center gap-2">
+                            <a href="tel:{{ other_profile.phone_number }}" class="btn-crush-outline inline-flex items-center gap-2">
                                 {% include "shared/icons/phone.html" with class="w-5 h-5" %}
                                 {% trans "Call" %}
                             </a>
