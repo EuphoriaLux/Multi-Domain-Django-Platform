@@ -50,7 +50,10 @@ def _block(blocker, blocked, reason=""):
     Declining existing connections is what makes the block actually stop contact
     in the coach-facilitation workflow, not just hide it from member pages.
     """
-    from .services.blocking import terminate_active_connections
+    from .services.blocking import (
+        terminate_active_connections,
+        withdraw_active_coach_picks,
+    )
 
     valid = {c for c, _label in UserBlock.REASON_CHOICES}
     UserBlock.objects.get_or_create(
@@ -59,6 +62,7 @@ def _block(blocker, blocked, reason=""):
         defaults={"reason": reason if reason in valid else ""},
     )
     terminate_active_connections(blocker, blocked)
+    withdraw_active_coach_picks(blocker, blocked)
 
 
 @crush_login_required

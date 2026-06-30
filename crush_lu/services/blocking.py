@@ -69,3 +69,27 @@ def terminate_active_connections(user_a, user_b) -> int:
         .exclude(status__in=["declined", "shared"])
         .update(status="declined", responded_at=timezone.now())
     )
+
+
+def withdraw_active_coach_picks(user_a, user_b) -> int:
+    """Withdraw any live ``ConnectCoachPick`` between the two users on block.
+
+    Companion to ``terminate_active_connections`` for the coach-pick workflow:
+    ``coach_connect_members`` surfaces ``proposed``/``accepted`` picks to the
+    coach for facilitation, so a block placed after a pick was accepted must
+    withdraw it too — otherwise the coach can still facilitate the blocked pair.
+    The pick is symmetric in spirit (member↔candidate), so both directions are
+    covered. Returns the number of picks withdrawn.
+    """
+    from django.utils import timezone
+
+    from crush_lu.models import ConnectCoachPick
+
+    return (
+        ConnectCoachPick.objects.filter(
+            Q(member=user_a, candidate=user_b)
+            | Q(member=user_b, candidate=user_a)
+        )
+        .exclude(status__in=["declined", "withdrawn"])
+        .update(status="withdrawn", responded_at=timezone.now())
+    )

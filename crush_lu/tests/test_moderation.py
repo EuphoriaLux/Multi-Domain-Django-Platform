@@ -386,6 +386,57 @@ def test_block_terminates_active_connection(client):
 
 
 @pytest.mark.django_db
+def test_block_withdraws_accepted_coach_pick(client):
+    """Blocking withdraws a live coach pick so the coach can't facilitate it."""
+    from crush_lu.models import ConnectCoachPick
+
+    member = _make_user(username="member")
+    candidate = _make_user(username="candidate")
+    coach = member.crushprofile.assigned_coach
+    pick = ConnectCoachPick.objects.create(
+        coach=coach, member=member, candidate=candidate, status="accepted"
+    )
+
+    _grant_consent(member)
+    client.force_login(member)
+    client.post(f"/en/members/{candidate.id}/block/")
+
+    pick.refresh_from_db()
+    assert pick.status == "withdrawn"
+
+
+@pytest.mark.django_db
+def test_request_connection_block_not_probeable_by_non_attendee(client):
+    """Block status must not be revealed before the attendance checks."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from crush_lu.models import EventRegistration, MeetupEvent
+
+    me = _make_user(username="me")
+    other = _make_user(username="other")
+    event = MeetupEvent.objects.create(
+        title="Past", description="x", event_type="mixer",
+        date_time=timezone.now() - timedelta(hours=2), location="Luxembourg",
+        address="1 St", max_participants=20,
+        registration_deadline=timezone.now() - timedelta(days=2), is_published=True,
+    )
+    # Requester registered but did NOT attend; recipient attended.
+    EventRegistration.objects.create(event=event, user=me, status="confirmed")
+    EventRegistration.objects.create(event=event, user=other, status="attended")
+    UserBlock.objects.create(blocker=me, blocked=other)
+
+    _grant_consent(me)
+    client.force_login(me)
+    resp = client.post(f"/en/events/{event.id}/connect/{other.id}/")
+    msgs = [m.message.lower() for m in get_messages(resp.wsgi_request)]
+    # Gets the attendance error, never the block-specific message.
+    assert any("attend" in m for m in msgs)
+    assert not any("cannot connect with this member" in m for m in msgs)
+
+
+@pytest.mark.django_db
 def test_pending_sparks_count_excludes_blocked_sender():
     from django.utils import timezone
 

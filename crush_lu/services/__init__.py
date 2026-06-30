@@ -10,6 +10,7 @@ from .blocking import (
     blocked_user_ids,
     is_blocked_pair,
     terminate_active_connections,
+    withdraw_active_coach_picks,
 )
 from .crush_connect import get_eligible_pool, get_or_create_daily_drop
 from .graph_contacts import GraphContactsService, is_sync_enabled
@@ -23,4 +24,5 @@ __all__ = [
     'blocked_user_ids',
     'is_blocked_pair',
     'terminate_active_connections',
+    'withdraw_active_coach_picks',
 ]

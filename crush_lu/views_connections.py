@@ -211,13 +211,6 @@ def request_connection(request, event_id, user_id):
         messages.error(request, _("You cannot connect with yourself."))
         return redirect("crush_lu:event_attendees", event_id=event_id)
 
-    # Refuse if either party has blocked the other.
-    from .services.blocking import is_blocked_pair
-
-    if is_blocked_pair(request.user, recipient):
-        messages.error(request, _("You cannot connect with this member."))
-        return redirect("crush_lu:event_attendees", event_id=event_id)
-
     # Verify requester attended the event
     requester_reg = get_object_or_404(EventRegistration, event=event, user=request.user)
 
@@ -232,6 +225,15 @@ def request_connection(request, event_id, user_id):
 
     if not recipient_reg.can_make_connections:
         messages.error(request, _("This person did not attend the event."))
+        return redirect("crush_lu:event_attendees", event_id=event_id)
+
+    # Refuse if either party has blocked the other. Checked only AFTER the
+    # attendance checks above so block status isn't probeable by a non-attendee
+    # hitting arbitrary event/user URLs.
+    from .services.blocking import is_blocked_pair
+
+    if is_blocked_pair(request.user, recipient):
+        messages.error(request, _("You cannot connect with this member."))
         return redirect("crush_lu:event_attendees", event_id=event_id)
 
     # Check if connection already exists
@@ -383,16 +385,6 @@ def request_connection_inline(request, event_id, user_id):
             {"message": "You cannot connect with yourself."},
         )
 
-    # Refuse if either party has blocked the other.
-    from .services.blocking import is_blocked_pair
-
-    if is_blocked_pair(request.user, recipient):
-        return render(
-            request,
-            "crush_lu/_htmx_error.html",
-            {"message": _("You cannot connect with this member.")},
-        )
-
     # Verify requester attended the event
     requester_reg = get_object_or_404(EventRegistration, event=event, user=request.user)
 
@@ -411,6 +403,17 @@ def request_connection_inline(request, event_id, user_id):
             request,
             "crush_lu/_htmx_error.html",
             {"message": "This person did not attend the event."},
+        )
+
+    # Refuse if either party has blocked the other. After the attendance checks
+    # so block status isn't probeable by a non-attendee.
+    from .services.blocking import is_blocked_pair
+
+    if is_blocked_pair(request.user, recipient):
+        return render(
+            request,
+            "crush_lu/_htmx_error.html",
+            {"message": _("You cannot connect with this member.")},
         )
 
     # Check if connection already exists
