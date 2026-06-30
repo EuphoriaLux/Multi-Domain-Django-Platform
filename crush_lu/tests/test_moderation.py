@@ -204,6 +204,22 @@ def test_report_rejects_unknown_source(client):
 
 
 @pytest.mark.django_db
+def test_report_tolerates_malformed_source_id(client):
+    """A tampered source_id must not turn reporting into a 500."""
+    me = _make_user(username="me")
+    target = _make_user(username="target")
+    _grant_consent(me)
+    client.force_login(me)
+    resp = client.post(
+        f"/en/members/{target.id}/report/",
+        {"reason": "spam", "source": "drop", "source_id": "abc"},
+    )
+    assert resp.status_code in (302, 303)
+    report = UserReport.objects.get(reporter=me, reported_user=target)
+    assert report.source_id is None  # malformed value dropped, no crash
+
+
+@pytest.mark.django_db
 def test_unblock_user_endpoint(client):
     me = _make_user(username="me")
     target = _make_user(username="target")
@@ -284,6 +300,39 @@ def test_respond_connection_refused_after_block(client):
 
     conn.refresh_from_db()
     assert conn.status == "pending"  # block stopped the accept
+
+
+@pytest.mark.django_db
+def test_event_attendees_hint_excludes_blocked_requester(client):
+    """A blocked requester's pending request must not surface via the hint/count."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from crush_lu.models import EventConnection, EventRegistration, MeetupEvent
+
+    me = _make_user(username="me")
+    requester = _make_user(username="requester")
+    event = MeetupEvent.objects.create(
+        title="Past", description="x", event_type="mixer",
+        date_time=timezone.now() - timedelta(hours=2), location="Luxembourg",
+        address="1 St", max_participants=20,
+        registration_deadline=timezone.now() - timedelta(days=2), is_published=True,
+    )
+    for u in (me, requester):
+        EventRegistration.objects.create(event=event, user=u, status="attended")
+    EventConnection.objects.create(
+        event=event, requester=requester, recipient=me, status="pending"
+    )
+    UserBlock.objects.create(blocker=me, blocked=requester)
+
+    _grant_consent(me)
+    client.force_login(me)
+    resp = client.get(f"/en/events/{event.id}/attendees/")
+    assert resp.status_code == 200
+    assert resp.context["incoming_pending_count"] == 0
+    attendee_users = {a["user"].id for a in resp.context["attendees"]}
+    assert requester.id not in attendee_users
 
 
 @pytest.mark.django_db

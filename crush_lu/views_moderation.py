@@ -94,13 +94,23 @@ def report_user(request, user_id: int):
     valid_reasons = {c for c, _label in UserReport.REASON_CHOICES}
     valid_sources = {c for c, _label in UserReport.SOURCE_CHOICES}
     source = request.POST.get("source", "")
+
+    # source_id is a client-supplied hidden field feeding a PositiveIntegerField —
+    # coerce it so a tampered value ("abc", "-1") can't turn reporting into a 500.
+    try:
+        source_id = int(request.POST.get("source_id"))
+        if source_id <= 0:
+            source_id = None
+    except (TypeError, ValueError):
+        source_id = None
+
     report = UserReport.objects.create(
         reporter=request.user,
         reported_user=target,
         reason=reason if reason in valid_reasons else "other",
         details=(request.POST.get("details", "") or "").strip()[:2000],
         source=source if source in valid_sources else "",
-        source_id=request.POST.get("source_id") or None,
+        source_id=source_id,
     )
 
     # Notify staff/coaches best-effort — must never block the report flow.

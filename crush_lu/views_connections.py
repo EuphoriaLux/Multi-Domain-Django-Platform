@@ -58,22 +58,30 @@ def event_attendees(request, event_id):
     # with the viewer (symmetric — see services.blocking).
     from .services.blocking import blocked_user_ids
 
+    blocked_ids = blocked_user_ids(request.user)
+
     attendees = (
         EventRegistration.objects.filter(event=event, status="attended")
         .exclude(user=request.user)
-        .exclude(user_id__in=blocked_user_ids(request.user))
+        .exclude(user_id__in=blocked_ids)
         .select_related("user__crushprofile")
     )
 
     # Pre-fetch all connections for this user+event into dicts for O(1) lookups
-    # This avoids N+1 queries (previously 1+2N queries in the loop)
+    # This avoids N+1 queries (previously 1+2N queries in the loop). Blocked
+    # counterparts are excluded so a pre-existing request from a now-blocked
+    # member never resurfaces (card, "someone wants to connect" hint, count).
     sent_connections = {
         c.recipient_id: c
-        for c in EventConnection.objects.filter(requester=request.user, event=event)
+        for c in EventConnection.objects.filter(
+            requester=request.user, event=event
+        ).exclude(recipient_id__in=blocked_ids)
     }
     received_connections = {
         c.requester_id: c
-        for c in EventConnection.objects.filter(recipient=request.user, event=event)
+        for c in EventConnection.objects.filter(
+            recipient=request.user, event=event
+        ).exclude(requester_id__in=blocked_ids)
     }
 
     # Spark feature is soft-removed; pre-fetch left at empty so any straggling
