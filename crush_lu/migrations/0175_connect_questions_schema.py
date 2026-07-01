@@ -12,7 +12,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0172_backfill_daily_activity"),
+        ("crush_lu", "0174_backfill_patchnote_published_on"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

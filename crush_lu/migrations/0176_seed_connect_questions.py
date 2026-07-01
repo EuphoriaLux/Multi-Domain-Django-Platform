@@ -178,7 +178,7 @@ def unseed_questions(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0173_connect_questions_schema"),
+        ("crush_lu", "0175_connect_questions_schema"),
     ]
 
     operations = [
