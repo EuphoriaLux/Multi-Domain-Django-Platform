@@ -26,6 +26,8 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from crush_lu.services.whatsapp import ERROR_NOT_ON_WHATSAPP, mark_not_on_whatsapp
+
 from .models import WhatsAppInboundMessage, WhatsAppMessage
 from .serializers import (
     WhatsAppInboundMessageSerializer,
@@ -37,6 +39,19 @@ logger = logging.getLogger(__name__)
 GRAPH_API_VERSION = "v25.0"
 GRAPH_BASE = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
 META_TIMEOUT = 15
+
+
+def _maybe_flag_not_on_whatsapp(recipient: str, error_code) -> None:
+    """Persist the not_on_whatsapp flag when Meta reports code 131026 (issue #519).
+
+    Never lets a lookup/update failure disrupt the send response or webhook ack.
+    """
+    if error_code != ERROR_NOT_ON_WHATSAPP:
+        return
+    try:
+        mark_not_on_whatsapp(recipient)
+    except Exception:  # noqa: BLE001 — best-effort side channel
+        logger.warning("Failed to flag not_on_whatsapp recipient", exc_info=True)
 
 
 def _meta_settings_ok() -> bool:
@@ -183,6 +198,7 @@ class WhatsAppSendView(APIView):
             }
         ]
         message.save(update_fields=["status", "status_history", "updated_at"])
+        _maybe_flag_not_on_whatsapp(message.recipient, err.get("code"))
         return Response(
             {"message": WhatsAppMessageSerializer(message).data},
             status=http_status.HTTP_502_BAD_GATEWAY,
@@ -476,4 +492,7 @@ class WhatsAppWebhookView(View):
                 message.status = new_status
             message.save(
                 update_fields=["status", "status_history", "updated_at"]
+            )
+            _maybe_flag_not_on_whatsapp(
+                message.recipient, history_entry.get("error_code")
             )

@@ -135,3 +135,55 @@ def send_otp(recipient: str, code: str, language: str = "en") -> WhatsAppSendRes
         error_code=meta_error_code,
         error_message=err.get("message") or f"HTTP {resp.status_code}",
     )
+
+
+def mark_not_on_whatsapp(phone_number: str) -> int:
+    """Flag every CrushProfile with this number as not-on-WhatsApp (issue #519).
+
+    Called when Meta reports ``ERROR_NOT_ON_WHATSAPP`` for a send (synchronously
+    in the send view, or asynchronously via the status webhook). Setting the flag
+    stops us re-attempting WhatsApp for that number and lets notifications fall
+    back to email. Returns the number of profiles updated.
+
+    Matches on **digits only**: verified numbers are stored canonically
+    (``+<digits>``) but form-entered ones may carry the spaces/dashes/parens the
+    model's validator allows, while Meta reports the ``+``-stripped canonical
+    form — so both the stored value and the recipient are reduced to bare digits
+    before comparing.
+    """
+    from django.db.models import F, Value
+    from django.db.models.functions import Replace
+
+    from crush_lu.models.profiles import CrushProfile
+
+    target_digits = "".join(ch for ch in (phone_number or "") if ch.isdigit())
+    if not target_digits:
+        return 0
+
+    digits_expr = F("phone_number")
+    for ch in (" ", "-", "(", ")", ".", "+"):
+        digits_expr = Replace(digits_expr, Value(ch), Value(""))
+
+    pks = list(
+        CrushProfile.objects.filter(not_on_whatsapp=False)
+        .annotate(_pn_digits=digits_expr)
+        .filter(_pn_digits=target_digits)
+        .values_list("pk", flat=True)
+    )
+    if not pks:
+        return 0
+    return CrushProfile.objects.filter(pk__in=pks).update(not_on_whatsapp=True)
+
+
+def can_send_whatsapp(profile) -> bool:
+    """True when WhatsApp should be attempted for this profile (issue #519).
+
+    False once Meta has told us the number isn't on WhatsApp, or when there's no
+    verified phone to send to — callers should route to email instead.
+    """
+    return bool(
+        profile
+        and getattr(profile, "phone_number", "")
+        and getattr(profile, "phone_verified", False)
+        and not getattr(profile, "not_on_whatsapp", False)
+    )

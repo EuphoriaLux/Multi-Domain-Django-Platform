@@ -1,4 +1,5 @@
 """Tests for UserActivityMiddleware cache-gated throttling."""
+
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -10,9 +11,13 @@ from django.test import RequestFactory
 from django.utils import timezone
 
 from crush_lu.middleware import UserActivityMiddleware
-from crush_lu.models import UserActivity
+from crush_lu.models import DailyUserActivity, UserActivity
 
 User = get_user_model()
+
+
+def _daily_key(user):
+    return f"user_activity:daily:{user.pk}:{timezone.localdate().isoformat()}"
 
 
 @pytest.fixture(autouse=True)
@@ -31,11 +36,13 @@ def user(db):
     )
 
 
-def _make_request(user):
-    request = RequestFactory().get("/events/")
+def _make_request(user, pwa=False, path="/events/"):
+    request = RequestFactory().get(path)
     request.user = user
     request.session = {}
     request.META["HTTP_HOST"] = "crush.lu"
+    if pwa:
+        request.META["HTTP_X_PWA_MODE"] = "standalone"
     return request
 
 
@@ -110,3 +117,61 @@ def test_cache_backend_failure_does_not_stop_activity_tracking(user):
 
     # DB path still ran, so the UserActivity row exists.
     assert UserActivity.objects.filter(user=user).exists()
+
+
+def test_first_request_records_daily_activity(user):
+    _run(_make_request(user))
+
+    rows = DailyUserActivity.objects.filter(user=user)
+    assert rows.count() == 1
+    assert rows.first().activity_date == timezone.localdate()
+    assert cache.get(_daily_key(user)) is not None
+
+
+def test_daily_activity_recorded_once_per_day(user):
+    # Two requests the same day yield exactly one daily row — the second is
+    # gated by the per-day cache key even though the last_seen throttle also
+    # applies.
+    _run(_make_request(user))
+    _run(_make_request(user))
+
+    assert DailyUserActivity.objects.filter(user=user).count() == 1
+
+
+def test_daily_pwa_flag_upgrades_after_browser_visit(user):
+    # A browser visit first (was_pwa stays False)...
+    _run(_make_request(user, pwa=False))
+    row = DailyUserActivity.objects.get(user=user)
+    assert row.was_pwa is False
+
+    # ...then a PWA visit the SAME day flips was_pwa True, WITHOUT clearing the
+    # per-day cache: the browser hit cached "seen", so a later PWA request is
+    # still allowed through to upgrade the flag (regression guard for the
+    # same-day undercount).
+    _run(_make_request(user, pwa=True))
+
+    row.refresh_from_db()
+    assert row.was_pwa is True
+    # Still a single row for the day.
+    assert DailyUserActivity.objects.filter(user=user).count() == 1
+
+
+def test_daily_pwa_flag_set_by_launch_marker(user):
+    # The installed app launches at the manifest start_url `/?source=pwa`;
+    # that marker alone must flag the day's row as PWA (regression guard — the
+    # earlier version only accepted `pwa=1`).
+    _run(_make_request(user, path="/?source=pwa"))
+
+    row = DailyUserActivity.objects.get(user=user)
+    assert row.was_pwa is True
+
+
+def test_daily_pwa_visit_not_re_queried_after_flagged(user):
+    # Once the day's row is PWA-flagged, subsequent requests short-circuit on
+    # the cache without touching the DB.
+    _run(_make_request(user, pwa=True))
+    assert DailyUserActivity.objects.get(user=user).was_pwa is True
+
+    with patch("crush_lu.models.DailyUserActivity.objects") as mock_daily:
+        _run(_make_request(user, pwa=True))
+    mock_daily.get_or_create.assert_not_called()

@@ -55,7 +55,11 @@ def compute_weekly_snapshot(week_start: date) -> dict:
         CrushConnectWaitlist,
     )
     from crush_lu.models.events import EventRegistration, MeetupEvent
-    from crush_lu.models.profiles import PremiumMembership, UserActivity
+    from crush_lu.models.profiles import (
+        DailyUserActivity,
+        PremiumMembership,
+        UserActivity,
+    )
     from crush_lu.models.referrals import ReferralAttribution
 
     week_end = week_start + timedelta(days=6)  # Sunday, inclusive
@@ -111,29 +115,37 @@ def compute_weekly_snapshot(week_start: date) -> dict:
     }
 
     # ── Engagement / retention ───────────────────────────────────────
-    # CAVEAT: UserActivity stores only the *latest* last_seen / last_pwa_visit
-    # (overwritten per request), not a per-day history. So a member active during
-    # the week who returns before this job runs has their timestamp bumped into
-    # the next week and falls outside this window — undercounting WAU on late or
-    # retried runs. Acceptable for an on-time Monday run; a proper fix needs a
-    # daily activity rollup (tracked as a follow-up in issue #523).
-    active_qs = in_week(UserActivity.objects.all(), "last_seen")
-    wau = active_qs.count()
-    new_active = active_qs.filter(first_seen__date__gte=week_start).count()
+    # WAU is computed from DailyUserActivity, which records one immutable row
+    # per (user, local day) at the time activity happens. Counting distinct
+    # users with a row inside the week window makes WAU stable no matter when
+    # the snapshot job runs — a member's activity is never bumped out of the
+    # week by a later visit the way the mutable UserActivity.last_seen was
+    # (issue #523). first_seen still lives on UserActivity and drives the
+    # new-vs-returning split.
+    # activity_date is a DateField, so filter it directly (no __date transform,
+    # which only applies to DateTimeFields like last_seen).
+    daily_in_week = DailyUserActivity.objects.filter(
+        activity_date__gte=week_start, activity_date__lte=week_end
+    )
+    active_user_ids = set(daily_in_week.values_list("user_id", flat=True).distinct())
+    wau = len(active_user_ids)
+    new_active = (
+        UserActivity.objects.filter(user_id__in=active_user_ids)
+        .filter(first_seen__date__gte=week_start)
+        .count()
+    )
     engagement = {
         "wau": wau,
         "new_active": new_active,
-        "returning_active": active_qs.filter(
-            first_seen__date__lt=week_start
-        ).count(),
-        # PWA-active = users whose most recent PWA visit landed in this week.
-        # is_pwa_user is sticky ("ever used the installed PWA"), so keying on it
-        # would count browser-only visitors who installed the PWA long ago; the
-        # activity middleware stamps last_pwa_visit per real PWA request, so
-        # window on that instead (its NULLs for non-PWA users drop out for free).
-        "pwa_active": in_week(
-            UserActivity.objects.all(), "last_pwa_visit"
-        ).count(),
+        "returning_active": (
+            UserActivity.objects.filter(user_id__in=active_user_ids)
+            .filter(first_seen__date__lt=week_start)
+            .count()
+        ),
+        # PWA-active = distinct users with a PWA-flagged daily row this week.
+        "pwa_active": (
+            daily_in_week.filter(was_pwa=True).values("user_id").distinct().count()
+        ),
         # Tracked users who went quiet: last seen before the week even started.
         "dormant": UserActivity.objects.filter(last_seen__date__lt=week_start).count(),
     }

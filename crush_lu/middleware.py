@@ -102,14 +102,20 @@ class UserActivityMiddleware:
 
         try:
             user = request.user
+            now = timezone.now()
+
+            # Per-day activity rollup — recorded independently of the last_seen
+            # throttle below, so the first request of each new calendar day is
+            # always captured (even mid-session across midnight). Drives a stable
+            # WAU in the weekly KPI snapshot regardless of when the job runs.
+            self._record_daily_activity(request, user, now)
+
             # Cache-gated throttle: if we updated this user within the interval,
             # skip the DB roundtrip entirely. Previously get_or_create() ran on
             # every request even when no write was needed.
             cache_key = f"user_activity:last_seen:{user.pk}"
             if _cache_get_safe(cache_key):
                 return
-
-            now = timezone.now()
 
             activity, created = UserActivity.objects.get_or_create(
                 user=user,
@@ -138,8 +144,6 @@ class UserActivityMiddleware:
             # Detect PWA usage
             is_pwa = self._detect_pwa(request)
 
-            # Build update fields
-            update_fields = ["last_seen"]
             activity.last_seen = now
 
             # Increment visit counter atomically
@@ -161,38 +165,86 @@ class UserActivityMiddleware:
             # Don't let activity tracking break the request
             logger.warning(f"Error updating user activity: {e}")
 
+    def _record_daily_activity(self, request, user, now):
+        """Record one ``DailyUserActivity`` row per user per local day (issue #523).
+
+        Cache-gated on its own per-day key so the DB is touched at most once per
+        user per day — *except* to upgrade ``was_pwa`` the first time a PWA
+        request lands after an earlier browser hit that same day. The cached
+        value tracks whether the day's row is already PWA-flagged (``"pwa"``)
+        or only browser-seen (``"seen"``) so a later PWA visit isn't skipped.
+
+        Uses ``localdate()`` (Europe/Luxembourg) so the row's date matches the
+        ``__date`` window the weekly KPI snapshot filters on. PWA detection here
+        uses the DB-free request signals only (not the sticky "ever installed"
+        flag) so ``was_pwa`` means "actually used the PWA that day".
+        """
+        from .models import DailyUserActivity
+
+        try:
+            today = timezone.localdate(now)
+            daily_key = f"user_activity:daily:{user.pk}:{today.isoformat()}"
+            cached = _cache_get_safe(daily_key)
+            pwa_now = self._is_pwa_request(request)
+
+            # Already fully recorded (incl. PWA), or recorded and this isn't a
+            # PWA request that would add anything — nothing to do.
+            if cached == "pwa" or (cached == "seen" and not pwa_now):
+                return
+
+            row, _created = DailyUserActivity.objects.get_or_create(
+                user=user,
+                activity_date=today,
+                defaults={"was_pwa": pwa_now},
+            )
+            if pwa_now and not row.was_pwa:
+                DailyUserActivity.objects.filter(pk=row.pk).update(was_pwa=True)
+
+            # Hold the key until local midnight so we don't re-query all day; the
+            # key is date-scoped, so the next day always misses and writes afresh.
+            local_now = timezone.localtime(now)
+            end_of_day = local_now.replace(hour=23, minute=59, second=59, microsecond=0)
+            ttl = max(60, int((end_of_day - local_now).total_seconds()))
+            _cache_set_safe(
+                daily_key, "pwa" if (pwa_now or row.was_pwa) else "seen", ttl
+            )
+
+        except Exception as e:  # noqa: BLE001 — never break the request
+            logger.warning(f"Error recording daily activity: {e}")
+
+    def _is_pwa_request(self, request):
+        """DB-free signals that THIS request came from the installed PWA.
+
+        Recognizes the manifest launch marker (``start_url`` is ``/?source=pwa``
+        — see ``views_pwa.py``), the ``X-PWA-Mode`` header a service worker can
+        add to same-origin fetches, the legacy ``?pwa=1`` param, and a session
+        flag if one is set. None touch the database, so this is cheap to call on
+        every request. The ``/api/push/mark-pwa-user/`` call that sets the sticky
+        ``is_pwa_user`` flag is under ``SKIP_PATHS``, so it can't be the signal
+        here — the launch marker is what a same-day PWA open carries.
+        """
+        if request.headers.get("X-PWA-Mode") == "standalone":
+            return True
+        if request.GET.get("source") == "pwa" or request.GET.get("pwa") == "1":
+            return True
+        if request.session.get("is_pwa_user"):
+            return True
+        return False
+
     def _detect_pwa(self, request):
         """
         Detect if the request is from an installed PWA.
 
-        Detection methods:
-        1. Sec-Fetch-Mode header (modern browsers)
-        2. Sec-Fetch-Dest header
-        3. X-PWA-Mode custom header (set by service worker)
-        4. Referer containing 'display-mode=standalone'
+        Combines the DB-free per-request signals (``_is_pwa_request``) with the
+        sticky "user has ever used the installed PWA" flag on UserActivity.
 
         Returns:
             bool: True if request appears to be from PWA
         """
-        # Method 1: Sec-Fetch-Mode header
-        # When app is installed, this is often 'navigate' with Sec-Fetch-Dest: document
-        # But the key indicator is the display mode
-
-        # Method 2: Custom header from service worker
-        if request.headers.get("X-PWA-Mode") == "standalone":
+        if self._is_pwa_request(request):
             return True
 
-        # Method 3: Check for PWA-specific query parameter
-        # (can be added by manifest start_url)
-        if request.GET.get("pwa") == "1":
-            return True
-
-        # Method 4: Check session flag (set by mark_pwa_user API)
-        if request.session.get("is_pwa_user"):
-            return True
-
-        # Method 5: Check if user already marked as PWA user
-        # (don't need to re-check headers if we already know)
+        # Sticky fallback: user already known as a PWA user.
         try:
             if hasattr(request.user, "activity") and request.user.activity.is_pwa_user:
                 return True
