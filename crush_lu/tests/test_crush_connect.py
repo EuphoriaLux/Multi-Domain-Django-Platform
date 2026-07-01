@@ -1344,19 +1344,22 @@ def test_can_send_spark_requires_premium_sender():
 
 
 @pytest.mark.django_db
-def test_send_spark_blocks_duplicates_both_directions():
+def test_send_spark_duplicate_same_direction_vs_answer_back():
     me = _make_user(username="me", preferred_genders=["F"])
     her = _make_user(username="her", gender="F")
     _surface_in_drop(me, her)
     send_spark(me, her, message="Curious!")
 
+    # Same direction: a second Spark to the same person is a blocked duplicate.
     allowed, reason = can_send_spark(me, her)
     assert (allowed, reason) == (False, "already_sparked")
 
-    # Reverse direction also blocked (her drop surfaces me)
+    # Reverse direction is NOT a duplicate — it's the answer-back path (the
+    # recipient reading the sender back), which submit_gate_answers turns into
+    # the mutual match. can_send_spark flags it with the distinct "answer_back".
     _surface_in_drop(her, me)
     allowed, reason = can_send_spark(her, me)
-    assert (allowed, reason) == (False, "already_sparked")
+    assert (allowed, reason) == (False, "answer_back")
 
 
 @pytest.mark.django_db
