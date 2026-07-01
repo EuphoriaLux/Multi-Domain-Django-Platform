@@ -59,12 +59,18 @@
                     {% if mem.lifestyle_pace %}<span class="badge badge-secondary text-xs">{{ mem.get_lifestyle_pace_display }}</span>{% endif %}
                 </div>
                 {% endif %}
-                {# Story #}
-                {% if mem.story_answer %}
-                <p class="text-sm italic text-gray-600 dark:text-gray-300 mb-0">&ldquo;{{ mem.story_answer }}&rdquo;</p>
-                {% endif %}
-                {% if mem.story_answer_2 %}
-                <p class="text-xs italic text-gray-500 dark:text-gray-400 mb-0 border-l-2 border-crush-purple/30 pl-2">&ldquo;{{ mem.story_answer_2 }}&rdquo;</p>
+                {# Gate questions + the member's own truth answers (coaches see all). #}
+                {% if mem.active_gate_questions %}
+                <ul class="space-y-0.5 mb-0 list-none pl-0">
+                    {% for gq in mem.active_gate_questions %}
+                    <li class="text-xs text-gray-600 dark:text-gray-300">
+                        &ldquo;{{ gq.question.text }}&rdquo;
+                        <span class="font-semibold {% if gq.owner_answer %}text-green-600 dark:text-green-400{% else %}text-rose-600 dark:text-rose-400{% endif %}">
+                            {% if gq.owner_answer %}{% trans "Yes" %}{% else %}{% trans "No" %}{% endif %}
+                        </span>
+                    </li>
+                    {% endfor %}
+                </ul>
                 {% endif %}
                 {# Languages + interests #}
                 {% if mem.languages or mem.interests.all %}

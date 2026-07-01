@@ -22,22 +22,16 @@ Privacy contract (Crush Connect):
     class="card card-bordered overflow-hidden flex flex-col bg-white dark:bg-slate-800 ring-1 ring-gray-200/60 dark:ring-slate-700/60 rounded-2xl shadow-crush-md"
     aria-label="{% blocktrans with name=target.first_name|default:_('A Crush Connect member') %}Drop card for {{ name }}{% endblocktrans %}"
 >
-    {# Blurred photo header — privacy reframed as an intentional, reassuring moment. #}
+    {# Clear photo header — the card IS the "Read-the-Photo" surface: viewers
+       guess this member's answers from their photo. Shown only to the curated,
+       consented, surfaced few (enforced in get_eligible_pool). #}
     <div class="relative aspect-[5/4] overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">
-        {% profile_photo target_profile 'photo_1' css_class='w-full h-full object-cover' alt_text=target.first_name is_blurred=True %}
+        {% profile_photo target_profile 'photo_1' css_class='w-full h-full object-cover' alt_text=target.first_name is_blurred=False %}
         {# Bottom scrim so the overlaid name stays legible over any photo. #}
         <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/15 pointer-events-none"></div>
 
-        {# Privacy lock chip — centred, glassy: "this is on purpose". #}
-        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[60%]">
-            <span class="inline-flex items-center gap-1.5 rounded-full bg-white/20 ring-1 ring-white/40 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm">
-                {% include "shared/icons/lock-closed.html" with class="w-3.5 h-3.5" %}
-                {% trans "Blurred until you both Spark" %}
-            </span>
-        </div>
-
-        {# Name + age range overlaid at the foot of the photo. Per the privacy
-           contract above, no location is shown pre-reveal. #}
+        {# Name + age range overlaid at the foot of the photo. Identity beyond
+           first name + age range stays gated until a mutual match. #}
         <div class="absolute inset-x-4 bottom-4 flex items-end justify-between gap-3">
             <div class="min-w-0">
                 <h3 class="font-display text-2xl font-semibold leading-none text-white truncate">
@@ -66,34 +60,15 @@ Privacy contract (Crush Connect):
             </span>
         {% endif %}
 
-        {# Story (one coach-curated line) — editorial Fraunces; fallback copy if not yet onboarded with a story. #}
-        {% if target_membership.story_answer %}
-            <div>
-                {% if target_membership.story_prompt %}
-                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1.5">
-                        {{ target_membership.story_prompt.text }}
-                    </p>
-                {% endif %}
-                <p class="font-display text-[17px] leading-snug italic text-gray-900 dark:text-white mb-0">
-                    &ldquo;{{ target_membership.story_answer }}&rdquo;
-                </p>
-            </div>
-        {% else %}
-            <p class="text-sm text-gray-400 dark:text-gray-500 italic mb-0">
-                {% trans "This member hasn't shared a story yet." %}
-            </p>
-        {% endif %}
-
-        {# Optional second story #}
-        {% if target_membership.story_answer_2 %}
-            <p class="text-sm leading-relaxed text-gray-600 dark:text-gray-300 italic border-l-2 border-crush-purple/30 pl-3 mb-0">
-                {% if target_membership.story_prompt_2 %}
-                    <span class="not-italic block text-xs font-medium uppercase tracking-wide text-crush-purple/60 dark:text-crush-pink/60 mb-1">
-                        {{ target_membership.story_prompt_2.text }}
-                    </span>
-                {% endif %}
-                &ldquo;{{ target_membership.story_answer_2 }}&rdquo;
-            </p>
+        {# Story deprecated (M9): the card now leads with the answer gate below.
+           Read-only question preview when the card isn't the interactive surface
+           (coach pick / dev preview). #}
+        {% if not show_spark_cta and target_membership.active_gate_questions %}
+            <ul class="space-y-1.5 mb-0 list-none pl-0">
+                {% for gq in target_membership.active_gate_questions %}
+                <li class="text-[15px] leading-snug text-gray-700 dark:text-gray-200">&ldquo;{{ gq.question.text }}&rdquo;</li>
+                {% endfor %}
+            </ul>
         {% endif %}
 
         {# Lifestyle chips #}
@@ -138,25 +113,15 @@ Privacy contract (Crush Connect):
             </div>
         {% endif %}
 
-        {# Footer / CTA slot — the Spark button (show_spark_cta) or the legacy placeholder. #}
+        {# Footer / CTA slot — the "Read-the-Photo" answer gate (show_spark_cta). #}
         {% if show_spark_cta %}
             <div class="mt-2 pt-3 border-t border-gray-100 dark:border-slate-700/60">
-                {% if target.pk in sparked_ids %}
-                    <p class="inline-flex items-center gap-1.5 text-sm font-medium text-crush-purple dark:text-crush-pink mb-0">
-                        {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
-                        {% trans "Spark sent — you'll hear back if it's mutual." %}
-                    </p>
-                {% else %}
-                    <a href="{% url 'crush_lu:crush_connect_spark_compose' target.pk %}" class="btn-crush-primary btn-block inline-flex items-center justify-center gap-1.5 no-underline">
-                        {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
-                        {% trans "Send a Curiosity Spark" %}
-                    </a>
-                {% endif %}
+                {% include "crush_lu/crush_connect/_gate_questions.html" with target=target gate_questions=target_membership.active_gate_questions answered_ids=answered_ids %}
             </div>
         {% elif show_spark_placeholder %}
             <div class="mt-2 pt-3 border-t border-gray-100 dark:border-slate-700/60">
                 <p class="text-xs text-gray-400 dark:text-gray-500 mb-0">
-                    {% trans "Send a Curiosity Spark — coming soon." %}
+                    {% trans "Answer their 3 questions — coming soon." %}
                 </p>
             </div>
         {% endif %}

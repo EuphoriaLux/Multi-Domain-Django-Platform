@@ -313,9 +313,11 @@ class Command(BaseCommand):
                 reviewed_at=timezone.now(),
             )
 
-            CrushConnectMembership.objects.create(
+            membership = CrushConnectMembership.objects.create(
                 user=user,
                 onboarded_at=timezone.now(),
+                # Read-the-Photo: consent so the clear photo is shown + surfaced.
+                photo_share_consent=True,
                 story_prompt=prompt,
                 story_answer=(
                     "Looking for a genuine connection"
@@ -323,6 +325,7 @@ class Command(BaseCommand):
                     else "Open to meeting interesting people"
                 ),
             )
+            self._assign_gate_questions(membership)
 
             if not is_premium:
                 from allauth.socialaccount.models import SocialAccount
@@ -342,6 +345,22 @@ class Command(BaseCommand):
             import traceback
             self.stderr.write(traceback.format_exc())
             return None
+
+    def _assign_gate_questions(self, membership):
+        """Give the member 3 gate questions from this week's set with truth answers."""
+        from crush_lu.models import MemberGateQuestion
+        from crush_lu.services.crush_connect import get_or_create_question_week
+
+        week = get_or_create_question_week()
+        questions = list(week.questions.filter(is_active=True)[:3])
+        for position, question in enumerate(questions, start=1):
+            MemberGateQuestion.objects.create(
+                membership=membership,
+                question=question,
+                position=position,
+                owner_answer=(position % 2 == 1),  # alternate Yes/No
+                picked_week=week,
+            )
 
     def _print_summary(self, premium_users, candidate_users, coach, password):
         coach_name = coach.user.get_full_name() or coach.user.username

@@ -89,6 +89,7 @@ def _make_user(
     last_login_days_ago=1,
     premium=True,
     has_luxid=True,
+    photo_share_consent=True,
 ):
     """
     Build a user ready to participate in Crush Connect by default:
@@ -133,11 +134,38 @@ def _make_user(
         user=user,
         onboarded_at=timezone.now() if onboarded else None,
         excluded_by_coach=excluded_by_coach,
+        photo_share_consent=photo_share_consent,
         preferred_genders=preferred_genders if preferred_genders is not None else [],
         preferred_age_min=preferred_age_min,
         preferred_age_max=preferred_age_max,
     )
     return user
+
+
+def _set_gate_questions(user, answers=None):
+    """Give a member 3 gate questions from this week's set (default all Yes).
+
+    Returns the list of ConnectQuestion picked so tests can guess against them.
+    """
+    from crush_lu.models import MemberGateQuestion
+    from crush_lu.services.crush_connect import get_or_create_question_week
+
+    week = get_or_create_question_week()
+    questions = list(week.questions.filter(is_active=True)[:3])
+    answers = answers if answers is not None else [True, True, True]
+    membership = user.crush_connect_membership
+    membership.gate_questions.all().delete()
+    for position, (question, owner_answer) in enumerate(
+        zip(questions, answers), start=1
+    ):
+        MemberGateQuestion.objects.create(
+            membership=membership,
+            question=question,
+            position=position,
+            owner_answer=owner_answer,
+            picked_week=week,
+        )
+    return questions
 
 
 def _mark_attended(user, event=None):
@@ -712,12 +740,8 @@ def test_dev_card_preview_renders_card_for_staff(client):
     _grant_consent(staff)
     target = _make_user(username="target_render", gender="F", preferred_genders=["M"])
     _mark_attended(target)
-    # Give the target a story so the card renders the italic-quote branch.
-    membership = target.crush_connect_membership
-    prompt = SparkPrompt.objects.filter(is_active=True).first()
-    membership.story_prompt = prompt
-    membership.story_answer = "I love foggy walks along the Petrusse valley."
-    membership.save(update_fields=["story_prompt", "story_answer"])
+    # Give the target 3 gate questions so the card renders the question preview.
+    questions = _set_gate_questions(target)
 
     client.force_login(staff)
     resp = client.get(f"/en/dev/connect-card/{target.pk}/")
@@ -726,33 +750,33 @@ def test_dev_card_preview_renders_card_for_staff(client):
 
     # First name appears (privacy: never full name)
     assert "Target_Render" in body
-    # Story answer renders
-    assert "foggy walks" in body
+    # A gate question renders in the preview
+    assert questions[0].text in body
     # Age range — never exact age
     assert "30-34" in body or "25-29" in body or "18-24" in body
-    # Blurred photo class present (or the gradient-initials fallback if no photo)
-    assert "blur-xl" in body or "from-crush-purple" in body
+    # Clear photo now (no blur) — the gradient header is always present
+    assert "from-crush-purple" in body
     # Staff-only banner
     assert "Staff preview" in body
 
 
 @pytest.mark.django_db
-def test_dev_card_preview_renders_no_story_fallback(client):
+def test_dev_card_preview_renders_without_questions(client):
     staff = User.objects.create_user(
         username="staffer2", email="staffer2@example.com", password="x", is_staff=True
     )
     _grant_consent(staff)
     target = _make_user(
-        username="target_nostory", gender="F", preferred_genders=["M"]
+        username="target_noq", gender="F", preferred_genders=["M"]
     )
     _mark_attended(target)
-    # Membership exists but no story_answer (default blank)
+    # Membership exists but no gate questions picked — card still renders.
 
     client.force_login(staff)
     resp = client.get(f"/en/dev/connect-card/{target.pk}/")
     assert resp.status_code == 200
     body = resp.content.decode()
-    assert "hasn&#x27;t shared a story" in body or "hasn't shared a story" in body
+    assert "Target_Noq" in body
 
 
 # ---------------------------------------------------------------------------
@@ -1320,19 +1344,22 @@ def test_can_send_spark_requires_premium_sender():
 
 
 @pytest.mark.django_db
-def test_send_spark_blocks_duplicates_both_directions():
+def test_send_spark_duplicate_same_direction_vs_answer_back():
     me = _make_user(username="me", preferred_genders=["F"])
     her = _make_user(username="her", gender="F")
     _surface_in_drop(me, her)
     send_spark(me, her, message="Curious!")
 
+    # Same direction: a second Spark to the same person is a blocked duplicate.
     allowed, reason = can_send_spark(me, her)
     assert (allowed, reason) == (False, "already_sparked")
 
-    # Reverse direction also blocked (her drop surfaces me)
+    # Reverse direction is NOT a duplicate — it's the answer-back path (the
+    # recipient reading the sender back), which submit_gate_answers turns into
+    # the mutual match. can_send_spark flags it with the distinct "answer_back".
     _surface_in_drop(her, me)
     allowed, reason = can_send_spark(her, me)
-    assert (allowed, reason) == (False, "already_sparked")
+    assert (allowed, reason) == (False, "answer_back")
 
 
 @pytest.mark.django_db
@@ -1400,10 +1427,12 @@ def test_respond_is_idempotent_after_decision():
 
 
 @pytest.mark.django_db
-def test_spark_compose_view_sends_spark(client, settings):
+def test_spark_compose_view_answers_and_sends(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(username="me", preferred_genders=["F"])
+    _set_gate_questions(me)  # first movers must have their own questions
     her = _make_user(username="her", gender="F", premium=False)
+    questions = _set_gate_questions(her, answers=[True, True, True])
     _surface_in_drop(me, her)
     _login_eligible(client, me)
 
@@ -1411,10 +1440,19 @@ def test_spark_compose_view_sends_spark(client, settings):
     resp = client.get(url)
     assert resp.status_code == 200
 
-    resp = client.post(url, data={"message": "Your story made me curious."})
+    # Guess all three correctly → reads her well → a pending Spark is created.
+    data = {f"answer_{q.id}": "yes" for q in questions}
+    resp = client.post(url, data=data)
     assert resp.status_code in (302, 301)
     spark = CuriositySpark.objects.get(sender=me, recipient=her)
-    assert spark.message == "Your story made me curious."
+    assert spark.status == "pending"
+
+    from crush_lu.models import ConnectQuestionAnswer
+
+    assert (
+        ConnectQuestionAnswer.objects.filter(responder=me, profile_owner=her).count()
+        == 3
+    )
 
 
 @pytest.mark.django_db
@@ -1432,26 +1470,129 @@ def test_spark_compose_rejected_when_not_surfaced(client, settings):
 
 
 @pytest.mark.django_db
+def test_first_mover_without_questions_redirected_to_setup(client, settings):
+    """A premium member who hasn't picked their own 3 questions is sent to set
+    them up rather than creating an unmatchable Spark (Codex P2)."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])  # no gate questions
+    her = _make_user(username="her", gender="F", premium=False)
+    _set_gate_questions(her)
+    _surface_in_drop(me, her)
+    _login_eligible(client, me)
+
+    resp = client.get(f"/en/crush-connect/spark/{her.pk}/")
+    assert resp.status_code in (301, 302)
+    assert "section=questions" in resp.url
+
+
+@pytest.mark.django_db
+def test_home_render_excludes_revoked_consent(client, settings):
+    """A Drop pinned while a recipient consented must drop them at render time
+    once they revoke photo consent — the card is now a clear photo (Codex P1)."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])
+    _mark_attended(me)
+    targets = _seed_pool_for(me, n=3)
+    for t in targets:
+        _set_gate_questions(t)
+    drop = get_or_create_daily_drop(me)
+    victim = list(drop.recipients.all())[0]
+    vm = victim.crush_connect_membership
+    vm.photo_share_consent = False
+    vm.save(update_fields=["photo_share_consent"])
+
+    _login_eligible(client, me)
+    body = client.get(CONNECT_HOME_URL).content.decode()
+    assert victim.first_name not in body
+
+
+@pytest.mark.django_db
+def test_answer_back_refused_when_sender_lost_eligibility(client, settings):
+    """The answer-back page must not render a pending Spark sender's clear photo
+    once they lose eligibility / revoke consent (Codex P2)."""
+    from crush_lu.services.crush_connect import submit_gate_answers
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])  # sender/first mover
+    _set_gate_questions(me)
+    her = _make_user(username="her", gender="F", premium=False)  # recipient
+    her_qs = _set_gate_questions(her, answers=[True, True, True])
+    _surface_in_drop(me, her)
+    submit_gate_answers(me, her, {q.id: True for q in her_qs})  # pending me→her
+
+    mm = me.crush_connect_membership
+    mm.photo_share_consent = False
+    mm.save(update_fields=["photo_share_consent"])
+
+    _login_eligible(client, her)
+    resp = client.get(f"/en/crush-connect/spark/{me.pk}/")
+    assert resp.status_code in (301, 302)  # refused, sender's photo not rendered
+
+
+@pytest.mark.django_db
+def test_answered_state_scoped_to_current_questions(client, settings):
+    """A viewer who answered a target's OLD questions still sees the fresh gate
+    form after the target re-picks a different set (Codex P2)."""
+    from crush_lu.models import ConnectQuestionAnswer, MemberGateQuestion
+    from crush_lu.services.crush_connect import get_or_create_question_week
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])
+    _mark_attended(me)
+    her = _make_user(username="her", gender="F", preferred_genders=["M"])
+    old_qs = _set_gate_questions(her)
+    for q in old_qs:
+        ConnectQuestionAnswer.objects.create(
+            responder=me, profile_owner=her, question=q, answer=True
+        )
+
+    # her re-picks a DIFFERENT 3 questions from this week's set.
+    week = get_or_create_question_week()
+    new_qs = list(
+        week.questions.filter(is_active=True).exclude(
+            id__in=[q.id for q in old_qs]
+        )[:3]
+    )
+    her.crush_connect_membership.gate_questions.all().delete()
+    for i, q in enumerate(new_qs, start=1):
+        MemberGateQuestion.objects.create(
+            membership=her.crush_connect_membership,
+            question=q,
+            position=i,
+            owner_answer=True,
+            picked_week=week,
+        )
+
+    _login_eligible(client, me)
+    body = client.get(CONNECT_HOME_URL).content.decode()
+    # The card renders the fresh answer form (its POST action to the gate),
+    # not the "already read" state — the answered branch has no such form.
+    assert f"/crush-connect/spark/{her.pk}/" in body
+
+
+@pytest.mark.django_db
 def test_sparks_received_page_lists_pending_and_responds(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(username="me", preferred_genders=["F"])
     her = _make_user(username="her", gender="F", premium=False)
     _surface_in_drop(me, her)
-    spark = send_spark(me, her, message="Hello there")
+    spark = send_spark(me, her)
 
     _login_eligible(client, her)
     resp = client.get(SPARKS_RECEIVED_URL)
     assert resp.status_code == 200
     body = resp.content.decode()
-    assert "Hello there" in body
     assert me.first_name in body
+    # New CTA: read them back by answering their questions (links to the gate).
+    assert f"/crush-connect/spark/{me.pk}/" in body
 
+    # The decline/pass path still resolves via the respond endpoint.
     resp = client.post(
-        f"/en/crush-connect/sparks/{spark.pk}/respond/", data={"action": "accept"}
+        f"/en/crush-connect/sparks/{spark.pk}/respond/", data={"action": "decline"}
     )
     assert resp.status_code in (302, 301)
     spark.refresh_from_db()
-    assert spark.status == "accepted"
+    assert spark.status == "declined"
 
 
 @pytest.mark.django_db
@@ -1473,16 +1614,20 @@ def test_spark_respond_forbidden_for_non_recipient(client, settings):
 
 
 @pytest.mark.django_db
-def test_home_card_shows_spark_cta_and_sent_state(client, settings):
+def test_home_card_shows_gate_questions(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(username="me", preferred_genders=["F"])
     _mark_attended(me)
     targets = _seed_pool_for(me, n=3)
+    for t in targets:
+        _set_gate_questions(t)
     _login_eligible(client, me)
 
     resp = client.get(CONNECT_HOME_URL)
     body = resp.content.decode()
-    assert "Send a Curiosity Spark" in body
+    # The Read-the-Photo gate renders (submit CTA), not the old Spark button.
+    assert "Answer &amp; connect" in body or "Answer & connect" in body
+    assert "Send a Curiosity Spark" not in body
     assert "coming soon" not in body
 
 

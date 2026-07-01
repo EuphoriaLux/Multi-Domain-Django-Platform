@@ -396,6 +396,16 @@ class CrushConnectMembership(models.Model):
     onboarding_step = models.PositiveSmallIntegerField(default=1)
     onboarding_started_at = models.DateTimeField(null=True, blank=True)
 
+    # Consent to the "Read-the-Photo" model: the member's clear photo is shown to
+    # the few curated, verified people surfaced their card each day so those people
+    # can guess the member's 3 questions. Default False so members who onboarded
+    # under the old blurred-until-mutual model are NOT surfaced with a clear photo
+    # until they re-consent (the eligible-pool service requires this True).
+    photo_share_consent = models.BooleanField(
+        default=False,
+        help_text=_("Member agreed their clear photo is shown to the people matched to them each day"),
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -412,6 +422,16 @@ class CrushConnectMembership(models.Model):
     @property
     def is_onboarded(self) -> bool:
         return self.onboarded_at is not None and not self.excluded_by_coach
+
+    @property
+    def active_gate_questions(self):
+        """The member's 3 ordered gate questions (with their truth answers)."""
+        return self.gate_questions.select_related("question").order_by("position")
+
+    @property
+    def has_gate_questions(self) -> bool:
+        """Whether the member has picked their 3 gate questions."""
+        return self.gate_questions.count() >= 3
 
     @property
     def languages_display(self):

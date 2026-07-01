@@ -13323,6 +13323,66 @@ document.addEventListener("alpine:init", function () {
         };
     });
 
+    // Step 7 "Read-the-Photo" pick step: count how many questions have a Yes/No
+    // truth chosen (skip = value ""), and once 3 are picked, disable the Yes/No
+    // radios on the not-yet-picked questions so the member can't exceed 3.
+    // Progressive enhancement — the form validates "exactly 3" server-side too.
+    Alpine.data("connectGatePicker", function () {
+        return {
+            max: 3,
+            count: 0,
+            init: function () {
+                this._sync();
+            },
+            onPick: function () {
+                this._sync();
+            },
+            _sync: function () {
+                var radios = this.$el.querySelectorAll('input[type="radio"][data-gate]');
+                var picked = {};
+                radios.forEach(function (r) {
+                    if (r.checked && r.value) picked[r.name] = true;
+                });
+                this.count = Object.keys(picked).length;
+                var atCap = this.count >= this.max;
+                radios.forEach(function (r) {
+                    // Never disable the "Skip" radio (value ""); only cap the
+                    // Yes/No radios of questions not already picked.
+                    if (r.value) r.disabled = atCap && !picked[r.name];
+                });
+            },
+        };
+    });
+
+    // "Read-the-Photo" answer gate on a Drop card / compose page: enable the
+    // submit button only once all 3 questions have a Yes/No guess. Radios work
+    // without JS; the view also enforces "all three answered" server-side.
+    Alpine.data("connectGateCard", function () {
+        return {
+            init: function () {
+                this._sync();
+            },
+            onPick: function () {
+                this._sync();
+            },
+            _sync: function () {
+                var radios = this.$el.querySelectorAll('input[type="radio"][data-gate]');
+                var answered = {};
+                radios.forEach(function (r) {
+                    if (r.checked) answered[r.name] = true;
+                });
+                var names = {};
+                radios.forEach(function (r) {
+                    names[r.name] = true;
+                });
+                var total = Object.keys(names).length;
+                var done = Object.keys(answered).length;
+                var submit = this.$el.querySelector("[data-gate-submit]");
+                if (submit) submit.disabled = total === 0 || done < total;
+            },
+        };
+    });
+
     // Auto-redirect countdown shown on the profile-approved state of profile_submitted.html.
     // Reads the destination URL from data-dashboard-url to stay language-prefix–safe.
     Alpine.data("approvedCountdown", () => ({

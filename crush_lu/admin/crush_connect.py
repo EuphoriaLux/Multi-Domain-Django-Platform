@@ -5,6 +5,20 @@ from django.db.models import Count
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _, ngettext
 
+from crush_lu.models import MemberGateQuestion
+
+
+class MemberGateQuestionInline(admin.TabularInline):
+    """A member's 3 gate questions (with their own truth answer) on the
+    membership page."""
+
+    model = MemberGateQuestion
+    extra = 0
+    ordering = ("position",)
+    raw_id_fields = ("question", "picked_week")
+    fields = ("position", "question", "owner_answer", "picked_week", "created_at")
+    readonly_fields = ("created_at",)
+
 
 class CrushConnectMembershipAdmin(admin.ModelAdmin):
     list_display = [
@@ -28,9 +42,10 @@ class CrushConnectMembershipAdmin(admin.ModelAdmin):
     ]
     raw_id_fields = ["user", "excluded_by", "story_prompt", "story_prompt_2"]
     filter_horizontal = ["interests"]
+    inlines = [MemberGateQuestionInline]
     readonly_fields = ["created_at", "updated_at", "onboarding_started_at"]
     fieldsets = (
-        (None, {"fields": ("user", "onboarded_at", "onboarding_step", "onboarding_started_at")}),
+        (None, {"fields": ("user", "onboarded_at", "onboarding_step", "onboarding_started_at", "photo_share_consent")}),
         (
             _("Onboarding — Intent"),
             {"fields": ("relationship_goal",)},
@@ -345,4 +360,75 @@ class ConnectCoachPickAdmin(admin.ModelAdmin):
     )
     raw_id_fields = ("coach", "member", "candidate")
     readonly_fields = ("created_at", "responded_at")
+    date_hierarchy = "created_at"
+
+
+# ---------------------------------------------------------------------------
+# Read-the-Photo question-gated matching (M8/M9)
+# ---------------------------------------------------------------------------
+class ConnectQuestionAdmin(admin.ModelAdmin):
+    """The catalogue — mirrors SparkPromptAdmin. Edit weight/tier/is_active in
+    the list for quick A/B tuning; spicy questions ship inactive."""
+
+    list_display = ["text", "category", "tier", "is_active", "weight", "updated_at"]
+    list_filter = ["category", "tier", "is_active"]
+    list_editable = ["category", "tier", "is_active", "weight"]
+    search_fields = ["slug", "text", "text_en", "text_de", "text_fr"]
+    prepopulated_fields = {"slug": ("text",)}
+    readonly_fields = ["created_at", "updated_at"]
+    fieldsets = (
+        (None, {"fields": ("slug", "category", "tier", "is_active", "weight")}),
+        (
+            _("Question text (translations)"),
+            {
+                "fields": ("text", "text_en", "text_de", "text_fr"),
+                "description": _(
+                    "Owner-POV yes/no question. ``text`` is the fallback for users in unmatched locales."
+                ),
+            },
+        ),
+        (_("Audit"), {"fields": ("created_at", "updated_at")}),
+    )
+
+
+class ConnectQuestionWeekAdmin(admin.ModelAdmin):
+    """Weekly rotation visibility. Use the action to build the current week's
+    set on demand (idempotent)."""
+
+    list_display = ["week_start", "iso_year", "iso_week", "question_count"]
+    date_hierarchy = "week_start"
+    filter_horizontal = ["questions"]
+    readonly_fields = ["created_at"]
+    actions = ["roll_current_week"]
+
+    @admin.display(description=_("Questions"))
+    def question_count(self, obj):
+        return obj.questions.count()
+
+    @admin.action(description=_("Ensure THIS week's question set exists"))
+    def roll_current_week(self, request, queryset):
+        from crush_lu.services.crush_connect import rotate_question_week
+
+        week = rotate_question_week()
+        self.message_user(
+            request,
+            _("This week's set is ready: %(w)s") % {"w": week},
+            messages.SUCCESS,
+        )
+
+
+class ConnectQuestionAnswerAdmin(admin.ModelAdmin):
+    """Oversight/moderation of viewer guesses (the match-gate + stat records)."""
+
+    list_display = ("responder", "profile_owner", "question", "answer", "created_at")
+    list_select_related = ["responder", "profile_owner", "question"]
+    list_filter = ("answer", "created_at")
+    search_fields = (
+        "responder__username",
+        "responder__first_name",
+        "profile_owner__username",
+        "profile_owner__first_name",
+    )
+    raw_id_fields = ("responder", "profile_owner", "question")
+    readonly_fields = ("created_at",)
     date_hierarchy = "created_at"
