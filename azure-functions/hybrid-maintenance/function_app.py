@@ -18,6 +18,7 @@ Environment Variables Required:
     - DJANGO_PRE_SCREENING_INVITES_URL: e.g. https://crush.lu/api/admin/pre-screening-invites/
     - DJANGO_HYBRID_SLA_SWEEP_URL: e.g. https://crush.lu/api/admin/hybrid-coach-sla-sweep/
     - DJANGO_WEEKLY_KPIS_URL: e.g. https://crush.lu/api/admin/weekly-kpis/
+    - DJANGO_ROTATE_CONNECT_QUESTIONS_URL: e.g. https://crush.lu/api/admin/rotate-connect-questions/
     - ADMIN_API_KEY: Bearer token shared with the Django ADMIN_API_KEY setting
     - HYBRID_MAINTENANCE_ENABLED: Should be 'true' in production; anything
       else skips both triggers (safe-default: functions are deployed disabled
@@ -153,3 +154,25 @@ def weekly_kpis(timer: func.TimerRequest) -> None:
         logging.warning("WeeklyKPIs: timer past due at %s", ts)
     logging.info("WeeklyKPIs: starting at %s", ts)
     _call_admin_endpoint("WeeklyKPIs", "DJANGO_WEEKLY_KPIS_URL")
+
+
+@app.function_name(name="RotateConnectQuestions")
+@app.timer_trigger(
+    schedule="0 30 6 * * 1",  # Mondays at 06:30 UTC (offset from WeeklyKPIs at 07:00)
+    arg_name="timer",
+    run_on_startup=False,
+    use_monitor=True,
+)
+def rotate_connect_questions(timer: func.TimerRequest) -> None:
+    """Ensure the new ISO week's Crush Connect question set exists.
+
+    The Django command builds the set once per week (deterministic weighted
+    pick), so a retried or catch-up invocation is a no-op.
+    """
+    ts = datetime.utcnow().isoformat()
+    if timer.past_due:
+        logging.warning("RotateConnectQuestions: timer past due at %s", ts)
+    logging.info("RotateConnectQuestions: starting at %s", ts)
+    _call_admin_endpoint(
+        "RotateConnectQuestions", "DJANGO_ROTATE_CONNECT_QUESTIONS_URL"
+    )

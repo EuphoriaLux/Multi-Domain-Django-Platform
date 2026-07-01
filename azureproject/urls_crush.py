@@ -271,6 +271,10 @@ urlpatterns = [
     # Language-neutral path so the Function App can hardcode it.
     path('api/admin/weekly-kpis/', api_admin_metrics.weekly_kpis_sweep, name='api_admin_weekly_kpis'),
 
+    # Weekly Crush Connect question rotation (RotateConnectQuestions Function
+    # timer calls this on Mondays). Language-neutral so the Function can hardcode it.
+    path('api/admin/rotate-connect-questions/', api_admin_metrics.rotate_connect_questions_sweep, name='api_admin_rotate_connect_questions'),
+
     # Changelog ingest (called by the Claude Code changelog routine on PR merge).
     # Language-neutral path; auto-publishes to /changelog/. See docs/changelog-routine.md.
     path('api/admin/changelog/ingest/', api_admin_changelog.ingest_changelog, name='api_admin_changelog_ingest'),

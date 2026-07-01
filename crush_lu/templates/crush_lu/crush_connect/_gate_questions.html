@@ -1,0 +1,50 @@
+{% load i18n %}
+{% comment %}
+"Read-the-Photo" answer gate — guess `target`'s 3 answers from their photo.
+
+Context:
+    target        — the member whose questions are being answered
+    gate_questions — target.crush_connect_membership.active_gate_questions (3 rows)
+    answered_ids  — set of profile_owner ids the viewer already answered (optional)
+
+Submitting posts to the answer gate; reading them well (≥2 of 3 vs their private
+truth) signals interest. Per-question correctness is NEVER shown back — that
+would leak the member's private answers.
+{% endcomment %}
+{% if target.pk in answered_ids %}
+    <p class="inline-flex items-center gap-1.5 text-sm font-medium text-crush-purple dark:text-crush-pink mb-0">
+        {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
+        {% blocktrans with name=target.first_name|default:_("them") %}You've read {{ name }} — you'll hear back if it's mutual.{% endblocktrans %}
+    </p>
+{% elif gate_questions %}
+    <form method="post" action="{% url 'crush_lu:crush_connect_spark_compose' target.pk %}" x-data="connectGateCard" class="space-y-3">
+        {% csrf_token %}
+        <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-0">
+            {% blocktrans with name=target.first_name|default:_("them") %}Guess {{ name }}'s answers from their photo{% endblocktrans %}
+        </p>
+        {% for gq in gate_questions %}
+        <div class="flex items-center justify-between gap-3">
+            <span class="flex-1 text-sm text-gray-800 dark:text-gray-100">{{ gq.question.text }}</span>
+            <div class="inline-flex shrink-0 rounded-lg overflow-hidden ring-1 ring-gray-200 dark:ring-slate-600 text-xs font-semibold">
+                <label class="cursor-pointer">
+                    <input type="radio" name="answer_{{ gq.question_id }}" value="yes" data-gate class="peer sr-only" @change="onPick">
+                    <span class="block px-3 py-1.5 text-gray-600 dark:text-gray-300 bg-white dark:bg-slate-800 peer-checked:bg-green-500 peer-checked:text-white">{% trans "Yes" %}</span>
+                </label>
+                <label class="cursor-pointer border-l border-gray-200 dark:border-slate-600">
+                    <input type="radio" name="answer_{{ gq.question_id }}" value="no" data-gate class="peer sr-only" @change="onPick">
+                    <span class="block px-3 py-1.5 text-gray-600 dark:text-gray-300 bg-white dark:bg-slate-800 peer-checked:bg-rose-500 peer-checked:text-white">{% trans "No" %}</span>
+                </label>
+            </div>
+        </div>
+        {% endfor %}
+        <button type="submit" data-gate-submit disabled
+                class="btn-crush-primary btn-block inline-flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed">
+            {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
+            {% trans "Answer & connect" %}
+        </button>
+    </form>
+{% else %}
+    <p class="text-xs text-gray-400 dark:text-gray-500 mb-0">
+        {% trans "This member hasn't set up their questions yet." %}
+    </p>
+{% endif %}

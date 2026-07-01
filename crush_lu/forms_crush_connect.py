@@ -340,3 +340,143 @@ class ConnectStoryForm(forms.ModelForm):
             elif answer_2 and not prompt_2:
                 self.add_error("story_prompt_2", _("Please select a prompt for your second answer."))
         return cleaned
+
+
+# ---------------------------------------------------------------------------
+# Step 7 (M8) — "Read-the-Photo": pick 3 questions + answer each about yourself
+# ---------------------------------------------------------------------------
+class ConnectGateQuestionsForm(forms.ModelForm):
+    """
+    Replaces the story step. The member picks exactly 3 questions from this
+    week's catalogue and gives their own yes/no truth for each (what other
+    members' guesses are scored against). Each candidate question renders as one
+    three-state control — Skip / Yes / No — so selecting an answer both picks the
+    question and records the truth.
+
+    A ``ModelForm`` on the membership so ``photo_share_consent`` (the field that
+    lets the clear photo be shown) persists natively and the wizard's
+    ``form(request.POST, instance=membership)`` + ``form.save()`` convention is
+    unchanged; the 3 picks are saved to the ``MemberGateQuestion`` through-model.
+    """
+
+    ANSWER_CHOICES = [
+        ("", _("Skip")),
+        ("yes", _("Yes — that's me")),
+        ("no", _("No")),
+    ]
+
+    photo_share_consent = forms.BooleanField(
+        required=True,
+        label=_(
+            "I agree my clear photo is shown to the few people matched to me each "
+            "day so they can guess my questions."
+        ),
+    )
+    confirm_terms = forms.BooleanField(
+        required=True,
+        label=_(
+            "I understand my photo, first name, age range and the 3 questions I "
+            "chose appear on my card to the members matched with me, and I can be "
+            "removed from Crush Connect at any time."
+        ),
+    )
+
+    class Meta:
+        model = CrushConnectMembership
+        fields = ("photo_share_consent",)
+
+    def __init__(self, *args, for_edit=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        from crush_lu.services.crush_connect import get_or_create_question_week
+
+        self.week = get_or_create_question_week()
+
+        # Candidate set = this week's active questions ∪ the member's existing
+        # picks (which may have rotated out of the week but stay editable, so a
+        # member never loses in-flight picks at a week boundary).
+        week_questions = list(
+            self.week.questions.filter(is_active=True).order_by("category", "id")
+        )
+        existing = []
+        if self.instance and self.instance.pk:
+            existing = list(self.instance.active_gate_questions)
+        self._existing_answer = {gq.question_id: gq.owner_answer for gq in existing}
+        seen = {q.id for q in week_questions}
+        self.week_questions = week_questions + [
+            gq.question for gq in existing if gq.question_id not in seen
+        ]
+
+        for q in self.week_questions:
+            fname = f"q_{q.id}"
+            self.fields[fname] = forms.ChoiceField(
+                choices=self.ANSWER_CHOICES,
+                required=False,
+                label=q.text,
+            )
+            if not self.is_bound and q.id in self._existing_answer:
+                self.fields[fname].initial = (
+                    "yes" if self._existing_answer[q.id] else "no"
+                )
+
+        if for_edit:
+            # Editing other sections shouldn't force re-accepting the terms, but
+            # photo consent stays a real toggle (un-ticking it revokes surfacing).
+            self.fields["confirm_terms"].required = False
+            self.fields["confirm_terms"].widget = forms.HiddenInput()
+            self.fields["photo_share_consent"].required = False
+
+    def question_rows(self):
+        """(question, bound field) pairs for the template to render as Skip/Yes/No.
+
+        Django templates can't resolve the dynamic ``q_<id>`` field names, so the
+        form hands the template ready-paired rows.
+        """
+        return [
+            {"question": q, "field": self[f"q_{q.id}"]}
+            for q in self.week_questions
+        ]
+
+    def clean(self):
+        cleaned = super().clean()
+        from crush_lu.services.crush_connect import GATE_QUESTION_COUNT
+
+        picks = []
+        for q in self.week_questions:
+            val = cleaned.get(f"q_{q.id}")
+            if val in ("yes", "no"):
+                picks.append((q.id, val == "yes"))
+        if len(picks) != GATE_QUESTION_COUNT:
+            raise forms.ValidationError(
+                _("Pick exactly %(n)d questions and answer each about yourself.")
+                % {"n": GATE_QUESTION_COUNT}
+            )
+        self.cleaned_picks = picks
+        return cleaned
+
+    def save(self, commit=True):
+        membership = super().save(commit=commit)
+        if commit:
+            self._save_picks(membership)
+        return membership
+
+    def _save_picks(self, membership):
+        from django.db import transaction
+
+        from crush_lu.models import MemberGateQuestion
+
+        with transaction.atomic():
+            membership.gate_questions.all().delete()
+            MemberGateQuestion.objects.bulk_create(
+                [
+                    MemberGateQuestion(
+                        membership=membership,
+                        question_id=qid,
+                        position=position,
+                        owner_answer=owner_answer,
+                        picked_week=self.week,
+                    )
+                    for position, (qid, owner_answer) in enumerate(
+                        self.cleaned_picks, start=1
+                    )
+                ]
+            )

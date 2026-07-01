@@ -16,6 +16,7 @@ from .models.event_polls import EventPoll, EventPollOption
 from .models.quiz import QuizRound, QuizQuestion
 from .models.changelog import PatchRelease, PatchNote
 from .models.crush_connect import ConnectInterest, SparkPrompt
+from .models.crush_connect_questions import ConnectQuestion
 from .models.journey import (
     JourneyConfiguration,
     JourneyChapter,
@@ -145,6 +146,12 @@ class ConnectInterestTranslationOptions(TranslationOptions):
     fields = ('label',)
 
 
+class ConnectQuestionTranslationOptions(TranslationOptions):
+    """Translatable text for Crush Connect gate questions."""
+
+    fields = ('text',)
+
+
 # Register models with translation options
 translator.register(Newsletter, NewsletterTranslationOptions)
 translator.register(Trait, TraitTranslationOptions)
@@ -164,3 +171,4 @@ translator.register(PatchRelease, PatchReleaseTranslationOptions)
 translator.register(PatchNote, PatchNoteTranslationOptions)
 translator.register(SparkPrompt, SparkPromptTranslationOptions)
 translator.register(ConnectInterest, ConnectInterestTranslationOptions)
+translator.register(ConnectQuestion, ConnectQuestionTranslationOptions)
