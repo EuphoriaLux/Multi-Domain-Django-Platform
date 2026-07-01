@@ -127,12 +127,14 @@ class CrushConnectMembership(models.Model):
     onboarded_at = models.DateTimeField(
         null=True,
         blank=True,
+        db_index=True,
         help_text=_("Set when the user completes Crush Connect onboarding. Null = waitlisted/not opted-in."),
     )
 
     # Coach panic button
     excluded_by_coach = models.BooleanField(
         default=False,
+        db_index=True,
         help_text=_("Coach exclusion — removes the user from every Crush Connect pool"),
     )
     excluded_at = models.DateTimeField(null=True, blank=True)

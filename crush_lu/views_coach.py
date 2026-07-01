@@ -2871,13 +2871,25 @@ def coach_member_matches(request, user_id):
     if has_traits:
         match_scores = get_matches_for_user(member)
 
+        # Batch-fetch the counterpart profiles (same pattern as
+        # coach_match_pairs) instead of one query per match score.
+        other_user_ids = {
+            ms.user_b_id if ms.user_a_id == member.pk else ms.user_a_id
+            for ms in match_scores
+        }
+        profiles_by_user = {
+            p.user_id: p
+            for p in CrushProfile.objects.filter(
+                user_id__in=other_user_ids,
+                verification_status="verified",
+                is_active=True,
+            )
+        }
+
         for ms in match_scores:
             other_user = ms.user_b if ms.user_a == member else ms.user_a
-            try:
-                other_profile = CrushProfile.objects.get(
-                    user=other_user, verification_status="verified", is_active=True
-                )
-            except CrushProfile.DoesNotExist:
+            other_profile = profiles_by_user.get(other_user.pk)
+            if other_profile is None:
                 continue
 
             score_display = get_score_display(ms.score_final)

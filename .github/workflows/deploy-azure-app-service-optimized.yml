@@ -125,11 +125,23 @@ jobs:
       - name: Verify Deployment
         run: |
           echo "🔥 Waiting for staging to warm up..."
-          sleep 15
-          echo "Testing staging endpoints:"
-          curl -sf -o /dev/null https://test.crush.lu/healthz/ && echo "  ✅ test.crush.lu" || echo "  ❌ test.crush.lu"
-          curl -sf -o /dev/null https://test.powerup.lu/healthz/ && echo "  ✅ test.powerup.lu" || echo "  ❌ test.powerup.lu"
-          curl -sf -o /dev/null https://test.vinsdelux.com/healthz/ && echo "  ✅ test.vinsdelux.com" || echo "  ❌ test.vinsdelux.com"
+          failed=0
+          for host in test.crush.lu test.powerup.lu test.vinsdelux.com; do
+            ok=0
+            for attempt in $(seq 1 12); do
+              if curl -sf -o /dev/null --max-time 10 "https://$host/healthz/"; then
+                echo "  ✅ $host (attempt $attempt)"
+                ok=1
+                break
+              fi
+              sleep 10
+            done
+            if [ "$ok" -eq 0 ]; then
+              echo "  ❌ $host never became healthy"
+              failed=1
+            fi
+          done
+          exit $failed
 
       - name: Summary
         run: |

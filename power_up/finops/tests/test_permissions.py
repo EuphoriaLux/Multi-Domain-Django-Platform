@@ -125,12 +125,10 @@ class TestAPIEndpointsRequireAuth:
         assert response.status_code == 200
 
     @override_settings(ROOT_URLCONF='azureproject.urls_power_up')
-    def test_csv_export_returns_not_implemented(self, client):
-        """CSV export should return 501 (not implemented) status"""
+    def test_csv_export_requires_authentication(self, client):
+        """CSV export is implemented and requires authentication"""
         response = client.get('/finops/api/costs/export-csv/')
-        assert response.status_code == 501
-        data = response.json()
-        assert 'coming_soon' in data.get('status', '')
+        assert response.status_code in [401, 403]
 
 
 @pytest.mark.django_db

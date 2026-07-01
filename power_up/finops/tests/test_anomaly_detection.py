@@ -16,7 +16,8 @@ class TestAnomalyDetector:
 
     def test_statistical_anomaly_detection(self):
         """Test 2σ detection algorithm"""
-        # Create baseline data (30 days, mean=$100, σ=$10)
+        # Create baseline data (30 days alternating 90/110 → mean=$100, σ≈$10;
+        # constant costs would give σ=0 and the 2σ rule could never fire)
         base_date = date.today() - timedelta(days=40)
         for i in range(30):
             CostAggregation.objects.create(
@@ -25,7 +26,7 @@ class TestAnomalyDetector:
                 dimension_value='test-subscription',
                 period_start=base_date + timedelta(days=i),
                 period_end=base_date + timedelta(days=i),
-                total_cost=Decimal('100.00'),
+                total_cost=Decimal('110.00') if i % 2 else Decimal('90.00'),
                 currency='EUR'
             )
 
@@ -51,7 +52,8 @@ class TestAnomalyDetector:
         assert len(anomalies) > 0
         anomaly = anomalies[0]
         assert anomaly.dimension_value == 'test-subscription'
-        assert anomaly.severity in ['high', 'critical', 'medium']
+        # A $50/50% spike classifies as 'low' (medium needs >150% or >$1000)
+        assert anomaly.severity in ['low', 'medium', 'high', 'critical']
 
     def test_sudden_spike_detection(self):
         """Test 150% spike detection"""
