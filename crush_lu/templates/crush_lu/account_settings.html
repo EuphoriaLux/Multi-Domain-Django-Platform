@@ -469,6 +469,14 @@
             </div>
             <div class="p-6">
                 {% if user.crushprofile and user.crushprofile.phone_number and user.crushprofile.phone_verified %}
+                {% if user.crushprofile.not_on_whatsapp %}
+                <div class="flex items-start gap-3 p-4 mb-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
+                    {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5 text-amber-600 mt-0.5 shrink-0" %}
+                    <p class="text-sm text-amber-800 dark:text-amber-200">
+                        {% trans "This number isn't registered on WhatsApp, so we can't deliver WhatsApp notifications to it. You'll keep receiving these updates by email instead." %}
+                    </p>
+                </div>
+                {% endif %}
                 <form method="post" action="{% url 'crush_lu:update_whatsapp_preference' %}">
                     {% csrf_token %}
                     <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">

@@ -529,6 +529,13 @@ class CrushProfile(models.Model):
         db_index=True,
         help_text=_("Firebase UID from phone verification (for audit/anti-replay)"),
     )
+    not_on_whatsapp = models.BooleanField(
+        default=False,
+        help_text=_(
+            "Set when Meta reports this number is not a WhatsApp user (error 131026). "
+            "We stop attempting WhatsApp and fall back to email."
+        ),
+    )
     location = models.CharField(
         max_length=100, blank=True, help_text=_("City/Region in Luxembourg")
     )
@@ -1699,6 +1706,50 @@ class UserActivity(models.Model):
             days_since_reminder = (timezone.now() - self.last_reminder_sent).days
             return days_since_reminder >= 7
         return True
+
+
+class DailyUserActivity(models.Model):
+    """
+    Immutable per-(user, day) activity marker.
+
+    Unlike ``UserActivity`` — which keeps a single mutable ``last_seen`` that is
+    overwritten on every request — this records one row the first time a user is
+    seen on a given calendar day. The weekly KPI snapshot counts distinct users
+    with a row inside the week window, so WAU for a completed week is stable no
+    matter when (or how late) the Monday job runs (issue #523).
+
+    Written by ``UserActivityMiddleware._record_daily_activity``; pruned after a
+    short retention window by the ``cleanup_daily_activity`` command.
+    """
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="daily_activity",
+        help_text=_("User active on this day"),
+    )
+    activity_date = models.DateField(
+        db_index=True, help_text=_("Calendar date the user was active (local TZ)")
+    )
+    was_pwa = models.BooleanField(
+        default=False,
+        help_text=_("User accessed via the installed PWA at least once this day"),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("Daily User Activity")
+        verbose_name_plural = _("Daily User Activities")
+        ordering = ["-activity_date", "user_id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "activity_date"],
+                name="daily_activity_unique_per_day",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.activity_date.isoformat()}"
 
 
 class PWADeviceInstallation(models.Model):

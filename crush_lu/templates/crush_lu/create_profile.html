@@ -644,7 +644,7 @@
                               rows="4"
                               maxlength="500"
                               @input="updateCount"
-                              placeholder="{% trans "Tell us about yourself... What do you love? What makes you smile?" %}">{% if form.bio.value %}{{ form.bio.value }}{% elif profile and profile.bio %}{{ profile.bio }}{% endif %}</textarea>
+                              placeholder="{% trans "Tell us about yourself... What do you love? What makes you smile? (Optional)" %}">{% if form.bio.value %}{{ form.bio.value }}{% elif profile and profile.bio %}{{ profile.bio }}{% endif %}</textarea>
                     <div class="text-right text-sm text-gray-400 dark:text-gray-500 mt-1">
                         <span x-text="charCount"></span>/500 {% trans "characters" %}
                     </div>

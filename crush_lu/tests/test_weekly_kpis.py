@@ -3,6 +3,7 @@ Tests for the weekly KPI snapshot service, command, and email.
 
 Run with: pytest crush_lu/tests/test_weekly_kpis.py -v
 """
+
 from datetime import date, datetime, time
 
 from django.contrib.auth import get_user_model
@@ -13,6 +14,7 @@ from django.utils import timezone
 
 from crush_lu.models import (
     CrushProfile,
+    DailyUserActivity,
     ProfileSubmission,
     UserActivity,
     WeeklyMetricsSnapshot,
@@ -70,6 +72,11 @@ class ComputeWeeklySnapshotTests(TestCase):
         )
         UserActivity.objects.filter(pk=ua.pk).update(
             first_seen=_aware(date(2026, 6, 10))
+        )
+        # Immutable per-day activity marker inside the week — WAU/pwa_active are
+        # computed from these rows, not the mutable last_seen (issue #523).
+        DailyUserActivity.objects.create(
+            user=self.in_user, activity_date=date(2026, 6, 11), was_pwa=True
         )
 
         # ── Out-of-week user: joined and last active before the week ─
@@ -136,27 +143,49 @@ class ComputeWeeklySnapshotTests(TestCase):
         # The out-of-week user last seen 2026-05-01 is dormant.
         self.assertEqual(m["dormant"], 1)
 
-    def test_pwa_active_keys_on_visit_not_sticky_flag(self):
-        # A user who installed the PWA long ago (is_pwa_user stays True forever)
-        # but whose last PWA visit predates the week must NOT count as PWA-active,
-        # even though they were active via a normal browser this week.
-        stale = User.objects.create_user(
-            username="stalepwa@example.com",
-            email="stalepwa@example.com",
+    def test_pwa_active_counts_only_pwa_flagged_days(self):
+        # A user active this week via a normal browser (a daily row with
+        # was_pwa=False) counts toward WAU but NOT pwa_active — only a
+        # PWA-flagged daily row does.
+        browser = User.objects.create_user(
+            username="browser@example.com",
+            email="browser@example.com",
             password="x",
             date_joined=_aware(date(2026, 5, 1)),
         )
-        UserActivity.objects.create(
-            user=stale,
-            last_seen=_aware(date(2026, 6, 11)),  # active this week (browser)
-            is_pwa_user=True,
-            last_pwa_visit=_aware(date(2026, 5, 20)),  # but PWA visit is pre-week
+        UserActivity.objects.create(user=browser, last_seen=_aware(date(2026, 6, 11)))
+        DailyUserActivity.objects.create(
+            user=browser, activity_date=date(2026, 6, 11), was_pwa=False
         )
         m = compute_weekly_snapshot(WEEK_START)["engagement"]
-        # Only the in-week user's PWA visit falls inside the window.
+        # Only the in-week user's PWA-flagged day falls inside the window.
         self.assertEqual(m["pwa_active"], 1)
-        # Sanity: the stale user still counts as active this week (browser visit).
+        # Sanity: the browser user still counts as active this week.
         self.assertEqual(m["wau"], 2)
+
+    def test_wau_stable_when_member_returns_after_week(self):
+        # Acceptance (#523): a member active during the week still counts even
+        # if they return the following week before the snapshot job runs —
+        # which bumps their mutable UserActivity.last_seen out of the window.
+        late = User.objects.create_user(
+            username="late@example.com",
+            email="late@example.com",
+            password="x",
+            date_joined=_aware(date(2026, 6, 9)),
+        )
+        # Their single mutable last_seen has been overwritten into the NEXT week
+        # (a return visit before the Monday job ran).
+        ua = UserActivity.objects.create(user=late, last_seen=_aware(date(2026, 6, 16)))
+        UserActivity.objects.filter(pk=ua.pk).update(
+            first_seen=_aware(date(2026, 6, 9))
+        )
+        # But the immutable daily row for their in-week activity survives.
+        DailyUserActivity.objects.create(user=late, activity_date=date(2026, 6, 12))
+
+        m = compute_weekly_snapshot(WEEK_START)["engagement"]
+        # Both in_user and late are counted, despite late's last_seen now in W+1.
+        self.assertEqual(m["wau"], 2)
+        self.assertEqual(m["new_active"], 2)
 
     def test_revenue_cumulative_totals_bounded_to_week_end(self):
         # The snapshot for a past week must report the *as-of-Sunday* position,

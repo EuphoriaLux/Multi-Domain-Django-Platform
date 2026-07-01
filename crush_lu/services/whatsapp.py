@@ -135,3 +135,40 @@ def send_otp(recipient: str, code: str, language: str = "en") -> WhatsAppSendRes
         error_code=meta_error_code,
         error_message=err.get("message") or f"HTTP {resp.status_code}",
     )
+
+
+def mark_not_on_whatsapp(phone_number: str) -> int:
+    """Flag every CrushProfile with this number as not-on-WhatsApp (issue #519).
+
+    Called when Meta reports ``ERROR_NOT_ON_WHATSAPP`` for a send (synchronously
+    in the send view, or asynchronously via the status webhook). Setting the flag
+    stops us re-attempting WhatsApp for that number and lets notifications fall
+    back to email. Returns the number of profiles updated.
+
+    Matching tolerates the ``+``-stripped form Meta echoes back in ``to`` as well
+    as the stored ``+<digits>`` value.
+    """
+    from crush_lu.models.profiles import CrushProfile
+
+    normalized = _normalize_recipient(phone_number)
+    if not normalized:
+        return 0
+
+    candidates = {phone_number, normalized, f"+{normalized}"}
+    return CrushProfile.objects.filter(
+        phone_number__in=candidates, not_on_whatsapp=False
+    ).update(not_on_whatsapp=True)
+
+
+def can_send_whatsapp(profile) -> bool:
+    """True when WhatsApp should be attempted for this profile (issue #519).
+
+    False once Meta has told us the number isn't on WhatsApp, or when there's no
+    verified phone to send to — callers should route to email instead.
+    """
+    return bool(
+        profile
+        and getattr(profile, "phone_number", "")
+        and getattr(profile, "phone_verified", False)
+        and not getattr(profile, "not_on_whatsapp", False)
+    )

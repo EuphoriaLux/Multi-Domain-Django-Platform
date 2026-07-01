@@ -1,4 +1,5 @@
 """Tests for UserActivityMiddleware cache-gated throttling."""
+
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -10,9 +11,13 @@ from django.test import RequestFactory
 from django.utils import timezone
 
 from crush_lu.middleware import UserActivityMiddleware
-from crush_lu.models import UserActivity
+from crush_lu.models import DailyUserActivity, UserActivity
 
 User = get_user_model()
+
+
+def _daily_key(user):
+    return f"user_activity:daily:{user.pk}:{timezone.localdate().isoformat()}"
 
 
 @pytest.fixture(autouse=True)
@@ -31,11 +36,13 @@ def user(db):
     )
 
 
-def _make_request(user):
+def _make_request(user, pwa=False):
     request = RequestFactory().get("/events/")
     request.user = user
     request.session = {}
     request.META["HTTP_HOST"] = "crush.lu"
+    if pwa:
+        request.META["HTTP_X_PWA_MODE"] = "standalone"
     return request
 
 
@@ -110,3 +117,40 @@ def test_cache_backend_failure_does_not_stop_activity_tracking(user):
 
     # DB path still ran, so the UserActivity row exists.
     assert UserActivity.objects.filter(user=user).exists()
+
+
+def test_first_request_records_daily_activity(user):
+    _run(_make_request(user))
+
+    rows = DailyUserActivity.objects.filter(user=user)
+    assert rows.count() == 1
+    assert rows.first().activity_date == timezone.localdate()
+    assert cache.get(_daily_key(user)) is not None
+
+
+def test_daily_activity_recorded_once_per_day(user):
+    # Two requests the same day yield exactly one daily row — the second is
+    # gated by the per-day cache key even though the last_seen throttle also
+    # applies.
+    _run(_make_request(user))
+    _run(_make_request(user))
+
+    assert DailyUserActivity.objects.filter(user=user).count() == 1
+
+
+def test_daily_pwa_flag_sticks_within_day(user):
+    # A browser visit first (was_pwa stays False)...
+    _run(_make_request(user, pwa=False))
+    row = DailyUserActivity.objects.get(user=user)
+    assert row.was_pwa is False
+
+    # ...then a PWA visit the same day flips was_pwa True. Clear the per-day
+    # cache key so the second call isn't short-circuited (simulates the first
+    # PWA request of the day arriving after a browser request).
+    cache.delete(_daily_key(user))
+    _run(_make_request(user, pwa=True))
+
+    row.refresh_from_db()
+    assert row.was_pwa is True
+    # Still a single row for the day.
+    assert DailyUserActivity.objects.filter(user=user).count() == 1

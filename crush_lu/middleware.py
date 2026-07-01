@@ -102,14 +102,20 @@ class UserActivityMiddleware:
 
         try:
             user = request.user
+            now = timezone.now()
+
+            # Per-day activity rollup — recorded independently of the last_seen
+            # throttle below, so the first request of each new calendar day is
+            # always captured (even mid-session across midnight). Drives a stable
+            # WAU in the weekly KPI snapshot regardless of when the job runs.
+            self._record_daily_activity(request, user, now)
+
             # Cache-gated throttle: if we updated this user within the interval,
             # skip the DB roundtrip entirely. Previously get_or_create() ran on
             # every request even when no write was needed.
             cache_key = f"user_activity:last_seen:{user.pk}"
             if _cache_get_safe(cache_key):
                 return
-
-            now = timezone.now()
 
             activity, created = UserActivity.objects.get_or_create(
                 user=user,
@@ -138,8 +144,6 @@ class UserActivityMiddleware:
             # Detect PWA usage
             is_pwa = self._detect_pwa(request)
 
-            # Build update fields
-            update_fields = ["last_seen"]
             activity.last_seen = now
 
             # Increment visit counter atomically
@@ -160,6 +164,42 @@ class UserActivityMiddleware:
         except Exception as e:
             # Don't let activity tracking break the request
             logger.warning(f"Error updating user activity: {e}")
+
+    def _record_daily_activity(self, request, user, now):
+        """Record one ``DailyUserActivity`` row per user per local day (issue #523).
+
+        Cache-gated on its own per-day key so the DB is touched at most once per
+        user per day. Uses ``localdate()`` (Europe/Luxembourg) so the row's date
+        matches the ``__date`` window the weekly KPI snapshot filters on.
+        """
+        from .models import DailyUserActivity
+
+        try:
+            today = timezone.localdate(now)
+            daily_key = f"user_activity:daily:{user.pk}:{today.isoformat()}"
+            if _cache_get_safe(daily_key):
+                return
+
+            is_pwa = self._detect_pwa(request)
+            row, created = DailyUserActivity.objects.get_or_create(
+                user=user,
+                activity_date=today,
+                defaults={"was_pwa": is_pwa},
+            )
+            # Sticky per-day PWA flag: a member who opens the PWA at any point
+            # that day counts toward pwa_active even if they also browsed the web.
+            if is_pwa and not row.was_pwa:
+                DailyUserActivity.objects.filter(pk=row.pk).update(was_pwa=True)
+
+            # Hold the key until local midnight so we don't re-query all day; the
+            # key is date-scoped, so the next day always misses and writes afresh.
+            local_now = timezone.localtime(now)
+            end_of_day = local_now.replace(hour=23, minute=59, second=59, microsecond=0)
+            ttl = max(60, int((end_of_day - local_now).total_seconds()))
+            _cache_set_safe(daily_key, 1, ttl)
+
+        except Exception as e:  # noqa: BLE001 — never break the request
+            logger.warning(f"Error recording daily activity: {e}")
 
     def _detect_pwa(self, request):
         """
