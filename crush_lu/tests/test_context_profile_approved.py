@@ -8,9 +8,11 @@ left verified-but-unsubmitted users falling through to the navbar's
 "PROFILE INCOMPLETE" branch — showing a stale "Complete Profile 3/4" badge
 even though the dashboard already said "You're verified".
 
-`crush_user_context` must expose `profile_is_approved` for every verified
-profile, driven by `verification_status == "verified"` (the single source of
-truth), regardless of whether a submission exists.
+`crush_user_context` must expose `profile_is_approved` (the legacy
+`profile.is_approved` boolean, which every verification path sets to True)
+for every approved profile regardless of whether a submission exists. It
+mirrors the same boolean the downstream Edit-Profile and Connect gates
+enforce, so the navbar never advertises links those views would 403.
 """
 
 from datetime import date
@@ -59,9 +61,13 @@ class ProfileApprovedContextTests(TestCase):
         # "Complete Profile" progress branch for an approved user.
         self.assertNotIn("profile_submission", context)
 
-    def test_verified_flag_only_no_is_approved_boolean(self):
-        """verification_status is the source of truth even if the legacy
-        is_approved boolean lags behind."""
+    def test_verified_but_legacy_flag_false_stays_unapproved_in_navbar(self):
+        """The navbar must mirror the legacy `is_approved` boolean that the
+        downstream gates still enforce (_render_edit_profile_form, the Connect
+        entry points). A verified-but-is_approved=False profile — which no real
+        verification path produces, since all set both fields together — must
+        NOT get approved-looking navigation, or its Edit/Connect links would
+        400/403 when followed."""
         CrushProfile.objects.create(
             user=self.user,
             date_of_birth=date(1993, 3, 15),
@@ -69,11 +75,11 @@ class ProfileApprovedContextTests(TestCase):
             location="Luxembourg City",
             verification_status="verified",
             verification_method="luxid",
-            is_approved=False,  # legacy flag not synced
+            is_approved=False,  # legacy flag intentionally out of sync
             is_active=True,
         )
 
-        self.assertTrue(self._context()["profile_is_approved"])
+        self.assertFalse(self._context()["profile_is_approved"])
 
     def test_incomplete_profile_is_not_approved(self):
         CrushProfile.objects.create(
