@@ -1,8 +1,16 @@
 {% load i18n %}
 <li class="changelog-note">
-    <p class="text-crush-dark dark:text-white font-medium leading-snug">
-        {{ note.title|default:_("Coming soon") }}
-    </p>
+    <div class="flex items-baseline justify-between gap-3">
+        <p class="text-crush-dark dark:text-white font-medium leading-snug">
+            {{ note.title|default:_("Coming soon") }}
+        </p>
+        {% with note_date=note.published_on|default:release.released_on %}
+            <time datetime="{{ note_date|date:'Y-m-d' }}"
+                  class="changelog-note-date shrink-0 text-xs text-gray-400 dark:text-gray-500">
+                {{ note_date|date:"M j" }}
+            </time>
+        {% endwith %}
+    </div>
     {% if note.body %}
         <p class="changelog-note-body mt-1 text-gray-700 dark:text-gray-300 leading-relaxed">{{ note.body }}</p>
     {% endif %}

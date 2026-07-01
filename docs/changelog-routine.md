@@ -35,6 +35,7 @@ PR merged → main
 | **Scrubbing** | Every incoming string is passed through `crush_lu.changelog_text.scrub` **server-side** — emails, internal Azure hosts, `Co-Authored-By`/`Signed-off-by` trailers, and `claude.ai/code` session URLs are stripped even if the caller forgets. The caller is never trusted. |
 | **Idempotency** | Keyed on the **merge-commit SHA** in `notes[].related_commits`. A note whose SHA is already persisted on the release is skipped, so a re-delivered webhook (or a re-run) never duplicates a note. |
 | **Publish** | `release.is_published` defaults to `true` → live immediately. Set it to `false` to stage a draft for admin review. |
+| **Dates** | `release.released_on` is **sticky** — it's set once when the card is first created and left alone on every later append. `notes[].published_on` is per-note and defaults to today; that's the date the public page actually shows next to each note. See "Two dates, not one" below. |
 
 ### Request body
 
@@ -45,7 +46,7 @@ PR merged → main
     "slug":         "v1-8-crush-connect",          // ≤ 80 chars, valid slug, required (unique key)
     "title":        "Crush Connect, reimagined",   // ≤ 140 chars, required
     "hero_summary": "A warmer, privacy-first ...", // ≤ 280 chars, optional
-    "released_on":  "2026-06-19",                  // ISO date, optional (defaults to today)
+    "released_on":  "2026-06-19",                  // ISO date, OMIT when appending to an existing slug (see below)
     "is_published": true                            // optional, defaults true
   },
   "notes": [
@@ -54,7 +55,8 @@ PR merged → main
       "title":           "Clearer Crush Connect",  // ≤ 160 chars, required
       "body":            "You're in the mix ...",   // plain text, optional
       "related_commits": ["<MERGE_COMMIT_SHA>"],   // REQUIRED for idempotency — include the PR's merge SHA
-      "order":           0                          // optional sort key within the release
+      "order":           0,                         // optional sort key within the release
+      "published_on":    "2026-07-01"               // ISO date, optional (defaults to today — usually just omit it)
     }
   ]
 }
@@ -63,6 +65,18 @@ PR merged → main
 > **Idempotency contract:** always put the PR's **merge commit SHA** in every
 > note's `related_commits`. That is what makes a second delivery of the same PR
 > a no-op (`notes_added: 0`).
+
+> **Two dates, not one:** a release window (`crush_lu/data/release_milestones.json`)
+> can stay open for weeks, with many PRs appending notes to the same card over
+> that time. `release.released_on` is the card's one headline date and is only
+> set the first time a slug is created — **do not** send it on later requests
+> for a slug that already exists, or you'll drag the whole card's date forward
+> (or backward) to match whatever you send, misdating every other note already
+> on it. Leave `release` in the payload (version/slug/title/hero_summary still
+> matter and get updated every time), just omit `released_on` unless you
+> specifically mean to correct the release's official date. Each note's own
+> `published_on` (default: today) is what actually renders next to it, so that
+> part takes care of itself.
 
 ### Response
 
@@ -173,14 +187,24 @@ borderline case, skip — a missing note is better than noise.
 - Pick the entry whose `[since, until]` date window contains today's date.
 - Use that entry's `version`, `slug`, `title`, and `hero_summary` for the
   `release` object. (Appending to the same slug groups the sprint's PRs under
-  one card.) If no window matches, create a sensible new one: `version` like
-  `vX.Y`, a kebab-case `slug`, a short `title`, and `released_on` = today.
+  one card.) **Do not** copy that entry's own date into `release.released_on`
+  — omit `released_on` entirely when the slug already has a published card, so
+  you don't drag its one headline date onto every note appended to it days or
+  weeks apart (see "Two dates, not one" above). If no window matches, create a
+  sensible new one: `version` like `vX.Y`, a kebab-case `slug`, a short
+  `title`, and `released_on` = today (only set it for a genuinely new slug).
 
-## 4. Write the note (warm, plain language)
+## 4. Write the note(s)
+The payload's `notes` field is a **list**, even for a single item —
+`"notes": [{...}]`, not `"note": {...}`.
+
+Per note, warm and plain language:
 - `category`: one of `feature`, `improvement`, `fix`, `under_hood`.
 - `title`: ≤ 160 chars, benefit-first, no jargon, no internal scope names.
 - `body`: 1–3 short sentences describing what changed for the member.
 - `related_commits`: `["<MERGE_COMMIT_SHA>"]` — REQUIRED.
+- `published_on`: usually omit it — it defaults to today, which is correct for
+  same-day PR-merge notes.
 - Never include emails, internal hostnames, SHAs in prose, ticket IDs, employee
   names, or `Co-Authored-By` / `claude.ai/code` lines. (The server scrubs these
   too, but write clean copy regardless.)
@@ -225,8 +249,7 @@ curl -sS -X POST "$CHANGELOG_INGEST_URL" \
         "release": {
           "version": "v1.8",
           "slug": "v1-8-crush-connect",
-          "title": "Crush Connect, reimagined",
-          "released_on": "2026-06-19"
+          "title": "Crush Connect, reimagined"
         },
         "notes": [{
           "category": "improvement",
@@ -235,7 +258,9 @@ curl -sS -X POST "$CHANGELOG_INGEST_URL" \
           "related_commits": ["abc123"]
         }]
       }'
-# → 201, entry visible on /changelog/.
+# → 201, entry visible on /changelog/. released_on omitted on purpose: since
+# v1-8-crush-connect already exists, this leaves its headline date alone and
+# the note gets today's date as its own published_on.
 # Re-POST the same related_commits SHA → "notes_added": 0 (idempotent).
 ```
 
@@ -260,3 +285,5 @@ curl -sS -X POST "$CHANGELOG_INGEST_URL" \
 | `400 ... exceeds N characters` | A field is over its limit (title 160, release.title 140, hero_summary 280). |
 | Entry not on `/changelog/` | `is_published` was sent as `false`, or the release window matched a different (unpublished) slug. |
 | Note missing after a re-run | Expected — the merge SHA was already recorded (idempotency). |
+| `"success": true` but `notes_added: 0` on what should be a *first* delivery | The payload used `"note": {...}` instead of `"notes": [{...}]`. The endpoint silently treats a missing `notes` key as an empty list — same response shape as a real duplicate, so check the request body, not just the SHA, before assuming it's idempotency. |
+| A release's displayed date jumped forward/backward unexpectedly | A request sent `release.released_on` on an append to an *existing* slug. Omit it — see "Two dates, not one" above. |

@@ -106,6 +106,19 @@ class WriteReleaseIdempotencyTests(TestCase):
         self.assertTrue(release.notes.exists())
         self.assertTrue(release.notes.filter(auto_generated=True).exists())
 
+    def test_note_published_on_uses_most_recent_commit_in_bucket(self):
+        # Each note's published_on should reflect its own commits' most recent
+        # date, not the release's overall released_on (2026-01-15 above).
+        self._run_write()
+        release = PatchRelease.objects.get(slug="v1-0-launch")
+        for note in release.notes.all():
+            self.assertIsNotNone(note.published_on)
+            self.assertNotEqual(note.published_on, release.released_on)
+        quiz_note = release.notes.get(category=PatchNoteCategory.FEATURE)
+        self.assertEqual(quiz_note.published_on, date(2026, 1, 10))
+        fix_note = release.notes.get(category=PatchNoteCategory.FIX)
+        self.assertEqual(fix_note.published_on, date(2026, 1, 9))
+
     def test_rerun_preserves_is_published(self):
         """P1 #1: editor publishes, generator re-runs, publish flag survives."""
         self._run_write()
@@ -188,6 +201,7 @@ class ChangelogViewTests(TestCase):
             category=PatchNoteCategory.FEATURE,
             title="New quiz mode",
             body="Team quiz goes live.",
+            published_on=date(2026, 1, 15),
         )
         self.draft = PatchRelease.objects.create(
             slug="v1-1-draft",
@@ -238,6 +252,32 @@ class ChangelogViewTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "Launch day")
         self.assertContains(resp, "New quiz mode")
+
+    def test_note_shows_its_own_published_on_not_the_release_date(self):
+        # A note appended weeks after the release card was first created
+        # should render its own date, not the release's released_on.
+        PatchNote.objects.create(
+            release=self.published,
+            category=PatchNoteCategory.FIX,
+            title="Fixed a quiz scoring bug",
+            body="Scores now update instantly.",
+            published_on=date(2026, 2, 3),
+        )
+        resp = self.client.get(self.DETAIL_URL.format(slug="v1-0-launch"))
+        self.assertContains(resp, 'datetime="2026-02-03"')
+        self.assertContains(resp, 'datetime="2026-01-15"')  # release header date
+
+    def test_note_without_published_on_falls_back_to_release_date(self):
+        legacy_note = PatchNote.objects.create(
+            release=self.published,
+            category=PatchNoteCategory.IMPROVEMENT,
+            title="Legacy note predating published_on",
+            body="Backfilled without its own date.",
+        )
+        PatchNote.objects.filter(pk=legacy_note.pk).update(published_on=None)
+        resp = self.client.get(self.DETAIL_URL.format(slug="v1-0-launch"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Legacy note predating published_on")
 
 
 class GeneratePatchNotesDryRunTests(TestCase):

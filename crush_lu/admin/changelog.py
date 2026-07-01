@@ -12,7 +12,7 @@ class PatchNoteInline(AutoTranslateMixin, TranslationStackedInline):
 
     model = None  # set below after import to avoid circular refs at module load
     extra = 0
-    fields = ("category", "order", "title", "body", "related_commits")
+    fields = ("category", "order", "title", "body", "published_on", "related_commits")
     classes = ("collapse",)
 
 
@@ -69,7 +69,7 @@ class PatchReleaseAdmin(AutoTranslateMixin, TranslationAdmin):
 class PatchNoteAdmin(AutoTranslateMixin, TranslationAdmin):
     """Admin for individual patch notes (usually edited inline via release)."""
 
-    list_display = ("release", "category", "title", "order", "auto_generated")
+    list_display = ("release", "category", "title", "published_on", "order", "auto_generated")
     list_select_related = ["release"]
     list_filter = ("category", "auto_generated", "release__is_published", "release")
     list_editable = ("order",)
