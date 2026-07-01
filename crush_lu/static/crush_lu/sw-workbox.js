@@ -421,8 +421,15 @@ if (workbox) {
     );
 
     // Strategy 7: Stale While Revalidate for fonts
+    // Same-origin only: cross-origin font files (e.g. fonts.gstatic.com, pulled
+    // in by the Google Fonts stylesheet) would otherwise be SW-fetched here,
+    // which CSP polices under connect-src where those hosts are absent — the
+    // same reason the style/script route above is scoped. The <link>/@font-face
+    // still loads them normally via font-src; the SW just doesn't cache them.
     workbox.routing.registerRoute(
-        ({ request }) => request.destination === "font",
+        ({ request, url }) =>
+            request.destination === "font" &&
+            url.origin === self.location.origin,
         new workbox.strategies.StaleWhileRevalidate({
             cacheName: "crush-fonts",
             plugins: [
