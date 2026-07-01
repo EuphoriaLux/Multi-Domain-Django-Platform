@@ -138,19 +138,30 @@ def test_daily_activity_recorded_once_per_day(user):
     assert DailyUserActivity.objects.filter(user=user).count() == 1
 
 
-def test_daily_pwa_flag_sticks_within_day(user):
+def test_daily_pwa_flag_upgrades_after_browser_visit(user):
     # A browser visit first (was_pwa stays False)...
     _run(_make_request(user, pwa=False))
     row = DailyUserActivity.objects.get(user=user)
     assert row.was_pwa is False
 
-    # ...then a PWA visit the same day flips was_pwa True. Clear the per-day
-    # cache key so the second call isn't short-circuited (simulates the first
-    # PWA request of the day arriving after a browser request).
-    cache.delete(_daily_key(user))
+    # ...then a PWA visit the SAME day flips was_pwa True, WITHOUT clearing the
+    # per-day cache: the browser hit cached "seen", so a later PWA request is
+    # still allowed through to upgrade the flag (regression guard for the
+    # same-day undercount).
     _run(_make_request(user, pwa=True))
 
     row.refresh_from_db()
     assert row.was_pwa is True
     # Still a single row for the day.
     assert DailyUserActivity.objects.filter(user=user).count() == 1
+
+
+def test_daily_pwa_visit_not_re_queried_after_flagged(user):
+    # Once the day's row is PWA-flagged, subsequent requests short-circuit on
+    # the cache without touching the DB.
+    _run(_make_request(user, pwa=True))
+    assert DailyUserActivity.objects.get(user=user).was_pwa is True
+
+    with patch("crush_lu.models.DailyUserActivity.objects") as mock_daily:
+        _run(_make_request(user, pwa=True))
+    mock_daily.get_or_create.assert_not_called()

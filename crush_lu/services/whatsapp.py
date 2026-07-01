@@ -145,19 +145,34 @@ def mark_not_on_whatsapp(phone_number: str) -> int:
     stops us re-attempting WhatsApp for that number and lets notifications fall
     back to email. Returns the number of profiles updated.
 
-    Matching tolerates the ``+``-stripped form Meta echoes back in ``to`` as well
-    as the stored ``+<digits>`` value.
+    Matches on **digits only**: verified numbers are stored canonically
+    (``+<digits>``) but form-entered ones may carry the spaces/dashes/parens the
+    model's validator allows, while Meta reports the ``+``-stripped canonical
+    form — so both the stored value and the recipient are reduced to bare digits
+    before comparing.
     """
+    from django.db.models import F, Value
+    from django.db.models.functions import Replace
+
     from crush_lu.models.profiles import CrushProfile
 
-    normalized = _normalize_recipient(phone_number)
-    if not normalized:
+    target_digits = "".join(ch for ch in (phone_number or "") if ch.isdigit())
+    if not target_digits:
         return 0
 
-    candidates = {phone_number, normalized, f"+{normalized}"}
-    return CrushProfile.objects.filter(
-        phone_number__in=candidates, not_on_whatsapp=False
-    ).update(not_on_whatsapp=True)
+    digits_expr = F("phone_number")
+    for ch in (" ", "-", "(", ")", ".", "+"):
+        digits_expr = Replace(digits_expr, Value(ch), Value(""))
+
+    pks = list(
+        CrushProfile.objects.filter(not_on_whatsapp=False)
+        .annotate(_pn_digits=digits_expr)
+        .filter(_pn_digits=target_digits)
+        .values_list("pk", flat=True)
+    )
+    if not pks:
+        return 0
+    return CrushProfile.objects.filter(pk__in=pks).update(not_on_whatsapp=True)
 
 
 def can_send_whatsapp(profile) -> bool:

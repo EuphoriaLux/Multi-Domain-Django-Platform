@@ -39,6 +39,15 @@ class MarkNotOnWhatsAppTests(TestCase):
         profile.refresh_from_db()
         self.assertTrue(profile.not_on_whatsapp)
 
+    def test_matches_formatted_stored_number(self):
+        # A form-entered number with the spaces/dashes the validator allows is
+        # still matched against Meta's canonical +stripped recipient.
+        profile = self._profile("d@example.com", "+352 621-123 456")
+        updated = mark_not_on_whatsapp("352621123456")
+        self.assertEqual(updated, 1)
+        profile.refresh_from_db()
+        self.assertTrue(profile.not_on_whatsapp)
+
     def test_no_match_leaves_others_untouched(self):
         other = self._profile("c@example.com", "+352999999999")
         updated = mark_not_on_whatsapp("+352123456789")
