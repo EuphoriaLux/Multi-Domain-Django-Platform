@@ -106,6 +106,7 @@ def test_alignment_score_counts_matches():
 @pytest.mark.django_db
 def test_gate_miss_records_answers_but_no_spark():
     me = _make_user(username="me", preferred_genders=["F"])
+    _set_gate_questions(me)  # first movers must have their own questions
     her = _make_user(username="her", gender="F", premium=False)
     questions = _set_gate_questions(her, answers=[True, True, True])
     _surface_in_drop(me, her)
@@ -125,6 +126,7 @@ def test_gate_miss_records_answers_but_no_spark():
 @pytest.mark.django_db
 def test_gate_sent_creates_pending_spark():
     me = _make_user(username="me", preferred_genders=["F"])
+    _set_gate_questions(me)  # first movers must have their own questions
     her = _make_user(username="her", gender="F", premium=False)
     questions = _set_gate_questions(her, answers=[True, True, True])
     _surface_in_drop(me, her)
@@ -189,6 +191,20 @@ def test_gate_requires_matching_question_set():
         bogus = {list(her_ids)[0]: True}
     with pytest.raises(ValueError):
         submit_gate_answers(me, her, bogus)
+
+
+@pytest.mark.django_db
+def test_first_mover_without_own_questions_refused():
+    """A first mover who hasn't picked their own 3 questions can't create a Spark
+    (the recipient could never answer them back)."""
+    me = _make_user(username="me", preferred_genders=["F"])  # no gate questions
+    her = _make_user(username="her", gender="F", premium=False)
+    questions = _set_gate_questions(her, answers=[True, True, True])
+    _surface_in_drop(me, her)
+
+    with pytest.raises(ValueError):
+        submit_gate_answers(me, her, {q.id: True for q in questions})
+    assert not CuriositySpark.objects.filter(sender=me, recipient=her).exists()
 
 
 # ---------------------------------------------------------------------------

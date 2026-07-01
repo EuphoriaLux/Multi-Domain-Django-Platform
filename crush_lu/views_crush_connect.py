@@ -718,20 +718,35 @@ def crush_connect_home(request):
             drop.recipients.exclude(id__in=blocked_user_ids(user))
             .exclude(crush_connect_membership__excluded_by_coach=True)
             .filter(crushprofile__verification_status="verified")
+            # Re-check photo-share consent at RENDER time: a Drop pinned before
+            # consent existed, or a member who later revoked it, must not have
+            # their clear photo shown. The snapshot is left intact for audit.
+            .filter(crush_connect_membership__photo_share_consent=True)
             .select_related("crushprofile", "crush_connect_membership")
             .prefetch_related("crush_connect_membership__gate_questions__question")
             .all()
         )
 
     # Card CTA state: which of today's cards this user has already answered (the
-    # "Read-the-Photo" gate). sparked_ids kept for any legacy template refs.
+    # "Read-the-Photo" gate). Scoped to each target's CURRENT gate questions —
+    # a target who re-picked must show the fresh form, not a stale "answered".
     from crush_lu.models import ConnectQuestionAnswer, CuriositySpark
 
-    answered_ids = set(
-        ConnectQuestionAnswer.objects.filter(responder=user).values_list(
-            "profile_owner_id", flat=True
-        )
+    answered_pairs = set(
+        ConnectQuestionAnswer.objects.filter(
+            responder=user, profile_owner__in=[t.pk for t in recipients]
+        ).values_list("profile_owner_id", "question_id")
     )
+    answered_ids = set()
+    for target in recipients:
+        membership = getattr(target, "crush_connect_membership", None)
+        q_ids = (
+            [gq.question_id for gq in membership.active_gate_questions]
+            if membership
+            else []
+        )
+        if q_ids and all((target.pk, qid) in answered_pairs for qid in q_ids):
+            answered_ids.add(target.pk)
     sparked_ids = set(
         CuriositySpark.objects.filter(sender=user).values_list(
             "recipient_id", flat=True
@@ -771,11 +786,15 @@ def crush_connect_spark_compose(request, user_id: int):
     (first mover), or the recipient of a Spark answering the sender back (works
     for candidate-track members too — they never get a Drop of their own).
     """
+    from django.urls import reverse
+
     from crush_lu.models import CuriositySpark
+    from crush_lu.services.blocking import is_blocked_pair
     from crush_lu.services.crush_connect import (
         GATE_QUESTION_COUNT,
         can_send_spark,
         is_catalogue_eligible,
+        is_sender_eligible,
         submit_gate_answers,
     )
 
@@ -798,6 +817,15 @@ def crush_connect_spark_compose(request, user_id: int):
     if answering_back:
         if not user.is_staff and not is_catalogue_eligible(user):
             return redirect("crush_lu:crush_connect_teaser")
+        # Revalidate the pending Spark's SENDER (the target here). If they lost
+        # eligibility / photo consent, or a block appeared since they sent it,
+        # don't render their clear photo + questions. (sparks_received hides
+        # these too; submit_gate_answers refuses at accept.)
+        if not user.is_staff and (
+            not is_sender_eligible(target) or is_blocked_pair(user, target)
+        ):
+            messages.info(request, _("This member isn't available right now."))
+            return redirect("crush_lu:crush_connect_home")
     else:
         allowed, reason = can_send_spark(user, target)
         if not allowed:
@@ -813,6 +841,20 @@ def crush_connect_spark_compose(request, user_id: int):
                 request, _("This member isn't available right now.")
             )
             return redirect("crush_lu:crush_connect_home")
+        # First movers must have their OWN 3 questions so the target can answer
+        # back — otherwise the Spark is unmatchable. Send them to set them up
+        # instead of creating a dead Spark.
+        my_membership = getattr(user, "crush_connect_membership", None)
+        if not user.is_staff and (
+            my_membership is None or not my_membership.has_gate_questions
+        ):
+            messages.info(
+                request,
+                _("First, pick your own 3 questions so people can match with you."),
+            )
+            return redirect(
+                reverse("crush_lu:crush_connect_profile_edit") + "?section=questions"
+            )
 
     membership = getattr(target, "crush_connect_membership", None)
     gate_questions = list(membership.active_gate_questions) if membership else []

@@ -462,9 +462,25 @@ class ConnectGateQuestionsForm(forms.ModelForm):
     def _save_picks(self, membership):
         from django.db import transaction
 
-        from crush_lu.models import MemberGateQuestion
+        from crush_lu.models import ConnectQuestionAnswer, MemberGateQuestion
 
+        new = {qid: owner_answer for qid, owner_answer in self.cleaned_picks}
         with transaction.atomic():
+            # Guesses become stale for any question the member DROPS or whose
+            # truth they CHANGE — the answer was scored against the old pick and
+            # would otherwise be locked in by the unique constraint and mis-scored
+            # against the new truth. Clear those so viewers can answer the fresh
+            # gate; guesses for questions kept with the same truth are preserved.
+            stale_qids = [
+                gq.question_id
+                for gq in membership.gate_questions.all()
+                if new.get(gq.question_id) != gq.owner_answer
+            ]
+            if stale_qids:
+                ConnectQuestionAnswer.objects.filter(
+                    profile_owner=membership.user, question_id__in=stale_qids
+                ).delete()
+
             membership.gate_questions.all().delete()
             MemberGateQuestion.objects.bulk_create(
                 [

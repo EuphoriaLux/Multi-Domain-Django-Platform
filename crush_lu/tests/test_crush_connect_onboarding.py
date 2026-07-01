@@ -35,6 +35,7 @@ from crush_lu.tests.test_crush_connect import (
     _make_user,
     _mark_attended,
     _seed_pool_for,
+    _set_gate_questions,
 )
 from django.contrib.auth import get_user_model
 
@@ -823,6 +824,43 @@ def test_edit_questions_section_saves_without_consent(client, settings):
     resp = client.post(PROFILE_EDIT_URL + "?section=questions", data=data)
     assert resp.status_code in (301, 302)
     assert CrushConnectMembership.objects.get(user=me).gate_questions.count() == 3
+
+
+@pytest.mark.django_db
+def test_repick_changing_truth_clears_stale_guesses(client, settings):
+    """Editing a question's own-truth clears viewers' now-stale guesses so they
+    can answer the fresh gate; unchanged questions keep their guesses (Codex P2)."""
+    from crush_lu.models import ConnectQuestionAnswer
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    owner = _make_user(username="owner", preferred_genders=["F"])
+    _mark_attended(owner)
+    _login_eligible(client, owner)
+    qs = _set_gate_questions(owner, answers=[True, True, True])
+
+    viewer = _make_user(username="viewer", gender="F", premium=False)
+    for q in qs:
+        ConnectQuestionAnswer.objects.create(
+            responder=viewer, profile_owner=owner, question=q, answer=True
+        )
+
+    # Owner re-picks the SAME 3 questions but flips the first one's truth.
+    data = {
+        f"q_{qs[0].id}": "no",   # truth changed → guesses become stale
+        f"q_{qs[1].id}": "yes",  # unchanged
+        f"q_{qs[2].id}": "yes",  # unchanged
+        "photo_share_consent": "on",
+        "section": "questions",
+    }
+    resp = client.post(PROFILE_EDIT_URL + "?section=questions", data=data)
+    assert resp.status_code in (301, 302)
+
+    assert not ConnectQuestionAnswer.objects.filter(
+        responder=viewer, profile_owner=owner, question=qs[0]
+    ).exists()
+    assert ConnectQuestionAnswer.objects.filter(
+        responder=viewer, profile_owner=owner, question=qs[1]
+    ).exists()
 
 
 # ---------------------------------------------------------------------------

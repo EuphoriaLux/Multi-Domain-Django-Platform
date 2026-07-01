@@ -1430,6 +1430,7 @@ def test_respond_is_idempotent_after_decision():
 def test_spark_compose_view_answers_and_sends(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(username="me", preferred_genders=["F"])
+    _set_gate_questions(me)  # first movers must have their own questions
     her = _make_user(username="her", gender="F", premium=False)
     questions = _set_gate_questions(her, answers=[True, True, True])
     _surface_in_drop(me, her)
@@ -1466,6 +1467,106 @@ def test_spark_compose_rejected_when_not_surfaced(client, settings):
     )
     assert resp.status_code in (302, 301)
     assert not CuriositySpark.objects.filter(sender=me, recipient=her).exists()
+
+
+@pytest.mark.django_db
+def test_first_mover_without_questions_redirected_to_setup(client, settings):
+    """A premium member who hasn't picked their own 3 questions is sent to set
+    them up rather than creating an unmatchable Spark (Codex P2)."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])  # no gate questions
+    her = _make_user(username="her", gender="F", premium=False)
+    _set_gate_questions(her)
+    _surface_in_drop(me, her)
+    _login_eligible(client, me)
+
+    resp = client.get(f"/en/crush-connect/spark/{her.pk}/")
+    assert resp.status_code in (301, 302)
+    assert "section=questions" in resp.url
+
+
+@pytest.mark.django_db
+def test_home_render_excludes_revoked_consent(client, settings):
+    """A Drop pinned while a recipient consented must drop them at render time
+    once they revoke photo consent — the card is now a clear photo (Codex P1)."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])
+    _mark_attended(me)
+    targets = _seed_pool_for(me, n=3)
+    for t in targets:
+        _set_gate_questions(t)
+    drop = get_or_create_daily_drop(me)
+    victim = list(drop.recipients.all())[0]
+    vm = victim.crush_connect_membership
+    vm.photo_share_consent = False
+    vm.save(update_fields=["photo_share_consent"])
+
+    _login_eligible(client, me)
+    body = client.get(CONNECT_HOME_URL).content.decode()
+    assert victim.first_name not in body
+
+
+@pytest.mark.django_db
+def test_answer_back_refused_when_sender_lost_eligibility(client, settings):
+    """The answer-back page must not render a pending Spark sender's clear photo
+    once they lose eligibility / revoke consent (Codex P2)."""
+    from crush_lu.services.crush_connect import submit_gate_answers
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])  # sender/first mover
+    _set_gate_questions(me)
+    her = _make_user(username="her", gender="F", premium=False)  # recipient
+    her_qs = _set_gate_questions(her, answers=[True, True, True])
+    _surface_in_drop(me, her)
+    submit_gate_answers(me, her, {q.id: True for q in her_qs})  # pending me→her
+
+    mm = me.crush_connect_membership
+    mm.photo_share_consent = False
+    mm.save(update_fields=["photo_share_consent"])
+
+    _login_eligible(client, her)
+    resp = client.get(f"/en/crush-connect/spark/{me.pk}/")
+    assert resp.status_code in (301, 302)  # refused, sender's photo not rendered
+
+
+@pytest.mark.django_db
+def test_answered_state_scoped_to_current_questions(client, settings):
+    """A viewer who answered a target's OLD questions still sees the fresh gate
+    form after the target re-picks a different set (Codex P2)."""
+    from crush_lu.models import ConnectQuestionAnswer, MemberGateQuestion
+    from crush_lu.services.crush_connect import get_or_create_question_week
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])
+    _mark_attended(me)
+    her = _make_user(username="her", gender="F", preferred_genders=["M"])
+    old_qs = _set_gate_questions(her)
+    for q in old_qs:
+        ConnectQuestionAnswer.objects.create(
+            responder=me, profile_owner=her, question=q, answer=True
+        )
+
+    # her re-picks a DIFFERENT 3 questions from this week's set.
+    week = get_or_create_question_week()
+    new_qs = list(
+        week.questions.filter(is_active=True).exclude(
+            id__in=[q.id for q in old_qs]
+        )[:3]
+    )
+    her.crush_connect_membership.gate_questions.all().delete()
+    for i, q in enumerate(new_qs, start=1):
+        MemberGateQuestion.objects.create(
+            membership=her.crush_connect_membership,
+            question=q,
+            position=i,
+            owner_answer=True,
+            picked_week=week,
+        )
+
+    _login_eligible(client, me)
+    body = client.get(CONNECT_HOME_URL).content.decode()
+    # The card renders the fresh answer form, not an "already read" state.
+    assert "Answer &amp; connect" in body
 
 
 @pytest.mark.django_db

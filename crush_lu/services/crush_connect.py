@@ -481,11 +481,17 @@ def is_catalogue_eligible(user) -> bool:
 def is_sender_eligible(user) -> bool:
     """
     Whether ``user`` currently qualifies to SEND Sparks (the receiver track):
-    approved profile + Premium coach assigned + onboarded (not excluded).
+    approved profile + Premium coach assigned + onboarded (not excluded) + has
+    given photo-share consent.
+
+    Consent matters on the SEND side too now: reading a candidate exposes the
+    sender's clear photo to that candidate on the answer-back surface, so a
+    member who never consented (or revoked it) must not be able to send, be
+    listed as a pending Spark, or be accepted.
 
     Like catalogue eligibility, this must be re-checked at accept time —
-    a sender who was rejected, lost their Premium coach, or got
-    coach-excluded after sending must not land in the accepted-sparks
+    a sender who was rejected, lost their Premium coach, got coach-excluded, or
+    revoked photo consent after sending must not land in the accepted-sparks
     coach queue via an old pending Spark.
     """
     profile = getattr(user, "crushprofile", None)
@@ -496,6 +502,7 @@ def is_sender_eligible(user) -> bool:
         and profile.assigned_coach_id
         and membership is not None
         and membership.is_onboarded
+        and membership.photo_share_consent
     )
 
 
@@ -702,6 +709,11 @@ def submit_gate_answers(responder, profile_owner, guesses: dict, request=None):
         allowed, reason = can_send_spark(responder, profile_owner)
         if not allowed:
             raise ValueError(reason)
+        # The first mover must have their OWN 3 questions, or the recipient could
+        # never answer back and the Spark would be unmatchable. Members onboarded
+        # before the question step have none until they redo it.
+        if len(owner_gate_truths(responder)) < GATE_QUESTION_COUNT:
+            raise ValueError("no_own_questions")
     # else: forward Spark already exists → idempotent re-POST, no re-gating.
 
     # Record the 3 guesses (idempotent on the unique constraint). Always recorded
