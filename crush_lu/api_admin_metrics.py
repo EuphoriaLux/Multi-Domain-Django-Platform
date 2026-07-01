@@ -60,3 +60,35 @@ def weekly_kpis_sweep(request):
         {"status": "ok", "timestamp": started.isoformat()},
         status=202,
     )
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def rotate_connect_questions_sweep(request):
+    """POST /api/admin/rotate-connect-questions/
+
+    Ensure the current ISO week's Crush Connect question set exists. Idempotent —
+    the set is built once per week (deterministic weighted pick), so a retried
+    Function invocation is a no-op.
+    """
+    if not _authenticate_admin_request(request):
+        return _unauthorized(request)
+
+    started = timezone.now()
+    buffer = StringIO()
+    try:
+        call_command("rotate_connect_questions", stdout=buffer, stderr=buffer)
+    except CommandError:
+        logger.exception("[rotate_connect_questions] Command error")
+        return JsonResponse({"error": "command_error"}, status=500)
+    except Exception:  # noqa: BLE001
+        logger.exception("[rotate_connect_questions] Unhandled error")
+        return JsonResponse({"error": "internal_error"}, status=500)
+
+    logger.info(
+        "[rotate_connect_questions] completed: %s", buffer.getvalue().strip()
+    )
+    return JsonResponse(
+        {"status": "ok", "timestamp": started.isoformat()},
+        status=202,
+    )

@@ -1,0 +1,30 @@
+{% load i18n %}
+{% comment %}
+Anonymous aggregate of how people guessed THIS member's own gate questions —
+the "8 of 12 think you work in Finance" viral stat. Only the member sees it, and
+never who guessed what.
+
+Context:
+    gate_stat_rows — [{question, owner_answer, yes, total}]
+{% endcomment %}
+{% if gate_stat_rows %}
+<div class="space-y-4">
+    {% for row in gate_stat_rows %}
+    <div>
+        <p class="text-sm font-medium text-gray-900 dark:text-white mb-1.5">{{ row.question.text }}</p>
+        {% if row.total %}
+        <div class="flex items-center gap-2.5">
+            <div class="flex-1 h-2 rounded-full bg-gray-100 dark:bg-slate-700 overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-crush-purple to-crush-pink" style="width: {% widthratio row.yes row.total 100 %}%"></div>
+            </div>
+            <span class="text-xs font-medium text-gray-500 dark:text-gray-400 shrink-0">
+                {% blocktrans with yes=row.yes total=row.total %}{{ yes }} of {{ total }} said Yes{% endblocktrans %}
+            </span>
+        </div>
+        {% else %}
+        <p class="text-xs text-gray-400 dark:text-gray-500 mb-0">{% trans "No guesses yet — you'll see how people read you here." %}</p>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}

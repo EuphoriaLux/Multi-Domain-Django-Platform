@@ -1,25 +1,18 @@
 {% extends "crush_lu/emails/base_email.html" %}
 {% load i18n %}
 
-{% block title %}{% trans "Someone is curious about you" %} - Crush.lu{% endblock %}
+{% block title %}{% trans "Someone read you well" %} - Crush.lu{% endblock %}
 
-{% block header_title %}{% trans "Someone is curious about you" %} ✨{% endblock %}
+{% block header_title %}{% trans "Someone read you well" %} ✨{% endblock %}
 
 {% block content %}
 <h2>{% blocktrans with first_name=first_name %}Hi {{ first_name }},{% endblocktrans %}</h2>
 
-<p><strong>{% blocktrans with name=sender_first_name %}{{ name }} sent you a Curiosity Spark on Crush Connect.{% endblocktrans %}</strong></p>
+<p><strong>{% blocktrans with name=sender_first_name %}{{ name }} read your photo well on Crush Connect and answered your 3 questions.{% endblocktrans %}</strong></p>
 
-{% if spark_message %}
-<div class="info-box">
-    <strong>{% trans "Their message:" %}</strong>
-    <p>&ldquo;{{ spark_message }}&rdquo;</p>
-</div>
-{% endif %}
+<p>{% trans "Answer their 3 questions from their photo to read them back. If you read each other well, your Crush Coach arranges a date. If not, they'll never know." %}</p>
 
-<p>{% trans "Take a look at their card — first name, story and interests only — and decide whether you're curious too. If you accept, your Crush Coach will be in touch to arrange a date. If you decline, they'll never know." %}</p>
-
-<a href="{{ sparks_url }}" class="button">{% trans "View your Spark" %}</a>
+<a href="{{ sparks_url }}" class="button">{% trans "Read them back" %}</a>
 
 <p>
     {% trans "Cheers," %}<br>

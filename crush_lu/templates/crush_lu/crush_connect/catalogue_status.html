@@ -15,7 +15,7 @@
             {% trans "You're in the mix." %}
         </h1>
         <p class="text-gray-600 dark:text-gray-300">
-            {% trans "You've opted in — your LuxID is verified and your story is live. A Crush Coach can now hand-pick you as a match for a Premium member, and we'll tell you the moment it happens." %}
+            {% trans "You've opted in — your LuxID is verified and your 3 questions are live. A Crush Coach can now hand-pick you as a match for a Premium member, and we'll tell you the moment it happens." %}
         </p>
     </header>
 
@@ -25,31 +25,24 @@
             {% include "shared/icons/check.html" with class="w-3.5 h-3.5" %}
             {% trans "LuxID verified" %}
         </span>
-        {% if membership.story_answer %}
+        {% if membership.has_gate_questions %}
         <span class="inline-flex items-center gap-1.5 rounded-full bg-green-100 dark:bg-green-900/30 px-3 py-1.5 text-xs font-medium text-green-700 dark:text-green-300">
             {% include "shared/icons/check.html" with class="w-3.5 h-3.5" %}
-            {% trans "Story live" %}
+            {% trans "Questions live" %}
         </span>
         {% endif %}
     </div>
 
-    {# Story card preview — exactly what matches read about you. #}
+    {# How people read you — anonymous aggregate of guesses at your 3 questions. #}
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-crush-sm ring-1 ring-gray-200 dark:ring-slate-700 p-5 md:p-6 mb-4">
-        <p class="text-xs font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2.5">
-            {% trans "What matches read about you" %}
+        <p class="text-xs font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">
+            {% trans "How people read you" %}
         </p>
-        {% if membership.story_answer %}
-            {% if membership.story_prompt %}
-            <p class="text-xs font-semibold text-crush-purple dark:text-crush-pink mb-1.5">
-                {{ membership.story_prompt.text }}
-            </p>
-            {% endif %}
-            <p class="font-display text-[17px] leading-snug italic text-gray-900 dark:text-white mb-0">
-                &ldquo;{{ membership.story_answer }}&rdquo;
-            </p>
+        {% if gate_stat_rows %}
+            {% include "crush_lu/crush_connect/_gate_stats.html" with gate_stat_rows=gate_stat_rows %}
         {% else %}
             <p class="text-sm text-gray-500 dark:text-gray-400 mb-0">
-                {% trans "You haven't shared a story yet." %}
+                {% trans "You haven't picked your 3 questions yet." %}
             </p>
         {% endif %}
 

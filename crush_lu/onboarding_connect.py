@@ -43,8 +43,8 @@ CONNECT_STEPS = (
                 _STEP_PARTIAL.format(n=5, key="family"), "family"),
     ConnectStep(6, "ideal_match", _("Ideal match"),
                 _STEP_PARTIAL.format(n=6, key="ideal_match"), "ideal_match"),
-    ConnectStep(7, "story", _("Your story"),
-                _STEP_PARTIAL.format(n=7, key="story"), "story"),
+    ConnectStep(7, "questions", _("Your 3 questions"),
+                _STEP_PARTIAL.format(n=7, key="questions"), "questions"),
 )
 
 _BY_N = {s.n: s for s in CONNECT_STEPS}
@@ -102,7 +102,7 @@ def form_for_step(n):
         ConnectLifeForm,
         ConnectFamilyForm,
         ConnectIdealMatchForm,
-        ConnectStoryForm,
+        ConnectGateQuestionsForm,
     )
 
     return {
@@ -112,5 +112,5 @@ def form_for_step(n):
         "life": ConnectLifeForm,
         "family": ConnectFamilyForm,
         "ideal_match": ConnectIdealMatchForm,
-        "story": ConnectStoryForm,
+        "questions": ConnectGateQuestionsForm,
     }[step_for(n).form_key]

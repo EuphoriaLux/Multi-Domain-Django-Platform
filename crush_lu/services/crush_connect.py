@@ -58,6 +58,11 @@ INTEREST_OVERLAP_BOOST_PER = 0.1     # per shared interest …
 INTEREST_OVERLAP_CAP = 3             # … capped at 3 shared → max ×1.3
 MATCHSCORE_NEUTRAL = 0.5             # missing MatchScore pair → neutral 0.5
 
+# "Read-the-Photo" question-gated matching (M8/M9).
+GATE_QUESTION_COUNT = 3              # each member picks exactly 3 gate questions
+GATE_ALIGN_MIN = 2                   # ≥2 of 3 guesses matching truth = "read" them
+WEEKLY_CATALOGUE_SIZE = 12           # active questions surfaced in a week's set
+
 
 def _years_ago(years: int) -> date:
     """Approximate date offset by ``years``; good enough for age-range filters."""
@@ -121,6 +126,11 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
             crushprofile__verification_status="verified",
             crush_connect_membership__onboarded_at__isnull=False,
             crush_connect_membership__excluded_by_coach=False,
+            # "Read-the-Photo": the clear photo is only ever shown to the curated
+            # few, and only for members who consented to that model. Members who
+            # onboarded under the old blurred contract (consent defaults False)
+            # are not surfaced until they re-consent.
+            crush_connect_membership__photo_share_consent=True,
             last_login__gte=inactivity_cutoff,
         )
         .annotate(
@@ -376,6 +386,71 @@ def get_or_create_daily_drop(user, drop_date: date | None = None):
     return drop
 
 # ---------------------------------------------------------------------------
+# Weekly question rotation (M8)
+# ---------------------------------------------------------------------------
+
+
+def get_or_create_question_week(today: date | None = None):
+    """
+    Idempotently return the ``ConnectQuestionWeek`` for ``today``'s ISO week.
+
+    First call for an ISO week builds the set by a deterministic weighted pick of
+    up to ``WEEKLY_CATALOGUE_SIZE`` active questions (seeded by the ISO week, so
+    every machine agrees and ``rotate_connect_questions`` re-runs are no-ops).
+    Members pick their 3 gate questions FROM this snapshot's questions.
+    """
+    from crush_lu.models import ConnectQuestion, ConnectQuestionWeek
+
+    if today is None:
+        today = timezone.localdate()
+    iso = today.isocalendar()
+    iso_year, iso_week = iso.year, iso.week
+    week_start = today - timedelta(days=iso.weekday - 1)  # Monday of this ISO week
+
+    try:
+        return ConnectQuestionWeek.objects.get(iso_year=iso_year, iso_week=iso_week)
+    except ConnectQuestionWeek.DoesNotExist:
+        pass
+
+    candidates = list(ConnectQuestion.objects.filter(is_active=True).order_by("pk"))
+    chosen = []
+    if candidates:
+        weights = [max(c.weight, 1) for c in candidates]
+        seed = int.from_bytes(
+            hashlib.sha256(f"qweek:{iso_year}:{iso_week}".encode()).digest()[:8],
+            "big",
+        )
+        chosen = _seeded_weighted_pick(
+            candidates, weights, WEEKLY_CATALOGUE_SIZE, seed
+        )
+
+    with transaction.atomic():
+        week, _created = ConnectQuestionWeek.objects.get_or_create(
+            iso_year=iso_year,
+            iso_week=iso_week,
+            defaults={"week_start": week_start},
+        )
+        if chosen and not week.questions.exists():
+            week.questions.set(chosen)
+    return week
+
+
+def rotate_question_week(today: date | None = None):
+    """Ensure the current (or given) ISO week's question set exists.
+
+    Thin wrapper over :func:`get_or_create_question_week` for the management
+    command / admin action; idempotent by construction.
+    """
+    return get_or_create_question_week(today)
+
+
+def active_week_questions(today: date | None = None):
+    """The active, still-enabled questions for this week's set (for pick forms)."""
+    week = get_or_create_question_week(today)
+    return week.questions.filter(is_active=True).order_by("category", "id")
+
+
+# ---------------------------------------------------------------------------
 # Curiosity Sparks (M5)
 # ---------------------------------------------------------------------------
 
@@ -404,6 +479,7 @@ def is_catalogue_eligible(user) -> bool:
         and profile.has_luxid_connected
         and membership is not None
         and membership.is_onboarded
+        and membership.photo_share_consent
         and user.last_login is not None
         and user.last_login >= inactivity_cutoff
     )
@@ -412,11 +488,17 @@ def is_catalogue_eligible(user) -> bool:
 def is_sender_eligible(user) -> bool:
     """
     Whether ``user`` currently qualifies to SEND Sparks (the receiver track):
-    approved profile + Premium coach assigned + onboarded (not excluded).
+    approved profile + Premium coach assigned + onboarded (not excluded) + has
+    given photo-share consent.
+
+    Consent matters on the SEND side too now: reading a candidate exposes the
+    sender's clear photo to that candidate on the answer-back surface, so a
+    member who never consented (or revoked it) must not be able to send, be
+    listed as a pending Spark, or be accepted.
 
     Like catalogue eligibility, this must be re-checked at accept time —
-    a sender who was rejected, lost their Premium coach, or got
-    coach-excluded after sending must not land in the accepted-sparks
+    a sender who was rejected, lost their Premium coach, got coach-excluded, or
+    revoked photo consent after sending must not land in the accepted-sparks
     coach queue via an old pending Spark.
     """
     profile = getattr(user, "crushprofile", None)
@@ -427,6 +509,7 @@ def is_sender_eligible(user) -> bool:
         and profile.assigned_coach_id
         and membership is not None
         and membership.is_onboarded
+        and membership.photo_share_consent
     )
 
 
@@ -466,10 +549,16 @@ def can_send_spark(sender, recipient) -> Tuple[bool, str]:
     ).exists():
         return False, "not_surfaced"
 
-    if CuriositySpark.objects.filter(
+    existing = CuriositySpark.objects.filter(
         Q(sender=sender, recipient=recipient)
         | Q(sender=recipient, recipient=sender)
-    ).exists():
+    ).first()
+    if existing is not None:
+        # A reverse pending Spark means the recipient already read the sender and
+        # is waiting — the sender answering back is the "close the gate" path, not
+        # a duplicate. submit_gate_answers handles this specially.
+        if existing.sender_id == recipient.pk and existing.status == "pending":
+            return False, "answer_back"
         return False, "already_sparked"
 
     return True, "ok"
@@ -535,6 +624,165 @@ def respond_to_spark(spark, accept: bool, request=None):
     if accept:
         _notify_spark_accepted(spark, request=request)
     return spark
+
+
+# ---------------------------------------------------------------------------
+# Read-the-Photo answer gate (M9) — guesses drive the CuriositySpark state
+# ---------------------------------------------------------------------------
+
+
+def owner_gate_truths(profile_owner) -> dict:
+    """``{question_id: owner_answer}`` for a member's current 3 gate questions."""
+    membership = getattr(profile_owner, "crush_connect_membership", None)
+    if membership is None:
+        return {}
+    return {
+        gq.question_id: gq.owner_answer for gq in membership.gate_questions.all()
+    }
+
+
+def alignment_score(responder, profile_owner) -> int:
+    """
+    How many of ``responder``'s guesses match ``profile_owner``'s truth (0..3).
+
+    Reads the owner's current gate questions, so re-picking retires stale
+    alignment cleanly. Used only for the gate decision; the aggregate stat
+    (``gate_answer_stats``) counts every guess regardless of correctness.
+    """
+    from crush_lu.models import ConnectQuestionAnswer
+
+    truths = owner_gate_truths(profile_owner)
+    if not truths:
+        return 0
+    guesses = ConnectQuestionAnswer.objects.filter(
+        responder=responder,
+        profile_owner=profile_owner,
+        question_id__in=list(truths.keys()),
+    ).values_list("question_id", "answer")
+    return sum(1 for qid, ans in guesses if truths.get(qid) == ans)
+
+
+def submit_gate_answers(responder, profile_owner, guesses: dict, request=None):
+    """
+    Record ``responder``'s guesses at ``profile_owner``'s 3 questions and advance
+    the match gate. ``guesses`` is ``{question_id: bool}``.
+
+    Returns ``(outcome, spark)`` where outcome is:
+      - ``"miss"``    — alignment < GATE_ALIGN_MIN; guesses recorded (feed the
+                        aggregate stat) but no match, the pair stays where it was.
+      - ``"sent"``    — first mover read the owner (≥ threshold) → pending Spark.
+      - ``"matched"`` — the responder answered back a reverse pending Spark and
+                        also read the owner → the pair is now accepted (mutual).
+
+    Two eligibility regimes, mirroring the asymmetric Spark model:
+      - FIRST MOVER (no Spark yet): only a Premium Drop-receiver may initiate, and
+        only on someone surfaced in their Drop — ``can_send_spark``.
+      - ANSWER-BACK (a reverse pending Spark exists): the responder is the
+        *recipient* of that Spark and may be a candidate-track member (never a
+        Drop-receiver), so gate by catalogue eligibility like ``respond_to_spark``.
+
+    Raises ``ValueError(reason)`` when the guess set is invalid or the pair may
+    not interact.
+    """
+    from crush_lu.models import ConnectQuestionAnswer, CuriositySpark
+    from crush_lu.services.blocking import is_blocked_pair
+
+    truths = owner_gate_truths(profile_owner)
+    if len(truths) < GATE_QUESTION_COUNT:
+        raise ValueError("recipient_no_questions")
+    if set(guesses.keys()) != set(truths.keys()):
+        # The owner re-picked between page load and submit, or a tampered POST.
+        raise ValueError("invalid_answers")
+
+    forward = CuriositySpark.objects.filter(
+        sender=responder, recipient=profile_owner
+    ).first()
+    reverse = CuriositySpark.objects.filter(
+        sender=profile_owner, recipient=responder
+    ).first()
+    answering_back = reverse is not None and reverse.status == "pending"
+
+    if answering_back:
+        # Recipient of an existing Spark reading the sender back. Catalogue
+        # eligibility (candidates included); both parties must still be eligible.
+        if (
+            is_blocked_pair(responder, profile_owner)
+            or not is_catalogue_eligible(responder)
+            or not is_sender_eligible(profile_owner)
+        ):
+            raise ValueError("recipient_unavailable")
+    elif forward is None:
+        # Brand-new interaction → first-mover (Premium receiver) rules.
+        allowed, reason = can_send_spark(responder, profile_owner)
+        if not allowed:
+            raise ValueError(reason)
+        # The first mover must have their OWN 3 questions, or the recipient could
+        # never answer back and the Spark would be unmatchable. Members onboarded
+        # before the question step have none until they redo it.
+        if len(owner_gate_truths(responder)) < GATE_QUESTION_COUNT:
+            raise ValueError("no_own_questions")
+    # else: forward Spark already exists → idempotent re-POST, no re-gating.
+
+    # Record the 3 guesses (idempotent on the unique constraint). Always recorded
+    # — even a miss counts toward the owner's anonymous aggregate stat.
+    ConnectQuestionAnswer.objects.bulk_create(
+        [
+            ConnectQuestionAnswer(
+                responder=responder,
+                profile_owner=profile_owner,
+                question_id=qid,
+                answer=bool(val),
+            )
+            for qid, val in guesses.items()
+        ],
+        ignore_conflicts=True,
+    )
+
+    # Score against the PERSISTED guesses (the first ones — the unique constraint
+    # locks them in), so a re-POST with better answers can't retry a missed read.
+    alignment = alignment_score(responder, profile_owner)
+
+    if answering_back:
+        if alignment >= GATE_ALIGN_MIN:
+            respond_to_spark(reverse, accept=True, request=request)
+            return "matched", reverse
+        # Answered back but misread — no match; the Spark stays pending, silent.
+        return "miss", reverse
+
+    if forward is not None:
+        # Idempotent re-POST after a prior read: report the pair's current state.
+        return ("matched" if forward.status == "accepted" else "sent"), forward
+
+    if alignment < GATE_ALIGN_MIN:
+        # Silent miss — the first mover didn't read the owner well enough to reach
+        # out. No Spark, no notification; guesses still feed the stat.
+        return "miss", None
+
+    # First mover clears the bar → open a pending Spark toward the owner.
+    spark = send_spark(responder, profile_owner, request=request)
+    return "sent", spark
+
+
+def gate_answer_stats(user) -> dict:
+    """
+    Anonymous aggregate of how people guessed each of ``user``'s gate questions.
+
+    Returns ``{question_id: {"yes": int, "total": int}}`` — never per-responder
+    identity. Powers the "8 of 12 think you work in Finance" viral stat.
+    """
+    from django.db.models import Count
+
+    from crush_lu.models import ConnectQuestionAnswer
+
+    rows = (
+        ConnectQuestionAnswer.objects.filter(profile_owner=user)
+        .values("question_id")
+        .annotate(
+            yes=Count("id", filter=Q(answer=True)),
+            total=Count("id"),
+        )
+    )
+    return {r["question_id"]: {"yes": r["yes"], "total": r["total"]} for r in rows}
 
 
 def _notify_spark_received(spark, request=None):

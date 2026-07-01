@@ -19,7 +19,6 @@ from crush_lu.models import (
     ConnectInterest,
     CrushConnectMembership,
     CrushProfile,
-    SparkPrompt,
     Trait,
 )
 from crush_lu.services.crush_connect import (
@@ -36,6 +35,7 @@ from crush_lu.tests.test_crush_connect import (
     _make_user,
     _mark_attended,
     _seed_pool_for,
+    _set_gate_questions,
 )
 from django.contrib.auth import get_user_model
 
@@ -48,7 +48,6 @@ User = get_user_model()
 
 ONBOARDING_URL = "/en/crush-connect/onboarding/"
 PROFILE_EDIT_URL = "/en/crush-connect/profile/"
-STORY_ANSWER = "I love foggy walks along the Pétrusse valley."
 
 
 def _step_url(step):
@@ -113,12 +112,30 @@ def _valid_step_data(step):
             "astro_enabled": "on",
         }
     if step == 7:
-        return {
-            "story_prompt": SparkPrompt.objects.filter(is_active=True).first().pk,
-            "story_answer": STORY_ANSWER,
-            "confirm_terms": "on",
-        }
+        return _gate_question_data()
     raise ValueError(step)
+
+
+def _week_question_ids(n=3):
+    """The first ``n`` question ids from this week's active set (built lazily)."""
+    from crush_lu.services.crush_connect import get_or_create_question_week
+
+    week = get_or_create_question_week()
+    return list(week.questions.filter(is_active=True).values_list("pk", flat=True)[:n])
+
+
+def _gate_question_data(answers=None):
+    """Step-7 POST payload: pick 3 questions (Yes/No) + both consent gates.
+
+    ``answers`` optionally overrides the per-question Yes/No (list aligned to the
+    3 picked questions); defaults to all "yes".
+    """
+    ids = _week_question_ids(3)
+    answers = answers or ["yes"] * len(ids)
+    data = {f"q_{qid}": ans for qid, ans in zip(ids, answers)}
+    data["photo_share_consent"] = "on"
+    data["confirm_terms"] = "on"
+    return data
 
 
 def _complete_steps(client, lo=1, hi=7):
@@ -321,7 +338,8 @@ def test_onboarded_at_null_until_final_step(client, settings):
     assert resp.status_code in (301, 302)
     m = CrushConnectMembership.objects.get(user=me)
     assert m.onboarded_at is not None
-    assert STORY_ANSWER[:10] in m.story_answer
+    assert m.gate_questions.count() == 3
+    assert m.photo_share_consent is True
 
 
 @pytest.mark.django_db
@@ -340,7 +358,27 @@ def test_consent_required_on_final_step(client, settings):
 
 
 @pytest.mark.django_db
-def test_short_story_rejected(client, settings):
+def test_fewer_than_three_questions_rejected(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"], onboarded=False)
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    _complete_steps(client, 1, 6)
+    # Only two questions answered → form requires exactly 3.
+    ids = _week_question_ids(2)
+    data = {f"q_{qid}": "yes" for qid in ids}
+    data["photo_share_consent"] = "on"
+    data["confirm_terms"] = "on"
+    resp = client.post(_step_url(7), data=data)
+    assert resp.status_code == 200
+    m = CrushConnectMembership.objects.get(user=me)
+    assert m.onboarded_at is None
+    assert m.gate_questions.count() == 0
+
+
+@pytest.mark.django_db
+def test_photo_consent_required_on_final_step(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(username="me", preferred_genders=["F"], onboarded=False)
     _mark_attended(me)
@@ -348,7 +386,7 @@ def test_short_story_rejected(client, settings):
 
     _complete_steps(client, 1, 6)
     data = _valid_step_data(7)
-    data["story_answer"] = "hi"
+    data.pop("photo_share_consent")
     resp = client.post(_step_url(7), data=data)
     assert resp.status_code == 200
     assert CrushConnectMembership.objects.get(user=me).onboarded_at is None
@@ -717,7 +755,7 @@ def test_edit_page_renders_index_for_onboarded(client, settings):
     # A representative section title is listed…
     assert "Languages &amp; interests" in body
     # …and each row links into its focused editor.
-    assert "?section=story" in body
+    assert "?section=questions" in body
     assert "?section=intention" in body
 
 
@@ -729,10 +767,10 @@ def test_edit_section_detail_renders(client, settings):
     _mark_attended(me)
     _login_eligible(client, me)
 
-    resp = client.get(PROFILE_EDIT_URL + "?section=story")
+    resp = client.get(PROFILE_EDIT_URL + "?section=questions")
     assert resp.status_code == 200
     body = resp.content.decode()
-    assert 'name="section" value="story"' in body
+    assert 'name="section" value="questions"' in body
     assert "Back to your profile" in body
 
 
@@ -773,21 +811,56 @@ def test_edit_section_save_roundtrip_keeps_onboarded_at(client, settings):
 
 
 @pytest.mark.django_db
-def test_edit_story_section_saves_without_consent(client, settings):
+def test_edit_questions_section_saves_without_consent(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(username="me", preferred_genders=["F"], onboarded=True)
     _mark_attended(me)
     _login_eligible(client, me)
 
-    prompt = SparkPrompt.objects.filter(is_active=True).first()
-    resp = client.post(PROFILE_EDIT_URL + "?section=story", data={
-        "section": "story",
-        "story_prompt": prompt.pk,
-        "story_answer": "A brand new sentence about my evenings.",
-        # no confirm_terms — edit mode drops the consent gate
-    })
+    data = _gate_question_data()
+    # Edit mode drops the terms-consent gate; still saves the 3 questions.
+    data["section"] = "questions"
+    data.pop("confirm_terms", None)
+    resp = client.post(PROFILE_EDIT_URL + "?section=questions", data=data)
     assert resp.status_code in (301, 302)
-    assert "evenings" in CrushConnectMembership.objects.get(user=me).story_answer
+    assert CrushConnectMembership.objects.get(user=me).gate_questions.count() == 3
+
+
+@pytest.mark.django_db
+def test_repick_changing_truth_clears_stale_guesses(client, settings):
+    """Editing a question's own-truth clears viewers' now-stale guesses so they
+    can answer the fresh gate; unchanged questions keep their guesses (Codex P2)."""
+    from crush_lu.models import ConnectQuestionAnswer
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    owner = _make_user(username="owner", preferred_genders=["F"])
+    _mark_attended(owner)
+    _login_eligible(client, owner)
+    qs = _set_gate_questions(owner, answers=[True, True, True])
+
+    viewer = _make_user(username="viewer", gender="F", premium=False)
+    for q in qs:
+        ConnectQuestionAnswer.objects.create(
+            responder=viewer, profile_owner=owner, question=q, answer=True
+        )
+
+    # Owner re-picks the SAME 3 questions but flips the first one's truth.
+    data = {
+        f"q_{qs[0].id}": "no",   # truth changed → guesses become stale
+        f"q_{qs[1].id}": "yes",  # unchanged
+        f"q_{qs[2].id}": "yes",  # unchanged
+        "photo_share_consent": "on",
+        "section": "questions",
+    }
+    resp = client.post(PROFILE_EDIT_URL + "?section=questions", data=data)
+    assert resp.status_code in (301, 302)
+
+    assert not ConnectQuestionAnswer.objects.filter(
+        responder=viewer, profile_owner=owner, question=qs[0]
+    ).exists()
+    assert ConnectQuestionAnswer.objects.filter(
+        responder=viewer, profile_owner=owner, question=qs[1]
+    ).exists()
 
 
 # ---------------------------------------------------------------------------
@@ -913,7 +986,6 @@ def test_catalogue_status_shows_chips_and_edit_link(client, settings):
     _login_eligible(client, me)
     m = me.crush_connect_membership
     m.languages = ["lu"]
-    m.story_answer = "A line about me and my evenings."
     m.save()
     m.interests.set(_interest_pks(1))
 

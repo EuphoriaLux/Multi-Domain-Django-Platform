@@ -426,7 +426,7 @@ _CONNECT_SECTION_EMOJI = {
     "life": "🧩",
     "family": "🪴",
     "ideal_match": "💘",
-    "story": "✍️",
+    "questions": "❓",
 }
 
 
@@ -475,7 +475,13 @@ def _connect_section_summaries(membership):
         "hi": m.preferred_age_max,
     }
 
-    story = m.story_answer or ""
+    n_questions = m.gate_questions.count()
+    questions = (
+        ngettext("%(count)d question chosen", "%(count)d questions chosen", n_questions)
+        % {"count": n_questions}
+        if n_questions
+        else ""
+    )
 
     return {
         "intention": intention,
@@ -484,7 +490,7 @@ def _connect_section_summaries(membership):
         "life": life,
         "family": family,
         "ideal_match": ideal_match,
-        "story": story,
+        "questions": questions,
     }
 
 
@@ -510,8 +516,8 @@ def crush_connect_profile_edit(request):
     active = step_for_key(section_key)
 
     def _build_form(cfg, data=None):
-        # The story form drops its consent gate in edit mode.
-        form_kwargs = {"for_edit": True} if cfg.key == "story" else {}
+        # The questions form drops its consent gate in edit mode.
+        form_kwargs = {"for_edit": True} if cfg.key == "questions" else {}
         return form_for_step(cfg.n)(data, instance=membership, **form_kwargs)
 
     # POST a known section → validate + save, then drop back to the index so
@@ -603,8 +609,34 @@ def crush_connect_catalogue_status(request):
         {
             "membership": membership,
             "pending_sparks_count": pending_sparks_count,
+            "gate_stat_rows": _gate_stat_rows(user, membership),
         },
     )
+
+
+def _gate_stat_rows(user, membership):
+    """Assemble the member's own gate questions with anonymous guess tallies.
+
+    Returns ``[{question, owner_answer, yes, total}]`` for the "8 of 12 think you
+    work in Finance" stat — aggregate only, never per-responder identity.
+    """
+    from crush_lu.services.crush_connect import gate_answer_stats
+
+    if membership is None:
+        return []
+    stats = gate_answer_stats(user)
+    rows = []
+    for gq in membership.active_gate_questions:
+        s = stats.get(gq.question_id, {})
+        rows.append(
+            {
+                "question": gq.question,
+                "owner_answer": gq.owner_answer,
+                "yes": s.get("yes", 0),
+                "total": s.get("total", 0),
+            }
+        )
+    return rows
 
 
 @crush_login_required
@@ -686,13 +718,35 @@ def crush_connect_home(request):
             drop.recipients.exclude(id__in=blocked_user_ids(user))
             .exclude(crush_connect_membership__excluded_by_coach=True)
             .filter(crushprofile__verification_status="verified")
+            # Re-check photo-share consent at RENDER time: a Drop pinned before
+            # consent existed, or a member who later revoked it, must not have
+            # their clear photo shown. The snapshot is left intact for audit.
+            .filter(crush_connect_membership__photo_share_consent=True)
             .select_related("crushprofile", "crush_connect_membership")
+            .prefetch_related("crush_connect_membership__gate_questions__question")
             .all()
         )
 
-    # Card CTA state: which of today's cards this user has already Sparked.
-    from crush_lu.models import CuriositySpark
+    # Card CTA state: which of today's cards this user has already answered (the
+    # "Read-the-Photo" gate). Scoped to each target's CURRENT gate questions —
+    # a target who re-picked must show the fresh form, not a stale "answered".
+    from crush_lu.models import ConnectQuestionAnswer, CuriositySpark
 
+    answered_pairs = set(
+        ConnectQuestionAnswer.objects.filter(
+            responder=user, profile_owner__in=[t.pk for t in recipients]
+        ).values_list("profile_owner_id", "question_id")
+    )
+    answered_ids = set()
+    for target in recipients:
+        membership = getattr(target, "crush_connect_membership", None)
+        q_ids = (
+            [gq.question_id for gq in membership.active_gate_questions]
+            if membership
+            else []
+        )
+        if q_ids and all((target.pk, qid) in answered_pairs for qid in q_ids):
+            answered_ids.add(target.pk)
     sparked_ids = set(
         CuriositySpark.objects.filter(sender=user).values_list(
             "recipient_id", flat=True
@@ -703,6 +757,7 @@ def crush_connect_home(request):
         "coach_pick": coach_pick,
         "drop": drop,
         "recipients": recipients,
+        "answered_ids": answered_ids,
         "sparked_ids": sparked_ids,
         "next_drop_at": _next_drop_at(),
         "is_staff_preview": user.is_staff
@@ -722,13 +777,26 @@ def crush_connect_home(request):
 @crush_login_required
 def crush_connect_spark_compose(request, user_id: int):
     """
-    Compose-and-send a Curiosity Spark to someone from the sender's Drop.
+    Answer a member's 3 questions — the "Read-the-Photo" gate that replaces the
+    old Spark message. Reading them well (≥ GATE_ALIGN_MIN of 3 vs their private
+    truth) signals interest; when both read each other, the pair matches and the
+    coach arranges the date.
 
-    Only Drop receivers (Premium track) can send. The service enforces the
-    cardinal rule: the target must actually have appeared in one of the
-    sender's Drop snapshots.
+    Reached two ways: a Drop-receiver (Premium) answering someone from their Drop
+    (first mover), or the recipient of a Spark answering the sender back (works
+    for candidate-track members too — they never get a Drop of their own).
     """
-    from crush_lu.services.crush_connect import can_send_spark, send_spark
+    from django.urls import reverse
+
+    from crush_lu.models import CuriositySpark
+    from crush_lu.services.blocking import is_blocked_pair
+    from crush_lu.services.crush_connect import (
+        GATE_QUESTION_COUNT,
+        can_send_spark,
+        is_catalogue_eligible,
+        is_sender_eligible,
+        submit_gate_answers,
+    )
 
     user = request.user
     if not user.is_staff and not getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
@@ -739,41 +807,92 @@ def crush_connect_spark_compose(request, user_id: int):
         pk=user_id,
     )
 
-    allowed, reason = can_send_spark(user, target)
-    if not allowed:
-        if reason == "already_sparked":
+    # Answer-back path: a candidate (no Drop, not Premium) answering a Spark's
+    # sender. Detect it independently so can_send_spark's "not_receiver" gate
+    # doesn't block a legitimate reply.
+    answering_back = CuriositySpark.objects.filter(
+        sender=target, recipient=user, status="pending"
+    ).exists()
+
+    if answering_back:
+        if not user.is_staff and not is_catalogue_eligible(user):
+            return redirect("crush_lu:crush_connect_teaser")
+        # Revalidate the pending Spark's SENDER (the target here). If they lost
+        # eligibility / photo consent, or a block appeared since they sent it,
+        # don't render their clear photo + questions. (sparks_received hides
+        # these too; submit_gate_answers refuses at accept.)
+        if not user.is_staff and (
+            not is_sender_eligible(target) or is_blocked_pair(user, target)
+        ):
+            messages.info(request, _("This member isn't available right now."))
+            return redirect("crush_lu:crush_connect_home")
+    else:
+        allowed, reason = can_send_spark(user, target)
+        if not allowed:
+            if reason == "already_sparked":
+                messages.info(
+                    request, _("You've already answered this member's questions.")
+                )
+                return redirect("crush_lu:crush_connect_home")
+            if reason == "not_receiver":
+                return redirect("crush_lu:crush_connect_teaser")
+            # not_surfaced / recipient_unavailable — don't leak details
             messages.info(
-                request, _("You've already sent a Spark to this member.")
+                request, _("This member isn't available right now.")
             )
             return redirect("crush_lu:crush_connect_home")
-        if reason == "not_receiver":
-            return redirect("crush_lu:crush_connect_teaser")
-        # not_surfaced / recipient_unavailable — don't leak details
-        messages.info(
-            request, _("This member isn't available for a Spark right now.")
-        )
+        # First movers must have their OWN 3 questions so the target can answer
+        # back — otherwise the Spark is unmatchable. Send them to set them up
+        # instead of creating a dead Spark.
+        my_membership = getattr(user, "crush_connect_membership", None)
+        if not user.is_staff and (
+            my_membership is None or not my_membership.has_gate_questions
+        ):
+            messages.info(
+                request,
+                _("First, pick your own 3 questions so people can match with you."),
+            )
+            return redirect(
+                reverse("crush_lu:crush_connect_profile_edit") + "?section=questions"
+            )
+
+    membership = getattr(target, "crush_connect_membership", None)
+    gate_questions = list(membership.active_gate_questions) if membership else []
+    if len(gate_questions) < GATE_QUESTION_COUNT:
+        messages.info(request, _("This member hasn't set up their questions yet."))
         return redirect("crush_lu:crush_connect_home")
 
     if request.method == "POST":
-        message = (request.POST.get("message") or "").strip()
-        if len(message) > 200:
-            messages.error(
-                request, _("Keep your message under 200 characters.")
-            )
-        else:
-            try:
-                send_spark(user, target, message=message, request=request)
-            except ValueError:
-                messages.info(
-                    request,
-                    _("This member isn't available for a Spark right now."),
+        guesses = {}
+        for gq in gate_questions:
+            raw = request.POST.get(f"answer_{gq.question_id}")
+            if raw not in ("yes", "no"):
+                messages.error(request, _("Please answer all three questions."))
+                return redirect(
+                    "crush_lu:crush_connect_spark_compose", user_id=target.pk
                 )
-                return redirect("crush_lu:crush_connect_home")
+            guesses[gq.question_id] = raw == "yes"
+
+        try:
+            outcome, _spark = submit_gate_answers(user, target, guesses, request=request)
+        except ValueError:
+            messages.info(request, _("This member isn't available right now."))
+            return redirect("crush_lu:crush_connect_home")
+
+        if outcome == "matched":
             messages.success(
                 request,
-                _("Spark sent. If they're curious too, your coach takes it from there."),
+                _("It's a match — you read each other well! Your coach will arrange your date."),
             )
-            return redirect("crush_lu:crush_connect_home")
+        else:
+            # Same neutral confirmation for a read that landed and one that
+            # didn't — never leak whether they guessed the truth (that would
+            # expose the member's private answers).
+            messages.success(
+                request,
+                _("Your answers are in. If you've read each other well, your coach will introduce you — no pressure either way."),
+            )
+        return redirect("crush_lu:crush_connect_home")
 
     return render(
         request,
@@ -781,7 +900,9 @@ def crush_connect_spark_compose(request, user_id: int):
         {
             "target": target,
             "target_profile": getattr(target, "crushprofile", None),
-            "target_membership": getattr(target, "crush_connect_membership", None),
+            "target_membership": membership,
+            "gate_questions": gate_questions,
+            "answering_back": answering_back,
         },
     )
 
