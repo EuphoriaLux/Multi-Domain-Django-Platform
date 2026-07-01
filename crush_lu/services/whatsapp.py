@@ -29,6 +29,34 @@ META_TIMEOUT = 15
 # Callers use this to fall back to SMS (see issue #519).
 ERROR_NOT_ON_WHATSAPP = 131026
 
+# Stable, non-sensitive labels for the Meta send errors that actually tell an
+# operator where to look. Logging a label from this controlled map (rather than
+# the raw response value) keeps the send-failure diagnosable without echoing
+# anything response-derived — see the logging note in send_otp(). Unmapped codes
+# log as "other"; the HTTP status still narrows those down.
+_META_ERROR_REASONS = {
+    ERROR_NOT_ON_WHATSAPP: "not_on_whatsapp",
+    0: "auth_or_permission",  # generic auth/permission failure
+    3: "capability_or_permission",
+    10: "permission_denied",
+    190: "access_token_invalid",  # expired/invalid token -> use System User token
+    100: "invalid_parameter",
+    131000: "generic_send_error",
+    131008: "missing_required_param",
+    131009: "invalid_param_value",
+    131047: "re_engagement_required",
+    131056: "pair_rate_limit",
+    132000: "template_param_mismatch",
+    132001: "template_not_found",  # template/language not approved
+    132005: "template_hydrated_text_too_long",
+    132007: "template_format_policy_violation",
+    132012: "template_param_format_mismatch",
+    132015: "template_paused",
+    132016: "template_disabled",
+    133010: "number_not_registered",
+    80007: "throughput_rate_limit",
+}
+
 
 @dataclass(frozen=True)
 class WhatsAppSendResult:
@@ -123,13 +151,24 @@ def send_otp(recipient: str, code: str, language: str = "en") -> WhatsAppSendRes
 
     err = (body.get("error") or {}) if isinstance(body, dict) else {}
     meta_error_code = err.get("code")
-    # Log only the HTTP status and a derived flag — never the raw error payload,
-    # which in this OTP context a scanner can't distinguish from a passcode.
-    logger.warning(
-        "WhatsApp OTP send failed: http=%s not_on_whatsapp=%s",
-        resp.status_code,
-        meta_error_code == ERROR_NOT_ON_WHATSAPP,
-    )
+    if meta_error_code == ERROR_NOT_ON_WHATSAPP:
+        # Expected, not an error: the view returns 422 and the client offers SMS.
+        # Log at INFO (captured by App Insights, below the ERROR-only console
+        # handler) so routine fallbacks don't raise console alarms.
+        logger.info("WhatsApp OTP not delivered: recipient not on WhatsApp")
+    else:
+        # Genuine send failure -> the view returns 502. Translate Meta's numeric
+        # error to a stable label from the controlled map and log THAT plus the
+        # HTTP status — never any response-derived value, which in this OTP
+        # context is indistinguishable from the passcode (and which CodeQL flags
+        # as clear-text logging of sensitive data). ERROR so it clears the
+        # ERROR-only production console handler; without it the 502 is
+        # undiagnosable from the console stream.
+        logger.error(
+            "WhatsApp OTP send failed: http=%s reason=%s",
+            resp.status_code,
+            _META_ERROR_REASONS.get(meta_error_code, "other"),
+        )
     return WhatsAppSendResult(
         ok=False,
         error_code=meta_error_code,
