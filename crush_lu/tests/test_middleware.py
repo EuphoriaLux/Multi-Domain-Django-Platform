@@ -36,8 +36,8 @@ def user(db):
     )
 
 
-def _make_request(user, pwa=False):
-    request = RequestFactory().get("/events/")
+def _make_request(user, pwa=False, path="/events/"):
+    request = RequestFactory().get(path)
     request.user = user
     request.session = {}
     request.META["HTTP_HOST"] = "crush.lu"
@@ -154,6 +154,16 @@ def test_daily_pwa_flag_upgrades_after_browser_visit(user):
     assert row.was_pwa is True
     # Still a single row for the day.
     assert DailyUserActivity.objects.filter(user=user).count() == 1
+
+
+def test_daily_pwa_flag_set_by_launch_marker(user):
+    # The installed app launches at the manifest start_url `/?source=pwa`;
+    # that marker alone must flag the day's row as PWA (regression guard — the
+    # earlier version only accepted `pwa=1`).
+    _run(_make_request(user, path="/?source=pwa"))
+
+    row = DailyUserActivity.objects.get(user=user)
+    assert row.was_pwa is True
 
 
 def test_daily_pwa_visit_not_re_queried_after_flagged(user):

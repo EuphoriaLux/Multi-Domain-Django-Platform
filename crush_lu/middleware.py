@@ -215,13 +215,17 @@ class UserActivityMiddleware:
     def _is_pwa_request(self, request):
         """DB-free signals that THIS request came from the installed PWA.
 
-        Header set by the service worker, the manifest start_url query param, or
-        the session flag set by the mark_pwa_user API — none of which touch the
-        database, so this is cheap to call on every request.
+        Recognizes the manifest launch marker (``start_url`` is ``/?source=pwa``
+        — see ``views_pwa.py``), the ``X-PWA-Mode`` header a service worker can
+        add to same-origin fetches, the legacy ``?pwa=1`` param, and a session
+        flag if one is set. None touch the database, so this is cheap to call on
+        every request. The ``/api/push/mark-pwa-user/`` call that sets the sticky
+        ``is_pwa_user`` flag is under ``SKIP_PATHS``, so it can't be the signal
+        here — the launch marker is what a same-day PWA open carries.
         """
         if request.headers.get("X-PWA-Mode") == "standalone":
             return True
-        if request.GET.get("pwa") == "1":
+        if request.GET.get("source") == "pwa" or request.GET.get("pwa") == "1":
             return True
         if request.session.get("is_pwa_user"):
             return True
