@@ -1565,8 +1565,9 @@ def test_answered_state_scoped_to_current_questions(client, settings):
 
     _login_eligible(client, me)
     body = client.get(CONNECT_HOME_URL).content.decode()
-    # The card renders the fresh answer form, not an "already read" state.
-    assert "Answer &amp; connect" in body
+    # The card renders the fresh answer form (its POST action to the gate),
+    # not the "already read" state — the answered branch has no such form.
+    assert f"/crush-connect/spark/{her.pk}/" in body
 
 
 @pytest.mark.django_db
