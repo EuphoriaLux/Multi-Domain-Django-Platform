@@ -140,6 +140,15 @@ def crush_user_context(request):
             context["profile_completion_step"] = step_info[0]
             context["profile_step_label"] = step_info[1]
 
+            # Approved/verified flag drives the navbar's "full navigation" branch.
+            # `verification_status == "verified"` is the single source of truth
+            # (it's set for every verification path — LuxID, coach-at-event,
+            # admin). It must be exposed even when there is NO ProfileSubmission:
+            # LuxID-verified members never go through paid coach review, so
+            # gating this on a submission row left them stuck showing
+            # "Complete Profile 3/4" in the navbar despite being fully verified.
+            context["profile_is_approved"] = verification_status == "verified"
+
             profile_submission = (
                 ProfileSubmission.objects.filter(profile=profile)
                 .select_related("coach__user")
@@ -150,7 +159,6 @@ def crush_user_context(request):
             if profile_submission:
                 context["profile_submission"] = profile_submission
                 context["profile_status"] = profile_submission.status
-                context["profile_is_approved"] = profile.is_approved
                 context["profile_needs_action"] = profile_submission.status in (
                     "revision",
                     "recontact_coach",
