@@ -123,11 +123,17 @@ def send_otp(recipient: str, code: str, language: str = "en") -> WhatsAppSendRes
 
     err = (body.get("error") or {}) if isinstance(body, dict) else {}
     meta_error_code = err.get("code")
-    # Log only the HTTP status and a derived flag — never the raw error payload,
-    # which in this OTP context a scanner can't distinguish from a passcode.
-    logger.warning(
-        "WhatsApp OTP send failed: http=%s not_on_whatsapp=%s",
+    # Log the HTTP status and Meta's numeric error code (both safe — a scanner
+    # can't mistake an HTTP status or a Meta error code like 190/132001 for a
+    # passcode), never the free-text error message/payload, which in this OTP
+    # context is indistinguishable from the code itself. Logged at ERROR so it
+    # clears the ERROR-only console handler in production: the view turns this
+    # into a 502, and without the status/code here that 502 is undiagnosable
+    # from the console log stream (App Insights aside).
+    logger.error(
+        "WhatsApp OTP send failed: http=%s meta_code=%s not_on_whatsapp=%s",
         resp.status_code,
+        meta_error_code,
         meta_error_code == ERROR_NOT_ON_WHATSAPP,
     )
     return WhatsAppSendResult(
