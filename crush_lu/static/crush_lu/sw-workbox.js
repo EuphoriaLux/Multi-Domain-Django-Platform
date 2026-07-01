@@ -364,9 +364,14 @@ if (workbox) {
 
     // Strategy 5: StaleWhileRevalidate for static assets (CSS, JS)
     // Changed from CacheFirst to allow CSS/JS updates to propagate quickly
+    // Same-origin only: caching cross-origin styles/scripts (e.g. the Google
+    // Fonts stylesheet) makes the SW fetch() them, which CSP polices under
+    // connect-src — hosts absent there, so it would break once CSP is enforced.
+    // Mirrors the same-origin guard on the image route below.
     workbox.routing.registerRoute(
-        ({ request }) =>
-            request.destination === "style" || request.destination === "script",
+        ({ request, url }) =>
+            url.origin === self.location.origin &&
+            (request.destination === "style" || request.destination === "script"),
         new workbox.strategies.StaleWhileRevalidate({
             cacheName: "crush-static",
             plugins: [
@@ -416,8 +421,15 @@ if (workbox) {
     );
 
     // Strategy 7: Stale While Revalidate for fonts
+    // Same-origin only: cross-origin font files (e.g. fonts.gstatic.com, pulled
+    // in by the Google Fonts stylesheet) would otherwise be SW-fetched here,
+    // which CSP polices under connect-src where those hosts are absent — the
+    // same reason the style/script route above is scoped. The <link>/@font-face
+    // still loads them normally via font-src; the SW just doesn't cache them.
     workbox.routing.registerRoute(
-        ({ request }) => request.destination === "font",
+        ({ request, url }) =>
+            request.destination === "font" &&
+            url.origin === self.location.origin,
         new workbox.strategies.StaleWhileRevalidate({
             cacheName: "crush-fonts",
             plugins: [
