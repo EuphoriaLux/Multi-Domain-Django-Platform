@@ -17,7 +17,6 @@ import json
 from datetime import date
 from unittest import mock
 
-from django.db import IntegrityError
 from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
@@ -165,25 +164,28 @@ class ChangelogIngestWriteTests(TestCase):
         mock_lock.assert_called_once()
 
     def test_concurrent_creation_of_new_release_falls_back_to_update(self):
-        # Simulates losing a create race for a brand-new slug: another
-        # delivery's INSERT commits first, so our force_insert=True raises
-        # IntegrityError. The endpoint must recover by reloading the
+        # Simulates losing a create race for a brand-new slug: a "racer" row
+        # is inserted for real right as the endpoint builds its own unsaved
+        # instance — before it opens the atomic() block around
+        # save(force_insert=True) — so that insert isn't undone when that
+        # block's IntegrityError rolls back to its own savepoint. The
+        # endpoint's own force_insert then hits a genuine unique-constraint
+        # violation from the DB and must recover by reloading the
         # now-existing row (locked) and applying this request's data to it,
         # not surface a 500.
-        real_save = PatchRelease.save
+        real_init = PatchRelease.__init__
         state = {"raced": False}
 
-        def racing_save(self, *args, **kwargs):
-            if kwargs.get("force_insert") and not state["raced"]:
+        def racing_init(self, *args, **kwargs):
+            real_init(self, *args, **kwargs)
+            if kwargs.get("slug") and not state["raced"]:
                 state["raced"] = True
                 PatchRelease.objects.create(
-                    slug=self.slug, version="v0.0", title="Racer",
+                    slug=kwargs["slug"], version="v0.0", title="Racer",
                     released_on=date(2026, 1, 1),
                 )
-                raise IntegrityError("duplicate key value violates unique constraint")
-            return real_save(self, *args, **kwargs)
 
-        with mock.patch.object(PatchRelease, "save", racing_save):
+        with mock.patch.object(PatchRelease, "__init__", racing_init):
             resp = self._post(_valid_payload(sha="race-sha", slug="catchup-race"))
 
         self.assertEqual(resp.status_code, 201)
