@@ -4808,6 +4808,18 @@ footer hr {
     background: var(--gradient-primary-hover);
 }
 
+/* Hides the scrollbar for horizontally-scrollable pill/chip rows (e.g. the
+   Crush Connect subnav) where the global gradient scrollbar above is too
+   heavy for a thin, swipeable row. */
+.scrollbar-hide {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+
 @media (max-width: 767px) {
     footer {
         padding: var(--space-6) 0;

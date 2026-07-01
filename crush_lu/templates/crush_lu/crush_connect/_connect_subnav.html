@@ -7,7 +7,7 @@ chip/pill utility classes already in the Tailwind build.
 {% endcomment %}
 {% if user|crush_connect_nav_visible %}
 <nav class="max-w-2xl mx-auto px-4 pt-5" aria-label="{% trans 'Crush Connect' %}">
-  <div class="flex items-center gap-2 overflow-x-auto pb-1">
+  <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
     {% with active=request.resolver_match.url_name base="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium border-2 no-underline transition-colors" on="border-crush-purple bg-crush-purple/10 text-crush-purple" off="border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-crush-purple/50" %}
 
     <a href="{% url 'crush_lu:crush_connect_hub' %}"
