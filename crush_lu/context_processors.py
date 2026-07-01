@@ -140,6 +140,23 @@ def crush_user_context(request):
             context["profile_completion_step"] = step_info[0]
             context["profile_step_label"] = step_info[1]
 
+            # Approved flag drives the navbar's "full navigation" branch (Edit
+            # Profile, Connect, …). It must be exposed even when there is NO
+            # ProfileSubmission: LuxID-verified members never go through paid
+            # coach review, so gating it on a submission row is what left them
+            # stuck showing "Complete Profile 3/4" despite being fully verified
+            # (every verification path — LuxID, coach-at-event, admin — sets
+            # is_approved=True, so the flag itself was already correct).
+            #
+            # Mirror the SAME legacy `is_approved` boolean the downstream gates
+            # still enforce (_render_edit_profile_form at views.py, the Connect
+            # entry points in views_crush_connect.py). Keying the navbar off
+            # verification_status instead could advertise Edit/Connect links to
+            # a verified-but-is_approved=False profile that those views would
+            # then bounce/403 — is_approved is the consistent predicate until
+            # those gates migrate off the legacy flag.
+            context["profile_is_approved"] = profile.is_approved
+
             profile_submission = (
                 ProfileSubmission.objects.filter(profile=profile)
                 .select_related("coach__user")
@@ -150,7 +167,6 @@ def crush_user_context(request):
             if profile_submission:
                 context["profile_submission"] = profile_submission
                 context["profile_status"] = profile_submission.status
-                context["profile_is_approved"] = profile.is_approved
                 context["profile_needs_action"] = profile_submission.status in (
                     "revision",
                     "recontact_coach",
