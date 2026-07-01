@@ -22,7 +22,7 @@ import logging
 import re
 from datetime import date
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -161,7 +161,10 @@ def ingest_changelog(request):
                     f"notes[{i}].published_on must be an ISO date (YYYY-MM-DD)."
                 )
         else:
-            published_on = timezone.now().date()
+            # localdate(), not now().date(): TIME_ZONE is Europe/Luxembourg
+            # with USE_TZ=True, so now().date() would take the UTC date and
+            # be a day behind local evenings.
+            published_on = timezone.localdate()
         clean_notes.append({
             "category": category,
             "title": n_title,
@@ -172,31 +175,56 @@ def ingest_changelog(request):
         })
 
     # --- write -----------------------------------------------------------
+    def _apply_release_fields(rel):
+        rel.version = version
+        rel.title = title
+        rel.hero_summary = hero_summary
+        rel.is_published = is_published
+        # released_on is sticky (see the sentinel comment above): update it
+        # only when the caller explicitly provided one.
+        if released_on is not None:
+            rel.released_on = released_on
+
     with transaction.atomic():
+        # select_for_update() serializes concurrent requests against the same
+        # release the way update_or_create() used to: without it, two
+        # overlapping deliveries for the same merge SHA (a retried webhook,
+        # or a re-run) can both read an empty preexisting_shas snapshot below
+        # and both create the note, breaking idempotency.
         try:
-            # select_for_update() serializes concurrent requests against the
-            # same release the way update_or_create() used to: without it, two
-            # overlapping deliveries for the same merge SHA (a retried webhook,
-            # or a re-run) can both read an empty preexisting_shas snapshot
-            # below and both create the note, breaking idempotency.
             release = PatchRelease.objects.select_for_update().get(slug=slug)
             created = False
         except PatchRelease.DoesNotExist:
-            release = PatchRelease(slug=slug)
+            release = None
             created = True
 
-        release.version = version
-        release.title = title
-        release.hero_summary = hero_summary
-        release.is_published = is_published
-        # released_on is sticky (see the sentinel comment above): update it
-        # only when the caller explicitly provided one, or this is a brand
-        # new release that needs some date.
-        if released_on is not None:
-            release.released_on = released_on
-        elif created:
-            release.released_on = timezone.now().date()
-        release.save()
+        if not created:
+            _apply_release_fields(release)
+            release.save()
+        else:
+            release = PatchRelease(slug=slug)
+            _apply_release_fields(release)
+            if released_on is None:
+                # localdate(), not now().date() — see the published_on comment
+                # above; the site's TIME_ZONE isn't UTC.
+                release.released_on = timezone.localdate()
+            try:
+                # Nested atomic (savepoint): on Postgres an IntegrityError
+                # poisons the enclosing transaction, so the fallback get()
+                # below needs its own boundary to recover from it.
+                with transaction.atomic():
+                    release.save(force_insert=True)
+            except IntegrityError:
+                # Lost a race with another concurrent delivery that created
+                # this same brand-new slug first (select_for_update() above
+                # only serializes *existing* rows). Reload the row it created
+                # — now locked — and fall through to the update path instead
+                # of surfacing a 500, matching update_or_create()'s own
+                # retry-after-IntegrityError behavior.
+                release = PatchRelease.objects.select_for_update().get(slug=slug)
+                created = False
+                _apply_release_fields(release)
+                release.save()
 
         # Idempotency: a merge webhook can fire more than once. Skip any note
         # whose backing commit SHA was *already persisted* on this release by an

@@ -18,7 +18,10 @@ from django.utils.translation import gettext_lazy as _
 
 
 def _today():
-    return timezone.now().date()
+    # localdate(), not now().date(): TIME_ZONE is Europe/Luxembourg with
+    # USE_TZ=True, so now().date() would take the UTC date and land a day
+    # behind local evenings.
+    return timezone.localdate()
 
 
 class PatchNoteCategory(models.TextChoices):

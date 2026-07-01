@@ -14,8 +14,10 @@ ROOT_URLCONF the same way the rest of the crush_lu suite does.
 Run with: pytest crush_lu/tests/test_api_admin_changelog.py -v
 """
 import json
+from datetime import date
 from unittest import mock
 
+from django.db import IntegrityError
 from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
@@ -162,6 +164,34 @@ class ChangelogIngestWriteTests(TestCase):
         self.assertEqual(resp.status_code, 201)
         mock_lock.assert_called_once()
 
+    def test_concurrent_creation_of_new_release_falls_back_to_update(self):
+        # Simulates losing a create race for a brand-new slug: another
+        # delivery's INSERT commits first, so our force_insert=True raises
+        # IntegrityError. The endpoint must recover by reloading the
+        # now-existing row (locked) and applying this request's data to it,
+        # not surface a 500.
+        real_save = PatchRelease.save
+        state = {"raced": False}
+
+        def racing_save(self, *args, **kwargs):
+            if kwargs.get("force_insert") and not state["raced"]:
+                state["raced"] = True
+                PatchRelease.objects.create(
+                    slug=self.slug, version="v0.0", title="Racer",
+                    released_on=date(2026, 1, 1),
+                )
+                raise IntegrityError("duplicate key value violates unique constraint")
+            return real_save(self, *args, **kwargs)
+
+        with mock.patch.object(PatchRelease, "save", racing_save):
+            resp = self._post(_valid_payload(sha="race-sha", slug="catchup-race"))
+
+        self.assertEqual(resp.status_code, 201)
+        release = PatchRelease.objects.get(slug="catchup-race")
+        # Our request's fields (not the "racer" placeholder's) won.
+        self.assertEqual(release.title, "Crush Connect, reimagined")
+        self.assertEqual(release.notes.count(), 1)
+
     def test_released_on_is_sticky_when_omitted_on_append(self):
         # First request creates the release with an explicit date.
         self._post(_valid_payload(sha="first-sha"))
@@ -185,7 +215,7 @@ class ChangelogIngestWriteTests(TestCase):
         self.assertEqual(resp.status_code, 201)
 
         release = PatchRelease.objects.get(slug="catchup-brand-new")
-        self.assertEqual(release.released_on, timezone.now().date())
+        self.assertEqual(release.released_on, timezone.localdate())
 
     def test_released_on_can_be_explicitly_corrected(self):
         self._post(_valid_payload(sha="first-sha"))
@@ -199,7 +229,7 @@ class ChangelogIngestWriteTests(TestCase):
     def test_note_published_on_defaults_to_today(self):
         self._post(_valid_payload())
         note = PatchRelease.objects.get(slug="catchup-2026-06").notes.get()
-        self.assertEqual(note.published_on, timezone.now().date())
+        self.assertEqual(note.published_on, timezone.localdate())
 
     def test_note_published_on_can_be_explicit(self):
         payload = _valid_payload()
