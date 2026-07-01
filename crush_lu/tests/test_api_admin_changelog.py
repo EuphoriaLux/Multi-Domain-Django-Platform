@@ -14,6 +14,7 @@ ROOT_URLCONF the same way the rest of the crush_lu suite does.
 Run with: pytest crush_lu/tests/test_api_admin_changelog.py -v
 """
 import json
+from unittest import mock
 
 from django.test import Client, TestCase, override_settings
 from django.utils import timezone
@@ -145,6 +146,21 @@ class ChangelogIngestWriteTests(TestCase):
         release = PatchRelease.objects.get(slug="catchup-2026-06")
         self.assertEqual(release.title, "Crush Connect, even better")
         self.assertEqual(release.notes.count(), 2)  # different SHA → appended
+
+    def test_existing_release_lookup_is_row_locked(self):
+        # The lookup on an append must use select_for_update() — matching
+        # what update_or_create() did before this endpoint stopped using it —
+        # so two overlapping deliveries for the same release serialize
+        # instead of both reading an empty preexisting_shas snapshot and
+        # both creating a note for the same merge SHA.
+        self._post(_valid_payload(sha="lock-sha-1"))  # release now exists
+        original = PatchRelease.objects.select_for_update
+        with mock.patch.object(
+            PatchRelease.objects, "select_for_update", wraps=original
+        ) as mock_lock:
+            resp = self._post(_valid_payload(sha="lock-sha-2"))
+        self.assertEqual(resp.status_code, 201)
+        mock_lock.assert_called_once()
 
     def test_released_on_is_sticky_when_omitted_on_append(self):
         # First request creates the release with an explicit date.

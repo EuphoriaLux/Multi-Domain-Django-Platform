@@ -174,7 +174,12 @@ def ingest_changelog(request):
     # --- write -----------------------------------------------------------
     with transaction.atomic():
         try:
-            release = PatchRelease.objects.get(slug=slug)
+            # select_for_update() serializes concurrent requests against the
+            # same release the way update_or_create() used to: without it, two
+            # overlapping deliveries for the same merge SHA (a retried webhook,
+            # or a re-run) can both read an empty preexisting_shas snapshot
+            # below and both create the note, breaking idempotency.
+            release = PatchRelease.objects.select_for_update().get(slug=slug)
             created = False
         except PatchRelease.DoesNotExist:
             release = PatchRelease(slug=slug)
