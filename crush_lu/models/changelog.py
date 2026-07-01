@@ -13,7 +13,12 @@ Editorial flow:
 
 from django.db import models
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+
+
+def _today():
+    return timezone.now().date()
 
 
 class PatchNoteCategory(models.TextChoices):
@@ -109,6 +114,19 @@ class PatchNote(models.Model):
         default=list,
         blank=True,
         help_text=_("List of commit SHAs that back this note."),
+    )
+    published_on = models.DateField(
+        null=True,
+        blank=True,
+        default=_today,
+        db_index=True,
+        help_text=_(
+            "Date this specific note went live. Release windows can stay open "
+            "for weeks, so this is what the public page shows next to the "
+            "note itself rather than reusing the release's one released_on "
+            "date for everything appended to it. Falls back to the release's "
+            "released_on when unset (older notes)."
+        ),
     )
     order = models.PositiveIntegerField(default=0)
     # Cleared when a curator edits the row in admin so the generator never

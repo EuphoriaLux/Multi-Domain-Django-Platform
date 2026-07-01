@@ -326,10 +326,10 @@ class Command(BaseCommand):
     def _aggregate_into_notes(self, commits):
         """Turn a list of commit tuples into category + bucket grouped notes."""
         grouped = defaultdict(lambda: defaultdict(list))
-        # grouped[category][scope_bucket] -> [ (sha, human_subject) ]
+        # grouped[category][scope_bucket] -> [ (sha, human_subject, iso_date) ]
         for sha, iso, subject, _paths in commits:
             category, bucket, human = classify_commit(subject)
-            grouped[category][bucket].append((sha, scrub(human)))
+            grouped[category][bucket].append((sha, scrub(human), iso))
 
         notes = []
         order = 0
@@ -340,8 +340,11 @@ class Command(BaseCommand):
             PatchNoteCategory.UNDER_HOOD,
         ]:
             for bucket, items in grouped.get(category, {}).items():
-                shas = [sha for sha, _ in items]
-                subjects = [s for _, s in items if s]
+                shas = [sha for sha, _, _ in items]
+                subjects = [s for _, s, _ in items if s]
+                # Most recent commit date in the bucket, since that's closest
+                # to when this note's content actually went live.
+                published_on = date.fromisoformat(max(iso for _, _, iso in items))
                 title = bucket
                 if len(subjects) == 1:
                     body = humanize_subject(subjects[0])
@@ -356,6 +359,7 @@ class Command(BaseCommand):
                     "body": body,
                     "related_commits": shas,
                     "order": order,
+                    "published_on": published_on,
                 })
                 order += 1
         return notes

@@ -54,8 +54,14 @@ def ingest_changelog(request):
 
         {
           "release": {"version","slug","title","hero_summary","released_on","is_published"},
-          "notes":   [{"category","title","body","related_commits","order"}, ...]
+          "notes":   [{"category","title","body","related_commits","order","published_on"}, ...]
         }
+
+    ``release.released_on`` is sticky: omit it when appending to an existing
+    release (matched by slug) so the card's displayed date isn't dragged
+    forward every time a note is added to a long-running window. Each note's
+    ``published_on`` defaults to today and is what the public page actually
+    shows next to that note.
 
     Returns 201 with the release slug/url, 400 on invalid input, 401 if the
     Bearer token is missing/wrong.
@@ -74,6 +80,15 @@ def ingest_changelog(request):
         return _bad_request("'release' object is required.")
     if not isinstance(notes_in, list):
         return _bad_request("'notes' must be a list.")
+    # Guard against the singular-key typo: a payload with "note": {...}
+    # instead of "notes": [...] would otherwise silently fall through to the
+    # notes_in=[] default and return a deceptive 201/"success": true with
+    # notes_added: 0 — indistinguishable from a real duplicate delivery.
+    if "notes" not in payload and "note" in payload:
+        return _bad_request(
+            "'notes' must be a list — did you mean \"notes\": [...] "
+            "instead of \"note\": {...}?"
+        )
 
     # --- validate + scrub the release -----------------------------------
     slug = (release_in.get("slug") or "").strip()
@@ -99,7 +114,12 @@ def ingest_changelog(request):
         except (ValueError, TypeError):
             return _bad_request("'release.released_on' must be an ISO date (YYYY-MM-DD).")
     else:
-        released_on = timezone.now().date()
+        # Sentinel: a release window can stay open for weeks, with many notes
+        # appended after the card was first created. Omitting released_on
+        # means "don't touch it" on an existing release, so appending a note
+        # weeks later doesn't drag the card's displayed date forward. Only
+        # used as today's date when the release doesn't exist yet (below).
+        released_on = None
 
     # Auto-publish by default (per design); callers may override to stage drafts.
     is_published = bool(release_in.get("is_published", True))
@@ -132,26 +152,46 @@ def ingest_changelog(request):
                 f"notes[{i}].related_commits must contain at least one commit SHA "
                 f"(required so re-delivered merges stay idempotent)."
             )
+        published_on_raw = note.get("published_on")
+        if published_on_raw:
+            try:
+                published_on = date.fromisoformat(published_on_raw)
+            except (ValueError, TypeError):
+                return _bad_request(
+                    f"notes[{i}].published_on must be an ISO date (YYYY-MM-DD)."
+                )
+        else:
+            published_on = timezone.now().date()
         clean_notes.append({
             "category": category,
             "title": n_title,
             "body": scrub(note.get("body") or ""),
             "related_commits": related,
             "order": int(note.get("order", i)),
+            "published_on": published_on,
         })
 
     # --- write -----------------------------------------------------------
-    defaults = {
-        "version": version,
-        "title": title,
-        "hero_summary": hero_summary,
-        "released_on": released_on,
-        "is_published": is_published,
-    }
     with transaction.atomic():
-        release, created = PatchRelease.objects.update_or_create(
-            slug=slug, defaults=defaults,
-        )
+        try:
+            release = PatchRelease.objects.get(slug=slug)
+            created = False
+        except PatchRelease.DoesNotExist:
+            release = PatchRelease(slug=slug)
+            created = True
+
+        release.version = version
+        release.title = title
+        release.hero_summary = hero_summary
+        release.is_published = is_published
+        # released_on is sticky (see the sentinel comment above): update it
+        # only when the caller explicitly provided one, or this is a brand
+        # new release that needs some date.
+        if released_on is not None:
+            release.released_on = released_on
+        elif created:
+            release.released_on = timezone.now().date()
+        release.save()
 
         # Idempotency: a merge webhook can fire more than once. Skip any note
         # whose backing commit SHA was *already persisted* on this release by an

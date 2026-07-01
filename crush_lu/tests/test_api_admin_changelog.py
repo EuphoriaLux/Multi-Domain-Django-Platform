@@ -16,6 +16,7 @@ Run with: pytest crush_lu/tests/test_api_admin_changelog.py -v
 import json
 
 from django.test import Client, TestCase, override_settings
+from django.utils import timezone
 
 from crush_lu.models import PatchNote, PatchRelease
 
@@ -145,6 +146,59 @@ class ChangelogIngestWriteTests(TestCase):
         self.assertEqual(release.title, "Crush Connect, even better")
         self.assertEqual(release.notes.count(), 2)  # different SHA → appended
 
+    def test_released_on_is_sticky_when_omitted_on_append(self):
+        # First request creates the release with an explicit date.
+        self._post(_valid_payload(sha="first-sha"))
+        release = PatchRelease.objects.get(slug="catchup-2026-06")
+        self.assertEqual(release.released_on.isoformat(), "2026-06-18")
+
+        # A later append (e.g. weeks later) omits released_on entirely.
+        payload = _valid_payload(sha="later-sha")
+        del payload["release"]["released_on"]
+        resp = self._post(payload)
+        self.assertEqual(resp.status_code, 201)
+
+        release.refresh_from_db()
+        self.assertEqual(release.released_on.isoformat(), "2026-06-18")
+        self.assertEqual(release.notes.count(), 2)
+
+    def test_released_on_defaults_to_today_for_brand_new_release(self):
+        payload = _valid_payload(sha="fresh-sha", slug="catchup-brand-new")
+        del payload["release"]["released_on"]
+        resp = self._post(payload)
+        self.assertEqual(resp.status_code, 201)
+
+        release = PatchRelease.objects.get(slug="catchup-brand-new")
+        self.assertEqual(release.released_on, timezone.now().date())
+
+    def test_released_on_can_be_explicitly_corrected(self):
+        self._post(_valid_payload(sha="first-sha"))
+        payload = _valid_payload(sha="correction-sha")
+        payload["release"]["released_on"] = "2026-06-20"
+        self._post(payload)
+
+        release = PatchRelease.objects.get(slug="catchup-2026-06")
+        self.assertEqual(release.released_on.isoformat(), "2026-06-20")
+
+    def test_note_published_on_defaults_to_today(self):
+        self._post(_valid_payload())
+        note = PatchRelease.objects.get(slug="catchup-2026-06").notes.get()
+        self.assertEqual(note.published_on, timezone.now().date())
+
+    def test_note_published_on_can_be_explicit(self):
+        payload = _valid_payload()
+        payload["notes"][0]["published_on"] = "2026-06-20"
+        self._post(payload)
+        note = PatchRelease.objects.get(slug="catchup-2026-06").notes.get()
+        self.assertEqual(note.published_on.isoformat(), "2026-06-20")
+
+    def test_invalid_note_published_on_is_400(self):
+        payload = _valid_payload()
+        payload["notes"][0]["published_on"] = "not-a-date"
+        resp = self._post(payload)
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(PatchRelease.objects.count(), 0)
+
 
 @override_settings(**CRUSH_URLS)
 class ChangelogIngestValidationTests(TestCase):
@@ -180,6 +234,16 @@ class ChangelogIngestValidationTests(TestCase):
 
     def test_missing_release_is_400(self):
         self.assertEqual(self._post({"notes": []}).status_code, 400)
+
+    def test_singular_note_key_is_400_not_silent_no_op(self):
+        # A payload using "note": {...} instead of "notes": [...] must be
+        # rejected, not silently accepted as zero notes (which looks
+        # identical to a real idempotent duplicate in the response).
+        payload = _valid_payload()
+        payload["note"] = payload.pop("notes")[0]
+        resp = self._post(payload)
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(PatchRelease.objects.count(), 0)
 
     def test_empty_related_commits_is_400(self):
         # A note with no commit SHA can never be deduped, so the ingest must
