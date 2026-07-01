@@ -35,7 +35,7 @@
             </h3>
             <ul class="space-y-4">
                 {% for note in group.list %}
-                    {% include "crush_lu/changelog/_note.html" with note=note %}
+                    {% include "crush_lu/changelog/_note.html" with note=note release=release %}
                 {% endfor %}
             </ul>
         </section>

@@ -22,7 +22,7 @@ import logging
 import re
 from datetime import date
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -54,8 +54,14 @@ def ingest_changelog(request):
 
         {
           "release": {"version","slug","title","hero_summary","released_on","is_published"},
-          "notes":   [{"category","title","body","related_commits","order"}, ...]
+          "notes":   [{"category","title","body","related_commits","order","published_on"}, ...]
         }
+
+    ``release.released_on`` is sticky: omit it when appending to an existing
+    release (matched by slug) so the card's displayed date isn't dragged
+    forward every time a note is added to a long-running window. Each note's
+    ``published_on`` defaults to today and is what the public page actually
+    shows next to that note.
 
     Returns 201 with the release slug/url, 400 on invalid input, 401 if the
     Bearer token is missing/wrong.
@@ -74,6 +80,15 @@ def ingest_changelog(request):
         return _bad_request("'release' object is required.")
     if not isinstance(notes_in, list):
         return _bad_request("'notes' must be a list.")
+    # Guard against the singular-key typo: a payload with "note": {...}
+    # instead of "notes": [...] would otherwise silently fall through to the
+    # notes_in=[] default and return a deceptive 201/"success": true with
+    # notes_added: 0 — indistinguishable from a real duplicate delivery.
+    if "notes" not in payload and "note" in payload:
+        return _bad_request(
+            "'notes' must be a list — did you mean \"notes\": [...] "
+            "instead of \"note\": {...}?"
+        )
 
     # --- validate + scrub the release -----------------------------------
     slug = (release_in.get("slug") or "").strip()
@@ -99,7 +114,12 @@ def ingest_changelog(request):
         except (ValueError, TypeError):
             return _bad_request("'release.released_on' must be an ISO date (YYYY-MM-DD).")
     else:
-        released_on = timezone.now().date()
+        # Sentinel: a release window can stay open for weeks, with many notes
+        # appended after the card was first created. Omitting released_on
+        # means "don't touch it" on an existing release, so appending a note
+        # weeks later doesn't drag the card's displayed date forward. Only
+        # used as today's date when the release doesn't exist yet (below).
+        released_on = None
 
     # Auto-publish by default (per design); callers may override to stage drafts.
     is_published = bool(release_in.get("is_published", True))
@@ -132,26 +152,79 @@ def ingest_changelog(request):
                 f"notes[{i}].related_commits must contain at least one commit SHA "
                 f"(required so re-delivered merges stay idempotent)."
             )
+        published_on_raw = note.get("published_on")
+        if published_on_raw:
+            try:
+                published_on = date.fromisoformat(published_on_raw)
+            except (ValueError, TypeError):
+                return _bad_request(
+                    f"notes[{i}].published_on must be an ISO date (YYYY-MM-DD)."
+                )
+        else:
+            # localdate(), not now().date(): TIME_ZONE is Europe/Luxembourg
+            # with USE_TZ=True, so now().date() would take the UTC date and
+            # be a day behind local evenings.
+            published_on = timezone.localdate()
         clean_notes.append({
             "category": category,
             "title": n_title,
             "body": scrub(note.get("body") or ""),
             "related_commits": related,
             "order": int(note.get("order", i)),
+            "published_on": published_on,
         })
 
     # --- write -----------------------------------------------------------
-    defaults = {
-        "version": version,
-        "title": title,
-        "hero_summary": hero_summary,
-        "released_on": released_on,
-        "is_published": is_published,
-    }
+    def _apply_release_fields(rel):
+        rel.version = version
+        rel.title = title
+        rel.hero_summary = hero_summary
+        rel.is_published = is_published
+        # released_on is sticky (see the sentinel comment above): update it
+        # only when the caller explicitly provided one.
+        if released_on is not None:
+            rel.released_on = released_on
+
     with transaction.atomic():
-        release, created = PatchRelease.objects.update_or_create(
-            slug=slug, defaults=defaults,
-        )
+        # select_for_update() serializes concurrent requests against the same
+        # release the way update_or_create() used to: without it, two
+        # overlapping deliveries for the same merge SHA (a retried webhook,
+        # or a re-run) can both read an empty preexisting_shas snapshot below
+        # and both create the note, breaking idempotency.
+        try:
+            release = PatchRelease.objects.select_for_update().get(slug=slug)
+            created = False
+        except PatchRelease.DoesNotExist:
+            release = None
+            created = True
+
+        if not created:
+            _apply_release_fields(release)
+            release.save()
+        else:
+            release = PatchRelease(slug=slug)
+            _apply_release_fields(release)
+            if released_on is None:
+                # localdate(), not now().date() — see the published_on comment
+                # above; the site's TIME_ZONE isn't UTC.
+                release.released_on = timezone.localdate()
+            try:
+                # Nested atomic (savepoint): on Postgres an IntegrityError
+                # poisons the enclosing transaction, so the fallback get()
+                # below needs its own boundary to recover from it.
+                with transaction.atomic():
+                    release.save(force_insert=True)
+            except IntegrityError:
+                # Lost a race with another concurrent delivery that created
+                # this same brand-new slug first (select_for_update() above
+                # only serializes *existing* rows). Reload the row it created
+                # — now locked — and fall through to the update path instead
+                # of surfacing a 500, matching update_or_create()'s own
+                # retry-after-IntegrityError behavior.
+                release = PatchRelease.objects.select_for_update().get(slug=slug)
+                created = False
+                _apply_release_fields(release)
+                release.save()
 
         # Idempotency: a merge webhook can fire more than once. Skip any note
         # whose backing commit SHA was *already persisted* on this release by an

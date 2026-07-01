@@ -14,8 +14,11 @@ ROOT_URLCONF the same way the rest of the crush_lu suite does.
 Run with: pytest crush_lu/tests/test_api_admin_changelog.py -v
 """
 import json
+from datetime import date
+from unittest import mock
 
 from django.test import Client, TestCase, override_settings
+from django.utils import timezone
 
 from crush_lu.models import PatchNote, PatchRelease
 
@@ -145,6 +148,105 @@ class ChangelogIngestWriteTests(TestCase):
         self.assertEqual(release.title, "Crush Connect, even better")
         self.assertEqual(release.notes.count(), 2)  # different SHA → appended
 
+    def test_existing_release_lookup_is_row_locked(self):
+        # The lookup on an append must use select_for_update() — matching
+        # what update_or_create() did before this endpoint stopped using it —
+        # so two overlapping deliveries for the same release serialize
+        # instead of both reading an empty preexisting_shas snapshot and
+        # both creating a note for the same merge SHA.
+        self._post(_valid_payload(sha="lock-sha-1"))  # release now exists
+        original = PatchRelease.objects.select_for_update
+        with mock.patch.object(
+            PatchRelease.objects, "select_for_update", wraps=original
+        ) as mock_lock:
+            resp = self._post(_valid_payload(sha="lock-sha-2"))
+        self.assertEqual(resp.status_code, 201)
+        mock_lock.assert_called_once()
+
+    def test_concurrent_creation_of_new_release_falls_back_to_update(self):
+        # Simulates losing a create race for a brand-new slug: a "racer" row
+        # is inserted for real right as the endpoint builds its own unsaved
+        # instance — before it opens the atomic() block around
+        # save(force_insert=True) — so that insert isn't undone when that
+        # block's IntegrityError rolls back to its own savepoint. The
+        # endpoint's own force_insert then hits a genuine unique-constraint
+        # violation from the DB and must recover by reloading the
+        # now-existing row (locked) and applying this request's data to it,
+        # not surface a 500.
+        real_init = PatchRelease.__init__
+        state = {"raced": False}
+
+        def racing_init(self, *args, **kwargs):
+            real_init(self, *args, **kwargs)
+            if kwargs.get("slug") and not state["raced"]:
+                state["raced"] = True
+                PatchRelease.objects.create(
+                    slug=kwargs["slug"], version="v0.0", title="Racer",
+                    released_on=date(2026, 1, 1),
+                )
+
+        with mock.patch.object(PatchRelease, "__init__", racing_init):
+            resp = self._post(_valid_payload(sha="race-sha", slug="catchup-race"))
+
+        self.assertEqual(resp.status_code, 201)
+        release = PatchRelease.objects.get(slug="catchup-race")
+        # Our request's fields (not the "racer" placeholder's) won.
+        self.assertEqual(release.title, "Crush Connect, reimagined")
+        self.assertEqual(release.notes.count(), 1)
+
+    def test_released_on_is_sticky_when_omitted_on_append(self):
+        # First request creates the release with an explicit date.
+        self._post(_valid_payload(sha="first-sha"))
+        release = PatchRelease.objects.get(slug="catchup-2026-06")
+        self.assertEqual(release.released_on.isoformat(), "2026-06-18")
+
+        # A later append (e.g. weeks later) omits released_on entirely.
+        payload = _valid_payload(sha="later-sha")
+        del payload["release"]["released_on"]
+        resp = self._post(payload)
+        self.assertEqual(resp.status_code, 201)
+
+        release.refresh_from_db()
+        self.assertEqual(release.released_on.isoformat(), "2026-06-18")
+        self.assertEqual(release.notes.count(), 2)
+
+    def test_released_on_defaults_to_today_for_brand_new_release(self):
+        payload = _valid_payload(sha="fresh-sha", slug="catchup-brand-new")
+        del payload["release"]["released_on"]
+        resp = self._post(payload)
+        self.assertEqual(resp.status_code, 201)
+
+        release = PatchRelease.objects.get(slug="catchup-brand-new")
+        self.assertEqual(release.released_on, timezone.localdate())
+
+    def test_released_on_can_be_explicitly_corrected(self):
+        self._post(_valid_payload(sha="first-sha"))
+        payload = _valid_payload(sha="correction-sha")
+        payload["release"]["released_on"] = "2026-06-20"
+        self._post(payload)
+
+        release = PatchRelease.objects.get(slug="catchup-2026-06")
+        self.assertEqual(release.released_on.isoformat(), "2026-06-20")
+
+    def test_note_published_on_defaults_to_today(self):
+        self._post(_valid_payload())
+        note = PatchRelease.objects.get(slug="catchup-2026-06").notes.get()
+        self.assertEqual(note.published_on, timezone.localdate())
+
+    def test_note_published_on_can_be_explicit(self):
+        payload = _valid_payload()
+        payload["notes"][0]["published_on"] = "2026-06-20"
+        self._post(payload)
+        note = PatchRelease.objects.get(slug="catchup-2026-06").notes.get()
+        self.assertEqual(note.published_on.isoformat(), "2026-06-20")
+
+    def test_invalid_note_published_on_is_400(self):
+        payload = _valid_payload()
+        payload["notes"][0]["published_on"] = "not-a-date"
+        resp = self._post(payload)
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(PatchRelease.objects.count(), 0)
+
 
 @override_settings(**CRUSH_URLS)
 class ChangelogIngestValidationTests(TestCase):
@@ -180,6 +282,16 @@ class ChangelogIngestValidationTests(TestCase):
 
     def test_missing_release_is_400(self):
         self.assertEqual(self._post({"notes": []}).status_code, 400)
+
+    def test_singular_note_key_is_400_not_silent_no_op(self):
+        # A payload using "note": {...} instead of "notes": [...] must be
+        # rejected, not silently accepted as zero notes (which looks
+        # identical to a real idempotent duplicate in the response).
+        payload = _valid_payload()
+        payload["note"] = payload.pop("notes")[0]
+        resp = self._post(payload)
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(PatchRelease.objects.count(), 0)
 
     def test_empty_related_commits_is_400(self):
         # A note with no commit SHA can never be deduped, so the ingest must
