@@ -68,7 +68,7 @@ def _years_ago(years: int) -> date:
         return today.replace(year=today.year - years, day=28)
 
 
-def get_eligible_pool(user) -> "QuerySet[User]":
+def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
     """
     Return the queryset of users eligible to appear in ``user``'s Crush Connect Drop.
 
@@ -76,6 +76,11 @@ def get_eligible_pool(user) -> "QuerySet[User]":
     personal coach assigned, onboarded into Crush Connect, not coach-excluded),
     otherwise an empty queryset. Candidates don't need Premium — the catalogue
     requires LuxID + opt-in instead (asymmetric model).
+
+    ``candidate_pk`` is intended for fast existence checks such as
+    ``?.filter(pk=candidate_pk).exists()``. It narrows the queryset before the
+    Python gender-preference step to avoid materialising the full pool for a
+    single-row lookup; it does not replace the eligibility filters.
     """
     from crush_lu.models import CrushProfile, EventConnection, EventRegistration
     from crush_lu.services.blocking import block_exists_subquery
