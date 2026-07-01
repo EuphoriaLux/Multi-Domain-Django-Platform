@@ -364,9 +364,14 @@ if (workbox) {
 
     // Strategy 5: StaleWhileRevalidate for static assets (CSS, JS)
     // Changed from CacheFirst to allow CSS/JS updates to propagate quickly
+    // Same-origin only: caching cross-origin styles/scripts (e.g. the Google
+    // Fonts stylesheet) makes the SW fetch() them, which CSP polices under
+    // connect-src — hosts absent there, so it would break once CSP is enforced.
+    // Mirrors the same-origin guard on the image route below.
     workbox.routing.registerRoute(
-        ({ request }) =>
-            request.destination === "style" || request.destination === "script",
+        ({ request, url }) =>
+            url.origin === self.location.origin &&
+            (request.destination === "style" || request.destination === "script"),
         new workbox.strategies.StaleWhileRevalidate({
             cacheName: "crush-static",
             plugins: [
