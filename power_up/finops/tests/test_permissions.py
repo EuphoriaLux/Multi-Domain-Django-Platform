@@ -3,8 +3,6 @@ Tests for FinOps Hub permission changes (Phase 1)
 """
 
 import pytest
-from django.test import Client, override_settings
-from django.urls import reverse
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -14,31 +12,26 @@ User = get_user_model()
 class TestPublicDashboardAccess:
     """Test that public views are accessible without authentication"""
 
-    @override_settings(ROOT_URLCONF='azureproject.urls_power_up')
     def test_dashboard_accessible_without_login(self, client):
         """Dashboard should be accessible without authentication"""
         response = client.get('/finops/')
         assert response.status_code == 200
 
-    @override_settings(ROOT_URLCONF='azureproject.urls_power_up')
     def test_subscription_view_accessible_without_login(self, client):
         """Subscription view should be accessible without authentication"""
         response = client.get('/finops/subscriptions/')
         assert response.status_code == 200
 
-    @override_settings(ROOT_URLCONF='azureproject.urls_power_up')
     def test_service_breakdown_accessible_without_login(self, client):
         """Service breakdown should be accessible without authentication"""
         response = client.get('/finops/services/')
         assert response.status_code == 200
 
-    @override_settings(ROOT_URLCONF='azureproject.urls_power_up')
     def test_resource_explorer_accessible_without_login(self, client):
         """Resource explorer should be accessible without authentication"""
         response = client.get('/finops/resources/')
         assert response.status_code == 200
 
-    @override_settings(ROOT_URLCONF='azureproject.urls_power_up')
     def test_faq_accessible_without_login(self, client):
         """FAQ page should be accessible without authentication"""
         response = client.get('/finops/faq/')
@@ -49,14 +42,12 @@ class TestPublicDashboardAccess:
 class TestAdminViewsRequireAuth:
     """Test that admin views require staff authentication"""
 
-    @override_settings(ROOT_URLCONF='azureproject.urls_power_up')
     def test_import_page_requires_staff(self, client):
         """Import page should require staff authentication"""
         response = client.get('/finops/import/')
         # Should redirect to login or return 403
         assert response.status_code in [302, 403]
 
-    @override_settings(ROOT_URLCONF='azureproject.urls_power_up')
     def test_import_page_accessible_for_staff(self, client):
         """Import page should be accessible for staff users"""
         # Create staff user
@@ -71,14 +62,12 @@ class TestAdminViewsRequireAuth:
         response = client.get('/finops/import/')
         assert response.status_code == 200
 
-    @override_settings(ROOT_URLCONF='azureproject.urls_power_up')
     def test_update_subscription_id_requires_staff(self, client):
         """Update subscription ID should require staff authentication"""
         # Try to access without authentication
         response = client.get('/finops/import/123/update-subscription/')
         assert response.status_code in [302, 403, 404]  # Redirect, forbidden, or not found
 
-    @override_settings(ROOT_URLCONF='azureproject.urls_power_up')
     def test_regular_user_cannot_access_admin_views(self, client):
         """Regular authenticated users should not access admin views"""
         # Create regular user (not staff)
@@ -99,7 +88,6 @@ class TestAdminViewsRequireAuth:
 class TestAPIEndpointsRequireAuth:
     """Test that API endpoints still require authentication"""
 
-    @override_settings(ROOT_URLCONF='azureproject.urls_power_up')
     def test_cost_summary_requires_session(self, client):
         """Cost summary API should require session or authentication"""
         # Direct API call without session should be blocked
@@ -111,7 +99,6 @@ class TestAPIEndpointsRequireAuth:
         # The key is that authenticated users can access it
         assert response.status_code in [200, 403]
 
-    @override_settings(ROOT_URLCONF='azureproject.urls_power_up')
     def test_api_accessible_with_authentication(self, client):
         """API endpoints should be accessible for authenticated users"""
         user = User.objects.create_user(
@@ -124,7 +111,6 @@ class TestAPIEndpointsRequireAuth:
         response = client.get('/finops/api/costs/summary/')
         assert response.status_code == 200
 
-    @override_settings(ROOT_URLCONF='azureproject.urls_power_up')
     def test_csv_export_requires_authentication(self, client):
         """CSV export is implemented and requires authentication"""
         response = client.get('/finops/api/costs/export-csv/')

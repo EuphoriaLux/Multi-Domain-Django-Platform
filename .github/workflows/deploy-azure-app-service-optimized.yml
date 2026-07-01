@@ -112,6 +112,7 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Deploy to Staging Slot
+        id: deploy
         run: |
           az webapp deploy \
             --name django-app-ajfffwjb5ie3s-app-service \
@@ -125,25 +126,33 @@ jobs:
       - name: Verify Deployment
         run: |
           echo "🔥 Waiting for staging to warm up..."
-          failed=0
+          # Probe the hosts in parallel — wall time is the slowest host, not
+          # the sum. curl retries natively (12 attempts, 10s apart) and, unlike
+          # a hand-rolled loop, doesn't sleep after the last failure.
+          pids=""
           for host in test.crush.lu test.powerup.lu test.vinsdelux.com; do
-            ok=0
-            for attempt in $(seq 1 12); do
-              if curl -sf -o /dev/null --max-time 10 "https://$host/healthz/"; then
-                echo "  ✅ $host (attempt $attempt)"
-                ok=1
-                break
+            (
+              if curl -sf -o /dev/null --max-time 10 --retry 11 --retry-delay 10 \
+                   --retry-all-errors "https://$host/healthz/"; then
+                echo "  ✅ $host"
+              else
+                echo "  ❌ $host never became healthy"
+                exit 1
               fi
-              sleep 10
-            done
-            if [ "$ok" -eq 0 ]; then
-              echo "  ❌ $host never became healthy"
-              failed=1
-            fi
+            ) &
+            pids="$pids $!"
+          done
+          failed=0
+          for pid in $pids; do
+            wait "$pid" || failed=1
           done
           exit $failed
 
       - name: Summary
+        # Post the URL table even when verification fails — the build IS on
+        # staging at that point, and the links are what you need to debug it.
+        # (But not when the deploy itself failed: nothing new is on staging.)
+        if: ${{ !cancelled() && steps.deploy.outcome == 'success' }}
         run: |
           echo "## 🚀 Deployed to Staging" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

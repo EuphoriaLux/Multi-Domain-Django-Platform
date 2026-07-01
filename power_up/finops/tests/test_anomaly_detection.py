@@ -53,7 +53,7 @@ class TestAnomalyDetector:
         anomaly = anomalies[0]
         assert anomaly.dimension_value == 'test-subscription'
         # A $50/50% spike classifies as 'low' (medium needs >150% or >$1000)
-        assert anomaly.severity in ['low', 'medium', 'high', 'critical']
+        assert anomaly.severity == 'low'
 
     def test_sudden_spike_detection(self):
         """Test 150% spike detection"""

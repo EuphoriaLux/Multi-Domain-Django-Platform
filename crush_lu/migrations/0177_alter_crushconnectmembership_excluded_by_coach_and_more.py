@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0174_backfill_patchnote_published_on"),
+        ("crush_lu", "0176_seed_connect_questions"),
     ]
 
     operations = [
