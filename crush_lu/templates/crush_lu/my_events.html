@@ -73,7 +73,7 @@
     </div>
     {% else %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 text-center py-10 px-6">
-        <div class="mx-auto w-24 h-24 mb-4">{% include "crush_lu/includes/ghost-story-party.html" with class="w-full h-full" %}</div>
+        <div class="mx-auto w-24 h-24 mb-4 ghost-glow">{% include "crush_lu/includes/ghost-story-party.html" with class="w-full h-full" %}</div>
         <h4 class="text-lg font-semibold mb-2 dark:text-white">{% trans "No upcoming events yet" %}</h4>
         <p class="text-gray-500 dark:text-gray-400 mb-4">{% trans "Pick a meetup and get on the list." %}</p>
         <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-primary inline-flex items-center gap-2 px-5 py-2.5">
@@ -139,7 +139,7 @@
     </div>
     {% else %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 text-center py-10 px-6">
-        <div class="mx-auto w-24 h-24 mb-4">{% include "crush_lu/includes/ghost-story-lonely.html" with class="w-full h-full" %}</div>
+        <div class="mx-auto w-24 h-24 mb-4 ghost-glow">{% include "crush_lu/includes/ghost-story-lonely.html" with class="w-full h-full" %}</div>
         <h4 class="text-lg font-semibold mb-2 dark:text-white">{% trans "No past events yet" %}</h4>
         <p class="text-gray-500 dark:text-gray-400">{% trans "Once you've attended your first meetup it will show up here." %}</p>
     </div>

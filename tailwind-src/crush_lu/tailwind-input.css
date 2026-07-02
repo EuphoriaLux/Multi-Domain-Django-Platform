@@ -10239,6 +10239,17 @@ html.dark .ghost-story-char {
     filter: drop-shadow(0 4px 16px rgba(139, 92, 246, 0.4));
 }
 
+/* Halo for ghost SVGs sitting on white/light cards (empty states, feature
+   cards). Never needed on gradient surfaces: navbar, hero, loading overlay,
+   footer. See STYLE.md "Ghost logo & mascot". */
+.ghost-glow {
+    filter: drop-shadow(0 4px 12px rgba(155, 89, 182, 0.35));
+}
+
+html.dark .ghost-glow {
+    filter: drop-shadow(0 4px 16px rgba(139, 92, 246, 0.4));
+}
+
 /* --- Scene-Specific Animations --- */
 
 /* Scene 0: Lonely ghost floating */

@@ -313,3 +313,77 @@ commit. Existing debt elsewhere in the tree only fires when someone
 touches those files — so the linter doesn't block unrelated work, but
 does catch new drift and nudges every modification toward the canonical
 classes.
+
+## 10. Ghost logo & mascot
+
+All ghost artwork shares one set of shapes. The path data (body, eyes,
+mouth, heart, sparkles) lives in exactly three fragments — **never copy
+a `d="…"` string into another template**:
+
+- `includes/ghost-core.html` — body + eyes + mouth, parameterized by `variant`
+- `includes/ghost-heart.html` — the pink heart (`pulse=True` adds the fill pulse)
+- `includes/ghost-sparkles.html` — the four sparkle circles
+
+The ghost family is grandfathered in `includes/` (not `components/`)
+because the ~30 `ghost-story-*` decorations already live there.
+
+### Variants
+
+| Include | Look | Use for | Default size |
+|---|---|---|---|
+| `ghost-logo.html` | Static body, orbiting heart, eyes follow it | Navbar / footer / inline brand | `w-7 h-7` |
+| `ghost-logo-animated.html` | Float, blink, heartbeat, sparkles (SMIL) | Loading overlay, celebrations on gradient | `w-7 h-7` |
+| `ghost-logo-hero.html` | Animated + cursor-tracked eyes/heart | Home hero **only** | `w-7 h-7` |
+| `ghost-logo-icon.html` | No animation, outline baked in | Tiny badges (`w-4`/`w-8`) — the only variant for icon sizes | `w-4 h-4` |
+| `ghost-logo-mono.html` | Single color via `currentColor`, mask-punched face | Single-color contexts (emails, watermarks) | `w-7 h-7` |
+
+`ghost-logo-hero.html` has a JS contract: the `ghostEyes` Alpine
+component (`alpine-components.js`) queries `.ghost-eye` / `.ghost-heart`
+inside the hero section and rewrites their transforms per frame. That
+markup — and the heartbeat's `additive="sum"` — is load-bearing.
+
+### Params of `ghost-core.html`
+
+- `variant` (required): `icon | static | animated | hero | mono`
+- `body_fill` (default `#FFFFFF`)
+- `no_outline`: truthy disables the baked outline. The flag is inverted
+  on purpose — Django's `|default:` replaces *falsy* values, so an
+  `outline=False` param would silently flip back to the default.
+- `uid`: id suffix for the mono mask; pass a unique value when rendering
+  more than one mono ghost per page (inline SVG ids are document-global).
+
+### Outline & glow (visibility on light surfaces)
+
+The body path carries a baked brand-purple outline
+(`stroke="#9b59b6" stroke-opacity=".45" paint-order="stroke fill"`) so
+the white ghost reads on white cards; on the purple-pink gradients it
+blends in. The hex is hardcoded (not `var(--crush-purple)`) because
+standalone pages (`oauth_landing.html`, `ghost_showcase.html`) load no
+brand CSS variables. Never add `vector-effect="non-scaling-stroke"` —
+it renders 6 *screen* pixels and swallows the icon sizes.
+
+For **large ghosts on white/light cards** (empty states, feature cards)
+additionally apply the `.ghost-glow` utility (purple drop-shadow, has a
+dark-mode variant). Never put it on gradient surfaces (navbar, hero,
+loading overlay, footer). The `ghost-story-*` decoration files stay
+untouched — glow is applied at the call site.
+
+### Do / don't
+
+- Never reference an SVG that must recolor via `<img>` — external
+  images take no page CSS (that's why `ghost-logo-icon.html` replaced
+  `static/crush_lu/svg/ghost-logo-animated.svg`, since deleted).
+- `/en/ghost-showcase/` renders every variant, including a
+  "Logo Variants & Light Surfaces" strip with white test cards.
+
+### Brand asset inventory
+
+- Favicon: `static/crush_lu/favicon.svg` (preferred) + `crush_favicon.ico`
+  (fallback), both linked in `base.html`. The SVG mirrors `ghost-core.html`
+  shapes — keep in sync; no SMIL (Firefox animates favicons).
+- PWA: maskable 192/512 icons + apple-touch set, served via the
+  `pwa_manifest` view (`views_pwa.py`).
+- Social/OG: `static/crush_lu/crush_social_preview.jpg` (1200×630), wired
+  through `SOCIAL_PREVIEW_IMAGE_URL` (settings → context processor →
+  `base.html`). To refresh, replace the jpg in place or point the env var
+  at a new image — no code change needed.

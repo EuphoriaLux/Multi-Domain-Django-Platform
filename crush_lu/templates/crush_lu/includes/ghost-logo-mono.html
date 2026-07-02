@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="89 75 318 325" class="{{ class|default:'w-7 h-7' }}" aria-hidden="true">
+  {% comment %}
+  Single-color ghost silhouette in currentColor — recolor by setting the CSS
+  color of the surrounding element (e.g. class="w-7 h-7 text-crush-purple").
+  Eyes and mouth are punched out via mask, so the background shows through.
+  Pass a unique uid when rendering more than one mono ghost per page
+  (inline SVG mask ids are document-global):
+    {% templatetag openblock %} include "crush_lu/includes/ghost-logo-mono.html" with uid="footer" {% templatetag closeblock %}
+  {% endcomment %}
+  {% include "crush_lu/includes/ghost-core.html" with variant="mono" %}
+</svg>
