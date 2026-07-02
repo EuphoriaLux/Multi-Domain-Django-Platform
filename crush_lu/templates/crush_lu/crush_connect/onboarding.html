@@ -6,6 +6,15 @@
 {% block content %}
 <div class="max-w-2xl mx-auto px-4 py-6 pb-28 lg:pb-10">
 
+    {# Brand identity strip — the wizard is a branded Crush Connect moment. #}
+    <div class="flex items-center gap-2.5 mb-4">
+        {% include "crush_lu/includes/ghost-logo.html" with class="w-8 h-8" %}
+        <div>
+            <p class="text-sm font-bold text-gray-900 dark:text-white leading-tight mb-0">{% trans "Crush Connect" %}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{% trans "Curated, never swiped." %}</p>
+        </div>
+    </div>
+
     {# Top bar: back · "Step X of 7 · Label" · save & exit #}
     <div class="flex items-center justify-between gap-3 mb-3">
         {% if prev_step %}
@@ -73,7 +82,7 @@
 
     <p class="mt-6 flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400">
         {% include "shared/icons/shield-check.html" with class="w-4 h-4 text-crush-purple shrink-0 mt-px" %}
-        <span>{% trans "Your full name and exact age are never shown to other members. Photos stay blurred until both of you have Sparked each other." %}</span>
+        <span>{% trans "Your full name and exact age are never shown to other members. Your card is only ever shown inside a Drop, a Coach Pick, or a Spark — never a public feed." %}</span>
     </p>
 
 </div>
