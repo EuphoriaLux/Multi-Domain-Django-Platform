@@ -1,13 +1,13 @@
 {% extends 'crush_lu/base.html' %}
 {% load static i18n %}
 
-{% block title %}{% trans "Crush Connect Beta — 4 Weeks, 4 Coach-Picked Matches | Crush.lu" %}{% endblock %}
+{% block title %}{% trans "Crush Connect — A Weekly Match, Picked by a Human | Crush.lu" %}{% endblock %}
 
-{% block og_title %}{% trans "Crush Connect Beta — We're Looking for 20 Testers | Crush.lu" %}{% endblock %}
-{% block og_description %}{% trans "Help us co-create Crush Connect: over 4 weeks you receive 4 matches, one hand-picked by a Crush Coach each week. Join the waitlist — we're recruiting 20 testers." %}{% endblock %}
+{% block og_title %}{% trans "Crush Connect — A Weekly Match, Picked by a Human | Crush.lu" %}{% endblock %}
+{% block og_description %}{% trans "One introduction a week, hand-picked by your Crush Coach — plus a daily Drop of fresh faces. LuxID-verified members only. Join free, or go Premium for €15/month." %}{% endblock %}
 
-{% block meta_description %}{% trans "Crush Connect is a new Crush.lu concept: 4 weeks, 4 coach-curated matches — one per week. Free for the first month, then €10/month. Join the waitlist." %}{% endblock %}
-{% block meta_keywords %}{% trans "crush connect, coach-curated matches luxembourg, dating beta, crush.lu, curated matchmaking" %}{% endblock %}
+{% block meta_description %}{% trans "Crush Connect on Crush.lu: a coach-picked match every week, a daily Drop of fresh faces, and LuxID-verified members only. Join free, or go Premium for €15/month." %}{% endblock %}
+{% block meta_keywords %}{% trans "crush connect, coach-picked matches luxembourg, matchmaking luxembourg, crush.lu, curated matchmaking" %}{% endblock %}
 
 {% block structured_data %}
 {{ block.super }}
@@ -43,30 +43,23 @@
             <!-- Text -->
             <div class="lg:col-span-7 text-center lg:text-left">
                 <span class="inline-block rounded-full bg-white/20 px-4 py-1.5 text-sm font-semibold text-white mb-6 backdrop-blur-sm">
-                    {% trans "Beta — 20 testers wanted" %}
+                    {% trans "LuxID-verified · Luxembourg" %}
                 </span>
                 <p class="text-sm font-semibold uppercase tracking-wide text-white/80 mb-3">Crush Connect</p>
                 <h1 id="connect-hero-heading" class="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white mb-6 leading-tight">
-                    {% trans "4 weeks. 4 matches." %}
+                    {% trans "One match a week, picked by a human." %}
                 </h1>
                 <p class="text-lg md:text-xl text-white/90 max-w-2xl mb-8">
-                    {% trans "We're co-creating a new way to meet on Crush.lu — and we're looking for 20 testers to help. Over 4 weeks you receive 4 matches, each one hand-picked for you by a Crush Coach, one per week." %}
+                    {% trans "Your personal Crush Coach hand-picks one introduction a week — and personally arranges the date when it's mutual. In between, your daily Drop brings up to three fresh faces every morning. Curated, never swiped." %}
                 </p>
                 {% if user.is_authenticated %}
-                    {% if on_waitlist %}
-                    <div class="inline-flex items-center gap-2 rounded-full bg-white/20 backdrop-blur-sm px-6 py-3 text-white font-semibold">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                        {% blocktrans with pos=waitlist_position %}You're #{{ pos }} on the waitlist{% endblocktrans %}
-                    </div>
-                    {% else %}
-                    <a href="#join-waitlist" class="crush-connect-cta-button">
-                        {% trans "Join the Waitlist" %}
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
-                    </a>
-                    {% endif %}
+                <a href="{% url 'crush_lu:crush_connect_hub' %}" class="crush-connect-cta-button">
+                    {% trans "Open Crush Connect" %}
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                </a>
                 {% else %}
                 <a href="{% url 'crush_lu:login' %}" class="crush-connect-cta-button">
-                    {% trans "Sign Up to Join" %}
+                    {% trans "Get started free" %}
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
                 </a>
                 {% endif %}
@@ -83,53 +76,82 @@
 <section class="py-16 md:py-24 bg-gray-50 dark:bg-slate-900/50" aria-labelledby="connect-features-heading">
     <div class="max-w-6xl mx-auto px-4">
         <h2 id="connect-features-heading" class="text-3xl md:text-4xl font-bold text-center text-gray-900 dark:text-white mb-4 animate-on-scroll">
-            {% trans "How the beta works" %}
+            {% trans "The five experiences" %}
         </h2>
         <p class="text-center text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-14 animate-on-scroll">
-            {% trans "Four weeks, four coach-curated matches — and your feedback shapes what Crush Connect becomes." %}
+            {% trans "One promise across all of them: every introduction is chosen — by a coach or for a coach — never scrolled." %}
         </p>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <!-- Feature 1: One match per week -->
+            <!-- Experience 1: Your Coach's Pick -->
             <div class="crush-connect-feature-card animate-on-scroll">
                 <div class="crush-connect-feature-icon">
                     <span class="crush-connect-feature-ghost">{% include "crush_lu/includes/ghost-story-typing.html" with class="w-12 h-12" %}</span>
                 </div>
-                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">{% trans "One match per week" %}</h3>
-                <p class="text-gray-600 dark:text-gray-400">
-                    {% trans "Each week of the beta, your Crush Coach hand-picks one match for you — four curated introductions over four weeks." %}
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">{% trans "Your Coach's Pick" %}</h3>
+                <p class="text-gray-600 dark:text-gray-400 mb-4">
+                    {% trans "Every week, a real Crush Coach chooses one person for you, tells you why, and — if you both say yes — arranges the date personally. Not a feed, an actual introduction." %}
                 </p>
+                <a href="{% url 'crush_lu:crush_connect_experience' 'coach-pick' %}" class="inline-flex items-center gap-1 font-semibold text-crush-purple dark:text-crush-pink no-underline hover:underline">
+                    {% trans "Explore" %} <span aria-hidden="true">→</span>
+                </a>
             </div>
 
-            <!-- Feature 2: Coach-curated, not an algorithm -->
+            <!-- Experience 2: Today's Drop -->
             <div class="crush-connect-feature-card animate-on-scroll">
                 <div class="crush-connect-feature-icon">
                     <span class="crush-connect-feature-ghost">{% include "crush_lu/includes/ghost-story-blushing-reader.html" with class="w-12 h-12" %}</span>
                 </div>
-                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">{% trans "Coach-curated, not an algorithm" %}</h3>
-                <p class="text-gray-600 dark:text-gray-400">
-                    {% trans "A real Crush Coach chooses who you meet, based on you — not an endless swipe-based feed. Thoughtful over infinite." %}
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">{% trans "Today's Drop" %}</h3>
+                <p class="text-gray-600 dark:text-gray-400 mb-4">
+                    {% trans "Every morning at 06:00, up to three fresh faces land in your Drop. Curated by our matching engine and pinned for the day — never an endless feed." %}
                 </p>
+                <a href="{% url 'crush_lu:crush_connect_experience' 'todays-drop' %}" class="inline-flex items-center gap-1 font-semibold text-crush-purple dark:text-crush-pink no-underline hover:underline">
+                    {% trans "Explore" %} <span aria-hidden="true">→</span>
+                </a>
             </div>
 
-            <!-- Feature 3: Free for the first month -->
+            <!-- Experience 3: Read the Photo -->
             <div class="crush-connect-feature-card animate-on-scroll">
                 <div class="crush-connect-feature-icon">
                     <span class="crush-connect-feature-ghost">{% include "crush_lu/includes/ghost-story-chatting-pair.html" with class="w-12 h-12" %}</span>
                 </div>
-                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">{% trans "Free for the first month" %}</h3>
-                <p class="text-gray-600 dark:text-gray-400">
-                    {% trans "The 4-week beta is completely free. Want to keep your weekly coach-curated matches afterwards? It's €10/month." %}
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">{% trans "Read the Photo" %}</h3>
+                <p class="text-gray-600 dark:text-gray-400 mb-4">
+                    {% trans "No bios to skim. Everyone answers 3 yes/no questions in private; you guess from the photo. Read someone right and a Spark is sent — read each other right and your coach takes it from there." %}
                 </p>
+                <a href="{% url 'crush_lu:crush_connect_experience' 'read-the-photo' %}" class="inline-flex items-center gap-1 font-semibold text-crush-purple dark:text-crush-pink no-underline hover:underline">
+                    {% trans "Explore" %} <span aria-hidden="true">→</span>
+                </a>
             </div>
-        </div>
 
-        <!-- Catalogue entry (LuxID, free) -->
-        <div class="mt-10 rounded-2xl bg-white dark:bg-slate-800 ring-1 ring-gray-200 dark:ring-slate-700 p-6 md:p-8 text-center animate-on-scroll">
-            <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">{% trans "Join Crush Connect for free" %}</h3>
-            <p class="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-                {% trans "Connect your LuxID and opt in to Crush Connect — you'll appear as a candidate a Crush Coach can pick for a Premium member's match, no subscription needed. LuxID identity verification is what keeps Crush Connect real people only." %}
-            </p>
+            <!-- Experience 4: Sparks -->
+            <div class="crush-connect-feature-card animate-on-scroll">
+                <div class="crush-connect-feature-icon">
+                    <span class="crush-connect-feature-ghost">{% include "crush_lu/includes/ghost-story-inlove.html" with class="w-12 h-12" %}</span>
+                </div>
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">{% trans "Sparks" %}</h3>
+                <p class="text-gray-600 dark:text-gray-400 mb-4">
+                    {% trans "A Spark means someone read your photo right. Read them back — if it's mutual, your coach arranges the date. Passing is always silent." %}
+                </p>
+                <a href="{% url 'crush_lu:crush_connect_experience' 'sparks' %}" class="inline-flex items-center gap-1 font-semibold text-crush-purple dark:text-crush-pink no-underline hover:underline">
+                    {% trans "Explore" %} <span aria-hidden="true">→</span>
+                </a>
+            </div>
+
+            <!-- Experience 5: In the Mix (free) -->
+            <div class="crush-connect-feature-card animate-on-scroll">
+                <div class="crush-connect-feature-icon">
+                    <span class="crush-connect-feature-ghost">{% include "crush_lu/includes/ghost-story-approved.html" with class="w-12 h-12" %}</span>
+                </div>
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3">{% trans "In the Mix — free" %}</h3>
+                <p class="text-gray-600 dark:text-gray-400 mb-4">
+                    {% trans "Verify once with LuxID, answer your 3 questions, and you're discoverable: coaches can pick you, Drops can surface you, Sparks can find you. No subscription, ever." %}
+                </p>
+                <a href="{% url 'crush_lu:crush_connect_experience' 'in-the-mix' %}" class="inline-flex items-center gap-1 font-semibold text-crush-purple dark:text-crush-pink no-underline hover:underline">
+                    {% trans "Explore" %} <span aria-hidden="true">→</span>
+                </a>
+            </div>
         </div>
     </div>
 </section>
@@ -138,48 +160,48 @@
 <section class="py-16 md:py-24 bg-white dark:bg-slate-900" aria-labelledby="connect-steps-heading">
     <div class="max-w-5xl mx-auto px-4">
         <h2 id="connect-steps-heading" class="text-3xl md:text-4xl font-bold text-center text-gray-900 dark:text-white mb-14 animate-on-scroll">
-            {% trans "Your 4 weeks" %}
+            {% trans "From verified to first date" %}
         </h2>
 
         <div class="crush-connect-timeline">
-            <!-- Week 1 -->
+            <!-- Step 1 -->
             <div class="crush-connect-timeline-step animate-on-scroll">
                 <div class="crush-connect-timeline-number">1</div>
                 <div class="crush-connect-timeline-ghost">
                     {% include "crush_lu/includes/ghost-story-approved.html" with class="w-20 h-20" %}
                 </div>
-                <h3 class="text-base font-bold text-gray-900 dark:text-white">{% trans "Week 1" %}</h3>
-                <p class="text-sm text-gray-600 dark:text-gray-400">{% trans "Your Crush Coach introduces your first hand-picked match." %}</p>
+                <h3 class="text-base font-bold text-gray-900 dark:text-white">{% trans "Verify" %}</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400">{% trans "Connect your LuxID — free, one minute, real people only." %}</p>
             </div>
 
-            <!-- Week 2 -->
+            <!-- Step 2 -->
             <div class="crush-connect-timeline-step animate-on-scroll">
                 <div class="crush-connect-timeline-number">2</div>
                 <div class="crush-connect-timeline-ghost">
                     {% include "crush_lu/includes/ghost-story-party.html" with class="w-20 h-20" %}
                 </div>
-                <h3 class="text-base font-bold text-gray-900 dark:text-white">{% trans "Week 2" %}</h3>
-                <p class="text-sm text-gray-600 dark:text-gray-400">{% trans "A second curated match, chosen just for you." %}</p>
+                <h3 class="text-base font-bold text-gray-900 dark:text-white">{% trans "Answer your 3 questions" %}</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400">{% trans "Your private truths become their guessing game — that's how people read you." %}</p>
             </div>
 
-            <!-- Week 3 -->
+            <!-- Step 3 -->
             <div class="crush-connect-timeline-step animate-on-scroll">
                 <div class="crush-connect-timeline-number">3</div>
                 <div class="crush-connect-timeline-ghost">
                     {% include "crush_lu/includes/ghost-story-unlock.html" with class="w-20 h-20" %}
                 </div>
-                <h3 class="text-base font-bold text-gray-900 dark:text-white">{% trans "Week 3" %}</h3>
-                <p class="text-sm text-gray-600 dark:text-gray-400">{% trans "Your third match — your coach learns what you like as you go." %}</p>
+                <h3 class="text-base font-bold text-gray-900 dark:text-white">{% trans "Meet your matches" %}</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400">{% trans "Your daily Drop brings fresh faces — and each week, your coach picks one person just for you." %}</p>
             </div>
 
-            <!-- Week 4 -->
+            <!-- Step 4 -->
             <div class="crush-connect-timeline-step animate-on-scroll">
                 <div class="crush-connect-timeline-number">4</div>
                 <div class="crush-connect-timeline-ghost">
                     {% include "crush_lu/includes/ghost-story-discover.html" with class="w-20 h-20" %}
                 </div>
-                <h3 class="text-base font-bold text-gray-900 dark:text-white">{% trans "Week 4" %}</h3>
-                <p class="text-sm text-gray-600 dark:text-gray-400">{% trans "Your fourth match completes the beta. Keep going for €10/month, or stop anytime." %}</p>
+                <h3 class="text-base font-bold text-gray-900 dark:text-white">{% trans "Say yes" %}</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400">{% trans "When it's mutual, your Crush Coach contacts you both and arranges the date personally." %}</p>
             </div>
         </div>
     </div>
@@ -192,49 +214,34 @@
             {% trans "Simple, honest pricing" %}
         </h2>
         <p class="text-center text-gray-600 dark:text-gray-400 mb-10 animate-on-scroll">
-            {% trans "Try the full 4-week beta for free. No card up front, no commitment." %}
+            {% trans "Join free, upgrade when you want your own coach. Cancel anytime." %}
         </p>
 
         <div class="space-y-4">
             <div class="bg-gray-50 dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 p-6 text-center animate-on-scroll">
-                <p class="text-sm font-semibold uppercase tracking-wide text-crush-purple mb-2">{% trans "During the 4-week beta" %}</p>
+                <p class="text-sm font-semibold uppercase tracking-wide text-crush-purple mb-2">{% trans "In the Mix" %}</p>
                 <p class="text-4xl font-extrabold text-gray-900 dark:text-white mb-1">{% trans "Free" %}</p>
-                <p class="text-gray-600 dark:text-gray-400">{% trans "4 coach-curated matches over 4 weeks — one per week." %}</p>
+                <p class="text-gray-600 dark:text-gray-400">{% trans "LuxID-verified and discoverable — receive and answer Sparks, no subscription." %}</p>
             </div>
             <div class="bg-gray-50 dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 p-6 text-center animate-on-scroll">
-                <p class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">{% trans "After your first month" %}</p>
-                <p class="text-3xl font-extrabold text-gray-900 dark:text-white mb-1">{% trans "€10 / month" %}</p>
-                <p class="text-gray-600 dark:text-gray-400">{% trans "Keep your weekly coach-curated matches. Cancel anytime." %}</p>
+                <p class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">{% trans "Premium" %}</p>
+                <p class="text-3xl font-extrabold text-gray-900 dark:text-white mb-1">{% trans "€15 / month" %}</p>
+                <p class="text-gray-600 dark:text-gray-400">{% trans "Your personal coach, a weekly Coach Pick, your daily Drop — and dates arranged for you." %}</p>
             </div>
         </div>
     </div>
 </section>
 
 {% if user.is_authenticated %}
-<!-- Your beta status -->
+<!-- Your Crush Connect status -->
 <section class="py-12 bg-gray-50 dark:bg-slate-900/50" aria-labelledby="connect-eligibility-heading">
     <div class="max-w-2xl mx-auto px-4">
         <h2 id="connect-eligibility-heading" class="text-2xl font-bold text-center text-gray-900 dark:text-white mb-8 animate-on-scroll">
-            {% trans "Your beta status" %}
+            {% trans "Your Crush Connect status" %}
         </h2>
 
         <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 p-6 space-y-4 animate-on-scroll">
-            <!-- On the waitlist -->
-            <div class="flex items-center gap-3">
-                {% if on_waitlist %}
-                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
-                    <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                </div>
-                <span class="text-gray-900 dark:text-white font-medium">{% trans "On the waitlist" %}</span>
-                {% else %}
-                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/></svg>
-                </div>
-                <span class="text-gray-500 dark:text-gray-400">{% trans "Not on the waitlist yet" %}</span>
-                {% endif %}
-            </div>
-
-            <!-- LuxID verified (catalogue requirement) -->
+            <!-- LuxID verified (entry requirement) -->
             <div class="flex items-center gap-3">
                 {% if has_luxid_connected %}
                 <div class="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
@@ -262,78 +269,35 @@
                 </a>
             </div>
             {% endif %}
-
-            <!-- Selected as a beta tester -->
-            <div class="flex items-center gap-3">
-                {% if selected_as_tester %}
-                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
-                    <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                </div>
-                <span class="text-gray-900 dark:text-white font-medium">{% trans "Selected as a beta tester" %}</span>
-                {% else %}
-                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/></svg>
-                </div>
-                <span class="text-gray-500 dark:text-gray-400">{% trans "Beta tester selection pending" %}</span>
-                {% endif %}
-            </div>
-
-            <!-- €10/month active -->
-            <div class="flex items-center gap-3">
-                {% if tester_payment_confirmed %}
-                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
-                    <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                </div>
-                <span class="text-gray-900 dark:text-white font-medium">{% trans "€10/month active" %}</span>
-                {% else %}
-                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"/></svg>
-                </div>
-                <span class="text-gray-500 dark:text-gray-400">{% trans "Free during the beta — €10/month after your first month" %}</span>
-                {% endif %}
-            </div>
         </div>
     </div>
 </section>
 {% endif %}
 
-<!-- Waitlist CTA Section -->
-<section id="join-waitlist" class="py-16 md:py-24 crush-connect-cta" aria-labelledby="connect-cta-heading">
+<!-- Closing CTA Section -->
+<section id="connect-cta" class="py-16 md:py-24 crush-connect-cta" aria-labelledby="connect-cta-heading">
     <!-- Ghost background decoration -->
     <div class="crush-connect-cta-ghost">
         {% include "crush_lu/includes/ghost-story-chatting-pair.html" with class="w-full h-full" %}
     </div>
     <div class="max-w-2xl mx-auto px-4 text-center relative z-10">
         <h2 id="connect-cta-heading" class="text-3xl md:text-4xl font-bold text-white mb-4 animate-on-scroll">
-            {% trans "Join the waitlist" %}
+            {% trans "Ready to be introduced?" %}
         </h2>
         <p class="text-white/90 text-lg mb-8 animate-on-scroll">
-            {% trans "We're hand-picking 20 testers to co-create Crush Connect. Add your name — it's open to everyone, and we'll be in touch." %}
+            {% trans "Crush Connect is live across Luxembourg. Join free with LuxID, or go Premium for your own coach." %}
         </p>
 
         {% if user.is_authenticated %}
-        {% csrf_token %}
-        <div data-on-waitlist="{{ on_waitlist|yesno:'true,false' }}" data-position="{{ waitlist_position|default:'0' }}" data-total="{{ total_waitlist }}" x-data="crushConnectWaitlist" class="animate-on-scroll">
-            <button @click="joinWaitlist"
-                    x-bind:disabled="isJoined"
-                    x-bind:class="buttonClass"
-                    class="crush-connect-cta-button text-white">
-                <span x-text="buttonText"></span>
-            </button>
-            <p x-show="isJoined" x-text="positionText" class="text-white/80 mt-3 text-sm font-medium"></p>
-            <p x-show="hasError" x-text="errorMessage" class="text-red-200 mt-3 text-sm"></p>
-        </div>
-        {% else %}
-        <a href="{% url 'crush_lu:login' %}" class="crush-connect-cta-button animate-on-scroll">
-            {% trans "Sign Up to Join the Waitlist" %}
+        <a href="{% url 'crush_lu:crush_connect_hub' %}" class="crush-connect-cta-button animate-on-scroll">
+            {% trans "Open Crush Connect" %}
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
         </a>
-        {% endif %}
-
-        {% if total_waitlist > 0 %}
-        <p class="text-white mt-8 text-base font-medium animate-on-scroll">
-            {% blocktrans count total=total_waitlist %}{{ total }} person already on the waitlist{% plural %}{{ total }} people already on the waitlist{% endblocktrans %}
-        </p>
+        {% else %}
+        <a href="{% url 'crush_lu:login' %}" class="crush-connect-cta-button animate-on-scroll">
+            {% trans "Get started free" %}
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+        </a>
         {% endif %}
     </div>
 </section>

@@ -852,7 +852,7 @@ def test_home_renders_drop_with_cards(client, settings):
     assert resp.status_code == 200
     body = resp.content.decode()
 
-    assert "This Week&#x27;s Drop" in body or "This Week's Drop" in body
+    assert "Today&#x27;s Drop" in body or "Today's Drop" in body
     # The drop pinned recipients should match what get_or_create_daily_drop returns.
     # Don't hardcode date.today(): the service dates the drop to "yesterday" before
     # 6am, so fetch the drop the view actually created for this user.
@@ -873,7 +873,7 @@ def test_home_renders_empty_state_when_no_pool(client, settings):
     resp = client.get(CONNECT_HOME_URL)
     assert resp.status_code == 200
     body = resp.content.decode()
-    assert "No Drop for this week" in body
+    assert "No Drop for today" in body
     assert "Browse upcoming events" in body
 
 
@@ -1203,8 +1203,9 @@ def test_admin_form_save_stamps_tester_fields():
 
 
 @pytest.mark.django_db
-def test_teaser_context_exposes_tester_status(client, settings):
-    """The teaser surfaces the new beta-status flags for the logged-in user."""
+def test_teaser_renders_no_beta_ui_for_waitlisted_tester(client, settings):
+    """The beta framing is retired: even a waitlisted, payment-confirmed tester
+    sees the current product teaser (status block, no waitlist/tester UI)."""
     settings.CRUSH_CONNECT_LAUNCHED = False  # stay on the teaser, no fast-path
     from crush_lu.models import CrushConnectWaitlist
 
@@ -1216,10 +1217,11 @@ def test_teaser_context_exposes_tester_status(client, settings):
 
     resp = client.get(CONNECT_TEASER_URL)
     assert resp.status_code == 200
-    assert resp.context["on_waitlist"] is True
-    assert resp.context["selected_as_tester"] is True
-    assert resp.context["tester_payment_confirmed"] is True
-    assert "Selected as a beta tester" in resp.content.decode()
+    body = resp.content.decode()
+    assert "Your Crush Connect status" in body
+    assert "Selected as a beta tester" not in body
+    assert "waitlist" not in body.lower()
+    assert "beta" not in body.lower()
 
 
 @pytest.mark.django_db
@@ -2110,3 +2112,79 @@ def test_coach_hub_hides_stale_proposed_pick(client, settings):
     body = resp.content.decode()
     assert "awaiting their answer" not in body
     assert "No open pick" in body
+
+
+# ---------------------------------------------------------------------------
+# Experience explainer pages (one landing page per Connect experience)
+# ---------------------------------------------------------------------------
+
+EXPERIENCE_URL = "/en/crush-connect/experiences/{slug}/"
+
+# slug -> a copy fragment that must render (bodies are compared with
+# HTML-escaped apostrophes normalised back to plain ones)
+EXPERIENCE_MARKERS = {
+    "coach-pick": "Coach's Pick",
+    "todays-drop": "Today's Drop",
+    "read-the-photo": "Read the Photo",
+    "sparks": "Sparks",
+    "in-the-mix": "In the Mix",
+}
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("slug", sorted(EXPERIENCE_MARKERS))
+def test_experience_page_renders_for_member(client, settings, slug):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me")
+    _login_eligible(client, me)
+
+    resp = client.get(EXPERIENCE_URL.format(slug=slug))
+    assert resp.status_code == 200
+    body = resp.content.decode().replace("&#x27;", "'")
+    assert EXPERIENCE_MARKERS[slug] in body
+    assert "How it works" in body
+
+
+@pytest.mark.django_db
+def test_experience_page_requires_login(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    resp = client.get(EXPERIENCE_URL.format(slug="coach-pick"))
+    assert resp.status_code in (301, 302)
+    assert "login" in resp.url
+
+
+@pytest.mark.django_db
+def test_experience_page_unknown_slug_404s(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me")
+    _login_eligible(client, me)
+
+    resp = client.get(EXPERIENCE_URL.format(slug="not-a-thing"))
+    assert resp.status_code == 404
+
+
+@pytest.mark.django_db
+def test_experience_page_redirects_to_teaser_when_not_launched(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = False
+    me = _make_user(username="me")
+    _login_eligible(client, me)
+
+    resp = client.get(EXPERIENCE_URL.format(slug="sparks"))
+    assert resp.status_code in (301, 302)
+    assert CONNECT_TEASER_URL in resp.url
+
+
+@pytest.mark.django_db
+def test_experience_cta_is_state_aware(client, settings):
+    """A candidate (no coach) sees the Premium CTA on the Coach Pick page;
+    a receiver sees the link into this week's pick instead."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    candidate = _make_user(username="cand", premium=False)
+    _login_eligible(client, candidate)
+    body = client.get(EXPERIENCE_URL.format(slug="coach-pick")).content.decode()
+    assert "Get your own coach" in body
+
+    receiver = _make_user(username="recv")
+    _login_eligible(client, receiver)
+    body = client.get(EXPERIENCE_URL.format(slug="coach-pick")).content.decode()
+    assert "See this week&#x27;s pick" in body or "See this week's pick" in body
