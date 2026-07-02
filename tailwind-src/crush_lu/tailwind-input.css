@@ -484,6 +484,18 @@ body.journey-bg {
         @apply cursor-not-allowed bg-gray-100 dark:bg-gray-800;
     }
 
+    /* Tailwind-era input class for hand-rolled inputs/textareas (the
+       Bootstrap-named .form-control is banned in templates by
+       test_tailwind_migration). Keep the declaration list in sync with
+       .form-control above. Selects use .form-select instead. */
+    .input-crush {
+        @apply text-crush-dark focus:ring-crush-purple w-full rounded-xl border border-gray-300 bg-white px-4 py-3 transition-all duration-200 placeholder:text-gray-400 focus:border-transparent focus:ring-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-500 dark:focus:ring-purple-400;
+    }
+
+    .input-crush:disabled {
+        @apply cursor-not-allowed bg-gray-100 dark:bg-gray-800;
+    }
+
     .form-control.is-invalid {
         @apply border-red-500 focus:ring-red-400;
     }

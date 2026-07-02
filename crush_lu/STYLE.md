@@ -129,6 +129,11 @@ Args (see the partial's docstring for the full contract):
 Don't manually compose `<label>` + `{{ field }}` + error markup in new
 templates. If the partial doesn't fit, extend it — don't fork it.
 
+For hand-rolled inputs where the partial genuinely can't work (e.g. Alpine
+bindings on the element), use `.input-crush` for inputs/textareas and
+`.form-select` for selects. Never write `form-control` in a template —
+`test_tailwind_migration` bans it as a legacy Bootstrap class.
+
 ---
 
 ## 4. Component partials

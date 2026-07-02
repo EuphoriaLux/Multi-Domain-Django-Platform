@@ -13,7 +13,7 @@
             {% trans "Height (cm)" %} <span class="text-gray-400 font-normal">{% trans "— optional" %}</span>
         </label>
         <input type="number" name="height_cm" id="{{ form.height_cm.id_for_label }}"
-               min="120" max="230" class="form-control sm:w-40"
+               min="120" max="230" class="input-crush sm:w-40"
                value="{{ form.height_cm.value|default_if_none:'' }}"
                placeholder="{% trans 'e.g. 175' %}">
         {% if form.height_cm.errors %}<p class="text-sm text-red-600 dark:text-red-400 mt-1">{{ form.height_cm.errors|join:" " }}</p>{% endif %}
