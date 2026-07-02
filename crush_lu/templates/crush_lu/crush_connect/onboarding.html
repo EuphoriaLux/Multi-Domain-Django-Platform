@@ -23,9 +23,11 @@
             <span class="text-crush-purple dark:text-crush-pink">{{ step_cfg.title }}</span>
         </div>
 
-        {# Balancing spacer (mirrors the back button) so the step label stays centred.
-           Progress is saved per step on Continue; there is no standalone save-and-exit
-           action, so we don't surface a link that would loop back through the gate. #}
+        {% comment %}
+        Balancing spacer (mirrors the back button) so the step label stays centred.
+        Progress is saved per step on Continue; there is no standalone save-and-exit
+        action, so we don't surface a link that would loop back through the gate.
+        {% endcomment %}
         <span class="w-9 h-9"></span>
     </div>
 

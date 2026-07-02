@@ -1,9 +1,11 @@
 {% load i18n %}
-{# Reusable peer-safety disclosure. Caller passes:
-     member    — the User being shown (required)
-     source    — originating surface, e.g. "spark" (optional)
-     source_id — pk of the originating object (optional)
-   Plain forms (no JS dependency); each posts and redirects back via referer. #}
+{% comment %}
+Reusable peer-safety disclosure. Caller passes:
+    member    - the User being shown (required)
+    source    - originating surface, e.g. "spark" (optional)
+    source_id - pk of the originating object (optional)
+Plain forms (no JS dependency); each posts and redirects back via referer.
+{% endcomment %}
 <details class="mt-2 group">
     <summary class="list-none cursor-pointer text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 select-none">
         {% trans "Safety options" %}
