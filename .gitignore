@@ -73,6 +73,8 @@ crm_plan/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+# pytest --reuse-db files (per-xdist-worker: test_db.sqlite3_gw0, ...)
+test_db.sqlite3*
 media/
 staticfiles/
 

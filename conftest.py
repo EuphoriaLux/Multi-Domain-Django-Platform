@@ -84,6 +84,11 @@ def pytest_configure(config):
     # live_server uses ports like localhost:12345, which don't match Site domains
     settings.SITE_ID = 1
 
+    # Production PBKDF2 costs ~0.25s per hash and the suite creates users at
+    # ~560 call sites — hashing alone dominated the run. check_password() is
+    # hasher-agnostic, so auth/login tests behave identically under MD5.
+    settings.PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
+
 
 @pytest.fixture(scope='session', autouse=True)
 def _patch_static_storage():
@@ -135,10 +140,10 @@ def _user_model():
     return get_user_model()
 
 
-@pytest.fixture(scope='session')
-def django_db_modify_db_settings():
-    """Allow database modifications in tests."""
-    pass
+# NOTE: do not define a no-op ``django_db_modify_db_settings`` fixture here.
+# One existed and silently disabled pytest-django's per-xdist-worker test DB
+# naming, which breaks any file-based test database (all workers collide on
+# one file). The upstream fixture chain must stay in effect.
 
 
 @pytest.fixture(scope='session', autouse=True)

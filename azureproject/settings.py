@@ -296,6 +296,15 @@ else:
             "NAME": BASE_DIR / "db.sqlite3",
         }
     }
+    if not os.environ.get("CI"):
+        # File-based test DB (instead of :memory:) so pytest's --reuse-db can
+        # skip replaying all migrations on every local run. pytest-xdist gives
+        # each worker its own suffixed file (test_db.sqlite3_gw0, ...). Run
+        # `pytest --create-db` after pulling new migrations or after a
+        # `-m playwright` run (transaction=True teardown flushes seeded data).
+        # CI runners are ephemeral — nothing to reuse — so they keep the
+        # faster in-memory default (GitHub Actions always sets CI=true).
+        DATABASES["default"]["TEST"] = {"NAME": BASE_DIR / "test_db.sqlite3"}
 
 
 # Password validation
