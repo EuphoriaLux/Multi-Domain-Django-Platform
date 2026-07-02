@@ -9,6 +9,7 @@ from crush_lu.matching import (
     get_chinese_zodiac,
     get_score_display,
     ZODIAC_SIGN_EMOJIS,
+    ZODIAC_SIGN_LABELS,
     CHINESE_ANIMAL_EMOJIS,
 )
 
@@ -28,6 +29,28 @@ def western_zodiac(profile):
         return ""
     emoji = ZODIAC_SIGN_EMOJIS.get(sign, "")
     return f"{emoji} {sign.capitalize()}"
+
+
+@register.simple_tag
+def western_zodiac_info(profile):
+    """Western zodiac parts for rich display, or None without a birthdate.
+
+    Usage: {% western_zodiac_info profile as zodiac %}
+    Returns {"sign", "emoji", "label", "template"} — ``template`` is the
+    matching ghost-story SVG include so callers can render the brand mascot
+    instead of a bare emoji.
+    """
+    if not profile or not profile.date_of_birth:
+        return None
+    sign = get_western_zodiac(profile.date_of_birth)
+    if not sign:
+        return None
+    return {
+        "sign": sign,
+        "emoji": ZODIAC_SIGN_EMOJIS.get(sign, ""),
+        "label": ZODIAC_SIGN_LABELS.get(sign, sign.capitalize()),
+        "template": f"crush_lu/includes/ghost-story-{sign}.html",
+    }
 
 
 @register.simple_tag

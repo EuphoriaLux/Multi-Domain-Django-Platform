@@ -296,7 +296,7 @@ class ConnectStoryForm(forms.ModelForm):
         label=_(
             "I understand my Story, first name, age range, languages, interests, "
             "the personality traits I picked and the life details I chose to share "
-            "appear on a blurred-photo card to other members and coaches, and I can "
+            "appear on my card to other members and coaches, and I can "
             "be removed from Crush Connect at any time."
         ),
     )

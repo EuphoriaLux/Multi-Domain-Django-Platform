@@ -11104,17 +11104,27 @@ html.dark .crush-connect-cta {
         color: #a78bfa;
     }
 
+    /* Every icon sits in a fixed 34px tile so labels stay aligned; the active
+       tab's tile fills with the brand gradient (Crush Connect design pass). */
     .bottom-nav-item svg {
-        width: 24px;
-        height: 24px;
+        width: 34px;
+        height: 34px;
+        padding: 6px;
+        border-radius: 12px;
         margin-bottom: 2px;
+        transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .bottom-nav-item-active svg {
+        background: var(--gradient-crush-primary);
+        color: #fff;
     }
 
     .bottom-nav-badge {
         position: absolute;
-        top: 2px;
+        top: 0;
         right: 50%;
-        transform: translateX(calc(50% + 10px));
+        transform: translateX(calc(50% + 15px));
         min-width: 18px;
         height: 18px;
         padding: 0 5px;

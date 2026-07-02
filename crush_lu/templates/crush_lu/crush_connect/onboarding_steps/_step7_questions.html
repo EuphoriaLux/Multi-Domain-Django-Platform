@@ -1,4 +1,4 @@
-{% load i18n %}
+{% load i18n crush_media %}
 {% comment %}
 Step 7 - Your 3 questions. Pick exactly 3 of this week's questions and answer
 each about yourself (your hidden "truth"). Other members guess these from your
@@ -8,8 +8,8 @@ photo; reading you well (>=2 of 3) is how they match with you.
      x-data="connectGatePicker">
 
     <div class="text-center">
-        <div class="text-4xl mb-2">❓</div>
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{% trans "Your 3 questions" %}</h2>
+        <div class="flex justify-center mb-2">{% include "crush_lu/includes/ghost-story-typing.html" with class="w-20 h-20" %}</div>
+        <h2 class="font-display text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">{% trans "Your 3 questions" %}</h2>
         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
             {% trans "Pick 3 questions for your card and answer each honestly about yourself. Others guess your answers from your photo — reading you well is how they match with you. Your answers stay private." %}
         </p>
@@ -73,4 +73,15 @@ photo; reading you well (>=2 of 3) is how they match with you.
         {{ form.confirm_terms }}
         {% endif %}
     </div>
+
+    {# What "clear photo" means, shown with their own photo — no blur, no reveal step. #}
+    {% if profile.photo_1 %}
+    <div class="flex items-center gap-3.5 rounded-2xl bg-crush-purple/5 p-3.5">
+        {% profile_photo profile 'photo_1' css_class='w-[74px] h-[74px] rounded-xl object-cover shrink-0' %}
+        <div class="flex-1 min-w-0">
+            <p class="text-[11px] font-bold uppercase tracking-wide text-crush-purple mb-1">📸 {% trans "How your photo appears" %}</p>
+            <p class="text-xs text-gray-600 dark:text-gray-300 leading-relaxed mb-0">{% trans "Shown clearly to every match — no blur, no reveal step." %}</p>
+        </div>
+    </div>
+    {% endif %}
 </div>

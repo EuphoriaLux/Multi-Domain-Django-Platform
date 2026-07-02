@@ -1,9 +1,9 @@
-{% load i18n %}
+{% load i18n matching_tags %}
 {# Step 6 — Ideal match (the only HARD filters: gender + age). Gender peer-checked tiles + the ageRangeSlider block (from the legacy Ideal Crush slider, bound to the membership/form values). Empty gender selection = open to all. #}
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-6 md:p-8 space-y-7">
     <div class="text-center">
-        <div class="text-4xl mb-2">💘</div>
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{% trans "Who are you looking for?" %}</h2>
+        <div class="flex justify-center mb-2">{% include "crush_lu/includes/ghost-story-inlove.html" with class="w-20 h-20" %}</div>
+        <h2 class="font-display text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">{% trans "Who are you looking for?" %}</h2>
         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{% trans "Gender and age are the only firm filters — everything else just guides who you see first." %}</p>
     </div>
 
@@ -85,5 +85,18 @@
             <span class="text-sm text-gray-700 dark:text-gray-200">{{ form.astro_enabled.label }}</span>
         </label>
         {% if form.astro_enabled.errors %}<p class="text-sm text-red-600 dark:text-red-400 mt-1">{{ form.astro_enabled.errors|join:" " }}</p>{% endif %}
+
+        {% western_zodiac_info profile as zodiac %}
+        {% if zodiac %}
+        <div class="mt-3 flex items-center gap-3 rounded-2xl border border-crush-purple/20 bg-crush-purple/5 p-3.5">
+            <div class="w-11 h-11 rounded-xl bg-white dark:bg-slate-800 shadow-crush-sm flex items-center justify-center shrink-0">
+                {% include zodiac.template with class="w-9 h-9" %}
+            </div>
+            <div>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-0.5">{% trans "Auto-detected from your birthdate on file" %}</p>
+                <p class="text-sm font-bold text-gray-900 dark:text-white mb-0">{{ zodiac.emoji }} {{ zodiac.label }}</p>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
