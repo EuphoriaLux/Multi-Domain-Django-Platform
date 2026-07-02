@@ -1,0 +1,15 @@
+{% comment %}
+The ghost's pink heart. Positioning/orbit/heartbeat SMIL belongs to the caller's
+wrapping <g> — this fragment is only the path (+ optional fill pulse).
+
+Params:
+  pulse  truthy adds the pink fill-pulse animation
+{% endcomment %}
+<path d="M0 0 C3.125 2.0625 3.125 2.0625 5 4 C7.23695664 2.9229468 9.18655616 1.86141543 11.1875 0.375 C15.17742703 -1.57563099 18.63689273 -1.68607164 23 -1 C27.83933207 1.37401196 30.52322134 4.22990776 33 9 C35.0141805 16.30140432 33.11878174 22.21731993 30 29 C24.91083219 37.23062942 16.95137449 45.03331248 8 49 C4.68867578 49.4891729 3.28677918 49.16284659 0.3515625 47.49609375 C-10.14741136 39.56921807 -19.56468676 31.63775413 -22 18 C-22.08538393 11.92706771 -20.97158149 7.76589778 -17 3 C-11.7132021 -1.64597391 -6.61608035 -1.41171141 0 0Z" fill="#FF5CA9" transform="translate(-5.5,-24)">
+  {% if pulse %}
+  <!-- Color pulse between pink shades -->
+  <animate attributeName="fill"
+    values="#FF5CA9;#FF85C0;#FF5CA9;#E8458E;#FF5CA9"
+    dur="1.5s" repeatCount="indefinite"/>
+  {% endif %}
+</path>

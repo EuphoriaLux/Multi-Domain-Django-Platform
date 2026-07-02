@@ -17,7 +17,7 @@
 
     {% if submitted %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-6 text-center">
-        <div class="mx-auto w-24 h-24 mb-4">{% include "crush_lu/includes/ghost-story-inlove.html" with class="w-full h-full" %}</div>
+        <div class="mx-auto w-24 h-24 mb-4 ghost-glow">{% include "crush_lu/includes/ghost-story-inlove.html" with class="w-full h-full" %}</div>
         <h3 class="text-lg font-semibold mb-2 dark:text-white">{% trans "Thanks for your feedback!" %}</h3>
         <p class="text-gray-500 dark:text-gray-400 mb-2">
             {% blocktrans with score=feedback.nps_score %}You scored this event {{ score }}/10. We'll share your thoughts with the coaches.{% endblocktrans %}

@@ -12,7 +12,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{% block title %}Crush.lu - Meet New People{% endblock %}</title>
 
-    <!-- Favicon -->
+    <!-- Favicon (SVG preferred by capable browsers, .ico as fallback) -->
+    <link rel="icon" type="image/svg+xml" href="{% static 'crush_lu/favicon.svg' %}">
     <link rel="icon" type="image/x-icon" href="{% static 'crush_lu/crush_favicon.ico' %}">
 
     <!-- Performance: Resource Hints -->
@@ -302,7 +303,7 @@
                                         {% trans "Connections" %}
                                     </a>
                                     <a class="dropdown-item" href="{% url 'crush_lu:coach_spark_list' %}">
-                                        <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-4 h-4 inline mr-2">
+                                        {% include "crush_lu/includes/ghost-logo-icon.html" with class="w-4 h-4 inline mr-2" %}
                                         {% trans "Crush Sparks" %}
                                     </a>
                                     <div class="dropdown-divider"></div>
@@ -840,7 +841,7 @@
                                 {% trans "Connections" %}
                             </a>
                             <a class="nav-link block" href="{% url 'crush_lu:coach_spark_list' %}">
-                                <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-4 h-4 inline mr-2">
+                                {% include "crush_lu/includes/ghost-logo-icon.html" with class="w-4 h-4 inline mr-2" %}
                                 {% trans "Crush Sparks" %}
                             </a>
                             <a class="nav-link block" href="{% url 'crush_lu:coach_members' %}">
