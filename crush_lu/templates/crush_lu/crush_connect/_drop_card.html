@@ -22,16 +22,20 @@ Privacy contract (Crush Connect):
     class="card card-bordered overflow-hidden flex flex-col bg-white dark:bg-slate-800 ring-1 ring-gray-200/60 dark:ring-slate-700/60 rounded-2xl shadow-crush-md"
     aria-label="{% blocktrans with name=target.first_name|default:_('A Crush Connect member') %}Drop card for {{ name }}{% endblocktrans %}"
 >
-    {# Clear photo header — the card IS the "Read-the-Photo" surface: viewers
-       guess this member's answers from their photo. Shown only to the curated,
-       consented, surfaced few (enforced in get_eligible_pool). #}
+    {% comment %}
+    Clear photo header - the card IS the "Read-the-Photo" surface: viewers
+    guess this member's answers from their photo. Shown only to the curated,
+    consented, surfaced few (enforced in get_eligible_pool).
+    {% endcomment %}
     <div class="relative aspect-[5/4] overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">
         {% profile_photo target_profile 'photo_1' css_class='w-full h-full object-cover' alt_text=target.first_name is_blurred=False %}
         {# Bottom scrim so the overlaid name stays legible over any photo. #}
         <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/15 pointer-events-none"></div>
 
-        {# Name + age range overlaid at the foot of the photo. Identity beyond
-           first name + age range stays gated until a mutual match. #}
+        {% comment %}
+        Name + age range overlaid at the foot of the photo. Identity beyond
+        first name + age range stays gated until a mutual match.
+        {% endcomment %}
         <div class="absolute inset-x-4 bottom-4 flex items-end justify-between gap-3">
             <div class="min-w-0">
                 <h3 class="font-display text-2xl font-semibold leading-none text-white truncate">
@@ -60,9 +64,11 @@ Privacy contract (Crush Connect):
             </span>
         {% endif %}
 
-        {# Story deprecated (M9): the card now leads with the answer gate below.
-           Read-only question preview when the card isn't the interactive surface
-           (coach pick / dev preview). #}
+        {% comment %}
+        Story deprecated (M9): the card now leads with the answer gate below.
+        Read-only question preview when the card isn't the interactive surface
+        (coach pick / dev preview).
+        {% endcomment %}
         {% if not show_spark_cta and target_membership.active_gate_questions %}
             <ul class="space-y-1.5 mb-0 list-none pl-0">
                 {% for gq in target_membership.active_gate_questions %}
@@ -126,8 +132,10 @@ Privacy contract (Crush Connect):
             </div>
         {% endif %}
 
-        {# Trust & Safety: report/block the member whose card this is. Only on the
-           live viewer surface (can_moderate), never the staff dev preview. #}
+        {% comment %}
+        Trust & Safety: report/block the member whose card this is. Only on the
+        live viewer surface (can_moderate), never the staff dev preview.
+        {% endcomment %}
         {% if can_moderate %}
             {% block_report_menu target source="drop" %}
         {% endif %}
