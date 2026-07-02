@@ -512,8 +512,13 @@ body.journey-bg {
         @apply mb-4;
     }
 
-    /* Select dropdown - inline form-control styles to avoid circular dep */
-    .form-select {
+    /* Select dropdown - inline form-control styles to avoid circular dep.
+       The `select` tag qualifier is load-bearing: @tailwindcss/forms emits its
+       own `.form-select { background-color:#fff; border-radius:0; ... }` LATER
+       in the built file at (0,1,0) specificity, which would override this rule
+       (and its dark: variants) at equal specificity. `select.form-select` is
+       (0,1,1) and wins regardless of source order. */
+    select.form-select {
         @apply text-crush-dark focus:ring-crush-purple w-full appearance-none rounded-xl border border-gray-300 bg-white bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg%20xmlns%3d%22http%3a%2f%2fwww.w3.org%2f2000%2fsvg%22%20viewBox%3d%220%200%2024%2024%22%20fill%3d%22none%22%20stroke%3d%22%236b7280%22%20stroke-width%3d%222%22%20stroke-linecap%3d%22round%22%20stroke-linejoin%3d%22round%22%3e%3cpolyline%20points%3d%226%209%2012%2015%2018%209%22%3e%3c%2fpolyline%3e%3c%2fsvg%3e')] bg-[length:1.5rem] bg-[right_0.75rem_center] bg-no-repeat px-4 py-3 pr-10 transition-all duration-200 placeholder:text-gray-400 focus:border-transparent focus:ring-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-500 dark:focus:ring-purple-400;
     }
 
