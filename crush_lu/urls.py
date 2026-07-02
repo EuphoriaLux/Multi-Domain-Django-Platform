@@ -149,6 +149,14 @@ urlpatterns = [
     path('how-it-works/', views.how_it_works, name='how_it_works'),
     path('crush-coach/', views.crush_coach, name='crush_coach'),
     path('crush-connect/', views.crush_connect_teaser, name='crush_connect_teaser'),
+    # Experience explainers — one member-facing landing page per Connect
+    # experience (coach-pick, todays-drop, read-the-photo, sparks, in-the-mix).
+    # See CONNECT_EXPERIENCES in views_crush_connect.py.
+    path(
+        'crush-connect/experiences/<slug:slug>/',
+        views_crush_connect.crush_connect_experience,
+        name='crush_connect_experience',
+    ),
     # Crush Connect opt-in onboarding — resumable 7-step wizard. The bare
     # path is the smart-resume entry (name unchanged so existing redirects
     # keep working); the numbered path renders/saves a single step.

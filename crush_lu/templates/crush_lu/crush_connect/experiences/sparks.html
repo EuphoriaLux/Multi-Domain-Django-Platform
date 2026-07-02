@@ -1,0 +1,74 @@
+{% extends 'crush_lu/crush_connect/_base_connect.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Sparks — Crush Connect" %}{% endblock %}
+{% block mobile_page_title %}{% trans "Sparks" %}{% endblock %}
+
+{% block connect_content %}
+<div class="max-w-2xl mx-auto px-4 py-8 pb-24 lg:pb-10">
+
+    <header class="mb-6">
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-crush-purple to-crush-pink px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white mb-4">
+            {% include "shared/icons/bell.html" with class="w-3.5 h-3.5" %}
+            {% trans "Crush Connect experience" %}
+        </span>
+        <h1 class="font-display text-3xl md:text-4xl font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
+            {% trans "Sparks" %}
+        </h1>
+        <p class="text-lg text-crush-purple dark:text-crush-pink font-medium mb-3">
+            {% trans "Who read your photo well." %}
+        </p>
+        <p class="text-gray-600 dark:text-gray-300">
+            {% trans "A Spark isn't a like. It means someone looked at your card, guessed your 3 answers from your photo — and got you right. Read them back to find out if it's mutual: when you read each other well, your coach takes over and arranges the date." %}
+        </p>
+    </header>
+
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-crush-sm ring-1 ring-gray-200 dark:ring-slate-700 p-5 md:p-6 mb-4">
+        <p class="text-xs font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-4">
+            {% trans "How it works" %}
+        </p>
+        <ol class="space-y-4">
+            <li class="flex items-start gap-3">
+                <span class="w-8 h-8 rounded-full bg-crush-purple/10 text-crush-purple flex items-center justify-center font-bold shrink-0">1</span>
+                <p class="text-sm text-gray-700 dark:text-gray-200 mb-0 pt-1.5">
+                    {% trans "Someone reads your photo well (2 of 3 answers right) — you get a Spark, and an email so you don't miss it." %}
+                </p>
+            </li>
+            <li class="flex items-start gap-3">
+                <span class="w-8 h-8 rounded-full bg-crush-purple/10 text-crush-purple flex items-center justify-center font-bold shrink-0">2</span>
+                <p class="text-sm text-gray-700 dark:text-gray-200 mb-0 pt-1.5">
+                    {% trans "Read them back: answer their 3 questions from their photo. Their card unblurs the moment it's mutual." %}
+                </p>
+            </li>
+            <li class="flex items-start gap-3">
+                <span class="w-8 h-8 rounded-full bg-crush-purple/10 text-crush-purple flex items-center justify-center font-bold shrink-0">3</span>
+                <p class="text-sm text-gray-700 dark:text-gray-200 mb-0 pt-1.5">
+                    {% trans "Mutual read = match. Your coach contacts you both and arranges the date. Pass instead, and they'll never know." %}
+                </p>
+            </li>
+        </ol>
+    </div>
+
+    <div class="text-center mb-2">
+        {% if is_onboarded %}
+        <a href="{% url 'crush_lu:crush_connect_sparks_received' %}" class="btn-crush-primary inline-flex items-center gap-2">
+            {% trans "See your Sparks" %}
+            {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
+        </a>
+        {% else %}
+        <a href="{% url 'crush_lu:crush_connect_hub' %}" class="btn-crush-primary inline-flex items-center gap-2">
+            {% trans "Join Crush Connect" %}
+            {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
+        </a>
+        {% endif %}
+    </div>
+
+    <p class="mt-4 flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400 justify-center">
+        {% include "shared/icons/shield-check.html" with class="w-4 h-4 text-crush-purple shrink-0 mt-px" %}
+        <span>{% trans "Declines are always silent — nobody is ever told they were passed on." %}</span>
+    </p>
+
+    {% include "crush_lu/crush_connect/experiences/_more_experiences.html" %}
+
+</div>
+{% endblock %}

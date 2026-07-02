@@ -2,6 +2,7 @@
 
 **Date:** 2026-06-09
 **Status:** Phase 1 implemented
+**See also:** [Crush Connect — Product Overview](../../products/crush-connect.md) (living product inventory, taxonomy, and copy rules)
 
 Crush.lu is transitioning from purely event-based dating to a **digital
 experience** where a Crush Coach curates matches for Premium Members. This

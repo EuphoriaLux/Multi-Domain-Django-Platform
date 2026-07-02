@@ -34053,3 +34053,693 @@ msgstr ""
 "Coach dich für das Match eines Premium-Mitglieds auswählen kann. Werde "
 "Premium, um deine eigenen zu erhalten – 4 Matches über 4 Wochen, jede Woche "
 "eines handverlesen. Den ersten Monat kostenlos."
+
+# ── Crush Connect product restructure (2026-07-02) ─────────────────────
+# Added manually (gettext unavailable on dev box); run makemessages later
+# to merge location comments. Translations pending founder review.
+
+msgid "Crush Connect — A Weekly Match, Picked by a Human | Crush.lu"
+msgstr ""
+"Crush Connect — Jede Woche ein Match, von einem Menschen ausgewählt | "
+"Crush.lu"
+
+msgid ""
+"One introduction a week, hand-picked by your Crush Coach — plus a daily Drop"
+" of fresh faces. LuxID-verified members only. Join free, or go Premium for "
+"€15/month."
+msgstr ""
+"Jede Woche eine Vorstellung, handverlesen von Deinem Crush Coach — plus ein "
+"täglicher Drop mit neuen Gesichtern. Nur LuxID-verifizierte Mitglieder. "
+"Tritt kostenlos bei oder werde Premium für 15 €/Monat."
+
+msgid ""
+"Crush Connect on Crush.lu: a coach-picked match every week, a daily Drop of "
+"fresh faces, and LuxID-verified members only. Join free, or go Premium for "
+"€15/month."
+msgstr ""
+"Crush Connect auf Crush.lu: jede Woche ein vom Coach ausgewähltes Match, ein"
+" täglicher Drop mit neuen Gesichtern und nur LuxID-verifizierte Mitglieder. "
+"Tritt kostenlos bei oder werde Premium für 15 €/Monat."
+
+msgid ""
+"crush connect, coach-picked matches luxembourg, matchmaking luxembourg, "
+"crush.lu, curated matchmaking"
+msgstr ""
+"crush connect, coach-kuratierte matches luxemburg, matchmaking luxemburg, "
+"crush.lu, kuratiertes matchmaking"
+
+msgid "LuxID-verified · Luxembourg"
+msgstr "LuxID-verifiziert · Luxemburg"
+
+msgid "One match a week, picked by a human."
+msgstr "Ein Match pro Woche, ausgewählt von einem Menschen."
+
+msgid ""
+"Your personal Crush Coach hand-picks one introduction a week — and "
+"personally arranges the date when it's mutual. In between, your daily Drop "
+"brings up to three fresh faces every morning. Curated, never swiped."
+msgstr ""
+"Dein persönlicher Crush Coach wählt jede Woche eine Vorstellung von Hand für"
+" Dich aus — und organisiert das Date persönlich, wenn es beidseitig passt. "
+"Dazwischen bringt Dir Dein täglicher Drop jeden Morgen bis zu drei neue "
+"Gesichter. Kuratiert, nie geswipet."
+
+msgid "Get started free"
+msgstr "Kostenlos starten"
+
+msgid "How Crush Connect works"
+msgstr "So funktioniert Crush Connect"
+
+msgid ""
+"Two ways to meet, one promise: every introduction is chosen — by a coach or "
+"for a coach — never scrolled."
+msgstr ""
+"Zwei Wege, sich kennenzulernen, ein Versprechen: Jede Vorstellung wird "
+"ausgewählt — von einem Coach oder für einen Coach — nie gescrollt."
+
+msgid "Your weekly Coach Pick"
+msgstr "Deine wöchentliche Coach-Auswahl"
+
+msgid ""
+"Every week, a real Crush Coach chooses one person for you, tells you why, "
+"and — if you both say yes — arranges the date personally. Not a feed, an "
+"actual introduction."
+msgstr ""
+"Jede Woche wählt ein echter Crush Coach eine Person für Dich aus, erklärt "
+"Dir warum und organisiert — wenn ihr beide Ja sagt — das Date persönlich. "
+"Kein Feed, eine echte Vorstellung."
+
+msgid "Today's Drop"
+msgstr "Drop des Tages"
+
+msgid ""
+"Every morning at 06:00, up to three fresh faces land in your Drop. Curated "
+"by our matching engine and pinned for the day — never an endless feed."
+msgstr ""
+"Jeden Morgen um 06:00 landen bis zu drei neue Gesichter in Deinem Drop. "
+"Kuratiert von unserem Matching und für den Tag fixiert — nie ein endloser "
+"Feed."
+
+msgid "Read the Photo"
+msgstr "Read the Photo"
+
+msgid ""
+"No bios to skim. Everyone answers 3 yes/no questions in private; you guess "
+"from the photo. Read someone right and a Spark is sent — read each other "
+"right and your coach takes it from there."
+msgstr ""
+"Keine Bios zum Überfliegen. Alle beantworten privat 3 Ja/Nein-Fragen; Du "
+"rätst anhand des Fotos. Liest Du jemanden richtig, wird ein Spark gesendet —"
+" lest ihr euch gegenseitig richtig, übernimmt Dein Coach."
+
+msgid "In the Mix — free"
+msgstr "In the Mix — kostenlos"
+
+msgid ""
+"Verify once with LuxID, answer your 3 questions, and you're in the mix: "
+"coaches can pick you, Drops can surface you, Sparks can find you. First name"
+" and age range only, photo blurred until it's mutual. No subscription, ever "
+"— LuxID identity verification is what keeps Crush Connect real people only."
+msgstr ""
+"Verifiziere Dich einmal mit LuxID, beantworte Deine 3 Fragen, und Du bist "
+"mit dabei: Coaches können Dich auswählen, Drops können Dich zeigen, Sparks "
+"können Dich finden. Nur Vorname und Altersspanne, Foto unscharf, bis es "
+"beidseitig ist. Kein Abo, niemals — die LuxID-Verifizierung sorgt dafür, "
+"dass Crush Connect nur aus echten Menschen besteht."
+
+msgid "From verified to first date"
+msgstr "Von verifiziert zum ersten Date"
+
+msgid "Connect your LuxID — free, one minute, real people only."
+msgstr "Verbinde Deine LuxID — kostenlos, eine Minute, nur echte Menschen."
+
+msgid "Answer your 3 questions"
+msgstr "Beantworte Deine 3 Fragen"
+
+msgid ""
+"Your private truths become their guessing game — that's how people read you."
+msgstr ""
+"Deine privaten Antworten werden zum Ratespiel der anderen — so lesen Dich "
+"die Leute."
+
+msgid "Meet your matches"
+msgstr "Triff Deine Matches"
+
+msgid ""
+"Your daily Drop brings fresh faces — and each week, your coach picks one "
+"person just for you."
+msgstr ""
+"Dein täglicher Drop bringt neue Gesichter — und jede Woche wählt Dein Coach "
+"eine Person nur für Dich aus."
+
+msgid "Say yes"
+msgstr "Sag Ja"
+
+msgid ""
+"When it's mutual, your Crush Coach contacts you both and arranges the date "
+"personally."
+msgstr ""
+"Wenn es beidseitig ist, kontaktiert Dein Crush Coach euch beide und "
+"organisiert das Date persönlich."
+
+msgid "Join free, upgrade when you want your own coach. Cancel anytime."
+msgstr ""
+"Tritt kostenlos bei und upgrade, wenn Du Deinen eigenen Coach willst. "
+"Jederzeit kündbar."
+
+msgid "In the Mix"
+msgstr "In the Mix"
+
+msgid ""
+"LuxID-verified and discoverable — receive and answer Sparks, no "
+"subscription."
+msgstr ""
+"LuxID-verifiziert und auffindbar — empfange und beantworte Sparks, ohne Abo."
+
+msgid "€15 / month"
+msgstr "15 € / Monat"
+
+msgid ""
+"Your personal coach, a weekly Coach Pick, your daily Drop — and dates "
+"arranged for you."
+msgstr ""
+"Dein persönlicher Coach, jede Woche eine Coach-Auswahl, Dein täglicher Drop "
+"— und Dates, die für Dich organisiert werden."
+
+msgid "Your Crush Connect status"
+msgstr "Dein Crush-Connect-Status"
+
+msgid "LuxID verified — you can join Crush Connect"
+msgstr "LuxID verifiziert — Du kannst Crush Connect beitreten"
+
+msgid "Connect LuxID to join Crush Connect"
+msgstr "Verbinde LuxID, um Crush Connect beizutreten"
+
+msgid ""
+"Crush Connect needs your LuxID verified first. It's free, takes a minute, "
+"and confirms you're a real person."
+msgstr ""
+"Crush Connect braucht zuerst Deine verifizierte LuxID. Es ist kostenlos, "
+"dauert eine Minute und bestätigt, dass Du eine echte Person bist."
+
+msgid "Ready to be introduced?"
+msgstr "Sollen wir Dich vorstellen?"
+
+msgid ""
+"Crush Connect is live across Luxembourg. Join free with LuxID, or go Premium"
+" for your own coach."
+msgstr ""
+"Crush Connect ist in ganz Luxemburg live. Tritt kostenlos mit LuxID bei oder"
+" werde Premium für Deinen eigenen Coach."
+
+msgid "Curated, never swiped."
+msgstr "Kuratiert, nie geswipet."
+
+msgid ""
+"One Coach Pick a week — plus fresh faces in your Drop every morning. No "
+"feed, no games."
+msgstr ""
+"Eine Coach-Auswahl pro Woche — plus jeden Morgen neue Gesichter in Deinem "
+"Drop. Kein Feed, keine Spielchen."
+
+msgid ""
+"You're in the mix. Coaches can pick you, Sparks can find you — no feed, no "
+"games."
+msgstr ""
+"Du bist mit dabei. Coaches können Dich auswählen, Sparks können Dich finden "
+"— kein Feed, keine Spielchen."
+
+msgid "Human-curated"
+msgstr "Von Menschen kuratiert"
+
+msgid "Your coach picked a match"
+msgstr "Dein Coach hat ein Match ausgewählt"
+
+msgid "Your Coach's Pick for this week is ready — take a look."
+msgstr "Die Auswahl Deines Coachs für diese Woche ist da — sieh sie Dir an."
+
+msgid "Up to three fresh faces, every morning at 06:00."
+msgstr "Bis zu drei neue Gesichter, jeden Morgen um 06:00."
+
+msgid "You're in the mix"
+msgstr "Du bist mit dabei"
+
+msgid "Discoverable, LuxID-verified — a coach can pick you any week."
+msgstr ""
+"Auffindbar, LuxID-verifiziert — ein Coach kann Dich jede Woche auswählen."
+
+msgid "Who read your photo well."
+msgstr "Wer Dein Foto gut gelesen hat."
+
+msgid "Edit profile"
+msgstr "Profil bearbeiten"
+
+msgid "Your 3 questions, preferences & photos."
+msgstr "Deine 3 Fragen, Präferenzen & Fotos."
+
+msgid "Curate matches"
+msgstr "Matches kuratieren"
+
+msgid "Pick matches for your Premium members."
+msgstr "Wähle Matches für Deine Premium-Mitglieder aus."
+
+msgid ""
+"No public browsing. No one can search for you. Your card is only ever shown "
+"to a match your coach chose."
+msgstr ""
+"Kein öffentliches Stöbern. Niemand kann nach Dir suchen. Deine Karte wird "
+"nur einem Match gezeigt, das Dein Coach ausgewählt hat."
+
+msgid "Today's Drop — Crush Connect"
+msgstr "Drop des Tages — Crush Connect"
+
+msgid "This week"
+msgstr "Diese Woche"
+
+msgid "One person, chosen by your coach — take your time with them."
+msgstr "Eine Person, ausgewählt von Deinem Coach — nimm Dir Zeit für sie."
+
+msgid "Today"
+msgstr "Heute"
+
+msgid ""
+"Fresh faces for today, curated for you. No queue, no swiping — take your "
+"time."
+msgstr ""
+"Neue Gesichter für heute, kuratiert für Dich. Keine Warteschlange, kein "
+"Swipen — nimm Dir Zeit."
+
+msgid ""
+"First name and age range only. Their photo unblurs the moment you both send "
+"a Spark — never before."
+msgstr ""
+"Nur Vorname und Altersspanne. Das Foto wird in dem Moment scharf, in dem ihr"
+" beide einen Spark gesendet habt — nie vorher."
+
+msgid "No Drop for today."
+msgstr "Kein Drop für heute."
+
+msgid "You're in the mix — Crush Connect"
+msgstr "Du bist mit dabei — Crush Connect"
+
+msgid "You're in"
+msgstr "Du bist drin"
+
+msgid "You're in the mix."
+msgstr "Du bist mit dabei."
+
+msgid ""
+"You've opted in — your LuxID is verified and your 3 questions are live. A "
+"Crush Coach can now hand-pick you as a match for a Premium member, and we'll"
+" tell you the moment it happens."
+msgstr ""
+"Du hast Dich angemeldet — Deine LuxID ist verifiziert und Deine 3 Fragen "
+"sind live. Ein Crush Coach kann Dich jetzt als Match für ein Premium-"
+"Mitglied auswählen, und wir sagen Dir sofort Bescheid, wenn es passiert."
+
+msgid "Questions live"
+msgstr "Fragen live"
+
+msgid "How people read you"
+msgstr "Wie die Leute Dich lesen"
+
+msgid "You haven't picked your 3 questions yet."
+msgstr "Du hast Deine 3 Fragen noch nicht ausgewählt."
+
+msgid "Want your own Coach Pick?"
+msgstr "Willst Du Deine eigene Coach-Auswahl?"
+
+msgid ""
+"Right now, coaches can match others with you. With Premium (€15/month), a "
+"personal coach picks one match for you every week — plus a daily Drop of "
+"fresh faces."
+msgstr ""
+"Im Moment können Coaches andere mit Dir matchen. Mit Premium (15 €/Monat) "
+"wählt ein persönlicher Coach jede Woche ein Match für Dich aus — plus ein "
+"täglicher Drop mit neuen Gesichtern."
+
+msgid ""
+"Your full name and exact age are never shown. Photos stay blurred until you "
+"both Spark. Leave Crush Connect anytime from settings."
+msgstr ""
+"Dein voller Name und Dein genaues Alter werden nie angezeigt. Fotos bleiben "
+"unscharf, bis ihr beide gesparkt habt. Du kannst Crush Connect jederzeit in "
+"den Einstellungen verlassen."
+
+msgid "Curation"
+msgstr "Kuratierung"
+
+msgid "Answer their 3 questions — the gate renders here on the live card."
+msgstr ""
+"Beantworte ihre 3 Fragen — das Gate erscheint hier auf der Live-Karte."
+
+msgid ""
+"Crush Connect: a weekly Coach Pick and a daily Drop — join the mix free, or "
+"go Premium for your own coach."
+msgstr ""
+"Crush Connect: eine Coach-Auswahl pro Woche und ein täglicher Drop — mach "
+"kostenlos mit oder werde Premium für Deinen eigenen Coach."
+
+msgid "In the Mix — discoverable in Crush Connect"
+msgstr "In the Mix — auffindbar in Crush Connect"
+
+msgid "No coach, no weekly pick"
+msgstr "Kein Coach, keine wöchentliche Auswahl"
+
+msgid "€15/month"
+msgstr "15 €/Monat"
+
+msgid "Crush Connect — weekly Coach Pick + daily Drop"
+msgstr "Crush Connect — wöchentliche Coach-Auswahl + täglicher Drop"
+
+msgid "Go Premium — €15/month"
+msgstr "Premium werden — 15 €/Monat"
+
+msgid "A weekly match, picked by a human"
+msgstr "Jede Woche ein Match, von einem Menschen ausgewählt"
+
+msgid ""
+"Connect LuxID (free) and you're in the mix — a Crush Coach can pick you as a"
+" match. Go Premium for €15/month and get your own: a weekly Coach Pick plus "
+"a daily Drop of fresh faces."
+msgstr ""
+"Verbinde LuxID (kostenlos) und Du bist mit dabei — ein Crush Coach kann Dich"
+" als Match auswählen. Werde Premium für 15 €/Monat und bekomme Dein eigenes:"
+" eine Coach-Auswahl pro Woche plus ein täglicher Drop mit neuen Gesichtern."
+
+msgid "Keep meeting people year-round with Crush Connect."
+msgstr "Lerne mit Crush Connect das ganze Jahr über neue Leute kennen."
+
+msgid ""
+"Your weekly Coach Pick and daily Drop — introductions chosen for you, never "
+"a feed."
+msgstr ""
+"Deine wöchentliche Coach-Auswahl und Dein täglicher Drop — Vorstellungen, "
+"die für Dich ausgewählt werden, nie ein Feed."
+
+msgid ""
+"Crush Connect is live: a weekly coach-picked match and a daily Drop of fresh"
+" faces. Go Premium for €15/month — or join the mix free with LuxID."
+msgstr ""
+"Crush Connect ist live: jede Woche ein vom Coach ausgewähltes Match und ein "
+"täglicher Drop mit neuen Gesichtern. Werde Premium für 15 €/Monat — oder "
+"mach kostenlos mit LuxID mit."
+
+#, python-format
+msgid ""
+"\n"
+"                That's it for today. Your next Drop lands <strong>%(when)s</strong>.\n"
+"            "
+msgstr ""
+"\n"
+"                Das war's für heute. Dein nächster Drop landet <strong>%(when)s</strong>.\n"
+"            "
+
+# ── Crush Connect experience explainer pages (2026-07-02) ──────────────
+# Added manually (gettext unavailable on dev box); run makemessages later
+# to merge location comments. Translations pending founder review.
+
+msgid "The five experiences"
+msgstr "Die fünf Erlebnisse"
+
+msgid ""
+"One promise across all of them: every introduction is chosen — by a coach or"
+" for a coach — never scrolled."
+msgstr ""
+"Ein Versprechen für alle: Jede Vorstellung wird ausgewählt — von einem Coach"
+" oder für einen Coach — nie gescrollt."
+
+msgid "Explore"
+msgstr "Entdecken"
+
+msgid ""
+"A Spark means someone read your photo right. Read them back — if it's "
+"mutual, your coach arranges the date. Passing is always silent."
+msgstr ""
+"Ein Spark bedeutet: Jemand hat Dein Foto richtig gelesen. Lies zurück — ist "
+"es beidseitig, organisiert Dein Coach das Date. Ablehnen bleibt immer still."
+
+msgid ""
+"Verify once with LuxID, answer your 3 questions, and you're discoverable: "
+"coaches can pick you, Drops can surface you, Sparks can find you. No "
+"subscription, ever."
+msgstr ""
+"Verifiziere Dich einmal mit LuxID, beantworte Deine 3 Fragen, und Du bist "
+"auffindbar: Coaches können Dich auswählen, Drops können Dich zeigen, Sparks "
+"können Dich finden. Kein Abo, niemals."
+
+msgid "Get to know Crush Connect"
+msgstr "Lerne Crush Connect kennen"
+
+msgid "More Crush Connect experiences"
+msgstr "Weitere Crush-Connect-Erlebnisse"
+
+msgid "Your Coach's Pick — Crush Connect"
+msgstr "Die Auswahl deines Coachs — Crush Connect"
+
+msgid "Crush Connect experience"
+msgstr "Crush-Connect-Erlebnis"
+
+msgid ""
+"Every week, your Crush Coach looks through the people you could actually "
+"meet — and picks one. Not a stack of profiles: one person, chosen for you, "
+"with a personal note that tells you why. If you both say yes, your coach "
+"contacts you both and arranges the date personally."
+msgstr ""
+"Jede Woche schaut Dein Crush Coach durch die Menschen, die Du wirklich "
+"treffen könntest — und wählt eine Person aus. Kein Stapel von Profilen: ein "
+"Mensch, für Dich ausgewählt, mit einer persönlichen Notiz, die Dir sagt, "
+"warum. Wenn ihr beide Ja sagt, kontaktiert euch Dein Coach und organisiert "
+"das Date persönlich."
+
+msgid ""
+"Your coach studies your Connect profile — your intention, your lifestyle, "
+"what you're looking for."
+msgstr ""
+"Dein Coach studiert Dein Connect-Profil — Deine Absicht, Deinen Lifestyle, "
+"das, was Du suchst."
+
+msgid ""
+"Once a week, their pick takes over your Drop as the hero card — with a note "
+"explaining why this person, for you."
+msgstr ""
+"Einmal pro Woche übernimmt seine Auswahl Deinen Drop als Hauptkarte — mit "
+"einer Notiz, warum diese Person, für Dich."
+
+msgid ""
+"Say yes and your coach contacts you both to arrange the date. Decline and it"
+" stays between you and your coach."
+msgstr ""
+"Sag Ja, und Dein Coach kontaktiert euch beide, um das Date zu organisieren. "
+"Lehnst Du ab, bleibt es zwischen Dir und Deinem Coach."
+
+msgid "See this week's pick"
+msgstr "Auswahl dieser Woche ansehen"
+
+msgid "Get your own coach — €15/month"
+msgstr "Hol Dir Deinen eigenen Coach — 15 €/Monat"
+
+msgid ""
+"Your card is only ever shown to a match your coach chose — no public "
+"browsing, ever."
+msgstr ""
+"Deine Karte wird nur einem Match gezeigt, das Dein Coach ausgewählt hat — "
+"nie öffentlich durchstöberbar."
+
+msgid ""
+"Every morning at 06:00, our matching engine curates up to three people for "
+"you — pinned for the whole day, never an endless feed. There is nothing to "
+"scroll past: take your time with each card, read their photo, and see if you"
+" read them right."
+msgstr ""
+"Jeden Morgen um 06:00 kuratiert unser Matching bis zu drei Menschen für Dich"
+" — fixiert für den ganzen Tag, nie ein endloser Feed. Es gibt nichts zum "
+"Vorbeiscrollen: Nimm Dir Zeit für jede Karte, lies das Foto und finde "
+"heraus, ob Du richtig liegst."
+
+msgid ""
+"At 06:00 your Drop refreshes: up to three cards, curated from LuxID-verified"
+" members who match what you're looking for."
+msgstr ""
+"Um 06:00 erneuert sich Dein Drop: bis zu drei Karten, kuratiert aus LuxID-"
+"verifizierten Mitgliedern, die zu dem passen, was Du suchst."
+
+msgid ""
+"Each card shows a first name, an age range and a photo — plus their 3 "
+"questions to answer."
+msgstr ""
+"Jede Karte zeigt einen Vornamen, eine Altersspanne und ein Foto — plus die 3"
+" Fragen der Person zum Beantworten."
+
+msgid ""
+"Read someone's photo well and a Spark is sent, quietly. Tomorrow at 06:00, "
+"fresh faces."
+msgstr ""
+"Liest Du ein Foto gut, wird still ein Spark gesendet. Morgen um 06:00: neue "
+"Gesichter."
+
+msgid "Open today's Drop"
+msgstr "Heutigen Drop öffnen"
+
+msgid ""
+"The Drop is a Premium experience — but you can already be in others' Drops "
+"for free."
+msgstr ""
+"Der Drop ist ein Premium-Erlebnis — aber Du kannst schon kostenlos in den "
+"Drops der anderen auftauchen."
+
+msgid "Learn about In the Mix"
+msgstr "Mehr über In the Mix"
+
+msgid ""
+"First name and age range only — full names and exact ages are never shown."
+msgstr ""
+"Nur Vorname und Altersspanne — volle Namen und genaues Alter werden nie "
+"angezeigt."
+
+msgid "Read the Photo — Crush Connect"
+msgstr "Read the Photo — Crush Connect"
+
+msgid "No bios. Three questions. One photo."
+msgstr "Keine Bios. Drei Fragen. Ein Foto."
+
+msgid ""
+"Everyone in Crush Connect picks 3 yes/no questions and answers them "
+"privately — their hidden truth. When you see someone's card, you don't skim "
+"a bio: you look at their photo and guess their answers. Get at least 2 of 3 "
+"right and a Spark is sent. If they read you right too, it's a match — and "
+"your coach arranges the date."
+msgstr ""
+"Alle in Crush Connect wählen 3 Ja/Nein-Fragen und beantworten sie privat — "
+"ihre verborgene Wahrheit. Wenn Du eine Karte siehst, überfliegst Du keine "
+"Bio: Du schaust auf das Foto und rätst die Antworten. Triffst Du mindestens "
+"2 von 3, wird ein Spark gesendet. Liest die Person auch Dich richtig, ist es"
+" ein Match — und Dein Coach organisiert das Date."
+
+msgid ""
+"Pick your own 3 questions from this week's rotation and answer them "
+"honestly. Your answers stay private — always."
+msgstr ""
+"Wähle Deine eigenen 3 Fragen aus der Rotation dieser Woche und beantworte "
+"sie ehrlich. Deine Antworten bleiben privat — immer."
+
+msgid ""
+"On someone's card, guess their 3 answers from the photo alone. Trust what "
+"you see."
+msgstr ""
+"Rate auf einer Karte die 3 Antworten allein anhand des Fotos. Vertrau dem, "
+"was Du siehst."
+
+msgid ""
+"2 of 3 right sends a Spark. Guess wrong and nothing happens — they will "
+"simply never know."
+msgstr ""
+"2 von 3 richtig sendet einen Spark. Liegst Du falsch, passiert nichts — die "
+"Person erfährt es einfach nie."
+
+msgid "Pick your 3 questions"
+msgstr "Wähle Deine 3 Fragen"
+
+msgid "Join Crush Connect"
+msgstr "Crush Connect beitreten"
+
+msgid ""
+"Only anonymous totals are ever shown — like \"8 of 12 read you as a morning "
+"person\". Never who guessed what."
+msgstr ""
+"Es werden nur anonyme Summen gezeigt — etwa \"8 von 12 lesen Dich als "
+"Frühaufsteher\". Nie, wer was geraten hat."
+
+msgid "Sparks — Crush Connect"
+msgstr "Sparks — Crush Connect"
+
+msgid ""
+"A Spark isn't a like. It means someone looked at your card, guessed your 3 "
+"answers from your photo — and got you right. Read them back to find out if "
+"it's mutual: when you read each other well, your coach takes over and "
+"arranges the date."
+msgstr ""
+"Ein Spark ist kein Like. Er bedeutet: Jemand hat Deine Karte gesehen, Deine "
+"3 Antworten anhand Deines Fotos geraten — und Dich richtig gelesen. Lies "
+"zurück und finde heraus, ob es beidseitig ist: Wenn ihr euch gut lest, "
+"übernimmt Dein Coach und organisiert das Date."
+
+msgid ""
+"Someone reads your photo well (2 of 3 answers right) — you get a Spark, and "
+"an email so you don't miss it."
+msgstr ""
+"Jemand liest Dein Foto gut (2 von 3 Antworten richtig) — Du bekommst einen "
+"Spark und eine E-Mail, damit Du ihn nicht verpasst."
+
+msgid ""
+"Read them back: answer their 3 questions from their photo. Their card "
+"unblurs the moment it's mutual."
+msgstr ""
+"Lies zurück: Beantworte die 3 Fragen der Person anhand ihres Fotos. Ihre "
+"Karte wird scharf, sobald es beidseitig ist."
+
+msgid ""
+"Mutual read = match. Your coach contacts you both and arranges the date. "
+"Pass instead, and they'll never know."
+msgstr ""
+"Beidseitig gelesen = Match. Dein Coach kontaktiert euch beide und "
+"organisiert das Date. Passt Du stattdessen, erfährt es die Person nie."
+
+msgid "See your Sparks"
+msgstr "Deine Sparks ansehen"
+
+msgid "Declines are always silent — nobody is ever told they were passed on."
+msgstr ""
+"Ablehnungen sind immer still — niemand erfährt je, dass er übergangen wurde."
+
+msgid "In the Mix — Crush Connect"
+msgstr "In the Mix — Crush Connect"
+
+msgid "Verified, discoverable, free — forever."
+msgstr "Verifiziert, auffindbar, kostenlos — für immer."
+
+msgid ""
+"In the Mix is Crush Connect's free track. Verify once with LuxID, answer "
+"your 3 questions, and you're discoverable: coaches can pick you for a "
+"Premium member's week, Drops can surface you, Sparks can find you. No "
+"subscription — LuxID verification is what keeps Crush Connect real people "
+"only."
+msgstr ""
+"In the Mix ist der kostenlose Weg in Crush Connect. Verifiziere Dich einmal "
+"mit LuxID, beantworte Deine 3 Fragen, und Du bist auffindbar: Coaches können"
+" Dich für die Woche eines Premium-Mitglieds auswählen, Drops können Dich "
+"zeigen, Sparks können Dich finden. Kein Abo — die LuxID-Verifizierung sorgt "
+"dafür, dass Crush Connect nur aus echten Menschen besteht."
+
+msgid ""
+"Connect your LuxID — free, takes a minute, confirms you're a real person."
+msgstr ""
+"Verbinde Deine LuxID — kostenlos, dauert eine Minute, bestätigt, dass Du "
+"eine echte Person bist."
+
+msgid ""
+"Complete the short Connect onboarding and pick your 3 questions — that's "
+"your card done."
+msgstr ""
+"Durchlaufe das kurze Connect-Onboarding und wähle Deine 3 Fragen — fertig "
+"ist Deine Karte."
+
+msgid ""
+"You're in the mix. We tell you the moment someone reads you right or a coach"
+" picks you."
+msgstr ""
+"Du bist mit dabei. Wir sagen Dir sofort Bescheid, wenn Dich jemand richtig "
+"liest oder ein Coach Dich auswählt."
+
+msgid "See your status"
+msgstr "Deinen Status ansehen"
+
+msgid "Join the mix — free"
+msgstr "Mach mit — kostenlos"
+
+msgid ""
+"First name and age range only, photo blurred until it's mutual — and you can"
+" leave anytime from settings."
+msgstr ""
+"Nur Vorname und Altersspanne, Foto unscharf, bis es beidseitig ist — und Du "
+"kannst jederzeit in den Einstellungen aussteigen."
