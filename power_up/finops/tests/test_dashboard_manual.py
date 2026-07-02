@@ -6,6 +6,9 @@ import pytest
 from playwright.sync_api import sync_playwright
 import time
 
+# Requires a running dev server + manual login — never meant for CI.
+pytestmark = pytest.mark.playwright
+
 
 def test_finops_dashboard_manually():
     """
