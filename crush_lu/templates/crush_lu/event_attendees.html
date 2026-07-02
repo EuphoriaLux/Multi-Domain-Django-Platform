@@ -52,7 +52,7 @@
         </span>
     {% else %}
         {% if not event.connection_window_active %}
-            <a href="{% url 'crush_lu:crush_connect_teaser' %}"
+            <a href="{% url 'crush_lu:crush_connect_hub' %}"
                class="inline-flex items-center justify-center gap-1 px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-crush-purple to-crush-pink hover:opacity-90 rounded-lg transition-opacity"
                title="{% trans 'Connection window closed for this event' %}">
                 {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}

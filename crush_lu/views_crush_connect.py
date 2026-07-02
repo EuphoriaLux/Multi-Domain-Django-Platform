@@ -14,6 +14,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -1144,3 +1145,58 @@ def crush_connect_pick_respond(request, pick_id: int):
             _("No problem — your coach will pick someone else for you."),
         )
     return redirect("crush_lu:crush_connect_home")
+
+
+# ─── Experience explainers ──────────────────────────────────────────────────
+# Member-facing landing pages, one per Crush Connect experience. Educational,
+# so they are deliberately softer-gated than the live surfaces: any logged-in
+# member may read them (no onboarding required) once the flag is on.
+# Canonical taxonomy and copy rules: docs/products/crush-connect.md.
+
+CONNECT_EXPERIENCES = {
+    "coach-pick": {
+        "name": _("Your Coach's Pick"),
+        "tagline": _("One match a week, picked by a human."),
+    },
+    "todays-drop": {
+        "name": _("Today's Drop"),
+        "tagline": _("Up to three fresh faces, every morning at 06:00."),
+    },
+    "read-the-photo": {
+        "name": _("Read the Photo"),
+        "tagline": _("No bios. Three questions. One photo."),
+    },
+    "sparks": {
+        "name": _("Sparks"),
+        "tagline": _("Who read your photo well."),
+    },
+    "in-the-mix": {
+        "name": _("In the Mix"),
+        "tagline": _("Verified, discoverable, free — forever."),
+    },
+}
+
+
+@crush_login_required
+def crush_connect_experience(request, slug):
+    """One experience explainer page (name, description, how it works, CTA)."""
+    if slug not in CONNECT_EXPERIENCES:
+        raise Http404
+
+    if not request.user.is_staff and not getattr(
+        settings, "CRUSH_CONNECT_LAUNCHED", False
+    ):
+        return redirect("crush_lu:crush_connect_teaser")
+
+    membership = getattr(request.user, "crush_connect_membership", None)
+    context = {
+        "experience": CONNECT_EXPERIENCES[slug],
+        "is_receiver": _user_is_connect_receiver_eligible(request.user),
+        "is_onboarded": membership is not None and membership.onboarded_at is not None,
+        "other_experiences": [
+            {"slug": s, **exp} for s, exp in CONNECT_EXPERIENCES.items() if s != slug
+        ],
+    }
+    return render(
+        request, f"crush_lu/crush_connect/experiences/{slug}.html", context
+    )

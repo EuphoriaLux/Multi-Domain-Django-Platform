@@ -1,0 +1,23 @@
+{% load i18n %}
+{% comment %}
+Sibling cross-links rendered at the bottom of every experience explainer.
+Expects: other_experiences — list of {slug, name, tagline} for the four
+experiences that are NOT the current page (built by crush_connect_experience).
+{% endcomment %}
+<div class="mt-8">
+    <p class="text-xs font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">
+        {% trans "More Crush Connect experiences" %}
+    </p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {% for exp in other_experiences %}
+        <a href="{% url 'crush_lu:crush_connect_experience' exp.slug %}"
+           class="flex items-center gap-3 rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 transition-colors">
+            <div class="flex-1 min-w-0">
+                <p class="font-semibold text-gray-900 dark:text-white text-sm mb-0.5">{{ exp.name }}</p>
+                <p class="text-xs text-gray-600 dark:text-gray-300 mb-0">{{ exp.tagline }}</p>
+            </div>
+            {% include "shared/icons/chevron-right.html" with class="w-4 h-4 text-gray-400 shrink-0" %}
+        </a>
+        {% endfor %}
+    </div>
+</div>

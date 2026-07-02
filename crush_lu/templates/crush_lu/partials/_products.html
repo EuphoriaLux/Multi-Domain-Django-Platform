@@ -10,7 +10,7 @@
 <div class="mb-6">
   <div class="text-center mb-4">
     <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-1">{% trans "Choose how you join" %}</h3>
-    <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Crush Connect — our matching community — is exclusive to Premium." %}</p>
+    <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Crush Connect: a weekly Coach Pick and a daily Drop — join the mix free, or go Premium for your own coach." %}</p>
   </div>
 
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
@@ -31,8 +31,8 @@
         <ul class="space-y-2 text-sm mb-5 flex-1">
           <li class="flex items-center gap-2 text-gray-700 dark:text-gray-300"><span class="text-green-500">✓</span> {% trans "Verified profile" %}</li>
           <li class="flex items-center gap-2 text-gray-700 dark:text-gray-300"><span class="text-green-500">✓</span> {% trans "Browse & buy event tickets" %}</li>
+          <li class="flex items-center gap-2 text-gray-700 dark:text-gray-300"><span class="text-green-500">✓</span> {% trans "In the Mix — discoverable in Crush Connect" %}</li>
           <li class="flex items-center gap-2 text-gray-400 dark:text-gray-500"><span>✕</span> {% trans "No personal coach" %}</li>
-          <li class="flex items-center gap-2 text-gray-400 dark:text-gray-500"><span>✕</span> {% trans "No Crush Connect" %}</li>
         </ul>
 
         {% if vs == 'verified' %}
@@ -60,7 +60,7 @@
           <li class="flex items-center gap-2 text-gray-700 dark:text-gray-300"><span class="text-green-500">✓</span> {% trans "Entry to one event" %}</li>
           <li class="flex items-center gap-2 text-gray-700 dark:text-gray-300"><span class="text-green-500">✓</span> {% trans "Meet people face-to-face" %}</li>
           <li class="flex items-center gap-2 text-gray-700 dark:text-gray-300"><span class="text-green-500">✓</span> {% trans "Post-event connections" %}</li>
-          <li class="flex items-center gap-2 text-gray-400 dark:text-gray-500"><span>✕</span> {% trans "No Crush Connect" %}</li>
+          <li class="flex items-center gap-2 text-gray-400 dark:text-gray-500"><span>✕</span> {% trans "No coach, no weekly pick" %}</li>
         </ul>
 
         <a href="{% url 'crush_lu:event_list' %}" class="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl border border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 text-sm font-semibold hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
@@ -84,6 +84,7 @@
           <span class="text-[11px] font-bold uppercase tracking-wide text-white/80">{% trans "Premium" %}</span>
         </div>
         <h4 class="font-bold text-white text-lg mb-0.5">{% trans "Premium Package" %}</h4>
+        <p class="text-sm font-bold text-white mb-1">{% trans "€15/month" %}</p>
         <p class="text-xs text-white/80 mb-4">{% trans "Ticket + your personal coach + the community." %}</p>
 
         <ul class="space-y-2 text-sm mb-5 flex-1">
@@ -91,14 +92,14 @@
           <li class="flex items-center gap-2 text-white"><span>✓</span> {% trans "Personal coach" %}</li>
           <li class="flex items-center gap-2 text-white"><span>✓</span> {% trans "In-person verification before the event" %}</li>
           <li class="flex items-center gap-2 text-white"><span>✓</span> {% trans "Reserved event seats" %}</li>
-          <li class="flex items-center gap-2 text-white font-semibold"><span>★</span> {% trans "Crush Connect — weekly matches" %}</li>
+          <li class="flex items-center gap-2 text-white font-semibold"><span>★</span> {% trans "Crush Connect — weekly Coach Pick + daily Drop" %}</li>
         </ul>
 
         {% if is_premium %}
           <span class="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-white/20 text-white text-sm font-bold">✓ {% trans "Your plan" %}</span>
         {% else %}
           <a href="{% url 'crush_lu:premium_choose_coach' %}" class="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-white text-crush-purple text-sm font-bold hover:bg-purple-50 transition-colors">
-            {% trans "Join the Beta" %}
+            {% trans "Go Premium — €15/month" %}
             <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
           </a>
         {% endif %}

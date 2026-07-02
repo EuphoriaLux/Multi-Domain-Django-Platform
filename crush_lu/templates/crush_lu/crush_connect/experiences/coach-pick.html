@@ -1,0 +1,74 @@
+{% extends 'crush_lu/crush_connect/_base_connect.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Your Coach's Pick — Crush Connect" %}{% endblock %}
+{% block mobile_page_title %}{% trans "Your Coach's Pick" %}{% endblock %}
+
+{% block connect_content %}
+<div class="max-w-2xl mx-auto px-4 py-8 pb-24 lg:pb-10">
+
+    <header class="mb-6">
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-crush-purple to-crush-pink px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white mb-4">
+            {% include "shared/icons/star.html" with class="w-3.5 h-3.5" %}
+            {% trans "Crush Connect experience" %}
+        </span>
+        <h1 class="font-display text-3xl md:text-4xl font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
+            {% trans "Your Coach's Pick" %}
+        </h1>
+        <p class="text-lg text-crush-purple dark:text-crush-pink font-medium mb-3">
+            {% trans "One match a week, picked by a human." %}
+        </p>
+        <p class="text-gray-600 dark:text-gray-300">
+            {% trans "Every week, your Crush Coach looks through the people you could actually meet — and picks one. Not a stack of profiles: one person, chosen for you, with a personal note that tells you why. If you both say yes, your coach contacts you both and arranges the date personally." %}
+        </p>
+    </header>
+
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-crush-sm ring-1 ring-gray-200 dark:ring-slate-700 p-5 md:p-6 mb-4">
+        <p class="text-xs font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-4">
+            {% trans "How it works" %}
+        </p>
+        <ol class="space-y-4">
+            <li class="flex items-start gap-3">
+                <span class="w-8 h-8 rounded-full bg-crush-purple/10 text-crush-purple flex items-center justify-center font-bold shrink-0">1</span>
+                <p class="text-sm text-gray-700 dark:text-gray-200 mb-0 pt-1.5">
+                    {% trans "Your coach studies your Connect profile — your intention, your lifestyle, what you're looking for." %}
+                </p>
+            </li>
+            <li class="flex items-start gap-3">
+                <span class="w-8 h-8 rounded-full bg-crush-purple/10 text-crush-purple flex items-center justify-center font-bold shrink-0">2</span>
+                <p class="text-sm text-gray-700 dark:text-gray-200 mb-0 pt-1.5">
+                    {% trans "Once a week, their pick takes over your Drop as the hero card — with a note explaining why this person, for you." %}
+                </p>
+            </li>
+            <li class="flex items-start gap-3">
+                <span class="w-8 h-8 rounded-full bg-crush-purple/10 text-crush-purple flex items-center justify-center font-bold shrink-0">3</span>
+                <p class="text-sm text-gray-700 dark:text-gray-200 mb-0 pt-1.5">
+                    {% trans "Say yes and your coach contacts you both to arrange the date. Decline and it stays between you and your coach." %}
+                </p>
+            </li>
+        </ol>
+    </div>
+
+    <div class="text-center mb-2">
+        {% if is_receiver %}
+        <a href="{% url 'crush_lu:crush_connect_home' %}" class="btn-crush-primary inline-flex items-center gap-2">
+            {% trans "See this week's pick" %}
+            {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
+        </a>
+        {% else %}
+        <a href="{% url 'crush_lu:premium_choose_coach' %}" class="btn-crush-primary inline-flex items-center gap-2">
+            {% trans "Get your own coach — €15/month" %}
+            {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
+        </a>
+        {% endif %}
+    </div>
+
+    <p class="mt-4 flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400 justify-center">
+        {% include "shared/icons/shield-check.html" with class="w-4 h-4 text-crush-purple shrink-0 mt-px" %}
+        <span>{% trans "Your card is only ever shown to a match your coach chose — no public browsing, ever." %}</span>
+    </p>
+
+    {% include "crush_lu/crush_connect/experiences/_more_experiences.html" %}
+
+</div>
+{% endblock %}
