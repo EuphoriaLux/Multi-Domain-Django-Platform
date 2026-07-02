@@ -40,23 +40,20 @@ jobs:
         run: |
           python -m pip install --upgrade "pip>=26.1.1" "setuptools>=82.0.1" "wheel>=0.47.0"
           pip install -r requirements.txt
-          pip install pytest pytest-django pytest-cov pytest-xdist
+          pip install pytest pytest-django pytest-xdist
 
+      # No --cov: the Codecov upload had been failing for months (no
+      # CODECOV_TOKEN configured) and nothing consumed the report, so the
+      # coverage tracing overhead was pure waste. If coverage is wanted
+      # again, add CODECOV_TOKEN to repo secrets, reinstall pytest-cov,
+      # and set COVERAGE_CORE=sysmon to keep the tracing cheap.
       - name: Run tests (parallel with pytest-xdist, SQLite)
         env:
           SECRET_KEY: 'ci-test-key'
           USE_AZURE_STORAGE: 'False'
         run: |
-          pytest -m "not playwright" --tb=short -q -x -n auto --cov --cov-report=xml --cov-report=term
+          pytest -m "not playwright" --tb=short -q -x -n auto
         continue-on-error: false
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v7
-        with:
-          files: ./coverage.xml
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: false
 
   lint:
     name: Lint and Format Check
