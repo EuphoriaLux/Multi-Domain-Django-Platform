@@ -52,8 +52,10 @@
                     </div>
                 </div>
 
-                {# They read your photo well — read them back by answering their 3
-                   questions. Reading each other ≥2/3 both ways is a match. #}
+                {% comment %}
+                They read your photo well - read them back by answering their 3
+                questions. Reading each other >=2/3 both ways is a match.
+                {% endcomment %}
                 <a href="{% url 'crush_lu:crush_connect_spark_compose' sender.pk %}"
                    class="btn-crush-primary btn-block inline-flex items-center justify-center gap-1.5 no-underline">
                     {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
