@@ -180,7 +180,8 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",  # MUST be before SafeCurrentSiteMiddleware
     "azureproject.middleware.SafeCurrentSiteMiddleware",  # Safe site detection (auto-creates missing Sites)
     "azureproject.middleware.AdminLanguagePrefixRedirectMiddleware",  # Redirect /fr/admin/ -> /admin/
-    "azureproject.middleware.LoginPostDebugMiddleware",  # DEBUG: Log /login/ POSTs before CSRF check
+    # LoginPostDebugMiddleware (azureproject.middleware) is available for local
+    # CSRF debugging — insert it here, before CsrfViewMiddleware, when needed.
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "crush_lu.middleware.UserActivityMiddleware",  # Track user activity and PWA usage

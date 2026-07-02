@@ -75,7 +75,9 @@ jobs:
       - name: Install linting tools
         run: |
           python -m pip install --upgrade pip
-          pip install black ruff flake8
+          # Pinned so lint results don't drift with each upstream release
+          # (keep in sync with the local dev venv)
+          pip install black==26.5.1 ruff==0.15.20 flake8==7.3.0
 
       - name: Check code formatting with Black
         run: |

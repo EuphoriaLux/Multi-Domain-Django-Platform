@@ -73,7 +73,7 @@ def _years_ago(years: int) -> date:
         return today.replace(year=today.year - years, day=28)
 
 
-def get_eligible_pool(user) -> "QuerySet[User]":
+def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
     """
     Return the queryset of users eligible to appear in ``user``'s Crush Connect Drop.
 
@@ -81,6 +81,10 @@ def get_eligible_pool(user) -> "QuerySet[User]":
     personal coach assigned, onboarded into Crush Connect, not coach-excluded),
     otherwise an empty queryset. Candidates don't need Premium — the catalogue
     requires LuxID + opt-in instead (asymmetric model).
+
+    ``candidate_pk`` narrows the pool to a single candidate BEFORE the Python
+    gender-preference step below — point lookups ("is X in the pool?") must use
+    it, otherwise the whole pool is materialized just to check one row.
     """
     from crush_lu.models import CrushProfile, EventConnection, EventRegistration
     from crush_lu.services.blocking import block_exists_subquery
@@ -141,6 +145,9 @@ def get_eligible_pool(user) -> "QuerySet[User]":
         .exclude(pk=user.pk)
         .select_related("crushprofile", "crush_connect_membership")
     )
+
+    if candidate_pk is not None:
+        qs = qs.filter(pk=candidate_pk)
 
     # Match preferences (gender + age) now live on CrushConnectMembership, not
     # CrushProfile — that's the catalogue/profile data split. The requester's
@@ -871,7 +878,7 @@ def get_active_coach_pick(member):
     # Full-pool re-check (subsumes catalogue eligibility) so display and
     # accept agree — otherwise a member could be stuck seeing a pick the
     # accept guard would refuse (e.g. EventConnection formed since).
-    if not get_eligible_pool(member).filter(pk=pick.candidate_id).exists():
+    if not get_eligible_pool(member, candidate_pk=pick.candidate_id).exists():
         return None
     # Coach reassignment orphans the proposal — an ex-coach's pick must not
     # surface as "Your Coach's Pick" (and they couldn't act on a response).
@@ -897,7 +904,7 @@ def propose_coach_pick(coach, member, candidate, note: str = ""):
         raise ValueError("not_your_member")
     if not is_sender_eligible(member):
         raise ValueError("member_not_ready")
-    if not get_eligible_pool(member).filter(pk=candidate.pk).exists():
+    if not get_eligible_pool(member, candidate_pk=candidate.pk).exists():
         raise ValueError("candidate_not_eligible")
     if ConnectCoachPick.objects.filter(member=member, candidate=candidate).exists():
         raise ValueError("already_picked")
@@ -947,7 +954,7 @@ def respond_to_coach_pick(pick, accept: bool):
         # EventConnection created since the proposal, or changed mutual
         # preferences, must invalidate the pick exactly as it would block
         # proposing the same candidate today.
-        and get_eligible_pool(pick.member).filter(pk=pick.candidate_id).exists()
+        and get_eligible_pool(pick.member, candidate_pk=pick.candidate_id).exists()
     ):
         # Either party lost eligibility since the pick was proposed — an
         # accept must not enter the coach's arrangement queue. The Today

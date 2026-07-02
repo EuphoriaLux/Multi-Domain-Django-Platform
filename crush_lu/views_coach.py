@@ -2843,6 +2843,23 @@ def coach_member_overview(request, user_id):
     return render(request, "crush_lu/coach_member_overview.html", context)
 
 
+def _verified_profiles_by_user(user_ids):
+    """Batch-fetch verified+active profiles keyed by user_id.
+
+    One query instead of one CrushProfile lookup per match score; the
+    verified + is_active filter is the coach-facing eligibility rule and
+    must stay identical everywhere match counterparts are displayed.
+    """
+    return {
+        p.user_id: p
+        for p in CrushProfile.objects.filter(
+            user_id__in=user_ids,
+            verification_status="verified",
+            is_active=True,
+        )
+    }
+
+
 @coach_required
 def coach_member_matches(request, user_id):
     """Show top matches for a member's profile (coach matchmaking view)."""
@@ -2871,13 +2888,17 @@ def coach_member_matches(request, user_id):
     if has_traits:
         match_scores = get_matches_for_user(member)
 
+        profiles_by_user = _verified_profiles_by_user(
+            {
+                ms.user_b_id if ms.user_a_id == member.pk else ms.user_a_id
+                for ms in match_scores
+            }
+        )
+
         for ms in match_scores:
             other_user = ms.user_b if ms.user_a == member else ms.user_a
-            try:
-                other_profile = CrushProfile.objects.get(
-                    user=other_user, verification_status="verified", is_active=True
-                )
-            except CrushProfile.DoesNotExist:
+            other_profile = profiles_by_user.get(other_user.pk)
+            if other_profile is None:
                 continue
 
             score_display = get_score_display(ms.score_final)
@@ -2941,12 +2962,7 @@ def coach_match_pairs(request):
             all_user_ids.add(ms.user_b_id)
 
         # Step 4: Batch-fetch profiles (only approved+active)
-        profiles_by_user = {
-            p.user_id: p
-            for p in CrushProfile.objects.filter(
-                user_id__in=all_user_ids, verification_status="verified", is_active=True
-            )
-        }
+        profiles_by_user = _verified_profiles_by_user(all_user_ids)
 
         # Step 5: Batch-fetch assigned coaches via latest approved submission
         coach_map = {}
