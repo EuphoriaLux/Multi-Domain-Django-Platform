@@ -94,8 +94,7 @@
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
     {# Crush Connect — primary feature card #}
-    {% if not on_crush_connect_waitlist %}
-    <a href="{% url 'crush_lu:crush_connect_teaser' %}"
+    <a href="{% url 'crush_lu:crush_connect_hub' %}"
        class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 p-5 text-white shadow-lg hover:shadow-xl transition-shadow no-underline group block">
         <div class="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/10 pointer-events-none"></div>
         <div class="relative z-10">
@@ -108,29 +107,13 @@
                     <span class="inline-block rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold text-white uppercase">{% trans "Unlocked" %} ✓</span>
                 </div>
             </div>
-            <p class="text-white/90 text-sm mb-4">{% trans "Your weekly curated matches — people you've actually met at events." %}</p>
+            <p class="text-white/90 text-sm mb-4">{% trans "Your weekly Coach Pick and daily Drop — introductions chosen for you, never a feed." %}</p>
             <span class="inline-flex items-center gap-1 rounded-lg bg-white/20 px-4 py-2 text-sm font-semibold text-white group-hover:bg-white/30 transition-colors">
                 {% trans "Open Crush Connect" %}
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
             </span>
         </div>
     </a>
-    {% else %}
-    <a href="{% url 'crush_lu:crush_connect_teaser' %}"
-       class="status-card block no-underline group border-l-4 border-l-teal-500 hover:border-teal-400 transition-colors">
-        <div class="status-card-body flex items-center gap-4">
-            <span class="flex-shrink-0 flex items-center justify-center w-12 h-12">{% include "crush_lu/includes/ghost-story-chatting-pair.html" with class="w-full h-full" %}</span>
-            <div class="flex-1">
-                <div class="flex items-center gap-2 mb-0.5">
-                    <h5 class="font-semibold text-gray-900 dark:text-white mb-0">Crush Connect</h5>
-                    <span class="badge text-[10px] bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300">{% trans "Waitlist" %}</span>
-                </div>
-                <p class="text-gray-500 dark:text-gray-400 text-sm mb-0">{% blocktrans with pos=crush_connect_position %}You're #{{ pos }} on the waitlist{% endblocktrans %}</p>
-            </div>
-            <svg class="w-5 h-5 text-gray-400 group-hover:text-teal-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-        </div>
-    </a>
-    {% endif %}
 
 </div>
 {% endif %}{# end state B #}
@@ -201,7 +184,7 @@
 
         {% if profile.verification_status == 'verified' and not is_premium %}
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            {% trans "Join the Crush Connect beta — 4 coach-curated matches over 4 weeks, free for the first month. We're recruiting 20 testers." %}
+            {% trans "Crush Connect is live: a weekly coach-picked match and a daily Drop of fresh faces. Go Premium for €15/month — or join the mix free with LuxID." %}
         </p>
         {% endif %}
 

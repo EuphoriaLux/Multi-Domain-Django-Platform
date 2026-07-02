@@ -18,9 +18,9 @@
         </h1>
         <p class="relative text-sm leading-relaxed text-white/90 max-w-[16rem] mb-0">
             {% if is_receiver %}
-                {% trans "Your coach hand-picks one match a week. No feed, no games — just a real introduction when it's right." %}
+                {% trans "One Coach Pick a week — plus fresh faces in your Drop every morning. No feed, no games." %}
             {% else %}
-                {% trans "You're in the mix. A coach can introduce you as a hand-picked match — no feed, no games." %}
+                {% trans "You're in the mix. Coaches can pick you, Sparks can find you — no feed, no games." %}
             {% endif %}
         </p>
         <div class="relative flex flex-wrap gap-2 mt-4">
@@ -40,7 +40,7 @@
             </div>
             <div class="flex-1 min-w-0">
                 <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Your coach picked a match" %}</p>
-                <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "This week's Drop is ready — take a look." %}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Your Coach's Pick for this week is ready — take a look." %}</p>
             </div>
             {% include "shared/icons/arrow-right.html" with class="w-5 h-5 text-crush-purple shrink-0" %}
         </div>
@@ -58,7 +58,7 @@
             </div>
             <div class="flex-1 min-w-0">
                 <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Today's Drop" %}</p>
-                <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Your hand-picked match for this week." %}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Up to three fresh faces, every morning at 06:00." %}</p>
             </div>
             {% include "shared/icons/chevron-right.html" with class="w-5 h-5 text-gray-400 shrink-0" %}
         </a>
@@ -70,7 +70,7 @@
             </div>
             <div class="flex-1 min-w-0">
                 <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "You're in the mix" %}</p>
-                <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "A coach can introduce you as a match." %}</p>
+                <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Discoverable, LuxID-verified — a coach can pick you any week." %}</p>
             </div>
             {% include "shared/icons/chevron-right.html" with class="w-5 h-5 text-gray-400 shrink-0" %}
         </a>
@@ -88,7 +88,7 @@
                 {% if pending_sparks_count %}
                     {% blocktrans count count=pending_sparks_count %}{{ count }} person is curious about you.{% plural %}{{ count }} people are curious about you.{% endblocktrans %}
                 {% else %}
-                    {% trans "Who's curious about you." %}
+                    {% trans "Who read your photo well." %}
                 {% endif %}
             </p>
         </a>
@@ -100,7 +100,7 @@
                 {% include "shared/icons/pencil.html" with class="w-5 h-5 text-crush-purple" %}
             </div>
             <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Edit profile" %}</p>
-            <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Story, preferences & photos." %}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Your 3 questions, preferences & photos." %}</p>
         </a>
 
         {# Coach curation hub. #}
@@ -118,6 +118,35 @@
         </a>
         {% endif %}
 
+    </div>
+
+    {# Experience explainers — one landing page per Connect experience. #}
+    <div class="mt-6">
+        <p class="text-xs font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2.5">
+            {% trans "Get to know Crush Connect" %}
+        </p>
+        <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            <a href="{% url 'crush_lu:crush_connect_experience' 'coach-pick' %}"
+               class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-crush-purple/50 no-underline transition-colors">
+                {% trans "Your Coach's Pick" %}
+            </a>
+            <a href="{% url 'crush_lu:crush_connect_experience' 'todays-drop' %}"
+               class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-crush-purple/50 no-underline transition-colors">
+                {% trans "Today's Drop" %}
+            </a>
+            <a href="{% url 'crush_lu:crush_connect_experience' 'read-the-photo' %}"
+               class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-crush-purple/50 no-underline transition-colors">
+                {% trans "Read the Photo" %}
+            </a>
+            <a href="{% url 'crush_lu:crush_connect_experience' 'sparks' %}"
+               class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-crush-purple/50 no-underline transition-colors">
+                {% trans "Sparks" %}
+            </a>
+            <a href="{% url 'crush_lu:crush_connect_experience' 'in-the-mix' %}"
+               class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-crush-purple/50 no-underline transition-colors">
+                {% trans "In the Mix" %}
+            </a>
+        </div>
     </div>
 
     <div class="mt-5 flex items-start gap-2.5">

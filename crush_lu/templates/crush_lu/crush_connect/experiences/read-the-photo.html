@@ -1,0 +1,74 @@
+{% extends 'crush_lu/crush_connect/_base_connect.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Read the Photo — Crush Connect" %}{% endblock %}
+{% block mobile_page_title %}{% trans "Read the Photo" %}{% endblock %}
+
+{% block connect_content %}
+<div class="max-w-2xl mx-auto px-4 py-8 pb-24 lg:pb-10">
+
+    <header class="mb-6">
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-crush-purple to-crush-pink px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white mb-4">
+            {% include "shared/icons/sparkles.html" with class="w-3.5 h-3.5" %}
+            {% trans "Crush Connect experience" %}
+        </span>
+        <h1 class="font-display text-3xl md:text-4xl font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
+            {% trans "Read the Photo" %}
+        </h1>
+        <p class="text-lg text-crush-purple dark:text-crush-pink font-medium mb-3">
+            {% trans "No bios. Three questions. One photo." %}
+        </p>
+        <p class="text-gray-600 dark:text-gray-300">
+            {% trans "Everyone in Crush Connect picks 3 yes/no questions and answers them privately — their hidden truth. When you see someone's card, you don't skim a bio: you look at their photo and guess their answers. Get at least 2 of 3 right and a Spark is sent. If they read you right too, it's a match — and your coach arranges the date." %}
+        </p>
+    </header>
+
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-crush-sm ring-1 ring-gray-200 dark:ring-slate-700 p-5 md:p-6 mb-4">
+        <p class="text-xs font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-4">
+            {% trans "How it works" %}
+        </p>
+        <ol class="space-y-4">
+            <li class="flex items-start gap-3">
+                <span class="w-8 h-8 rounded-full bg-crush-purple/10 text-crush-purple flex items-center justify-center font-bold shrink-0">1</span>
+                <p class="text-sm text-gray-700 dark:text-gray-200 mb-0 pt-1.5">
+                    {% trans "Pick your own 3 questions from this week's rotation and answer them honestly. Your answers stay private — always." %}
+                </p>
+            </li>
+            <li class="flex items-start gap-3">
+                <span class="w-8 h-8 rounded-full bg-crush-purple/10 text-crush-purple flex items-center justify-center font-bold shrink-0">2</span>
+                <p class="text-sm text-gray-700 dark:text-gray-200 mb-0 pt-1.5">
+                    {% trans "On someone's card, guess their 3 answers from the photo alone. Trust what you see." %}
+                </p>
+            </li>
+            <li class="flex items-start gap-3">
+                <span class="w-8 h-8 rounded-full bg-crush-purple/10 text-crush-purple flex items-center justify-center font-bold shrink-0">3</span>
+                <p class="text-sm text-gray-700 dark:text-gray-200 mb-0 pt-1.5">
+                    {% trans "2 of 3 right sends a Spark. Guess wrong and nothing happens — they will simply never know." %}
+                </p>
+            </li>
+        </ol>
+    </div>
+
+    <div class="text-center mb-2">
+        {% if is_onboarded %}
+        <a href="{% url 'crush_lu:crush_connect_profile_edit' %}?section=questions" class="btn-crush-primary inline-flex items-center gap-2">
+            {% trans "Pick your 3 questions" %}
+            {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
+        </a>
+        {% else %}
+        <a href="{% url 'crush_lu:crush_connect_hub' %}" class="btn-crush-primary inline-flex items-center gap-2">
+            {% trans "Join Crush Connect" %}
+            {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
+        </a>
+        {% endif %}
+    </div>
+
+    <p class="mt-4 flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400 justify-center">
+        {% include "shared/icons/shield-check.html" with class="w-4 h-4 text-crush-purple shrink-0 mt-px" %}
+        <span>{% trans "Only anonymous totals are ever shown — like \"8 of 12 read you as a morning person\". Never who guessed what." %}</span>
+    </p>
+
+    {% include "crush_lu/crush_connect/experiences/_more_experiences.html" %}
+
+</div>
+{% endblock %}
