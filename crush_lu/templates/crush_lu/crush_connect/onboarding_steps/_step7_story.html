@@ -34,7 +34,7 @@
         <div>
             <textarea name="{{ form.story_answer.name }}" id="{{ form.story_answer.id_for_label }}" rows="3" maxlength="200"
                       placeholder="{% trans 'Keep it human — one sentence the right kind of person will recognise.' %}"
-                      class="input-crush w-full" @input="onStoryInput">{{ form.story_answer.value|default_if_none:'' }}</textarea>
+                      class="input-crush" @input="onStoryInput">{{ form.story_answer.value|default_if_none:'' }}</textarea>
             <div class="mt-1 flex items-center justify-between text-xs">
                 <span class="text-gray-400 dark:text-gray-500">{% trans "You can edit this anytime from your Connect profile." %}</span>
                 <span class="text-gray-400 dark:text-gray-500"><span x-text="storyCount"></span>/200</span>
@@ -65,7 +65,7 @@
             <div>
                 <label for="{{ form.story_answer_2.id_for_label }}" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">{{ form.story_answer_2.label }}</label>
                 <textarea name="{{ form.story_answer_2.name }}" id="{{ form.story_answer_2.id_for_label }}" rows="3" maxlength="200"
-                          class="input-crush w-full">{{ form.story_answer_2.value|default_if_none:'' }}</textarea>
+                          class="input-crush">{{ form.story_answer_2.value|default_if_none:'' }}</textarea>
                 {% if form.story_answer_2.errors %}<p class="text-sm text-red-600 dark:text-red-400 mt-1">{{ form.story_answer_2.errors|join:" " }}</p>{% endif %}
             </div>
         </div>
