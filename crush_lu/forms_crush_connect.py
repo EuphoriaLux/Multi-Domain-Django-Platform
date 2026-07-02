@@ -165,7 +165,7 @@ class ConnectLifeForm(forms.ModelForm):
         )
         widgets = {
             "height_cm": forms.NumberInput(
-                attrs={"min": 120, "max": 230, "class": "input-crush w-full"}
+                attrs={"min": 120, "max": 230, "class": "form-control"}
             ),
         }
 
@@ -272,7 +272,7 @@ class ConnectStoryForm(forms.ModelForm):
                 "placeholder": _(
                     "Keep it human — one sentence the right kind of person will recognise."
                 ),
-                "class": "input-crush w-full",
+                "class": "form-control",
             }
         ),
     )
@@ -288,7 +288,7 @@ class ConnectStoryForm(forms.ModelForm):
         required=False,
         label=_("Your second answer"),
         widget=forms.Textarea(
-            attrs={"rows": 3, "maxlength": 200, "class": "input-crush w-full"}
+            attrs={"rows": 3, "maxlength": 200, "class": "form-control"}
         ),
     )
     confirm_terms = forms.BooleanField(

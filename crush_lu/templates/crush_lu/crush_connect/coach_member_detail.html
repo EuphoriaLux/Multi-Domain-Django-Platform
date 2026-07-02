@@ -107,7 +107,7 @@
                     <form method="post" class="space-y-2">
                         {% csrf_token %}
                         <input type="hidden" name="candidate_id" value="{{ candidate.pk }}">
-                        <input type="text" name="note" maxlength="300" class="input-crush w-full text-sm"
+                        <input type="text" name="note" maxlength="300" class="form-control text-sm"
                                placeholder="{% trans 'Why this match? (shown to your member)' %}">
                         <button type="submit" class="btn-crush-primary btn-sm w-full">
                             {% trans "Pick as their match" %}
