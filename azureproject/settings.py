@@ -328,11 +328,30 @@ AUTH_PASSWORD_VALIDATORS = [
 # In settings.py
 
 # These settings optimize the login experience.
-# SOCIALACCOUNT_LOGIN_ON_GET stays True until all templates that still use
-# `<a href="{% provider_login_url %}">` are migrated to POST forms with CSRF.
-# Flipping this to False without that migration breaks every OAuth entry point
-# (login_crush.html, auth.html, signup.html, account_settings.html,
-# entreprinder/base.html, admin login, …).
+#
+# SOCIALACCOUNT_LOGIN_ON_GET is deliberately kept True (login-CSRF finding S2,
+# issue #542). This was re-triaged rather than flipped:
+#   * The social buttons are GET-based by design across every surface — the
+#     Android-PWA path builds an `intent://` URL to hand the flow to an external
+#     browser, the popup path uses `window.open(url)`, and iOS/desktop do a plain
+#     anchor redirect (see oauth-popup.js and the inline handlers in auth.html /
+#     login_crush.html). None of these can carry a CSRF token, so a clean
+#     POST-form conversion is infeasible for the mobile flows.
+#   * Flipping to False makes allauth serve an intermediate "Continue with X"
+#     confirmation page, which adds a click to *every* social login — including
+#     the promoted one-tap LuxID hero flow ("verified instantly, no waiting").
+#   * Residual exposure is real and is NOT covered by SameSite: because the OAuth
+#     entry point is a top-level GET, SESSION_COOKIE_SAMESITE="Lax" still sends
+#     the session cookie, so a cross-site page can initiate the OAuth flow in the
+#     victim's session (login-CSRF). (Lax *does* block the cross-site POST vector
+#     — that's why it is the stated mitigation for the POST-only push endpoint in
+#     api_push.py — but it does not cover this GET flow.) Practical impact is
+#     limited (a forced OAuth *start* still needs the victim to authenticate to
+#     the attacker's provider account to cause account linking/takeover), but the
+#     vector is genuinely open until LOGIN_ON_GET is addressed.
+# Accepted risk, tracked in #542. The only mobile-compatible fix is flipping this
+# to False and accepting the interstitial; revisit that trade-off, or a POST-form
+# rebuild of the login flow, if the residual risk is deemed unacceptable.
 SOCIALACCOUNT_LOGIN_ON_GET = True
 SOCIALACCOUNT_STORE_TOKENS = True
 SOCIALACCOUNT_AUTO_SIGNUP = True
