@@ -81,6 +81,9 @@ urlpatterns = [
     # Redirect bare allauth account pages to the styled crush.lu settings page
     path('accounts/', lambda req: redirect('/account/settings/')),
     path('accounts/email/', lambda req: redirect('/account/settings/')),
+    # Redirect allauth's generic signup to the crush.lu signup view so GDPR
+    # consent (crushlu_consent / marketing_consent) is always captured
+    path('accounts/signup/', lambda req: redirect('/signup/')),
 ] + base_patterns + api_patterns + [
     # Dev: Ghost SVG showcase (no auth needed)
     path('ghost-showcase/', TemplateView.as_view(template_name='crush_lu/ghost_showcase.html'), name='ghost_showcase'),
