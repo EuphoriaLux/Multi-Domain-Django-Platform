@@ -5401,7 +5401,7 @@ msgstr "Ville/Région au Luxembourg"
 
 #: models/profiles.py:538
 msgid "Tell us about yourself!"
-msgstr "Parlez-nous de vous !"
+msgstr "Parle-nous de toi !"
 
 #: models/profiles.py:543
 msgid "Your hobbies and interests (comma-separated)"
@@ -17121,12 +17121,6 @@ msgstr "Partagez ce qui vous rend unique (optionnel)"
 #: templates/crush_lu/event_register.html:90
 msgid "Optional"
 msgstr "Optionnel"
-
-#: templates/crush_lu/create_profile.html:654
-msgid "Tell us about yourself... What do you love? What makes you smile?"
-msgstr ""
-"Parle-nous de toi... Qu'est-ce que tu aimes ? Qu'est-ce qui te fait sourire "
-"?"
 
 #: templates/crush_lu/create_profile.html:656
 #: templates/crush_lu/create_profile.html:734
