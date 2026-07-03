@@ -340,10 +340,18 @@ AUTH_PASSWORD_VALIDATORS = [
 #   * Flipping to False makes allauth serve an intermediate "Continue with X"
 #     confirmation page, which adds a click to *every* social login — including
 #     the promoted one-tap LuxID hero flow ("verified instantly, no waiting").
-#   * The classic cross-site login-CSRF vector is already blocked by
-#     SESSION_COOKIE_SAMESITE="Lax" (below), so the incremental gain is modest.
-# Accepted risk, tracked in #542. Revisit if the mobile login flow is ever
-# rebuilt around POST forms.
+#   * Residual exposure is real and is NOT covered by SameSite: because the OAuth
+#     entry point is a top-level GET, SESSION_COOKIE_SAMESITE="Lax" still sends
+#     the session cookie, so a cross-site page can initiate the OAuth flow in the
+#     victim's session (login-CSRF). (Lax *does* block the cross-site POST vector
+#     — that's why it is the stated mitigation for the POST-only push endpoint in
+#     api_push.py — but it does not cover this GET flow.) Practical impact is
+#     limited (a forced OAuth *start* still needs the victim to authenticate to
+#     the attacker's provider account to cause account linking/takeover), but the
+#     vector is genuinely open until LOGIN_ON_GET is addressed.
+# Accepted risk, tracked in #542. The only mobile-compatible fix is flipping this
+# to False and accepting the interstitial; revisit that trade-off, or a POST-form
+# rebuild of the login flow, if the residual risk is deemed unacceptable.
 SOCIALACCOUNT_LOGIN_ON_GET = True
 SOCIALACCOUNT_STORE_TOKENS = True
 SOCIALACCOUNT_AUTO_SIGNUP = True
