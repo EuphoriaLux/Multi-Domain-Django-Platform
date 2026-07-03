@@ -171,8 +171,11 @@ def subscribe_push(request):
 @ratelimit(key='user', rate='20/m', method='POST')
 # CSRF-exempt: invoked from the service worker pushsubscriptionchange handler,
 # which has no DOM access (cannot read #csrf-token-input) and cannot read the
-# CSRF cookie under CSRF_COOKIE_HTTPONLY=True. Still protected by @login_required
-# (session cookie) and @ratelimit.
+# CSRF cookie under CSRF_COOKIE_HTTPONLY=True, so it structurally cannot send a
+# CSRF token. The actual cross-site CSRF defense here is SESSION_COOKIE_SAMESITE
+# ="Lax" (a forged cross-site POST won't carry the session cookie); @login_required
+# and @ratelimit gate access and abuse but are NOT themselves CSRF defenses.
+# Re-triaged under issue #542 (finding S4); kept exempt for the reason above.
 @csrf_exempt
 @require_http_methods(["POST"])
 def refresh_subscription(request):

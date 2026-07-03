@@ -328,11 +328,22 @@ AUTH_PASSWORD_VALIDATORS = [
 # In settings.py
 
 # These settings optimize the login experience.
-# SOCIALACCOUNT_LOGIN_ON_GET stays True until all templates that still use
-# `<a href="{% provider_login_url %}">` are migrated to POST forms with CSRF.
-# Flipping this to False without that migration breaks every OAuth entry point
-# (login_crush.html, auth.html, signup.html, account_settings.html,
-# entreprinder/base.html, admin login, …).
+#
+# SOCIALACCOUNT_LOGIN_ON_GET is deliberately kept True (login-CSRF finding S2,
+# issue #542). This was re-triaged rather than flipped:
+#   * The social buttons are GET-based by design across every surface — the
+#     Android-PWA path builds an `intent://` URL to hand the flow to an external
+#     browser, the popup path uses `window.open(url)`, and iOS/desktop do a plain
+#     anchor redirect (see oauth-popup.js and the inline handlers in auth.html /
+#     login_crush.html). None of these can carry a CSRF token, so a clean
+#     POST-form conversion is infeasible for the mobile flows.
+#   * Flipping to False makes allauth serve an intermediate "Continue with X"
+#     confirmation page, which adds a click to *every* social login — including
+#     the promoted one-tap LuxID hero flow ("verified instantly, no waiting").
+#   * The classic cross-site login-CSRF vector is already blocked by
+#     SESSION_COOKIE_SAMESITE="Lax" (below), so the incremental gain is modest.
+# Accepted risk, tracked in #542. Revisit if the mobile login flow is ever
+# rebuilt around POST forms.
 SOCIALACCOUNT_LOGIN_ON_GET = True
 SOCIALACCOUNT_STORE_TOKENS = True
 SOCIALACCOUNT_AUTO_SIGNUP = True
