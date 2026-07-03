@@ -13711,10 +13711,6 @@ msgstr ""
 msgid "Optional"
 msgstr ""
 
-#: .\crush_lu\templates\crush_lu\create_profile.html:638
-msgid "Tell us about yourself... What do you love? What makes you smile?"
-msgstr ""
-
 #: .\crush_lu\templates\crush_lu\create_profile.html:640
 #: .\crush_lu\templates\crush_lu\create_profile.html:718
 msgid "characters"

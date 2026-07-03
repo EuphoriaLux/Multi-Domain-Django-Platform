@@ -17089,10 +17089,6 @@ msgstr ""
 msgid "Optional"
 msgstr "Fakultativ"
 
-#: templates/crush_lu/create_profile.html:654
-msgid "Tell us about yourself... What do you love? What makes you smile?"
-msgstr "Erzähl uns über dich... Was liebst du? Was bringt dich zum Lächeln?"
-
 #: templates/crush_lu/create_profile.html:656
 #: templates/crush_lu/create_profile.html:734
 msgid "characters"
