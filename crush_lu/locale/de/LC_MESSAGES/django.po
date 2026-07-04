@@ -18741,7 +18741,7 @@ msgstr ""
 
 #: templates/crush_lu/dashboard.html:237
 msgid "Your Events"
-msgstr "Ihre Veranstaltungen"
+msgstr "Deine Veranstaltungen"
 
 #: templates/crush_lu/dashboard.html:238
 msgid "Browse all"
@@ -18796,8 +18796,8 @@ msgid ""
 "Install our app to get push notifications about events, messages, and "
 "connections!"
 msgstr ""
-"Installieren Sie unsere App, um Push-Benachrichtigungen über "
-"Veranstaltungen, Nachrichten und Verbindungen zu erhalten!"
+"Installiere unsere App, um Push-Benachrichtigungen über Veranstaltungen, "
+"Nachrichten und Verbindungen zu erhalten!"
 
 #: templates/crush_lu/dashboard.html:326
 msgid "Install App"
@@ -34053,7 +34053,6 @@ msgstr ""
 # ── Crush Connect product restructure (2026-07-02) ─────────────────────
 # Added manually (gettext unavailable on dev box); run makemessages later
 # to merge location comments. Translations pending founder review.
-
 msgid "Crush Connect — A Weekly Match, Picked by a Human | Crush.lu"
 msgstr ""
 "Crush Connect — Jede Woche ein Match, von einem Menschen ausgewählt | "
@@ -34454,7 +34453,6 @@ msgstr ""
 # ── Crush Connect experience explainer pages (2026-07-02) ──────────────
 # Added manually (gettext unavailable on dev box); run makemessages later
 # to merge location comments. Translations pending founder review.
-
 msgid "The five experiences"
 msgstr "Die fünf Erlebnisse"
 
@@ -34777,3 +34775,39 @@ msgstr ""
 "Dein vollständiger Name und dein genaues Alter werden nie angezeigt; deine "
 "Karte erscheint nur in einem Drop, einem Coach Pick oder einem Spark — nie "
 "in einem öffentlichen Feed"
+
+msgid ""
+"Connect LuxID to join Crush Connect and become discoverable to Premium "
+"members."
+msgstr ""
+"Verbinde LuxID, um bei Crush Connect mitzumachen und für Premium-Mitglieder "
+"sichtbar zu werden."
+
+msgid "What others see"
+msgstr "Was andere sehen"
+
+msgid ""
+"Tap a section to edit. This is exactly what your matches and coach see — "
+"nothing more."
+msgstr ""
+"Tippe auf einen Bereich, um ihn zu bearbeiten. Genau das sehen deine Matches"
+" und dein Coach — nicht mehr."
+
+msgid ""
+"Your full name, exact age and unblurred photos are never shown until a date "
+"is confirmed."
+msgstr ""
+"Dein vollständiger Name, dein genaues Alter und deine Fotos ohne Unschärfe "
+"werden erst angezeigt, wenn ein Date bestätigt wurde."
+
+msgid "Your 3 questions"
+msgstr "Deine 3 Fragen"
+
+msgid "Crush Connect Profile"
+msgstr "Crush-Connect-Profil"
+
+msgid "Story, lifestyle, ideal match — what your matches see"
+msgstr "Story, Lebensstil, idealer Match — was deine Matches sehen"
+
+msgid "Not yet unlocked — tap to join Crush Connect"
+msgstr "Noch nicht freigeschaltet — tippe, um bei Crush Connect mitzumachen"
