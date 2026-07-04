@@ -34096,7 +34096,6 @@ msgstr ""
 # ── Crush Connect product restructure (2026-07-02) ─────────────────────
 # Added manually (gettext unavailable on dev box); run makemessages later
 # to merge location comments. Translations pending founder review.
-
 msgid "Crush Connect — A Weekly Match, Picked by a Human | Crush.lu"
 msgstr ""
 "Crush Connect — Chaque semaine un match choisi par un humain | Crush.lu"
@@ -34498,7 +34497,6 @@ msgstr ""
 # ── Crush Connect experience explainer pages (2026-07-02) ──────────────
 # Added manually (gettext unavailable on dev box); run makemessages later
 # to merge location comments. Translations pending founder review.
-
 msgid "The five experiences"
 msgstr "Les cinq expériences"
 
@@ -34825,3 +34823,39 @@ msgstr ""
 "Votre nom complet et votre âge exact ne sont jamais montrés ; votre carte "
 "n'apparaît que dans un Drop, un Coach Pick ou un Spark — jamais dans un fil "
 "public"
+
+msgid ""
+"Connect LuxID to join Crush Connect and become discoverable to Premium "
+"members."
+msgstr ""
+"Connectez LuxID pour rejoindre Crush Connect et devenir visible auprès des "
+"membres Premium."
+
+msgid "What others see"
+msgstr "Ce que les autres voient"
+
+msgid ""
+"Tap a section to edit. This is exactly what your matches and coach see — "
+"nothing more."
+msgstr ""
+"Appuyez sur une section pour la modifier. C'est exactement ce que vos matchs"
+" et votre coach voient — rien de plus."
+
+msgid ""
+"Your full name, exact age and unblurred photos are never shown until a date "
+"is confirmed."
+msgstr ""
+"Votre nom complet, votre âge exact et vos photos non floutées ne sont "
+"montrés qu'une fois un rendez-vous confirmé."
+
+msgid "Your 3 questions"
+msgstr "Vos 3 questions"
+
+msgid "Crush Connect Profile"
+msgstr "Profil Crush Connect"
+
+msgid "Story, lifestyle, ideal match — what your matches see"
+msgstr "Story, style de vie, match idéal — ce que vos matchs voient"
+
+msgid "Not yet unlocked — tap to join Crush Connect"
+msgstr "Pas encore débloqué — appuyez pour rejoindre Crush Connect"

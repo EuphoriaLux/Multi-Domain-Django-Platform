@@ -92,30 +92,27 @@
 {% comment %}Premium → Crush Connect is the hero feature.{% endcomment %}
 {% if profile.verification_status == 'verified' and is_premium %}
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
-    {# Crush Connect — primary feature card #}
-    <a href="{% url 'crush_lu:crush_connect_hub' %}"
-       class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 p-5 text-white shadow-lg hover:shadow-xl transition-shadow no-underline group block">
-        <div class="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/10 pointer-events-none"></div>
-        <div class="relative z-10">
-            <div class="flex items-center gap-3 mb-3">
-                <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 0 1-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 0 0 6.16-12.12A14.98 14.98 0 0 0 9.631 8.41m5.96 5.96a14.926 14.926 0 0 1-5.841 2.58m-.119-8.54a6 6 0 0 0-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 0 0-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 0 1-2.448-2.448 14.9 14.9 0 0 1 .06-.312m-2.24 2.39a4.493 4.493 0 0 0-1.757 4.306 4.493 4.493 0 0 0 4.306-1.758M16.5 9a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z"/></svg>
-                </div>
-                <div>
-                    <p class="font-bold text-white text-base mb-0">Crush Connect</p>
-                    <span class="inline-block rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold text-white uppercase">{% trans "Unlocked" %} ✓</span>
-                </div>
+{# Crush Connect — primary feature card #}
+<a href="{% url 'crush_lu:crush_connect_hub' %}"
+   class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 p-5 mb-5 text-white shadow-lg hover:shadow-xl transition-shadow no-underline group block">
+    <div class="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/10 pointer-events-none"></div>
+    <div class="relative z-10">
+        <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 0 1-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 0 0 6.16-12.12A14.98 14.98 0 0 0 9.631 8.41m5.96 5.96a14.926 14.926 0 0 1-5.841 2.58m-.119-8.54a6 6 0 0 0-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 0 0-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 0 1-2.448-2.448 14.9 14.9 0 0 1 .06-.312m-2.24 2.39a4.493 4.493 0 0 0-1.757 4.306 4.493 4.493 0 0 0 4.306-1.758M16.5 9a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z"/></svg>
             </div>
-            <p class="text-white/90 text-sm mb-4">{% trans "Your weekly Coach Pick and daily Drop — introductions chosen for you, never a feed." %}</p>
-            <span class="inline-flex items-center gap-1 rounded-lg bg-white/20 px-4 py-2 text-sm font-semibold text-white group-hover:bg-white/30 transition-colors">
-                {% trans "Open Crush Connect" %}
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-            </span>
+            <div>
+                <p class="font-bold text-white text-base mb-0">Crush Connect</p>
+                <span class="inline-block rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold text-white uppercase">{% trans "Unlocked" %} ✓</span>
+            </div>
         </div>
-    </a>
-
-</div>
+        <p class="text-white/90 text-sm mb-4">{% trans "Your weekly Coach Pick and daily Drop — introductions chosen for you, never a feed." %}</p>
+        <span class="inline-flex items-center gap-1 rounded-lg bg-white/20 px-4 py-2 text-sm font-semibold text-white group-hover:bg-white/30 transition-colors">
+            {% trans "Open Crush Connect" %}
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </span>
+    </div>
+</a>
 {% endif %}{# end state B #}
 
 {# ─── Coach section ─── #}
