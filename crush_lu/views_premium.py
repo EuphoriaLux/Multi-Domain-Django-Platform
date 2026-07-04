@@ -17,6 +17,7 @@ from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 
 from .models import CrushCoach, CrushProfile, PremiumMembership
+from .ios_app_utils import ios_commerce_suppressed
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,9 @@ def _available_coaches():
 def premium_choose_coach(request):
     """Show the premium coach directory."""
     from django.conf import settings as _settings
+
+    if ios_commerce_suppressed(request):
+        return render(request, "crush_lu/premium/ios_unavailable.html")
 
     pending = (
         PremiumMembership.objects.filter(user=request.user, status="pending")
@@ -73,6 +77,13 @@ def premium_choose_coach(request):
 def premium_select_coach(request, coach_id):
     """Create a pending premium membership for the chosen coach."""
     from django.conf import settings as _settings
+
+    if ios_commerce_suppressed(request):
+        messages.info(
+            request,
+            _("Premium memberships are not available inside the iOS app yet."),
+        )
+        return redirect("crush_lu:premium_choose_coach")
 
     # Crush Connect beta: while the funnel is on, don't let a member start a
     # *fresh* premium request (stale directory form or a direct POST). Members

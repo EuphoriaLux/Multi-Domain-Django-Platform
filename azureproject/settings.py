@@ -383,6 +383,28 @@ SESSION_REMEMBER_ME = True
 # PWA Manifest version - bump when updating icons to force cache refresh
 PWA_MANIFEST_VERSION = "v16"
 
+# Native iOS App Store wrapper settings
+IOS_APP_BUNDLE_ID = os.getenv("IOS_APP_BUNDLE_ID", "lu.crush.app")
+IOS_APP_TEAM_ID = os.getenv("IOS_APP_TEAM_ID", "C5XDPB2G33")
+IOS_APP_NAME = os.getenv("IOS_APP_NAME", "Crush.lu")
+IOS_APP_VERSION = os.getenv("IOS_APP_VERSION", "1.0.0")
+IOS_APP_BUILD = os.getenv("IOS_APP_BUILD", "1")
+IOS_APP_MIN_SUPPORTED_VERSION = os.getenv("IOS_APP_MIN_SUPPORTED_VERSION", "1.0.0")
+IOS_APP_STORE_URL = os.getenv("IOS_APP_STORE_URL", "")
+IOS_NATIVE_COMMERCE_ENABLED = _env_bool("IOS_NATIVE_COMMERCE_ENABLED", default=False)
+IOS_AUTH_CODE_TTL_SECONDS = int(os.getenv("IOS_AUTH_CODE_TTL_SECONDS", "300"))
+IOS_AUTH_REDIRECT_URIS = [
+    uri.strip()
+    for uri in os.getenv("IOS_AUTH_REDIRECT_URIS", "crushlu://auth").split(",")
+    if uri.strip()
+]
+IOS_APNS_KEY_ID = os.getenv("IOS_APNS_KEY_ID", "")
+IOS_APNS_TEAM_ID = os.getenv("IOS_APNS_TEAM_ID", IOS_APP_TEAM_ID)
+IOS_APNS_BUNDLE_ID = os.getenv("IOS_APNS_BUNDLE_ID", IOS_APP_BUNDLE_ID)
+IOS_APNS_PRIVATE_KEY = os.getenv("IOS_APNS_PRIVATE_KEY", "")
+IOS_APNS_PRIVATE_KEY_BASE64 = os.getenv("IOS_APNS_PRIVATE_KEY_BASE64", "")
+IOS_APNS_USE_SANDBOX = _env_bool("IOS_APNS_USE_SANDBOX", default=False)
+
 # Wallet settings (Apple PassKit / Google Wallet)
 WALLET_APPLE_PASS_TYPE_IDENTIFIER = os.getenv("WALLET_APPLE_PASS_TYPE_IDENTIFIER", "")
 WALLET_APPLE_TEAM_IDENTIFIER = os.getenv("WALLET_APPLE_TEAM_IDENTIFIER", "")

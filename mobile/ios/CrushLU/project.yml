@@ -1,0 +1,27 @@
+name: CrushLU
+options:
+  bundleIdPrefix: lu.crush
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: C5XDPB2G33
+    PRODUCT_BUNDLE_IDENTIFIER: lu.crush.app
+    TARGETED_DEVICE_FAMILY: "1"
+    SWIFT_VERSION: "5.9"
+targets:
+  CrushLU:
+    type: application
+    platform: iOS
+    sources:
+      - path: CrushLU
+    settings:
+      base:
+        INFOPLIST_FILE: CrushLU/Info.plist
+        CODE_SIGN_ENTITLEMENTS: CrushLU/CrushLU.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        PRODUCT_NAME: Crush.lu
+    scheme:
+      testTargets: []
