@@ -1,0 +1,36 @@
+name: iOS Build Verification
+
+on:
+  push:
+    branches:
+      - feature/crush-ios-app-store-readiness
+      - main
+  pull_request:
+    branches:
+      - feature/crush-ios-app-store-readiness
+      - main
+
+jobs:
+  build-verification:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode Project
+        run: |
+          cd mobile/ios/CrushLU
+          xcodegen generate
+
+      - name: Build iOS App (Code Signing Disabled)
+        run: |
+          xcodebuild -project mobile/ios/CrushLU/CrushLU.xcodeproj \
+            -scheme CrushLU \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            clean build
