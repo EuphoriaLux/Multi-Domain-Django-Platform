@@ -512,27 +512,13 @@ body.journey-bg {
         @apply mb-4;
     }
 
-    /* Select dropdown - inline form-control styles to avoid circular dep.
-       The `select` tag qualifier is load-bearing: @tailwindcss/forms emits its
-       own `.form-select { background-color:#fff; border-radius:0; ... }` LATER
-       in the built file at (0,1,0) specificity, which would override this rule
-       (and its dark: variants) at equal specificity. `select.form-select` is
-       (0,1,1) and wins regardless of source order. */
-    select.form-select {
-        @apply text-crush-dark focus:ring-crush-purple w-full appearance-none rounded-xl border border-gray-300 bg-white bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg%20xmlns%3d%22http%3a%2f%2fwww.w3.org%2f2000%2fsvg%22%20viewBox%3d%220%200%2024%2024%22%20fill%3d%22none%22%20stroke%3d%22%236b7280%22%20stroke-width%3d%222%22%20stroke-linecap%3d%22round%22%20stroke-linejoin%3d%22round%22%3e%3cpolyline%20points%3d%226%209%2012%2015%2018%209%22%3e%3c%2fpolyline%3e%3c%2fsvg%3e')] bg-[length:1.5rem] bg-[right_0.75rem_center] bg-no-repeat px-4 py-3 pr-10 transition-all duration-200 placeholder:text-gray-400 focus:border-transparent focus:ring-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-500 dark:focus:ring-purple-400;
-    }
-
-    /*
-   * Dark mode select: revert to native appearance so the browser's
-   * color-scheme: dark renders the dropdown list with dark backgrounds.
-   * The custom SVG arrow is removed; the native arrow will show instead.
-   */
-    html.dark .form-select {
-        appearance: auto;
-        -webkit-appearance: auto;
-        background-image: none;
-        padding-right: 1rem;
-    }
+    /* Select dropdown (.form-select): styled at the BOTTOM of this file,
+       OUTSIDE @layer components. The @tailwindcss/forms plugin emits its own
+       `.form-select { background-color:#fff; border-radius:0; ... }` inside
+       @layer utilities, and layer order (components < utilities) beats any
+       selector specificity — a components-layer rule can never win, no matter
+       how qualified. Unlayered author CSS outranks every layer, so the real
+       rules live in the unlayered zone (search "Form select (unlayered)"). */
 
     /* Checkboxes and radios */
     .form-check {
@@ -10573,6 +10559,15 @@ html.dark .age-range-slider-track::before {
     height: 6px;
 }
 
+/* Single-thumb variant (height picker): the lone input owns the whole track,
+   so it stays interactive itself (the dual-slider inputs must keep
+   pointer-events:none with thumb-only auto) and gets a taller invisible
+   hit area for touch. */
+.age-range-input-single {
+    pointer-events: auto;
+    height: 28px;
+}
+
 .age-range-input::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
@@ -13747,4 +13742,25 @@ html.dark .coach-cta-section {
     .journey-icon--idle {
         @apply bg-gray-100 dark:bg-gray-700 text-gray-300 dark:text-gray-500;
     }
+}
+
+/* ─── Form select (unlayered) ───
+   Deliberately OUTSIDE @layer: the @tailwindcss/forms plugin ships its own
+   `.form-select` reset inside @layer utilities, and layer order trumps
+   specificity — any rule inside @layer components loses to it (this is why
+   selects rendered as square white plugin-styled boxes in both themes).
+   Unlayered author CSS beats all layered styles, so these rules win cleanly.
+   Trade-off: template-level utility overrides (e.g. `form-select w-32`) also
+   lose to these declarations — keep them self-sufficient. */
+select.form-select {
+    @apply text-crush-dark focus:ring-crush-purple w-full appearance-none rounded-xl border border-gray-300 bg-white bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg%20xmlns%3d%22http%3a%2f%2fwww.w3.org%2f2000%2fsvg%22%20viewBox%3d%220%200%2024%2024%22%20fill%3d%22none%22%20stroke%3d%22%236b7280%22%20stroke-width%3d%222%22%20stroke-linecap%3d%22round%22%20stroke-linejoin%3d%22round%22%3e%3cpolyline%20points%3d%226%209%2012%2015%2018%209%22%3e%3c%2fpolyline%3e%3c%2fsvg%3e')] bg-[length:1.5rem] bg-[right_0.75rem_center] bg-no-repeat px-4 py-3 pr-10 transition-all duration-200 placeholder:text-gray-400 focus:border-transparent focus:ring-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-500 dark:focus:ring-purple-400;
+}
+
+/* Dark mode select: keep the custom appearance — some engines paint the
+   CLOSED box native white with appearance:auto even under color-scheme:
+   dark — and swap in a light chevron (same SVG as the base rule, stroke
+   gray-400). The OPEN popup list still renders dark via color-scheme: dark
+   on html.dark. */
+html.dark select.form-select {
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg%20xmlns%3d%22http%3a%2f%2fwww.w3.org%2f2000%2fsvg%22%20viewBox%3d%220%200%2024%2024%22%20fill%3d%22none%22%20stroke%3d%22%239ca3af%22%20stroke-width%3d%222%22%20stroke-linecap%3d%22round%22%20stroke-linejoin%3d%22round%22%3e%3cpolyline%20points%3d%226%209%2012%2015%2018%209%22%3e%3c%2fpolyline%3e%3c%2fsvg%3e");
 }
