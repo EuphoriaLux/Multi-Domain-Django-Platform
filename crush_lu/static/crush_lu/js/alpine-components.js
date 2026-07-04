@@ -13447,8 +13447,38 @@ document.addEventListener("alpine:init", function () {
             init: function () {
                 this._sync();
             },
-            onPick: function () {
+            onPick: function (event) {
+                var target =
+                    (event && event.target) ||
+                    this.$el.querySelector('input[type="radio"][data-gate]:focus');
+                this._swapIntoThree(target);
                 this._sync();
+            },
+            _swapIntoThree: function (target) {
+                var picked = Array.prototype.slice.call(
+                    this.$el.querySelectorAll('input[type="radio"][data-gate]:checked')
+                ).filter(function (r) {
+                    return Boolean(r.value);
+                });
+                if (picked.length <= this.max) return;
+
+                var targetName =
+                    target && target.value && target.checked ? target.name : null;
+
+                while (picked.length > this.max) {
+                    var drop = picked.find(function (r) {
+                        return !targetName || r.name !== targetName;
+                    });
+                    if (!drop) return;
+                    var skip = this.$el.querySelector(
+                        'input[type="radio"][data-gate][name="' + drop.name + '"][value=""]'
+                    );
+                    if (!skip) return;
+                    skip.checked = true;
+                    picked = picked.filter(function (r) {
+                        return r.name !== drop.name;
+                    });
+                }
             },
             _sync: function () {
                 var radios = this.$el.querySelectorAll('input[type="radio"][data-gate]');
@@ -13457,12 +13487,6 @@ document.addEventListener("alpine:init", function () {
                     if (r.checked && r.value) picked[r.name] = true;
                 });
                 this.count = Object.keys(picked).length;
-                var atCap = this.count >= this.max;
-                radios.forEach(function (r) {
-                    // Never disable the "Skip" radio (value ""); only cap the
-                    // Yes/No radios of questions not already picked.
-                    if (r.value) r.disabled = atCap && !picked[r.name];
-                });
 
                 var rows = this.$el.querySelectorAll("[data-gate-row]");
                 rows.forEach(function (row) {

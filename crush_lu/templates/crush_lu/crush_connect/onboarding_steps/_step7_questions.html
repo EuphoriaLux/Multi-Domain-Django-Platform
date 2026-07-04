@@ -35,21 +35,21 @@ photo; reading you well (>=2 of 3) is how they match with you.
         {% endfor %}
     </div>
 
-    <details class="group rounded-2xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/30 p-3.5"
+    <details class="group overflow-hidden rounded-xl border border-slate-600/70 bg-slate-900/35"
              {% if form.selected_question_count < 3 or form.non_field_errors %}open{% endif %}>
-        <summary class="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-crush-purple dark:text-crush-pink">
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-3 bg-slate-800/80 px-4 py-3 text-sm font-semibold text-crush-pink transition hover:bg-slate-800">
             <span>{% trans "Change questions" %}</span>
-            <span class="text-gray-400 transition-transform group-open:rotate-180" aria-hidden="true">⌄</span>
+            <span class="text-slate-400 transition-transform group-open:rotate-180" aria-hidden="true">⌄</span>
         </summary>
-        <div class="mt-3 space-y-2.5">
+        <div class="space-y-2.5 p-3">
             {% for row in form.question_rows %}
                 {% if not row.selected %}
                     {% include "crush_lu/crush_connect/onboarding_steps/_gate_question_row.html" with row=row %}
                 {% endif %}
             {% endfor %}
         </div>
-        <p class="mt-3 mb-0 text-xs text-gray-500 dark:text-gray-400">
-            {% trans "All 3 slots are full. To swap, tap Skip on one selected question first." %}
+        <p class="border-t border-slate-700/70 px-4 py-3 mb-0 text-xs text-slate-400">
+            {% trans "Pick a new answer to swap it into your 3 questions." %}
         </p>
     </details>
 
