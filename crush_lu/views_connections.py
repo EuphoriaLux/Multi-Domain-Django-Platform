@@ -950,3 +950,38 @@ def connection_detail(request, connection_id):
         "whatsapp_number": whatsapp_number,
     }
     return render(request, "crush_lu/connection_detail.html", context)
+
+
+@crush_login_required
+@require_http_methods(["GET"])
+def connection_messages(request, connection_id):
+    """HTMX polling endpoint: the rendered message list for a connection.
+
+    Returns the same list the page renders inline, so the thread picks up the
+    other member's replies without a reload. Status 286 tells HTMX to stop
+    polling (dead connection or blocked pair).
+    """
+    connection = get_object_or_404(
+        EventConnection,
+        Q(requester=request.user) | Q(recipient=request.user),
+        id=connection_id,
+    )
+
+    from .services.blocking import is_blocked_pair
+
+    is_requester = connection.requester == request.user
+    other_user = connection.recipient if is_requester else connection.requester
+
+    msgs = (
+        ConnectionMessage.objects.filter(connection=connection, coach_approved=True)
+        .select_related("sender")
+        .order_by("sent_at")
+    )
+    response = render(
+        request,
+        "crush_lu/_connection_messages_list.html",
+        {"messages": msgs, "connection": connection},
+    )
+    if connection.status == "declined" or is_blocked_pair(request.user, other_user):
+        response.status_code = 286
+    return response

@@ -13764,3 +13764,233 @@ select.form-select {
 html.dark select.form-select {
     background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg%20xmlns%3d%22http%3a%2f%2fwww.w3.org%2f2000%2fsvg%22%20viewBox%3d%220%200%2024%2024%22%20fill%3d%22none%22%20stroke%3d%22%239ca3af%22%20stroke-width%3d%222%22%20stroke-linecap%3d%22round%22%20stroke-linejoin%3d%22round%22%3e%3cpolyline%20points%3d%226%209%2012%2015%2018%209%22%3e%3c%2fpolyline%3e%3c%2fsvg%3e");
 }
+
+/* =============================================================================
+   CRUSH CONNECT WIZARD & PROFILE EDITOR
+   Design parity with the "Crush Connect — Onboarding & Menu" mockup.
+   The step partials are shared by the onboarding wizard and the section
+   editor (profile_edit), so these classes style both surfaces.
+
+   Structure: .connect-selectable carries the interactive states (default /
+   hover / peer-checked / disabled) shared by every option control; the
+   layout-only classes .connect-tile (emoji grid tile) and .connect-chip
+   (trait/interest pill) compose with it. Wider row-style options keep their
+   own layout utilities and just add .connect-selectable.
+   ============================================================================= */
+
+/* Focused wizard page: lavender canvas behind pure-white cards. Unlayered
+   (same pattern as body.journey-bg) so it beats the critical-CSS body bg.
+   bg-white resolves to this same #f0ecf5 in light mode, which is exactly why
+   the cards below use literal #ffffff instead of the white token. */
+body.connect-wizard {
+    background: #f0ecf5;
+}
+html.dark body.connect-wizard {
+    background: var(--bg-primary, #111827);
+}
+/* The bottom tab bar is suppressed on wizard pages; reclaim its padding. */
+body.connect-wizard main.has-bottom-nav {
+    padding-bottom: 0;
+}
+
+@layer components {
+    /* Step card: pure white on the lavender canvas, 24px radius. */
+    .connect-card {
+        background: #ffffff;
+        @apply shadow-crush-md rounded-3xl px-[18px] py-[22px] sm:p-8 dark:bg-gray-800;
+    }
+
+    /* Shared option states (design: 2px border, white fill; selected =
+       purple border on purple-10% fill with darkened purple text). */
+    .connect-selectable {
+        background: #ffffff;
+        @apply border-2 border-gray-200 text-gray-600 transition-all duration-150 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300;
+    }
+    .connect-selectable:hover {
+        border-color: color-mix(in srgb, var(--color-crush-purple) 50%, transparent);
+    }
+    input.peer:checked + .connect-selectable {
+        border-color: var(--color-crush-purple);
+        background: rgb(155 89 182 / 0.1);
+        color: var(--color-crush-purple-dark);
+    }
+    html.dark input.peer:checked + .connect-selectable {
+        background: rgb(155 89 182 / 0.15);
+        color: var(--color-purple-300);
+    }
+    input.peer:disabled + .connect-selectable {
+        @apply cursor-not-allowed opacity-40;
+    }
+
+    /* Emoji option tile (3-per-row grids). */
+    .connect-tile {
+        @apply flex h-full flex-col items-center justify-center gap-0.5 rounded-[14px] px-1.5 py-2.5 text-center text-[12.5px]/[1.35] font-semibold;
+    }
+
+    /* Trait / interest chip. Design pads 7px; 8px here buys a ~38px target. */
+    .connect-chip {
+        @apply inline-flex items-center rounded-full px-3.5 py-2 text-[12.5px] font-semibold;
+    }
+
+    /* Section label inside a step card, with the lighter "— pick up to 5"
+       suffix carried by .connect-label-hint. */
+    .connect-label {
+        @apply mb-2 block text-xs font-bold text-gray-600 dark:text-gray-300;
+    }
+    .connect-label-hint {
+        @apply font-normal text-gray-500 dark:text-gray-400;
+    }
+
+    /* Profile-wizard DOB day picker: keep a 40px tap-height floor on narrow
+       screens — min-height wins over the buttons' aspect-square sizing. */
+    [data-dob-days] > button {
+        min-height: 2.5rem;
+    }
+
+    /* Footer secondary (Back) pill: white with soft border, per design. */
+    .connect-btn-secondary {
+        background: #ffffff;
+        @apply inline-flex items-center justify-center rounded-full border-2 border-gray-200 px-[22px] py-3.5 text-sm font-bold text-gray-600 no-underline transition-colors duration-150 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300;
+    }
+    .connect-btn-secondary:hover {
+        border-color: color-mix(in srgb, var(--color-crush-purple) 50%, transparent);
+    }
+}
+
+/* =============================================================================
+   MOBILE SNACKBAR TOASTS
+   Below lg the toast container sits at the bottom of the viewport (thumb/eye
+   zone): above the home-indicator safe area for guests, above the fixed
+   bottom tab bar (56px + its safe-area padding) for signed-in members.
+   ============================================================================= */
+@layer components {
+    @media (max-width: 1023px) {
+        #toast-container {
+            padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+        }
+        #toast-container.toast-above-nav {
+            bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+            padding-bottom: 0.5rem;
+        }
+    }
+    @media (min-width: 1024px) {
+        #toast-container,
+        #toast-container.toast-above-nav {
+            padding-bottom: 0;
+        }
+    }
+}
+
+/* =============================================================================
+   CONFIRMATION SHEET (native <dialog>)
+   Bottom sheet on mobile, centered modal on lg+. Entry/exit animation uses
+   @starting-style + transition-behavior:allow-discrete — progressive
+   enhancement (Chrome 117+ / Safari 17.5+ / Firefox 129+); older engines get
+   an instant open/close. confirm-sheet.js falls back to window.confirm when
+   <dialog>.showModal is missing entirely.
+   ============================================================================= */
+@layer components {
+    .crush-confirm {
+        border: none;
+        padding: 0;
+        max-height: calc(100dvh - 2rem);
+    }
+
+    .crush-confirm::backdrop {
+        background: rgb(15 23 42 / 0.5);
+    }
+
+    @media (max-width: 1023px) {
+        .crush-confirm {
+            margin: auto 0 0; /* pin to the bottom edge */
+            width: 100%;
+            max-width: 100%;
+            border-radius: 1.25rem 1.25rem 0 0;
+        }
+    }
+    @media (min-width: 1024px) {
+        .crush-confirm {
+            margin: auto;
+            width: 100%;
+            max-width: 26rem;
+            border-radius: 1rem;
+        }
+    }
+
+    /* Accept button: brand purple by default, red when .confirm-danger is set
+       (confirm-sheet.js toggles it; danger is the default since today's
+       hx-confirm uses are all destructive). */
+    .crush-confirm [data-confirm-accept] {
+        background: var(--color-crush-purple);
+    }
+    .crush-confirm [data-confirm-accept]:hover {
+        background: var(--color-crush-purple-dark);
+    }
+    .crush-confirm.confirm-danger [data-confirm-accept] {
+        background: #dc2626;
+    }
+    .crush-confirm.confirm-danger [data-confirm-accept]:hover {
+        background: #b91c1c;
+    }
+
+    /* Lock page scroll while the sheet is open. */
+    body:has(.crush-confirm[open]) {
+        overflow: hidden;
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+        .crush-confirm,
+        .crush-confirm::backdrop {
+            transition:
+                opacity 0.25s ease,
+                transform 0.25s ease,
+                display 0.25s ease allow-discrete,
+                overlay 0.25s ease allow-discrete;
+        }
+        .crush-confirm {
+            opacity: 0;
+        }
+        .crush-confirm::backdrop {
+            opacity: 0;
+        }
+        .crush-confirm[open],
+        .crush-confirm[open]::backdrop {
+            opacity: 1;
+        }
+
+        @media (max-width: 1023px) {
+            .crush-confirm {
+                transform: translateY(100%);
+            }
+            .crush-confirm[open] {
+                transform: translateY(0);
+            }
+            @starting-style {
+                .crush-confirm[open] {
+                    opacity: 0;
+                    transform: translateY(100%);
+                }
+                .crush-confirm[open]::backdrop {
+                    opacity: 0;
+                }
+            }
+        }
+        @media (min-width: 1024px) {
+            .crush-confirm {
+                transform: scale(0.96);
+            }
+            .crush-confirm[open] {
+                transform: scale(1);
+            }
+            @starting-style {
+                .crush-confirm[open] {
+                    opacity: 0;
+                    transform: scale(0.96);
+                }
+                .crush-confirm[open]::backdrop {
+                    opacity: 0;
+                }
+            }
+        }
+    }
+}

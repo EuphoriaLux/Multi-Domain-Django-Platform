@@ -6,6 +6,10 @@ Connect sub-nav above its content, so the area feels like one cohesive section.
 Children override the connect_content block; title / mobile_page_title / extra_js
 pass through to base.html.
 {% endcomment %}
+{# The floating WhatsApp button overlaps Connect's option tiles/cards — keep
+   the whole Connect area free of it. #}
+{% block whatsapp_button %}{% endblock %}
+
 {% block content %}
 {% include "crush_lu/crush_connect/_connect_subnav.html" %}
 {% block connect_content %}{% endblock %}

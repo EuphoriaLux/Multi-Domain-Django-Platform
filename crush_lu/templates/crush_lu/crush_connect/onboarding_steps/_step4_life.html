@@ -1,10 +1,10 @@
 {% load i18n %}
 {# Step 4 — Life basics. Height slider (optional, hidden input carries the value) + work/education/smoking/drinking as shared _radio_tiles. "prefer_not_say" is a valid, explicit choice. #}
-<div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-6 md:p-8 space-y-7">
+<div class="connect-card space-y-7">
     <div class="text-center mb-2">
         <div class="flex justify-center mb-2">{% include "crush_lu/includes/ghost-story-nervous.html" with class="w-20 h-20" %}</div>
-        <h2 class="font-display text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">{% trans "A bit about your life" %}</h2>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{% trans "Share what you're comfortable with — every question has a prefer-not-to-say option." %}</p>
+        <h2 class="font-display text-[22px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{% trans "A bit about your life" %}</h2>
+        <p class="text-[13px] text-gray-500 dark:text-gray-400 mt-1">{% trans "Share what you're comfortable with — every question has a prefer-not-to-say option." %}</p>
     </div>
 
     {# Height (optional) — slider with opt-out; only the hidden input is named #}
@@ -13,7 +13,7 @@
          data-initial="{{ form.height_cm.value|default_if_none:'' }}"
          data-label-no-answer="{% trans 'Prefer not to say' %}">
         <div class="flex items-center justify-between mb-1">
-            <label class="block text-sm font-semibold text-gray-900 dark:text-white">
+            <label class="connect-label mb-0">
                 {% trans "Height (cm)" %} <span class="text-gray-400 font-normal">{% trans "— optional" %}</span>
             </label>
             <span class="text-xl font-bold text-crush-purple dark:text-purple-400" x-text="valueLabel"></span>

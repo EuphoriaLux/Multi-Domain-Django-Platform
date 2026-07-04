@@ -1,10 +1,10 @@
 {% load i18n matching_tags %}
 {# Step 6 — Ideal match (the only HARD filters: gender + age). Gender peer-checked tiles + the ageRangeSlider block (from the legacy Ideal Crush slider, bound to the membership/form values). Empty gender selection = open to all. #}
-<div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-6 md:p-8 space-y-7">
+<div class="connect-card space-y-7">
     <div class="text-center">
         <div class="flex justify-center mb-2">{% include "crush_lu/includes/ghost-story-inlove.html" with class="w-20 h-20" %}</div>
-        <h2 class="font-display text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">{% trans "Who are you looking for?" %}</h2>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{% trans "Gender and age are the only firm filters — everything else just guides who you see first." %}</p>
+        <h2 class="font-display text-[22px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{% trans "Who are you looking for?" %}</h2>
+        <p class="text-[13px] text-gray-500 dark:text-gray-400 mt-1">{% trans "Gender and age are the only firm filters — everything else just guides who you see first." %}</p>
     </div>
 
     {# Age range slider #}
@@ -13,7 +13,7 @@
          data-initial-min="{{ form.preferred_age_min.value|default:'18' }}"
          data-initial-max="{{ form.preferred_age_max.value|default:'99' }}">
         <div class="flex items-center justify-between mb-2">
-            <label class="block text-sm font-semibold text-gray-900 dark:text-white">{% trans "Preferred age range" %}</label>
+            <label class="connect-label mb-0">{% trans "Preferred age range" %}</label>
             <div class="flex items-center gap-2">
                 <span class="text-sm font-semibold text-purple-600 dark:text-purple-400" x-text="rangeLabel"></span>
                 <button type="button" x-show="notDefaultRange" @click="resetRange" x-cloak
@@ -35,7 +35,7 @@
 
     {# Gender preference tiles #}
     <div>
-        <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">{% trans "Interested in" %}</label>
+        <label class="connect-label">{% trans "Interested in" %}</label>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
             {% for value, label in form.preferred_genders.field.choices %}{% if value != 'P' %}
             <label class="cursor-pointer block">
@@ -55,20 +55,18 @@
     </div>
 
     {# Qualities you're looking for (soft signal, migrated from Ideal Crush) #}
-    {% trans "Pick up to 5." as trait_hint %}
+    {% trans "pick up to 5" as trait_hint %}
     {% include "crush_lu/crush_connect/onboarding_steps/_trait_chips.html" with field_name="sought_qualities" choices_qs=form.sought_qualities.field.queryset selected_ids=selected_sought_ids heading=form.sought_qualities.label hint=trait_hint field_errors=form.sought_qualities.errors %}
 
     {# Who makes the first step #}
     <div>
-        <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">{{ form.first_step_preference.label }}</label>
+        <label class="connect-label">{{ form.first_step_preference.label }}</label>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {% for value, label in form.first_step_preference.field.choices %}
             <label class="cursor-pointer block">
                 <input type="radio" name="first_step_preference" value="{{ value }}" class="peer hidden"
                        {% if form.first_step_preference.value|stringformat:"s" == value|stringformat:"s" %}checked{% endif %}>
-                <div class="flex items-center justify-center text-center gap-1 rounded-xl border-2 px-3 py-2.5 text-sm font-medium transition-all duration-200
-                            border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-crush-purple/50
-                            peer-checked:border-crush-purple peer-checked:bg-crush-purple/10 peer-checked:text-crush-purple">
+                <div class="connect-selectable flex items-center justify-center text-center gap-1 rounded-[14px] px-3 py-2.5 text-sm font-medium">
                     {{ label }}
                 </div>
             </label>

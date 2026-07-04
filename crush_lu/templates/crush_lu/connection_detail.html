@@ -67,7 +67,7 @@
 
         {# ===== LEFT COLUMN: Profile Card ===== #}
         <div class="lg:col-span-1">
-            <div class="card-bordered p-6 sticky top-24">
+            <div class="card-bordered p-6 lg:sticky lg:top-24">
                 {# Photo #}
                 <div class="text-center mb-4">
                     {% if connection.status == 'shared' and other_profile|has_photo:'photo_1' %}
@@ -409,24 +409,14 @@
                         {% trans "Messages" %}
                     </h3>
 
-                    {# Message list #}
-                    <div id="messages-container" class="space-y-3 mb-6 max-h-96 overflow-y-auto">
-                        {% if messages %}
-                            {% for msg in messages %}
-                                {% if msg.sender == request.user %}
-                                    {% include "crush_lu/_connection_message.html" with msg=msg is_own_message=True %}
-                                {% else %}
-                                    {% include "crush_lu/_connection_message.html" with msg=msg is_own_message=False %}
-                                {% endif %}
-                            {% endfor %}
-                        {% else %}
-                            <div class="text-center py-8">
-                                <div class="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mx-auto mb-3">
-                                    {% include "shared/icons/chat-bubble-left-ellipsis.html" with class="w-6 h-6 text-gray-400 dark:text-gray-500" %}
-                                </div>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "No messages yet. Start the conversation!" %}</p>
-                            </div>
-                        {% endif %}
+                    {# Message list — polls for the other side's replies. connection-chat.js
+                       pauses the poll while the tab is hidden and keeps the scroll pinned
+                       to the newest message unless the reader scrolled up. #}
+                    <div id="messages-container" class="space-y-3 mb-6 max-h-96 overflow-y-auto"
+                         hx-get="{% url 'crush_lu:connection_messages' connection.id %}"
+                         hx-trigger="every 20s, chat:refresh"
+                         hx-swap="innerHTML">
+                        {% include "crush_lu/_connection_messages_list.html" %}
                     </div>
 
                     {# Compose form #}
@@ -436,10 +426,11 @@
                           hx-swap="beforeend"
                           hx-on::after-request="if(event.detail.successful) this.reset()">
                         {% csrf_token %}
-                        <div x-data="charCounter" data-max-length="2000" class="space-y-2">
+                        {# Cap matches the server-side limit in views_connections (500). #}
+                        <div x-data="charCounter" data-max-length="500" class="space-y-2">
                             <textarea name="message"
                                       rows="3"
-                                      maxlength="2000"
+                                      maxlength="500"
                                       required
                                       placeholder="{% trans "Write a message..." %}"
                                       class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 p-3 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors"
@@ -460,4 +451,13 @@
     </div>{# end grid #}
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
+{% if debug %}
+    {% now "U" as ts %}
+    <script defer src="{% static 'crush_lu/js/connection-chat.js' %}?v={{ ts }}"></script>
+{% else %}
+    <script defer src="{% static 'crush_lu/js/connection-chat.js' %}"></script>
+{% endif %}
 {% endblock %}

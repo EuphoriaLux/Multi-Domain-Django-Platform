@@ -3,8 +3,14 @@
 
 {% block title %}{% trans "Welcome to Crush Connect" %}{% endblock %}
 
+{# Focused wizard: lavender canvas, no app chrome competing with the flow. #}
+{% block body_class %}connect-wizard{% endblock %}
+{% block mobile_top_bar %}{% endblock %}
+{% block bottom_nav %}{% endblock %}
+{% block whatsapp_button %}{% endblock %}
+
 {% block content %}
-<div class="max-w-2xl mx-auto px-4 py-6 pb-28 lg:pb-10">
+<div class="max-w-[620px] mx-auto px-4 py-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(2.5rem,env(safe-area-inset-bottom))]">
 
     {# Brand identity strip — the wizard is a branded Crush Connect moment. #}
     <div class="flex items-center gap-2.5 mb-4">
@@ -19,7 +25,7 @@
     <div class="flex items-center justify-between gap-3 mb-3">
         {% if prev_step %}
         <a href="{% url 'crush_lu:crush_connect_onboarding_step' step=prev_step %}"
-           class="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 hover:border-crush-purple/50 transition-colors no-underline"
+           class="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-200 dark:border-gray-700 bg-[#fff] dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:border-crush-purple/50 transition-colors no-underline"
            aria-label="{% trans 'Back' %}">
             {% include "shared/icons/chevron-left.html" with class="w-5 h-5" %}
         </a>
@@ -41,7 +47,7 @@
     </div>
 
     {# Segmented progress — makes a long form feel short. #}
-    <div class="flex gap-1.5 mb-7" role="progressbar"
+    <div class="flex gap-1.5 mb-[22px]" role="progressbar"
          aria-valuenow="{{ progress_pct|floatformat:0 }}" aria-valuemin="0" aria-valuemax="100">
         {% for s in connect_steps %}
         <span class="flex-1 h-1.5 rounded-full transition-colors duration-300
@@ -60,15 +66,15 @@
 
         {% include step_template %}
 
-        <div class="mt-6 flex items-center gap-3">
+        <div class="mt-[18px] flex items-center gap-3">
             {% if prev_step %}
             <a href="{% url 'crush_lu:crush_connect_onboarding_step' step=prev_step %}"
-               class="btn-crush-outline">
+               class="connect-btn-secondary">
                 {% trans "Back" %}
             </a>
             {% endif %}
 
-            <button type="submit" class="btn-crush-primary flex-1 inline-flex items-center justify-center gap-2">
+            <button type="submit" class="btn-crush-primary flex-1 inline-flex items-center justify-center gap-2 py-3.5 text-sm font-bold shadow-crush-purple">
                 {% if is_final_step %}
                     {% trans "Finish & join Crush Connect" %}
                     {% include "shared/icons/check.html" with class="w-4 h-4" %}
@@ -80,7 +86,7 @@
         </div>
     </form>
 
-    <p class="mt-6 flex items-start gap-2 text-xs text-gray-500 dark:text-gray-400">
+    <p class="mt-4 flex items-start gap-2 text-[11.5px] leading-relaxed text-gray-500 dark:text-gray-400">
         {% include "shared/icons/shield-check.html" with class="w-4 h-4 text-crush-purple shrink-0 mt-px" %}
         <span>{% trans "Your full name and exact age are never shown to other members. Your card is only ever shown inside a Drop, a Coach Pick, or a Spark — never a public feed." %}</span>
     </p>
