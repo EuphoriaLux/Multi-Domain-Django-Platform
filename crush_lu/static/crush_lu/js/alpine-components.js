@@ -13444,15 +13444,10 @@ document.addEventListener("alpine:init", function () {
         return {
             max: 3,
             count: 0,
-            showAll: false,
             init: function () {
                 this._sync();
             },
             onPick: function () {
-                this._sync();
-            },
-            toggleQuestionList: function () {
-                this.showAll = !this.showAll;
                 this._sync();
             },
             _sync: function () {
@@ -13468,9 +13463,7 @@ document.addEventListener("alpine:init", function () {
                     // Yes/No radios of questions not already picked.
                     if (r.value) r.disabled = atCap && !picked[r.name];
                 });
-                if (!atCap) this.showAll = true;
 
-                var hiddenCount = 0;
                 var rows = this.$el.querySelectorAll("[data-gate-row]");
                 rows.forEach(function (row) {
                     var selected = false;
@@ -13479,22 +13472,7 @@ document.addEventListener("alpine:init", function () {
                     });
                     row.classList.toggle("border-crush-purple", selected);
                     row.classList.toggle("bg-crush-purple/5", selected);
-
-                    var shouldHide = atCap && !this.showAll && !selected;
-                    row.hidden = shouldHide;
-                    if (shouldHide) hiddenCount += 1;
-                }, this);
-
-                var toggle = this.$el.querySelector("[data-gate-toggle]");
-                if (toggle) {
-                    toggle.hidden = !(atCap && hiddenCount > 0 || this.showAll && atCap);
-                    toggle.textContent = this.showAll
-                        ? this.$el.dataset.gateShowSelectedLabel
-                        : this.$el.dataset.gateChangeLabel;
-                }
-
-                var capHint = this.$el.querySelector("[data-gate-cap-hint]");
-                if (capHint) capHint.hidden = !(atCap && this.showAll);
+                });
             },
         };
     });

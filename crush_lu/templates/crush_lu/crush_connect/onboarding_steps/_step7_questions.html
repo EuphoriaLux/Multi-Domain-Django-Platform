@@ -5,9 +5,7 @@ each about yourself (your hidden "truth"). Other members guess these from your
 photo; reading you well (>=2 of 3) is how they match with you.
 {% endcomment %}
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-6 md:p-8 space-y-7"
-     x-data="connectGatePicker"
-     data-gate-change-label="{% trans 'Change questions' %}"
-     data-gate-show-selected-label="{% trans 'Show selected only' %}">
+     x-data="connectGatePicker">
 
     <div class="text-center">
         <h2 class="font-display text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">{% trans "Your 3 questions" %}</h2>
@@ -18,58 +16,42 @@ photo; reading you well (>=2 of 3) is how they match with you.
 
     <div class="flex items-center justify-between">
         <label class="block text-sm font-semibold text-gray-900 dark:text-white">{% trans "This week's questions" %}</label>
-        <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink"><span x-text="count"></span>/3</span>
+        <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink"><span x-text="count">{{ form.selected_question_count }}</span>/3</span>
     </div>
 
     {% if form.non_field_errors %}
         <p class="text-sm text-red-600 dark:text-red-400">{{ form.non_field_errors|join:" " }}</p>
     {% endif %}
 
-    <div class="rounded-2xl bg-crush-purple/5 dark:bg-slate-900/40 px-4 py-3 text-sm text-gray-700 dark:text-gray-200">
-        <div class="flex items-start justify-between gap-3">
-            <p class="mb-0">
-                {% trans "Your selected questions stay compact here. Use Change questions when you want to swap one from this week's list." %}
-            </p>
-            <button type="button"
-                    data-gate-toggle
-                    hidden
-                    class="shrink-0 text-sm font-semibold text-crush-purple dark:text-crush-pink hover:underline"
-                    @click="toggleQuestionList">
-                {% trans "Change questions" %}
-            </button>
-        </div>
-        <p data-gate-cap-hint hidden class="mt-2 mb-0 text-xs text-gray-500 dark:text-gray-400">
-            {% trans "All 3 slots are full. To swap, tap Skip on one selected question first." %}
-        </p>
-    </div>
+    <p class="rounded-2xl bg-crush-purple/5 dark:bg-slate-900/40 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 mb-0">
+        {% trans "Your selected questions stay compact here. Use Change questions when you want to swap one from this week's list." %}
+    </p>
 
     <div class="space-y-2.5">
         {% for row in form.question_rows %}
-        <div data-gate-row
-             class="rounded-xl border border-gray-200 dark:border-slate-700 p-3.5 flex flex-col sm:flex-row sm:items-center gap-3
-                    {% if row.field.value == 'yes' or row.field.value == 'no' %}border-crush-purple bg-crush-purple/5{% endif %}">
-            <span class="flex-1 text-sm text-gray-800 dark:text-gray-100">{{ row.question.text }}</span>
-            <div class="inline-flex shrink-0 rounded-lg overflow-hidden ring-1 ring-gray-200 dark:ring-slate-600 text-xs font-semibold">
-                {# Skip / Yes / No segmented control. Radios named q_<id>; value "" = skip. #}
-                <label class="cursor-pointer">
-                    <input type="radio" name="q_{{ row.question.id }}" value="" data-gate class="peer sr-only" @change="onPick"
-                           {% if not row.field.value or row.field.value == '' %}checked{% endif %}>
-                    <span class="block px-3 py-1.5 text-gray-500 dark:text-gray-400 bg-white dark:bg-slate-800 peer-checked:bg-gray-100 dark:peer-checked:bg-slate-700 peer-checked:text-gray-700 dark:peer-checked:text-gray-200">{% trans "Skip" %}</span>
-                </label>
-                <label class="cursor-pointer border-l border-gray-200 dark:border-slate-600">
-                    <input type="radio" name="q_{{ row.question.id }}" value="yes" data-gate class="peer sr-only" @change="onPick"
-                           {% if row.field.value == 'yes' %}checked{% endif %}>
-                    <span class="block px-3 py-1.5 text-gray-600 dark:text-gray-300 bg-white dark:bg-slate-800 peer-checked:bg-green-500 peer-checked:text-white peer-disabled:opacity-40">{% trans "Yes" %}</span>
-                </label>
-                <label class="cursor-pointer border-l border-gray-200 dark:border-slate-600">
-                    <input type="radio" name="q_{{ row.question.id }}" value="no" data-gate class="peer sr-only" @change="onPick"
-                           {% if row.field.value == 'no' %}checked{% endif %}>
-                    <span class="block px-3 py-1.5 text-gray-600 dark:text-gray-300 bg-white dark:bg-slate-800 peer-checked:bg-rose-500 peer-checked:text-white peer-disabled:opacity-40">{% trans "No" %}</span>
-                </label>
-            </div>
-        </div>
+            {% if row.selected %}
+                {% include "crush_lu/crush_connect/onboarding_steps/_gate_question_row.html" with row=row %}
+            {% endif %}
         {% endfor %}
     </div>
+
+    <details class="group rounded-2xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-900/30 p-3.5"
+             {% if form.selected_question_count < 3 or form.non_field_errors %}open{% endif %}>
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-crush-purple dark:text-crush-pink">
+            <span>{% trans "Change questions" %}</span>
+            <span class="text-gray-400 transition-transform group-open:rotate-180" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="mt-3 space-y-2.5">
+            {% for row in form.question_rows %}
+                {% if not row.selected %}
+                    {% include "crush_lu/crush_connect/onboarding_steps/_gate_question_row.html" with row=row %}
+                {% endif %}
+            {% endfor %}
+        </div>
+        <p class="mt-3 mb-0 text-xs text-gray-500 dark:text-gray-400">
+            {% trans "All 3 slots are full. To swap, tap Skip on one selected question first." %}
+        </p>
+    </details>
 
     <p class="text-xs text-gray-400 dark:text-gray-500">
         {% trans "Yes/No is your true answer — it's never shown to anyone. You can change your questions anytime from your Connect profile." %}

@@ -114,7 +114,22 @@ class StaticFilesASGI:
             name = raw_name.decode("latin-1").upper().replace("-", "_")
             request_headers[f"HTTP_{name}"] = raw_value.decode("latin-1")
 
-        response = static_file.get_response(method, request_headers)
+        try:
+            response = static_file.get_response(method, request_headers)
+        except FileNotFoundError as exc:
+            missing_path = exc.filename or ""
+            if not missing_path.endswith((".gz", ".br")):
+                raise
+            logger.warning(
+                "Precompressed static asset missing; retrying uncompressed: %s",
+                missing_path,
+            )
+            request_headers = {
+                key: value
+                for key, value in request_headers.items()
+                if key != "HTTP_ACCEPT_ENCODING"
+            }
+            response = static_file.get_response(method, request_headers)
         file_handle = response.file
         try:
             await send(
