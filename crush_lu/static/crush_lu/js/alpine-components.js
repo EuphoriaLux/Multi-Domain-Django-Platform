@@ -11683,6 +11683,119 @@ document.addEventListener("alpine:init", function () {
         };
     });
 
+    // Single-thumb height slider for Crush Connect "life" step. Optional field:
+    // "engaged" tracks whether a real cm value is submitted; the "prefer not to
+    // say" pill disengages without losing the thumb position. Only the hidden
+    // input carries name="height_cm" (server-rendered so no-JS keeps the value).
+    Alpine.data("heightSlider", function () {
+        return {
+            height: 170,
+            engaged: false,
+            absoluteMin: 120,
+            absoluteMax: 230,
+            unit: "cm",
+            labelNoAnswer: "—",
+
+            init: function () {
+                var el = this.$el;
+                var min = parseInt(el.getAttribute("data-min"), 10);
+                var max = parseInt(el.getAttribute("data-max"), 10);
+                var def = parseInt(el.getAttribute("data-default"), 10);
+                if (min) {
+                    this.absoluteMin = min;
+                }
+                if (max) {
+                    this.absoluteMax = max;
+                }
+                var unit = el.getAttribute("data-unit");
+                if (unit) {
+                    this.unit = unit;
+                }
+                var label = el.getAttribute("data-label-no-answer");
+                if (label) {
+                    this.labelNoAnswer = label;
+                }
+                var initial = parseInt(el.getAttribute("data-initial"), 10);
+                if (!isNaN(initial)) {
+                    this.height = this._clamp(initial);
+                    this.engaged = true;
+                } else {
+                    this.height = def || 170;
+                    this.engaged = false;
+                }
+            },
+
+            get isEngaged() {
+                return this.engaged;
+            },
+
+            get valueLabel() {
+                return this.engaged
+                    ? this.height + " " + this.unit
+                    : this.labelNoAnswer;
+            },
+
+            get bubbleLabel() {
+                return this.height + " " + this.unit;
+            },
+
+            get trackStyle() {
+                var pct =
+                    ((this.height - this.absoluteMin) /
+                        (this.absoluteMax - this.absoluteMin)) *
+                    100;
+                return "--range-left:0%;--range-right:" + (100 - pct) + "%";
+            },
+
+            get bubbleStyle() {
+                var pct =
+                    ((this.height - this.absoluteMin) /
+                        (this.absoluteMax - this.absoluteMin)) *
+                    100;
+                return "left:" + pct + "%";
+            },
+
+            get sliderWrapClass() {
+                return this.engaged ? "" : "opacity-40";
+            },
+
+            get noAnswerClass() {
+                return this.engaged
+                    ? "border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-crush-purple/50"
+                    : "border-crush-purple bg-crush-purple/10 text-crush-purple";
+            },
+
+            get sliderValue() {
+                return String(this.height);
+            },
+
+            get submitValue() {
+                return this.engaged ? String(this.height) : "";
+            },
+
+            engage: function () {
+                this.engaged = true;
+            },
+
+            update: function (event) {
+                var val = parseInt(event.target.value, 10);
+                if (isNaN(val)) {
+                    return;
+                }
+                this.height = this._clamp(val);
+                this.engaged = true;
+            },
+
+            clearHeight: function () {
+                this.engaged = false;
+            },
+
+            _clamp: function (v) {
+                return Math.min(this.absoluteMax, Math.max(this.absoluteMin, v));
+            },
+        };
+    });
+
     // Coach dashboard: collapsible callback list (show first 3, toggle to show all)
     Alpine.data("callbackList", function () {
         return {

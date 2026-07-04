@@ -187,13 +187,16 @@ def test_back_edit_allowed_without_pointer_regression(client, settings):
     # Revisit a completed step.
     assert client.get(_step_url(2)).status_code == 200
     # Re-submit step 2 with new data — saves, but pointer must not regress.
-    resp = client.post(_step_url(2), data={
-        "lifestyle_energy": "homebody",
-        "lifestyle_social": "intimate",
-        "lifestyle_pace": "structured",
-        "qualities": _trait_pks("quality", 2),
-        "defects": _trait_pks("defect", 2),
-    })
+    resp = client.post(
+        _step_url(2),
+        data={
+            "lifestyle_energy": "homebody",
+            "lifestyle_social": "intimate",
+            "lifestyle_pace": "structured",
+            "qualities": _trait_pks("quality", 2),
+            "defects": _trait_pks("defect", 2),
+        },
+    )
     assert resp.status_code in (301, 302)
     m = CrushConnectMembership.objects.get(user=me)
     assert m.lifestyle_energy == "homebody"
@@ -243,7 +246,9 @@ def test_languages_requires_at_least_one(client, settings):
     _login_eligible(client, me)
 
     _complete_steps(client, 1, 2)  # pointer 3
-    resp = client.post(_step_url(3), data={"languages": [], "interests": _interest_pks(2)})
+    resp = client.post(
+        _step_url(3), data={"languages": [], "interests": _interest_pks(2)}
+    )
     assert resp.status_code == 200  # re-render with errors
     assert CrushConnectMembership.objects.get(user=me).languages == []
 
@@ -256,7 +261,9 @@ def test_interests_capped_at_eight(client, settings):
     _login_eligible(client, me)
 
     _complete_steps(client, 1, 2)  # pointer 3
-    resp = client.post(_step_url(3), data={"languages": ["fr"], "interests": _interest_pks(9)})
+    resp = client.post(
+        _step_url(3), data={"languages": ["fr"], "interests": _interest_pks(9)}
+    )
     assert resp.status_code == 200
     assert CrushConnectMembership.objects.get(user=me).interests.count() == 0
 
@@ -269,18 +276,24 @@ def test_prefer_not_say_accepted(client, settings):
     _login_eligible(client, me)
 
     _complete_steps(client, 1, 3)  # pointer 4
-    resp = client.post(_step_url(4), data={
-        "work_field": "prefer_not_say",
-        "education_level": "prefer_not_say",
-        "smoking": "prefer_not_say",
-        "drinking": "prefer_not_say",
-    })
+    resp = client.post(
+        _step_url(4),
+        data={
+            "work_field": "prefer_not_say",
+            "education_level": "prefer_not_say",
+            "smoking": "prefer_not_say",
+            "drinking": "prefer_not_say",
+        },
+    )
     assert resp.status_code in (301, 302)  # advances
-    resp = client.post(_step_url(5), data={
-        "has_children": "prefer_not_say",
-        "wants_children": "prefer_not_say",
-        "relationship_timeline": "prefer_not_say",
-    })
+    resp = client.post(
+        _step_url(5),
+        data={
+            "has_children": "prefer_not_say",
+            "wants_children": "prefer_not_say",
+            "relationship_timeline": "prefer_not_say",
+        },
+    )
     assert resp.status_code in (301, 302)
     m = CrushConnectMembership.objects.get(user=me)
     assert m.work_field == "prefer_not_say"
@@ -295,14 +308,17 @@ def test_crossed_age_range_swapped(client, settings):
     _login_eligible(client, me)
 
     _complete_steps(client, 1, 5)  # pointer 6
-    client.post(_step_url(6), data={
-        "preferred_genders": ["F"],
-        "preferred_age_min": "40",
-        "preferred_age_max": "25",
-        "sought_qualities": _trait_pks("quality", 2),
-        "first_step_preference": "no_preference",
-        "astro_enabled": "on",
-    })
+    client.post(
+        _step_url(6),
+        data={
+            "preferred_genders": ["F"],
+            "preferred_age_min": "40",
+            "preferred_age_max": "25",
+            "sought_qualities": _trait_pks("quality", 2),
+            "first_step_preference": "no_preference",
+            "astro_enabled": "on",
+        },
+    )
     m = CrushConnectMembership.objects.get(user=me)
     assert m.preferred_age_min == 25
     assert m.preferred_age_max == 40
@@ -393,6 +409,121 @@ def test_photo_consent_required_on_final_step(client, settings):
 
 
 # ---------------------------------------------------------------------------
+# Life step redesign: height slider + emoji radio tiles (no native selects)
+# ---------------------------------------------------------------------------
+
+
+def _login_at_step_4(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"], onboarded=False)
+    _mark_attended(me)
+    _login_eligible(client, me)
+    _complete_steps(client, 1, 3)  # pointer 4
+    return me
+
+
+@pytest.mark.django_db
+def test_life_step_renders_slider_and_tiles(client, settings):
+    """Step 4 renders the height slider (single named hidden input) and radio
+    tiles for all four choice fields — the native selects are gone."""
+    _login_at_step_4(client, settings)
+
+    resp = client.get(_step_url(4))
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert 'x-data="heightSlider"' in body
+    # Only the hidden input carries the field name; the visible range is unnamed.
+    assert body.count('name="height_cm"') == 1
+    assert body.count('name="work_field"') == 14
+    assert body.count('name="education_level"') == 6
+    assert body.count('name="smoking"') == 4
+    assert body.count('name="drinking"') == 4
+    assert "💻" in body  # emoji tiles present
+    assert '<select name="work_field"' not in body
+    assert '<select name="education_level"' not in body
+
+
+@pytest.mark.django_db
+def test_life_step_height_prefill(client, settings):
+    """A stored height reaches the slider via data-initial and the hidden input."""
+    me = _login_at_step_4(client, settings)
+    m = CrushConnectMembership.objects.get(user=me)
+    m.height_cm = 165
+    m.save()
+
+    resp = client.get(_step_url(4))
+    assert resp.status_code == 200
+    assert 'data-initial="165"' in resp.content.decode()
+
+
+@pytest.mark.django_db
+def test_life_step_empty_height_saves_none(client, settings):
+    """The 'prefer not to say' pill submits an empty height_cm → stored NULL."""
+    me = _login_at_step_4(client, settings)
+    m = CrushConnectMembership.objects.get(user=me)
+    m.height_cm = 165  # previously answered, now opting out
+    m.save()
+
+    data = dict(_valid_step_data(4), height_cm="")
+    resp = client.post(_step_url(4), data=data)
+    assert resp.status_code in (301, 302)
+    assert CrushConnectMembership.objects.get(user=me).height_cm is None
+
+
+@pytest.mark.django_db
+def test_life_step_height_persists(client, settings):
+    me = _login_at_step_4(client, settings)
+
+    data = dict(_valid_step_data(4), height_cm="184")
+    resp = client.post(_step_url(4), data=data)
+    assert resp.status_code in (301, 302)
+    assert CrushConnectMembership.objects.get(user=me).height_cm == 184
+
+
+@pytest.mark.django_db
+def test_life_step_height_out_of_bounds_rejected(client, settings):
+    """Validators (120–230) still apply; the re-render keeps the posted tile
+    selection checked."""
+    import re
+
+    me = _login_at_step_4(client, settings)
+
+    data = dict(_valid_step_data(4), height_cm="119")
+    resp = client.post(_step_url(4), data=data)
+    assert resp.status_code == 200  # re-render with errors
+    assert CrushConnectMembership.objects.get(user=me).height_cm is None
+    body = resp.content.decode()
+    assert re.search(r'name="work_field" value="it"[^>]*checked', body)
+
+
+@pytest.mark.django_db
+def test_profile_edit_life_section_renders_and_saves(client, settings):
+    """The ?section=life editor shares the redesigned partial: slider + tiles
+    render, and a POST saves every field and returns to the index."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"], onboarded=True)
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    resp = client.get(PROFILE_EDIT_URL + "?section=life")
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert 'name="section" value="life"' in body
+    assert 'x-data="heightSlider"' in body
+    assert body.count('name="work_field"') == 14
+
+    data = dict(_valid_step_data(4), section="life", height_cm="172")
+    resp = client.post(PROFILE_EDIT_URL + "?section=life", data=data)
+    assert resp.status_code in (301, 302)
+    m = CrushConnectMembership.objects.get(user=me)
+    assert m.height_cm == 172
+    assert m.work_field == "it"
+    assert m.education_level == "master"
+    assert m.smoking == "no"
+    assert m.drinking == "socially"
+
+
+# ---------------------------------------------------------------------------
 # Completion redirects per track + candidate email
 # ---------------------------------------------------------------------------
 
@@ -411,7 +542,9 @@ def test_receiver_completion_redirects_to_today(client, settings, mailoutbox):
 
 
 @pytest.mark.django_db
-def test_candidate_completion_redirects_to_catalogue_with_email(client, settings, mailoutbox):
+def test_candidate_completion_redirects_to_catalogue_with_email(
+    client, settings, mailoutbox
+):
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(
         username="me", preferred_genders=["F"], onboarded=False, premium=False
@@ -446,8 +579,11 @@ def test_step_redirects_to_teaser_when_flag_off(client, settings):
 def test_step_redirects_to_teaser_when_ineligible(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(
-        username="me", preferred_genders=["F"], onboarded=False,
-        premium=False, has_luxid=False,
+        username="me",
+        preferred_genders=["F"],
+        onboarded=False,
+        premium=False,
+        has_luxid=False,
     )
     _login_eligible(client, me)
 
@@ -478,8 +614,11 @@ def test_premium_without_luxid_blocked_from_onboarding(client, settings):
     can no longer start the wizard (previously the Premium coach alone let them in)."""
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(
-        username="me", preferred_genders=["F"], onboarded=False,
-        premium=True, has_luxid=False,
+        username="me",
+        preferred_genders=["F"],
+        onboarded=False,
+        premium=True,
+        has_luxid=False,
     )
     _mark_attended(me)
     _login_eligible(client, me)
@@ -497,8 +636,11 @@ def test_luxid_candidate_without_premium_can_onboard(client, settings):
     """The LuxID-only (candidate) track may opt in and complete onboarding."""
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(
-        username="me", preferred_genders=["F"], onboarded=False,
-        premium=False, has_luxid=True,
+        username="me",
+        preferred_genders=["F"],
+        onboarded=False,
+        premium=False,
+        has_luxid=True,
     )
     _login_eligible(client, me)
 
@@ -512,8 +654,11 @@ def test_onboarded_member_without_luxid_grandfathered(client, settings):
     only guards new opt-ins / data collection, not already-onboarded members."""
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(
-        username="me", preferred_genders=["F"], onboarded=True,
-        premium=True, has_luxid=False,
+        username="me",
+        preferred_genders=["F"],
+        onboarded=True,
+        premium=True,
+        has_luxid=False,
     )
     _mark_attended(me)
     _login_eligible(client, me)
@@ -532,8 +677,11 @@ def test_premium_without_luxid_sees_teaser_not_redirect_loop(client, settings):
 
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(
-        username="me", preferred_genders=["F"], onboarded=False,
-        premium=True, has_luxid=False,
+        username="me",
+        preferred_genders=["F"],
+        onboarded=False,
+        premium=True,
+        has_luxid=False,
     )
     _mark_attended(me)
     _login_eligible(client, me)
@@ -596,15 +744,17 @@ def test_migration_0165_backfills_onboarded_member_traits():
 
     from django.apps import apps as django_apps
 
-    mig = import_module(
-        "crush_lu.migrations.0165_migrate_legacy_traits_to_memberships"
-    )
+    mig = import_module("crush_lu.migrations.0165_migrate_legacy_traits_to_memberships")
     me = _make_user(username="legacy", preferred_genders=["F"], onboarded=True)
     quals = list(
-        Trait.objects.filter(trait_type="quality").order_by("pk").values_list("pk", flat=True)
+        Trait.objects.filter(trait_type="quality")
+        .order_by("pk")
+        .values_list("pk", flat=True)
     )
     defs = list(
-        Trait.objects.filter(trait_type="defect").order_by("pk").values_list("pk", flat=True)
+        Trait.objects.filter(trait_type="defect")
+        .order_by("pk")
+        .values_list("pk", flat=True)
     )
     me.crushprofile.qualities.set(quals[:3])
     me.crushprofile.defects.set(defs[:2])
@@ -620,7 +770,9 @@ def test_migration_0165_backfills_onboarded_member_traits():
     membership.refresh_from_db()
     assert set(membership.qualities.values_list("pk", flat=True)) == set(quals[:3])
     assert set(membership.defects.values_list("pk", flat=True)) == set(defs[:2])
-    assert set(membership.sought_qualities.values_list("pk", flat=True)) == set(quals[5:7])
+    assert set(membership.sought_qualities.values_list("pk", flat=True)) == set(
+        quals[5:7]
+    )
     assert membership.first_step_preference == "i_initiate"
 
 
@@ -632,12 +784,12 @@ def test_migration_0165_does_not_clobber_existing_member_traits():
 
     from django.apps import apps as django_apps
 
-    mig = import_module(
-        "crush_lu.migrations.0165_migrate_legacy_traits_to_memberships"
-    )
+    mig = import_module("crush_lu.migrations.0165_migrate_legacy_traits_to_memberships")
     me = _make_user(username="hasdata", preferred_genders=["F"], onboarded=True)
     quals = list(
-        Trait.objects.filter(trait_type="quality").order_by("pk").values_list("pk", flat=True)
+        Trait.objects.filter(trait_type="quality")
+        .order_by("pk")
+        .values_list("pk", flat=True)
     )
     me.crushprofile.qualities.set(quals[:3])
     me.crushprofile.save()
@@ -666,8 +818,14 @@ def _set_membership(user, *, languages=None, interest_pks=None, onboarded_days_a
     return m
 
 
-def _weight(cand, *, viewer_languages=frozenset(), viewer_interest_ids=frozenset(),
-            match_scores=None, today=None):
+def _weight(
+    cand,
+    *,
+    viewer_languages=frozenset(),
+    viewer_interest_ids=frozenset(),
+    match_scores=None,
+    today=None,
+):
     return _weight_for(
         cand,
         today=today or date.today(),
@@ -689,7 +847,9 @@ def test_weight_neutral_for_unenriched_member():
 def test_weight_shared_language_boost():
     cand = _make_user(username="c", gender="F")
     _set_membership(cand, languages=["fr"], onboarded_days_ago=60)
-    assert _weight(cand, viewer_languages=frozenset({"fr"})) == pytest.approx(SHARED_LANGUAGE_BOOST)
+    assert _weight(cand, viewer_languages=frozenset({"fr"})) == pytest.approx(
+        SHARED_LANGUAGE_BOOST
+    )
     assert _weight(cand, viewer_languages=frozenset({"de"})) == pytest.approx(1.0)
 
 
@@ -709,8 +869,12 @@ def test_weight_interest_overlap_capped():
 def test_weight_matchscore_blend():
     cand = _make_user(username="c", gender="F")
     _set_membership(cand, languages=[], interest_pks=[], onboarded_days_ago=60)
-    assert _weight(cand, match_scores={cand.pk: 0.9}) == pytest.approx(MATCHSCORE_NEUTRAL + 0.9)
-    assert _weight(cand, match_scores={cand.pk: 0.1}) == pytest.approx(MATCHSCORE_NEUTRAL + 0.1)
+    assert _weight(cand, match_scores={cand.pk: 0.9}) == pytest.approx(
+        MATCHSCORE_NEUTRAL + 0.9
+    )
+    assert _weight(cand, match_scores={cand.pk: 0.1}) == pytest.approx(
+        MATCHSCORE_NEUTRAL + 0.1
+    )
     assert _weight(cand, match_scores={}) == pytest.approx(1.0)  # missing → neutral
 
 
@@ -800,10 +964,13 @@ def test_edit_section_save_roundtrip_keeps_onboarded_at(client, settings):
     _login_eligible(client, me)
 
     before = CrushConnectMembership.objects.get(user=me).onboarded_at
-    resp = client.post(PROFILE_EDIT_URL + "?section=intention", data={
-        "section": "intention",
-        "relationship_goal": "open",
-    })
+    resp = client.post(
+        PROFILE_EDIT_URL + "?section=intention",
+        data={
+            "section": "intention",
+            "relationship_goal": "open",
+        },
+    )
     assert resp.status_code in (301, 302)
     m = CrushConnectMembership.objects.get(user=me)
     assert m.relationship_goal == "open"
@@ -846,7 +1013,7 @@ def test_repick_changing_truth_clears_stale_guesses(client, settings):
 
     # Owner re-picks the SAME 3 questions but flips the first one's truth.
     data = {
-        f"q_{qs[0].id}": "no",   # truth changed → guesses become stale
+        f"q_{qs[0].id}": "no",  # truth changed → guesses become stale
         f"q_{qs[1].id}": "yes",  # unchanged
         f"q_{qs[2].id}": "yes",  # unchanged
         "photo_share_consent": "on",
@@ -982,7 +1149,9 @@ def test_drop_card_falls_back_to_profile_chips(client, settings):
 @pytest.mark.django_db
 def test_catalogue_status_shows_chips_and_edit_link(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True
-    me = _make_user(username="me", preferred_genders=["F"], onboarded=True, premium=False)
+    me = _make_user(
+        username="me", preferred_genders=["F"], onboarded=True, premium=False
+    )
     _login_eligible(client, me)
     m = me.crush_connect_membership
     m.languages = ["lu"]
@@ -1012,10 +1181,15 @@ def test_admin_pages_load(client):
     assert client.get("/crush-admin/crush_lu/connectinterest/").status_code == 200
     assert client.get("/crush-admin/crush_lu/connectinterest/add/").status_code == 200
     # Membership changelist + change form (exercises the new fieldsets).
-    assert client.get("/crush-admin/crush_lu/crushconnectmembership/").status_code == 200
-    assert client.get(
-        f"/crush-admin/crush_lu/crushconnectmembership/{m.pk}/change/"
-    ).status_code == 200
+    assert (
+        client.get("/crush-admin/crush_lu/crushconnectmembership/").status_code == 200
+    )
+    assert (
+        client.get(
+            f"/crush-admin/crush_lu/crushconnectmembership/{m.pk}/change/"
+        ).status_code
+        == 200
+    )
 
 
 # ---------------------------------------------------------------------------
