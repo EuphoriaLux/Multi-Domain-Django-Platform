@@ -305,6 +305,44 @@ def assetlinks_view(request):
     return response
 
 
+def apple_app_site_association_view(request):
+    """
+    Serve apple-app-site-association for Universal Links and web credentials.
+
+    Apple requires this file without a .json extension and without redirects.
+    """
+    from django.conf import settings
+    from django.http import JsonResponse
+
+    app_id = f"{settings.IOS_APP_TEAM_ID}.{settings.IOS_APP_BUNDLE_ID}"
+    association = {
+        "applinks": {
+            "apps": [],
+            "details": [
+                {
+                    "appID": app_id,
+                    "paths": [
+                        "NOT /admin/*",
+                        "NOT /crush-admin/*",
+                        "NOT /api/*",
+                        "NOT /static/*",
+                        "NOT /media/*",
+                        "NOT /sw-workbox.js",
+                        "NOT /manifest.json",
+                        "*",
+                    ],
+                }
+            ],
+        },
+        "webcredentials": {"apps": [app_id]},
+    }
+
+    response = JsonResponse(association)
+    response["Content-Type"] = "application/json"
+    response["Cache-Control"] = "public, max-age=86400"
+    return response
+
+
 @login_required
 def pwa_debug_view(request):
     """

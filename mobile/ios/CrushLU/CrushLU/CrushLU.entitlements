@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>aps-environment</key>
+	<string>development</string>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:crush.lu</string>
+		<string>webcredentials:crush.lu</string>
+		<string>applinks:test.crush.lu</string>
+		<string>webcredentials:test.crush.lu</string>
+	</array>
+</dict>
+</plist>

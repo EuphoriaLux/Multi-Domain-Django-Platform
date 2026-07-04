@@ -73,6 +73,7 @@ from .views_static import (  # noqa: F401
     how_it_works,
     privacy_policy,
     terms_of_service,
+    support,
     data_deletion_request,
     crush_coach,
     crush_connect_teaser,
@@ -212,6 +213,7 @@ from .views_pwa import (  # noqa: F401
     service_worker_view,
     manifest_view,
     assetlinks_view,
+    apple_app_site_association_view,
     pwa_debug_view,
 )
 

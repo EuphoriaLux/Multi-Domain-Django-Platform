@@ -239,3 +239,12 @@ _i18n_fz_*.txt
 
 # Local media written by tests/dev (Azure Blob storage in production)
 users/
+
+# iOS Developer Certificates and Provisioning Profiles
+mobile/ios/*.key
+mobile/ios/*.csr
+mobile/ios/*.cer
+mobile/ios/*.p12
+mobile/ios/*.mobileprovision
+mobile/ios/*.base64
+

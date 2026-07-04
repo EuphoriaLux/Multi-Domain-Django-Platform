@@ -1,0 +1,26 @@
+{% extends "crush_lu/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Premium unavailable in app" %} - Crush.lu{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto px-4 py-12">
+  <div class="rounded-2xl border border-purple-100 dark:border-purple-900 bg-white dark:bg-gray-900 p-6 shadow-sm">
+    <div class="w-12 h-12 rounded-2xl bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-purple-700 dark:text-purple-300 mb-4">
+      {% include "shared/icons/shield-check.html" with class="w-6 h-6" %}
+    </div>
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+      {% trans "Premium memberships are not available inside the iOS app yet." %}
+    </h1>
+    <p class="text-gray-600 dark:text-gray-300 mb-6">
+      {% trans "You can still use free Crush Connect, events, profile features, privacy controls, and safety tools in the app." %}
+    </p>
+    <a href="{% url 'crush_lu:dashboard' %}?source=ios_app" class="inline-flex items-center justify-center w-full rounded-xl bg-crush-purple px-4 py-3 text-sm font-semibold text-white hover:bg-purple-700">
+      {% trans "Back to dashboard" %}
+    </a>
+    <p class="mt-4 text-xs text-gray-500 dark:text-gray-400">
+      {% trans "For membership questions, contact support@crush.lu." %}
+    </p>
+  </div>
+</div>
+{% endblock %}
