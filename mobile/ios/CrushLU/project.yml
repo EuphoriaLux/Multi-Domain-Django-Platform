@@ -23,5 +23,6 @@ targets:
         CODE_SIGN_ENTITLEMENTS: CrushLU/CrushLU.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         PRODUCT_NAME: Crush.lu
+        TARGETED_DEVICE_FAMILY: "1"
     scheme:
       testTargets: []
