@@ -3,7 +3,7 @@ import SwiftUI
 import UserNotifications
 
 final class AppState: ObservableObject {
-    var baseURL: URL {
+    static var baseURL: URL {
         #if DEBUG
         return URL(string: "https://test.crush.lu")!
         #else
@@ -13,6 +13,10 @@ final class AppState: ObservableObject {
         }
         return URL(string: "https://crush.lu")!
         #endif
+    }
+
+    var baseURL: URL {
+        Self.baseURL
     }
 
     @Published var selectedDestination: AppDestination = .dashboard
@@ -25,7 +29,7 @@ final class AppState: ObservableObject {
     private let monitorQueue = DispatchQueue(label: "lu.crush.app.network")
 
     init() {
-        currentURL = URL(string: AppDestination.dashboard.path, relativeTo: baseURL)!.absoluteURL
+        currentURL = URL(string: AppDestination.dashboard.path, relativeTo: Self.baseURL)!.absoluteURL
         monitor.pathUpdateHandler = { [weak self] path in
             DispatchQueue.main.async {
                 self?.isOnline = path.status == .satisfied
