@@ -3,7 +3,17 @@ import SwiftUI
 import UserNotifications
 
 final class AppState: ObservableObject {
-    let baseURL = URL(string: "https://crush.lu")!
+    var baseURL: URL {
+        #if DEBUG
+        return URL(string: "https://test.crush.lu")!
+        #else
+        if let receiptURL = Bundle.main.appStoreReceiptURL,
+           receiptURL.lastPathComponent == "sandboxReceipt" {
+            return URL(string: "https://test.crush.lu")!
+        }
+        return URL(string: "https://crush.lu")!
+        #endif
+    }
 
     @Published var selectedDestination: AppDestination = .dashboard
     @Published var currentURL: URL

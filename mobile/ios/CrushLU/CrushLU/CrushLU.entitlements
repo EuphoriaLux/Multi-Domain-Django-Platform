@@ -8,6 +8,8 @@
 	<array>
 		<string>applinks:crush.lu</string>
 		<string>webcredentials:crush.lu</string>
+		<string>applinks:test.crush.lu</string>
+		<string>webcredentials:test.crush.lu</string>
 	</array>
 </dict>
 </plist>
