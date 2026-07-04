@@ -5,10 +5,11 @@ each about yourself (your hidden "truth"). Other members guess these from your
 photo; reading you well (>=2 of 3) is how they match with you.
 {% endcomment %}
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-6 md:p-8 space-y-7"
-     x-data="connectGatePicker">
+     x-data="connectGatePicker"
+     data-gate-change-label="{% trans 'Change questions' %}"
+     data-gate-show-selected-label="{% trans 'Show selected only' %}">
 
     <div class="text-center">
-        <div class="flex justify-center mb-2">{% include "crush_lu/includes/ghost-story-typing.html" with class="w-20 h-20" %}</div>
         <h2 class="font-display text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">{% trans "Your 3 questions" %}</h2>
         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
             {% trans "Pick 3 questions for your card and answer each honestly about yourself. Others guess your answers from your photo — reading you well is how they match with you. Your answers stay private." %}
@@ -24,9 +25,28 @@ photo; reading you well (>=2 of 3) is how they match with you.
         <p class="text-sm text-red-600 dark:text-red-400">{{ form.non_field_errors|join:" " }}</p>
     {% endif %}
 
+    <div class="rounded-2xl bg-crush-purple/5 dark:bg-slate-900/40 px-4 py-3 text-sm text-gray-700 dark:text-gray-200">
+        <div class="flex items-start justify-between gap-3">
+            <p class="mb-0">
+                {% trans "Your selected questions stay compact here. Use Change questions when you want to swap one from this week's list." %}
+            </p>
+            <button type="button"
+                    data-gate-toggle
+                    hidden
+                    class="shrink-0 text-sm font-semibold text-crush-purple dark:text-crush-pink hover:underline"
+                    @click="toggleQuestionList">
+                {% trans "Change questions" %}
+            </button>
+        </div>
+        <p data-gate-cap-hint hidden class="mt-2 mb-0 text-xs text-gray-500 dark:text-gray-400">
+            {% trans "All 3 slots are full. To swap, tap Skip on one selected question first." %}
+        </p>
+    </div>
+
     <div class="space-y-2.5">
         {% for row in form.question_rows %}
-        <div class="rounded-xl border border-gray-200 dark:border-slate-700 p-3.5 flex flex-col sm:flex-row sm:items-center gap-3
+        <div data-gate-row
+             class="rounded-xl border border-gray-200 dark:border-slate-700 p-3.5 flex flex-col sm:flex-row sm:items-center gap-3
                     {% if row.field.value == 'yes' or row.field.value == 'no' %}border-crush-purple bg-crush-purple/5{% endif %}">
             <span class="flex-1 text-sm text-gray-800 dark:text-gray-100">{{ row.question.text }}</span>
             <div class="inline-flex shrink-0 rounded-lg overflow-hidden ring-1 ring-gray-200 dark:ring-slate-600 text-xs font-semibold">
