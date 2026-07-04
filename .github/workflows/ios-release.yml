@@ -59,4 +59,4 @@ jobs:
           app-path: ${{ runner.temp }}/build/CrushLU.ipa
           issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           api-key-id: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-          api-key-private-key: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+          api-private-key: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
