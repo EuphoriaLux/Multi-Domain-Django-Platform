@@ -97,9 +97,9 @@
 
         {% if is_premium %}
           <span class="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-white/20 text-white text-sm font-bold">✓ {% trans "Your plan" %}</span>
-        {% elif suppress_ios_commerce %}
+        {% elif suppress_native_commerce %}
           <span class="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-white/20 text-white text-sm font-bold">
-            {% trans "Available outside the iOS app" %}
+            {% trans "Available outside the mobile app" %}
           </span>
         {% else %}
           <a href="{% url 'crush_lu:premium_choose_coach' %}" class="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-white text-crush-purple text-sm font-bold hover:bg-purple-50 transition-colors">

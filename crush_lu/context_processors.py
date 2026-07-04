@@ -43,14 +43,23 @@ PROFILE_STEP_INFO = {
 
 def crush_user_context(request):
     """Add user-specific context for navigation and UI"""
-    from .ios_app_utils import is_ios_native_request
+    from .ios_app_utils import is_android_native_request, is_ios_native_request
 
     is_ios_native_app = is_ios_native_request(request)
+    is_android_native_app = is_android_native_request(request)
     ios_native_commerce_enabled = getattr(settings, "IOS_NATIVE_COMMERCE_ENABLED", False)
+    android_native_commerce_enabled = getattr(settings, "ANDROID_NATIVE_COMMERCE_ENABLED", False)
     context = {
         "is_ios_native_app": is_ios_native_app,
+        "is_android_native_app": is_android_native_app,
         "ios_native_commerce_enabled": ios_native_commerce_enabled,
+        "android_native_commerce_enabled": android_native_commerce_enabled,
         "suppress_ios_commerce": is_ios_native_app and not ios_native_commerce_enabled,
+        "suppress_android_commerce": is_android_native_app and not android_native_commerce_enabled,
+        "suppress_native_commerce": (
+            (is_ios_native_app and not ios_native_commerce_enabled)
+            or (is_android_native_app and not android_native_commerce_enabled)
+        ),
     }
 
     if request.user.is_authenticated:

@@ -405,6 +405,25 @@ IOS_APNS_PRIVATE_KEY = os.getenv("IOS_APNS_PRIVATE_KEY", "")
 IOS_APNS_PRIVATE_KEY_BASE64 = os.getenv("IOS_APNS_PRIVATE_KEY_BASE64", "")
 IOS_APNS_USE_SANDBOX = _env_bool("IOS_APNS_USE_SANDBOX", default=False)
 
+# Native Android Play Store wrapper settings
+ANDROID_APP_PACKAGE = os.getenv("ANDROID_APP_PACKAGE", "lu.crush.app")
+ANDROID_APP_NAME = os.getenv("ANDROID_APP_NAME", "Crush.lu")
+ANDROID_APP_VERSION = os.getenv("ANDROID_APP_VERSION", "1.0.0")
+ANDROID_APP_BUILD = os.getenv("ANDROID_APP_BUILD", "1")
+ANDROID_APP_MIN_SUPPORTED_VERSION = os.getenv("ANDROID_APP_MIN_SUPPORTED_VERSION", "1.0.0")
+ANDROID_PLAY_STORE_URL = os.getenv("ANDROID_PLAY_STORE_URL", "")
+ANDROID_NATIVE_COMMERCE_ENABLED = _env_bool("ANDROID_NATIVE_COMMERCE_ENABLED", default=False)
+ANDROID_AUTH_REDIRECT_URIS = [
+    uri.strip()
+    for uri in os.getenv("ANDROID_AUTH_REDIRECT_URIS", "crushlu://auth").split(",")
+    if uri.strip()
+]
+ANDROID_APP_SHA256_CERT_FINGERPRINTS = [
+    fingerprint.strip()
+    for fingerprint in os.getenv("ANDROID_APP_SHA256_CERT_FINGERPRINTS", "").split(",")
+    if fingerprint.strip()
+]
+
 # Wallet settings (Apple PassKit / Google Wallet)
 WALLET_APPLE_PASS_TYPE_IDENTIFIER = os.getenv("WALLET_APPLE_PASS_TYPE_IDENTIFIER", "")
 WALLET_APPLE_TEAM_IDENTIFIER = os.getenv("WALLET_APPLE_TEAM_IDENTIFIER", "")
