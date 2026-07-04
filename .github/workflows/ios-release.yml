@@ -1,0 +1,59 @@
+name: iOS App Store Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Install Apple Certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          p12-password: ${{ secrets.P12_PASSWORD }}
+          create-keychain: true
+          keychain-password: ${{ secrets.P12_PASSWORD }}
+
+      - name: Install Provisioning Profile
+        run: |
+          echo -n "${{ secrets.BUILD_PROVISIONING_PROFILE_BASE64 }}" | base64 --decode --output $RUNNER_TEMP/CrushLU_AppStore.mobileprovision
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp $RUNNER_TEMP/CrushLU_AppStore.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+
+      - name: Generate Xcode Project
+        run: |
+          cd mobile/ios/CrushLU
+          xcodegen generate
+
+      - name: Build Archive
+        run: |
+          xcodebuild -project mobile/ios/CrushLU/CrushLU.xcodeproj \
+            -scheme CrushLU \
+            -configuration Release \
+            -archivePath $RUNNER_TEMP/CrushLU.xcarchive \
+            archive
+
+      - name: Export IPA
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath $RUNNER_TEMP/CrushLU.xcarchive \
+            -exportOptionsPlist mobile/ios/ExportOptions.plist \
+            -exportPath $RUNNER_TEMP/build
+
+      - name: Upload to TestFlight
+        uses: apple-actions/upload-testflight-build@v1
+        with:
+          app-path: ${{ runner.temp }}/build/CrushLU.ipa
+          issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          api-key-id: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          api-key-private-key: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
