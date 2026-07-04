@@ -13437,9 +13437,8 @@ document.addEventListener("alpine:init", function () {
     });
 
     // Step 7 "Read-the-Photo" pick step: count how many questions have a Yes/No
-    // truth chosen (skip = value ""), and once 3 are picked, disable the Yes/No
-    // radios on the not-yet-picked questions so the member can't exceed 3.
-    // Progressive enhancement — the form validates "exactly 3" server-side too.
+    // truth chosen (skip = value ""). The form validates "exactly 3"
+    // server-side; JS only keeps the counter and selected row styling live.
     Alpine.data("connectGatePicker", function () {
         return {
             max: 3,
@@ -13447,38 +13446,8 @@ document.addEventListener("alpine:init", function () {
             init: function () {
                 this._sync();
             },
-            onPick: function (event) {
-                var target =
-                    (event && event.target) ||
-                    this.$el.querySelector('input[type="radio"][data-gate]:focus');
-                this._swapIntoThree(target);
+            onPick: function () {
                 this._sync();
-            },
-            _swapIntoThree: function (target) {
-                var picked = Array.prototype.slice.call(
-                    this.$el.querySelectorAll('input[type="radio"][data-gate]:checked')
-                ).filter(function (r) {
-                    return Boolean(r.value);
-                });
-                if (picked.length <= this.max) return;
-
-                var targetName =
-                    target && target.value && target.checked ? target.name : null;
-
-                while (picked.length > this.max) {
-                    var drop = picked.find(function (r) {
-                        return !targetName || r.name !== targetName;
-                    });
-                    if (!drop) return;
-                    var skip = this.$el.querySelector(
-                        'input[type="radio"][data-gate][name="' + drop.name + '"][value=""]'
-                    );
-                    if (!skip) return;
-                    skip.checked = true;
-                    picked = picked.filter(function (r) {
-                        return r.name !== drop.name;
-                    });
-                }
             },
             _sync: function () {
                 var radios = this.$el.querySelectorAll('input[type="radio"][data-gate]');

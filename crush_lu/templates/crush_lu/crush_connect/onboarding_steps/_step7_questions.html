@@ -24,34 +24,14 @@ photo; reading you well (>=2 of 3) is how they match with you.
     {% endif %}
 
     <p class="rounded-2xl bg-crush-purple/5 dark:bg-slate-900/40 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 mb-0">
-        {% trans "Your selected questions stay compact here. Use Change questions when you want to swap one from this week's list." %}
+        {% trans "Choose exactly 3 questions. Tap Skip to remove one, then Save changes when the counter shows 3/3." %}
     </p>
 
     <div class="space-y-2.5">
         {% for row in form.question_rows %}
-            {% if row.selected %}
-                {% include "crush_lu/crush_connect/onboarding_steps/_gate_question_row.html" with row=row %}
-            {% endif %}
+            {% include "crush_lu/crush_connect/onboarding_steps/_gate_question_row.html" with row=row %}
         {% endfor %}
     </div>
-
-    <details class="group overflow-hidden rounded-xl border border-slate-600/70 bg-slate-900/35"
-             {% if form.selected_question_count < 3 or form.non_field_errors %}open{% endif %}>
-        <summary class="flex cursor-pointer list-none items-center justify-between gap-3 bg-slate-800/80 px-4 py-3 text-sm font-semibold text-crush-pink transition hover:bg-slate-800">
-            <span>{% trans "Change questions" %}</span>
-            <span class="text-slate-400 transition-transform group-open:rotate-180" aria-hidden="true">⌄</span>
-        </summary>
-        <div class="space-y-2.5 p-3">
-            {% for row in form.question_rows %}
-                {% if not row.selected %}
-                    {% include "crush_lu/crush_connect/onboarding_steps/_gate_question_row.html" with row=row %}
-                {% endif %}
-            {% endfor %}
-        </div>
-        <p class="border-t border-slate-700/70 px-4 py-3 mb-0 text-xs text-slate-400">
-            {% trans "Pick a new answer to swap it into your 3 questions." %}
-        </p>
-    </details>
 
     <p class="text-xs text-gray-400 dark:text-gray-500">
         {% trans "Yes/No is your true answer — it's never shown to anyone. You can change your questions anytime from your Connect profile." %}
