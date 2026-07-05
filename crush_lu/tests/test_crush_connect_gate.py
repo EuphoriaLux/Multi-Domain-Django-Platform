@@ -6,15 +6,15 @@ CuriositySpark, the anonymous aggregate stat, and the photo-share consent gate.
 Reuses the helpers from ``test_crush_connect`` (``_make_user`` builds a
 consented, verified, premium+LuxID member by default).
 """
-from datetime import date
+
+from datetime import date, timedelta
 
 import pytest
 from django.core.management import call_command
 from django.utils import timezone
 
-pytestmark = pytest.mark.urls("azureproject.urls_crush")
-
 from crush_lu.models import (
+    ConnectDailyDrop,
     ConnectQuestion,
     ConnectQuestionAnswer,
     ConnectQuestionWeek,
@@ -22,7 +22,6 @@ from crush_lu.models import (
     MemberGateQuestion,
 )
 from crush_lu.services.crush_connect import (
-    GATE_ALIGN_MIN,
     GATE_QUESTION_COUNT,
     WEEKLY_CATALOGUE_SIZE,
     alignment_score,
@@ -32,11 +31,14 @@ from crush_lu.services.crush_connect import (
     submit_gate_answers,
 )
 from crush_lu.tests.test_crush_connect import (
+    _login_eligible,
     _make_user,
     _mark_attended,
     _set_gate_questions,
     _surface_in_drop,
 )
+
+pytestmark = pytest.mark.urls("azureproject.urls_crush")
 
 
 # ---------------------------------------------------------------------------
@@ -148,11 +150,15 @@ def test_mutual_read_matches_and_accepts():
     _surface_in_drop(me, her)
 
     # First mover reads her well → pending spark me→her.
-    out1, spark1 = submit_gate_answers(me, her, {q.id: a for q, a in zip(her_qs, [False, True, False])})
+    out1, spark1 = submit_gate_answers(
+        me, her, {q.id: a for q, a in zip(her_qs, [False, True, False])}
+    )
     assert out1 == "sent"
 
     # Candidate answers back well (never had a Drop of her own) → mutual match.
-    out2, spark2 = submit_gate_answers(her, me, {q.id: a for q, a in zip(my_qs, [True, False, True])})
+    out2, spark2 = submit_gate_answers(
+        her, me, {q.id: a for q, a in zip(my_qs, [True, False, True])}
+    )
     assert out2 == "matched"
     spark2.refresh_from_db()
     assert spark2.status == "accepted"
@@ -184,8 +190,9 @@ def test_gate_requires_matching_question_set():
     # Guess keys that don't match her current 3 questions → rejected.
     bogus = {q.id: True for q in ConnectQuestion.objects.all()[:3]}
     her_ids = set(
-        MemberGateQuestion.objects.filter(membership=her.crush_connect_membership)
-        .values_list("question_id", flat=True)
+        MemberGateQuestion.objects.filter(
+            membership=her.crush_connect_membership
+        ).values_list("question_id", flat=True)
     )
     if set(bogus.keys()) == her_ids:  # extremely unlikely, but keep the test honest
         bogus = {list(her_ids)[0]: True}
@@ -205,6 +212,219 @@ def test_first_mover_without_own_questions_refused():
     with pytest.raises(ValueError):
         submit_gate_answers(me, her, {q.id: True for q in questions})
     assert not CuriositySpark.objects.filter(sender=me, recipient=her).exists()
+
+
+# ---------------------------------------------------------------------------
+# One read per Drop
+# ---------------------------------------------------------------------------
+@pytest.mark.django_db
+def test_read_locks_other_cards_in_same_drop():
+    """The first gate submission from a Drop — even a MISS — consumes the
+    Drop's single read; answering any other card from it is refused."""
+    me = _make_user(username="me", preferred_genders=["F"])
+    _set_gate_questions(me)
+    her = _make_user(username="her", gender="F", premium=False)
+    other = _make_user(username="other", gender="F", premium=False)
+    her_qs = _set_gate_questions(her, answers=[True, True, True])
+    other_qs = _set_gate_questions(other, answers=[True, True, True])
+    drop = _surface_in_drop(me, her)
+    _surface_in_drop(me, other)  # same drop (same user, same date)
+
+    outcome, _spark = submit_gate_answers(me, her, {q.id: False for q in her_qs})
+    assert outcome == "miss"
+    drop.refresh_from_db()
+    assert drop.read_target_id == her.pk
+
+    with pytest.raises(ValueError, match="drop_read_used"):
+        submit_gate_answers(me, other, {q.id: True for q in other_qs})
+    assert not CuriositySpark.objects.filter(sender=me, recipient=other).exists()
+
+
+@pytest.mark.django_db
+def test_gate_claims_originating_drop_when_newer_drop_exists():
+    """A stale form must spend the Drop that rendered it, not a newer Drop."""
+    me = _make_user(username="me", preferred_genders=["F"])
+    _set_gate_questions(me)
+    her = _make_user(username="her", gender="F", premium=False)
+    her_qs = _set_gate_questions(her, answers=[True, True, True])
+
+    old_drop = ConnectDailyDrop.objects.create(
+        user=me, drop_date=timezone.localdate() - timedelta(days=1)
+    )
+    old_drop.recipients.add(her)
+    newer_drop = ConnectDailyDrop.objects.create(
+        user=me, drop_date=timezone.localdate()
+    )
+    newer_drop.recipients.add(her)
+
+    outcome, spark = submit_gate_answers(
+        me,
+        her,
+        {q.id: True for q in her_qs},
+        drop_id=old_drop.pk,
+    )
+
+    assert outcome == "sent"
+    assert spark.drop_id == old_drop.pk
+    old_drop.refresh_from_db()
+    newer_drop.refresh_from_db()
+    assert old_drop.read_target_id == her.pk
+    assert newer_drop.read_target_id is None
+
+
+@pytest.mark.django_db
+def test_losing_read_claim_aborts_before_spark(monkeypatch):
+    """If another card claims the Drop between pre-check and UPDATE, abort."""
+    me = _make_user(username="me", preferred_genders=["F"])
+    _set_gate_questions(me)
+    her = _make_user(username="her", gender="F", premium=False)
+    other = _make_user(username="other", gender="F", premium=False)
+    her_qs = _set_gate_questions(her, answers=[True, True, True])
+    drop = _surface_in_drop(me, her)
+    drop.recipients.add(other)
+
+    from django.db.models.query import QuerySet
+
+    original_update = QuerySet.update
+
+    def raced_update(queryset, **kwargs):
+        if (
+            queryset.model is ConnectDailyDrop
+            and kwargs.get("read_target_id") == her.pk
+        ):
+            original_update(
+                ConnectDailyDrop.objects.filter(pk=drop.pk),
+                read_target_id=other.pk,
+                read_at=timezone.now(),
+            )
+            return 0
+        return original_update(queryset, **kwargs)
+
+    monkeypatch.setattr(QuerySet, "update", raced_update)
+
+    with pytest.raises(ValueError, match="drop_read_used"):
+        submit_gate_answers(
+            me,
+            her,
+            {q.id: True for q in her_qs},
+            drop_id=drop.pk,
+        )
+
+    assert not CuriositySpark.objects.filter(sender=me, recipient=her).exists()
+    assert not ConnectQuestionAnswer.objects.filter(
+        responder=me, profile_owner=her
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_read_repost_same_target_still_idempotent():
+    """Re-POSTing the SAME target after the read is spent stays idempotent —
+    the lock only guards OTHER cards."""
+    me = _make_user(username="me", preferred_genders=["F"])
+    _set_gate_questions(me)
+    her = _make_user(username="her", gender="F", premium=False)
+    her_qs = _set_gate_questions(her, answers=[True, True, True])
+    _surface_in_drop(me, her)
+
+    out1, spark1 = submit_gate_answers(me, her, {q.id: True for q in her_qs})
+    out2, spark2 = submit_gate_answers(me, her, {q.id: True for q in her_qs})
+    assert (out1, out2) == ("sent", "sent")
+    assert spark1.pk == spark2.pk
+
+
+@pytest.mark.django_db
+def test_answer_back_ignores_read_lock():
+    """Answering a received Spark back is never a Drop read: it must work even
+    when the responder's OWN Drop read is already spent on someone else."""
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F")  # premium: has her own Drop
+    him = _make_user(username="him", gender="M", premium=False)
+    my_qs = _set_gate_questions(me, answers=[True, False, True])
+    her_qs = _set_gate_questions(her, answers=[False, True, False])
+    him_qs = _set_gate_questions(him, answers=[True, True, True])
+
+    # Her Drop read is spent on him (a miss — still consumes).
+    her_drop = _surface_in_drop(her, him)
+    submit_gate_answers(her, him, {q.id: False for q in him_qs})
+    her_drop.refresh_from_db()
+    assert her_drop.read_target_id == him.pk
+
+    # Me reads her well → pending Spark me→her.
+    _surface_in_drop(me, her)
+    out1, _ = submit_gate_answers(
+        me, her, {q.id: a for q, a in zip(her_qs, [False, True, False])}
+    )
+    assert out1 == "sent"
+
+    # She answers me back despite her spent Drop read → mutual match.
+    out2, spark = submit_gate_answers(
+        her, me, {q.id: a for q, a in zip(my_qs, [True, False, True])}
+    )
+    assert out2 == "matched"
+    spark.refresh_from_db()
+    assert spark.status == "accepted"
+
+
+@pytest.mark.django_db
+def test_compose_view_redirects_when_read_spent(client, settings):
+    """GET on another card's compose page after the Drop read is spent bounces
+    back to Today with the 'read used' notice."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])
+    _set_gate_questions(me)
+    her = _make_user(username="her", gender="F", premium=False)
+    other = _make_user(username="other", gender="F", premium=False)
+    her_qs = _set_gate_questions(her, answers=[True, True, True])
+    _set_gate_questions(other, answers=[True, True, True])
+    _surface_in_drop(me, her)
+    _surface_in_drop(me, other)
+
+    submit_gate_answers(me, her, {q.id: True for q in her_qs})
+
+    _login_eligible(client, me)
+    resp = client.get(f"/en/crush-connect/spark/{other.pk}/")
+    assert resp.status_code in (301, 302)
+    assert "/crush-connect/today/" in resp.url
+    # The spent read never blocks revisiting the chosen card's page.
+    resp = client.get(f"/en/crush-connect/spark/{her.pk}/")
+    assert resp.status_code in (301, 302)  # already answered → home, not teaser
+    assert "/crush-connect/today/" in resp.url
+
+
+@pytest.mark.django_db
+def test_compose_post_uses_submitted_drop_id(client, settings):
+    """The POSTed form id controls which surfaced Drop is claimed."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])
+    _set_gate_questions(me)
+    her = _make_user(username="her", gender="F", premium=False)
+    other = _make_user(username="other", gender="F", premium=False)
+    her_qs = _set_gate_questions(her, answers=[True, True, True])
+    old_drop = ConnectDailyDrop.objects.create(
+        user=me, drop_date=timezone.localdate() - timedelta(days=1)
+    )
+    old_drop.recipients.add(her)
+    newer_drop = ConnectDailyDrop.objects.create(
+        user=me, drop_date=timezone.localdate()
+    )
+    newer_drop.recipients.add(her)
+    newer_drop.recipients.add(other)
+    newer_drop.read_target = other
+    newer_drop.read_at = timezone.now()
+    newer_drop.save(update_fields=["read_target", "read_at"])
+    _login_eligible(client, me)
+
+    data = {f"answer_{q.id}": "yes" for q in her_qs}
+    data["drop_id"] = str(old_drop.pk)
+    resp = client.post(f"/en/crush-connect/spark/{her.pk}/", data=data)
+
+    assert resp.status_code in (301, 302)
+    spark = CuriositySpark.objects.get(sender=me, recipient=her)
+    assert spark.drop_id == old_drop.pk
+    old_drop.refresh_from_db()
+    newer_drop.refresh_from_db()
+    assert old_drop.read_target_id == her.pk
+    assert newer_drop.read_target_id == other.pk
 
 
 # ---------------------------------------------------------------------------
