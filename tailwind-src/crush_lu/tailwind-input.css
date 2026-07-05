@@ -112,6 +112,17 @@ html:not(.dark) {
     --color-white: #f0ecf5;
 }
 
+/* Shared UI dimensions/surfaces referenced across components.
+   --color-surface-card is TRUE white for cards that sit on the lavender
+   canvas — bg-white resolves to the tinted #f0ecf5 above, so card surfaces
+   must use this token (or a #fff literal) instead. --bottom-nav-height is the
+   mobile tab bar's height, consumed by the bar itself and by anything that
+   must clear it (e.g. bottom-anchored toasts). */
+:root {
+    --color-surface-card: #ffffff;
+    --bottom-nav-height: 56px;
+}
+
 /* =============================================================================
    GRADIENT CUSTOM PROPERTIES
    Define gradients as CSS custom properties for reusability
@@ -11080,7 +11091,7 @@ html.dark .crush-connect-cta {
         border-top: 1px solid var(--border-color, #ddd8e6);
         padding-bottom: env(safe-area-inset-bottom, 0px);
         height: auto;
-        min-height: 56px;
+        min-height: var(--bottom-nav-height, 56px);
     }
 
     /* Hide bottom nav on desktop */
@@ -13796,29 +13807,32 @@ body.connect-wizard main.has-bottom-nav {
 @layer components {
     /* Step card: pure white on the lavender canvas, 24px radius. */
     .connect-card {
-        background: #ffffff;
+        background: var(--color-surface-card);
         @apply shadow-crush-md rounded-3xl px-[18px] py-[22px] sm:p-8 dark:bg-gray-800;
     }
 
     /* Shared option states (design: 2px border, white fill; selected =
-       purple border on purple-10% fill with darkened purple text). */
+       purple border on purple-10% fill with darkened purple text). The
+       general-sibling (~) combinator matches Tailwind's own peer-checked
+       semantics, so the state holds even if markup gains a sibling between
+       the hidden input and the styled element. */
     .connect-selectable {
-        background: #ffffff;
+        background: var(--color-surface-card);
         @apply border-2 border-gray-200 text-gray-600 transition-all duration-150 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300;
     }
     .connect-selectable:hover {
         border-color: color-mix(in srgb, var(--color-crush-purple) 50%, transparent);
     }
-    input.peer:checked + .connect-selectable {
+    input.peer:checked ~ .connect-selectable {
         border-color: var(--color-crush-purple);
-        background: rgb(155 89 182 / 0.1);
+        background: color-mix(in srgb, var(--color-crush-purple) 10%, transparent);
         color: var(--color-crush-purple-dark);
     }
-    html.dark input.peer:checked + .connect-selectable {
-        background: rgb(155 89 182 / 0.15);
+    html.dark input.peer:checked ~ .connect-selectable {
+        background: color-mix(in srgb, var(--color-crush-purple) 15%, transparent);
         color: var(--color-purple-300);
     }
-    input.peer:disabled + .connect-selectable {
+    input.peer:disabled ~ .connect-selectable {
         @apply cursor-not-allowed opacity-40;
     }
 
@@ -13827,9 +13841,16 @@ body.connect-wizard main.has-bottom-nav {
         @apply flex h-full flex-col items-center justify-center gap-0.5 rounded-[14px] px-1.5 py-2.5 text-center text-[12.5px]/[1.35] font-semibold;
     }
 
-    /* Trait / interest chip. Design pads 7px; 8px here buys a ~38px target. */
+    /* Trait / interest chip. Design pads 7px; min-h-10 guarantees a 40px tap
+       target regardless of font metrics. */
     .connect-chip {
-        @apply inline-flex items-center rounded-full px-3.5 py-2 text-[12.5px] font-semibold;
+        @apply inline-flex items-center rounded-full px-3.5 py-2 min-h-10 text-[12.5px] font-semibold;
+    }
+
+    /* Wizard/step card title (mockup: Fraunces 22px, tight tracking). One
+       class instead of repeating the arbitrary values in every step partial. */
+    .connect-card-title {
+        @apply font-display text-[22px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white;
     }
 
     /* Section label inside a step card, with the lighter "— pick up to 5"
@@ -13849,7 +13870,7 @@ body.connect-wizard main.has-bottom-nav {
 
     /* Footer secondary (Back) pill: white with soft border, per design. */
     .connect-btn-secondary {
-        background: #ffffff;
+        background: var(--color-surface-card);
         @apply inline-flex items-center justify-center rounded-full border-2 border-gray-200 px-[22px] py-3.5 text-sm font-bold text-gray-600 no-underline transition-colors duration-150 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300;
     }
     .connect-btn-secondary:hover {
@@ -13869,7 +13890,9 @@ body.connect-wizard main.has-bottom-nav {
             padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
         }
         #toast-container.toast-above-nav {
-            bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+            bottom: calc(
+                var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px)
+            );
             padding-bottom: 0.5rem;
         }
     }

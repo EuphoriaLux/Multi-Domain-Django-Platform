@@ -38,6 +38,25 @@ from .notification_service import (
 )
 
 
+# Max length for a single connection message. Single source of truth for the
+# server-side cap, the user-facing error, and the textarea maxlength/counter.
+CONNECTION_MESSAGE_MAX_LENGTH = 500
+
+
+def _approved_messages(connection):
+    """Coach-approved messages for a connection, ready to render.
+
+    Shared by the detail page and the polling endpoint so the two never drift.
+    Selects sender + crushprofile because the bubble partial renders
+    ``msg.sender.crushprofile.display_name`` (avoids an N+1 per message).
+    """
+    return (
+        ConnectionMessage.objects.filter(connection=connection, coach_approved=True)
+        .select_related("sender", "sender__crushprofile")
+        .order_by("sent_at")
+    )
+
+
 # Post-Event Connection Views
 @crush_login_required
 def event_attendees(request, event_id):
@@ -853,7 +872,7 @@ def connection_detail(request, connection_id):
         # Handle message sending
         elif "message" in request.POST:
             message_text = request.POST.get("message", "").strip()
-            if message_text and len(message_text) <= 500:
+            if message_text and len(message_text) <= CONNECTION_MESSAGE_MAX_LENGTH:
                 # Only allow messaging for accepted/shared connections
                 if connection.status in [
                     "accepted",
@@ -896,6 +915,8 @@ def connection_detail(request, connection_id):
                         request, _("You can only message accepted connections.")
                     )
             else:
+                # Literal 500 keeps the existing translation catalog entry intact;
+                # CONNECTION_MESSAGE_MAX_LENGTH governs the actual cap above.
                 messages.error(
                     request, _("Please enter a valid message (max 500 characters).")
                 )
@@ -907,11 +928,7 @@ def connection_detail(request, connection_id):
     other_profile = getattr(other_user, "crushprofile", None)
 
     # Get messages for this connection (exclude coach-hidden messages)
-    connection_messages = (
-        ConnectionMessage.objects.filter(connection=connection, coach_approved=True)
-        .select_related("sender", "sender__crushprofile")
-        .order_by("sent_at")
-    )
+    thread_messages = _approved_messages(connection)
 
     # Can the current user send messages?
     can_message = connection.status in [
@@ -944,8 +961,9 @@ def connection_detail(request, connection_id):
         "is_requester": is_requester,
         "other_user": other_user,
         "other_profile": other_profile,
-        "messages": connection_messages,
+        "messages": thread_messages,
         "can_message": can_message,
+        "message_max_length": CONNECTION_MESSAGE_MAX_LENGTH,
         "user_needs_consent": user_needs_consent,
         "user_already_consented": user_already_consented,
         "whatsapp_number": whatsapp_number,
@@ -976,11 +994,7 @@ def connection_messages(request, connection_id):
     if connection.status == "declined" or is_blocked_pair(request.user, other_user):
         return HttpResponse(status=286)
 
-    msgs = (
-        ConnectionMessage.objects.filter(connection=connection, coach_approved=True)
-        .select_related("sender", "sender__crushprofile")
-        .order_by("sent_at")
-    )
+    msgs = _approved_messages(connection)
     return render(
         request,
         "crush_lu/_connection_messages_list.html",

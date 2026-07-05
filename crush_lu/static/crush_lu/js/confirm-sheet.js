@@ -45,6 +45,9 @@
                 return;
             }
             resolvePending(false); // settle any dangling promise first
+            // Re-entrancy: showModal() throws InvalidStateError on an already-open
+            // dialog, which would drop this confirmation. Close it first.
+            if (dialog.open) dialog.close();
             msgEl.textContent = message || "";
             acceptBtn.textContent = opts.confirmLabel || defaultLabel;
             dialog.classList.toggle(

@@ -276,7 +276,9 @@ class ConnectionMessagingTests(TestCase):
         self.assertEqual(list(messages), [msg1, msg2])
 
 
-@override_settings(ROOT_URLCONF='azureproject.urls_crush')
+# crush_lu URLs are host-routed; mount them at the root for the test client
+# (same override every crush_lu URL test in the suite uses — see test_htmx_views.py).
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class ConnectionMessagesEndpointTests(TestCase):
     """Test the HTMX polling endpoint for the connection message thread."""
 
@@ -412,7 +414,6 @@ class ConnectionMessagesEndpointTests(TestCase):
         self.client.login(username='poller@example.com', password='testpass123')
         response = self.client.post(self.url)
         self.assertEqual(response.status_code, 405)
-
 
 class ConnectionPrivacyTests(TestCase):
     """Test privacy settings in connections."""
