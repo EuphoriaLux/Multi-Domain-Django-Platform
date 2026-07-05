@@ -53,9 +53,17 @@ def _check_cache():
 
 
 def _check_storage():
-    # exists() on a never-written key still exercises credentials and
-    # connectivity (a real API call on Azure Blob); the False result is fine.
-    default_storage.exists("readyz-probe")
+    # On Azure Blob, exists() returns False both for a missing blob and for a
+    # missing/misnamed *container*, so probing a blob key can't distinguish
+    # "healthy" from "container gone". When the backend exposes a container
+    # client (django-storages AzureStorage does), assert the container itself
+    # exists; otherwise fall back to a connectivity probe.
+    client = getattr(default_storage, "client", None)
+    if client is not None and hasattr(client, "exists"):
+        if not client.exists():
+            raise RuntimeError("storage container missing")
+    else:
+        default_storage.exists("readyz-probe")
 
 
 CHECKS = (
@@ -76,8 +84,11 @@ def run_readiness_checks():
             results[name] = "ok"
         except Exception as exc:  # noqa: BLE001 - each check must not kill the probe
             all_passed = False
-            detail = exc.__class__.__name__
-            if name == "migrations" and isinstance(exc, RuntimeError):
+            # RuntimeErrors are raised by the checks themselves with safe
+            # messages; anything else may embed hostnames/DSNs — class only.
+            if isinstance(exc, RuntimeError):
                 detail = str(exc)
+            else:
+                detail = exc.__class__.__name__
             results[name] = f"fail: {detail}"
     return all_passed, results

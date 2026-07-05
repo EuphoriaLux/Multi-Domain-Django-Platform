@@ -22,7 +22,27 @@ import sys
 import urllib.error
 import urllib.request
 
-DOMAINS = ["crush.lu", "entreprinder.lu", "powerup.lu", "vinsdelux.com"]
+# Every site from azureproject/domains.py with its staging alias. Keep in
+# sync with DOMAIN_MAPPINGS there. api.crush.lu is intentionally absent:
+# it is mapped in domains.py but has no DNS record on either environment
+# (checked 2026-07-06).
+SITES = [
+    {"prod": "crush.lu", "staging": "test.crush.lu", "deep": True},
+    {"prod": "entreprinder.lu", "staging": "test.entreprinder.lu"},
+    {"prod": "power-up.lu", "staging": "test.power-up.lu"},
+    {"prod": "powerup.lu", "staging": "test.powerup.lu"},
+    # portal has no root URL by design — probe the CRM entry point (an
+    # anonymous request lands on the admin login page).
+    {
+        "prod": "portal.powerup.lu",
+        "staging": "test-portal.powerup.lu",
+        "home_path": "/crm/",
+    },
+    {"prod": "vinsdelux.com", "staging": "test.vinsdelux.com"},
+    {"prod": "tableau.lu", "staging": "test.tableau.lu"},
+    {"prod": "arborist.lu", "staging": "test.arborist.lu"},
+    {"prod": "delegations.lu", "staging": "test.delegations.lu"},
+]
 TIMEOUT = 30
 USER_AGENT = "crush-smoke/1.0 (+scripts/smoke.py)"
 
@@ -90,11 +110,11 @@ def check_readyz(base):
         print(f"  ok   {name} {payload['checks']}")
 
 
-def smoke_domain(base, deep):
+def smoke_domain(base, deep, home_path="/"):
     print(f"\n{base}")
     check("healthz", f"{base}/healthz/", contains="OK")
     check_readyz(base)
-    check("home", f"{base}/")
+    check("home", f"{base}{home_path}")
     if deep:
         check("sitemap", f"{base}/sitemap.xml", contains="<urlset")
         check("robots", f"{base}/robots.txt", contains="Disallow")
@@ -113,15 +133,22 @@ def main():
     args = parser.parse_args()
 
     if args.bases:
-        bases = [b.rstrip("/") for b in args.bases]
+        targets = [(b.rstrip("/"), "crush" in b, "/") for b in args.bases]
     elif args.env:
-        prefix = "test." if args.env == "staging" else ""
-        bases = [f"https://{prefix}{d}" for d in DOMAINS]
+        host_key = "staging" if args.env == "staging" else "prod"
+        targets = [
+            (
+                f"https://{site[host_key]}",
+                site.get("deep", False),
+                site.get("home_path", "/"),
+            )
+            for site in SITES
+        ]
     else:
         parser.error("pass base URLs or --env staging|production")
 
-    for base in bases:
-        smoke_domain(base, deep="crush" in base)
+    for base, deep, home_path in targets:
+        smoke_domain(base, deep, home_path)
 
     print(f"\n{passes} passed, {len(failures)} failed")
     if failures:

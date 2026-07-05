@@ -8,7 +8,7 @@ out, and 503 with per-check detail otherwise.
 """
 
 import json
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.conf import settings
 from django.test import Client, TestCase, override_settings
@@ -100,3 +100,20 @@ class ReadyzTests(TestCase):
         self.assertEqual(payload["status"], "fail")
         for value in payload["checks"].values():
             self.assertTrue(value.startswith("fail:"))
+
+    def test_storage_check_fails_when_container_missing(self):
+        # Azure-style backend: exists() on a blob returns False for a missing
+        # container too, so the check must probe the container client itself.
+        azure_like = MagicMock()
+        azure_like.client.exists.return_value = False
+        with patch.object(readiness, "default_storage", azure_like):
+            with self.assertRaisesMessage(RuntimeError, "storage container missing"):
+                readiness._check_storage()
+
+    def test_storage_check_passes_when_container_exists(self):
+        azure_like = MagicMock()
+        azure_like.client.exists.return_value = True
+        with patch.object(readiness, "default_storage", azure_like):
+            readiness._check_storage()
+        azure_like.client.exists.assert_called_once_with()
+        azure_like.exists.assert_not_called()
