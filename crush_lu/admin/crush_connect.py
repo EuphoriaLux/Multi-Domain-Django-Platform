@@ -124,9 +124,10 @@ class ConnectDailyDropAdmin(admin.ModelAdmin):
         "user",
         "drop_date",
         "recipient_count",
+        "read_target",
         "created_at",
     ]
-    list_select_related = ["user"]
+    list_select_related = ["user", "read_target"]
     list_filter = ["drop_date"]
     search_fields = [
         "user__email",
@@ -136,9 +137,9 @@ class ConnectDailyDropAdmin(admin.ModelAdmin):
         "recipients__email",
         "recipients__username",
     ]
-    raw_id_fields = ["user"]
+    raw_id_fields = ["user", "read_target"]
     filter_horizontal = ["recipients"]
-    readonly_fields = ["created_at"]
+    readonly_fields = ["created_at", "read_at"]
     date_hierarchy = "drop_date"
     actions = ["preview_today_for_selected_user", "preview_tomorrow_for_selected_user"]
 
