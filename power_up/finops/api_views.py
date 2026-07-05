@@ -4,9 +4,13 @@ REST API views for FinOps Hub
 """
 
 from rest_framework import viewsets, status
-from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.decorators import (
+    api_view,
+    authentication_classes,
+    permission_classes,
+)
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 from django.http import HttpResponse
 from django.db.models import Sum, Count, Q, Avg
 from django.db.models.functions import Lower, TruncDate
@@ -22,14 +26,15 @@ from .serializers import (
     CostRecordSummarySerializer,
     CostAggregationSerializer
 )
-from .permissions import HasSessionOrIsAuthenticated
+from .permissions import IsAdminOrStaff
 
 
 class CostExportViewSet(viewsets.ReadOnlyModelViewSet):
     """API endpoint for cost export metadata"""
     queryset = CostExport.objects.all()
     serializer_class = CostExportSerializer
-    permission_classes = [IsAuthenticated]
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminOrStaff]
     filterset_fields = ['subscription_name', 'import_status']
     ordering_fields = ['billing_period_start', 'import_completed_at']
     ordering = ['-billing_period_start']
@@ -38,7 +43,8 @@ class CostExportViewSet(viewsets.ReadOnlyModelViewSet):
 class CostRecordViewSet(viewsets.ReadOnlyModelViewSet):
     """API endpoint for detailed cost records"""
     queryset = CostRecord.objects.select_related('cost_export')
-    permission_classes = [IsAuthenticated]
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminOrStaff]
     filterset_fields = [
         'service_name', 'sub_account_name', 'resource_group_name',
         'charge_category', 'billing_period_start'
@@ -66,7 +72,8 @@ class CostAggregationViewSet(viewsets.ReadOnlyModelViewSet):
     """API endpoint for pre-computed cost aggregations"""
     queryset = CostAggregation.objects.all()
     serializer_class = CostAggregationSerializer
-    permission_classes = [IsAuthenticated]
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminOrStaff]
     filterset_fields = ['aggregation_type', 'dimension_type', 'dimension_value', 'currency']
     ordering_fields = ['period_start', 'total_cost']
     ordering = ['-period_start']
@@ -83,7 +90,8 @@ class CostAggregationViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 @api_view(['GET'])
-@permission_classes([HasSessionOrIsAuthenticated])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAdminOrStaff])
 def cost_summary(request):
     """Get overall cost summary"""
     currency = request.query_params.get('currency', 'EUR')
@@ -152,7 +160,8 @@ def cost_summary(request):
 
 
 @api_view(['GET'])
-@permission_classes([HasSessionOrIsAuthenticated])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAdminOrStaff])
 def costs_by_subscription(request):
     """Get costs broken down by subscription"""
     currency = request.query_params.get('currency', 'EUR')
@@ -184,7 +193,8 @@ def costs_by_subscription(request):
 
 
 @api_view(['GET'])
-@permission_classes([HasSessionOrIsAuthenticated])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAdminOrStaff])
 def costs_by_service(request):
     """Get costs broken down by Azure service"""
     currency = request.query_params.get('currency', 'EUR')
@@ -222,7 +232,8 @@ def costs_by_service(request):
 
 
 @api_view(['GET'])
-@permission_classes([HasSessionOrIsAuthenticated])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAdminOrStaff])
 def costs_by_resource_group(request):
     """Get costs broken down by resource group"""
     currency = request.query_params.get('currency', 'EUR')
@@ -265,7 +276,8 @@ def costs_by_resource_group(request):
 
 
 @api_view(['GET'])
-@permission_classes([HasSessionOrIsAuthenticated])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAdminOrStaff])
 def cost_trend(request):
     """Get daily cost trend data"""
     currency = request.query_params.get('currency', 'EUR')
@@ -306,7 +318,8 @@ def cost_trend(request):
 
 
 @api_view(['GET'])
-@permission_classes([HasSessionOrIsAuthenticated])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAdminOrStaff])
 def export_status(request):
     """Get status of cost data imports"""
     total_exports = CostExport.objects.count()
@@ -337,7 +350,8 @@ def export_status(request):
 
 
 @api_view(['GET'])
-@permission_classes([HasSessionOrIsAuthenticated])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAdminOrStaff])
 def cost_anomalies(request):
     """Get recent cost anomalies"""
     days = int(request.query_params.get('days', 30))
@@ -377,7 +391,8 @@ def cost_anomalies(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAdminOrStaff])
 def acknowledge_anomaly(request, anomaly_id):
     """Acknowledge a cost anomaly (staff only)"""
     if not request.user.is_staff:
@@ -405,7 +420,8 @@ def acknowledge_anomaly(request, anomaly_id):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAdminOrStaff])
 def export_costs_csv(request):
     """Export cost data as CSV file."""
     currency = request.query_params.get('currency', 'EUR')
