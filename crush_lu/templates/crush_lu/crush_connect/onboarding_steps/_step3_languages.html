@@ -3,7 +3,7 @@
 <div class="connect-card space-y-7">
     <div class="text-center">
         <div class="flex justify-center mb-2">{% include "crush_lu/includes/ghost-story-blushing-reader.html" with class="w-20 h-20" %}</div>
-        <h2 class="font-display text-[22px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{% trans "Languages & interests" %}</h2>
+        <h2 class="connect-card-title">{% trans "Languages & interests" %}</h2>
         <p class="text-[13px] text-gray-500 dark:text-gray-400 mt-1">{% trans "What you speak, and what lights you up." %}</p>
     </div>
 
@@ -16,7 +16,7 @@
                 <input type="checkbox" name="languages" value="{{ value }}" class="peer hidden"
                        {% if value in selected_languages %}checked{% endif %}>
                 <div class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-[14px] text-sm font-medium border-2 transition-all duration-200
-                            border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-pink-300 hover:bg-pink-50 dark:hover:bg-pink-900/30
+                            border-gray-200 bg-[var(--color-surface-card)] dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-pink-300 hover:bg-pink-50 dark:hover:bg-pink-900/30
                             peer-checked:border-pink-500 peer-checked:bg-pink-100 dark:peer-checked:bg-pink-900/40 peer-checked:text-pink-700 dark:peer-checked:text-pink-300">
                     <span class="whitespace-nowrap">{{ label }}</span>
                 </div>

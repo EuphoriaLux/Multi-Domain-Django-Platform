@@ -108,6 +108,32 @@ the new file should be migrated to the canonical four.
 
 ---
 
+## 2b. Crush Connect wizard components (`.connect-*`)
+
+The Crush Connect onboarding wizard and its shared step partials (also reused
+by the Connect profile editor) follow a dedicated, product-designed component
+set defined in `tailwind-input.css`. These are the **sanctioned** classes for
+that surface — use them there rather than re-deriving inline utilities, and
+don't spread them to unrelated pages.
+
+| Class | Role | Notes |
+| --- | --- | --- |
+| `.connect-card` | The focused step card | True-white (`--color-surface-card`) on the lavender wizard canvas. Deliberately `rounded-3xl` (24 px) + `shadow-crush-md` — a documented exception to the resting-card defaults (`rounded-2xl` / `shadow-crush-sm`), because the wizard is a full-screen, single-focus onboarding surface, not an in-page card. |
+| `.connect-card-title` | Step heading | `font-display` (Fraunces) 22 px. The card-title of this surface; don't hand-roll `text-[22px]`. |
+| `.connect-selectable` | Shared option state | Drives default/hover/checked/disabled for peer-checked options via the general-sibling (`~`) combinator. Compose with a layout class below. |
+| `.connect-tile` | Emoji option tile | 3-per-row grids; `rounded-[14px]` (a design-specified radius unique to these tiles). |
+| `.connect-chip` | Trait / interest pill | `rounded-full`, `min-h-10` (40 px tap target). |
+| `.connect-btn-secondary` | Wizard "Back" pill | The neutral white/gray-bordered secondary paired with `.btn-crush-primary` Continue in the wizard footer. The **only** sanctioned secondary outside `.btn-crush-outline`, scoped to the Connect wizard where the design calls for a neutral (not purple-outline) back action. |
+
+Tokens introduced for this surface (in `tailwind-input.css`):
+
+- `--color-surface-card: #fff` — true white for cards on the lavender canvas.
+  Use it (not `bg-white`, which is remapped to the tinted `#f0ecf5`).
+- `--bottom-nav-height` — the mobile tab-bar height; consumed by the bar and
+  by anything that must clear it (bottom-anchored toasts).
+
+---
+
 ## 3. Forms
 
 Use the shared form-field partial. It renders `<label>` + input + errors +

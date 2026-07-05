@@ -10,7 +10,7 @@ Comprehensive tests for connection system including:
 Run with: pytest crush_lu/tests/test_connections.py -v
 """
 from datetime import date, timedelta
-from django.test import TestCase, Client
+from django.test import TestCase, Client, override_settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
@@ -276,6 +276,9 @@ class ConnectionMessagingTests(TestCase):
         self.assertEqual(list(messages), [msg1, msg2])
 
 
+# crush_lu URLs are host-routed; mount them at the root for the test client
+# (same override every crush_lu URL test in the suite uses — see test_htmx_views.py).
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class ConnectionMessagesEndpointTests(TestCase):
     """Test the HTMX polling endpoint for the connection message thread."""
 
@@ -386,6 +389,22 @@ class ConnectionMessagesEndpointTests(TestCase):
         self.client.login(username='poller@example.com', password='testpass123')
         response = self.client.post(self.url)
         self.assertEqual(response.status_code, 405)
+
+    def test_blocked_pair_does_not_leak_messages(self):
+        """A block ends the connection: the endpoint stops polling AND must not
+        return the thread body, even to a participant."""
+        from crush_lu.models import ConnectionMessage, UserBlock
+
+        ConnectionMessage.objects.create(
+            connection=self.connection,
+            sender=self.user2,
+            message='Secret thread content'
+        )
+        UserBlock.objects.create(blocker=self.user2, blocked=self.user1)
+        self.client.login(username='poller@example.com', password='testpass123')
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 286)
+        self.assertNotContains(response, 'Secret thread content', status_code=286)
 
 
 class ConnectionPrivacyTests(TestCase):

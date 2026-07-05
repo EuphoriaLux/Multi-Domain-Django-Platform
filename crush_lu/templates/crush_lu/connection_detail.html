@@ -426,11 +426,11 @@
                           hx-swap="beforeend"
                           hx-on::after-request="if(event.detail.successful) this.reset()">
                         {% csrf_token %}
-                        {# Cap matches the server-side limit in views_connections (500). #}
-                        <div x-data="charCounter" data-max-length="500" class="space-y-2">
+                        {# Cap comes from CONNECTION_MESSAGE_MAX_LENGTH (server-side source of truth). #}
+                        <div x-data="charCounter" data-max-length="{{ message_max_length }}" class="space-y-2">
                             <textarea name="message"
                                       rows="3"
-                                      maxlength="500"
+                                      maxlength="{{ message_max_length }}"
                                       required
                                       placeholder="{% trans "Write a message..." %}"
                                       class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 p-3 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors"

@@ -25,7 +25,7 @@
     <div class="flex items-center justify-between gap-3 mb-3">
         {% if prev_step %}
         <a href="{% url 'crush_lu:crush_connect_onboarding_step' step=prev_step %}"
-           class="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-200 dark:border-gray-700 bg-[#fff] dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:border-crush-purple/50 transition-colors no-underline"
+           class="inline-flex items-center justify-center w-9 h-9 rounded-full border border-gray-200 dark:border-gray-700 bg-[var(--color-surface-card)] dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:border-crush-purple/50 transition-colors no-underline"
            aria-label="{% trans 'Back' %}">
             {% include "shared/icons/chevron-left.html" with class="w-5 h-5" %}
         </a>
