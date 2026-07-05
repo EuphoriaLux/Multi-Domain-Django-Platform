@@ -432,9 +432,18 @@ class ConnectGateQuestionsForm(forms.ModelForm):
         form hands the template ready-paired rows.
         """
         return [
-            {"question": q, "field": self[f"q_{q.id}"]}
+            {
+                "question": q,
+                "field": self[f"q_{q.id}"],
+                "selected": self[f"q_{q.id}"].value() in ("yes", "no"),
+            }
             for q in self.week_questions
         ]
+
+    @property
+    def selected_question_count(self):
+        """Number of rendered question rows currently answered yes/no."""
+        return sum(1 for row in self.question_rows() if row["selected"])
 
     def clean(self):
         cleaned = super().clean()

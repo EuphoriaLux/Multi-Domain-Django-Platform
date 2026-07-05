@@ -8,46 +8,28 @@ photo; reading you well (>=2 of 3) is how they match with you.
      x-data="connectGatePicker">
 
     <div class="text-center">
-        <div class="flex justify-center mb-2">{% include "crush_lu/includes/ghost-story-typing.html" with class="w-20 h-20" %}</div>
-        <h2 class="font-display text-[22px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">{% trans "Your 3 questions" %}</h2>
-        <p class="text-[13px] text-gray-500 dark:text-gray-400 mt-1">
+        <h2 class="font-display text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">{% trans "Your 3 questions" %}</h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
             {% trans "Pick 3 questions for your card and answer each honestly about yourself. Others guess your answers from your photo — reading you well is how they match with you. Your answers stay private." %}
         </p>
     </div>
 
     <div class="flex items-center justify-between">
-        <label class="connect-label mb-0">{% trans "This week's questions" %}</label>
-        <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink"><span x-text="count"></span>/3</span>
+        <label class="block text-sm font-semibold text-gray-900 dark:text-white">{% trans "This week's questions" %}</label>
+        <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink"><span x-text="count">{{ form.selected_question_count }}</span>/3</span>
     </div>
 
     {% if form.non_field_errors %}
         <p class="text-sm text-red-600 dark:text-red-400">{{ form.non_field_errors|join:" " }}</p>
     {% endif %}
 
+    <p class="rounded-2xl bg-crush-purple/5 dark:bg-slate-900/40 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 mb-0">
+        {% trans "Choose exactly 3 questions. Tap Skip to remove one, then Save changes when the counter shows 3/3." %}
+    </p>
+
     <div class="space-y-2.5">
         {% for row in form.question_rows %}
-        <div class="rounded-xl border border-gray-200 dark:border-slate-700 p-3.5 flex flex-col sm:flex-row sm:items-center gap-3
-                    {% if row.field.value == 'yes' or row.field.value == 'no' %}border-crush-purple bg-crush-purple/5{% endif %}">
-            <span class="flex-1 text-sm text-gray-800 dark:text-gray-100">{{ row.question.text }}</span>
-            <div class="inline-flex shrink-0 rounded-lg overflow-hidden ring-1 ring-gray-200 dark:ring-slate-600 text-xs font-semibold">
-                {# Skip / Yes / No segmented control. Radios named q_<id>; value "" = skip. #}
-                <label class="cursor-pointer">
-                    <input type="radio" name="q_{{ row.question.id }}" value="" data-gate class="peer sr-only" @change="onPick"
-                           {% if not row.field.value or row.field.value == '' %}checked{% endif %}>
-                    <span class="block px-3 py-1.5 text-gray-500 dark:text-gray-400 bg-white dark:bg-slate-800 peer-checked:bg-gray-100 dark:peer-checked:bg-slate-700 peer-checked:text-gray-700 dark:peer-checked:text-gray-200">{% trans "Skip" %}</span>
-                </label>
-                <label class="cursor-pointer border-l border-gray-200 dark:border-slate-600">
-                    <input type="radio" name="q_{{ row.question.id }}" value="yes" data-gate class="peer sr-only" @change="onPick"
-                           {% if row.field.value == 'yes' %}checked{% endif %}>
-                    <span class="block px-3 py-1.5 text-gray-600 dark:text-gray-300 bg-white dark:bg-slate-800 peer-checked:bg-green-500 peer-checked:text-white peer-disabled:opacity-40">{% trans "Yes" %}</span>
-                </label>
-                <label class="cursor-pointer border-l border-gray-200 dark:border-slate-600">
-                    <input type="radio" name="q_{{ row.question.id }}" value="no" data-gate class="peer sr-only" @change="onPick"
-                           {% if row.field.value == 'no' %}checked{% endif %}>
-                    <span class="block px-3 py-1.5 text-gray-600 dark:text-gray-300 bg-white dark:bg-slate-800 peer-checked:bg-rose-500 peer-checked:text-white peer-disabled:opacity-40">{% trans "No" %}</span>
-                </label>
-            </div>
-        </div>
+            {% include "crush_lu/crush_connect/onboarding_steps/_gate_question_row.html" with row=row %}
         {% endfor %}
     </div>
 

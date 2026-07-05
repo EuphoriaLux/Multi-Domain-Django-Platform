@@ -6,6 +6,7 @@ __pycache__/
 certs/
 crush-pass-key.pem
 crush-pass.csr
+.codex-pr-repo/
 
 # C extensions
 *.so
@@ -247,4 +248,3 @@ mobile/ios/*.cer
 mobile/ios/*.p12
 mobile/ios/*.mobileprovision
 mobile/ios/*.base64
-
