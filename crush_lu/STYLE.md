@@ -108,6 +108,32 @@ the new file should be migrated to the canonical four.
 
 ---
 
+## 2b. Crush Connect wizard components (`.connect-*`)
+
+The Crush Connect onboarding wizard and its shared step partials (also reused
+by the Connect profile editor) follow a dedicated, product-designed component
+set defined in `tailwind-input.css`. These are the **sanctioned** classes for
+that surface — use them there rather than re-deriving inline utilities, and
+don't spread them to unrelated pages.
+
+| Class | Role | Notes |
+| --- | --- | --- |
+| `.connect-card` | The focused step card | True-white (`--color-surface-card`) on the lavender wizard canvas. Deliberately `rounded-3xl` (24 px) + `shadow-crush-md` — a documented exception to the resting-card defaults (`rounded-2xl` / `shadow-crush-sm`), because the wizard is a full-screen, single-focus onboarding surface, not an in-page card. |
+| `.connect-card-title` | Step heading | `font-display` (Fraunces) 22 px. The card-title of this surface; don't hand-roll `text-[22px]`. |
+| `.connect-selectable` | Shared option state | Drives default/hover/checked/disabled for peer-checked options via the general-sibling (`~`) combinator. Compose with a layout class below. |
+| `.connect-tile` | Emoji option tile | 3-per-row grids; `rounded-[14px]` (a design-specified radius unique to these tiles). |
+| `.connect-chip` | Trait / interest pill | `rounded-full`, `min-h-10` (40 px tap target). |
+| `.connect-btn-secondary` | Wizard "Back" pill | The neutral white/gray-bordered secondary paired with `.btn-crush-primary` Continue in the wizard footer. The **only** sanctioned secondary outside `.btn-crush-outline`, scoped to the Connect wizard where the design calls for a neutral (not purple-outline) back action. |
+
+Tokens introduced for this surface (in `tailwind-input.css`):
+
+- `--color-surface-card: #fff` — true white for cards on the lavender canvas.
+  Use it (not `bg-white`, which is remapped to the tinted `#f0ecf5`).
+- `--bottom-nav-height` — the mobile tab-bar height; consumed by the bar and
+  by anything that must clear it (bottom-anchored toasts).
+
+---
+
 ## 3. Forms
 
 Use the shared form-field partial. It renders `<label>` + input + errors +
@@ -128,6 +154,11 @@ Args (see the partial's docstring for the full contract):
 
 Don't manually compose `<label>` + `{{ field }}` + error markup in new
 templates. If the partial doesn't fit, extend it — don't fork it.
+
+For hand-rolled inputs where the partial genuinely can't work (e.g. Alpine
+bindings on the element), use `.input-crush` for inputs/textareas and
+`.form-select` for selects. Never write `form-control` in a template —
+`test_tailwind_migration` bans it as a legacy Bootstrap class.
 
 ---
 
@@ -313,3 +344,77 @@ commit. Existing debt elsewhere in the tree only fires when someone
 touches those files — so the linter doesn't block unrelated work, but
 does catch new drift and nudges every modification toward the canonical
 classes.
+
+## 10. Ghost logo & mascot
+
+All ghost artwork shares one set of shapes. The path data (body, eyes,
+mouth, heart, sparkles) lives in exactly three fragments — **never copy
+a `d="…"` string into another template**:
+
+- `includes/ghost-core.html` — body + eyes + mouth, parameterized by `variant`
+- `includes/ghost-heart.html` — the pink heart (`pulse=True` adds the fill pulse)
+- `includes/ghost-sparkles.html` — the four sparkle circles
+
+The ghost family is grandfathered in `includes/` (not `components/`)
+because the ~30 `ghost-story-*` decorations already live there.
+
+### Variants
+
+| Include | Look | Use for | Default size |
+|---|---|---|---|
+| `ghost-logo.html` | Static body, orbiting heart, eyes follow it | Navbar / footer / inline brand | `w-7 h-7` |
+| `ghost-logo-animated.html` | Float, blink, heartbeat, sparkles (SMIL) | Loading overlay, celebrations on gradient | `w-7 h-7` |
+| `ghost-logo-hero.html` | Animated + cursor-tracked eyes/heart | Home hero **only** | `w-7 h-7` |
+| `ghost-logo-icon.html` | No animation, outline baked in | Tiny badges (`w-4`/`w-8`) — the only variant for icon sizes | `w-4 h-4` |
+| `ghost-logo-mono.html` | Single color via `currentColor`, mask-punched face | Single-color contexts (emails, watermarks) | `w-7 h-7` |
+
+`ghost-logo-hero.html` has a JS contract: the `ghostEyes` Alpine
+component (`alpine-components.js`) queries `.ghost-eye` / `.ghost-heart`
+inside the hero section and rewrites their transforms per frame. That
+markup — and the heartbeat's `additive="sum"` — is load-bearing.
+
+### Params of `ghost-core.html`
+
+- `variant` (required): `icon | static | animated | hero | mono`
+- `body_fill` (default `#FFFFFF`)
+- `no_outline`: truthy disables the baked outline. The flag is inverted
+  on purpose — Django's `|default:` replaces *falsy* values, so an
+  `outline=False` param would silently flip back to the default.
+- `uid`: id suffix for the mono mask; pass a unique value when rendering
+  more than one mono ghost per page (inline SVG ids are document-global).
+
+### Outline & glow (visibility on light surfaces)
+
+The body path carries a baked brand-purple outline
+(`stroke="#9b59b6" stroke-opacity=".45" paint-order="stroke fill"`) so
+the white ghost reads on white cards; on the purple-pink gradients it
+blends in. The hex is hardcoded (not `var(--crush-purple)`) because
+standalone pages (`oauth_landing.html`, `ghost_showcase.html`) load no
+brand CSS variables. Never add `vector-effect="non-scaling-stroke"` —
+it renders 6 *screen* pixels and swallows the icon sizes.
+
+For **large ghosts on white/light cards** (empty states, feature cards)
+additionally apply the `.ghost-glow` utility (purple drop-shadow, has a
+dark-mode variant). Never put it on gradient surfaces (navbar, hero,
+loading overlay, footer). The `ghost-story-*` decoration files stay
+untouched — glow is applied at the call site.
+
+### Do / don't
+
+- Never reference an SVG that must recolor via `<img>` — external
+  images take no page CSS (that's why `ghost-logo-icon.html` replaced
+  `static/crush_lu/svg/ghost-logo-animated.svg`, since deleted).
+- `/en/ghost-showcase/` renders every variant, including a
+  "Logo Variants & Light Surfaces" strip with white test cards.
+
+### Brand asset inventory
+
+- Favicon: `static/crush_lu/favicon.svg` (preferred) + `crush_favicon.ico`
+  (fallback), both linked in `base.html`. The SVG mirrors `ghost-core.html`
+  shapes — keep in sync; no SMIL (Firefox animates favicons).
+- PWA: maskable 192/512 icons + apple-touch set, served via the
+  `pwa_manifest` view (`views_pwa.py`).
+- Social/OG: `static/crush_lu/crush_social_preview.jpg` (1200×630), wired
+  through `SOCIAL_PREVIEW_IMAGE_URL` (settings → context processor →
+  `base.html`). To refresh, replace the jpg in place or point the env var
+  at a new image — no code change needed.

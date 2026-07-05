@@ -1,0 +1,169 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Child Safety Standards - Crush.lu" %}{% endblock %}
+{% block meta_description %}{% trans "Crush.lu Child Safety Standards — our published commitments against child sexual abuse and exploitation (CSAE), reporting mechanisms, and safety enforcement." %}{% endblock %}
+
+{% block content %}
+<div class="flex justify-center">
+    <div class="w-full max-w-3xl">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20">
+            <div class="p-8">
+                <h1 class="text-3xl font-bold dark:text-white mb-4">{% trans "Child Safety Standards" %}</h1>
+                <p class="text-muted dark:text-gray-400 mb-4"><small>{% trans "Last Updated: July 5, 2026" %}</small></p>
+
+                <!-- Table of Contents -->
+                <nav class="mb-8 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <h2 class="text-lg font-semibold dark:text-white mb-3">{% trans "Table of Contents" %}</h2>
+                    <ol class="list-decimal list-inside space-y-1 text-sm text-gray-600 dark:text-gray-300">
+                        <li><a href="#cs-commitment" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Our Commitment" %}</a></li>
+                        <li><a href="#cs-platform" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Platform Age Requirements" %}</a></li>
+                        <li><a href="#cs-prohibited" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Prohibited Content and Conduct" %}</a></li>
+                        <li><a href="#cs-prevention" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Prevention Measures" %}</a></li>
+                        <li><a href="#cs-detection" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Detection and Moderation" %}</a></li>
+                        <li><a href="#cs-reporting" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Reporting CSAE" %}</a></li>
+                        <li><a href="#cs-enforcement" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Enforcement" %}</a></li>
+                        <li><a href="#cs-contact" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "Contact" %}</a></li>
+                    </ol>
+                </nav>
+
+                <!-- 1. Commitment -->
+                <h3 id="cs-commitment">{% trans "1. Our Commitment" %}</h3>
+                <p>
+                    {% trans "Crush.lu is a verified-identity dating and social platform operating exclusively in Luxembourg. We maintain a zero-tolerance policy toward child sexual abuse and exploitation (CSAE) in any form. These standards apply to all users, content, and interactions on the Crush.lu platform, website, and mobile apps." %}
+                </p>
+                <p>
+                    {% trans "We are committed to implementing and enforcing robust safeguards to prevent our platform from being used for harm against minors, and to cooperating fully with law enforcement and child protection authorities when required." %}
+                </p>
+
+                <!-- 2. Age Requirements -->
+                <h3 id="cs-platform">{% trans "2. Platform Age Requirements" %}</h3>
+                <p>
+                    {% trans "Crush.lu is exclusively an adult platform. Participation requires:" %}
+                </p>
+                <ul>
+                    <li>{% trans "Minimum age of 18 years." %}</li>
+                    <li>{% trans "Mandatory email address verification at sign-up." %}</li>
+                    <li>{% trans "Phone number verification (SMS OTP or WhatsApp OTP) before accessing member features." %}</li>
+                    <li>
+                        {% trans "Identity verification by a Crush.lu coach at a live event, or self-service government identity verification via LuxID (the Luxembourg national digital identity service), before a profile is approved." %}
+                    </li>
+                </ul>
+                <p>
+                    {% trans "Age is verified against the self-declared date of birth during profile creation and is additionally attested for users who complete LuxID verification, which links directly to Luxembourg government identity records." %}
+                </p>
+                <p>
+                    {% trans "Profiles that cannot be verified or that present credible evidence of underage status are suspended immediately and not approved." %}
+                </p>
+
+                <!-- 3. Prohibited Content -->
+                <h3 id="cs-prohibited">{% trans "3. Prohibited Content and Conduct" %}</h3>
+                <p>{% trans "The following are strictly prohibited on Crush.lu and will result in immediate account suspension and reporting to authorities:" %}</p>
+                <ul>
+                    <li>{% trans "Any content that sexually depicts, exploits, or solicits minors (Child Sexual Abuse Material — CSAM)." %}</li>
+                    <li>{% trans "Grooming behaviour targeting minors or adults." %}</li>
+                    <li>{% trans "Solicitation or facilitation of sexual contact with minors." %}</li>
+                    <li>{% trans "Sharing, distributing, or linking to CSAM in any form." %}</li>
+                    <li>{% trans "Misrepresenting one's age or identity for the purpose of gaining access to minors." %}</li>
+                    <li>{% trans "Any attempt to circumvent age verification or identity checks." %}</li>
+                </ul>
+
+                <!-- 4. Prevention Measures -->
+                <h3 id="cs-prevention">{% trans "4. Prevention Measures" %}</h3>
+                <p>{% trans "Crush.lu implements multiple layers of prevention:" %}</p>
+                <ul>
+                    <li><strong>{% trans "Mandatory identity verification:" %}</strong> {% trans "Every member must verify their identity through a coach-facilitated in-person review or via LuxID before their profile is activated." %}</li>
+                    <li><strong>{% trans "Coach-reviewed profiles:" %}</strong> {% trans "Crush.lu coaches screen every submitted profile for authenticity, including reviewing profile photos and stated information, before approving membership." %}</li>
+                    <li><strong>{% trans "Photo upload controls:" %}</strong> {% trans "All profile photos are validated for format and authenticity and reviewed by a Crush.lu coach prior to publication." %}</li>
+                    <li><strong>{% trans "Rate-limited communication:" %}</strong> {% trans "Connection and communication features are gated behind verified and approved profile status." %}</li>
+                    <li><strong>{% trans "No anonymous browsing:" %}</strong> {% trans "All member discovery features require a fully verified and approved profile." %}</li>
+                    <li><strong>{% trans "Platform by invitation and coach-facilitation:" %}</strong> {% trans "New members are introduced to the platform through coach-facilitated events or direct invitation, adding a human layer of vetting." %}</li>
+                </ul>
+
+                <!-- 5. Detection and Moderation -->
+                <h3 id="cs-detection">{% trans "5. Detection and Moderation" %}</h3>
+                <p>{% trans "Crush.lu operates an active moderation programme:" %}</p>
+                <ul>
+                    <li>{% trans "All profile submissions are reviewed by a Crush.lu coach before activation." %}</li>
+                    <li>{% trans "Reported profiles and content are reviewed by the Crush.lu moderation team, typically within 24 hours." %}</li>
+                    <li>{% trans "Accounts that receive multiple reports or a single credible report of CSAE-related conduct are immediately suspended pending review." %}</li>
+                    <li>{% trans "Coach-mediated connections mean that member interactions occur in a structured, human-supervised context." %}</li>
+                </ul>
+
+                <!-- 6. Reporting CSAE -->
+                <h3 id="cs-reporting">{% trans "6. Reporting CSAE" %}</h3>
+                <p>
+                    {% trans "Any user or third party who encounters suspected child sexual abuse or exploitation on the Crush.lu platform is urged to report it immediately." %}
+                </p>
+
+                <h4>{% trans "Report to Crush.lu" %}</h4>
+                <ul>
+                    <li>
+                        <strong>{% trans "Safety email:" %}</strong>
+                        <a href="mailto:safety@crush.lu" class="text-purple-600 dark:text-purple-400 hover:underline">safety@crush.lu</a>
+                        {% trans "(monitored daily; urgent matters handled within 24 hours)." %}
+                    </li>
+                    <li>
+                        <strong>{% trans "In-app:" %}</strong>
+                        {% trans "Use the Report/Block function available on any member profile or connection card within the app or website." %}
+                    </li>
+                </ul>
+
+                <h4>{% trans "Report to National Authorities" %}</h4>
+                <p>{% trans "If you believe a child is in immediate danger, contact emergency services (112) immediately. You may also report to:" %}</p>
+                <ul>
+                    <li>
+                        <strong>{% trans "Luxembourg Police:" %}</strong>
+                        <a href="https://police.public.lu" class="text-purple-600 dark:text-purple-400 hover:underline" target="_blank" rel="noopener noreferrer">police.public.lu</a>
+                        — {% trans "Tel: 113" %}
+                    </li>
+                    <li>
+                        <strong>{% trans "NCMEC CyberTipline (global):" %}</strong>
+                        <a href="https://www.missingkids.org/gethelpnow/cybertipline" class="text-purple-600 dark:text-purple-400 hover:underline" target="_blank" rel="noopener noreferrer">missingkids.org/cybertipline</a>
+                    </li>
+                    <li>
+                        <strong>{% trans "IWF (Internet Watch Foundation):" %}</strong>
+                        <a href="https://www.iwf.org.uk/report/" class="text-purple-600 dark:text-purple-400 hover:underline" target="_blank" rel="noopener noreferrer">iwf.org.uk/report</a>
+                    </li>
+                    <li>
+                        <strong>{% trans "INHOPE (global hotline network):" %}</strong>
+                        <a href="https://www.inhope.org/EN/articles/reporting-to-inhope" class="text-purple-600 dark:text-purple-400 hover:underline" target="_blank" rel="noopener noreferrer">inhope.org</a>
+                    </li>
+                </ul>
+
+                <p class="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm">
+                    <strong class="text-red-700 dark:text-red-400">{% trans "Important:" %}</strong>
+                    {% trans "Crush.lu will cooperate fully with law enforcement investigations, including providing relevant data in accordance with applicable law. We do not warn suspected offenders when their account is under investigation by authorities." %}
+                </p>
+
+                <!-- 7. Enforcement -->
+                <h3 id="cs-enforcement">{% trans "7. Enforcement" %}</h3>
+                <p>{% trans "Upon receiving a credible report of CSAE-related conduct or content, Crush.lu will:" %}</p>
+                <ol>
+                    <li>{% trans "Immediately suspend the reported account." %}</li>
+                    <li>{% trans "Preserve all relevant account data and communications." %}</li>
+                    <li>{% trans "Report to the appropriate national authority and, where applicable, submit a CyberTip to NCMEC." %}</li>
+                    <li>{% trans "Permanently ban confirmed offenders and take steps to prevent re-registration." %}</li>
+                    <li>{% trans "Cooperate with any law enforcement investigation, providing data as required by applicable law." %}</li>
+                </ol>
+                <p>
+                    {% trans "Accounts suspended under this policy are not entitled to appeal while a law enforcement investigation is active." %}
+                </p>
+
+                <!-- 8. Contact -->
+                <h3 id="cs-contact">{% trans "8. Contact" %}</h3>
+                <p>{% trans "For questions about these standards, to report a concern, or to contact our designated safety officer:" %}</p>
+                <ul class="list-none">
+                    <li><strong>{% trans "Safety & Child Protection Email:" %}</strong> <a href="mailto:safety@crush.lu" class="text-purple-600 dark:text-purple-400 hover:underline">safety@crush.lu</a></li>
+                    <li><strong>{% trans "Privacy Contact:" %}</strong> <a href="mailto:privacy@crush.lu" class="text-purple-600 dark:text-purple-400 hover:underline">privacy@crush.lu</a></li>
+                    <li><strong>{% trans "Address:" %}</strong> {% trans "10 rue des Bons Malades, L-6462 Echternach, Luxembourg" %}</li>
+                </ul>
+                <p class="mt-4">
+                    {% trans "These standards were last reviewed on July 5, 2026. We review them at least annually or following material changes to our platform or applicable law." %}
+                </p>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

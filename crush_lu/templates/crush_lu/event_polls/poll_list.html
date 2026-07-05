@@ -65,7 +65,7 @@
 
         {% if not active_polls and not closed_polls %}
         <div class="text-center py-12 min-h-[55vh] flex flex-col items-center justify-center">
-            <div class="mx-auto w-40 h-40 mb-6">{% include "crush_lu/includes/ghost-story-discover.html" with class="w-full h-full" %}</div>
+            <div class="mx-auto w-40 h-40 mb-6 ghost-glow">{% include "crush_lu/includes/ghost-story-discover.html" with class="w-full h-full" %}</div>
             <h3 class="text-2xl font-semibold mb-2">{% trans "No polls yet" %}</h3>
             <p class="text-gray-500 dark:text-gray-400 mb-6">
                 {% trans "There's nothing to vote on right now. Check back soon — we'll ask for your take on upcoming events." %}

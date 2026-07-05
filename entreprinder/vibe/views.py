@@ -6,7 +6,7 @@ Vibe Coding Views - Pixel War and Games
 from django.shortcuts import render, get_object_or_404
 from django.utils.translation import gettext as _
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from datetime import timedelta

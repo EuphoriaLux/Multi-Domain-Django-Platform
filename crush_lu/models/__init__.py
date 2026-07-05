@@ -20,3 +20,4 @@ from .changelog import *
 from .notifications import *
 from .metrics import *
 from .moderation import *
+from .ios_app import *

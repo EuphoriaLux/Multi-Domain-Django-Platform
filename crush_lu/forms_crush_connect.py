@@ -165,7 +165,7 @@ class ConnectLifeForm(forms.ModelForm):
         )
         widgets = {
             "height_cm": forms.NumberInput(
-                attrs={"min": 120, "max": 230, "class": "input-crush w-full"}
+                attrs={"min": 120, "max": 230, "class": "input-crush"}
             ),
         }
 
@@ -272,7 +272,7 @@ class ConnectStoryForm(forms.ModelForm):
                 "placeholder": _(
                     "Keep it human — one sentence the right kind of person will recognise."
                 ),
-                "class": "input-crush w-full",
+                "class": "input-crush",
             }
         ),
     )
@@ -288,7 +288,7 @@ class ConnectStoryForm(forms.ModelForm):
         required=False,
         label=_("Your second answer"),
         widget=forms.Textarea(
-            attrs={"rows": 3, "maxlength": 200, "class": "input-crush w-full"}
+            attrs={"rows": 3, "maxlength": 200, "class": "input-crush"}
         ),
     )
     confirm_terms = forms.BooleanField(
@@ -296,7 +296,7 @@ class ConnectStoryForm(forms.ModelForm):
         label=_(
             "I understand my Story, first name, age range, languages, interests, "
             "the personality traits I picked and the life details I chose to share "
-            "appear on a blurred-photo card to other members and coaches, and I can "
+            "appear on my card to other members and coaches, and I can "
             "be removed from Crush Connect at any time."
         ),
     )
@@ -432,9 +432,18 @@ class ConnectGateQuestionsForm(forms.ModelForm):
         form hands the template ready-paired rows.
         """
         return [
-            {"question": q, "field": self[f"q_{q.id}"]}
+            {
+                "question": q,
+                "field": self[f"q_{q.id}"],
+                "selected": self[f"q_{q.id}"].value() in ("yes", "no"),
+            }
             for q in self.week_questions
         ]
+
+    @property
+    def selected_question_count(self):
+        """Number of rendered question rows currently answered yes/no."""
+        return sum(1 for row in self.question_rows() if row["selected"])
 
     def clean(self):
         cleaned = super().clean()

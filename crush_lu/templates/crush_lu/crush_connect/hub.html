@@ -120,35 +120,6 @@
 
     </div>
 
-    {# Experience explainers — one landing page per Connect experience. #}
-    <div class="mt-6">
-        <p class="text-xs font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2.5">
-            {% trans "Get to know Crush Connect" %}
-        </p>
-        <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            <a href="{% url 'crush_lu:crush_connect_experience' 'coach-pick' %}"
-               class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-crush-purple/50 no-underline transition-colors">
-                {% trans "Your Coach's Pick" %}
-            </a>
-            <a href="{% url 'crush_lu:crush_connect_experience' 'todays-drop' %}"
-               class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-crush-purple/50 no-underline transition-colors">
-                {% trans "Today's Drop" %}
-            </a>
-            <a href="{% url 'crush_lu:crush_connect_experience' 'read-the-photo' %}"
-               class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-crush-purple/50 no-underline transition-colors">
-                {% trans "Read the Photo" %}
-            </a>
-            <a href="{% url 'crush_lu:crush_connect_experience' 'sparks' %}"
-               class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-crush-purple/50 no-underline transition-colors">
-                {% trans "Sparks" %}
-            </a>
-            <a href="{% url 'crush_lu:crush_connect_experience' 'in-the-mix' %}"
-               class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium border-2 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-crush-purple/50 no-underline transition-colors">
-                {% trans "In the Mix" %}
-            </a>
-        </div>
-    </div>
-
     <div class="mt-5 flex items-start gap-2.5">
         {% include "shared/icons/shield-check.html" with class="w-4 h-4 text-crush-purple shrink-0 mt-0.5" %}
         <p class="text-xs leading-relaxed text-gray-500 dark:text-gray-400 mb-0">

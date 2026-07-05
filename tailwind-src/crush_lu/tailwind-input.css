@@ -112,6 +112,17 @@ html:not(.dark) {
     --color-white: #f0ecf5;
 }
 
+/* Shared UI dimensions/surfaces referenced across components.
+   --color-surface-card is TRUE white for cards that sit on the lavender
+   canvas — bg-white resolves to the tinted #f0ecf5 above, so card surfaces
+   must use this token (or a #fff literal) instead. --bottom-nav-height is the
+   mobile tab bar's height, consumed by the bar itself and by anything that
+   must clear it (e.g. bottom-anchored toasts). */
+:root {
+    --color-surface-card: #ffffff;
+    --bottom-nav-height: 56px;
+}
+
 /* =============================================================================
    GRADIENT CUSTOM PROPERTIES
    Define gradients as CSS custom properties for reusability
@@ -484,6 +495,18 @@ body.journey-bg {
         @apply cursor-not-allowed bg-gray-100 dark:bg-gray-800;
     }
 
+    /* Tailwind-era input class for hand-rolled inputs/textareas (the
+       Bootstrap-named .form-control is banned in templates by
+       test_tailwind_migration). Keep the declaration list in sync with
+       .form-control above. Selects use .form-select instead. */
+    .input-crush {
+        @apply text-crush-dark focus:ring-crush-purple w-full rounded-xl border border-gray-300 bg-white px-4 py-3 transition-all duration-200 placeholder:text-gray-400 focus:border-transparent focus:ring-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-500 dark:focus:ring-purple-400;
+    }
+
+    .input-crush:disabled {
+        @apply cursor-not-allowed bg-gray-100 dark:bg-gray-800;
+    }
+
     .form-control.is-invalid {
         @apply border-red-500 focus:ring-red-400;
     }
@@ -500,22 +523,13 @@ body.journey-bg {
         @apply mb-4;
     }
 
-    /* Select dropdown - inline form-control styles to avoid circular dep */
-    .form-select {
-        @apply text-crush-dark focus:ring-crush-purple w-full appearance-none rounded-xl border border-gray-300 bg-white bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg%20xmlns%3d%22http%3a%2f%2fwww.w3.org%2f2000%2fsvg%22%20viewBox%3d%220%200%2024%2024%22%20fill%3d%22none%22%20stroke%3d%22%236b7280%22%20stroke-width%3d%222%22%20stroke-linecap%3d%22round%22%20stroke-linejoin%3d%22round%22%3e%3cpolyline%20points%3d%226%209%2012%2015%2018%209%22%3e%3c%2fpolyline%3e%3c%2fsvg%3e')] bg-[length:1.5rem] bg-[right_0.75rem_center] bg-no-repeat px-4 py-3 pr-10 transition-all duration-200 placeholder:text-gray-400 focus:border-transparent focus:ring-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-500 dark:focus:ring-purple-400;
-    }
-
-    /*
-   * Dark mode select: revert to native appearance so the browser's
-   * color-scheme: dark renders the dropdown list with dark backgrounds.
-   * The custom SVG arrow is removed; the native arrow will show instead.
-   */
-    html.dark .form-select {
-        appearance: auto;
-        -webkit-appearance: auto;
-        background-image: none;
-        padding-right: 1rem;
-    }
+    /* Select dropdown (.form-select): styled at the BOTTOM of this file,
+       OUTSIDE @layer components. The @tailwindcss/forms plugin emits its own
+       `.form-select { background-color:#fff; border-radius:0; ... }` inside
+       @layer utilities, and layer order (components < utilities) beats any
+       selector specificity — a components-layer rule can never win, no matter
+       how qualified. Unlayered author CSS outranks every layer, so the real
+       rules live in the unlayered zone (search "Form select (unlayered)"). */
 
     /* Checkboxes and radios */
     .form-check {
@@ -10239,6 +10253,17 @@ html.dark .ghost-story-char {
     filter: drop-shadow(0 4px 16px rgba(139, 92, 246, 0.4));
 }
 
+/* Halo for ghost SVGs sitting on white/light cards (empty states, feature
+   cards). Never needed on gradient surfaces: navbar, hero, loading overlay,
+   footer. See STYLE.md "Ghost logo & mascot". */
+.ghost-glow {
+    filter: drop-shadow(0 4px 12px rgba(155, 89, 182, 0.35));
+}
+
+html.dark .ghost-glow {
+    filter: drop-shadow(0 4px 16px rgba(139, 92, 246, 0.4));
+}
+
 /* --- Scene-Specific Animations --- */
 
 /* Scene 0: Lonely ghost floating */
@@ -10543,6 +10568,15 @@ html.dark .age-range-slider-track::before {
     pointer-events: none;
     margin: 0;
     height: 6px;
+}
+
+/* Single-thumb variant (height picker): the lone input owns the whole track,
+   so it stays interactive itself (the dual-slider inputs must keep
+   pointer-events:none with thumb-only auto) and gets a taller invisible
+   hit area for touch. */
+.age-range-input-single {
+    pointer-events: auto;
+    height: 28px;
 }
 
 .age-range-input::-webkit-slider-thumb {
@@ -11057,7 +11091,7 @@ html.dark .crush-connect-cta {
         border-top: 1px solid var(--border-color, #ddd8e6);
         padding-bottom: env(safe-area-inset-bottom, 0px);
         height: auto;
-        min-height: 56px;
+        min-height: var(--bottom-nav-height, 56px);
     }
 
     /* Hide bottom nav on desktop */
@@ -11104,17 +11138,27 @@ html.dark .crush-connect-cta {
         color: #a78bfa;
     }
 
+    /* Every icon sits in a fixed 34px tile so labels stay aligned; the active
+       tab's tile fills with the brand gradient (Crush Connect design pass). */
     .bottom-nav-item svg {
-        width: 24px;
-        height: 24px;
+        width: 34px;
+        height: 34px;
+        padding: 6px;
+        border-radius: 12px;
         margin-bottom: 2px;
+        transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .bottom-nav-item-active svg {
+        background: var(--gradient-crush-primary);
+        color: #fff;
     }
 
     .bottom-nav-badge {
         position: absolute;
-        top: 2px;
+        top: 0;
         right: 50%;
-        transform: translateX(calc(50% + 10px));
+        transform: translateX(calc(50% + 15px));
         min-width: 18px;
         height: 18px;
         padding: 0 5px;
@@ -13708,5 +13752,268 @@ html.dark .coach-cta-section {
 
     .journey-icon--idle {
         @apply bg-gray-100 dark:bg-gray-700 text-gray-300 dark:text-gray-500;
+    }
+}
+
+/* ─── Form select (unlayered) ───
+   Deliberately OUTSIDE @layer: the @tailwindcss/forms plugin ships its own
+   `.form-select` reset inside @layer utilities, and layer order trumps
+   specificity — any rule inside @layer components loses to it (this is why
+   selects rendered as square white plugin-styled boxes in both themes).
+   Unlayered author CSS beats all layered styles, so these rules win cleanly.
+   Trade-off: template-level utility overrides (e.g. `form-select w-32`) also
+   lose to these declarations — keep them self-sufficient. */
+select.form-select {
+    @apply text-crush-dark focus:ring-crush-purple w-full appearance-none rounded-xl border border-gray-300 bg-white bg-[url('data:image/svg+xml;charset=UTF-8,%3csvg%20xmlns%3d%22http%3a%2f%2fwww.w3.org%2f2000%2fsvg%22%20viewBox%3d%220%200%2024%2024%22%20fill%3d%22none%22%20stroke%3d%22%236b7280%22%20stroke-width%3d%222%22%20stroke-linecap%3d%22round%22%20stroke-linejoin%3d%22round%22%3e%3cpolyline%20points%3d%226%209%2012%2015%2018%209%22%3e%3c%2fpolyline%3e%3c%2fsvg%3e')] bg-[length:1.5rem] bg-[right_0.75rem_center] bg-no-repeat px-4 py-3 pr-10 transition-all duration-200 placeholder:text-gray-400 focus:border-transparent focus:ring-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-500 dark:focus:ring-purple-400;
+}
+
+/* Dark mode select: keep the custom appearance — some engines paint the
+   CLOSED box native white with appearance:auto even under color-scheme:
+   dark — and swap in a light chevron (same SVG as the base rule, stroke
+   gray-400). The OPEN popup list still renders dark via color-scheme: dark
+   on html.dark. */
+html.dark select.form-select {
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg%20xmlns%3d%22http%3a%2f%2fwww.w3.org%2f2000%2fsvg%22%20viewBox%3d%220%200%2024%2024%22%20fill%3d%22none%22%20stroke%3d%22%239ca3af%22%20stroke-width%3d%222%22%20stroke-linecap%3d%22round%22%20stroke-linejoin%3d%22round%22%3e%3cpolyline%20points%3d%226%209%2012%2015%2018%209%22%3e%3c%2fpolyline%3e%3c%2fsvg%3e");
+}
+
+/* =============================================================================
+   CRUSH CONNECT WIZARD & PROFILE EDITOR
+   Design parity with the "Crush Connect — Onboarding & Menu" mockup.
+   The step partials are shared by the onboarding wizard and the section
+   editor (profile_edit), so these classes style both surfaces.
+
+   Structure: .connect-selectable carries the interactive states (default /
+   hover / peer-checked / disabled) shared by every option control; the
+   layout-only classes .connect-tile (emoji grid tile) and .connect-chip
+   (trait/interest pill) compose with it. Wider row-style options keep their
+   own layout utilities and just add .connect-selectable.
+   ============================================================================= */
+
+/* Focused wizard page: lavender canvas behind pure-white cards. Unlayered
+   (same pattern as body.journey-bg) so it beats the critical-CSS body bg.
+   bg-white resolves to this same #f0ecf5 in light mode, which is exactly why
+   the cards below use literal #ffffff instead of the white token. */
+body.connect-wizard {
+    background: #f0ecf5;
+}
+html.dark body.connect-wizard {
+    background: var(--bg-primary, #111827);
+}
+/* The bottom tab bar is suppressed on wizard pages; reclaim its padding. */
+body.connect-wizard main.has-bottom-nav {
+    padding-bottom: 0;
+}
+
+@layer components {
+    /* Step card: pure white on the lavender canvas, 24px radius. */
+    .connect-card {
+        background: var(--color-surface-card);
+        @apply shadow-crush-md rounded-3xl px-[18px] py-[22px] sm:p-8 dark:bg-gray-800;
+    }
+
+    /* Shared option states (design: 2px border, white fill; selected =
+       purple border on purple-10% fill with darkened purple text). The
+       general-sibling (~) combinator matches Tailwind's own peer-checked
+       semantics, so the state holds even if markup gains a sibling between
+       the hidden input and the styled element. */
+    .connect-selectable {
+        background: var(--color-surface-card);
+        @apply border-2 border-gray-200 text-gray-600 transition-all duration-150 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300;
+    }
+    .connect-selectable:hover {
+        border-color: color-mix(in srgb, var(--color-crush-purple) 50%, transparent);
+    }
+    input.peer:checked ~ .connect-selectable {
+        border-color: var(--color-crush-purple);
+        background: color-mix(in srgb, var(--color-crush-purple) 10%, transparent);
+        color: var(--color-crush-purple-dark);
+    }
+    html.dark input.peer:checked ~ .connect-selectable {
+        background: color-mix(in srgb, var(--color-crush-purple) 15%, transparent);
+        color: var(--color-purple-300);
+    }
+    input.peer:disabled ~ .connect-selectable {
+        @apply cursor-not-allowed opacity-40;
+    }
+
+    /* Emoji option tile (3-per-row grids). */
+    .connect-tile {
+        @apply flex h-full flex-col items-center justify-center gap-0.5 rounded-[14px] px-1.5 py-2.5 text-center text-[12.5px]/[1.35] font-semibold;
+    }
+
+    /* Trait / interest chip. Design pads 7px; min-h-10 guarantees a 40px tap
+       target regardless of font metrics. */
+    .connect-chip {
+        @apply inline-flex items-center rounded-full px-3.5 py-2 min-h-10 text-[12.5px] font-semibold;
+    }
+
+    /* Wizard/step card title (mockup: Fraunces 22px, tight tracking). One
+       class instead of repeating the arbitrary values in every step partial. */
+    .connect-card-title {
+        @apply font-display text-[22px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white;
+    }
+
+    /* Section label inside a step card, with the lighter "— pick up to 5"
+       suffix carried by .connect-label-hint. */
+    .connect-label {
+        @apply mb-2 block text-xs font-bold text-gray-600 dark:text-gray-300;
+    }
+    .connect-label-hint {
+        @apply font-normal text-gray-500 dark:text-gray-400;
+    }
+
+    /* Profile-wizard DOB day picker: keep a 40px tap-height floor on narrow
+       screens — min-height wins over the buttons' aspect-square sizing. */
+    [data-dob-days] > button {
+        min-height: 2.5rem;
+    }
+
+    /* Footer secondary (Back) pill: white with soft border, per design. */
+    .connect-btn-secondary {
+        background: var(--color-surface-card);
+        @apply inline-flex items-center justify-center rounded-full border-2 border-gray-200 px-[22px] py-3.5 text-sm font-bold text-gray-600 no-underline transition-colors duration-150 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300;
+    }
+    .connect-btn-secondary:hover {
+        border-color: color-mix(in srgb, var(--color-crush-purple) 50%, transparent);
+    }
+}
+
+/* =============================================================================
+   MOBILE SNACKBAR TOASTS
+   Below lg the toast container sits at the bottom of the viewport (thumb/eye
+   zone): above the home-indicator safe area for guests, above the fixed
+   bottom tab bar (56px + its safe-area padding) for signed-in members.
+   ============================================================================= */
+@layer components {
+    @media (max-width: 1023px) {
+        #toast-container {
+            padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+        }
+        #toast-container.toast-above-nav {
+            bottom: calc(
+                var(--bottom-nav-height, 56px) + env(safe-area-inset-bottom, 0px)
+            );
+            padding-bottom: 0.5rem;
+        }
+    }
+    @media (min-width: 1024px) {
+        #toast-container,
+        #toast-container.toast-above-nav {
+            padding-bottom: 0;
+        }
+    }
+}
+
+/* =============================================================================
+   CONFIRMATION SHEET (native <dialog>)
+   Bottom sheet on mobile, centered modal on lg+. Entry/exit animation uses
+   @starting-style + transition-behavior:allow-discrete — progressive
+   enhancement (Chrome 117+ / Safari 17.5+ / Firefox 129+); older engines get
+   an instant open/close. confirm-sheet.js falls back to window.confirm when
+   <dialog>.showModal is missing entirely.
+   ============================================================================= */
+@layer components {
+    .crush-confirm {
+        border: none;
+        padding: 0;
+        max-height: calc(100dvh - 2rem);
+    }
+
+    .crush-confirm::backdrop {
+        background: rgb(15 23 42 / 0.5);
+    }
+
+    @media (max-width: 1023px) {
+        .crush-confirm {
+            margin: auto 0 0; /* pin to the bottom edge */
+            width: 100%;
+            max-width: 100%;
+            border-radius: 1.25rem 1.25rem 0 0;
+        }
+    }
+    @media (min-width: 1024px) {
+        .crush-confirm {
+            margin: auto;
+            width: 100%;
+            max-width: 26rem;
+            border-radius: 1rem;
+        }
+    }
+
+    /* Accept button: brand purple by default, red when .confirm-danger is set
+       (confirm-sheet.js toggles it; danger is the default since today's
+       hx-confirm uses are all destructive). */
+    .crush-confirm [data-confirm-accept] {
+        background: var(--color-crush-purple);
+    }
+    .crush-confirm [data-confirm-accept]:hover {
+        background: var(--color-crush-purple-dark);
+    }
+    .crush-confirm.confirm-danger [data-confirm-accept] {
+        background: #dc2626;
+    }
+    .crush-confirm.confirm-danger [data-confirm-accept]:hover {
+        background: #b91c1c;
+    }
+
+    /* Lock page scroll while the sheet is open. */
+    body:has(.crush-confirm[open]) {
+        overflow: hidden;
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+        .crush-confirm,
+        .crush-confirm::backdrop {
+            transition:
+                opacity 0.25s ease,
+                transform 0.25s ease,
+                display 0.25s ease allow-discrete,
+                overlay 0.25s ease allow-discrete;
+        }
+        .crush-confirm {
+            opacity: 0;
+        }
+        .crush-confirm::backdrop {
+            opacity: 0;
+        }
+        .crush-confirm[open],
+        .crush-confirm[open]::backdrop {
+            opacity: 1;
+        }
+
+        @media (max-width: 1023px) {
+            .crush-confirm {
+                transform: translateY(100%);
+            }
+            .crush-confirm[open] {
+                transform: translateY(0);
+            }
+            @starting-style {
+                .crush-confirm[open] {
+                    opacity: 0;
+                    transform: translateY(100%);
+                }
+                .crush-confirm[open]::backdrop {
+                    opacity: 0;
+                }
+            }
+        }
+        @media (min-width: 1024px) {
+            .crush-confirm {
+                transform: scale(0.96);
+            }
+            .crush-confirm[open] {
+                transform: scale(1);
+            }
+            @starting-style {
+                .crush-confirm[open] {
+                    opacity: 0;
+                    transform: scale(0.96);
+                }
+                .crush-confirm[open]::backdrop {
+                    opacity: 0;
+                }
+            }
+        }
     }
 }

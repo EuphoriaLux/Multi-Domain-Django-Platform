@@ -11,6 +11,7 @@ Usage:
         <a href="{% url 'crush_lu:crush_connect_home' %}">Crush Connect</a>
     {% endif %}
 """
+
 from django import template
 from django.conf import settings
 
@@ -56,3 +57,64 @@ def crush_connect_nav_visible(user):
 def crush_connect_launched():
     """Raw flag accessor for templates that need it directly."""
     return getattr(settings, "CRUSH_CONNECT_LAUNCHED", False)
+
+
+# Per-option decoration for the shared _radio_tiles.html partial, keyed by the
+# field's html_name so the partial needs nothing beyond the bound field.
+# "prefer_not_say" deliberately shares one emoji across all fields so it reads
+# as a single consistent gesture everywhere (including the height opt-out pill).
+CHOICE_EMOJI = {
+    "work_field": {
+        "finance": "🏦",
+        "eu_public": "🏛️",
+        "it": "💻",
+        "health": "🩺",
+        "education": "📚",
+        "legal": "⚖️",
+        "construction": "🏗️",
+        "hospitality": "🍽️",
+        "logistics": "🚚",
+        "creative": "🎨",
+        "entrepreneur": "🚀",
+        "student": "🎓",
+        "other": "💼",
+        "prefer_not_say": "🤫",
+    },
+    "education_level": {
+        "high_school": "🏫",
+        "vocational": "🛠️",
+        "bachelor": "🎓",
+        "master": "📜",
+        "doctorate": "🔬",
+        "prefer_not_say": "🤫",
+    },
+    "smoking": {
+        "no": "🚭",
+        "occasionally": "💨",
+        "yes": "🚬",
+        "prefer_not_say": "🤫",
+    },
+    "drinking": {
+        "no": "🚱",
+        "socially": "🥂",
+        "regularly": "🍷",
+        "prefer_not_say": "🤫",
+    },
+}
+
+# Optional second line under a tile's label (lazily translated strings).
+# Empty for the life section; future adopters (e.g. lifestyle/ideal-match
+# steps) add entries here instead of passing dicts through the view.
+CHOICE_DESC = {}
+
+
+@register.filter
+def choice_emoji(field_name, value):
+    """Emoji for a choice tile: ``field.html_name|choice_emoji:value``."""
+    return CHOICE_EMOJI.get(field_name, {}).get(value, "")
+
+
+@register.filter
+def choice_desc(field_name, value):
+    """Description line for a choice tile: ``field.html_name|choice_desc:value``."""
+    return str(CHOICE_DESC.get(field_name, {}).get(value, ""))

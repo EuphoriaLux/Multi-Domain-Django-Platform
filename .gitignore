@@ -6,6 +6,7 @@ __pycache__/
 certs/
 crush-pass-key.pem
 crush-pass.csr
+.codex-pr-repo/
 
 # C extensions
 *.so
@@ -73,6 +74,8 @@ crm_plan/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+# pytest --reuse-db files (per-xdist-worker: test_db.sqlite3_gw0, ...)
+test_db.sqlite3*
 media/
 staticfiles/
 
@@ -237,3 +240,11 @@ _i18n_fz_*.txt
 
 # Local media written by tests/dev (Azure Blob storage in production)
 users/
+
+# iOS Developer Certificates and Provisioning Profiles
+mobile/ios/*.key
+mobile/ios/*.csr
+mobile/ios/*.cer
+mobile/ios/*.p12
+mobile/ios/*.mobileprovision
+mobile/ios/*.base64

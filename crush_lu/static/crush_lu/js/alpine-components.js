@@ -11683,6 +11683,119 @@ document.addEventListener("alpine:init", function () {
         };
     });
 
+    // Single-thumb height slider for Crush Connect "life" step. Optional field:
+    // "engaged" tracks whether a real cm value is submitted; the "prefer not to
+    // say" pill disengages without losing the thumb position. Only the hidden
+    // input carries name="height_cm" (server-rendered so no-JS keeps the value).
+    Alpine.data("heightSlider", function () {
+        return {
+            height: 170,
+            engaged: false,
+            absoluteMin: 120,
+            absoluteMax: 230,
+            unit: "cm",
+            labelNoAnswer: "—",
+
+            init: function () {
+                var el = this.$el;
+                var min = parseInt(el.getAttribute("data-min"), 10);
+                var max = parseInt(el.getAttribute("data-max"), 10);
+                var def = parseInt(el.getAttribute("data-default"), 10);
+                if (min) {
+                    this.absoluteMin = min;
+                }
+                if (max) {
+                    this.absoluteMax = max;
+                }
+                var unit = el.getAttribute("data-unit");
+                if (unit) {
+                    this.unit = unit;
+                }
+                var label = el.getAttribute("data-label-no-answer");
+                if (label) {
+                    this.labelNoAnswer = label;
+                }
+                var initial = parseInt(el.getAttribute("data-initial"), 10);
+                if (!isNaN(initial)) {
+                    this.height = this._clamp(initial);
+                    this.engaged = true;
+                } else {
+                    this.height = def || 170;
+                    this.engaged = false;
+                }
+            },
+
+            get isEngaged() {
+                return this.engaged;
+            },
+
+            get valueLabel() {
+                return this.engaged
+                    ? this.height + " " + this.unit
+                    : this.labelNoAnswer;
+            },
+
+            get bubbleLabel() {
+                return this.height + " " + this.unit;
+            },
+
+            get trackStyle() {
+                var pct =
+                    ((this.height - this.absoluteMin) /
+                        (this.absoluteMax - this.absoluteMin)) *
+                    100;
+                return "--range-left:0%;--range-right:" + (100 - pct) + "%";
+            },
+
+            get bubbleStyle() {
+                var pct =
+                    ((this.height - this.absoluteMin) /
+                        (this.absoluteMax - this.absoluteMin)) *
+                    100;
+                return "left:" + pct + "%";
+            },
+
+            get sliderWrapClass() {
+                return this.engaged ? "" : "opacity-40";
+            },
+
+            get noAnswerClass() {
+                return this.engaged
+                    ? "border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-crush-purple/50"
+                    : "border-crush-purple bg-crush-purple/10 text-crush-purple";
+            },
+
+            get sliderValue() {
+                return String(this.height);
+            },
+
+            get submitValue() {
+                return this.engaged ? String(this.height) : "";
+            },
+
+            engage: function () {
+                this.engaged = true;
+            },
+
+            update: function (event) {
+                var val = parseInt(event.target.value, 10);
+                if (isNaN(val)) {
+                    return;
+                }
+                this.height = this._clamp(val);
+                this.engaged = true;
+            },
+
+            clearHeight: function () {
+                this.engaged = false;
+            },
+
+            _clamp: function (v) {
+                return Math.min(this.absoluteMax, Math.max(this.absoluteMin, v));
+            },
+        };
+    });
+
     // Coach dashboard: collapsible callback list (show first 3, toggle to show all)
     Alpine.data("callbackList", function () {
         return {
@@ -13324,9 +13437,8 @@ document.addEventListener("alpine:init", function () {
     });
 
     // Step 7 "Read-the-Photo" pick step: count how many questions have a Yes/No
-    // truth chosen (skip = value ""), and once 3 are picked, disable the Yes/No
-    // radios on the not-yet-picked questions so the member can't exceed 3.
-    // Progressive enhancement — the form validates "exactly 3" server-side too.
+    // truth chosen (skip = value ""). The form validates "exactly 3"
+    // server-side; JS only keeps the counter and selected row styling live.
     Alpine.data("connectGatePicker", function () {
         return {
             max: 3,
@@ -13344,11 +13456,15 @@ document.addEventListener("alpine:init", function () {
                     if (r.checked && r.value) picked[r.name] = true;
                 });
                 this.count = Object.keys(picked).length;
-                var atCap = this.count >= this.max;
-                radios.forEach(function (r) {
-                    // Never disable the "Skip" radio (value ""); only cap the
-                    // Yes/No radios of questions not already picked.
-                    if (r.value) r.disabled = atCap && !picked[r.name];
+
+                var rows = this.$el.querySelectorAll("[data-gate-row]");
+                rows.forEach(function (row) {
+                    var selected = false;
+                    row.querySelectorAll('input[type="radio"][data-gate]').forEach(function (r) {
+                        if (r.checked && r.value) selected = true;
+                    });
+                    row.classList.toggle("border-crush-purple", selected);
+                    row.classList.toggle("bg-crush-purple/5", selected);
                 });
             },
         };

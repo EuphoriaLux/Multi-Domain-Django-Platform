@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="89 75 318 325" class="{{ class|default:'w-4 h-4' }}" aria-hidden="true">
+  {% comment %}
+  Static, non-animated ghost for tiny badge/icon usage (w-4 / w-8): SMIL is
+  invisible at 16px and this inline include picks up the baked outline, unlike
+  the old <img src="...ghost-logo-animated.svg"> which could not be restyled.
+  {% endcomment %}
+  {% include "crush_lu/includes/ghost-core.html" with variant="icon" %}
+  <!-- Heart above ghost head (static) -->
+  <g transform="translate(248,120)">
+    {% include "crush_lu/includes/ghost-heart.html" %}
+  </g>
+</svg>

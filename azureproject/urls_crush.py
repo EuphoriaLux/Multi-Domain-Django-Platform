@@ -36,7 +36,7 @@ from crush_lu.admin_views import (
     email_template_load_invitations,
     email_template_load_gifts,
 )
-from crush_lu import api_views, api_push, api_coach_push, api_pwa, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, api_admin_hybrid, api_admin_metrics, api_admin_changelog, views_crush_spark, views_checkin, api_crush_connect, views_coach, api_quiz, views_quiz, views_notifications
+from crush_lu import api_views, api_push, api_coach_push, api_pwa, api_ios_app, api_android_app, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, api_admin_hybrid, api_admin_metrics, api_admin_changelog, views_crush_spark, views_checkin, api_crush_connect, views_coach, api_quiz, views_quiz, views_notifications
 from crush_lu.wallet import passkit_service, google_callback
 from crush_lu.sitemaps import crush_sitemaps
 from crush_lu.views_seo import robots_txt, custom_404, custom_500
@@ -81,6 +81,9 @@ urlpatterns = [
     # Redirect bare allauth account pages to the styled crush.lu settings page
     path('accounts/', lambda req: redirect('/account/settings/')),
     path('accounts/email/', lambda req: redirect('/account/settings/')),
+    # Redirect allauth's generic signup to the crush.lu signup view so GDPR
+    # consent (crushlu_consent / marketing_consent) is always captured
+    path('accounts/signup/', lambda req: redirect('/signup/')),
 ] + base_patterns + api_patterns + [
     # Dev: Ghost SVG showcase (no auth needed)
     path('ghost-showcase/', TemplateView.as_view(template_name='crush_lu/ghost_showcase.html'), name='ghost_showcase'),
@@ -100,6 +103,9 @@ urlpatterns = [
     path('offline/', views.offline_view, name='pwa_offline'),
     # Android App Links verification for PWA
     path('.well-known/assetlinks.json', views.assetlinks_view, name='assetlinks'),
+    # Apple Universal Links / Associated Domains for the native iOS app
+    path('.well-known/apple-app-site-association', views.apple_app_site_association_view, name='apple_app_site_association'),
+    path('apple-app-site-association', views.apple_app_site_association_view, name='apple_app_site_association_root'),
 
     # Phone verification API (language-neutral - called by JavaScript with hardcoded paths)
     path('api/phone/mark-verified/', views_phone_verification.mark_phone_verified, name='api_phone_mark_verified'),
@@ -138,6 +144,18 @@ urlpatterns = [
 
     # PWA Device Registration API (called from pwa-detector.js)
     path('api/pwa/register-installation/', api_pwa.register_pwa_installation, name='api_pwa_register_installation'),
+
+    # Native iOS app API (WKWebView shell + APNS)
+    path('api/mobile/ios/config/', api_ios_app.ios_app_config, name='api_ios_app_config'),
+    path('api/mobile/ios/auth/handoff/', api_ios_app.ios_auth_handoff, name='api_ios_auth_handoff'),
+    path('api/mobile/ios/auth/complete/<str:code>/', api_ios_app.ios_auth_complete, name='api_ios_auth_complete'),
+    path('api/mobile/ios/devices/', api_ios_app.list_ios_devices, name='api_ios_devices'),
+    path('api/mobile/ios/devices/register/', api_ios_app.register_ios_device, name='api_ios_device_register'),
+    path('api/mobile/ios/devices/unregister/', api_ios_app.unregister_ios_device, name='api_ios_device_unregister'),
+    path('api/mobile/ios/devices/preferences/', api_ios_app.update_ios_device_preferences, name='api_ios_device_preferences'),
+    path('api/mobile/android/config/', api_android_app.android_app_config, name='api_android_app_config'),
+    path('api/mobile/android/auth/handoff/', api_android_app.android_auth_handoff, name='api_android_auth_handoff'),
+    path('api/mobile/android/auth/complete/<str:code>/', api_android_app.android_auth_complete, name='api_android_auth_complete'),
 
     # Coach Push Notifications API (called from alpine-components.js)
     path('api/coach/push/vapid-public-key/', api_coach_push.get_vapid_public_key, name='api_coach_vapid_public_key'),

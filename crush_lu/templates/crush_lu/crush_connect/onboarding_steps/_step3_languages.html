@@ -1,22 +1,22 @@
 {% load i18n %}
 {# Step 3 — Languages & interests. Peer-checked language chips + interest grid with a small Alpine 8-cap counter. Self-contained (works in the wizard and the edit page). selected_languages / selected_interest_ids come from the view. #}
-<div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-6 md:p-8 space-y-7">
+<div class="connect-card space-y-7">
     <div class="text-center">
-        <div class="text-4xl mb-2">🗣️</div>
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{% trans "Languages & interests" %}</h2>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{% trans "What you speak, and what lights you up." %}</p>
+        <div class="flex justify-center mb-2">{% include "crush_lu/includes/ghost-story-blushing-reader.html" with class="w-20 h-20" %}</div>
+        <h2 class="connect-card-title">{% trans "Languages & interests" %}</h2>
+        <p class="text-[13px] text-gray-500 dark:text-gray-400 mt-1">{% trans "What you speak, and what lights you up." %}</p>
     </div>
 
     {# --- Languages --- #}
     <div>
-        <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">{% trans "Languages you speak" %}</label>
+        <label class="connect-label">{% trans "Languages you speak" %}</label>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
             {% for value, label in form.languages.field.choices %}
             <label class="cursor-pointer block">
                 <input type="checkbox" name="languages" value="{{ value }}" class="peer hidden"
                        {% if value in selected_languages %}checked{% endif %}>
-                <div class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border-2 transition-all duration-200
-                            border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-pink-300 hover:bg-pink-50 dark:hover:bg-pink-900/30
+                <div class="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-[14px] text-sm font-medium border-2 transition-all duration-200
+                            border-gray-200 bg-[var(--color-surface-card)] dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-pink-300 hover:bg-pink-50 dark:hover:bg-pink-900/30
                             peer-checked:border-pink-500 peer-checked:bg-pink-100 dark:peer-checked:bg-pink-900/40 peer-checked:text-pink-700 dark:peer-checked:text-pink-300">
                     <span class="whitespace-nowrap">{{ label }}</span>
                 </div>
@@ -29,23 +29,20 @@
     {# --- Interests (1–8, with counter) --- #}
     <div x-data="connectOnboarding">
         <div class="flex items-center justify-between mb-2">
-            <label class="block text-sm font-semibold text-gray-900 dark:text-white">{% trans "Interests & hobbies" %}</label>
+            <label class="connect-label mb-0">{% trans "Interests & hobbies" %}</label>
             <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink"><span x-text="interestCount"></span>/8</span>
         </div>
         {% regroup form.interests.field.queryset by get_category_display as interest_groups %}
         {% for group in interest_groups %}
         <div class="mb-3">
             <div class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">{{ group.grouper }}</div>
-            <div class="flex flex-wrap gap-1.5">
+            <div class="flex flex-wrap gap-2">
                 {% for interest in group.list %}
                 <label class="cursor-pointer block">
                     <input type="checkbox" name="interests" value="{{ interest.pk }}" class="peer hidden"
                            @change="onInterestChange"
                            {% if interest.pk in selected_interest_ids %}checked{% endif %}>
-                    <span class="inline-block px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all duration-200
-                                 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200
-                                 hover:border-crush-purple/50 peer-disabled:opacity-40 peer-disabled:cursor-not-allowed
-                                 peer-checked:border-crush-purple peer-checked:bg-crush-purple/10 peer-checked:text-crush-purple">
+                    <span class="connect-selectable connect-chip">
                         {{ interest.label }}
                     </span>
                 </label>

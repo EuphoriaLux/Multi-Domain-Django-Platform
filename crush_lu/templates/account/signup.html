@@ -1,4 +1,14 @@
-{# Redirect from Allauth's /accounts/signup/ to Crush.lu's /signup/ #}
+{# Domain-aware signup template router #}
+{# Routes to appropriate signup template based on the request domain #}
+{# NOTE: signup_entreprinder.html extends entreprinder's base_account.html which uses #}
+{# entreprinder-specific context, so it can ONLY be used when the entreprinder namespace #}
+{# is registered (i.e. on entreprinder.lu) #}
+{% if 'entreprinder' in request.get_host %}
+{% include "account/signup_entreprinder.html" %}
+{% else %}
+{# Default: crush.lu (already intercepted at the URL level in urls_crush.py before this #}
+{# view/template is ever reached), plus powerup.lu, vinsdelux.com, azurewebsites.net, #}
+{# localhost, and any unknown hosts. #}
 <!DOCTYPE html>
 <html>
 <head>
@@ -9,3 +19,4 @@
     <p>Redirecting to signup...</p>
 </body>
 </html>
+{% endif %}

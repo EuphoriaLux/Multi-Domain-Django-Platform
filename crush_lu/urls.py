@@ -272,8 +272,10 @@ urlpatterns = [
     # Legal pages
     path('privacy-policy/', views.privacy_policy, name='privacy_policy'),
     path('terms-of-service/', views.terms_of_service, name='terms_of_service'),
+    path('support/', views.support, name='support'),
     path('data-deletion/', views.data_deletion_request, name='data_deletion'),
     path('data-deletion/status/', views.data_deletion_status, name='data_deletion_status'),
+    path('child-safety-standards/', views.child_safety_standards, name='child_safety_standards'),
 
     # Facebook Data Deletion Callback (required by Facebook)
     path('facebook/data-deletion/', views.facebook_data_deletion_callback, name='facebook_data_deletion'),
@@ -538,6 +540,8 @@ urlpatterns = [
     path('events/<int:event_id>/connection-actions/<int:user_id>/', views.connection_actions, name='connection_actions'),
     path('connections/', views.my_connections, name='my_connections'),
     path('connections/<int:connection_id>/', views.connection_detail, name='connection_detail'),
+    # Must precede the <str:action> catch-all below or "messages" is routed there.
+    path('connections/<int:connection_id>/messages/', views.connection_messages, name='connection_messages'),
     path('connections/<int:connection_id>/<str:action>/', views.respond_connection, name='respond_connection'),
 
     # ============================================================================

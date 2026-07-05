@@ -363,6 +363,17 @@ class TestQuizStartRotationFailure:
     must surface the failure to the host instead of activating a quiz
     with no future-round seating."""
 
+    @pytest.fixture(autouse=True)
+    def _keep_test_connection_open(self, monkeypatch):
+        """database_sync_to_async calls close_old_connections() around every
+        hop; inside pytest-django's atomic test wrapper autocommit is off, so
+        Django closes the connection mid-transaction. In-memory SQLite only
+        survives because close() is a no-op there — a file-based test DB dies
+        with "Cannot operate on a closed database"."""
+        monkeypatch.setattr(
+            "channels.db.close_old_connections", lambda *a, **kw: None
+        )
+
     def _make_consumer(self, quiz):
         """Build a QuizConsumer instance bound to ``quiz`` without
         going through WebsocketCommunicator (which pulls in daphne).

@@ -2,7 +2,7 @@
 <div id="spark-actions-{{ attendee.user.id }}">
     {% if spark %}
         <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full">
-            <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-4 h-4">
+            {% include "crush_lu/includes/ghost-logo-icon.html" with class="w-4 h-4" %}
             {% trans "Crush Spark Sent" %}
         </span>
     {% elif spark_deadline_active and sparks_remaining > 0 %}
@@ -11,7 +11,7 @@
             <button x-show="isInitial"
                     @click="showConfirm"
                     class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-full transition-colors cursor-pointer">
-                <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-4 h-4">
+                {% include "crush_lu/includes/ghost-logo-icon.html" with class="w-4 h-4" %}
                 {% trans "Send Crush Spark" %}
             </button>
 
@@ -19,7 +19,7 @@
             <div x-show="isConfirming" x-cloak
                  class="mt-1 p-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
                 <div class="flex items-center gap-2 mb-2">
-                    <img src="{% static 'crush_lu/svg/ghost-logo-animated.svg' %}" alt="" class="w-8 h-8 flex-shrink-0">
+                    {% include "crush_lu/includes/ghost-logo-icon.html" with class="w-8 h-8 flex-shrink-0" %}
                     <p class="text-xs text-amber-800 dark:text-amber-200">
                         {% trans "Send a Crush Spark? A coach will review before it proceeds." %}
                     </p>

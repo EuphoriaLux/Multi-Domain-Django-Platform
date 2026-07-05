@@ -1,0 +1,40 @@
+{% extends "crush_lu/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Support" %} - Crush.lu{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-12">
+  <div class="mb-8">
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-3">{% trans "Support" %}</h1>
+    <p class="text-gray-600 dark:text-gray-300">
+      {% trans "Need help with your account, safety tools, privacy controls, events, or profile verification? Contact the Crush.lu team." %}
+    </p>
+  </div>
+
+  <div class="grid gap-4 md:grid-cols-2">
+    <a href="mailto:support@crush.lu" class="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 hover:border-purple-300 dark:hover:border-purple-700">
+      <h2 class="font-semibold text-gray-900 dark:text-white mb-1">{% trans "General support" %}</h2>
+      <p class="text-sm text-purple-700 dark:text-purple-300">support@crush.lu</p>
+    </a>
+    <a href="mailto:privacy@crush.lu" class="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 hover:border-purple-300 dark:hover:border-purple-700">
+      <h2 class="font-semibold text-gray-900 dark:text-white mb-1">{% trans "Privacy requests" %}</h2>
+      <p class="text-sm text-purple-700 dark:text-purple-300">privacy@crush.lu</p>
+    </a>
+  </div>
+
+  <div class="mt-8 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5">
+    <h2 class="font-semibold text-gray-900 dark:text-white mb-4">{% trans "Useful links" %}</h2>
+    <div class="grid gap-3 sm:grid-cols-2">
+      <a href="{% url 'crush_lu:privacy_policy' %}" class="text-sm font-medium text-purple-700 dark:text-purple-300 hover:underline">{% trans "Privacy Policy" %}</a>
+      <a href="{% url 'crush_lu:terms_of_service' %}" class="text-sm font-medium text-purple-700 dark:text-purple-300 hover:underline">{% trans "Terms of Service" %}</a>
+      <a href="{% url 'crush_lu:data_deletion' %}" class="text-sm font-medium text-purple-700 dark:text-purple-300 hover:underline">{% trans "Data deletion" %}</a>
+      {% if request.user.is_authenticated %}
+        <a href="{% url 'crush_lu:gdpr_data_management' %}" class="text-sm font-medium text-purple-700 dark:text-purple-300 hover:underline">{% trans "Account data controls" %}</a>
+      {% else %}
+        <a href="{% url 'crush_lu:login' %}" class="text-sm font-medium text-purple-700 dark:text-purple-300 hover:underline">{% trans "Sign in for account controls" %}</a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

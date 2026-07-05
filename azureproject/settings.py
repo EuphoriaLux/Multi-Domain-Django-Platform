@@ -296,6 +296,15 @@ else:
             "NAME": BASE_DIR / "db.sqlite3",
         }
     }
+    if not os.environ.get("CI"):
+        # File-based test DB (instead of :memory:) so pytest's --reuse-db can
+        # skip replaying all migrations on every local run. pytest-xdist gives
+        # each worker its own suffixed file (test_db.sqlite3_gw0, ...). Run
+        # `pytest --create-db` after pulling new migrations or after a
+        # `-m playwright` run (transaction=True teardown flushes seeded data).
+        # CI runners are ephemeral — nothing to reuse — so they keep the
+        # faster in-memory default (GitHub Actions always sets CI=true).
+        DATABASES["default"]["TEST"] = {"NAME": BASE_DIR / "test_db.sqlite3"}
 
 
 # Password validation
@@ -319,11 +328,30 @@ AUTH_PASSWORD_VALIDATORS = [
 # In settings.py
 
 # These settings optimize the login experience.
-# SOCIALACCOUNT_LOGIN_ON_GET stays True until all templates that still use
-# `<a href="{% provider_login_url %}">` are migrated to POST forms with CSRF.
-# Flipping this to False without that migration breaks every OAuth entry point
-# (login_crush.html, auth.html, signup.html, account_settings.html,
-# entreprinder/base.html, admin login, …).
+#
+# SOCIALACCOUNT_LOGIN_ON_GET is deliberately kept True (login-CSRF finding S2,
+# issue #542). This was re-triaged rather than flipped:
+#   * The social buttons are GET-based by design across every surface — the
+#     Android-PWA path builds an `intent://` URL to hand the flow to an external
+#     browser, the popup path uses `window.open(url)`, and iOS/desktop do a plain
+#     anchor redirect (see oauth-popup.js and the inline handlers in auth.html /
+#     login_crush.html). None of these can carry a CSRF token, so a clean
+#     POST-form conversion is infeasible for the mobile flows.
+#   * Flipping to False makes allauth serve an intermediate "Continue with X"
+#     confirmation page, which adds a click to *every* social login — including
+#     the promoted one-tap LuxID hero flow ("verified instantly, no waiting").
+#   * Residual exposure is real and is NOT covered by SameSite: because the OAuth
+#     entry point is a top-level GET, SESSION_COOKIE_SAMESITE="Lax" still sends
+#     the session cookie, so a cross-site page can initiate the OAuth flow in the
+#     victim's session (login-CSRF). (Lax *does* block the cross-site POST vector
+#     — that's why it is the stated mitigation for the POST-only push endpoint in
+#     api_push.py — but it does not cover this GET flow.) Practical impact is
+#     limited (a forced OAuth *start* still needs the victim to authenticate to
+#     the attacker's provider account to cause account linking/takeover), but the
+#     vector is genuinely open until LOGIN_ON_GET is addressed.
+# Accepted risk, tracked in #542. The only mobile-compatible fix is flipping this
+# to False and accepting the interstitial; revisit that trade-off, or a POST-form
+# rebuild of the login flow, if the residual risk is deemed unacceptable.
 SOCIALACCOUNT_LOGIN_ON_GET = True
 SOCIALACCOUNT_STORE_TOKENS = True
 SOCIALACCOUNT_AUTO_SIGNUP = True
@@ -354,6 +382,47 @@ SESSION_REMEMBER_ME = True
 
 # PWA Manifest version - bump when updating icons to force cache refresh
 PWA_MANIFEST_VERSION = "v16"
+
+# Native iOS App Store wrapper settings
+IOS_APP_BUNDLE_ID = os.getenv("IOS_APP_BUNDLE_ID", "lu.crush.app")
+IOS_APP_TEAM_ID = os.getenv("IOS_APP_TEAM_ID", "C5XDPB2G33")
+IOS_APP_NAME = os.getenv("IOS_APP_NAME", "Crush.lu")
+IOS_APP_VERSION = os.getenv("IOS_APP_VERSION", "1.0.0")
+IOS_APP_BUILD = os.getenv("IOS_APP_BUILD", "1")
+IOS_APP_MIN_SUPPORTED_VERSION = os.getenv("IOS_APP_MIN_SUPPORTED_VERSION", "1.0.0")
+IOS_APP_STORE_URL = os.getenv("IOS_APP_STORE_URL", "")
+IOS_NATIVE_COMMERCE_ENABLED = _env_bool("IOS_NATIVE_COMMERCE_ENABLED", default=False)
+IOS_AUTH_CODE_TTL_SECONDS = int(os.getenv("IOS_AUTH_CODE_TTL_SECONDS", "300"))
+IOS_AUTH_REDIRECT_URIS = [
+    uri.strip()
+    for uri in os.getenv("IOS_AUTH_REDIRECT_URIS", "crushlu://auth").split(",")
+    if uri.strip()
+]
+IOS_APNS_KEY_ID = os.getenv("IOS_APNS_KEY_ID", "")
+IOS_APNS_TEAM_ID = os.getenv("IOS_APNS_TEAM_ID", IOS_APP_TEAM_ID)
+IOS_APNS_BUNDLE_ID = os.getenv("IOS_APNS_BUNDLE_ID", IOS_APP_BUNDLE_ID)
+IOS_APNS_PRIVATE_KEY = os.getenv("IOS_APNS_PRIVATE_KEY", "")
+IOS_APNS_PRIVATE_KEY_BASE64 = os.getenv("IOS_APNS_PRIVATE_KEY_BASE64", "")
+IOS_APNS_USE_SANDBOX = _env_bool("IOS_APNS_USE_SANDBOX", default=False)
+
+# Native Android Play Store wrapper settings
+ANDROID_APP_PACKAGE = os.getenv("ANDROID_APP_PACKAGE", "lu.crush.app")
+ANDROID_APP_NAME = os.getenv("ANDROID_APP_NAME", "Crush.lu")
+ANDROID_APP_VERSION = os.getenv("ANDROID_APP_VERSION", "1.0.0")
+ANDROID_APP_BUILD = os.getenv("ANDROID_APP_BUILD", "1")
+ANDROID_APP_MIN_SUPPORTED_VERSION = os.getenv("ANDROID_APP_MIN_SUPPORTED_VERSION", "1.0.0")
+ANDROID_PLAY_STORE_URL = os.getenv("ANDROID_PLAY_STORE_URL", "")
+ANDROID_NATIVE_COMMERCE_ENABLED = _env_bool("ANDROID_NATIVE_COMMERCE_ENABLED", default=False)
+ANDROID_AUTH_REDIRECT_URIS = [
+    uri.strip()
+    for uri in os.getenv("ANDROID_AUTH_REDIRECT_URIS", "crushlu://auth").split(",")
+    if uri.strip()
+]
+ANDROID_APP_SHA256_CERT_FINGERPRINTS = [
+    fingerprint.strip()
+    for fingerprint in os.getenv("ANDROID_APP_SHA256_CERT_FINGERPRINTS", "").split(",")
+    if fingerprint.strip()
+]
 
 # Wallet settings (Apple PassKit / Google Wallet)
 WALLET_APPLE_PASS_TYPE_IDENTIFIER = os.getenv("WALLET_APPLE_PASS_TYPE_IDENTIFIER", "")

@@ -38,6 +38,17 @@
     var DISMISS_ICON =
         "M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z";
 
+    // Hidden state slides down on mobile (bottom snackbar) and right on lg+
+    // (top-right stack). Keep these as full literals so the Tailwind scanner
+    // emits them.
+    var HIDDEN_CLASSES = [
+        "opacity-0",
+        "translate-y-full",
+        "lg:translate-y-0",
+        "lg:translate-x-full",
+    ];
+    var VISIBLE_CLASSES = ["opacity-100", "translate-y-0", "translate-x-0"];
+
     function getContainer() {
         return document.getElementById("toast-container");
     }
@@ -52,7 +63,9 @@
         el.setAttribute("role", "alert");
         el.setAttribute("data-toast-id", toast.id);
         el.className =
-            "pointer-events-auto max-w-sm w-full sm:w-96 rounded-lg border-2 shadow-lg p-4 transform transition ease-out duration-300 translate-x-full opacity-0 " +
+            "pointer-events-auto w-full max-w-md lg:w-96 lg:max-w-sm rounded-lg border-2 shadow-lg p-4 transform transition ease-out duration-300 motion-reduce:transition-none " +
+            HIDDEN_CLASSES.join(" ") +
+            " " +
             styles;
 
         // Inner flex row
@@ -115,8 +128,12 @@
 
         // Animate in on next frame
         requestAnimationFrame(function () {
-            el.classList.remove("translate-x-full", "opacity-0");
-            el.classList.add("translate-x-0", "opacity-100");
+            HIDDEN_CLASSES.forEach(function (c) {
+                el.classList.remove(c);
+            });
+            VISIBLE_CLASSES.forEach(function (c) {
+                el.classList.add(c);
+            });
         });
 
         return el;
@@ -130,8 +147,12 @@
         if (!el) return;
 
         // Animate out
-        el.classList.remove("translate-x-0", "opacity-100");
-        el.classList.add("translate-x-full", "opacity-0");
+        VISIBLE_CLASSES.forEach(function (c) {
+            el.classList.remove(c);
+        });
+        HIDDEN_CLASSES.forEach(function (c) {
+            el.classList.add(c);
+        });
 
         setTimeout(function () {
             if (el.parentNode) {

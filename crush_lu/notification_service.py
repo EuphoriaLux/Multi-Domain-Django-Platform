@@ -143,23 +143,42 @@ class NotificationService:
 
         # --- Push channel (independent) ---
         try:
-            from .models import PushSubscription
+            from .models import IOSAppDevice, PushSubscription
             push_filter = {f'notify_{preference_key}': True}
             push_subscriptions = PushSubscription.objects.filter(
                 user=user,
                 enabled=True,
                 **push_filter
             )
-            if push_subscriptions.exists():
+            ios_devices = IOSAppDevice.objects.filter(
+                user=user,
+                enabled=True,
+                **push_filter,
+            )
+            if push_subscriptions.exists() or ios_devices.exists():
                 result.push_attempted = True
+
+            if push_subscriptions.exists():
                 try:
                     push_result = NotificationService._send_push(user, notification_type, context)
-                    result.push_success_count = push_result.get('success', 0)
-                    result.push_failed_count = push_result.get('failed', 0)
+                    result.push_success_count += push_result.get('success', 0)
+                    result.push_failed_count += push_result.get('failed', 0)
                 except Exception as e:
                     logger.error(f"Error sending push to {user.username}: {e}")
                     result.errors.append(f"Push error: {e}")
-                    result.push_failed_count = 1
+                    result.push_failed_count += 1
+
+            if ios_devices.exists():
+                try:
+                    ios_result = NotificationService._send_ios_push(
+                        user, notification_type, context, request
+                    )
+                    result.push_success_count += ios_result.get('success', 0)
+                    result.push_failed_count += ios_result.get('failed', 0)
+                except Exception as e:
+                    logger.error(f"Error sending iOS push to {user.username}: {e}")
+                    result.errors.append(f"iOS push error: {e}")
+                    result.push_failed_count += 1
         except Exception as e:
             logger.error(f"Error checking push subscriptions: {e}")
             result.errors.append(f"Push check error: {e}")
@@ -416,6 +435,31 @@ class NotificationService:
         except Exception as e:
             logger.error(f"Push notification error for {notification_type.name}: {e}")
             return {'success': 0, 'failed': 1, 'total': 1}
+
+    @staticmethod
+    def _send_ios_push(
+        user,
+        notification_type: NotificationType,
+        context: dict,
+        request: Optional[HttpRequest],
+    ) -> dict:
+        """Send a native APNS notification using the in-app payload renderer."""
+        from . import ios_push
+
+        payload = NotificationService._render_inapp_payload(
+            user, notification_type, context, request
+        )
+        if not payload:
+            return {'success': 0, 'failed': 0, 'total': 0}
+
+        return ios_push.send_native_push_notification(
+            user=user,
+            title=payload.get("title", ""),
+            body=payload.get("body", ""),
+            url=payload.get("link_url", "/en/dashboard/"),
+            tag=notification_type.value,
+            preference_key=notification_type.preference_key,
+        ) or {'success': 0, 'failed': 0, 'total': 0}
 
     @staticmethod
     def _send_email(

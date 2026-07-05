@@ -156,9 +156,20 @@ def terms_of_service(request):
     return render(request, "crush_lu/terms_of_service.html")
 
 
+def support(request):
+    """Support page for App Store metadata and member help."""
+    return render(request, "crush_lu/support.html")
+
+
 def data_deletion_request(request):
     """Data deletion instructions page"""
     return render(request, "crush_lu/data_deletion.html")
+
+
+def child_safety_standards(request):
+    """Child safety standards page required by Google Play / app stores for apps
+    in the Dating and Social categories (CSAE policy compliance)."""
+    return render(request, "crush_lu/child_safety_standards.html")
 
 
 def crush_coach(request):

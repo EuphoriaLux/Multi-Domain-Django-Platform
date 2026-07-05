@@ -130,6 +130,11 @@ from .notifications import (
     NotificationAdmin,
 )
 
+from .ios_app import (
+    IOSAppDeviceAdmin,
+    IOSNativeAuthCodeAdmin,
+)
+
 from .preferences import (
     UserActivityAdmin,
     EmailPreferenceAdmin,
@@ -252,6 +257,8 @@ from crush_lu.models import (
     QRCodeToken,
     PushSubscription,
     CoachPushSubscription,
+    IOSAppDevice,
+    IOSNativeAuthCode,
     UserActivity,
     EmailPreference,
     ProfileReminder,
@@ -366,6 +373,8 @@ crush_admin_site.register(QRCodeToken, QRCodeTokenAdmin)
 # but we need to register them here since we're not using the decorator pattern)
 crush_admin_site.register(PushSubscription, PushSubscriptionAdmin)
 crush_admin_site.register(CoachPushSubscription, CoachPushSubscriptionAdmin)
+crush_admin_site.register(IOSAppDevice, IOSAppDeviceAdmin)
+crush_admin_site.register(IOSNativeAuthCode, IOSNativeAuthCodeAdmin)
 
 # User Activity and Preferences
 crush_admin_site.register(UserActivity, UserActivityAdmin)

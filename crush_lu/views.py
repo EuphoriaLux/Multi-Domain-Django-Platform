@@ -47,7 +47,6 @@ from .models import (
     EventConnection,
     CoachPushSubscription,
 )
-from .models.crush_connect import CrushConnectWaitlist
 from .forms import (
     CrushProfileForm,
 )
@@ -74,7 +73,9 @@ from .views_static import (  # noqa: F401
     how_it_works,
     privacy_policy,
     terms_of_service,
+    support,
     data_deletion_request,
+    child_safety_standards,
     crush_coach,
     crush_connect_teaser,
     membership_concept_preview,
@@ -127,6 +128,7 @@ from .views_connections import (  # noqa: F401
     respond_connection,
     my_connections,
     connection_detail,
+    connection_messages,
 )
 
 # Coach
@@ -213,6 +215,7 @@ from .views_pwa import (  # noqa: F401
     service_worker_view,
     manifest_view,
     assetlinks_view,
+    apple_app_site_association_view,
     pwa_debug_view,
 )
 
@@ -226,6 +229,7 @@ def _coach_card(coach, subtitle):
     first = coach.user.first_name or _("Your coach")
     return {
         "kind": "coach",
+        "coach_id": coach.id,
         "name": first,
         "subtitle": subtitle,
         "detail": coach.specializations,
@@ -362,17 +366,6 @@ def dashboard(request):
 
         coach = latest_submission.coach if latest_submission else None
 
-        # Crush Connect waitlist status
-        on_crush_connect_waitlist = False
-        crush_connect_position = None
-        crush_connect_total = CrushConnectWaitlist.objects.count()
-        try:
-            cc_entry = CrushConnectWaitlist.objects.get(user=request.user)
-            on_crush_connect_waitlist = True
-            crush_connect_position = cc_entry.waitlist_position
-        except CrushConnectWaitlist.DoesNotExist:
-            pass
-
         # Whether user has attended at least one event (event-history display)
         has_attended_event = EventRegistration.objects.filter(
             user=request.user, status="attended"
@@ -409,6 +402,11 @@ def dashboard(request):
         # virtual coach for display only. Premium shows the real coach; LuxID
         # shows a virtual LuxID coach; coach-verified shows the verifying coach.
         verifier = _build_dashboard_verifier(profile, coach, is_premium)
+        # The "Your Crush Coach" section below renders `coach` in full (bio,
+        # languages, contact CTA) — drop the verifier card when it would show
+        # the same person right above it.
+        if verifier and coach and verifier.get("coach_id") == coach.id:
+            verifier = None
 
         # Next upcoming published event (drives "attend to unlock" CTA)
         next_event = (
@@ -438,9 +436,6 @@ def dashboard(request):
             "registrations": registrations,
             "connection_count": connection_count,
             "referral_url": referral_url,
-            "on_crush_connect_waitlist": on_crush_connect_waitlist,
-            "crush_connect_position": crush_connect_position,
-            "crush_connect_total": crush_connect_total,
             "has_attended_event": has_attended_event,
             "is_premium": is_premium,
             "has_luxid_connected": has_luxid_connected,
@@ -860,9 +855,14 @@ def _render_edit_profile_form(request):
         return _edit_section_about_crushlu(request, profile)
 
     # --- Default: Card-based section list ---
+    # Crush Connect card state: unlocked once Connect onboarding is complete,
+    # locked (upsell into the teaser) otherwise. Visibility of the card itself
+    # is gated in the template via the `crush_connect_visible` filter.
+    membership = getattr(request.user, "crush_connect_membership", None)
     context = {
         "profile": profile,
         "section": section,
+        "connect_onboarded": bool(membership and membership.is_onboarded),
     }
     return render(request, "crush_lu/edit_profile.html", context)
 
