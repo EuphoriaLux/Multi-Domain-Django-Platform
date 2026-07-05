@@ -275,6 +275,7 @@ urlpatterns = [
     path('support/', views.support, name='support'),
     path('data-deletion/', views.data_deletion_request, name='data_deletion'),
     path('data-deletion/status/', views.data_deletion_status, name='data_deletion_status'),
+    path('child-safety-standards/', views.child_safety_standards, name='child_safety_standards'),
 
     # Facebook Data Deletion Callback (required by Facebook)
     path('facebook/data-deletion/', views.facebook_data_deletion_callback, name='facebook_data_deletion'),

@@ -55,6 +55,7 @@ def android_app_config(request):
                 "accountDeletion": "/en/account/gdpr/?source=android_app",
                 "notificationSettings": "/en/profile/edit/?section=account&sub=notifications&source=android_app",
                 "support": "/en/support/?source=android_app",
+                "childSafetyStandards": "/en/child-safety-standards/?source=android_app",
             },
         }
     )

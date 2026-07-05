@@ -75,6 +75,7 @@ from .views_static import (  # noqa: F401
     terms_of_service,
     support,
     data_deletion_request,
+    child_safety_standards,
     crush_coach,
     crush_connect_teaser,
     membership_concept_preview,

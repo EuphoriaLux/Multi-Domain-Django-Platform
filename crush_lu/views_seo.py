@@ -38,6 +38,7 @@ def robots_txt(request):
         "Allow: /events/",
         "Allow: /privacy-policy/",
         "Allow: /terms-of-service/",
+        "Allow: /child-safety-standards/",
         "",
         "# Block admin and private areas",
         "Disallow: /admin/",
