@@ -24,6 +24,7 @@ would leak the member's private answers.
 {% elif gate_questions %}
     <form method="post" action="{% url 'crush_lu:crush_connect_spark_compose' target.pk %}" x-data="connectGateCard" class="space-y-3">
         {% csrf_token %}
+        {% if gate_drop_id %}<input type="hidden" name="drop_id" value="{{ gate_drop_id }}">{% endif %}
         <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-0">
             {% blocktrans with name=target.first_name|default:_("them") %}Guess {{ name }}'s answers from their photo{% endblocktrans %}
         </p>
