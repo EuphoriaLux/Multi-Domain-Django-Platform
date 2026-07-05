@@ -1,13 +1,13 @@
 {% load i18n %}
 {# Step 7 — Your story. Prompt picker + one-line answer (+ optional second). Consent is shown only in the wizard (hidden/relaxed on the edit page). #}
-<div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-6 md:p-8 space-y-7"
+<div class="connect-card space-y-7"
      x-data="connectOnboarding"
      data-show-second-story="{% if form.story_answer_2.value %}true{% else %}false{% endif %}">
 
     <div class="text-center">
         <div class="text-4xl mb-2">✍️</div>
         <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{% trans "Your story" %}</h2>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+        <p class="text-[13px] text-gray-500 dark:text-gray-400 mt-1">
             {% if is_candidate_only %}
                 {% trans "This sentence is what a Premium member reads when a Crush Coach picks you as their match." %}
             {% else %}
@@ -18,7 +18,7 @@
 
     {# Primary prompt picker #}
     <fieldset class="space-y-3">
-        <legend class="text-sm font-semibold text-gray-900 dark:text-white mb-2">{{ form.story_prompt.label }}</legend>
+        <legend class="connect-label">{{ form.story_prompt.label }}</legend>
         {% for radio in form.story_prompt %}
         <label class="flex items-start gap-3 rounded-xl border border-gray-200 dark:border-slate-700 p-3 cursor-pointer hover:border-crush-purple/60 hover:bg-crush-purple/5 transition has-[:checked]:border-crush-purple has-[:checked]:bg-crush-purple/10">
             {{ radio.tag }}
@@ -30,7 +30,7 @@
 
     {# Story answer #}
     <div>
-        <label for="{{ form.story_answer.id_for_label }}" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">{{ form.story_answer.label }}</label>
+        <label for="{{ form.story_answer.id_for_label }}" class="connect-label">{{ form.story_answer.label }}</label>
         <div>
             <textarea name="{{ form.story_answer.name }}" id="{{ form.story_answer.id_for_label }}" rows="3" maxlength="200"
                       placeholder="{% trans 'Keep it human — one sentence the right kind of person will recognise.' %}"
@@ -53,7 +53,7 @@
         <div x-show="showSecondStory" x-cloak class="space-y-4 border-t border-gray-100 dark:border-gray-700 pt-4 mt-2">
             <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Give your coach an extra window into who you are." %}</p>
             <fieldset class="space-y-3">
-                <legend class="text-sm font-semibold text-gray-900 dark:text-white mb-2">{% trans "Second prompt" %}</legend>
+                <legend class="connect-label">{% trans "Second prompt" %}</legend>
                 {% for radio in form.story_prompt_2 %}
                 <label class="flex items-start gap-3 rounded-xl border border-gray-200 dark:border-slate-700 p-3 cursor-pointer hover:border-crush-purple/60 hover:bg-crush-purple/5 transition has-[:checked]:border-crush-purple has-[:checked]:bg-crush-purple/10">
                     {{ radio.tag }}
@@ -63,7 +63,7 @@
                 {% if form.story_prompt_2.errors %}<p class="text-sm text-red-600 dark:text-red-400 mt-1">{{ form.story_prompt_2.errors|join:" " }}</p>{% endif %}
             </fieldset>
             <div>
-                <label for="{{ form.story_answer_2.id_for_label }}" class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">{{ form.story_answer_2.label }}</label>
+                <label for="{{ form.story_answer_2.id_for_label }}" class="connect-label">{{ form.story_answer_2.label }}</label>
                 <textarea name="{{ form.story_answer_2.name }}" id="{{ form.story_answer_2.id_for_label }}" rows="3" maxlength="200"
                           class="input-crush">{{ form.story_answer_2.value|default_if_none:'' }}</textarea>
                 {% if form.story_answer_2.errors %}<p class="text-sm text-red-600 dark:text-red-400 mt-1">{{ form.story_answer_2.errors|join:" " }}</p>{% endif %}

@@ -53,7 +53,7 @@
 
                     <div class="mb-6">
                         <label for="note" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "What did you talk about?" %}</label>
-                        <textarea class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                        <textarea class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                                   id="note"
                                   name="note"
                                   rows="4"
@@ -62,9 +62,9 @@
                         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{% trans "Optional - helps jog their memory" %}</p>
                     </div>
 
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                        <h6 class="font-medium text-blue-800 mb-2">{% include "shared/icons/information-circle.html" with class="w-5 h-5" %} {% trans "What happens next?" %}</h6>
-                        <ul class="text-sm text-blue-700 space-y-1 list-disc list-inside">
+                    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+                        <h6 class="font-medium text-blue-800 dark:text-blue-200 mb-2">{% include "shared/icons/information-circle.html" with class="w-5 h-5" %} {% trans "What happens next?" %}</h6>
+                        <ul class="text-sm text-blue-700 dark:text-blue-300 space-y-1 list-disc list-inside">
                             <li>{% blocktrans with name=recipient.crushprofile.display_name %}{{ name }} will be notified of your request{% endblocktrans %}</li>
                             <li>{% trans "If they accept (or already requested you!), a Crush Coach will facilitate" %}</li>
                             <li>{% trans "You'll both need to consent before contact info is shared" %}</li>

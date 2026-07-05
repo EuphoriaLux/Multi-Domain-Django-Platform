@@ -6,7 +6,6 @@ Dashboard views for cost management and analytics.
 """
 
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.http import JsonResponse
@@ -37,6 +36,7 @@ def _build_json_config(page, **kwargs):
     return json.dumps(config, cls=DjangoJSONEncoder)
 
 
+@staff_member_required
 def dashboard(request):
     """Main FinOps dashboard with cost overview and filtering"""
     subscription_filter = request.GET.get('subscription')
@@ -270,6 +270,7 @@ def dashboard(request):
     return render(request, 'finops/dashboard.html', context)
 
 
+@staff_member_required
 def subscription_view(request):
     """Multi-subscription cost comparison view"""
     date_info = resolve_date_range(request.GET)
@@ -305,6 +306,7 @@ def subscription_view(request):
     return render(request, 'finops/subscription_view.html', context)
 
 
+@staff_member_required
 def service_breakdown(request):
     """Service-level cost breakdown"""
     date_info = resolve_date_range(request.GET)
@@ -356,6 +358,7 @@ def service_breakdown(request):
     return render(request, 'finops/service_breakdown.html', context)
 
 
+@staff_member_required
 def resource_explorer(request):
     """Resource-level cost explorer"""
     date_info = resolve_date_range(request.GET)
@@ -466,6 +469,7 @@ def update_subscription_id(request, export_id):
     return render(request, 'finops/update_subscription_id.html', context)
 
 
+@staff_member_required
 def faq(request):
     """FAQ page explaining data flow, updates, and Azure export configuration"""
     latest_export = CostExport.objects.filter(
@@ -486,6 +490,7 @@ def faq(request):
     return render(request, 'finops/faq.html', context)
 
 
+@staff_member_required
 def anomalies_view(request):
     """Cost anomalies dashboard"""
     days = int(request.GET.get('days', 30))
@@ -520,6 +525,7 @@ def anomalies_view(request):
     return render(request, 'finops/anomalies.html', context)
 
 
+@staff_member_required
 def forecast_view(request):
     """Cost forecast dashboard"""
     from power_up.finops.models import CostForecast
@@ -599,6 +605,7 @@ def forecast_view(request):
     return render(request, 'finops/forecast.html', context)
 
 
+@staff_member_required
 def comparison_view(request):
     """Month-over-month cost comparison"""
     # Get available months
@@ -711,6 +718,7 @@ def comparison_view(request):
     return render(request, 'finops/comparison.html', context)
 
 
+@staff_member_required
 def resource_group_view(request):
     """Resource group cost breakdown"""
     date_info = resolve_date_range(request.GET)

@@ -128,6 +128,7 @@ from .views_connections import (  # noqa: F401
     respond_connection,
     my_connections,
     connection_detail,
+    connection_messages,
 )
 
 # Coach

@@ -1,0 +1,31 @@
+{% load i18n %}
+{% comment %}
+App-style confirmation dialog: a native <dialog> rendered as a bottom sheet on
+mobile and a centered modal on lg+. confirm-sheet.js opens it for every HTMX
+hx-confirm (replacing the browser's window.confirm) and exposes
+window.crushConfirm(message, {style, confirmLabel}) -> Promise<boolean> for
+vanilla JS callers. Buttons on the triggering element may customize it via
+data-confirm-style="neutral" and data-confirm-label="...".
+showModal() provides the focus trap, Esc handling and focus restore.
+{% endcomment %}
+<dialog id="crush-confirm-dialog"
+        class="crush-confirm confirm-danger bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-2xl"
+        aria-labelledby="crush-confirm-message">
+    <div class="px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] lg:p-6">
+        <div class="mx-auto mb-3 h-1.5 w-10 rounded-full bg-gray-300 dark:bg-gray-600 lg:hidden" aria-hidden="true"></div>
+        <p id="crush-confirm-message" data-confirm-message
+           class="text-base font-medium text-gray-900 dark:text-white mb-5"></p>
+        <div class="flex flex-col-reverse gap-2 lg:flex-row lg:justify-end">
+            <button type="button" data-confirm-cancel autofocus
+                    class="min-h-11 px-4 py-2.5 rounded-full border-2 border-gray-200 dark:border-gray-600
+                           text-gray-700 dark:text-gray-200 font-semibold text-sm
+                           hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                {% trans "Cancel" %}
+            </button>
+            <button type="button" data-confirm-accept
+                    class="min-h-11 px-5 py-2.5 rounded-full font-semibold text-sm text-white transition-colors">
+                {% trans "Confirm" %}
+            </button>
+        </div>
+    </div>
+</dialog>

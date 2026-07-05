@@ -540,6 +540,8 @@ urlpatterns = [
     path('events/<int:event_id>/connection-actions/<int:user_id>/', views.connection_actions, name='connection_actions'),
     path('connections/', views.my_connections, name='my_connections'),
     path('connections/<int:connection_id>/', views.connection_detail, name='connection_detail'),
+    # Must precede the <str:action> catch-all below or "messages" is routed there.
+    path('connections/<int:connection_id>/messages/', views.connection_messages, name='connection_messages'),
     path('connections/<int:connection_id>/<str:action>/', views.respond_connection, name='respond_connection'),
 
     # ============================================================================

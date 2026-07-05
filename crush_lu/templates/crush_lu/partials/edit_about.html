@@ -120,12 +120,12 @@
                         {% include cat.ghost_include with class="w-5 h-5" %}
                         <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{{ cat.label }}</span>
                     </div>
-                    <div class="flex flex-wrap gap-1.5">
+                    <div class="flex flex-wrap gap-2">
                         {% for trait in cat.traits %}
                         <button type="button"
                                 data-trait-id="{{ trait.pk }}"
                                 @click="handleClick"
-                                class="px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all duration-200
+                                class="px-3.5 py-2 min-h-10 rounded-full text-sm font-medium border-2 transition-all duration-200
                                        border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200">
                             {{ trait.label }}
                         </button>
@@ -156,12 +156,12 @@
                         {% include cat.ghost_include with class="w-5 h-5" %}
                         <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{{ cat.label }}</span>
                     </div>
-                    <div class="flex flex-wrap gap-1.5">
+                    <div class="flex flex-wrap gap-2">
                         {% for trait in cat.traits %}
                         <button type="button"
                                 data-trait-id="{{ trait.pk }}"
                                 @click="handleClick"
-                                class="px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all duration-200
+                                class="px-3.5 py-2 min-h-10 rounded-full text-sm font-medium border-2 transition-all duration-200
                                        border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200">
                             {{ trait.label }}
                         </button>
