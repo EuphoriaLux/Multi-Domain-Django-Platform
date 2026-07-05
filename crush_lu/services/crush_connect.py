@@ -53,15 +53,15 @@ NEW_MEMBER_BOOST_WINDOW_DAYS = 30
 # Soft-signal boosts for Drop selection (all multiplicative and >= 1.0, so they
 # only ever lift a candidate, never zero them out). Gender/age stay the only
 # HARD filters (in get_eligible_pool); everything here just reweights the pool.
-SHARED_LANGUAGE_BOOST = 1.3          # any overlap in spoken languages
-INTEREST_OVERLAP_BOOST_PER = 0.1     # per shared interest …
-INTEREST_OVERLAP_CAP = 3             # … capped at 3 shared → max ×1.3
-MATCHSCORE_NEUTRAL = 0.5             # missing MatchScore pair → neutral 0.5
+SHARED_LANGUAGE_BOOST = 1.3  # any overlap in spoken languages
+INTEREST_OVERLAP_BOOST_PER = 0.1  # per shared interest …
+INTEREST_OVERLAP_CAP = 3  # … capped at 3 shared → max ×1.3
+MATCHSCORE_NEUTRAL = 0.5  # missing MatchScore pair → neutral 0.5
 
 # "Read-the-Photo" question-gated matching (M8/M9).
-GATE_QUESTION_COUNT = 3              # each member picks exactly 3 gate questions
-GATE_ALIGN_MIN = 2                   # ≥2 of 3 guesses matching truth = "read" them
-WEEKLY_CATALOGUE_SIZE = 12           # active questions surfaced in a week's set
+GATE_QUESTION_COUNT = 3  # each member picks exactly 3 gate questions
+GATE_ALIGN_MIN = 2  # ≥2 of 3 guesses matching truth = "read" them
+WEEKLY_CATALOGUE_SIZE = 12  # active questions surfaced in a week's set
 
 
 def _years_ago(years: int) -> date:
@@ -86,7 +86,7 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
     gender-preference step below — point lookups ("is X in the pool?") must use
     it, otherwise the whole pool is materialized just to check one row.
     """
-    from crush_lu.models import CrushProfile, EventConnection, EventRegistration
+    from crush_lu.models import CrushProfile, EventConnection
     from crush_lu.services.blocking import block_exists_subquery
 
     # --- Requester self-eligibility -----------------------------------------
@@ -165,13 +165,13 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
         # all supported versions. Evaluate in Python after select_related has
         # already loaded crush_connect_membership — no extra per-row queries.
         eligible_pks = [
-            u.pk for u in qs
+            u.pk
+            for u in qs
             if not u.crush_connect_membership.preferred_genders
             or gender in u.crush_connect_membership.preferred_genders
         ]
-        qs = (
-            User.objects.filter(pk__in=eligible_pks)
-            .select_related("crushprofile", "crush_connect_membership")
+        qs = User.objects.filter(pk__in=eligible_pks).select_related(
+            "crushprofile", "crush_connect_membership"
         )
 
     # --- Mutual age range ----------------------------------------------------
@@ -242,20 +242,33 @@ def _weight_for(
     match_score = match_scores.get(candidate.pk, MATCHSCORE_NEUTRAL)
 
     cand_languages = frozenset(membership.languages or [])
-    language_boost = SHARED_LANGUAGE_BOOST if (viewer_languages & cand_languages) else 1.0
+    language_boost = (
+        SHARED_LANGUAGE_BOOST if (viewer_languages & cand_languages) else 1.0
+    )
 
-    cand_interest_ids = frozenset(i.pk for i in membership.interests.all())  # prefetched
+    cand_interest_ids = frozenset(
+        i.pk for i in membership.interests.all()
+    )  # prefetched
     overlap = len(viewer_interest_ids & cand_interest_ids)
-    interest_boost = 1.0 + INTEREST_OVERLAP_BOOST_PER * min(overlap, INTEREST_OVERLAP_CAP)
+    interest_boost = 1.0 + INTEREST_OVERLAP_BOOST_PER * min(
+        overlap, INTEREST_OVERLAP_CAP
+    )
 
-    days_since_onboarding = (today - timezone.localtime(membership.onboarded_at).date()).days
+    days_since_onboarding = (
+        today - timezone.localtime(membership.onboarded_at).date()
+    ).days
     new_member_boost = (
         NEW_MEMBER_BOOST
         if 0 <= days_since_onboarding <= NEW_MEMBER_BOOST_WINDOW_DAYS
         else 1.0
     )
 
-    return (MATCHSCORE_NEUTRAL + match_score) * language_boost * interest_boost * new_member_boost
+    return (
+        (MATCHSCORE_NEUTRAL + match_score)
+        * language_boost
+        * interest_boost
+        * new_member_boost
+    )
 
 
 def _seeded_weighted_pick(
@@ -385,6 +398,7 @@ def get_or_create_daily_drop(user, drop_date: date | None = None):
             drop.recipients.set(chosen)
     return drop
 
+
 # ---------------------------------------------------------------------------
 # Weekly question rotation (M8)
 # ---------------------------------------------------------------------------
@@ -420,9 +434,7 @@ def get_or_create_question_week(today: date | None = None):
             hashlib.sha256(f"qweek:{iso_year}:{iso_week}".encode()).digest()[:8],
             "big",
         )
-        chosen = _seeded_weighted_pick(
-            candidates, weights, WEEKLY_CATALOGUE_SIZE, seed
-        )
+        chosen = _seeded_weighted_pick(candidates, weights, WEEKLY_CATALOGUE_SIZE, seed)
 
     with transaction.atomic():
         week, _created = ConnectQuestionWeek.objects.get_or_create(
@@ -470,9 +482,7 @@ def is_catalogue_eligible(user) -> bool:
     """
     profile = getattr(user, "crushprofile", None)
     membership = getattr(user, "crush_connect_membership", None)
-    inactivity_cutoff = timezone.now() - timedelta(
-        days=CONNECT_INACTIVITY_WINDOW_DAYS
-    )
+    inactivity_cutoff = timezone.now() - timedelta(days=CONNECT_INACTIVITY_WINDOW_DAYS)
     return bool(
         profile is not None
         and profile.verification_status == "verified"
@@ -544,14 +554,11 @@ def can_send_spark(sender, recipient) -> Tuple[bool, str]:
     if not is_catalogue_eligible(recipient):
         return False, "recipient_unavailable"
 
-    if not ConnectDailyDrop.objects.filter(
-        user=sender, recipients=recipient
-    ).exists():
+    if not ConnectDailyDrop.objects.filter(user=sender, recipients=recipient).exists():
         return False, "not_surfaced"
 
     existing = CuriositySpark.objects.filter(
-        Q(sender=sender, recipient=recipient)
-        | Q(sender=recipient, recipient=sender)
+        Q(sender=sender, recipient=recipient) | Q(sender=recipient, recipient=sender)
     ).first()
     if existing is not None:
         # A reverse pending Spark means the recipient already read the sender and
@@ -564,7 +571,7 @@ def can_send_spark(sender, recipient) -> Tuple[bool, str]:
     return True, "ok"
 
 
-def send_spark(sender, recipient, message: str = "", request=None):
+def send_spark(sender, recipient, message: str = "", request=None, drop=None):
     """
     Create a Curiosity Spark and notify the recipient (in-app + email).
 
@@ -577,11 +584,12 @@ def send_spark(sender, recipient, message: str = "", request=None):
     if not allowed:
         raise ValueError(reason)
 
-    drop = (
-        ConnectDailyDrop.objects.filter(user=sender, recipients=recipient)
-        .order_by("-drop_date")
-        .first()
-    )
+    if drop is None:
+        drop = (
+            ConnectDailyDrop.objects.filter(user=sender, recipients=recipient)
+            .order_by("-drop_date")
+            .first()
+        )
     spark = CuriositySpark.objects.create(
         sender=sender,
         recipient=recipient,
@@ -608,8 +616,7 @@ def respond_to_spark(spark, accept: bool, request=None):
     if accept and (
         is_blocked_pair(spark.sender, spark.recipient)
         or not (
-            is_catalogue_eligible(spark.recipient)
-            and is_sender_eligible(spark.sender)
+            is_catalogue_eligible(spark.recipient) and is_sender_eligible(spark.sender)
         )
     ):
         # Either party lost eligibility since the Spark was created
@@ -636,9 +643,7 @@ def owner_gate_truths(profile_owner) -> dict:
     membership = getattr(profile_owner, "crush_connect_membership", None)
     if membership is None:
         return {}
-    return {
-        gq.question_id: gq.owner_answer for gq in membership.gate_questions.all()
-    }
+    return {gq.question_id: gq.owner_answer for gq in membership.gate_questions.all()}
 
 
 def alignment_score(responder, profile_owner) -> int:
@@ -662,7 +667,13 @@ def alignment_score(responder, profile_owner) -> int:
     return sum(1 for qid, ans in guesses if truths.get(qid) == ans)
 
 
-def submit_gate_answers(responder, profile_owner, guesses: dict, request=None):
+def submit_gate_answers(
+    responder,
+    profile_owner,
+    guesses: dict,
+    request=None,
+    drop_id=None,
+):
     """
     Record ``responder``'s guesses at ``profile_owner``'s 3 questions and advance
     the match gate. ``guesses`` is ``{question_id: bool}``.
@@ -684,7 +695,7 @@ def submit_gate_answers(responder, profile_owner, guesses: dict, request=None):
     Raises ``ValueError(reason)`` when the guess set is invalid or the pair may
     not interact.
     """
-    from crush_lu.models import ConnectQuestionAnswer, CuriositySpark
+    from crush_lu.models import ConnectDailyDrop, ConnectQuestionAnswer, CuriositySpark
     from crush_lu.services.blocking import is_blocked_pair
 
     truths = owner_gate_truths(profile_owner)
@@ -701,6 +712,7 @@ def submit_gate_answers(responder, profile_owner, guesses: dict, request=None):
         sender=profile_owner, recipient=responder
     ).first()
     answering_back = reverse is not None and reverse.status == "pending"
+    surfacing_drop = None
 
     if answering_back:
         # Recipient of an existing Spark reading the sender back. Catalogue
@@ -721,46 +733,95 @@ def submit_gate_answers(responder, profile_owner, guesses: dict, request=None):
         # before the question step have none until they redo it.
         if len(owner_gate_truths(responder)) < GATE_QUESTION_COUNT:
             raise ValueError("no_own_questions")
+        # One read per Drop: the rendered form carries its originating Drop id
+        # so a stale tab cannot spend a newer Drop that also contains this target.
+        if drop_id in (None, ""):
+            surfacing_drop = (
+                ConnectDailyDrop.objects.filter(
+                    user=responder, recipients=profile_owner
+                )
+                .order_by("-drop_date")
+                .first()
+            )
+        else:
+            try:
+                clean_drop_id = int(drop_id)
+            except (TypeError, ValueError):
+                raise ValueError("not_surfaced") from None
+            surfacing_drop = ConnectDailyDrop.objects.filter(
+                pk=clean_drop_id,
+                user=responder,
+                recipients=profile_owner,
+            ).first()
+            if surfacing_drop is None:
+                raise ValueError("not_surfaced")
+        if (
+            surfacing_drop is not None
+            and surfacing_drop.read_target_id
+            and surfacing_drop.read_target_id != profile_owner.pk
+        ):
+            raise ValueError("drop_read_used")
     # else: forward Spark already exists → idempotent re-POST, no re-gating.
 
-    # Record the 3 guesses (idempotent on the unique constraint). Always recorded
-    # — even a miss counts toward the owner's anonymous aggregate stat.
-    ConnectQuestionAnswer.objects.bulk_create(
-        [
-            ConnectQuestionAnswer(
-                responder=responder,
-                profile_owner=profile_owner,
-                question_id=qid,
-                answer=bool(val),
-            )
-            for qid, val in guesses.items()
-        ],
-        ignore_conflicts=True,
-    )
+    with transaction.atomic():
+        # Record the 3 guesses (idempotent on the unique constraint). Always
+        # recorded — even a miss counts toward the owner's anonymous aggregate
+        # stat, unless this transaction loses the Drop-read claim below.
+        ConnectQuestionAnswer.objects.bulk_create(
+            [
+                ConnectQuestionAnswer(
+                    responder=responder,
+                    profile_owner=profile_owner,
+                    question_id=qid,
+                    answer=bool(val),
+                )
+                for qid, val in guesses.items()
+            ],
+            ignore_conflicts=True,
+        )
 
-    # Score against the PERSISTED guesses (the first ones — the unique constraint
-    # locks them in), so a re-POST with better answers can't retry a missed read.
-    alignment = alignment_score(responder, profile_owner)
+        # Consume the Drop's one read (first-mover only). The isnull filter makes
+        # first-write-win under concurrent submissions; a losing request for a
+        # different card aborts before scoring or sending a Spark.
+        if surfacing_drop is not None:
+            claimed = ConnectDailyDrop.objects.filter(
+                pk=surfacing_drop.pk, read_target__isnull=True
+            ).update(read_target_id=profile_owner.pk, read_at=timezone.now())
+            if not claimed:
+                read_target_id = (
+                    ConnectDailyDrop.objects.filter(pk=surfacing_drop.pk)
+                    .values_list("read_target_id", flat=True)
+                    .first()
+                )
+                if read_target_id != profile_owner.pk:
+                    raise ValueError("drop_read_used")
 
-    if answering_back:
-        if alignment >= GATE_ALIGN_MIN:
-            respond_to_spark(reverse, accept=True, request=request)
-            return "matched", reverse
-        # Answered back but misread — no match; the Spark stays pending, silent.
-        return "miss", reverse
+        # Score against the PERSISTED guesses (the first ones — the unique
+        # constraint locks them in), so a re-POST with better answers can't retry
+        # a missed read.
+        alignment = alignment_score(responder, profile_owner)
 
-    if forward is not None:
-        # Idempotent re-POST after a prior read: report the pair's current state.
-        return ("matched" if forward.status == "accepted" else "sent"), forward
+        if answering_back:
+            if alignment >= GATE_ALIGN_MIN:
+                respond_to_spark(reverse, accept=True, request=request)
+                return "matched", reverse
+            # Answered back but misread — no match; the Spark stays pending, silent.
+            return "miss", reverse
 
-    if alignment < GATE_ALIGN_MIN:
-        # Silent miss — the first mover didn't read the owner well enough to reach
-        # out. No Spark, no notification; guesses still feed the stat.
-        return "miss", None
+        if forward is not None:
+            # Idempotent re-POST after a prior read: report the pair's current state.
+            return ("matched" if forward.status == "accepted" else "sent"), forward
 
-    # First mover clears the bar → open a pending Spark toward the owner.
-    spark = send_spark(responder, profile_owner, request=request)
-    return "sent", spark
+        if alignment < GATE_ALIGN_MIN:
+            # Silent miss — the first mover didn't read the owner well enough to reach
+            # out. No Spark, no notification; guesses still feed the stat.
+            return "miss", None
+
+        # First mover clears the bar → open a pending Spark toward the owner.
+        spark = send_spark(
+            responder, profile_owner, request=request, drop=surfacing_drop
+        )
+        return "sent", spark
 
 
 def gate_answer_stats(user) -> dict:
@@ -853,6 +914,7 @@ def _notify_spark_accepted(spark, request=None):
 
             logging.getLogger(__name__).exception("Spark-accepted email failed")
 
+
 # ---------------------------------------------------------------------------
 # Coach Picks (M7) — the coach-curated match proposal
 # ---------------------------------------------------------------------------
@@ -925,7 +987,9 @@ def propose_coach_pick(coach, member, candidate, note: str = ""):
             user=member,
             notification_type="connect_coach_pick",
             title=_g("Your Crush Coach picked a match for you"),
-            body=_g("Take a look and decide — accept and your coach arranges the date."),
+            body=_g(
+                "Take a look and decide — accept and your coach arranges the date."
+            ),
             link_url=reverse("crush_lu:crush_connect_home"),
             metadata={"pick_id": pick.pk},
         )
@@ -944,8 +1008,7 @@ def respond_to_coach_pick(pick, accept: bool):
         return pick
     member_profile = getattr(pick.member, "crushprofile", None)
     coach_is_current = (
-        member_profile is not None
-        and pick.coach_id == member_profile.assigned_coach_id
+        member_profile is not None and pick.coach_id == member_profile.assigned_coach_id
     )
     if accept and not (
         is_sender_eligible(pick.member)

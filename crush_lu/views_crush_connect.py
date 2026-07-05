@@ -20,7 +20,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.utils.translation import ngettext
 
-from crush_lu.decorators import crush_login_required
+from crush_lu.decorators import coach_required, crush_login_required
 from crush_lu.email_helpers import send_crush_connect_catalogue_welcome
 from crush_lu.models import CrushConnectMembership, CrushProfile
 from crush_lu.onboarding_connect import (
@@ -34,7 +34,6 @@ from crush_lu.onboarding_connect import (
     step_for_key,
 )
 from crush_lu.services import get_or_create_daily_drop
-
 
 User = get_user_model()
 
@@ -355,9 +354,13 @@ def crush_connect_onboarding_step(request, step: int):
             if step == TOTAL_STEPS:
                 obj.onboarded_at = timezone.now()
                 obj.onboarding_step = TOTAL_STEPS
-                obj.save(update_fields=[
-                    "onboarded_at", "onboarding_step", "onboarding_started_at",
-                ])
+                obj.save(
+                    update_fields=[
+                        "onboarded_at",
+                        "onboarding_step",
+                        "onboarding_started_at",
+                    ]
+                )
                 _emit_onboarding_complete(request, done_url)
                 # Member is now in the pool — score them against other members so
                 # their first Drop (and theirs in others') reflects their traits.
@@ -397,7 +400,9 @@ def crush_connect_onboarding_step(request, step: int):
                 initial["preferred_age_max"] = profile.preferred_age_max
         form = form_class(instance=membership, initial=initial)
 
-    is_receiver = _user_is_connect_receiver_eligible(request.user) or request.user.is_staff
+    is_receiver = (
+        _user_is_connect_receiver_eligible(request.user) or request.user.is_staff
+    )
     context = {
         "form": form,
         "membership": membership,
@@ -760,6 +765,9 @@ def crush_connect_home(request):
         "recipients": recipients,
         "answered_ids": answered_ids,
         "sparked_ids": sparked_ids,
+        # One read per Drop: who consumed it (None = still open). Cards for
+        # anyone else render locked instead of showing the answer gate.
+        "drop_read_target_id": drop.read_target_id if drop else None,
         "next_drop_at": _next_drop_at(),
         "is_staff_preview": user.is_staff
         and (
@@ -769,6 +777,7 @@ def crush_connect_home(request):
         ),
     }
     return render(request, "crush_lu/crush_connect/home.html", context)
+
 
 # ---------------------------------------------------------------------------
 # Curiosity Sparks (M5)
@@ -814,6 +823,7 @@ def crush_connect_spark_compose(request, user_id: int):
     answering_back = CuriositySpark.objects.filter(
         sender=target, recipient=user, status="pending"
     ).exists()
+    surfacing_drop = None
 
     if answering_back:
         if not user.is_staff and not is_catalogue_eligible(user):
@@ -838,9 +848,7 @@ def crush_connect_spark_compose(request, user_id: int):
             if reason == "not_receiver":
                 return redirect("crush_lu:crush_connect_teaser")
             # not_surfaced / recipient_unavailable — don't leak details
-            messages.info(
-                request, _("This member isn't available right now.")
-            )
+            messages.info(request, _("This member isn't available right now."))
             return redirect("crush_lu:crush_connect_home")
         # First movers must have their OWN 3 questions so the target can answer
         # back — otherwise the Spark is unmatchable. Send them to set them up
@@ -856,6 +864,42 @@ def crush_connect_spark_compose(request, user_id: int):
             return redirect(
                 reverse("crush_lu:crush_connect_profile_edit") + "?section=questions"
             )
+        # One read per Drop: once they answered ONE card from the Drop that
+        # surfaced this target, the other cards are locked until the next Drop.
+        from crush_lu.models import ConnectDailyDrop
+
+        posted_drop_id = (
+            request.POST.get("drop_id") if request.method == "POST" else None
+        )
+        if posted_drop_id:
+            try:
+                clean_drop_id = int(posted_drop_id)
+            except (TypeError, ValueError):
+                surfacing_drop = None
+            else:
+                surfacing_drop = ConnectDailyDrop.objects.filter(
+                    pk=clean_drop_id,
+                    user=user,
+                    recipients=target,
+                ).first()
+        else:
+            surfacing_drop = (
+                ConnectDailyDrop.objects.filter(user=user, recipients=target)
+                .order_by("-drop_date")
+                .first()
+            )
+        if (
+            surfacing_drop is not None
+            and surfacing_drop.read_target_id
+            and surfacing_drop.read_target_id != target.pk
+        ):
+            messages.info(
+                request,
+                _(
+                    "You've already read someone from this Drop — your next Drop arrives tomorrow."
+                ),
+            )
+            return redirect("crush_lu:crush_connect_home")
 
     membership = getattr(target, "crush_connect_membership", None)
     gate_questions = list(membership.active_gate_questions) if membership else []
@@ -875,15 +919,31 @@ def crush_connect_spark_compose(request, user_id: int):
             guesses[gq.question_id] = raw == "yes"
 
         try:
-            outcome, _spark = submit_gate_answers(user, target, guesses, request=request)
-        except ValueError:
-            messages.info(request, _("This member isn't available right now."))
+            outcome, _spark = submit_gate_answers(
+                user,
+                target,
+                guesses,
+                request=request,
+                drop_id=request.POST.get("drop_id"),
+            )
+        except ValueError as exc:
+            if str(exc) == "drop_read_used":
+                messages.info(
+                    request,
+                    _(
+                        "You've already read someone from this Drop — your next Drop arrives tomorrow."
+                    ),
+                )
+            else:
+                messages.info(request, _("This member isn't available right now."))
             return redirect("crush_lu:crush_connect_home")
 
         if outcome == "matched":
             messages.success(
                 request,
-                _("It's a match — you read each other well! Your coach will arrange your date."),
+                _(
+                    "It's a match — you read each other well! Your coach will arrange your date."
+                ),
             )
         else:
             # Same neutral confirmation for a read that landed and one that
@@ -891,7 +951,9 @@ def crush_connect_spark_compose(request, user_id: int):
             # expose the member's private answers).
             messages.success(
                 request,
-                _("Your answers are in. If you've read each other well, your coach will introduce you — no pressure either way."),
+                _(
+                    "Your answers are in. If you've read each other well, your coach will introduce you — no pressure either way."
+                ),
             )
         return redirect("crush_lu:crush_connect_home")
 
@@ -904,6 +966,7 @@ def crush_connect_spark_compose(request, user_id: int):
             "target_membership": membership,
             "gate_questions": gate_questions,
             "answering_back": answering_back,
+            "gate_drop_id": surfacing_drop.pk if surfacing_drop else None,
         },
     )
 
@@ -937,9 +1000,7 @@ def crush_connect_sparks_received(request):
     sparks = (
         CuriositySpark.objects.filter(recipient=user, status="pending")
         .exclude(sender_id__in=blocked_ids)
-        .select_related(
-            "sender__crushprofile", "sender__crush_connect_membership"
-        )
+        .select_related("sender__crushprofile", "sender__crush_connect_membership")
         .order_by("-created_at")
     )
     # Hide Sparks whose sender lost eligibility since sending (rejection,
@@ -979,30 +1040,29 @@ def crush_connect_spark_respond(request, spark_id: int):
         if updated.status == "accepted":
             messages.success(
                 request,
-                _("It's mutual! Your Crush Coach will be in touch to arrange your date."),
+                _(
+                    "It's mutual! Your Crush Coach will be in touch to arrange your date."
+                ),
             )
         else:
             # Accept was a no-op — the pair is blocked or the sender lost
             # eligibility since the Spark arrived. Don't promise a date.
-            messages.info(
-                request, _("This Spark is no longer available.")
-            )
+            messages.info(request, _("This Spark is no longer available."))
     else:
         messages.info(request, _("Spark declined — they won't be told."))
     return redirect("crush_lu:crush_connect_sparks_received")
 
+
 # ---------------------------------------------------------------------------
 # Coach Picks (M7) — coach curation interface + member response
 # ---------------------------------------------------------------------------
-
-from crush_lu.decorators import coach_required
 
 
 @coach_required
 def coach_connect_members(request):
     """The coach's Crush Connect curation hub: their assigned Premium
     members with Connect status and current pick, ready to curate."""
-    from crush_lu.models import ConnectCoachPick, CrushProfile
+    from crush_lu.models import ConnectCoachPick
 
     coach = request.coach
     members = (
@@ -1070,7 +1130,9 @@ def coach_connect_member(request, user_id: int):
         except ValueError as exc:
             reasons = {
                 "already_picked": _("You already proposed this candidate to them."),
-                "candidate_not_eligible": _("This candidate isn't in their eligible pool."),
+                "candidate_not_eligible": _(
+                    "This candidate isn't in their eligible pool."
+                ),
                 "member_not_ready": _("This member isn't Connect-onboarded yet."),
             }
             messages.error(
@@ -1132,7 +1194,9 @@ def crush_connect_pick_respond(request, pick_id: int):
         # a no-op, so don't promise a date that isn't being arranged.
         messages.info(
             request,
-            _("This pick is no longer available — your coach will propose someone new."),
+            _(
+                "This pick is no longer available — your coach will propose someone new."
+            ),
         )
     elif accept:
         messages.success(
@@ -1197,6 +1261,4 @@ def crush_connect_experience(request, slug):
             {"slug": s, **exp} for s, exp in CONNECT_EXPERIENCES.items() if s != slug
         ],
     }
-    return render(
-        request, f"crush_lu/crush_connect/experiences/{slug}.html", context
-    )
+    return render(request, f"crush_lu/crush_connect/experiences/{slug}.html", context)
