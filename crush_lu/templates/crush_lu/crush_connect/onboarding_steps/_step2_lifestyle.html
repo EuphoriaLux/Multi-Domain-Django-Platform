@@ -1,22 +1,20 @@
 {% load i18n %}
 {# Step 2 — Lifestyle. Three axes of peer-checked radio tiles. #}
-<div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 p-6 md:p-8">
+<div class="connect-card">
     <div class="text-center mb-6">
         <div class="flex justify-center mb-2">{% include "crush_lu/includes/ghost-story-discover.html" with class="w-20 h-20" %}</div>
-        <h2 class="font-display text-2xl font-semibold tracking-tight text-gray-900 dark:text-white">{% trans "How do you live?" %}</h2>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{% trans "These help your coach find someone whose rhythm matches yours." %}</p>
+        <h2 class="connect-card-title">{% trans "How do you live?" %}</h2>
+        <p class="text-[13px] text-gray-500 dark:text-gray-400 mt-1">{% trans "These help your coach find someone whose rhythm matches yours." %}</p>
     </div>
 
-    <fieldset class="mb-5">
-        <legend class="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{% trans "Your energy" %}</legend>
+    <fieldset class="mb-4">
+        <legend class="connect-label">{% trans "Your energy" %}</legend>
         <div class="grid grid-cols-3 gap-2">
             {% for value, label in form.lifestyle_energy.field.choices %}{% if value %}
             <label class="cursor-pointer block">
                 <input type="radio" name="lifestyle_energy" value="{{ value }}" class="peer hidden"
                        {% if form.lifestyle_energy.value == value %}checked{% endif %}>
-                <div class="flex flex-col items-center gap-1 rounded-xl border-2 px-2 py-3 text-xs font-medium transition-all duration-200
-                            border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-crush-purple/50
-                            peer-checked:border-crush-purple peer-checked:bg-crush-purple/10 peer-checked:text-crush-purple">
+                <div class="connect-selectable connect-tile">
                     <span class="text-xl">{% if value == 'homebody' %}🏠{% elif value == 'mix' %}⚖️{% else %}🧗{% endif %}</span>{{ label }}
                 </div>
             </label>
@@ -25,16 +23,14 @@
         {% if form.lifestyle_energy.errors %}<p class="text-sm text-red-600 dark:text-red-400 mt-1">{{ form.lifestyle_energy.errors|join:" " }}</p>{% endif %}
     </fieldset>
 
-    <fieldset class="mb-5">
-        <legend class="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{% trans "Your social style" %}</legend>
+    <fieldset class="mb-4">
+        <legend class="connect-label">{% trans "Your social style" %}</legend>
         <div class="grid grid-cols-3 gap-2">
             {% for value, label in form.lifestyle_social.field.choices %}{% if value %}
             <label class="cursor-pointer block">
                 <input type="radio" name="lifestyle_social" value="{{ value }}" class="peer hidden"
                        {% if form.lifestyle_social.value == value %}checked{% endif %}>
-                <div class="flex flex-col items-center gap-1 rounded-xl border-2 px-2 py-3 text-xs font-medium transition-all duration-200
-                            border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-crush-purple/50
-                            peer-checked:border-crush-purple peer-checked:bg-crush-purple/10 peer-checked:text-crush-purple">
+                <div class="connect-selectable connect-tile">
                     <span class="text-xl">{% if value == 'intimate' %}💬{% elif value == 'flexible' %}🎭{% else %}🎉{% endif %}</span>{{ label }}
                 </div>
             </label>
@@ -44,15 +40,13 @@
     </fieldset>
 
     <fieldset>
-        <legend class="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{% trans "Your rhythm" %}</legend>
+        <legend class="connect-label">{% trans "Your rhythm" %}</legend>
         <div class="grid grid-cols-3 gap-2">
             {% for value, label in form.lifestyle_pace.field.choices %}{% if value %}
             <label class="cursor-pointer block">
                 <input type="radio" name="lifestyle_pace" value="{{ value }}" class="peer hidden"
                        {% if form.lifestyle_pace.value == value %}checked{% endif %}>
-                <div class="flex flex-col items-center gap-1 rounded-xl border-2 px-2 py-3 text-xs font-medium transition-all duration-200
-                            border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-crush-purple/50
-                            peer-checked:border-crush-purple peer-checked:bg-crush-purple/10 peer-checked:text-crush-purple">
+                <div class="connect-selectable connect-tile">
                     <span class="text-xl">{% if value == 'structured' %}📅{% elif value == 'balanced' %}☯️{% else %}🌪️{% endif %}</span>{{ label }}
                 </div>
             </label>
@@ -62,8 +56,8 @@
     </fieldset>
 
     {# Personality traits (migrated from the old Ideal Crush) #}
-    {% trans "Pick up to 5." as trait_hint %}
-    <div class="mt-7 space-y-6 border-t border-gray-100 dark:border-slate-700 pt-6">
+    {% trans "pick up to 5" as trait_hint %}
+    <div class="mt-4 space-y-3.5 border-t border-gray-100 dark:border-gray-700 pt-4">
         {% include "crush_lu/crush_connect/onboarding_steps/_trait_chips.html" with field_name="qualities" choices_qs=form.qualities.field.queryset selected_ids=selected_quality_ids heading=form.qualities.label hint=trait_hint field_errors=form.qualities.errors %}
         {% include "crush_lu/crush_connect/onboarding_steps/_trait_chips.html" with field_name="defects" choices_qs=form.defects.field.queryset selected_ids=selected_defect_ids heading=form.defects.label hint=trait_hint field_errors=form.defects.errors %}
     </div>

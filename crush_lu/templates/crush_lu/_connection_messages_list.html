@@ -1,0 +1,24 @@
+{% load i18n %}
+{% comment %}
+Message list for a connection — the innerHTML of #messages-container.
+Rendered inline by connection_detail.html and re-rendered by the
+connection_messages polling endpoint (HTMX innerHTML swap).
+NOTE: the context key is `messages` (shadows Django's messages framework) —
+an established convention in this template family; keep the name.
+{% endcomment %}
+{% if messages %}
+    {% for msg in messages %}
+        {% if msg.sender == request.user %}
+            {% include "crush_lu/_connection_message.html" with msg=msg is_own_message=True %}
+        {% else %}
+            {% include "crush_lu/_connection_message.html" with msg=msg is_own_message=False %}
+        {% endif %}
+    {% endfor %}
+{% else %}
+    <div class="text-center py-8">
+        <div class="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mx-auto mb-3">
+            {% include "shared/icons/chat-bubble-left-ellipsis.html" with class="w-6 h-6 text-gray-400 dark:text-gray-500" %}
+        </div>
+        <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "No messages yet. Start the conversation!" %}</p>
+    </div>
+{% endif %}

@@ -1,21 +1,17 @@
 {% load i18n %}
 {# Reusable trait chip picker (peer-checked checkboxes, server-validated cap). Params: field_name, choices_qs, selected_ids, heading, hint, field_errors. #}
 <div>
-    <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">{{ heading }}</label>
-    <div class="flex flex-wrap gap-1.5">
+    <label class="connect-label">{{ heading }}{% if hint %} <span class="connect-label-hint">— {{ hint }}</span>{% endif %}</label>
+    <div class="flex flex-wrap gap-2">
         {% for trait in choices_qs %}
         <label class="cursor-pointer block">
             <input type="checkbox" name="{{ field_name }}" value="{{ trait.pk }}" class="peer hidden"
                    {% if trait.pk in selected_ids %}checked{% endif %}>
-            <span class="inline-block px-3 py-1.5 rounded-full text-sm font-medium border-2 transition-all duration-200
-                         border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200
-                         hover:border-crush-purple/50
-                         peer-checked:border-crush-purple peer-checked:bg-crush-purple/10 peer-checked:text-crush-purple">
+            <span class="connect-selectable connect-chip">
                 {{ trait.label }}
             </span>
         </label>
         {% endfor %}
     </div>
     {% if field_errors %}<p class="text-sm text-red-600 dark:text-red-400 mt-1">{{ field_errors|join:" " }}</p>{% endif %}
-    {% if hint %}<p class="text-gray-400 dark:text-gray-500 text-xs mt-1">{{ hint }}</p>{% endif %}
 </div>

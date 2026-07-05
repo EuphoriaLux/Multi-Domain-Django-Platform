@@ -8,6 +8,7 @@ from collections import OrderedDict
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
+from django.http import HttpResponse
 from django.utils.translation import gettext_lazy as _
 from django.db import transaction
 from django.db.models import Q
@@ -35,6 +36,25 @@ from .notification_service import (
     notify_connection_accepted,
     notify_mutual_match,
 )
+
+
+# Max length for a single connection message. Single source of truth for the
+# server-side cap, the user-facing error, and the textarea maxlength/counter.
+CONNECTION_MESSAGE_MAX_LENGTH = 500
+
+
+def _approved_messages(connection):
+    """Coach-approved messages for a connection, ready to render.
+
+    Shared by the detail page and the polling endpoint so the two never drift.
+    Selects sender + crushprofile because the bubble partial renders
+    ``msg.sender.crushprofile.display_name`` (avoids an N+1 per message).
+    """
+    return (
+        ConnectionMessage.objects.filter(connection=connection, coach_approved=True)
+        .select_related("sender", "sender__crushprofile")
+        .order_by("sent_at")
+    )
 
 
 # Post-Event Connection Views
@@ -852,7 +872,7 @@ def connection_detail(request, connection_id):
         # Handle message sending
         elif "message" in request.POST:
             message_text = request.POST.get("message", "").strip()
-            if message_text and len(message_text) <= 500:
+            if message_text and len(message_text) <= CONNECTION_MESSAGE_MAX_LENGTH:
                 # Only allow messaging for accepted/shared connections
                 if connection.status in [
                     "accepted",
@@ -895,6 +915,8 @@ def connection_detail(request, connection_id):
                         request, _("You can only message accepted connections.")
                     )
             else:
+                # Literal 500 keeps the existing translation catalog entry intact;
+                # CONNECTION_MESSAGE_MAX_LENGTH governs the actual cap above.
                 messages.error(
                     request, _("Please enter a valid message (max 500 characters).")
                 )
@@ -906,11 +928,7 @@ def connection_detail(request, connection_id):
     other_profile = getattr(other_user, "crushprofile", None)
 
     # Get messages for this connection (exclude coach-hidden messages)
-    connection_messages = (
-        ConnectionMessage.objects.filter(connection=connection, coach_approved=True)
-        .select_related("sender")
-        .order_by("sent_at")
-    )
+    thread_messages = _approved_messages(connection)
 
     # Can the current user send messages?
     can_message = connection.status in [
@@ -943,10 +961,42 @@ def connection_detail(request, connection_id):
         "is_requester": is_requester,
         "other_user": other_user,
         "other_profile": other_profile,
-        "messages": connection_messages,
+        "messages": thread_messages,
         "can_message": can_message,
+        "message_max_length": CONNECTION_MESSAGE_MAX_LENGTH,
         "user_needs_consent": user_needs_consent,
         "user_already_consented": user_already_consented,
         "whatsapp_number": whatsapp_number,
     }
     return render(request, "crush_lu/connection_detail.html", context)
+
+
+@crush_login_required
+@require_http_methods(["GET"])
+def connection_messages(request, connection_id):
+    """HTMX polling endpoint: the rendered message list for a connection.
+
+    Returns the same list the page renders inline, so the thread picks up the
+    other member's replies without a reload. Status 286 tells HTMX to stop
+    polling (dead connection or blocked pair).
+    """
+    connection = get_object_or_404(
+        EventConnection,
+        Q(requester=request.user) | Q(recipient=request.user),
+        id=connection_id,
+    )
+
+    from .services.blocking import is_blocked_pair
+
+    is_requester = connection.requester == request.user
+    other_user = connection.recipient if is_requester else connection.requester
+
+    if connection.status == "declined" or is_blocked_pair(request.user, other_user):
+        return HttpResponse(status=286)
+
+    msgs = _approved_messages(connection)
+    return render(
+        request,
+        "crush_lu/_connection_messages_list.html",
+        {"messages": msgs, "connection": connection},
+    )
