@@ -59,6 +59,6 @@ class PermissionsPolicyMiddleware:
     def __call__(self, request):
         response = self.get_response(request)
         # Skip for admin and health check endpoints
-        if not request.path.startswith(("/admin/", "/healthz")):
+        if not request.path.startswith(("/admin/", "/healthz", "/readyz")):
             response["Permissions-Policy"] = self.PERMISSIONS_POLICY
         return response

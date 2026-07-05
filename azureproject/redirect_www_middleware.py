@@ -79,8 +79,8 @@ class RedirectWWWToRootDomainMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        # Skip redirects for health check endpoint
-        if request.path in ['/healthz/', '/healthz']:
+        # Skip redirects for health check endpoints
+        if request.path in ['/healthz/', '/healthz', '/readyz/', '/readyz']:
             return self.get_response(request)
 
         # Get host directly from META to avoid ALLOWED_HOSTS validation

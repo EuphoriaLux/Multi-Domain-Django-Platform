@@ -47,6 +47,35 @@ jobs:
       # coverage tracing overhead was pure waste. If coverage is wanted
       # again, add CODECOV_TOKEN to repo secrets, reinstall pytest-cov,
       # and set COVERAGE_CORE=sysmon to keep the tracing cheap.
+      # Migration gate: fail if model changes lack a migration, and surface
+      # exactly what will run against the production DB during the next
+      # slot-swap warm-up (startup.sh runs `migrate --no-input` on container
+      # start). Destructive operations (DeleteModel/RemoveField/RenameField)
+      # make rollback-by-reswap unsafe — check the plan before merging.
+      - name: Migration gate
+        env:
+          SECRET_KEY: 'ci-test-key'
+          USE_AZURE_STORAGE: 'False'
+        run: |
+          python manage.py makemigrations --check --dry-run
+          git fetch origin main --depth=1
+          new_migrations=$(git diff --name-only origin/main HEAD -- '*/migrations/*.py')
+          echo "## 🗃️ Migrations added by this PR (run against prod at next swap warm-up)" >> $GITHUB_STEP_SUMMARY
+          if [ -z "$new_migrations" ]; then
+            echo "_none_" >> $GITHUB_STEP_SUMMARY
+          else
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "$new_migrations" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            destructive=$(grep -l -E "DeleteModel|RemoveField|RenameField|RenameModel" $new_migrations 2>/dev/null || true)
+            if [ -n "$destructive" ]; then
+              echo "⚠️ **Destructive operations detected** — rollback-by-reswap will NOT be safe for the release containing:" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "$destructive" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+
       - name: Run tests (parallel with pytest-xdist, SQLite)
         env:
           SECRET_KEY: 'ci-test-key'

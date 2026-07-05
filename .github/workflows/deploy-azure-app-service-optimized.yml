@@ -148,6 +148,13 @@ jobs:
           done
           exit $failed
 
+      - name: Smoke Test
+        # Deep checks against the staging slot: /readyz/ (DB, migrations,
+        # Redis, storage on the live container), home pages, sitemap, login.
+        # The same script is run manually against production after a swap:
+        #   python scripts/smoke.py --env production
+        run: python3 scripts/smoke.py --env staging
+
       - name: Summary
         # Post the URL table even when verification fails — the build IS on
         # staging at that point, and the links are what you need to debug it.

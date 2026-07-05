@@ -15,6 +15,7 @@ SKIP_PATHS = (
     "/static/",
     "/media/",
     "/healthz/",
+    "/readyz/",
     "/favicon.ico",
     "/robots.txt",
     "/sitemap.xml",
