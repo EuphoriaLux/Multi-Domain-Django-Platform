@@ -74,6 +74,27 @@ CHECKS = (
 )
 
 
+def build_info():
+    """
+    Return the build stamp written by CI into the deploy package, or None.
+
+    The deploy workflow writes build_info.json (commit sha + timestamp) next
+    to manage.py before zipping. Exposing it in /readyz/ lets the pipeline
+    wait until the *new* build is actually serving (a zip deploy + restart
+    leaves the old container answering for a while), and lets a post-swap
+    check assert production runs the expected commit.
+    """
+    import json
+
+    from django.conf import settings
+
+    try:
+        with open(settings.BASE_DIR / "build_info.json", encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
 def run_readiness_checks():
     """Run all checks; return (all_passed, {name: "ok" | "fail: ExcName"})."""
     results = {}

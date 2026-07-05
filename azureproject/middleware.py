@@ -156,13 +156,14 @@ class HealthCheckMiddleware:
         if request.path in ['/healthz/', '/healthz']:
             return HttpResponse("OK", status=200, content_type="text/plain")
         if request.path in ['/readyz/', '/readyz']:
-            from azureproject.readiness import run_readiness_checks
+            from azureproject.readiness import build_info, run_readiness_checks
 
             all_passed, results = run_readiness_checks()
-            return JsonResponse(
-                {"status": "ok" if all_passed else "fail", "checks": results},
-                status=200 if all_passed else 503,
-            )
+            payload = {"status": "ok" if all_passed else "fail", "checks": results}
+            build = build_info()
+            if build:
+                payload["build"] = build
+            return JsonResponse(payload, status=200 if all_passed else 503)
         return self.get_response(request)
 
 
