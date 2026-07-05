@@ -208,9 +208,12 @@
     <meta name="mobile-page-title" content="{% block mobile_page_title %}{% endblock %}">
 
     <!-- Mobile Top Bar (hidden on desktop) -->
+    {# Override this block empty for focused flows (e.g. Crush Connect wizard) #}
+    {% block mobile_top_bar %}
     {% if user.is_authenticated %}
         {% include "crush_lu/partials/top_bar_mobile.html" %}
     {% endif %}
+    {% endblock %}
 
     <!-- Desktop Navigation (hidden on mobile for authenticated users) -->
     <nav class="crush-navbar {% if user.is_authenticated %}nav-authenticated{% endif %}" x-data="navbar">
@@ -1165,9 +1168,12 @@
     </nav>
 
     <!-- Mobile Bottom Navigation (hidden on desktop) -->
+    {# Override this block empty for focused flows (e.g. Crush Connect wizard) #}
+    {% block bottom_nav %}
     {% if user.is_authenticated %}
         {% include "crush_lu/partials/bottom_nav.html" %}
     {% endif %}
+    {% endblock %}
 
     <!-- PWA Install Banner (hidden by default, shown by JavaScript) -->
     {% include "crush_lu/partials/pwa_install_banner.html" %}
@@ -1317,10 +1323,16 @@
         </div>
     </footer>
 
+    {# Override this block empty where the floating button would cover content #}
+    {% block whatsapp_button %}
     {% include "crush_lu/partials/_whatsapp_button.html" %}
+    {% endblock %}
 
     <!-- Toast Notification Container -->
     {% include "crush_lu/shared/toast.html" %}
+
+    <!-- Confirmation sheet (replaces window.confirm for hx-confirm) -->
+    {% include "crush_lu/partials/confirm_sheet.html" %}
 
     <!-- JavaScript i18n catalog (must load before components that use gettext()) -->
     <script src="{% url 'javascript-catalog' %}"></script>
@@ -1336,6 +1348,14 @@
         <script defer src="{% static 'crush_lu/js/toast-component.js' %}?v={{ ts }}"></script>
     {% else %}
         <script defer src="{% static 'crush_lu/js/toast-component.js' %}"></script>
+    {% endif %}
+
+    <!-- Confirmation sheet (intercepts htmx:confirm; must load with defer like HTMX) -->
+    {% if debug %}
+        {% now "U" as ts %}
+        <script defer src="{% static 'crush_lu/js/confirm-sheet.js' %}?v={{ ts }}"></script>
+    {% else %}
+        <script defer src="{% static 'crush_lu/js/confirm-sheet.js' %}"></script>
     {% endif %}
 
     {% block pre_alpine_js %}{% endblock %}

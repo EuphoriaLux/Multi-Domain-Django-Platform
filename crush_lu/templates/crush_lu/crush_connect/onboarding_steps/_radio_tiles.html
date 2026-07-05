@@ -10,16 +10,14 @@ Per-option emoji/description come from the choice_emoji / choice_desc filters
 in crush_connect_tags, keyed by field.html_name.
 {% endcomment %}
 <fieldset>
-    <legend class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">{{ heading|default:field.label }}</legend>
+    <legend class="connect-label">{{ heading|default:field.label }}</legend>
     <div class="grid {{ cols|default:'grid-cols-2 sm:grid-cols-3' }} gap-2">
         {% for value, label in field.field.choices %}{% if value %}
         {% with emoji=field.html_name|choice_emoji:value desc=field.html_name|choice_desc:value %}
         <label class="cursor-pointer block">
             <input type="radio" name="{{ field.html_name }}" value="{{ value }}" class="peer hidden"
                    {% if field.value|stringformat:"s" == value|stringformat:"s" %}checked{% endif %}>
-            <div class="h-full flex flex-col items-center justify-center gap-1 rounded-xl border-2 px-2 py-3 text-center text-xs font-medium transition-all duration-200
-                        border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-crush-purple/50
-                        peer-checked:border-crush-purple peer-checked:bg-crush-purple/10 peer-checked:text-crush-purple">
+            <div class="connect-selectable connect-tile">
                 {% if emoji %}<span class="text-xl" aria-hidden="true">{{ emoji }}</span>{% endif %}
                 <span>{{ label }}</span>
                 {% if desc %}<span class="text-[11px] font-normal opacity-70">{{ desc }}</span>{% endif %}

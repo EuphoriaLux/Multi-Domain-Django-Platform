@@ -8,10 +8,11 @@ Usage in templates:
 - Via HTMX: Add HX-Trigger header in view: {"showToast": {"type": "success", "message": "Done!"}}
 {% endcomment %}
 
-<!-- Toast Container - Fixed position top-right, managed by toast-component.js -->
+<!-- Toast Container - bottom snackbar on mobile (above the tab bar for members),
+     top-right stack on desktop. Managed by toast-component.js -->
 <div
     id="toast-container"
-    class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"
+    class="fixed z-[60] flex flex-col gap-2 pointer-events-none inset-x-0 bottom-0 items-center px-4 lg:inset-x-auto lg:bottom-auto lg:top-4 lg:right-4 lg:items-end lg:px-0{% if user.is_authenticated %} toast-above-nav{% endif %}"
     aria-live="polite"
     aria-atomic="true"
     role="status">
