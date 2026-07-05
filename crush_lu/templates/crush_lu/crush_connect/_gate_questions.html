@@ -16,6 +16,11 @@ would leak the member's private answers.
         {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
         {% blocktrans with name=target.first_name|default:_("them") %}You've read {{ name }} — you'll hear back if it's mutual.{% endblocktrans %}
     </p>
+{% elif drop_read_target_id and target.pk != drop_read_target_id %}
+    {# One read per Drop: another card consumed it — this one is locked. #}
+    <p class="text-xs text-gray-400 dark:text-gray-500 mb-0">
+        {% trans "You've already read someone from this Drop — your next Drop arrives tomorrow." %}
+    </p>
 {% elif gate_questions %}
     <form method="post" action="{% url 'crush_lu:crush_connect_spark_compose' target.pk %}" x-data="connectGateCard" class="space-y-3">
         {% csrf_token %}

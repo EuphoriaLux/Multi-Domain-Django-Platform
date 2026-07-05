@@ -684,7 +684,7 @@ def submit_gate_answers(responder, profile_owner, guesses: dict, request=None):
     Raises ``ValueError(reason)`` when the guess set is invalid or the pair may
     not interact.
     """
-    from crush_lu.models import ConnectQuestionAnswer, CuriositySpark
+    from crush_lu.models import ConnectDailyDrop, ConnectQuestionAnswer, CuriositySpark
     from crush_lu.services.blocking import is_blocked_pair
 
     truths = owner_gate_truths(profile_owner)
@@ -701,6 +701,7 @@ def submit_gate_answers(responder, profile_owner, guesses: dict, request=None):
         sender=profile_owner, recipient=responder
     ).first()
     answering_back = reverse is not None and reverse.status == "pending"
+    surfacing_drop = None
 
     if answering_back:
         # Recipient of an existing Spark reading the sender back. Catalogue
@@ -721,6 +722,23 @@ def submit_gate_answers(responder, profile_owner, guesses: dict, request=None):
         # before the question step have none until they redo it.
         if len(owner_gate_truths(responder)) < GATE_QUESTION_COUNT:
             raise ValueError("no_own_questions")
+        # One read per Drop: the first gate submission from a Drop (hit OR
+        # miss — the selection itself is the choice) locks its other cards
+        # until the next Drop. can_send_spark guarantees a surfacing Drop
+        # exists; take the latest in case the target surfaced more than once.
+        surfacing_drop = (
+            ConnectDailyDrop.objects.filter(
+                user=responder, recipients=profile_owner
+            )
+            .order_by("-drop_date")
+            .first()
+        )
+        if (
+            surfacing_drop is not None
+            and surfacing_drop.read_target_id
+            and surfacing_drop.read_target_id != profile_owner.pk
+        ):
+            raise ValueError("drop_read_used")
     # else: forward Spark already exists → idempotent re-POST, no re-gating.
 
     # Record the 3 guesses (idempotent on the unique constraint). Always recorded
@@ -737,6 +755,13 @@ def submit_gate_answers(responder, profile_owner, guesses: dict, request=None):
         ],
         ignore_conflicts=True,
     )
+
+    # Consume the Drop's one read (first-mover only). The isnull filter makes
+    # first-write-win under concurrent submissions.
+    if surfacing_drop is not None:
+        ConnectDailyDrop.objects.filter(
+            pk=surfacing_drop.pk, read_target__isnull=True
+        ).update(read_target=profile_owner, read_at=timezone.now())
 
     # Score against the PERSISTED guesses (the first ones — the unique constraint
     # locks them in), so a re-POST with better answers can't retry a missed read.

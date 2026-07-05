@@ -492,6 +492,20 @@ class ConnectDailyDrop(models.Model):
         blank=True,
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    # "One read per Drop": the single recipient this user chose to answer.
+    # Set by submit_gate_answers on their first gate submission from this
+    # Drop — hit or miss, the selection is spent — and every other card in
+    # the Drop locks until the next one. NULL = no read used yet (also all
+    # Drops that predate the mechanic).
+    read_target = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        help_text=_("The one Drop card this user chose to read"),
+    )
+    read_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = _("Crush Connect Daily Drop")

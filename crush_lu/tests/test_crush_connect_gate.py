@@ -32,6 +32,7 @@ from crush_lu.services.crush_connect import (
     submit_gate_answers,
 )
 from crush_lu.tests.test_crush_connect import (
+    _login_eligible,
     _make_user,
     _mark_attended,
     _set_gate_questions,
@@ -205,6 +206,107 @@ def test_first_mover_without_own_questions_refused():
     with pytest.raises(ValueError):
         submit_gate_answers(me, her, {q.id: True for q in questions})
     assert not CuriositySpark.objects.filter(sender=me, recipient=her).exists()
+
+
+# ---------------------------------------------------------------------------
+# One read per Drop
+# ---------------------------------------------------------------------------
+@pytest.mark.django_db
+def test_read_locks_other_cards_in_same_drop():
+    """The first gate submission from a Drop — even a MISS — consumes the
+    Drop's single read; answering any other card from it is refused."""
+    me = _make_user(username="me", preferred_genders=["F"])
+    _set_gate_questions(me)
+    her = _make_user(username="her", gender="F", premium=False)
+    other = _make_user(username="other", gender="F", premium=False)
+    her_qs = _set_gate_questions(her, answers=[True, True, True])
+    other_qs = _set_gate_questions(other, answers=[True, True, True])
+    drop = _surface_in_drop(me, her)
+    _surface_in_drop(me, other)  # same drop (same user, same date)
+
+    outcome, _spark = submit_gate_answers(me, her, {q.id: False for q in her_qs})
+    assert outcome == "miss"
+    drop.refresh_from_db()
+    assert drop.read_target_id == her.pk
+
+    with pytest.raises(ValueError, match="drop_read_used"):
+        submit_gate_answers(me, other, {q.id: True for q in other_qs})
+    assert not CuriositySpark.objects.filter(sender=me, recipient=other).exists()
+
+
+@pytest.mark.django_db
+def test_read_repost_same_target_still_idempotent():
+    """Re-POSTing the SAME target after the read is spent stays idempotent —
+    the lock only guards OTHER cards."""
+    me = _make_user(username="me", preferred_genders=["F"])
+    _set_gate_questions(me)
+    her = _make_user(username="her", gender="F", premium=False)
+    her_qs = _set_gate_questions(her, answers=[True, True, True])
+    _surface_in_drop(me, her)
+
+    out1, spark1 = submit_gate_answers(me, her, {q.id: True for q in her_qs})
+    out2, spark2 = submit_gate_answers(me, her, {q.id: True for q in her_qs})
+    assert (out1, out2) == ("sent", "sent")
+    assert spark1.pk == spark2.pk
+
+
+@pytest.mark.django_db
+def test_answer_back_ignores_read_lock():
+    """Answering a received Spark back is never a Drop read: it must work even
+    when the responder's OWN Drop read is already spent on someone else."""
+    me = _make_user(username="me", preferred_genders=["F"])
+    her = _make_user(username="her", gender="F")  # premium: has her own Drop
+    him = _make_user(username="him", gender="M", premium=False)
+    my_qs = _set_gate_questions(me, answers=[True, False, True])
+    her_qs = _set_gate_questions(her, answers=[False, True, False])
+    him_qs = _set_gate_questions(him, answers=[True, True, True])
+
+    # Her Drop read is spent on him (a miss — still consumes).
+    her_drop = _surface_in_drop(her, him)
+    submit_gate_answers(her, him, {q.id: False for q in him_qs})
+    her_drop.refresh_from_db()
+    assert her_drop.read_target_id == him.pk
+
+    # Me reads her well → pending Spark me→her.
+    _surface_in_drop(me, her)
+    out1, _ = submit_gate_answers(
+        me, her, {q.id: a for q, a in zip(her_qs, [False, True, False])}
+    )
+    assert out1 == "sent"
+
+    # She answers me back despite her spent Drop read → mutual match.
+    out2, spark = submit_gate_answers(
+        her, me, {q.id: a for q, a in zip(my_qs, [True, False, True])}
+    )
+    assert out2 == "matched"
+    spark.refresh_from_db()
+    assert spark.status == "accepted"
+
+
+@pytest.mark.django_db
+def test_compose_view_redirects_when_read_spent(client, settings):
+    """GET on another card's compose page after the Drop read is spent bounces
+    back to Today with the 'read used' notice."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])
+    _set_gate_questions(me)
+    her = _make_user(username="her", gender="F", premium=False)
+    other = _make_user(username="other", gender="F", premium=False)
+    her_qs = _set_gate_questions(her, answers=[True, True, True])
+    _set_gate_questions(other, answers=[True, True, True])
+    _surface_in_drop(me, her)
+    _surface_in_drop(me, other)
+
+    submit_gate_answers(me, her, {q.id: True for q in her_qs})
+
+    _login_eligible(client, me)
+    resp = client.get(f"/en/crush-connect/spark/{other.pk}/")
+    assert resp.status_code in (301, 302)
+    assert "/crush-connect/today/" in resp.url
+    # The spent read never blocks revisiting the chosen card's page.
+    resp = client.get(f"/en/crush-connect/spark/{her.pk}/")
+    assert resp.status_code in (301, 302)  # already answered → home, not teaser
+    assert "/crush-connect/today/" in resp.url
 
 
 # ---------------------------------------------------------------------------

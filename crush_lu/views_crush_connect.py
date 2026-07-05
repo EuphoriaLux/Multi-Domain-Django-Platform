@@ -760,6 +760,9 @@ def crush_connect_home(request):
         "recipients": recipients,
         "answered_ids": answered_ids,
         "sparked_ids": sparked_ids,
+        # One read per Drop: who consumed it (None = still open). Cards for
+        # anyone else render locked instead of showing the answer gate.
+        "drop_read_target_id": drop.read_target_id if drop else None,
         "next_drop_at": _next_drop_at(),
         "is_staff_preview": user.is_staff
         and (
@@ -856,6 +859,25 @@ def crush_connect_spark_compose(request, user_id: int):
             return redirect(
                 reverse("crush_lu:crush_connect_profile_edit") + "?section=questions"
             )
+        # One read per Drop: once they answered ONE card from the Drop that
+        # surfaced this target, the other cards are locked until the next Drop.
+        from crush_lu.models import ConnectDailyDrop
+
+        surfacing_drop = (
+            ConnectDailyDrop.objects.filter(user=user, recipients=target)
+            .order_by("-drop_date")
+            .first()
+        )
+        if (
+            surfacing_drop is not None
+            and surfacing_drop.read_target_id
+            and surfacing_drop.read_target_id != target.pk
+        ):
+            messages.info(
+                request,
+                _("You've already read someone from this Drop — your next Drop arrives tomorrow."),
+            )
+            return redirect("crush_lu:crush_connect_home")
 
     membership = getattr(target, "crush_connect_membership", None)
     gate_questions = list(membership.active_gate_questions) if membership else []
@@ -876,8 +898,14 @@ def crush_connect_spark_compose(request, user_id: int):
 
         try:
             outcome, _spark = submit_gate_answers(user, target, guesses, request=request)
-        except ValueError:
-            messages.info(request, _("This member isn't available right now."))
+        except ValueError as exc:
+            if str(exc) == "drop_read_used":
+                messages.info(
+                    request,
+                    _("You've already read someone from this Drop — your next Drop arrives tomorrow."),
+                )
+            else:
+                messages.info(request, _("This member isn't available right now."))
             return redirect("crush_lu:crush_connect_home")
 
         if outcome == "matched":
