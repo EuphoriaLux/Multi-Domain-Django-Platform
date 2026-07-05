@@ -166,6 +166,12 @@ def data_deletion_request(request):
     return render(request, "crush_lu/data_deletion.html")
 
 
+def child_safety_standards(request):
+    """Child safety standards page required by Google Play / app stores for apps
+    in the Dating and Social categories (CSAE policy compliance)."""
+    return render(request, "crush_lu/child_safety_standards.html")
+
+
 def crush_coach(request):
     """Crush Coach recruitment landing page"""
     return render(request, "crush_lu/crush_coach.html")
