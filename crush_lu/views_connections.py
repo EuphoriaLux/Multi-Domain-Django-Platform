@@ -8,6 +8,7 @@ from collections import OrderedDict
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
+from django.http import HttpResponse
 from django.utils.translation import gettext_lazy as _
 from django.db import transaction
 from django.db.models import Q
@@ -908,7 +909,7 @@ def connection_detail(request, connection_id):
     # Get messages for this connection (exclude coach-hidden messages)
     connection_messages = (
         ConnectionMessage.objects.filter(connection=connection, coach_approved=True)
-        .select_related("sender")
+        .select_related("sender", "sender__crushprofile")
         .order_by("sent_at")
     )
 
@@ -972,16 +973,16 @@ def connection_messages(request, connection_id):
     is_requester = connection.requester == request.user
     other_user = connection.recipient if is_requester else connection.requester
 
+    if connection.status == "declined" or is_blocked_pair(request.user, other_user):
+        return HttpResponse(status=286)
+
     msgs = (
         ConnectionMessage.objects.filter(connection=connection, coach_approved=True)
-        .select_related("sender")
+        .select_related("sender", "sender__crushprofile")
         .order_by("sent_at")
     )
-    response = render(
+    return render(
         request,
         "crush_lu/_connection_messages_list.html",
         {"messages": msgs, "connection": connection},
     )
-    if connection.status == "declined" or is_blocked_pair(request.user, other_user):
-        response.status_code = 286
-    return response

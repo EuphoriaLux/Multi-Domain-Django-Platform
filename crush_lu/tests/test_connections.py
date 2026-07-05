@@ -10,7 +10,7 @@ Comprehensive tests for connection system including:
 Run with: pytest crush_lu/tests/test_connections.py -v
 """
 from datetime import date, timedelta
-from django.test import TestCase, Client
+from django.test import TestCase, Client, override_settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
@@ -276,11 +276,17 @@ class ConnectionMessagingTests(TestCase):
         self.assertEqual(list(messages), [msg1, msg2])
 
 
+@override_settings(ROOT_URLCONF='azureproject.urls_crush')
 class ConnectionMessagesEndpointTests(TestCase):
     """Test the HTMX polling endpoint for the connection message thread."""
 
     def setUp(self):
-        from crush_lu.models import MeetupEvent, EventConnection, CrushProfile
+        from crush_lu.models import (
+            MeetupEvent,
+            EventConnection,
+            CrushProfile,
+            UserDataConsent,
+        )
 
         self.user1 = User.objects.create_user(
             username='poller@example.com',
@@ -311,6 +317,9 @@ class ConnectionMessagesEndpointTests(TestCase):
                 gender=gender,
                 location='Luxembourg',
                 is_approved=True
+            )
+            UserDataConsent.objects.filter(user=user).update(
+                crushlu_consent_given=True
             )
 
         self.event = MeetupEvent.objects.create(
@@ -381,6 +390,23 @@ class ConnectionMessagesEndpointTests(TestCase):
         self.client.login(username='poller@example.com', password='testpass123')
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 286)
+        self.assertEqual(response.content, b'')
+
+    def test_blocked_connection_stops_polling_without_rendering_messages(self):
+        from crush_lu.models import ConnectionMessage, UserBlock
+
+        ConnectionMessage.objects.create(
+            connection=self.connection,
+            sender=self.user2,
+            message='Approved message that must not leak'
+        )
+        UserBlock.objects.create(blocker=self.user1, blocked=self.user2)
+
+        self.client.login(username='poller@example.com', password='testpass123')
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 286)
+        self.assertEqual(response.content, b'')
 
     def test_post_is_not_allowed(self):
         self.client.login(username='poller@example.com', password='testpass123')
