@@ -11,8 +11,9 @@ How to promote the `staging` slot to production for
   **manual slot swap** in the Azure Portal.
 - `startup.sh` runs `manage.py migrate --no-input` on container start, so
   **pending migrations apply to the production database during swap warm-up**
-  (while the old code is still serving). Migrations must therefore stay
-  additive/backward-compatible — they have been so far.
+  (while the old code is still serving). Every release must be checked for
+  backward-compatible migrations before the swap starts; this repo has shipped
+  non-additive migrations before, so do not assume swap rollback is safe.
 - Slot-sticky settings pin the DB connection and domain config to each slot:
   `AZURE_POSTGRESQL_CONNECTIONSTRING` (staging uses its own DB
   `pythonapp_staging`), `STAGING_MODE`, `ALLOWED_HOSTS_ENV`, `CUSTOM_DOMAINS`,
@@ -50,21 +51,42 @@ How to promote the `staging` slot to production for
       list these, so if the live resource hasn't been configured to pin
       them independently, they will swap. If unpinned, either mark them
       sticky before swapping or treat their post-swap values as staging's.
+- [ ] If `ADMIN_API_KEY`, `HYBRID_COACH_SYSTEM_ENABLED`, or
+      `PRE_SCREENING_ENABLED` are not slot-sticky, do not leave the external
+      `crush-hybrid-maintenance` timers pointed at `test.crush.lu` during the
+      swap. Make the settings sticky, disable those timers, or retarget the
+      function URLs/key before swapping so staging-hosted timer calls cannot
+      succeed against production DB/email settings during warm-up.
 - [ ] Verify `WEBSITES_CONTAINER_START_TIME_LIMIT` is set to `600` on the
-      **production** slot (Portal → Configuration → Application settings).
+      **production target and staging source slots** (Portal → Configuration →
+      Application settings).
       It is not in `infra/resources.bicep`, and Azure's Linux App Service
       default is 230s — well short of a migration-heavy warm-up. Set it if
       missing.
+- [ ] Verify App Service swap warm-up uses a real health signal before the
+      swap: set `WEBSITE_SWAP_WARMUP_PING_PATH=/healthz/` and
+      `WEBSITE_SWAP_WARMUP_PING_STATUSES=200` on the web app/slots. These are
+      not in `infra/resources.bicep`; without them Azure can warm `/` and treat
+      any response status as success.
+- [ ] Diff the migrations shipped since the previous production commit before
+      starting the swap:
+      `git diff <prev-prod-sha>..HEAD -- '*/migrations/*.py'`
+      and search the patch for `DeleteModel`, `RemoveField`, `RenameField`,
+      `RenameModel`, `AlterField` type changes, `RunPython`, or `RunSQL`. If
+      any are present, confirm old production code can run against the migrated
+      schema or plan a forward-only rollback/schema restore path before
+      swapping.
 - [ ] Pick a quiet hour. The plan is a single 4 GB P0v3 instance already at
       ~80% average memory; during the swap **both containers run
-      concurrently**. Optional headroom: stop the three function apps
+      concurrently**. Optional headroom: stop or explicitly disable the three
+      function apps/triggers
       (`crush-hybrid-maintenance`, `crush-contact-sync`, `finops-daily-sync`)
-      for the swap window. **Do not just restart them immediately after**:
-      all three use `use_monitor=True` timer triggers, so Azure can fire a
-      past-due invocation right on restart instead of cleanly skipping the
-      missed cycle. If you stop them, wait until after the next scheduled
-      occurrence has safely passed before restarting, or leave them running
-      through the swap.
+      for the swap window. **Do not leave them stopped across a scheduled
+      occurrence and then restart during post-swap verification**: all three use
+      `use_monitor=True`, so Azure can fire a `past_due` invocation right on
+      restart. Either leave them running, restart before the next due time, or
+      keep the triggers disabled until after verification and intentionally
+      re-enable/run them.
 
 ## The swap
 
@@ -73,16 +95,20 @@ How to promote the `staging` slot to production for
 2. Expect warm-up to take a few minutes: the incoming container starts with
    production config and runs pending migrations against the prod DB. This
    is only safely covered if `WEBSITES_CONTAINER_START_TIME_LIMIT=600` was
-   confirmed/set on the production slot in the pre-swap checklist above —
-   otherwise Azure's 230s default can abort/recycle the container mid
-   warm-up. Don't cancel a slow warm-up.
-3. If `ADMIN_API_KEY` was confirmed sticky in the pre-swap checklist, ignore
-   failed `crush-hybrid-maintenance` invocations (401s) during the window —
-   while the slot warms with production's pinned `ADMIN_API_KEY`, the
-   function's staging-keyed calls fail and self-heal once the swap
-   completes. If `ADMIN_API_KEY` was **not** sticky, this doesn't apply —
-   the function's key follows whichever slot's value came along in the
-   swap, so treat any auth errors as a real drift to investigate.
+   confirmed/set on the production target and staging source slots in the
+   pre-swap checklist above — otherwise Azure's 230s default can abort/recycle
+   the container during warm-up. The warm-up success signal is only meaningful
+   if `/healthz/` with
+   status `200` was configured in the pre-swap checklist; otherwise Azure may
+   accept the default `/` path or a non-200 response. Don't cancel a slow
+   warm-up.
+3. Do not treat function auth/key drift as harmless during warm-up. If
+   `ADMIN_API_KEY`, `HYBRID_COACH_SYSTEM_ENABLED`, and `PRE_SCREENING_ENABLED`
+   were not confirmed sticky before the swap, the staging source can warm with
+   production DB/email settings while the external `crush-hybrid-maintenance`
+   app still posts its unchanged key to `test.crush.lu`. Before swapping, make
+   those settings sticky or disable/retarget the affected timers; otherwise
+   timer calls can succeed against production data from the staging host.
 4. If using **Swap with preview**: during preview, `test.crush.lu` serves the
    NEW code against the PRODUCTION database with real email enabled. Keep the
    preview short and don't trigger user-facing emails from it.
@@ -128,6 +154,10 @@ Environment variables, or via MCP/CLI):
       no-op — it doesn't prevent the auth failure). If you don't want to
       repoint them yet, disable those two triggers instead of leaving them
       on the staging URL.
+- [ ] Verify/set `HYBRID_MAINTENANCE_ENABLED=true` on the function app after
+      the URL/key changes. The function checks this flag before every timer
+      trigger, and the provisioning default is `false`; without this, weekly
+      KPI delivery and question rotation stay silently disabled.
 - [ ] Trigger one manual KPI run to get the first real digest immediately
       instead of waiting for Monday:
       `POST https://crush.lu/api/admin/weekly-kpis/` with
@@ -151,11 +181,17 @@ that migration removed or renamed, and swapping back will 500 instead of
 recovering. Before treating rollback as the answer:
 
 - [ ] Diff the migrations that shipped between the previous production
-      commit and this one (`git log --stat <prev-prod-sha>..HEAD --
-      '*/migrations/*.py'`) and check for `DeleteModel`, `RemoveField`,
-      `RenameField`, `RenameModel`, or `AlterField` type changes.
+      commit and this one (`git diff <prev-prod-sha>..HEAD --
+      '*/migrations/*.py'`) and check the patch itself for `DeleteModel`,
+      `RemoveField`, `RenameField`, `RenameModel`, `AlterField` type changes,
+      `RunPython`, or `RunSQL`. Do not use `git log --stat` for this check:
+      it only shows file-level line counts, not migration operation names.
 - [ ] If any are present, rollback is not safe as a pure swap — plan a
       forward fix instead, or restore the production DB schema/data to
       match what the old code expects before swapping back.
 
-No data is lost either way: the two slots use separate databases.
+The separate slot databases prevent staging data from mixing into production,
+but they do not undo destructive migrations already applied to the production
+database during warm-up. If a release deletes/renames/rewrites schema or data,
+a rollback may require an explicit production schema/data restore or a forward
+fix before the old code can safely serve traffic again.
