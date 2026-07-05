@@ -92,7 +92,7 @@
                         <label for="{{ form.first_name.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "First Name" %}</label>
                         <input type="text" class="w-full px-4 py-3 border {% if form.first_name.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
                                id="{{ form.first_name.id_for_label }}" name="{{ form.first_name.name }}"
-                               value="{{ form.first_name.value|default:'' }}" required>
+                               value="{{ form.first_name.value|default:'' }}" autocomplete="given-name" required>
                         {% if form.first_name.errors %}
                             <p class="mt-1 text-sm text-red-600">{{ form.first_name.errors.0 }}</p>
                         {% endif %}
@@ -102,7 +102,7 @@
                         <label for="{{ form.last_name.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Last Name" %}</label>
                         <input type="text" class="w-full px-4 py-3 border {% if form.last_name.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
                                id="{{ form.last_name.id_for_label }}" name="{{ form.last_name.name }}"
-                               value="{{ form.last_name.value|default:'' }}" required>
+                               value="{{ form.last_name.value|default:'' }}" autocomplete="family-name" required>
                         {% if form.last_name.errors %}
                             <p class="mt-1 text-sm text-red-600">{{ form.last_name.errors.0 }}</p>
                         {% endif %}
@@ -112,7 +112,7 @@
                         <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Email" %}</label>
                         <input type="email" class="w-full px-4 py-3 border {% if form.email.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
                                id="{{ form.email.id_for_label }}" name="{{ form.email.name }}"
-                               value="{{ form.email.value|default:'' }}" required>
+                               value="{{ form.email.value|default:'' }}" autocomplete="email" inputmode="email" required>
                         {% if form.email.errors %}
                             <p class="mt-1 text-sm text-red-600">{{ form.email.errors.0 }}</p>
                         {% endif %}
@@ -121,7 +121,7 @@
                     <div class="mb-4">
                         <label for="{{ form.password1.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Password" %}</label>
                         <input type="password" class="w-full px-4 py-3 border {% if form.password1.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-                               id="{{ form.password1.id_for_label }}" name="{{ form.password1.name }}" required>
+                               id="{{ form.password1.id_for_label }}" name="{{ form.password1.name }}" autocomplete="new-password" required>
                         {% if form.password1.errors %}
                             <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.password1.errors.0 }}</p>
                         {% endif %}
@@ -133,7 +133,7 @@
                     <div class="mb-6">
                         <label for="{{ form.password2.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Confirm Password" %}</label>
                         <input type="password" class="w-full px-4 py-3 border {% if form.password2.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
-                               id="{{ form.password2.id_for_label }}" name="{{ form.password2.name }}" required>
+                               id="{{ form.password2.id_for_label }}" name="{{ form.password2.name }}" autocomplete="new-password" required>
                         {% if form.password2.errors %}
                             <p class="mt-1 text-sm text-red-600">{{ form.password2.errors.0 }}</p>
                         {% endif %}

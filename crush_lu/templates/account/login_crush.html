@@ -29,7 +29,7 @@
                     <input type="email"
                            class="w-full px-4 py-3 border {% if form.login.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                            id="id_login" name="login"
-                           value="{{ form.login.value|default:'' }}" required autofocus
+                           value="{{ form.login.value|default:'' }}" autocomplete="email" inputmode="email" required
                            placeholder="your@email.com">
                     {% if form.login.errors %}
                         <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.login.errors.0 }}</p>
@@ -40,7 +40,7 @@
                     <label for="id_password" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Password" %}</label>
                     <input type="password"
                            class="w-full px-4 py-3 border {% if form.password.errors %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %} dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                           id="id_password" name="password" required>
+                           id="id_password" name="password" autocomplete="current-password" required>
                     {% if form.password.errors %}
                         <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.password.errors.0 }}</p>
                     {% endif %}

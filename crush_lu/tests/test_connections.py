@@ -10,7 +10,7 @@ Comprehensive tests for connection system including:
 Run with: pytest crush_lu/tests/test_connections.py -v
 """
 from datetime import date, timedelta
-from django.test import TestCase, Client
+from django.test import TestCase, Client, override_settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
@@ -275,6 +275,145 @@ class ConnectionMessagingTests(TestCase):
 
         self.assertEqual(list(messages), [msg1, msg2])
 
+
+# crush_lu URLs are host-routed; mount them at the root for the test client
+# (same override every crush_lu URL test in the suite uses — see test_htmx_views.py).
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class ConnectionMessagesEndpointTests(TestCase):
+    """Test the HTMX polling endpoint for the connection message thread."""
+
+    def setUp(self):
+        from crush_lu.models import (
+            MeetupEvent,
+            EventConnection,
+            CrushProfile,
+            UserDataConsent,
+        )
+
+        self.user1 = User.objects.create_user(
+            username='poller@example.com',
+            email='poller@example.com',
+            password='testpass123',
+            first_name='Poller',
+            last_name='User'
+        )
+        self.user2 = User.objects.create_user(
+            username='replier@example.com',
+            email='replier@example.com',
+            password='testpass123',
+            first_name='Replier',
+            last_name='User'
+        )
+        self.outsider = User.objects.create_user(
+            username='outsider@example.com',
+            email='outsider@example.com',
+            password='testpass123',
+            first_name='Out',
+            last_name='Sider'
+        )
+
+        for user, gender in [(self.user1, 'M'), (self.user2, 'F'), (self.outsider, 'M')]:
+            CrushProfile.objects.create(
+                user=user,
+                date_of_birth=date(1995, 5, 15),
+                gender=gender,
+                location='Luxembourg',
+                is_approved=True
+            )
+            UserDataConsent.objects.filter(user=user).update(
+                crushlu_consent_given=True
+            )
+
+        self.event = MeetupEvent.objects.create(
+            title='Polling Test Event',
+            description='Event for polling test',
+            event_type='mixer',
+            date_time=timezone.now() - timedelta(days=1),
+            location='Luxembourg',
+            address='123 Test Street',
+            max_participants=20,
+            registration_deadline=timezone.now() - timedelta(days=3),
+            is_published=True
+        )
+        self.connection = EventConnection.objects.create(
+            event=self.event,
+            requester=self.user1,
+            recipient=self.user2,
+            status='accepted',
+            responded_at=timezone.now()
+        )
+        from django.urls import reverse
+
+        self.url = reverse(
+            'crush_lu:connection_messages',
+            kwargs={'connection_id': self.connection.id},
+        )
+        self.client = Client()
+
+    def test_anonymous_is_redirected_to_login(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 302)
+
+    def test_non_participant_gets_404(self):
+        self.client.login(username='outsider@example.com', password='testpass123')
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 404)
+
+    def test_participant_sees_rendered_messages(self):
+        from crush_lu.models import ConnectionMessage
+
+        ConnectionMessage.objects.create(
+            connection=self.connection,
+            sender=self.user2,
+            message='A reply from the other side'
+        )
+        self.client.login(username='poller@example.com', password='testpass123')
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'A reply from the other side')
+
+    def test_moderated_messages_are_hidden(self):
+        from crush_lu.models import ConnectionMessage
+
+        ConnectionMessage.objects.create(
+            connection=self.connection,
+            sender=self.user2,
+            message='Hidden by coach',
+            coach_approved=False
+        )
+        self.client.login(username='poller@example.com', password='testpass123')
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'Hidden by coach')
+
+    def test_declined_connection_stops_polling_with_286(self):
+        self.connection.status = 'declined'
+        self.connection.save()
+        self.client.login(username='poller@example.com', password='testpass123')
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 286)
+        self.assertEqual(response.content, b'')
+
+    def test_blocked_connection_stops_polling_without_rendering_messages(self):
+        from crush_lu.models import ConnectionMessage, UserBlock
+
+        ConnectionMessage.objects.create(
+            connection=self.connection,
+            sender=self.user2,
+            message='Approved message that must not leak'
+        )
+        UserBlock.objects.create(blocker=self.user1, blocked=self.user2)
+
+        self.client.login(username='poller@example.com', password='testpass123')
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 286)
+        self.assertEqual(response.content, b'')
+
+    def test_post_is_not_allowed(self):
+        self.client.login(username='poller@example.com', password='testpass123')
+        response = self.client.post(self.url)
+        self.assertEqual(response.status_code, 405)
 
 class ConnectionPrivacyTests(TestCase):
     """Test privacy settings in connections."""
