@@ -13,7 +13,7 @@ import logging
 from django.core.cache import cache
 from django.db import IntegrityError
 from django.utils import translation
-from django.http import HttpResponse, HttpResponseForbidden
+from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.contrib.sites.models import Site
 
 from .domains import (
@@ -138,10 +138,15 @@ def csrf_failure_view(request, reason=""):
 
 class HealthCheckMiddleware:
     """
-    Bypass all middleware and Sites framework for health check endpoint.
+    Bypass all middleware and Sites framework for health check endpoints.
 
     This prevents Azure health checks from failing due to missing Site objects.
     MUST be placed FIRST in MIDDLEWARE list.
+
+    /healthz/ is a static liveness probe (Azure Health Check pings it per
+    instance — keep it instant and dependency-free). /readyz/ runs the deep
+    readiness checks (DB, migrations, Redis, storage) and is the slot-swap
+    warm-up gate via WEBSITE_SWAP_WARMUP_PING_PATH.
     """
     def __init__(self, get_response):
         self.get_response = get_response
@@ -150,6 +155,14 @@ class HealthCheckMiddleware:
         # Immediately return OK for health checks, bypassing all other middleware
         if request.path in ['/healthz/', '/healthz']:
             return HttpResponse("OK", status=200, content_type="text/plain")
+        if request.path in ['/readyz/', '/readyz']:
+            from azureproject.readiness import run_readiness_checks
+
+            all_passed, results = run_readiness_checks()
+            return JsonResponse(
+                {"status": "ok" if all_passed else "fail", "checks": results},
+                status=200 if all_passed else 503,
+            )
         return self.get_response(request)
 
 

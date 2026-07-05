@@ -127,12 +127,15 @@ jobs:
         run: |
           echo "🔥 Waiting for staging to warm up..."
           # Probe the hosts in parallel — wall time is the slowest host, not
-          # the sum. curl retries natively (12 attempts, 10s apart) and, unlike
-          # a hand-rolled loop, doesn't sleep after the last failure.
+          # the sum. curl retries natively (60 attempts, 10s apart ≈ 10 min,
+          # matching the WEBSITES_CONTAINER_START_TIME_LIMIT=600 startup
+          # budget — startup runs migrations, which can legitimately take
+          # minutes) and, unlike a hand-rolled loop, doesn't sleep after the
+          # last failure.
           pids=""
           for host in test.crush.lu test.powerup.lu test.vinsdelux.com; do
             (
-              if curl -sf -o /dev/null --max-time 10 --retry 11 --retry-delay 10 \
+              if curl -sf -o /dev/null --max-time 10 --retry 59 --retry-delay 10 \
                    --retry-all-errors "https://$host/healthz/"; then
                 echo "  ✅ $host"
               else
@@ -147,6 +150,13 @@ jobs:
             wait "$pid" || failed=1
           done
           exit $failed
+
+      - name: Smoke Test
+        # Deep checks against the staging slot: /readyz/ (DB, migrations,
+        # Redis, storage on the live container), home pages, sitemap, login.
+        # The same script is run manually against production after a swap:
+        #   python scripts/smoke.py --env production
+        run: python3 scripts/smoke.py --env staging
 
       - name: Summary
         # Post the URL table even when verification fails — the build IS on

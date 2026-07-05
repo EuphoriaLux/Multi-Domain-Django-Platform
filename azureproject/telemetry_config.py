@@ -98,6 +98,7 @@ class DependencyFilteringProcessor:
         '/static/',
         '/media/',
         '/healthz/',
+        '/readyz/',
         '/favicon.ico',
         '.css',
         '.js',

@@ -68,6 +68,7 @@ class CrushConsentMiddleware:
         "/admin/",
         "/crush-admin/",
         "/healthz/",
+        "/readyz/",
         "/robots.txt",
         "/sitemap.xml",
         "/favicon.ico",
@@ -102,6 +103,7 @@ class CrushConsentMiddleware:
                             "/static/",
                             "/media/",
                             "/healthz/",
+                            "/readyz/",
                         ]
                     )
                     and "/account/banned/" not in path

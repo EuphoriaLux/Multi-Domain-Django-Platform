@@ -172,13 +172,16 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
       appCommandLine: 'bash /home/site/wwwroot/startup.sh'
       minTlsVersion: '1.2'
       webSocketsEnabled: true
+      // Liveness probe (static 200) — Azure recycles instances that fail it.
+      // Deep checks live at /readyz/ (the slot-swap warm-up gate below).
+      healthCheckPath: '/healthz/'
     }
     httpsOnly: true
   }
   identity: {
     type: 'SystemAssigned'
   }
-  
+
   resource webAppSettings 'config' = {
     name: 'appsettings'
     properties: {
@@ -204,6 +207,14 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
       POPULATE_SAMPLE_DATA: 'false'
       // Azure Redis Cache - production uses DB 0
       AZURE_REDIS_CONNECTIONSTRING: 'rediss://:${redisCache.listKeys().primaryKey}@${redisCache.name}.redis.cache.windows.net:6380/0'
+
+      // Swap safety: startup.sh runs `migrate --no-input` during swap warm-up,
+      // so give the container 600s (Azure default 230s aborts migration-heavy
+      // warm-ups) and gate the swap on the deep /readyz/ probe (DB, applied
+      // migrations, Redis, storage) instead of the default root ping.
+      WEBSITES_CONTAINER_START_TIME_LIMIT: '600'
+      WEBSITE_SWAP_WARMUP_PING_PATH: '/readyz/'
+      WEBSITE_SWAP_WARMUP_PING_STATUSES: '200'
 
       // =============================================================================
       // WALLET PASS CONFIGURATION (Crush.lu)
@@ -301,6 +312,8 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = {
       appCommandLine: 'bash /home/site/wwwroot/startup.sh'
       minTlsVersion: '1.2'
       webSocketsEnabled: true
+      // Same liveness/readiness split as production (see web resource)
+      healthCheckPath: '/healthz/'
     }
     httpsOnly: true
   }
@@ -333,6 +346,12 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = {
       STAGING_MODE: 'true'
       // Azure Redis Cache - staging uses DB 1 (isolated from production DB 0)
       AZURE_REDIS_CONNECTIONSTRING: 'rediss://:${redisCache.listKeys().primaryKey}@${redisCache.name}.redis.cache.windows.net:6380/1'
+      // Slot-sticky environment marker (production.py reads it; prod defaults to 'production')
+      DJANGO_ENV: 'staging'
+      // Swap safety — same values as production (see web resource comment)
+      WEBSITES_CONTAINER_START_TIME_LIMIT: '600'
+      WEBSITE_SWAP_WARMUP_PING_PATH: '/readyz/'
+      WEBSITE_SWAP_WARMUP_PING_STATUSES: '200'
       // NOTE: GA4_CRUSH_LU, GA4_POWERUP, GA4_ARBORIST are intentionally NOT set for staging
       // to prevent test traffic from polluting production analytics
     }
@@ -368,8 +387,19 @@ resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
       // AZURE_CONTAINER_NAME removed - platform-specific storage handles isolation
       // Staging mode flag - only set in staging slot
       'STAGING_MODE'
+      // Environment marker - staging sets 'staging', production defaults to 'production'
+      'DJANGO_ENV'
       // Redis - different DB per slot (production /0, staging /1)
       'AZURE_REDIS_CONNECTIONSTRING'
+      // Feature flags + admin API key: values are managed in the Portal (not
+      // defined in this file) but MUST stay pinned per slot — a swap must
+      // never push staging's flags (e.g. CRUSH_CONNECT_LAUNCHED=true) or its
+      // ADMIN_API_KEY into production. These were portal-sticky only until
+      // 2026-07 (IaC drift); keep this list in sync with the live resource.
+      'ADMIN_API_KEY'
+      'CRUSH_CONNECT_LAUNCHED'
+      'HYBRID_COACH_SYSTEM_ENABLED'
+      'PRE_SCREENING_ENABLED'
       // Analytics - only production should track GA4
       'GA4_CRUSH_LU'
       'GA4_POWERUP'
