@@ -13402,10 +13402,10 @@ document.addEventListener("alpine:init", function () {
                 this._syncInterests();
                 // Story answer (step 7): seed the character counter from the
                 // server-rendered value.
-                var ta = this.$el.querySelector('textarea[name="story_answer"]');
+                var ta = this.$root.querySelector('textarea[name="story_answer"]');
                 this.storyCount = ta ? ta.value.length : 0;
                 this._showSecondStory =
-                    this.$el.getAttribute("data-show-second-story") === "true";
+                    this.$root.getAttribute("data-show-second-story") === "true";
             },
 
             onInterestChange: function () {
@@ -13413,7 +13413,9 @@ document.addEventListener("alpine:init", function () {
             },
 
             _syncInterests: function () {
-                var boxes = this.$el.querySelectorAll('input[name="interests"]');
+                // $root, not $el: also invoked via @change on the checkboxes,
+                // where $el is the checkbox itself and the queries find nothing.
+                var boxes = this.$root.querySelectorAll('input[name="interests"]');
                 var checked = 0;
                 boxes.forEach(function (b) {
                     if (b.checked) checked++;
@@ -13426,7 +13428,7 @@ document.addEventListener("alpine:init", function () {
             },
 
             onStoryInput: function () {
-                var ta = this.$el.querySelector('textarea[name="story_answer"]');
+                var ta = this.$root.querySelector('textarea[name="story_answer"]');
                 this.storyCount = ta ? ta.value.length : 0;
             },
 
@@ -13450,14 +13452,16 @@ document.addEventListener("alpine:init", function () {
                 this._sync();
             },
             _sync: function () {
-                var radios = this.$el.querySelectorAll('input[type="radio"][data-gate]');
+                // $root, not $el: invoked via @change on child radios, where
+                // $el is the radio itself and the queries find nothing.
+                var radios = this.$root.querySelectorAll('input[type="radio"][data-gate]');
                 var picked = {};
                 radios.forEach(function (r) {
                     if (r.checked && r.value) picked[r.name] = true;
                 });
                 this.count = Object.keys(picked).length;
 
-                var rows = this.$el.querySelectorAll("[data-gate-row]");
+                var rows = this.$root.querySelectorAll("[data-gate-row]");
                 rows.forEach(function (row) {
                     var selected = false;
                     row.querySelectorAll('input[type="radio"][data-gate]').forEach(function (r) {
@@ -13482,7 +13486,9 @@ document.addEventListener("alpine:init", function () {
                 this._sync();
             },
             _sync: function () {
-                var radios = this.$el.querySelectorAll('input[type="radio"][data-gate]');
+                // $root, not $el: invoked via @change on child radios, where
+                // $el is the radio itself and the queries find nothing.
+                var radios = this.$root.querySelectorAll('input[type="radio"][data-gate]');
                 var answered = {};
                 radios.forEach(function (r) {
                     if (r.checked) answered[r.name] = true;
@@ -13493,7 +13499,7 @@ document.addEventListener("alpine:init", function () {
                 });
                 var total = Object.keys(names).length;
                 var done = Object.keys(answered).length;
-                var submit = this.$el.querySelector("[data-gate-submit]");
+                var submit = this.$root.querySelector("[data-gate-submit]");
                 if (submit) submit.disabled = total === 0 || done < total;
             },
         };
