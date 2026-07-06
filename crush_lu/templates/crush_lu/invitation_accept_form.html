@@ -78,7 +78,7 @@
                 </div>
                 <div class="guest-info-item">
                     <span class="guest-info-label">{% trans "Date:" %}</span>
-                    <span class="guest-info-value">{{ event.date_time|date:"F j, Y \a\t g:i A" }}</span>
+                    <span class="guest-info-value">{{ event.date_time|date:"DATETIME_FORMAT" }}</span>
                 </div>
             </div>
 

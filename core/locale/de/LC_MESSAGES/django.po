@@ -51,7 +51,7 @@ msgstr ""
 
 #: .\azureproject\settings.py:714
 msgid "English"
-msgstr "Englisch"
+msgstr "English"
 
 #: .\azureproject\settings.py:715
 msgid "German"
@@ -350,6 +350,30 @@ msgstr ""
 "Diese Seite stellt das Konzept der Weinbergpatenschaft vor – übernehmen Sie "
 "eine Parzelle, verfolgen Sie die Reise der Weinbereitung und erhalten Sie "
 "Weine, die aus Ihren persönlichen Reben gekeltert wurden."
+
+#. Language names stay native in every locale.
+msgid "Lëtzebuergesch"
+msgstr "Lëtzebuergesch"
+
+#. Language names stay native in every locale.
+msgid "Français"
+msgstr "Français"
+
+#. Language names stay native in every locale.
+msgid "Deutsch"
+msgstr "Deutsch"
+
+#. Language names stay native in every locale.
+msgid "Português"
+msgstr "Português"
+
+#. Language names stay native in every locale.
+msgid "Italiano"
+msgstr "Italiano"
+
+#. Language names stay native in every locale.
+msgid "Español"
+msgstr "Español"
 
 #~ msgid "Display"
 #~ msgstr "Anzeige"

@@ -14,8 +14,8 @@
     <strong>{% trans "Event Details:" %}</strong>
     <ul style="margin: 10px 0;">
         <li><strong>{% trans "Event:" %}</strong> {{ event.title }}</li>
-        <li><strong>{% trans "Date:" %}</strong> {{ event.date_time|date:"l, F j, Y" }}</li>
-        <li><strong>{% trans "Time:" %}</strong> {{ event.date_time|date:"g:i A" }}</li>
+        <li><strong>{% trans "Date:" %}</strong> {{ event.date_time|date:"l" }}, {{ event.date_time|date:"DATE_FORMAT" }}</li>
+        <li><strong>{% trans "Time:" %}</strong> {{ event.date_time|date:"TIME_FORMAT" }}</li>
     </ul>
 </div>
 

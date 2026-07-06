@@ -17,7 +17,7 @@
 
                 {% if ban_date %}
                 <p class="text-sm text-secondary mb-6">
-                    {% trans "Since:" %} {{ ban_date|date:"N j, Y" }}
+                    {% trans "Since:" %} {{ ban_date|date:"DATE_FORMAT" }}
                 </p>
                 {% endif %}
 

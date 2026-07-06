@@ -12,7 +12,7 @@
             <div class="bg-amber-50 dark:bg-yellow-900/30 border border-amber-200 dark:border-yellow-700 text-amber-800 dark:text-yellow-300 rounded-lg p-4 mb-6 text-left">
                 <h5 class="font-semibold mb-2">{{ event.title }}</h5>
                 <p class="text-sm">
-                    {% blocktrans with date=event.date_time|date:"D, M j, Y" time=event.date_time|date:"g:i A" %}{{ date }} at {{ time }}{% endblocktrans %}<br>
+                    {% blocktrans with date=event.date_time|date:"DATE_FORMAT" time=event.date_time|date:"TIME_FORMAT" %}{{ date }} at {{ time }}{% endblocktrans %}<br>
                     {{ event.location }}
                 </p>
             </div>

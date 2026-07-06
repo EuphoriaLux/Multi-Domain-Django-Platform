@@ -30,7 +30,7 @@
                             <div class="text-right">
                                 {% include 'crush_lu/_spark_status_badge.html' %}
                                 <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                                    {{ spark.created_at|date:"M d, Y" }}
+                                    {{ spark.created_at|date:"DATE_FORMAT" }}
                                 </p>
                             </div>
                         </div>

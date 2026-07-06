@@ -168,7 +168,7 @@
                             </div>
                             <div>
                                 <h4 class="font-medium text-gray-900 dark:text-white">{% trans "Connection Requested" %}</h4>
-                                <small class="text-gray-500 dark:text-gray-400">{{ connection.requested_at|date:"M d, Y g:i A" }}</small>
+                                <small class="text-gray-500 dark:text-gray-400">{{ connection.requested_at|date:"DATETIME_FORMAT" }}</small>
                                 {% if connection.requester_note %}
                                     <p class="text-sm mt-1 text-gray-600 dark:text-gray-300 flex items-center gap-1">
                                         {% include "shared/icons/chat-bubble-left.html" with class="w-4 h-4 shrink-0" %}
@@ -193,7 +193,7 @@
                                 {% if connection.status == 'pending' %}
                                     <small class="text-gray-500 dark:text-gray-400">{% trans "Waiting for response..." %}</small>
                                 {% elif connection.responded_at %}
-                                    <small class="text-gray-500 dark:text-gray-400">{{ connection.responded_at|date:"M d, Y g:i A" }}</small>
+                                    <small class="text-gray-500 dark:text-gray-400">{{ connection.responded_at|date:"DATETIME_FORMAT" }}</small>
                                 {% else %}
                                     <small class="text-gray-500 dark:text-gray-400">{% trans "Accepted" %}</small>
                                 {% endif %}
@@ -256,7 +256,7 @@
                                 <h4 class="font-medium text-gray-900 dark:text-white">{% trans "Contacts Shared!" %}</h4>
                                 {% if connection.status == 'shared' %}
                                     {% if connection.shared_at %}
-                                        <small class="text-gray-500 dark:text-gray-400">{{ connection.shared_at|date:"M d, Y g:i A" }}</small>
+                                        <small class="text-gray-500 dark:text-gray-400">{{ connection.shared_at|date:"DATETIME_FORMAT" }}</small>
                                     {% else %}
                                         <small class="text-green-600 dark:text-green-400">{% trans "You can now see each other's contact information" %}</small>
                                     {% endif %}

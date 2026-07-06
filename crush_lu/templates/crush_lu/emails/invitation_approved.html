@@ -118,7 +118,7 @@
                 <div class="detail-row">
                     <span class="detail-icon">📅</span>
                     <div>
-                        <strong>{% trans "When:" %}</strong> {{ event.date_time|date:"l, F j, Y" }} {% trans "at" %} {{ event.date_time|time:"g:i A" }}
+                        <strong>{% trans "When:" %}</strong> {{ event.date_time|date:"l" }}, {{ event.date_time|date:"DATE_FORMAT" }} {% trans "at" %} {{ event.date_time|time:"TIME_FORMAT" }}
                     </div>
                 </div>
 

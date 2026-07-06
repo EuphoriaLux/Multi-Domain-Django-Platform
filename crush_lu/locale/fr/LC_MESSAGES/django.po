@@ -3203,7 +3203,7 @@ msgstr "Français"
 #: models/profiles.py:623 models/profiles.py:633
 #: templates/crush_lu/create_profile.html:973
 msgid "Deutsch"
-msgstr "Allemand"
+msgstr "Deutsch"
 
 #: models/crush_connect.py:23 models/events.py:519 models/newsletter.py:76
 #: models/profiles.py:341 models/profiles.py:622 models/profiles.py:632
@@ -3211,7 +3211,7 @@ msgstr "Allemand"
 #: templates/crush_lu/about.html:233
 #: templates/crush_lu/create_profile.html:965
 msgid "English"
-msgstr "Anglais"
+msgstr "English"
 
 #: models/crush_connect.py:24
 msgid "Português"
@@ -12259,7 +12259,7 @@ msgstr "Déconnecter"
 #: templates/crush_lu/account_settings.html:106
 #: templates/crush_lu/partials/edit_account_settings.html:97
 msgid "You need at least one login method"
-msgstr "Tu as besoin d'au moins une méthode de connexion"
+msgstr "Vous avez besoin d'au moins une méthode de connexion"
 
 #: templates/crush_lu/account_settings.html:117
 #: templates/crush_lu/partials/edit_account_settings.html:108
@@ -12269,7 +12269,7 @@ msgstr "Connecter plus de comptes"
 #: templates/crush_lu/account_settings.html:154
 #: templates/crush_lu/partials/edit_account_settings.html:145
 msgid "You don't have any social accounts connected yet."
-msgstr "Tu n'as pas encore connecté de comptes sociaux."
+msgstr "Vous n'avez pas encore connecté de comptes sociaux."
 
 #: templates/crush_lu/account_settings.html:190
 #: templates/crush_lu/partials/edit_account_settings.html:181
@@ -12288,7 +12288,7 @@ msgid ""
 "Photos from your connected social accounts. To use these photos on your "
 "dating profile,"
 msgstr ""
-"Photos de tes comptes sociaux connectés. Pour utiliser ces photos sur ton "
+"Photos de vos comptes sociaux connectés. Pour utiliser ces photos sur votre "
 "profil de rencontre,"
 
 #: templates/crush_lu/account_settings.html:208
@@ -12299,7 +12299,7 @@ msgstr "aller à Modifier le profil"
 #: templates/crush_lu/account_settings.html:210
 #: templates/crush_lu/partials/edit_account_settings.html:201
 msgid "complete your profile setup"
-msgstr "compléter la configuration de ton profil"
+msgstr "compléter la configuration de votre profil"
 
 #: templates/crush_lu/account_settings.html:230
 #: templates/crush_lu/partials/edit_account_settings.html:221
@@ -12351,12 +12351,13 @@ msgstr "Définir un mot de passe"
 #: templates/crush_lu/account_settings.html:296
 #: templates/crush_lu/partials/edit_account_settings.html:285
 msgid "You have a password set for email login."
-msgstr "Tu as défini un mot de passe pour la connexion par email."
+msgstr "Vous avez défini un mot de passe pour la connexion par email."
 
 #: templates/crush_lu/account_settings.html:298
 #: templates/crush_lu/partials/edit_account_settings.html:287
 msgid "You can also login with your connected social accounts."
-msgstr "Tu peux également te connecter avec tes comptes sociaux connectés."
+msgstr ""
+"Vous pouvez également vous connecter avec vos comptes sociaux connectés."
 
 #: templates/crush_lu/account_settings.html:312
 #: templates/crush_lu/partials/edit_account_settings.html:301
@@ -12412,7 +12413,7 @@ msgstr "Compléter le profil"
 #: templates/crush_lu/account_settings.html:346
 #: templates/crush_lu/partials/edit_account_settings.html:323
 msgid "You haven't created a dating profile yet."
-msgstr "Tu n'as pas encore créé de profil de rencontre."
+msgstr "Vous n'avez pas encore créé de profil de rencontre."
 
 #: templates/crush_lu/account_settings.html:348
 #: templates/crush_lu/base.html:684 templates/crush_lu/event_detail.html:453
@@ -12446,7 +12447,7 @@ msgstr "Se désabonner de TOUS les emails"
 #: templates/crush_lu/account_settings.html:386
 #: templates/crush_lu/partials/edit_account_notifications.html:53
 msgid "Choose which emails you'd like to receive:"
-msgstr "Choisis les emails que tu souhaites recevoir :"
+msgstr "Choisissez les emails que vous souhaitez recevoir :"
 
 #: templates/crush_lu/account_settings.html:446
 #: templates/crush_lu/email_unsubscribe.html:139
@@ -12482,7 +12483,7 @@ msgid ""
 "Match alerts, new messages, and event reminders sent to your WhatsApp "
 "number."
 msgstr ""
-"Alertes de match, nouveaux messages et rappels d'événements envoyés à ton "
+"Alertes de match, nouveaux messages et rappels d'événements envoyés à votre "
 "numéro WhatsApp."
 
 #: templates/crush_lu/account_settings.html:503 views_account.py:694
@@ -12494,11 +12495,11 @@ msgstr ""
 #: templates/crush_lu/account_settings.html:504
 #: templates/crush_lu/offline.html:64
 msgid "Update your profile"
-msgstr "Mettre à jour ton profil"
+msgstr "Mettre à jour votre profil"
 
 #: templates/crush_lu/account_settings.html:505
 msgid "to add and verify your number."
-msgstr "pour ajouter et vérifier ton numéro."
+msgstr "pour ajouter et vérifier votre numéro."
 
 #: templates/crush_lu/account_settings.html:516
 #: templates/crush_lu/account_settings.html:766
@@ -12682,7 +12683,7 @@ msgstr "Être notifié lorsque quelqu'un se connecte avec vous"
 #: templates/crush_lu/account_settings.html:746
 #: templates/crush_lu/partials/edit_account_notifications.html:332
 msgid "Notifications about your profile status"
-msgstr "Notifications concernant le statut de ton profil"
+msgstr "Notifications concernant le statut de votre profil"
 
 #: templates/crush_lu/account_settings.html:753
 #: templates/crush_lu/partials/edit_account_notifications.html:339
@@ -12703,8 +12704,8 @@ msgstr "Aucun appareil enregistré pour les notifications push."
 #: templates/crush_lu/partials/edit_account_notifications.html:397
 msgid "Allow notifications in your browser settings to receive coach alerts."
 msgstr ""
-"Active les notifications dans les paramètres de ton navigateur pour recevoir"
-" des alertes de ton coach."
+"Activez les notifications dans les paramètres de votre navigateur pour "
+"recevoir les alertes de votre coach."
 
 #: templates/crush_lu/account_settings.html:825
 #: templates/crush_lu/partials/edit_account_notifications.html:407
@@ -23670,10 +23671,10 @@ msgid ""
 "profile, get verified at an event or via LuxID, join events, and make "
 "authentic connections. No endless swiping!"
 msgstr ""
-"Découvre comment Crush.lu t'aide à rencontrer des célibataires au "
-"Luxembourg. Crée ton profil, fais-toi vérifier lors d'un événement ou via "
-"LuxID, participe aux événements et crée de vraies connexions. Sans swipe à "
-"l'infini !"
+"Découvrez comment Crush.lu vous aide à rencontrer des célibataires au "
+"Luxembourg. Créez votre profil, faites-vous vérifier lors d'un événement ou "
+"via LuxID, participez aux événements et créez de vraies connexions. Sans "
+"swipe à l'infini !"
 
 #: templates/crush_lu/how_it_works.html:9
 msgid ""
@@ -23681,10 +23682,10 @@ msgid ""
 "verified at an event or via LuxID, browse events, and meet real people. "
 "Luxembourg's privacy-first dating platform."
 msgstr ""
-"Découvre comment fonctionne Crush.lu en 4 étapes simples : crée ton profil, "
-"fais-toi vérifier lors d'un événement ou via LuxID, parcours les événements "
-"et rencontre de vraies personnes. La plateforme de rencontres du Luxembourg,"
-" respectueuse de la vie privée."
+"Découvrez comment fonctionne Crush.lu en 4 étapes simples : créez votre "
+"profil, faites-vous vérifier lors d'un événement ou via LuxID, parcourez les"
+" événements et rencontrez de vraies personnes. La plateforme de rencontres "
+"du Luxembourg, respectueuse de la vie privée."
 
 #: templates/crush_lu/how_it_works.html:10
 msgid ""
@@ -23712,24 +23713,24 @@ msgid ""
 "Share who you are, what you love, and what you're looking for. Add photos "
 "and let your personality shine through."
 msgstr ""
-"Partage qui tu es, ce que tu aimes et ce que tu recherches. Ajoute des "
-"photos et laisse ta personnalité briller."
+"Partagez qui vous êtes, ce que vous aimez et ce que vous recherchez. Ajoutez"
+" des photos et laissez votre personnalité briller."
 
 #: templates/crush_lu/how_it_works.html:62
 msgid ""
 "Come to an event and a coach verifies you in person, or connect your LuxID "
 "in seconds — no review queue, no waiting."
 msgstr ""
-"Viens à un événement et un coach te vérifie en personne, ou connecte ton "
-"LuxID en quelques secondes — pas de file d'attente, pas d'attente."
+"Venez à un événement et un coach vous vérifie en personne, ou connectez "
+"votre LuxID en quelques secondes — pas de file d'attente, pas d'attente."
 
 #: templates/crush_lu/how_it_works.html:69
 msgid ""
 "Explore speed dating nights, social mixers, themed events, and outdoor "
 "adventures."
 msgstr ""
-"Explore les soirées speed dating, les mixers, les événements à thème et les "
-"aventures en plein air."
+"Explorez les soirées speed dating, les mixers, les événements à thème et les"
+" aventures en plein air."
 
 #: templates/crush_lu/how_it_works.html:76
 #: templates/crush_lu/how_it_works.html:169
@@ -23774,17 +23775,17 @@ msgid ""
 "Come to an event and a coach verifies you in person, or connect your LuxID —"
 " instant, no waiting. That's how we keep the community authentic."
 msgstr ""
-"Viens à un événement et un coach te vérifie en personne, ou connecte ton "
-"LuxID — instantané, sans attente. C'est ainsi que nous gardons la communauté"
-" authentique."
+"Venez à un événement et un coach vous vérifie en personne, ou connectez "
+"votre LuxID — instantané, sans attente. C'est ainsi que nous gardons la "
+"communauté authentique."
 
 #: templates/crush_lu/how_it_works.html:150
 msgid ""
 "Explore speed dating nights, social mixers, themed events, and outdoor "
 "adventures. Find what excites you!"
 msgstr ""
-"Explore les soirées speed dating, les mixers, les événements à thème et les "
-"aventures en plein air. Trouve ce qui t'enthousiasme !"
+"Explorez les soirées speed dating, les mixers, les événements à thème et les"
+" aventures en plein air. Trouvez ce qui vous enthousiasme !"
 
 #: templates/crush_lu/how_it_works.html:154
 msgid "See How Voting Works"
@@ -23800,15 +23801,15 @@ msgstr "Votre vie privée compte"
 
 #: templates/crush_lu/how_it_works.html:186
 msgid "Control what information you share"
-msgstr "Contrôle les informations que tu partages"
+msgstr "Contrôlez les informations que vous partagez"
 
 #: templates/crush_lu/how_it_works.html:187
 msgid "Show full name or just first name"
-msgstr "Montre ton nom complet ou juste ton prénom"
+msgstr "Montrez votre nom complet ou juste votre prénom"
 
 #: templates/crush_lu/how_it_works.html:188
 msgid "Blur photos until mutual interest"
-msgstr "Floute les photos jusqu'à un intérêt mutuel"
+msgstr "Floutez les photos jusqu'à un intérêt mutuel"
 
 #: templates/crush_lu/how_it_works.html:189
 msgid "No public profiles browsing"
@@ -25632,8 +25633,8 @@ msgid ""
 "Get your digital membership card, earn rewards, and unlock exclusive "
 "benefits by inviting friends."
 msgstr ""
-"Obtiens ta carte de membre numérique, gagne des récompenses et débloque des "
-"avantages exclusifs en invitant des amis."
+"Obtenez votre carte de membre numérique, gagnez des récompenses et débloquez"
+" des avantages exclusifs en invitant des amis."
 
 #: templates/crush_lu/membership.html:34
 msgid "Your Membership Card"
@@ -25645,14 +25646,14 @@ msgstr "Points"
 
 #: templates/crush_lu/membership.html:90
 msgid "Your membership card awaits"
-msgstr "Ta carte de membre t'attend"
+msgstr "Votre carte de membre vous attend"
 
 #: templates/crush_lu/membership.html:91
 msgid ""
 "Join Crush.lu to get your digital membership card, earn rewards, and unlock "
 "exclusive benefits."
 msgstr ""
-"Rejoins Crush.lu pour obtenir ta carte de membre numérique, gagner des "
+"Rejoignez Crush.lu pour obtenir votre carte de membre numérique, gagner des "
 "récompenses et débloquer des avantages exclusifs."
 
 #: templates/crush_lu/membership.html:92
@@ -25674,12 +25675,13 @@ msgstr "Inviter des amis"
 #: templates/crush_lu/membership.html:173
 msgid "Earn 100 points when a friend signs up using your referral link."
 msgstr ""
-"Gagne 100 points quand un ami s'inscrit en utilisant ton lien de parrainage."
+"Gagnez 100 points quand un ami s'inscrit en utilisant votre lien de "
+"parrainage."
 
 #: templates/crush_lu/membership.html:187
 msgid "Earn 50 bonus points when your referred friend's profile is approved."
 msgstr ""
-"Gagne 50 points bonus quand le profil de ton ami parrainé est approuvé."
+"Gagnez 50 points bonus quand le profil de votre ami parrainé est approuvé."
 
 #: templates/crush_lu/membership.html:200
 msgid "Attend Events"
@@ -25701,7 +25703,8 @@ msgstr "Inscription gratuite"
 
 #: templates/crush_lu/membership.html:230
 msgid "Create your account and start earning rewards today."
-msgstr "Crée ton compte et commence à gagner des récompenses dès aujourd'hui."
+msgstr ""
+"Créez votre compte et commencez à gagner des récompenses dès aujourd'hui."
 
 #: templates/crush_lu/membership.html:232
 msgid "Sign Up Now"
@@ -25739,8 +25742,8 @@ msgstr "Nouvelles connexions"
 #: templates/crush_lu/my_connections.html:111
 msgid "Attend an event and connect with people you meet!"
 msgstr ""
-"Participe à un événement et connecte-toi avec les personnes que tu "
-"rencontres !"
+"Participez à un événement et connectez-vous avec les personnes que vous "
+"rencontrez !"
 
 #: templates/crush_lu/my_events.html:7
 msgid ""

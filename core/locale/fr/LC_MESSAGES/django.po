@@ -45,7 +45,7 @@ msgstr ""
 
 #: .\azureproject\settings.py:714
 msgid "English"
-msgstr "Anglais"
+msgstr "English"
 
 #: .\azureproject\settings.py:715
 msgid "German"
@@ -140,8 +140,8 @@ msgstr "Toujours actif"
 #, fuzzy
 #| msgid ""
 #| "These cookies are necessary for the website to function and cannot "
-#| "beswitched off. They are usually only set in response to actions madeby "
-#| "you such as logging in or filling in forms."
+#| "beswitched off. They are usually only set in response to actions madeby you "
+#| "such as logging in or filling in forms."
 msgid ""
 "These cookies are necessary for the website to function and cannot be "
 "switched off. They are usually only set in response to actions made by you "
@@ -158,12 +158,12 @@ msgstr "Cookies analytiques"
 #: .\core\templates\includes\cookie_banner.html:63
 #, fuzzy
 #| msgid ""
-#| "These cookies allow us to count visits and traffic sources so we "
-#| "canmeasure and improve the performance of our site. They help us "
-#| "knowwhich pages are the most and least popular."
+#| "These cookies allow us to count visits and traffic sources so we canmeasure "
+#| "and improve the performance of our site. They help us knowwhich pages are "
+#| "the most and least popular."
 msgid ""
-"These cookies allow us to count visits and traffic sources so we can measure "
-"and improve the performance of our site. They help us know which pages are "
+"These cookies allow us to count visits and traffic sources so we can measure"
+" and improve the performance of our site. They help us know which pages are "
 "the most and least popular."
 msgstr ""
 "Ces cookies nous permettent de compter les visites et les sources detrafic "
@@ -177,9 +177,9 @@ msgstr "Cookies marketing"
 #: .\core\templates\includes\cookie_banner.html:78
 #, fuzzy
 #| msgid ""
-#| "These cookies may be set through our site by our advertisingpartners. "
-#| "They may be used to build a profile of your interests andshow you "
-#| "relevant adverts on other sites."
+#| "These cookies may be set through our site by our advertisingpartners. They "
+#| "may be used to build a profile of your interests andshow you relevant "
+#| "adverts on other sites."
 msgid ""
 "These cookies may be set through our site by our advertising partners. They "
 "may be used to build a profile of your interests and show you relevant "
@@ -215,8 +215,8 @@ msgstr ""
 
 #: .\vinsdelux\templates\vinsdelux\base.html:71
 msgid ""
-"This project showcases the idea of connecting wine enthusiasts with vineyard "
-"plots in Luxembourg's Moselle region."
+"This project showcases the idea of connecting wine enthusiasts with vineyard"
+" plots in Luxembourg's Moselle region."
 msgstr ""
 
 #: .\vinsdelux\templates\vinsdelux\index.html:4
@@ -259,8 +259,8 @@ msgstr ""
 
 #: .\vinsdelux\templates\vinsdelux\index.html:30
 msgid ""
-"Choose the vineyard plot that matches your preferences and vision. Each plot "
-"offers a unique terroir and a story to tell."
+"Choose the vineyard plot that matches your preferences and vision. Each plot"
+" offers a unique terroir and a story to tell."
 msgstr ""
 
 #: .\vinsdelux\templates\vinsdelux\index.html:37
@@ -318,6 +318,30 @@ msgid ""
 "This page presents the vineyard adoption concept — adopt a plot, follow the "
 "winemaking journey, and receive wines crafted from your personal vines."
 msgstr ""
+
+#. Language names stay native in every locale.
+msgid "Lëtzebuergesch"
+msgstr "Lëtzebuergesch"
+
+#. Language names stay native in every locale.
+msgid "Français"
+msgstr "Français"
+
+#. Language names stay native in every locale.
+msgid "Deutsch"
+msgstr "Deutsch"
+
+#. Language names stay native in every locale.
+msgid "Português"
+msgstr "Português"
+
+#. Language names stay native in every locale.
+msgid "Italiano"
+msgstr "Italiano"
+
+#. Language names stay native in every locale.
+msgid "Español"
+msgstr "Español"
 
 #~ msgid "Display"
 #~ msgstr "Affichage"

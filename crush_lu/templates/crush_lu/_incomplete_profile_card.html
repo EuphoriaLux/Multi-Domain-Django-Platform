@@ -42,7 +42,7 @@
                     {% for reg in profile.upcoming_events %}
                         <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded gap-0.5">
                             {% include "shared/icons/calendar.html" with class="w-3 h-3" %}
-                            {{ reg.event.title }} · {{ reg.event.date_time|date:"M j" }}
+                            {{ reg.event.title }} · {{ reg.event.date_time|date:"j M" }}
                         </span>
                     {% endfor %}
                 </div>

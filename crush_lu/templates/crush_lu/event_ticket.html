@@ -34,11 +34,11 @@
                 <div class="grid grid-cols-2 gap-4 text-sm">
                     <div>
                         <span class="text-gray-500 dark:text-gray-400 block mb-0.5">{% trans "Date" %}</span>
-                        <span class="font-semibold text-gray-900 dark:text-white">{{ event.date_time|date:"D, M j, Y" }}</span>
+                        <span class="font-semibold text-gray-900 dark:text-white">{{ event.date_time|date:"D" }}, {{ event.date_time|date:"DATE_FORMAT" }}</span>
                     </div>
                     <div>
                         <span class="text-gray-500 dark:text-gray-400 block mb-0.5">{% trans "Time" %}</span>
-                        <span class="font-semibold text-gray-900 dark:text-white">{{ event.date_time|date:"g:i A" }}</span>
+                        <span class="font-semibold text-gray-900 dark:text-white">{{ event.date_time|date:"TIME_FORMAT" }}</span>
                     </div>
                     <div class="col-span-2">
                         <span class="text-gray-500 dark:text-gray-400 block mb-0.5">{% trans "Location" %}</span>
@@ -67,7 +67,7 @@
                         </svg>
                         <p class="font-semibold text-green-800 dark:text-green-300">{% trans "You're checked in!" %}</p>
                         {% if registration.checked_in_at %}
-                        <p class="text-sm text-green-600 dark:text-green-400 mt-1">{{ registration.checked_in_at|date:"g:i A" }}</p>
+                        <p class="text-sm text-green-600 dark:text-green-400 mt-1">{{ registration.checked_in_at|date:"TIME_FORMAT" }}</p>
                         {% endif %}
                         {% if table_number %}
                         <div class="mt-3 inline-flex items-center gap-2 rounded-lg bg-crush-purple/10 dark:bg-crush-purple/20 px-4 py-2">

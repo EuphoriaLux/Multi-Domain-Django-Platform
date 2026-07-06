@@ -205,11 +205,11 @@
                 <h4 class="mt-3 text-gray-900 dark:text-white">{{ event.title }}</h4>
                 <p class="mb-1">
                     {% include "shared/icons/calendar-days.html" with class="w-5 h-5" %}
-                    <strong>{{ event.date_time|date:"l, F j, Y" }}</strong>
+                    <strong>{{ event.date_time|date:"l" }}, {{ event.date_time|date:"DATE_FORMAT" }}</strong>
                 </p>
                 <p class="mb-1">
                     {% include "shared/icons/clock.html" with class="w-5 h-5" %}
-                    {% blocktrans with time=event.date_time|date:"g:i A" minutes=event.duration_minutes %}{{ time }} ({{ minutes }} minutes){% endblocktrans %}
+                    {% blocktrans with time=event.date_time|date:"TIME_FORMAT" minutes=event.duration_minutes %}{{ time }} ({{ minutes }} minutes){% endblocktrans %}
                 </p>
                 <p class="mb-0">
                     {% include "shared/icons/map-pin.html" with class="w-5 h-5" %}

@@ -14,7 +14,7 @@
     <td style="padding: 10px; background: #f8f8f8; border-radius: 6px;">
       <p style="margin: 0; font-size: 14px; color: #666;"><strong>{% trans "When" %}</strong></p>
       <p style="margin: 4px 0 0; font-size: 16px; color: #333;">
-        {{ slot.start_at|date:"l, F j Y" }}<br>
+        {{ slot.start_at|date:"l" }}, {{ slot.start_at|date:"DATE_FORMAT" }}<br>
         {{ slot.start_at|time:"H:i" }} – {{ slot.end_at|time:"H:i" }} ({% trans "Europe/Luxembourg" %})
       </p>
     </td>

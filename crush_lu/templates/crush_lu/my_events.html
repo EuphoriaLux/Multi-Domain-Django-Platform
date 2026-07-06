@@ -52,7 +52,7 @@
                 </div>
 
                 <div class="text-gray-500 dark:text-gray-400 text-sm flex flex-col gap-1 mb-4">
-                    <span class="inline-flex items-center gap-1.5">{% include "shared/icons/calendar.html" with class="w-3.5 h-3.5 text-crush-purple" %} {{ entry.event.date_time|date:"D, M j, Y · g:i A" }}</span>
+                    <span class="inline-flex items-center gap-1.5">{% include "shared/icons/calendar.html" with class="w-3.5 h-3.5 text-crush-purple" %} {{ entry.event.date_time|date:"D" }}, {{ entry.event.date_time|date:"DATE_FORMAT" }} · {{ entry.event.date_time|date:"TIME_FORMAT" }}</span>
                     <span class="inline-flex items-center gap-1.5">{% include "shared/icons/map-pin.html" with class="w-3.5 h-3.5 text-crush-purple" %} {{ entry.event.location }}</span>
                 </div>
 
@@ -116,7 +116,7 @@
                 </div>
 
                 <p class="text-gray-500 dark:text-gray-400 text-sm mb-3">
-                    {{ entry.event.date_time|date:"D, M j, Y" }}
+                    {{ entry.event.date_time|date:"D" }}, {{ entry.event.date_time|date:"DATE_FORMAT" }}
                 </p>
 
                 {% if entry.attended and entry.mutual_matches %}

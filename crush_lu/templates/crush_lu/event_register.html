@@ -40,7 +40,7 @@
                 <div>
                     <h2 class="font-bold text-lg">{{ event.title }}</h2>
                     <p class="text-white/90">
-                        {% blocktrans with date=event.date_time|date:"l, F j, Y" time=event.date_time|date:"g:i A" %}{{ date }} at {{ time }}{% endblocktrans %}
+                        {% blocktrans with date=event.date_time|date:"DATE_FORMAT" time=event.date_time|date:"TIME_FORMAT" %}{{ date }} at {{ time }}{% endblocktrans %}
                     </p>
                     <p class="text-white/80 text-sm mt-1">{{ event.location }}</p>
                 </div>

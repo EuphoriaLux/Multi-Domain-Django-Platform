@@ -23,8 +23,8 @@
 <div class="info-box">
     <strong>{% trans "Event Details:" %}</strong>
     <ul style="margin: 10px 0; list-style: none; padding-left: 0;">
-        <li style="margin: 8px 0;">{% trans "Date:" %} <strong>{{ event.date_time|date:"l, F j, Y" }}</strong></li>
-        <li style="margin: 8px 0;">{% trans "Time:" %} <strong>{{ event.date_time|date:"g:i A" }}</strong></li>
+        <li style="margin: 8px 0;">{% trans "Date:" %} <strong>{{ event.date_time|date:"l" }}, {{ event.date_time|date:"DATE_FORMAT" }}</strong></li>
+        <li style="margin: 8px 0;">{% trans "Time:" %} <strong>{{ event.date_time|date:"TIME_FORMAT" }}</strong></li>
         <li style="margin: 8px 0;">{% trans "Location:" %} <strong>{{ event.location }}</strong><br>
             <span style="color: #666; padding-left: 0;">{{ event.address }}<br>
             {{ event.canton|default:"Luxembourg" }}, {% trans "Luxembourg" %}</span>

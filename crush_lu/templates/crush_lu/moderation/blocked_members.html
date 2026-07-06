@@ -21,7 +21,7 @@
                         {{ block.blocked.first_name|default:block.blocked.username }}
                     </p>
                     <p class="text-xs text-gray-400 dark:text-gray-500 mb-0">
-                        {% blocktrans with when=block.created_at|date:"M j, Y" %}Blocked {{ when }}{% endblocktrans %}
+                        {% blocktrans with when=block.created_at|date:"DATE_FORMAT" %}Blocked {{ when }}{% endblocktrans %}
                         {% if block.get_reason_display %}· {{ block.get_reason_display }}{% endif %}
                     </p>
                 </div>
