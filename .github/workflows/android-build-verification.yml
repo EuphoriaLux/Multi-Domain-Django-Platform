@@ -33,5 +33,6 @@ jobs:
       - name: Build Android App (Debug and Unsigned Release)
         working-directory: mobile/android/CrushLU
         run: |
+          echo "android.useAndroidX=true" > gradle.properties
           chmod +x ./gradlew
           ./gradlew assembleDebug bundleRelease

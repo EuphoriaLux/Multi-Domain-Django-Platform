@@ -39,6 +39,7 @@ jobs:
       - name: Generate gradle.properties
         run: |
           cat <<EOF > mobile/android/CrushLU/gradle.properties
+          android.useAndroidX=true
           CRUSH_UPLOAD_STORE_FILE=keystores/crush-lu-upload.jks
           CRUSH_UPLOAD_STORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           CRUSH_UPLOAD_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}
