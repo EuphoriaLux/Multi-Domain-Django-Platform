@@ -3,10 +3,16 @@ plugins {
 }
 
 val uploadStoreFile = providers.gradleProperty("CRUSH_UPLOAD_STORE_FILE")
+val env = providers.gradleProperty("CRUSH_ENV").getOrElse("production")
+val baseUrl = if (env == "staging") "https://test.crush.lu" else "https://crush.lu"
 
 android {
     namespace = "lu.crush.app"
     compileSdk = 35
+
+    buildFeatures {
+        buildConfig = true
+    }
 
     defaultConfig {
         applicationId = "lu.crush.app"
@@ -14,6 +20,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
+        buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
     }
 
     signingConfigs {

@@ -25,7 +25,7 @@ import java.util.Map;
 
 public class MainActivity extends Activity {
     private static final int FILE_CHOOSER_REQUEST = 1001;
-    private static final String BASE_URL = "https://crush.lu";
+    private static final String BASE_URL = BuildConfig.BASE_URL;
     private static final String START_URL = BASE_URL + "/en/dashboard/?source=android_app";
     private static final String LOGIN_HANDOFF_URL =
             BASE_URL + "/api/mobile/android/auth/handoff/?redirect_uri=crushlu%3A%2F%2Fauth";
@@ -161,7 +161,9 @@ public class MainActivity extends Activity {
             return false;
         }
         String normalized = host.toLowerCase(Locale.ROOT);
-        return normalized.equals("crush.lu") || normalized.equals("www.crush.lu");
+        Uri base = Uri.parse(BASE_URL);
+        String baseHost = base.getHost() != null ? base.getHost().toLowerCase(Locale.ROOT) : "";
+        return normalized.equals(baseHost) || normalized.endsWith("." + baseHost);
     }
 
     private Map<String, String> clientHeaders() {
