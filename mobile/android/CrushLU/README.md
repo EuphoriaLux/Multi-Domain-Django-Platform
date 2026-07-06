@@ -18,7 +18,7 @@ Native Android WebView shell for the Crush.lu Play Store submission.
 3. Copy `gradle.properties.example` to `gradle.properties` and fill in the Play upload key values.
 4. Build the Play upload bundle from Android Studio: Build > Generate Signed App Bundle / APK > Android App Bundle.
 
-If you install Gradle separately, you can also run `gradle bundleRelease` from this directory. The Play upload file will be created at `app/build/outputs/bundle/release/app-release.aab`.
+You can also run `./gradlew bundleRelease` from this directory. On Windows PowerShell, use `.\gradlew.bat bundleRelease`. The Play upload file will be created at `app/build/outputs/bundle/release/app-release.aab`.
 
 ## Backend Environment
 

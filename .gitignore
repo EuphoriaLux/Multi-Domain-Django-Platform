@@ -251,3 +251,14 @@ mobile/ios/*.cer
 mobile/ios/*.p12
 mobile/ios/*.mobileprovision
 mobile/ios/*.base64
+
+# Android local build/signing artifacts
+mobile/android/**/.gradle/
+mobile/android/**/.idea/
+mobile/android/**/local.properties
+mobile/android/**/gradle.properties
+mobile/android/**/app/keystores/
+mobile/android/**/app/build/
+build-artifacts/
+*.jks
+project-*.json
