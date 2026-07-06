@@ -210,6 +210,9 @@ nul
 # Local development documentation (personal notes)
 LOCAL_DEV_SETUP.md
 
+# VS Code multi-root workspace (personal paths, references sibling repos)
+Multi-Domain-Django-Platform.code-workspace
+
 # Claude Code temporary files
 tmpclaude-*
 
