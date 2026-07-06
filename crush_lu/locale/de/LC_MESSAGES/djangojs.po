@@ -282,3 +282,35 @@ msgstr "Netzwerkfehler"
 #. user-facing string from alpine-components.js (#321)
 msgid "Import failed."
 msgstr "Import fehlgeschlagen."
+
+#: static/crush_lu/js/alpine-components.js:1819
+msgid "Enabling..."
+msgstr "Wird aktiviert..."
+
+#: static/crush_lu/js/alpine-components.js:1819
+msgid "Enable Push Notifications"
+msgstr "Push-Benachrichtigungen aktivieren"
+
+#: static/crush_lu/js/alpine-components.js:1822
+msgid "Disabling..."
+msgstr "Wird deaktiviert..."
+
+#: static/crush_lu/js/alpine-components.js:1822
+msgid "Disable"
+msgstr "Deaktivieren"
+
+#: static/crush_lu/js/alpine-components.js:2628
+msgid "Enable Notifications"
+msgstr "Benachrichtigungen aktivieren"
+
+#: static/crush_lu/js/alpine-components.js:2631
+msgid "Sending..."
+msgstr "Wird gesendet..."
+
+#: static/crush_lu/js/alpine-components.js:2631
+msgid "Send Test"
+msgstr "Test senden"
+
+#: static/crush_lu/js/alpine-components.js:2634
+msgid "Disable Notifications"
+msgstr "Benachrichtigungen deaktivieren"
