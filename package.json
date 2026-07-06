@@ -21,7 +21,7 @@
   },
   "devDependencies": {
     "@playwright/mcp": "^0.0.76",
-    "@tailwindcss/cli": "^4.3.1",
+    "@tailwindcss/cli": "^4.3.2",
     "@tailwindcss/forms": "^0.5.7",
     "@tailwindcss/typography": "^0.5.20",
     "@upstash/context7-mcp": "^3.2.2",
