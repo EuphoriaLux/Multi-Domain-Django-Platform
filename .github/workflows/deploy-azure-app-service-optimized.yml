@@ -103,6 +103,9 @@ jobs:
           # Oryx extracts with: tar -xzf antenv.tar.gz -C /antenv
           # So the tar must contain bin/, lib/, etc. directly (not antenv/bin/, antenv/lib/)
           tar czf antenv.tar.gz -C antenv .
+          # Build stamp: /readyz/ exposes it so the pipeline (and post-swap
+          # checks) can verify which commit a container is actually serving.
+          echo "{\"commit\": \"${GITHUB_SHA}\", \"built_at\": \"$(date -u +%FT%TZ)\"}" > build_info.json
           zip -r deploy.zip . -x "*.git*" -x "*__pycache__*" -x "*.pyc" -x "node_modules/*" -x "tailwind-src/*" -x ".github/*" -x "tests/*" -x "*.md" -x "antenv/*"
           echo "✅ Deployment package built locally (with antenv.tar.gz)"
 
@@ -150,6 +153,22 @@ jobs:
             wait "$pid" || failed=1
           done
           exit $failed
+
+      - name: Wait for new build to serve
+        # A zip deploy + restart returns while the OLD container still
+        # answers (healthz/readyz pass on it too), so poll until /readyz/
+        # reports this run's commit before judging the deployment.
+        run: |
+          echo "Waiting for staging to serve ${GITHUB_SHA}..."
+          for i in $(seq 1 60); do
+            if curl -s --max-time 10 https://test.crush.lu/readyz/ | grep -q "${GITHUB_SHA}"; then
+              echo "✅ staging serves ${GITHUB_SHA}"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "❌ staging never reported ${GITHUB_SHA} within 10 minutes"
+          exit 1
 
       - name: Smoke Test
         # Deep checks against the staging slot: /readyz/ (DB, migrations,

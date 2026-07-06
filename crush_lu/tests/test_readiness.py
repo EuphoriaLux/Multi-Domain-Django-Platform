@@ -8,6 +8,8 @@ out, and 503 with per-check detail otherwise.
 """
 
 import json
+import tempfile
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from django.conf import settings
@@ -100,6 +102,24 @@ class ReadyzTests(TestCase):
         self.assertEqual(payload["status"], "fail")
         for value in payload["checks"].values():
             self.assertTrue(value.startswith("fail:"))
+
+    def test_readyz_includes_build_stamp_when_present(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "build_info.json").write_text(
+                '{"commit": "abc123", "built_at": "2026-07-06T00:00:00Z"}',
+                encoding="utf-8",
+            )
+            with override_settings(BASE_DIR=Path(tmp)):
+                response = self.client.get("/readyz/")
+        payload = json.loads(response.content)
+        self.assertEqual(payload["build"]["commit"], "abc123")
+
+    def test_readyz_omits_build_stamp_when_absent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with override_settings(BASE_DIR=Path(tmp)):
+                response = self.client.get("/readyz/")
+        payload = json.loads(response.content)
+        self.assertNotIn("build", payload)
 
     def test_storage_check_fails_when_container_missing(self):
         # Azure-style backend: exists() on a blob returns False for a missing
