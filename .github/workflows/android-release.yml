@@ -46,9 +46,11 @@ jobs:
           EOF
 
       - name: Build Signed Release App Bundle
+        env:
+          CRUSH_ENV: ${{ inputs.environment || 'production' }}
         run: |
           cd mobile/android/CrushLU
-          gradle bundleRelease -PCRUSH_ENV=${{ github.event.inputs.environment || 'production' }}
+          gradle bundleRelease -PCRUSH_ENV=$CRUSH_ENV
 
       - name: Upload Release Artifact
         uses: actions/upload-artifact@v4
@@ -58,7 +60,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload to Google Play Store (Internal Track)
-        if: ${{ secrets.ANDROID_SERVICE_ACCOUNT_JSON != '' }}
+        if: secrets.ANDROID_SERVICE_ACCOUNT_JSON != ''
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.ANDROID_SERVICE_ACCOUNT_JSON }}
