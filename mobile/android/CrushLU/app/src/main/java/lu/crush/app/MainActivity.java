@@ -1,9 +1,9 @@
 package lu.crush.app;
 
-import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
 import android.net.Uri;
@@ -17,13 +17,20 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ProgressBar;
-import android.widget.TextView;
+
+import androidx.activity.OnBackPressedCallback;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.splashscreen.SplashScreen;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
-public class MainActivity extends Activity {
+public class MainActivity extends AppCompatActivity {
     private static final int FILE_CHOOSER_REQUEST = 1001;
     private static final String BASE_URL = BuildConfig.BASE_URL;
     private static final String START_URL = BASE_URL + "/en/dashboard/?source=android_app";
@@ -32,19 +39,39 @@ public class MainActivity extends Activity {
 
     private WebView webView;
     private ProgressBar progressBar;
-    private TextView offlineView;
+    private SwipeRefreshLayout swipeRefresh;
+    private View offlineView;
     private ValueCallback<Uri[]> filePathCallback;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        SplashScreen.installSplashScreen(this);
         super.onCreate(savedInstanceState);
+
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        getWindow().setStatusBarColor(Color.TRANSPARENT);
+        getWindow().setNavigationBarColor(Color.TRANSPARENT);
+
         setContentView(R.layout.activity_main);
 
         webView = findViewById(R.id.web_view);
         progressBar = findViewById(R.id.progress_bar);
+        swipeRefresh = findViewById(R.id.swipe_refresh);
         offlineView = findViewById(R.id.offline_view);
 
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main_container), (v, insets) -> {
+            int statusBarHeight = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
+            int extraPadding = (int) (16 * getResources().getDisplayMetrics().density);
+            v.setPadding(0, statusBarHeight + extraPadding, 0, 0);
+            return insets;
+        });
+
+        findViewById(R.id.retry_button).setOnClickListener(v -> loadInternal(webView.getUrl() != null ? webView.getUrl() : START_URL));
+
         configureWebView();
+        configureSwipeRefresh();
+        configureBackNavigation();
+
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
 
@@ -67,15 +94,6 @@ public class MainActivity extends Activity {
     }
 
     @Override
-    public void onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack();
-        } else {
-            super.onBackPressed();
-        }
-    }
-
-    @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode != FILE_CHOOSER_REQUEST || filePathCallback == null) {
@@ -91,11 +109,23 @@ public class MainActivity extends Activity {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
+        settings.setSupportZoom(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
+        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         settings.setUserAgentString(settings.getUserAgentString() + " CrushLUAndroid/1.0.0");
 
         webView.setWebViewClient(new CrushWebViewClient());
         webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onProgressChanged(WebView view, int newProgress) {
+                progressBar.setProgress(newProgress);
+                if (newProgress == 100) {
+                    progressBar.setVisibility(View.GONE);
+                } else {
+                    progressBar.setVisibility(View.VISIBLE);
+                }
+            }
+
             @Override
             public boolean onShowFileChooser(
                     WebView webView,
@@ -113,6 +143,31 @@ public class MainActivity extends Activity {
                     return false;
                 }
                 return true;
+            }
+        });
+    }
+
+    private void configureSwipeRefresh() {
+        swipeRefresh.setColorSchemeResources(R.color.crush_primary);
+        swipeRefresh.setOnRefreshListener(() -> {
+            if (webView.getUrl() != null) {
+                webView.reload();
+            } else {
+                loadInternal(START_URL);
+            }
+        });
+    }
+
+    private void configureBackNavigation() {
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (webView.canGoBack()) {
+                    webView.goBack();
+                } else {
+                    setEnabled(false);
+                    onBackPressed();
+                }
             }
         });
     }
@@ -139,7 +194,7 @@ public class MainActivity extends Activity {
             return;
         }
         offlineView.setVisibility(View.GONE);
-        webView.setVisibility(View.VISIBLE);
+        swipeRefresh.setVisibility(View.VISIBLE);
         webView.loadUrl(url, clientHeaders());
     }
 
@@ -180,7 +235,8 @@ public class MainActivity extends Activity {
 
     private void showOffline() {
         progressBar.setVisibility(View.GONE);
-        webView.setVisibility(View.GONE);
+        swipeRefresh.setRefreshing(false);
+        swipeRefresh.setVisibility(View.GONE);
         offlineView.setVisibility(View.VISIBLE);
     }
 
@@ -196,15 +252,27 @@ public class MainActivity extends Activity {
                 || capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET));
     }
 
+    private void fixWebHeaderStyle() {
+        String js = "(function() { " +
+                    "  var css = 'nav, header, .navbar, .nav-bar { " +
+                    "    padding-bottom: 12px !important; " +
+                    "    min-height: 65px !important; " +
+                    "  }'; " +
+                    "  var style = document.getElementById('crush-fix-style') || document.createElement('style'); " +
+                    "  style.id = 'crush-fix-style'; " +
+                    "  style.innerHTML = css; " +
+                    "  if (!style.parentElement) document.head.appendChild(style); " +
+                    "})();";
+
+        webView.evaluateJavascript(js, null);
+        webView.postDelayed(() -> webView.evaluateJavascript(js, null), 1000);
+    }
+
     private final class CrushWebViewClient extends WebViewClient {
         @Override
-        public void onPageStarted(WebView view, String url, Bitmap favicon) {
-            progressBar.setVisibility(View.VISIBLE);
-        }
-
-        @Override
         public void onPageFinished(WebView view, String url) {
-            progressBar.setVisibility(View.GONE);
+            swipeRefresh.setRefreshing(false);
+            fixWebHeaderStyle();
             CookieManager.getInstance().flush();
         }
 
@@ -219,8 +287,13 @@ public class MainActivity extends Activity {
         }
 
         private boolean handleNavigation(Uri uri) {
-            if ("crushlu".equals(uri.getScheme())) {
+            String scheme = uri.getScheme();
+            if ("crushlu".equals(scheme)) {
                 handleUri(uri);
+                return true;
+            }
+            if (scheme != null && (scheme.equals("tel") || scheme.equals("mailto") || scheme.equals("whatsapp") || scheme.equals("intent"))) {
+                openExternal(uri);
                 return true;
             }
             if (shouldStartNativeAuth(uri)) {

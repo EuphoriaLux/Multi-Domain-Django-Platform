@@ -2,4 +2,5 @@
 <resources>
     <color name="crush_background">#2B0F3A</color>
     <color name="crush_text">#FFFFFF</color>
+    <color name="crush_primary">#E91E63</color>
 </resources>

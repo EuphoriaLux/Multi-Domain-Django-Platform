@@ -31,7 +31,6 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build Android App (Debug and Unsigned Release)
+        working-directory: mobile/android/CrushLU
         run: |
-          cd mobile/android/CrushLU
-          gradle assembleDebug
-          gradle bundleRelease
+          ./gradlew assembleDebug bundleRelease
