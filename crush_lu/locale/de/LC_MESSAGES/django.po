@@ -11992,8 +11992,9 @@ msgstr ""
 "Persönliche Verifizierung durch einen Coach, wenn du zu einem Event kommst"
 
 #: templates/crush_lu/about.html:283
-msgid "Or instant verification with LuxID digital identity"
-msgstr "Oder sofortige Verifizierung mit der LuxID-Identität"
+msgid "Or instant verification with LuxID, Luxembourg's official login"
+msgstr ""
+"Oder sofortige Verifizierung mit LuxID, dem offiziellen Login in Luxemburg"
 
 #: templates/crush_lu/about.html:284
 msgid "Every member verified before they join — real people only"
@@ -26089,7 +26090,7 @@ msgstr ""
 #: templates/crush_lu/onboarding/phone.html:53
 #: templates/crush_lu/onboarding/phone.html:64
 msgid "Verify with LuxID"
-msgstr "Mit LuxID verifizieren"
+msgstr "Verifizierung mit LuxID"
 
 #: templates/crush_lu/onboarding/phone.html:59
 msgid ""
@@ -26507,11 +26508,11 @@ msgstr "Zwei Wege, dich zu verifizieren"
 
 #: templates/crush_lu/partials/_verification_options.html:41
 msgid "Pick whichever suits you — you only need one."
-msgstr "Wähle, was zu dir passt — du brauchst nur eine Methode."
+msgstr "Wähl die, die zu dir passt — eine genügt."
 
 #: templates/crush_lu/partials/_verification_options.html:52
 msgid "Come to an event"
-msgstr "Komm zu einem Event"
+msgstr "Verifizierung bei einem Event"
 
 #: templates/crush_lu/partials/_verification_options.html:54
 msgid ""
@@ -26527,13 +26528,14 @@ msgstr "LuxID"
 
 #: templates/crush_lu/partials/_verification_options.html:68
 msgid ""
-"Connect your LuxID government identity and get verified in seconds — no "
-"call, no waiting. LuxID also unlocks Crush Connect, where a Crush Coach can "
-"pick you as a match."
+"With LuxID (Luxembourg's official login app), a few clicks are all it takes "
+"to verify it's you. Once that's done, Crush Connect unlocks automatically "
+"and a Coach will guide you in the quest for your ideal Crush."
 msgstr ""
-"Verbinde deine staatliche LuxID-Identität und werde in Sekunden verifiziert "
-"– kein Anruf, kein Warten. LuxID schaltet außerdem Crush Connect frei, in "
-"dem ein Crush-Coach dich als Match auswählen kann."
+"Mit LuxID (der offiziellen Login-App in Luxemburg) genügen ein paar Klicks, "
+"um dich zu verifizieren. Danach wird Crush Connect automatisch "
+"freigeschaltet und ein Coach begleitet dich auf der Suche nach deinem "
+"idealen Crush."
 
 #: templates/crush_lu/partials/_verification_options.html:76
 msgid "Not available right now — come to an event to get verified instead."
@@ -29008,11 +29010,10 @@ msgstr "LuxID verbinden & verifizieren"
 
 #: templates/crush_lu/profile_submitted.html:201
 msgid ""
-"LuxID is a highly trusted digital identity service operated by POST "
-"Luxembourg."
+"LuxID is Luxembourg's official login service, operated by POST Luxembourg."
 msgstr ""
-"LuxID ist ein hoch vertrauenswürdiger digitaler Identitätsdienst, betrieben "
-"von POST Luxembourg."
+"LuxID ist der offizielle Login-Dienst in Luxemburg, betrieben von POST "
+"Luxembourg."
 
 #: templates/crush_lu/profile_submitted.html:219
 msgid "Wait for coach review"
@@ -34033,11 +34034,13 @@ msgstr "Abschnitt "
 
 #: templates/crush_lu/partials/_verification_options.html
 msgid ""
-"Prefer to meet first? Our team verifies you in person at any event — no "
-"LuxID needed, and you start meeting people right away."
+"Prefer real life? No problem — come to an event and a Coach will verify you "
+"face to face. On your marks, get set, go: you can then start meeting the "
+"person who'll become your Crush."
 msgstr ""
-"Lieber erst persönlich treffen? Unser Team verifiziert dich persönlich bei "
-"jedem Event – keine LuxID nötig, und du lernst sofort Leute kennen."
+"Du triffst dich lieber im echten Leben? Kein Problem — komm zu einem Event "
+"und ein Coach verifiziert dich von Angesicht zu Angesicht. Auf die Plätze, "
+"fertig, los: Danach kannst du die Person kennenlernen, die dein Crush wird."
 
 #: templates/crush_lu/partials/_verification_options.html
 msgid ""
@@ -34410,17 +34413,20 @@ msgstr "Crush Connect — wöchentliche Coach-Auswahl + täglicher Drop"
 msgid "Go Premium — €15/month"
 msgstr "Premium werden — 15 €/Monat"
 
-msgid "A weekly match, picked by a human"
-msgstr "Jede Woche ein Match, von einem Menschen ausgewählt"
+msgid "4 weeks, a new hand-picked match every week"
+msgstr "4 Wochen, jede Woche ein neuer, handverlesener Match"
 
 msgid ""
-"Connect LuxID (free) and you're in the mix — a Crush Coach can pick you as a"
-" match. Go Premium for €15/month and get your own: a weekly Coach Pick plus "
-"a daily Drop of fresh faces."
+"Thanks to LuxID, join Crush Connect in a few clicks. A Crush Coach will "
+"propose a potential match with a member of our Premium list — go Premium to "
+"be part of it. Every week, your Coach suggests a hand-picked match based on "
+"your profile. The first month is free — on the house!"
 msgstr ""
-"Verbinde LuxID (kostenlos) und Du bist mit dabei — ein Crush Coach kann Dich"
-" als Match auswählen. Werde Premium für 15 €/Monat und bekomme Dein eigenes:"
-" eine Coach-Auswahl pro Woche plus ein täglicher Drop mit neuen Gesichtern."
+"Dank LuxID trittst du Crush Connect in wenigen Klicks bei. Ein Crush Coach "
+"schlägt dir einen potenziellen Match mit einem Mitglied unserer Premium-"
+"Liste vor. Werde Premium, um dabei zu sein. Jede Woche schlägt dir dein "
+"Coach einen von Hand ausgewählten Match vor — auf Basis deines Profils. Der "
+"erste Monat ist gratis, geht aufs Haus!"
 
 msgid "Keep meeting people year-round with Crush Connect."
 msgstr "Lerne mit Crush Connect das ganze Jahr über neue Leute kennen."
@@ -34811,3 +34817,373 @@ msgstr "Story, Lebensstil, idealer Match — was deine Matches sehen"
 
 msgid "Not yet unlocked — tap to join Crush Connect"
 msgstr "Noch nicht freigeschaltet — tippe, um bei Crush Connect mitzumachen"
+
+#: templates/crush_lu/crush_connect/_gate_questions.html:17
+#, python-format
+msgid "You've read %(name)s — you'll hear back if it's mutual."
+msgstr "Du hast %(name)s gelesen – du hörst zurück, wenn es beidseitig ist."
+
+#: templates/crush_lu/crush_connect/_gate_questions.html:22
+#: views_crush_connect.py:899 views_crush_connect.py:934
+msgid ""
+"You've already read someone from this Drop — your next Drop arrives "
+"tomorrow."
+msgstr ""
+"Du hast in diesem Drop schon jemanden gelesen – dein nächster Drop kommt "
+"morgen."
+
+#: templates/crush_lu/crush_connect/_gate_questions.html:29
+#, python-format
+msgid "Guess %(name)s's answers from their photo"
+msgstr "Errate anhand des Fotos, wie %(name)s geantwortet hat"
+
+#: templates/crush_lu/crush_connect/_gate_questions.html:49
+msgid "Answer & connect"
+msgstr "Antworten & verbinden"
+
+#: templates/crush_lu/crush_connect/_gate_questions.html:54
+msgid "This member hasn't set up their questions yet."
+msgstr "Dieses Mitglied hat seine Fragen noch nicht eingerichtet."
+
+#: templates/crush_lu/crush_connect/_gate_questions.html:17
+#: templates/crush_lu/crush_connect/_gate_questions.html:29
+msgid "them"
+msgstr "diese Person"
+
+#: views_crush_connect.py:838 views_crush_connect.py:851
+#: views_crush_connect.py:938
+msgid "This member isn't available right now."
+msgstr "Dieses Mitglied ist gerade nicht verfügbar."
+
+#: views_crush_connect.py:1050
+msgid "This Spark is no longer available."
+msgstr "Dieser Spark ist nicht mehr verfügbar."
+
+#: views_crush_connect.py:945
+msgid ""
+"It's a match — you read each other well! Your coach will arrange your date."
+msgstr ""
+"Es ist ein Match – ihr habt euch gut gelesen! Dein Coach kümmert sich um "
+"euer Date."
+
+#: views_crush_connect.py:955
+msgid ""
+"Your answers are in. If you've read each other well, your coach will "
+"introduce you — no pressure either way."
+msgstr ""
+"Deine Antworten sind drin. Wenn ihr euch gut gelesen habt, stellt dein Coach"
+" euch einander vor – kein Druck, so oder so."
+
+msgid "Page not found"
+msgstr "Seite nicht gefunden"
+
+msgid "The page you were looking for could not be found."
+msgstr "Die gesuchte Seite wurde nicht gefunden."
+
+msgid "We couldn't find that page"
+msgstr "Diese Seite konnten wir nicht finden"
+
+msgid ""
+"The page you're looking for may have moved, or it never existed. Let's get "
+"you back on track."
+msgstr ""
+"Die Seite, die du suchst, wurde vielleicht verschoben — oder es gab sie nie."
+" Bringen wir dich zurück auf Kurs."
+
+msgid "Back to home"
+msgstr "Zurück zur Startseite"
+
+msgid ""
+"100% made in Luxembourg. Built by people who believe dating should be about "
+"real connections, not endless swiping."
+msgstr ""
+"100 % made in Luxembourg. Gemacht von Menschen, die überzeugt sind, dass es "
+"beim Dating um echte Begegnungen gehen soll — nicht um endloses Swipen."
+
+msgid ""
+"This number isn't registered on WhatsApp, so we can't deliver WhatsApp "
+"notifications to it. You'll keep receiving these updates by email instead."
+msgstr ""
+"Diese Nummer ist nicht bei WhatsApp registriert, daher können wir keine "
+"WhatsApp-Benachrichtigungen dorthin senden. Du erhältst diese Updates "
+"stattdessen weiterhin per E-Mail."
+
+msgid "Blocked Members"
+msgstr "Blockierte Mitglieder"
+
+msgid "≈ 15 min to set up · Get verified instantly with LuxID, or at an event"
+msgstr ""
+"≈ 15 Min. zum Einrichten · Sofort verifiziert mit LuxID oder bei einem Event"
+
+msgid "Verified instantly — no SMS code, no waiting"
+msgstr "Sofort verifiziert — kein SMS-Code, kein Warten"
+
+msgid "or continue with"
+msgstr "oder weiter mit"
+
+msgid "Be as specific as possible."
+msgstr "Sei so konkret wie möglich."
+
+msgid "Saved %s ago"
+msgstr "Gespeichert vor %s"
+
+msgid ""
+"Become a Crush.lu coach: host singles events in Luxembourg, meet great "
+"people, and help others connect in real life. Flexible hours, full training."
+msgstr ""
+"Werde Crush.lu-Coach: Veranstalte Single-Events in Luxemburg, triff "
+"großartige Menschen und hilf anderen, sich im echten Leben zu begegnen. "
+"Flexible Zeiten, volle Einarbeitung."
+
+msgid "No guesses yet — you'll see how people read you here."
+msgstr "Noch keine Tipps — hier siehst du, wie andere dich lesen."
+
+msgid "Skip"
+msgstr "Überspringen"
+
+msgid "pick up to 5"
+msgstr "wähle bis zu 5"
+
+msgid ""
+"Pick 3 questions for your card and answer each honestly about yourself. "
+"Others guess your answers from your photo — reading you well is how they "
+"match with you. Your answers stay private."
+msgstr ""
+"Wähle 3 Fragen für deine Karte und beantworte sie ehrlich. Andere erraten "
+"deine Antworten anhand deines Fotos — wer dich gut liest, kann mit dir "
+"matchen. Deine Antworten bleiben privat."
+
+msgid "This week's questions"
+msgstr "Die Fragen dieser Woche"
+
+msgid ""
+"Choose exactly 3 questions. Tap Skip to remove one, then Save changes when "
+"the counter shows 3/3."
+msgstr ""
+"Wähle genau 3 Fragen. Tippe auf „Überspringen“, um eine zu entfernen, und "
+"dann auf „Änderungen speichern“, wenn der Zähler 3/3 anzeigt."
+
+msgid ""
+"Yes/No is your true answer — it's never shown to anyone. You can change your"
+" questions anytime from your Connect profile."
+msgstr ""
+"Ja/Nein ist deine ehrliche Antwort — sie wird niemandem gezeigt. Du kannst "
+"deine Fragen jederzeit in deinem Connect-Profil ändern."
+
+msgid "Read the photo — Crush Connect"
+msgstr "Lies das Foto — Crush Connect"
+
+msgid "Read the photo"
+msgstr "Lies das Foto"
+
+msgid ""
+"Your true answers stay private, and a wrong guess is silent — you'll only "
+"hear back when it's mutual."
+msgstr ""
+"Deine ehrlichen Antworten bleiben privat, und ein falscher Tipp bleibt stumm"
+" — du hörst nur zurück, wenn es beidseitig ist."
+
+msgid "they"
+msgstr "diese Person"
+
+msgid ""
+"People who read your photo well. Answer their 3 questions to read them back "
+"— if you both read each other, your coach arranges the date. Pass and "
+"they'll never know."
+msgstr ""
+"Menschen, die dein Foto gut gelesen haben. Beantworte ihre 3 Fragen, um sie "
+"zurückzulesen — wenn ihr euch gegenseitig gut lest, organisiert dein Coach "
+"das Date. Wenn du passt, erfahren sie es nie."
+
+msgid "Curious about you"
+msgstr "Neugierig auf dich"
+
+msgid "Read them back — answer their 3 questions"
+msgstr "Lies zurück — beantworte ihre 3 Fragen"
+
+msgid ""
+"Full names and full profiles stay hidden until your coach confirms a mutual "
+"date. Passing is always silent."
+msgstr ""
+"Volle Namen und vollständige Profile bleiben verborgen, bis dein Coach ein "
+"beidseitiges Date bestätigt. Passen bleibt immer stumm."
+
+msgid "You're in Crush Connect"
+msgstr "Du bist bei Crush Connect"
+
+msgid "You're in the mix!"
+msgstr "Du bist mit dabei!"
+
+msgid "You've opted in to Crush Connect."
+msgstr "Du hast dich für Crush Connect angemeldet."
+
+msgid "Someone read you well"
+msgstr "Jemand hat dich gut gelesen"
+
+msgid ""
+"Answer their 3 questions from their photo to read them back. If you read "
+"each other well, your Crush Coach arranges a date. If not, they'll never "
+"know."
+msgstr ""
+"Beantworte die 3 Fragen anhand des Fotos, um die Person zurückzulesen. Wenn "
+"ihr euch gegenseitig gut lest, organisiert dein Crush Coach ein Date. Wenn "
+"nicht, erfährt sie es nie."
+
+msgid "Read them back"
+msgstr "Zurücklesen"
+
+msgid "via WhatsApp"
+msgstr "per WhatsApp"
+
+msgid "Verify by SMS instead"
+msgstr "Stattdessen per SMS verifizieren"
+
+msgid "Safety options"
+msgstr "Sicherheitsoptionen"
+
+msgid "Report this member"
+msgstr "Dieses Mitglied melden"
+
+msgid "Anything we should know? (optional)"
+msgstr "Gibt es etwas, das wir wissen sollten? (optional)"
+
+msgid "Also block them"
+msgstr "Auch blockieren"
+
+msgid "Submit report"
+msgstr "Meldung senden"
+
+msgid "Just block this member"
+msgstr "Dieses Mitglied nur blockieren"
+
+msgid "Blocked members - Crush.lu"
+msgstr "Blockierte Mitglieder - Crush.lu"
+
+msgid "Blocked members"
+msgstr "Blockierte Mitglieder"
+
+msgid ""
+"People you've blocked can't see you or reach you anywhere on Crush.lu, and "
+"you won't see them. Unblocking is immediate."
+msgstr ""
+"Personen, die du blockiert hast, können dich nirgendwo auf Crush.lu sehen "
+"oder erreichen, und du siehst sie auch nicht. Das Entblocken wirkt sofort."
+
+msgid "Unblock"
+msgstr "Blockierung aufheben"
+
+msgid "You haven't blocked anyone."
+msgstr "Du hast niemanden blockiert."
+
+msgid "Verify via WhatsApp"
+msgstr "Per WhatsApp verifizieren"
+
+msgid "Available outside the mobile app"
+msgstr "Außerhalb der Mobile-App verfügbar"
+
+msgid "Premium unavailable in app"
+msgstr "Premium in der App nicht verfügbar"
+
+msgid "Premium memberships are not available inside the iOS app yet."
+msgstr "Premium-Mitgliedschaften sind in der iOS-App noch nicht verfügbar."
+
+msgid ""
+"You can still use free Crush Connect, events, profile features, privacy "
+"controls, and safety tools in the app."
+msgstr ""
+"Du kannst in der App weiterhin das kostenlose Crush Connect, Events, "
+"Profilfunktionen, Privatsphäre-Einstellungen und Sicherheitstools nutzen."
+
+msgid "For membership questions, contact support@crush.lu."
+msgstr "Bei Fragen zur Mitgliedschaft wende dich an support@crush.lu."
+
+msgid "Server-side error monitoring (5% sampling, no PII)"
+msgstr ""
+"Serverseitiges Fehler-Monitoring (5 % Sampling, keine personenbezogenen "
+"Daten)"
+
+msgid ""
+"We do not use any third-party tracking cookies. We do not use Google "
+"Analytics. Our server-side monitoring (Application Insights) operates at a "
+"5% sampling rate and does not collect personally identifiable information "
+"from your browser."
+msgstr ""
+"Wir verwenden keine Tracking-Cookies von Drittanbietern. Wir verwenden kein "
+"Google Analytics. Unser serverseitiges Monitoring (Application Insights) "
+"arbeitet mit einer Sampling-Rate von 5 % und erfasst keine personenbezogenen"
+" Daten aus Ihrem Browser."
+
+msgid "Support"
+msgstr "Support"
+
+msgid ""
+"Need help with your account, safety tools, privacy controls, events, or "
+"profile verification? Contact the Crush.lu team."
+msgstr ""
+"Brauchst du Hilfe mit deinem Konto, den Sicherheitstools, der Privatsphäre, "
+"Events oder der Profil-Verifizierung? Kontaktiere das Crush.lu-Team."
+
+msgid "General support"
+msgstr "Allgemeiner Support"
+
+msgid "Privacy requests"
+msgstr "Datenschutzanfragen"
+
+msgid "Useful links"
+msgstr "Nützliche Links"
+
+msgid "Data deletion"
+msgstr "Datenlöschung"
+
+msgid "Account data controls"
+msgstr "Kontodaten-Einstellungen"
+
+msgid "Sign in for account controls"
+msgstr "Melde dich an, um dein Konto zu verwalten"
+
+msgid "50% refund"
+msgstr "50 % Rückerstattung"
+
+msgid "Get verified instantly with LuxID — or in person at an event"
+msgstr "Verifiziere dich sofort mit LuxID — oder persönlich bei einem Event"
+
+msgid "%(yes)s of %(total)s said Yes"
+msgstr "%(yes)s von %(total)s sagten Ja"
+
+msgid "%(name)s read you — read them back"
+msgstr "%(name)s hat dich gelesen — lies zurück"
+
+msgid "How well can you read %(name)s?"
+msgstr "Wie gut kannst du %(name)s lesen?"
+
+msgid ""
+"Answer %(name)s's 3 questions from their photo. Get enough right and, if "
+"they read you well too, your coach arranges the date. Guess wrong and "
+"they'll simply never know."
+msgstr ""
+"Beantworte die 3 Fragen von %(name)s anhand des Fotos. Liege oft genug "
+"richtig und — wenn die Person auch dich gut gelesen hat — organisiert dein "
+"Coach das Date. Liegst du falsch, erfährt sie es einfach nie."
+
+msgid ""
+"You can review your story or leave Crush Connect anytime from your <a "
+"href=\"%(dashboard_url)s\">dashboard</a>."
+msgstr ""
+"Du kannst deine Story jederzeit über dein <a "
+"href=\"%(dashboard_url)s\">Dashboard</a> ansehen oder Crush Connect "
+"verlassen."
+
+msgid ""
+"%(name)s read your photo well on Crush Connect and answered your 3 "
+"questions."
+msgstr ""
+"%(name)s hat dein Foto auf Crush Connect gut gelesen und deine 3 Fragen "
+"beantwortet."
+
+msgid "Blocked %(when)s"
+msgstr "Blockiert am %(when)s"
+
+msgid "%(count)s person is curious about you."
+msgid_plural "%(count)s people are curious about you."
+msgstr[0] "%(count)s Person ist neugierig auf dich."
+msgstr[1] "%(count)s Personen sind neugierig auf dich."

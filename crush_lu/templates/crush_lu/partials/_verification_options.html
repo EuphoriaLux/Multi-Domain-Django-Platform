@@ -55,7 +55,7 @@
         </div>
         <h4 class="mb-1 font-bold text-gray-900 dark:text-white">{% trans "Verify with LuxID" %}</h4>
         <p class="mb-4 flex-1 text-xs text-gray-500 dark:text-gray-400">
-          {% trans "Connect your LuxID government identity and get verified in seconds — no call, no waiting. LuxID also unlocks Crush Connect, where a Crush Coach can pick you as a match." %}
+          {% trans "With LuxID (Luxembourg's official login app), a few clicks are all it takes to verify it's you. Once that's done, Crush Connect unlocks automatically and a Coach will guide you in the quest for your ideal Crush." %}
         </p>
         {% if luxid_connect_url %}
         <a href="{{ luxid_connect_url }}" class="inline-flex w-full items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white no-underline transition-colors hover:bg-indigo-700">
@@ -75,7 +75,7 @@
         </div>
         <h4 class="mb-1 font-bold text-gray-900 dark:text-white">{% trans "Come to an event" %}</h4>
         <p class="mb-4 flex-1 text-xs text-gray-500 dark:text-gray-400">
-          {% trans "Prefer to meet first? Our team verifies you in person at any event — no LuxID needed, and you start meeting people right away." %}
+          {% trans "Prefer real life? No problem — come to an event and a Coach will verify you face to face. On your marks, get set, go: you can then start meeting the person who'll become your Crush." %}
         </p>
         <a href="{% url 'crush_lu:event_list' %}" class="inline-flex w-full items-center justify-center rounded-lg bg-crush-purple px-4 py-2 text-sm font-semibold text-white no-underline transition-colors hover:bg-crush-purple/90">
           {% trans "Browse Events" %}
@@ -92,9 +92,9 @@
         </div>
         <div class="flex-1">
           <span class="mb-1 inline-block text-[0.7rem] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-300">{% trans "Crush Connect" %}</span>
-          <h4 class="mb-1 font-bold text-gray-900 dark:text-white">{% trans "A weekly match, picked by a human" %}</h4>
+          <h4 class="mb-1 font-bold text-gray-900 dark:text-white">{% trans "4 weeks, a new hand-picked match every week" %}</h4>
           <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">
-            {% trans "Connect LuxID (free) and you're in the mix — a Crush Coach can pick you as a match. Go Premium for €15/month and get your own: a weekly Coach Pick plus a daily Drop of fresh faces." %}
+            {% trans "Thanks to LuxID, join Crush Connect in a few clicks. A Crush Coach will propose a potential match with a member of our Premium list — go Premium to be part of it. Every week, your Coach suggests a hand-picked match based on your profile. The first month is free — on the house!" %}
           </p>
           <a href="{% url 'crush_lu:premium_choose_coach' %}" class="inline-flex items-center gap-1 text-sm font-semibold text-amber-600 no-underline hover:text-amber-700 dark:text-amber-300">
             {% trans "Discover Premium" %} <span aria-hidden="true">→</span>
