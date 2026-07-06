@@ -7,14 +7,14 @@
 
 {% block og_type %}article{% endblock %}
 {% block og_title %}{{ event.title }} - {{ event.get_event_type_display }} | Crush.lu{% endblock %}
-{% block og_description %}{{ event.description|truncatewords:30 }} Join us on {{ event.date_time|date:"F j, Y" }} in {{ event.canton|default:"Luxembourg" }}.{% endblock %}
+{% block og_description %}{{ event.description|truncatewords:30 }} Join us on {{ event.date_time|date:"DATE_FORMAT" }} in {{ event.canton|default:"Luxembourg" }}.{% endblock %}
 {% block og_image %}{% if event.image %}{{ event.image.url }}{% else %}{{ social_preview_image_url }}{% endif %}{% endblock %}
 
 {% block twitter_title %}{{ event.title }} - {{ event.get_event_type_display }} | Crush.lu{% endblock %}
-{% block twitter_description %}{{ event.description|truncatewords:30 }} Join us on {{ event.date_time|date:"F j, Y" }} in {{ event.canton|default:"Luxembourg" }}.{% endblock %}
+{% block twitter_description %}{{ event.description|truncatewords:30 }} Join us on {{ event.date_time|date:"DATE_FORMAT" }} in {{ event.canton|default:"Luxembourg" }}.{% endblock %}
 {% block twitter_image %}{% if event.image %}{{ event.image.url }}{% else %}{{ social_preview_image_url }}{% endif %}{% endblock %}
 
-{% block meta_description %}{{ event.description|truncatewords:25 }} {{ event.get_event_type_display }} event on {{ event.date_time|date:"F j, Y" }} in {{ event.canton|default:"Luxembourg" }}, Luxembourg.{% endblock %}
+{% block meta_description %}{{ event.description|truncatewords:25 }} {{ event.get_event_type_display }} event on {{ event.date_time|date:"DATE_FORMAT" }} in {{ event.canton|default:"Luxembourg" }}, Luxembourg.{% endblock %}
 {% block meta_keywords %}{{ event.title }}, {{ event.get_event_type_display|lower }}, dating event luxembourg, {{ event.canton|default:"luxembourg"|lower }}, singles event{% endblock %}
 
 {% block structured_data %}
@@ -112,7 +112,7 @@
                     </span>
                     <h2 class="text-white font-bold text-2xl sm:text-3xl leading-tight line-clamp-2">{{ event.title }}</h2>
                     <p class="text-white/80 text-sm mt-1.5">
-                        {{ event.date_time|date:"l, F j, Y" }} · {{ event.date_time|date:"g:i A" }} · {% if user.is_authenticated %}{{ event.location }}{% else %}{{ event.canton|default:"Luxembourg" }}{% endif %}
+                        {{ event.date_time|date:"l" }}, {{ event.date_time|date:"DATE_FORMAT" }} · {{ event.date_time|date:"TIME_FORMAT" }} · {% if user.is_authenticated %}{{ event.location }}{% else %}{{ event.canton|default:"Luxembourg" }}{% endif %}
                     </p>
                 </div>
             </div>
@@ -149,8 +149,8 @@
                             <span class="font-semibold text-sm sm:text-base text-gray-700 dark:text-gray-200">{% trans "Date & Time" %}</span>
                         </div>
                         <p class="text-gray-600 dark:text-gray-300 text-sm sm:text-base ml-7">
-                            {{ event.date_time|date:"l, F j, Y" }}<br>
-                            <span class="text-gray-500 dark:text-gray-400">{% blocktrans with time=event.date_time|date:"g:i A" duration=event.duration_minutes %}{{ time }} ({{ duration }} minutes){% endblocktrans %}</span>
+                            {{ event.date_time|date:"l" }}, {{ event.date_time|date:"DATE_FORMAT" }}<br>
+                            <span class="text-gray-500 dark:text-gray-400">{% blocktrans with time=event.date_time|date:"TIME_FORMAT" duration=event.duration_minutes %}{{ time }} ({{ duration }} minutes){% endblocktrans %}</span>
                         </p>
                     </div>
 
@@ -249,7 +249,7 @@
                     </div>
                     <p class="text-gray-600 dark:text-gray-300 text-sm sm:text-base ml-7">
                         {% blocktrans with min=event.min_age max=event.max_age %}Ages {{ min }}-{{ max }}{% endblocktrans %}<br>
-                        <span class="text-gray-500 dark:text-gray-400">{% blocktrans with deadline=event.registration_deadline|date:"F j, Y g:i A" %}Registration deadline: {{ deadline }}{% endblocktrans %}</span>
+                        <span class="text-gray-500 dark:text-gray-400">{% blocktrans with deadline=event.registration_deadline|date:"DATETIME_FORMAT" %}Registration deadline: {{ deadline }}{% endblocktrans %}</span>
                     </p>
                     {% if event_languages_display %}
                     <div class="ml-7 mt-3">

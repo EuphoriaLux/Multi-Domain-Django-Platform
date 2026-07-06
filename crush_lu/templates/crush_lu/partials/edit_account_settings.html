@@ -22,7 +22,7 @@
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                 <div class="text-gray-500 dark:text-gray-400">{% trans "Member since" %}</div>
-                <div class="sm:col-span-2 text-gray-900 dark:text-white">{{ user.date_joined|date:"F j, Y" }}</div>
+                <div class="sm:col-span-2 text-gray-900 dark:text-white">{{ user.date_joined|date:"DATE_FORMAT" }}</div>
             </div>
         </div>
     </div>

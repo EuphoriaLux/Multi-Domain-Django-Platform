@@ -11,7 +11,7 @@
                 {{ msg.sender.crushprofile.display_name }}
             {% endif %}
         </strong>
-        <small class="text-gray-500 dark:text-gray-400">{{ msg.sent_at|date:"M d, g:i A" }}</small>
+        <small class="text-gray-500 dark:text-gray-400">{{ msg.sent_at|date:"SHORT_DATETIME_FORMAT" }}</small>
     </div>
     <p class="mb-0 text-gray-700 dark:text-gray-200">{{ msg.message }}</p>
 </div>

@@ -23,7 +23,7 @@
             <div class="mb-6">
                 <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Event" %}</p>
                 <p class="font-semibold">{{ spark.event.title }}</p>
-                <p class="text-sm text-gray-500 dark:text-gray-400">{{ spark.event.date_time|date:"M d, Y" }}</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400">{{ spark.event.date_time|date:"DATE_FORMAT" }}</p>
             </div>
 
             {% if is_sender %}
@@ -122,21 +122,21 @@
                 <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3">{% trans "Timeline" %}</h3>
                 <div class="space-y-2 text-sm">
                     <p class="text-gray-600 dark:text-gray-400">
-                        {% trans "Created:" %} {{ spark.created_at|date:"M d, Y H:i" }}
+                        {% trans "Created:" %} {{ spark.created_at|date:"DATETIME_FORMAT" }}
                     </p>
                     {% if spark.coach_assigned_at %}
                     <p class="text-gray-600 dark:text-gray-400">
-                        {% trans "Assigned:" %} {{ spark.coach_assigned_at|date:"M d, Y H:i" }}
+                        {% trans "Assigned:" %} {{ spark.coach_assigned_at|date:"DATETIME_FORMAT" }}
                     </p>
                     {% endif %}
                     {% if spark.delivered_at %}
                     <p class="text-gray-600 dark:text-gray-400">
-                        {% trans "Delivered:" %} {{ spark.delivered_at|date:"M d, Y H:i" }}
+                        {% trans "Delivered:" %} {{ spark.delivered_at|date:"DATETIME_FORMAT" }}
                     </p>
                     {% endif %}
                     {% if spark.completed_at %}
                     <p class="text-gray-600 dark:text-gray-400">
-                        {% trans "Completed:" %} {{ spark.completed_at|date:"M d, Y H:i" }}
+                        {% trans "Completed:" %} {{ spark.completed_at|date:"DATETIME_FORMAT" }}
                     </p>
                     {% endif %}
                 </div>

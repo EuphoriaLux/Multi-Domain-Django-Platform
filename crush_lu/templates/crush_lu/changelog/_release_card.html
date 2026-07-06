@@ -10,7 +10,7 @@
             </span>
             <time datetime="{{ release.released_on|date:'Y-m-d' }}"
                   class="text-sm text-gray-500 dark:text-gray-400">
-                {{ release.released_on|date:"F j, Y" }}
+                {{ release.released_on|date:"DATE_FORMAT" }}
             </time>
         </div>
         <h2 class="font-display text-2xl sm:text-3xl leading-tight text-crush-dark dark:text-white">

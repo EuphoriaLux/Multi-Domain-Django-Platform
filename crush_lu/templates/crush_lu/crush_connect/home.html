@@ -17,7 +17,7 @@
     <header class="mb-7">
         {% if coach_pick %}
         <p class="text-xs font-bold uppercase tracking-[0.12em] text-crush-purple dark:text-crush-pink mb-1.5">
-            {% if drop %}{{ drop.drop_date|date:"l · F j" }} · {% endif %}{% trans "This week" %}
+            {% if drop %}{{ drop.drop_date|date:"l · j F" }} · {% endif %}{% trans "This week" %}
         </p>
         <h1 class="font-display text-3xl md:text-4xl font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
             {% trans "Your Coach's Pick" %}
@@ -27,7 +27,7 @@
         </p>
         {% else %}
         <p class="text-xs font-bold uppercase tracking-[0.12em] text-crush-purple dark:text-crush-pink mb-1.5">
-            {% if drop %}{{ drop.drop_date|date:"l · F j" }} · {% endif %}{% trans "Today" %}
+            {% if drop %}{{ drop.drop_date|date:"l · j F" }} · {% endif %}{% trans "Today" %}
         </p>
         <h1 class="font-display text-3xl md:text-4xl font-semibold tracking-tight text-gray-900 dark:text-white mb-2">
             {% trans "Today's Drop" %}

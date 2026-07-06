@@ -141,7 +141,7 @@
         <p class="text-xl text-gray-500 dark:text-gray-400">{{ event.title }}</p>
         <p class="text-gray-500 dark:text-gray-400 flex items-center justify-center gap-2 mt-2">
             {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
-            {% blocktrans with date=event.date_time|date:"F d, Y" time=event.date_time|date:"g:i A" %}{{ date }} at {{ time }}{% endblocktrans %}
+            {% blocktrans with date=event.date_time|date:"DATE_FORMAT" time=event.date_time|date:"TIME_FORMAT" %}{{ date }} at {{ time }}{% endblocktrans %}
         </p>
     </div>
 

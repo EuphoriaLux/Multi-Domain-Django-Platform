@@ -193,7 +193,7 @@
                         <div class="flex-1 min-w-0">
                             <h6 class="font-semibold mb-1 truncate">{{ registration.event.title }}</h6>
                             <p class="mb-1 text-gray-500 dark:text-gray-400 text-sm">
-                                📅 {{ registration.event.date_time|date:"D, j M Y" }} · 📍 {{ registration.event.location }}
+                                📅 {{ registration.event.date_time|date:"D" }}, {{ registration.event.date_time|date:"DATE_FORMAT" }} · 📍 {{ registration.event.location }}
                             </p>
                         </div>
                         <div class="flex-shrink-0">

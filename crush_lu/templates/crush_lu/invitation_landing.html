@@ -146,7 +146,7 @@
                         </div>
                         <div class="event-detail-info">
                             <h5>{% trans "Date & Time" %}</h5>
-                            <p>{{ event.date_time|date:"l, F j, Y \a\t g:i A" }}</p>
+                            <p>{{ event.date_time|date:"DATETIME_FORMAT" }}</p>
                         </div>
                     </div>
 

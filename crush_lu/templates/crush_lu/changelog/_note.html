@@ -7,7 +7,7 @@
         {% with note_date=note.published_on|default:release.released_on %}
             <time datetime="{{ note_date|date:'Y-m-d' }}"
                   class="changelog-note-date shrink-0 text-xs text-gray-400 dark:text-gray-500">
-                {{ note_date|date:"M j" }}
+                {{ note_date|date:"j M" }}
             </time>
         {% endwith %}
     </div>

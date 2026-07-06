@@ -54,7 +54,7 @@
                 <p class="mb-1">
                     <small class="text-muted">
                         {% include "shared/icons/calendar-days.html" with class="w-5 h-5" %}
-                        {{ invitation.event.date_time|date:"F j, Y \a\t g:i A" }}
+                        {{ invitation.event.date_time|date:"DATETIME_FORMAT" }}
                     </small>
                 </p>
                 <p class="mb-0">

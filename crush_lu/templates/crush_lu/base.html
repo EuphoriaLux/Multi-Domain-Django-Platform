@@ -502,7 +502,7 @@
                                                             <strong>{{ registration.event.title|truncatewords:4 }}</strong>
                                                             <br>
                                                             <small class="text-gray-500">
-                                                                {{ registration.event.date_time|date:"M d, g:i A" }}
+                                                                {{ registration.event.date_time|date:"SHORT_DATETIME_FORMAT" }}
                                                             </small>
                                                         </div>
                                                         {% if registration.status == 'waitlist' %}
