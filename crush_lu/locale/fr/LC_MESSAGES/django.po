@@ -34859,3 +34859,58 @@ msgstr "Story, style de vie, match idéal — ce que vos matchs voient"
 
 msgid "Not yet unlocked — tap to join Crush Connect"
 msgstr "Pas encore débloqué — appuyez pour rejoindre Crush Connect"
+
+#: templates/crush_lu/crush_connect/_gate_questions.html:17
+#, python-format
+msgid "You've read %(name)s — you'll hear back if it's mutual."
+msgstr "Vous avez lu %(name)s — vous aurez des nouvelles si c’est réciproque."
+
+#: templates/crush_lu/crush_connect/_gate_questions.html:22
+#: views_crush_connect.py:899 views_crush_connect.py:934
+msgid ""
+"You've already read someone from this Drop — your next Drop arrives "
+"tomorrow."
+msgstr ""
+"Vous avez déjà lu quelqu’un de ce Drop — votre prochain Drop arrive demain."
+
+#: templates/crush_lu/crush_connect/_gate_questions.html:29
+#, python-format
+msgid "Guess %(name)s's answers from their photo"
+msgstr "Devinez les réponses de %(name)s à partir de sa photo"
+
+#: templates/crush_lu/crush_connect/_gate_questions.html:49
+msgid "Answer & connect"
+msgstr "Répondre & se connecter"
+
+#: templates/crush_lu/crush_connect/_gate_questions.html:54
+msgid "This member hasn't set up their questions yet."
+msgstr "Ce membre n’a pas encore configuré ses questions."
+
+#: templates/crush_lu/crush_connect/_gate_questions.html:17
+#: templates/crush_lu/crush_connect/_gate_questions.html:29
+msgid "them"
+msgstr "cette personne"
+
+#: views_crush_connect.py:838 views_crush_connect.py:851
+#: views_crush_connect.py:938
+msgid "This member isn't available right now."
+msgstr "Ce membre n’est pas disponible pour le moment."
+
+#: views_crush_connect.py:1050
+msgid "This Spark is no longer available."
+msgstr "Ce Spark n’est plus disponible."
+
+#: views_crush_connect.py:945
+msgid ""
+"It's a match — you read each other well! Your coach will arrange your date."
+msgstr ""
+"C’est un match — vous vous êtes bien lus ! Votre coach organisera votre "
+"rendez-vous."
+
+#: views_crush_connect.py:955
+msgid ""
+"Your answers are in. If you've read each other well, your coach will "
+"introduce you — no pressure either way."
+msgstr ""
+"Vos réponses sont enregistrées. Si vous vous êtes bien lus, votre coach fera"
+" les présentations — sans pression, quoi qu’il arrive."
