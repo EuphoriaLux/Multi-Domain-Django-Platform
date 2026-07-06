@@ -31,8 +31,11 @@ updates:
         patterns:
           - "azure-*"
           - "msal*"
-      dependencies-patch:
+      # Catch-all: every remaining minor/patch bump lands in ONE weekly PR.
+      # Majors still arrive as individual PRs for case-by-case review.
+      minor-and-patch:
         update-types:
+          - "minor"
           - "patch"
 
   # npm dependencies (Tailwind CSS and build tools)
@@ -59,6 +62,11 @@ updates:
           - "@tailwindcss/*"
           - "postcss*"
           - "autoprefixer*"
+      # Catch-all: every remaining minor/patch bump lands in ONE weekly PR.
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
@@ -77,3 +85,10 @@ updates:
     commit-message:
       prefix: "ci"
       include: "scope"
+    groups:
+      # Action tag bumps are low-risk within a major; batch minors/patches.
+      # Majors (e.g. apple-actions v1->v5) stay individual for review.
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
