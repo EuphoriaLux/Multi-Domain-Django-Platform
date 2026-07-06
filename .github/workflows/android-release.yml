@@ -60,10 +60,12 @@ jobs:
           if-no-files-found: error
 
       - name: Upload to Google Play Store (Internal Track)
-        if: ${{ secrets.ANDROID_SERVICE_ACCOUNT_JSON != '' }}
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.ANDROID_SERVICE_ACCOUNT_JSON }}
+        if: ${{ env.SERVICE_ACCOUNT_JSON != '' }}
         uses: r0adkll/upload-google-play@v1
         with:
-          serviceAccountJsonPlainText: ${{ secrets.ANDROID_SERVICE_ACCOUNT_JSON }}
+          serviceAccountJsonPlainText: ${{ env.SERVICE_ACCOUNT_JSON }}
           packageName: lu.crush.app
           releaseFiles: mobile/android/CrushLU/app/build/outputs/bundle/release/app-release.aab
           track: internal
