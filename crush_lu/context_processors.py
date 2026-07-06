@@ -43,7 +43,16 @@ PROFILE_STEP_INFO = {
 
 def crush_user_context(request):
     """Add user-specific context for navigation and UI"""
-    context = {}
+    from .native_app_utils import is_android_native_request
+
+    is_android_native_app = is_android_native_request(request)
+    android_native_commerce_enabled = getattr(settings, "ANDROID_NATIVE_COMMERCE_ENABLED", False)
+    context = {
+        "is_android_native_app": is_android_native_app,
+        "android_native_commerce_enabled": android_native_commerce_enabled,
+        "suppress_android_commerce": is_android_native_app and not android_native_commerce_enabled,
+        "suppress_native_commerce": is_android_native_app and not android_native_commerce_enabled,
+    }
 
     if request.user.is_authenticated:
         # Email-verification flag — drives the verification banner in the

@@ -1,0 +1,7 @@
+Crush.lu is a hybrid Android WebView app for the existing Crush.lu dating platform.
+
+Authentication opens in the user's browser for Google/LuxID/social login and returns to the app with the custom scheme `crushlu://auth`. This avoids OAuth problems inside embedded WebViews and creates the in-app session through a one-time backend code.
+
+Premium subscription CTAs are suppressed in this Android build while `ANDROID_NATIVE_COMMERCE_ENABLED=false`; Play Billing is not enabled in version 1.0.0.
+
+Please use the review account provided in Play Console App access. Keep the account free of real personal messages and real user profile data.

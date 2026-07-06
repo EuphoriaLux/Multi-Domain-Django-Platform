@@ -289,6 +289,7 @@ def assetlinks_view(request):
 
     See: https://developer.android.com/training/app-links/verify-android-applinks
     """
+    from django.conf import settings
     from django.http import JsonResponse
 
     assetlinks = [
@@ -297,6 +298,17 @@ def assetlinks_view(request):
             "target": {"namespace": "web", "site": "https://crush.lu"},
         }
     ]
+    if settings.ANDROID_APP_SHA256_CERT_FINGERPRINTS:
+        assetlinks.append(
+            {
+                "relation": ["delegate_permission/common.handle_all_urls"],
+                "target": {
+                    "namespace": "android_app",
+                    "package_name": settings.ANDROID_APP_PACKAGE,
+                    "sha256_cert_fingerprints": settings.ANDROID_APP_SHA256_CERT_FINGERPRINTS,
+                },
+            }
+        )
 
     response = JsonResponse(assetlinks, safe=False)
     response["Content-Type"] = "application/json"

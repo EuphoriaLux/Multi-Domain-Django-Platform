@@ -1,0 +1,4 @@
+CRUSH_UPLOAD_STORE_FILE=keystores/crush-lu-upload.jks
+CRUSH_UPLOAD_STORE_PASSWORD=replace-with-play-upload-keystore-password
+CRUSH_UPLOAD_KEY_ALIAS=crush-lu-upload
+CRUSH_UPLOAD_KEY_PASSWORD=replace-with-play-upload-key-password

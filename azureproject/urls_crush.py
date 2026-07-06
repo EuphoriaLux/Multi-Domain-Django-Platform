@@ -36,7 +36,7 @@ from crush_lu.admin_views import (
     email_template_load_invitations,
     email_template_load_gifts,
 )
-from crush_lu import api_views, api_push, api_coach_push, api_pwa, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, api_admin_hybrid, api_admin_metrics, api_admin_changelog, views_crush_spark, views_checkin, api_crush_connect, views_coach, api_quiz, views_quiz, views_notifications
+from crush_lu import api_views, api_push, api_coach_push, api_pwa, api_android_app, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, api_admin_hybrid, api_admin_metrics, api_admin_changelog, views_crush_spark, views_checkin, api_crush_connect, views_coach, api_quiz, views_quiz, views_notifications
 from crush_lu.wallet import passkit_service, google_callback
 from crush_lu.sitemaps import crush_sitemaps
 from crush_lu.views_seo import robots_txt, custom_404, custom_500
@@ -103,6 +103,11 @@ urlpatterns = [
     path('offline/', views.offline_view, name='pwa_offline'),
     # Android App Links verification for PWA
     path('.well-known/assetlinks.json', views.assetlinks_view, name='assetlinks'),
+
+    # Native Android wrapper API
+    path('api/mobile/android/config/', api_android_app.android_app_config, name='api_android_app_config'),
+    path('api/mobile/android/auth/handoff/', api_android_app.android_auth_handoff, name='api_android_auth_handoff'),
+    path('api/mobile/android/auth/complete/<str:code>/', api_android_app.android_auth_complete, name='api_android_auth_complete'),
 
     # Phone verification API (language-neutral - called by JavaScript with hardcoded paths)
     path('api/phone/mark-verified/', views_phone_verification.mark_phone_verified, name='api_phone_mark_verified'),
