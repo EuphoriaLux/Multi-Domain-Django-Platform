@@ -50,6 +50,7 @@ jobs:
           CRUSH_ENV: ${{ inputs.environment || 'production' }}
         working-directory: mobile/android/CrushLU
         run: |
+          chmod +x ./gradlew
           ./gradlew bundleRelease -PCRUSH_ENV=$CRUSH_ENV
 
       - name: Upload Release Artifact

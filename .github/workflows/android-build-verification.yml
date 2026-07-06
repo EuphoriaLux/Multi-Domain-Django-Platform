@@ -33,4 +33,5 @@ jobs:
       - name: Build Android App (Debug and Unsigned Release)
         working-directory: mobile/android/CrushLU
         run: |
+          chmod +x ./gradlew
           ./gradlew assembleDebug bundleRelease
