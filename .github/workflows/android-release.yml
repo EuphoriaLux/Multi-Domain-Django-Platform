@@ -33,8 +33,8 @@ jobs:
 
       - name: Install Signing Keystore
         run: |
-          mkdir -p mobile/android/CrushLU/keystores
-          echo -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > mobile/android/CrushLU/keystores/crush-lu-upload.jks
+          mkdir -p mobile/android/CrushLU/app/keystores
+          echo -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > mobile/android/CrushLU/app/keystores/crush-lu-upload.jks
 
       - name: Generate gradle.properties
         run: |
