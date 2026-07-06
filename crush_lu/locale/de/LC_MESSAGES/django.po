@@ -23795,7 +23795,7 @@ msgstr "Warum Crush.lu anders ist"
 
 #: templates/crush_lu/how_it_works.html:215
 msgid "No Endless Swiping"
-msgstr "No Endless Swiping"
+msgstr "Kein endloses Swipen"
 
 #: templates/crush_lu/how_it_works.html:216
 msgid "We focus on quality over quantity. Real events, real people."
@@ -32613,7 +32613,7 @@ msgstr "Erweiterte Profilfunktionen"
 
 #: views.py:2291
 msgid "All Silver benefits"
-msgstr "Alle Silver-Vorteile"
+msgstr "Alle Silber-Vorteile"
 
 #: views.py:2292
 msgid "VIP event access"
@@ -35187,3 +35187,15 @@ msgid "%(count)s person is curious about you."
 msgid_plural "%(count)s people are curious about you."
 msgstr[0] "%(count)s Person ist neugierig auf dich."
 msgstr[1] "%(count)s Personen sind neugierig auf dich."
+
+#: views_crush_connect.py:486
+#, python-format
+msgid "%(count)d question chosen"
+msgid_plural "%(count)d questions chosen"
+msgstr[0] "%(count)d Frage ausgewählt"
+msgstr[1] "%(count)d Fragen ausgewählt"
+
+#: models/crush_connect.py:311
+msgctxt "work field"
+msgid "Legal"
+msgstr "Recht"

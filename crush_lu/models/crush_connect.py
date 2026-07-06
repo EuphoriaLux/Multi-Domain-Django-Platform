@@ -11,6 +11,7 @@ from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from django.utils.translation import pgettext_lazy
 
 
 # Languages spoken, shared in the Crush Connect catalogue. Uses ``"lu"`` (not
@@ -305,7 +306,10 @@ class CrushConnectMembership(models.Model):
         ("it", _("IT & tech")),
         ("health", _("Healthcare")),
         ("education", _("Education")),
-        ("legal", _("Legal")),
+        # "Legal" alone is already translated as the footer's legal-notices
+        # heading; the work sector needs its own context (DE "Recht", not
+        # "Rechtliches"; FR "Juridique", not "Mentions légales").
+        ("legal", pgettext_lazy("work field", "Legal")),
         ("construction", _("Construction & trades")),
         ("hospitality", _("Hospitality")),
         ("logistics", _("Logistics & transport")),

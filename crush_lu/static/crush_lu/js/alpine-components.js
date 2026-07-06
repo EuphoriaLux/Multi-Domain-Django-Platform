@@ -1816,10 +1816,10 @@ document.addEventListener("alpine:init", function () {
             },
             // Button text getters for CSP compatibility (replaces ternary expressions)
             get enableButtonText() {
-                return this.isEnabling ? "Enabling..." : "Enable Push Notifications";
+                return this.isEnabling ? gettext("Enabling...") : gettext("Enable Push Notifications");
             },
             get disableButtonText() {
-                return this.isDisabling ? "Disabling..." : "Disable";
+                return this.isDisabling ? gettext("Disabling...") : gettext("Disable");
             },
             get showEnablingIcon() {
                 return this.isEnabling;
@@ -2625,13 +2625,13 @@ document.addEventListener("alpine:init", function () {
                 return this.isSendingTest;
             },
             get enableButtonText() {
-                return this.isEnabling ? "Enabling..." : "Enable Notifications";
+                return this.isEnabling ? gettext("Enabling...") : gettext("Enable Notifications");
             },
             get testButtonText() {
-                return this.isSendingTest ? "Sending..." : "Send Test";
+                return this.isSendingTest ? gettext("Sending...") : gettext("Send Test");
             },
             get disableButtonText() {
-                return this.isDisabling ? "Disabling..." : "Disable Notifications";
+                return this.isDisabling ? gettext("Disabling...") : gettext("Disable Notifications");
             },
             isSendingTest: false,
 

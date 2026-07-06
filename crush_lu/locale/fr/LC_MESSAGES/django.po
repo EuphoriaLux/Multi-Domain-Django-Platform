@@ -32669,7 +32669,7 @@ msgstr "Fonctionnalités de profil étendues"
 
 #: views.py:2291
 msgid "All Silver benefits"
-msgstr "Tous les avantages Silver"
+msgstr "Tous les avantages Argent"
 
 #: views.py:2292
 msgid "VIP event access"
@@ -35240,3 +35240,15 @@ msgid "%(count)s person is curious about you."
 msgid_plural "%(count)s people are curious about you."
 msgstr[0] "%(count)s personne est curieuse de toi."
 msgstr[1] "%(count)s personnes sont curieuses de toi."
+
+#: views_crush_connect.py:486
+#, python-format
+msgid "%(count)d question chosen"
+msgid_plural "%(count)d questions chosen"
+msgstr[0] "%(count)d question choisie"
+msgstr[1] "%(count)d questions choisies"
+
+#: models/crush_connect.py:311
+msgctxt "work field"
+msgid "Legal"
+msgstr "Juridique"
