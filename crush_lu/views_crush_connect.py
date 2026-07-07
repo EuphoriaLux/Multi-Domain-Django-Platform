@@ -72,6 +72,21 @@ def _user_is_connect_receiver_eligible(user) -> bool:
     return profile.assigned_coach_id is not None
 
 
+def _user_can_receive_now(user) -> bool:
+    """Whether the receiver track (Today's Drop) is reachable for ``user`` right
+    now: Premium-eligible (approved + coach) AND the phase lets them receive
+    (full launch, or a selected tester in beta).
+
+    Single source of truth for the receiver/candidate split — used by the access
+    blocker, the catalogue/hub routing, the onboarding-completion copy, and the
+    Spark first-mover gate — so a beta non-tester is treated as a candidate
+    everywhere (and never bounced in a Drop ⇄ catalogue loop). Staff are handled
+    by callers via ``or user.is_staff``; ``receiver_access_open`` also lets staff
+    through, but a coachless staff member is not receiver-eligible here.
+    """
+    return _user_is_connect_receiver_eligible(user) and receiver_access_open(user)
+
+
 def _user_is_connect_candidate_eligible(user) -> bool:
     """Verified profile + LuxID linked: may opt in to the candidate catalogue.
 
@@ -134,13 +149,9 @@ def _connect_access_blocker(user):
             return redirect("crush_lu:crush_connect_teaser")
         return redirect("crush_lu:crush_connect_onboarding")
 
-    if not _user_is_connect_receiver_eligible(user):
-        # Candidate-only members don't get Drops — show their catalogue state.
-        return redirect("crush_lu:crush_connect_catalogue_status")
-
-    if not receiver_access_open(user):
-        # Beta phase: a Premium member who isn't a selected waitlist tester stays
-        # on the candidate side (Today's Drop is limited to the tester cohort).
+    if not _user_can_receive_now(user):
+        # Candidate-only members — no coach, or (in beta) a Premium member who
+        # isn't a selected tester — don't get Drops; show their catalogue state.
         return redirect("crush_lu:crush_connect_catalogue_status")
 
     return None
@@ -189,7 +200,7 @@ def _connect_done_url(user) -> str:
     """Where a finished member lands: receivers (Premium) → Today's Drop,
     candidates (LuxID-only) → catalogue status. Staff count as receivers so
     they can preview the Drop."""
-    is_receiver = _user_is_connect_receiver_eligible(user) or user.is_staff
+    is_receiver = _user_can_receive_now(user) or user.is_staff
     return (
         "crush_lu:crush_connect_home"
         if is_receiver
@@ -254,7 +265,7 @@ def _emit_onboarding_complete(request, done_url):
     """Success message (per track) + candidate welcome email. Ported from the
     legacy single-page view."""
     user = request.user
-    is_receiver = _user_is_connect_receiver_eligible(user) or user.is_staff
+    is_receiver = _user_can_receive_now(user) or user.is_staff
     if is_receiver:
         messages.success(
             request, _("Welcome to Crush Connect — your first Drop is ready.")
@@ -406,9 +417,7 @@ def crush_connect_onboarding_step(request, step: int):
                 initial["preferred_age_max"] = profile.preferred_age_max
         form = form_class(instance=membership, initial=initial)
 
-    is_receiver = (
-        _user_is_connect_receiver_eligible(request.user) or request.user.is_staff
-    )
+    is_receiver = _user_can_receive_now(request.user) or request.user.is_staff
     context = {
         "form": form,
         "membership": membership,
@@ -595,7 +604,10 @@ def crush_connect_catalogue_status(request):
     if not user.is_staff and not candidate_access_open():
         return redirect("crush_lu:crush_connect_teaser")
 
-    if _user_is_connect_receiver_eligible(user):
+    if _user_can_receive_now(user):
+        # Only forward to Today's Drop if they can actually receive now — a beta
+        # Premium non-tester stays here on the candidate catalogue (else the two
+        # views would bounce /today/ ⇄ /catalogue/ forever).
         return redirect("crush_lu:crush_connect_home")
     if not user.is_staff and not _user_is_connect_candidate_eligible(user):
         return redirect("crush_lu:crush_connect_teaser")
@@ -667,7 +679,7 @@ def crush_connect_hub(request):
     if blocker is not None:
         return blocker
 
-    is_receiver = _user_is_connect_receiver_eligible(user) or user.is_staff
+    is_receiver = _user_can_receive_now(user) or user.is_staff
     membership = getattr(user, "crush_connect_membership", None)
     coach = getattr(user, "crushcoach", None)
 
@@ -844,6 +856,12 @@ def crush_connect_spark_compose(request, user_id: int):
             messages.info(request, _("This member isn't available right now."))
             return redirect("crush_lu:crush_connect_home")
     else:
+        # First-mover (sending) is a receiver action. In beta a Premium non-tester
+        # can still hold a stale ConnectDailyDrop snapshot (old link, or after
+        # being deselected) — gate the send on receiver access, not just
+        # can_send_spark's Premium/onboarded/surfaced checks.
+        if not user.is_staff and not receiver_access_open(user):
+            return redirect("crush_lu:crush_connect_catalogue_status")
         allowed, reason = can_send_spark(user, target)
         if not allowed:
             if reason == "already_sparked":
@@ -1259,7 +1277,7 @@ def crush_connect_experience(request, slug):
     membership = getattr(request.user, "crush_connect_membership", None)
     context = {
         "experience": CONNECT_EXPERIENCES[slug],
-        "is_receiver": _user_is_connect_receiver_eligible(request.user),
+        "is_receiver": _user_can_receive_now(request.user),
         "is_onboarded": membership is not None and membership.onboarded_at is not None,
         "other_experiences": [
             {"slug": s, **exp} for s, exp in CONNECT_EXPERIENCES.items() if s != slug

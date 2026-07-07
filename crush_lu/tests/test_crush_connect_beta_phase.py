@@ -19,12 +19,18 @@ from crush_lu.connect_phase import (
 )
 from crush_lu.models.crush_connect import CrushConnectWaitlist
 from crush_lu.tests.test_crush_connect import (
+    CATALOGUE_STATUS_URL,
     CONNECT_HOME_URL,
     CONNECT_TEASER_URL,
     _login_eligible,
     _make_user,
     _mark_attended,
+    _surface_in_drop,
 )
+
+# crush_connect_hub is served at /crush-connect/home/ (the shared landing for
+# both tracks); Today's Drop lives at /crush-connect/today/ (CONNECT_HOME_URL).
+HUB_URL = "/en/crush-connect/home/"
 
 
 def _select_tester(user):
@@ -185,3 +191,79 @@ def test_teaser_routes_beta_candidate_to_onboarding(client, settings):
     resp = client.get(CONNECT_TEASER_URL)
     assert resp.status_code in (301, 302)
     assert "/onboarding/" in resp.url
+
+
+# ---------------------------------------------------------------------------
+# Regressions from the Codex review of the beta-phase PR
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_beta_premium_non_tester_has_no_drop_catalogue_loop(client, settings):
+    """P1: a Premium non-tester must land on the catalogue and STAY — /today/
+    routes to /catalogue/, and /catalogue/ must not bounce back to /today/."""
+    settings.CRUSH_CONNECT_LAUNCHED = False
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
+    me = _make_user(username="prem", preferred_genders=["F"])  # premium, not a tester
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    resp = client.get(CONNECT_HOME_URL)
+    assert resp.status_code in (301, 302)
+    assert "/catalogue/" in resp.url
+
+    # The catalogue renders instead of bouncing back — the loop is broken.
+    resp = client.get(CATALOGUE_STATUS_URL)
+    assert resp.status_code == 200
+
+
+@pytest.mark.django_db
+def test_beta_hub_classifies_non_tester_as_candidate(client, settings):
+    """P2: the shared hub must not show receiver UI (Drop card / coach pick) to a
+    beta Premium non-tester; a selected tester still gets the receiver track."""
+    settings.CRUSH_CONNECT_LAUNCHED = False
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
+    me = _make_user(username="prem", preferred_genders=["F"])
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    resp = client.get(HUB_URL)
+    assert resp.status_code == 200
+    assert resp.context["is_receiver"] is False
+    assert resp.context["track"] == "candidate"
+
+    _select_tester(me)
+    resp = client.get(HUB_URL)
+    assert resp.context["is_receiver"] is True
+    assert resp.context["track"] == "receiver"
+
+
+@pytest.mark.django_db
+def test_beta_nav_visible_for_onboarded_candidate(settings):
+    """P2: onboarded candidates keep the persistent Connect nav during beta, not
+    just selected testers."""
+    from crush_lu.templatetags.crush_connect_tags import crush_connect_nav_visible
+
+    settings.CRUSH_CONNECT_LAUNCHED = False
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
+    candidate = _make_user(username="cand", premium=False, onboarded=True)
+    assert crush_connect_nav_visible(candidate) is True
+    not_onboarded = _make_user(username="no", premium=False, onboarded=False)
+    assert crush_connect_nav_visible(not_onboarded) is False
+
+
+@pytest.mark.django_db
+def test_beta_spark_compose_blocked_for_non_tester(client, settings):
+    """P2: a beta Premium non-tester holding a stale Drop snapshot cannot open the
+    Spark compose / first-mover send flow."""
+    settings.CRUSH_CONNECT_LAUNCHED = False
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
+    me = _make_user(username="prem", preferred_genders=["F"])  # premium, not a tester
+    _mark_attended(me)
+    her = _make_user(username="her", gender="F", premium=False)
+    _surface_in_drop(me, her)  # stale snapshot from an old Drop
+    _login_eligible(client, me)
+
+    resp = client.get(f"/en/crush-connect/spark/{her.pk}/")
+    assert resp.status_code in (301, 302)
+    assert "/catalogue/" in resp.url
