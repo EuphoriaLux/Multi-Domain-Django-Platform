@@ -1,3 +1,5 @@
+android.useAndroidX=true
+
 CRUSH_UPLOAD_STORE_FILE=keystores/crush-lu-upload.jks
 CRUSH_UPLOAD_STORE_PASSWORD=replace-with-play-upload-keystore-password
 CRUSH_UPLOAD_KEY_ALIAS=crush-lu-upload
