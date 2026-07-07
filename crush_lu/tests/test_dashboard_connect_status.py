@@ -97,8 +97,11 @@ class DashboardConnectStatusStripTests(TestCase):
         self.assertTrue(response.context["connect_onboarded"])
         self.assertFalse(response.context["connect_photo_consent"])
         self.assertContains(response, self.ALMOST)
+        # The nudge must land on the questions section, where the
+        # photo_share_consent toggle actually renders (not the section index).
         self.assertContains(
-            response, reverse("crush_lu:crush_connect_profile_edit")
+            response,
+            reverse("crush_lu:crush_connect_profile_edit") + "?section=questions",
         )
         self.assertNotContains(response, self.IN_MIX)
         self.assertNotContains(response, self.JOIN_CTA)
@@ -116,6 +119,23 @@ class DashboardConnectStatusStripTests(TestCase):
         self.assertNotContains(response, self.JOIN_CTA)
         self.assertNotContains(response, self.IN_MIX)
         self.assertNotContains(response, reverse("crush_lu:crush_connect_onboarding"))
+
+    @override_settings(CRUSH_CONNECT_LAUNCHED=True)
+    def test_excluded_without_luxid_gets_no_luxid_prompt(self):
+        """A coach-excluded member with no LuxID must see *nothing* — exclusion
+        is checked before the LuxID banner, so they're never invited to connect
+        LuxID for a Connect flow the onboarding gate would only bounce."""
+        # Deliberately no _link_luxid → has_luxid_connected is False.
+        CrushConnectMembership.objects.create(
+            user=self.user, onboarded_at=timezone.now(), excluded_by_coach=True
+        )
+        response = self._get()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["connect_excluded"])
+        self.assertFalse(response.context["has_luxid_connected"])
+        self.assertNotContains(response, self.LUXID_BANNER)
+        self.assertNotContains(response, self.JOIN_CTA)
+        self.assertNotContains(response, self.IN_MIX)
 
     @override_settings(CRUSH_CONNECT_LAUNCHED=False)
     def test_prelaunch_hides_mix_states_for_non_staff(self):

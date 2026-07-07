@@ -1061,7 +1061,9 @@ def test_catalogue_status_shows_action_needed_without_photo_consent(client, sett
     body = resp.content.decode()
     assert "almost in the mix" in body.lower()
     assert "Turn on photo sharing" in body
-    assert "/crush-connect/profile/" in body  # links to the Connect profile editor
+    # The nudge targets the questions section, where the photo_share_consent
+    # toggle renders — not the bare section index.
+    assert "/crush-connect/profile/?section=questions" in body
 
 
 @pytest.mark.django_db

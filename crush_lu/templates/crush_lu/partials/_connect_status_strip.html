@@ -5,13 +5,18 @@
   Expects: has_luxid_connected, luxid_connect_url, connect_onboarded,
            connect_excluded, connect_photo_consent, user.
   States (top-down, mutually exclusive):
-    0. No LuxID              → "Connect LuxID" banner (always visible, pre-launch too).
-    X. Excluded by coach     → nothing (exclusion is never surfaced to the member).
+    X. Excluded by coach     → nothing (exclusion is never surfaced — checked FIRST so an
+                               excluded member is never prompted, even with no LuxID linked).
+    0. No LuxID              → "Connect LuxID" banner (visible pre-launch too).
     1. Not opted in          → "Join the Mix" CTA (launch flag / staff only).
     2a. Opted in, no photo   → amber "Almost in the Mix" nudge (not actually discoverable).
     2b. Opted in + photo     → green "You're in the Mix" confirmation (launch flag / staff).
 {% endcomment %}
-{% if not has_luxid_connected %}
+{% if connect_excluded %}
+{# Coach-excluded members see no strip at all — checked FIRST so an excluded
+   member (even one with no LuxID linked, or who unlinks it after exclusion) is
+   never invited into a Connect flow the onboarding gate would only bounce. #}
+{% elif not has_luxid_connected %}
 {# LuxID catalogue prompt — verified via coach/admin, but not selectable in Crush Connect until LuxID is linked #}
 <div class="flex items-center gap-3 mb-5 p-4 rounded-xl border border-indigo-200 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20">
     <div class="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center flex-shrink-0">
@@ -27,8 +32,6 @@
     </a>
     {% endif %}
 </div>
-{% elif connect_excluded %}
-{# Coach-excluded members see neither strip — the onboarding gate would bounce them anyway #}
 {% elif user|crush_connect_visible %}
 {% if connect_onboarded and not connect_photo_consent %}
 {# Opted in but photo sharing is off → not actually discoverable yet (mirrors services.crush_connect.is_catalogue_eligible) #}
@@ -40,7 +43,7 @@
         <p class="font-semibold text-amber-900 dark:text-amber-200 text-sm mb-0">{% trans "Almost in the Mix" %}</p>
         <p class="text-amber-800 dark:text-amber-300 text-xs mb-0">{% trans "Turn on photo sharing so a Crush Coach can introduce you to Premium members." %}</p>
     </div>
-    <a href="{% url 'crush_lu:crush_connect_profile_edit' %}" class="flex-shrink-0 inline-flex items-center gap-1 rounded-lg bg-amber-600 hover:bg-amber-700 px-3 py-2 text-xs font-semibold text-white no-underline transition-colors">
+    <a href="{% url 'crush_lu:crush_connect_profile_edit' %}?section=questions" class="flex-shrink-0 inline-flex items-center gap-1 rounded-lg bg-amber-600 hover:bg-amber-700 px-3 py-2 text-xs font-semibold text-white no-underline transition-colors">
         {% trans "Turn on photo sharing" %}
     </a>
 </div>
