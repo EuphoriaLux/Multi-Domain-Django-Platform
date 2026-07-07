@@ -1002,6 +1002,57 @@ def test_teaser_auto_redirects_eligible_not_onboarded_to_onboarding(client, sett
     assert "/crush-connect/onboarding/" in resp.url
 
 
+@pytest.mark.django_db
+def test_teaser_shows_waitlist_position_for_member(client, settings):
+    """Regression (PR #555 dropped the teaser waitlist UI): a member on the
+    waitlist must see their position again. The view/model/API were always
+    intact — only the template stopped rendering it."""
+    settings.CRUSH_CONNECT_LAUNCHED = False  # pre-launch → teaser renders (no redirect)
+    from crush_lu.models.crush_connect import CrushConnectWaitlist
+
+    me = _make_user(username="waiter", premium=False, has_luxid=False, onboarded=False)
+    CrushConnectWaitlist.objects.create(user=me)
+    _login_eligible(client, me)
+
+    resp = client.get(CONNECT_TEASER_URL)
+    assert resp.status_code == 200
+    assert resp.context["on_waitlist"] is True
+    assert resp.context["waitlist_position"] == 1
+    assert "on the waitlist" in resp.content.decode().lower()
+
+
+@pytest.mark.django_db
+def test_teaser_shows_join_cta_when_not_on_waitlist(client, settings):
+    """A member not yet on the waitlist sees the join CTA wired to the Alpine
+    crushConnectWaitlist component (which POSTs to the still-registered join API)."""
+    settings.CRUSH_CONNECT_LAUNCHED = False
+    me = _make_user(username="nolist", premium=False, has_luxid=False, onboarded=False)
+    _login_eligible(client, me)
+
+    resp = client.get(CONNECT_TEASER_URL)
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert resp.context["on_waitlist"] is False
+    assert "Join the Waitlist" in body
+    assert 'x-data="crushConnectWaitlist"' in body
+
+
+@pytest.mark.django_db
+def test_teaser_waitlist_position_renders_in_german(client, settings):
+    """The restored position reuses the pre-#555 msgid, so its DE translation
+    (still compiled in the .mo) renders on /de/ — the locale this was reported on."""
+    settings.CRUSH_CONNECT_LAUNCHED = False
+    from crush_lu.models.crush_connect import CrushConnectWaitlist
+
+    me = _make_user(username="dewaiter", premium=False, has_luxid=False, onboarded=False)
+    CrushConnectWaitlist.objects.create(user=me)
+    _login_eligible(client, me)
+
+    resp = client.get("/de/crush-connect/")
+    assert resp.status_code == 200
+    assert "auf der Warteliste" in resp.content.decode()
+
+
 # ---------------------------------------------------------------------------
 # Asymmetric catalogue — candidate track (LuxID, no Premium)
 # ---------------------------------------------------------------------------
@@ -1203,9 +1254,11 @@ def test_admin_form_save_stamps_tester_fields():
 
 
 @pytest.mark.django_db
-def test_teaser_renders_no_beta_ui_for_waitlisted_tester(client, settings):
-    """The beta framing is retired: even a waitlisted, payment-confirmed tester
-    sees the current product teaser (status block, no waitlist/tester UI)."""
+def test_teaser_shows_waitlist_but_hides_beta_tester_framing(client, settings):
+    """A selected/paid tester sees the normal waitlist position like anyone else
+    (restored after #555) — but the internal beta-tester *selection* status is
+    never surfaced to the member (tester selection is silent; the "4 weeks / 4
+    matches / 20 testers" narrative stays retired). See the beta launch plan."""
     settings.CRUSH_CONNECT_LAUNCHED = False  # stay on the teaser, no fast-path
     from crush_lu.models import CrushConnectWaitlist
 
@@ -1219,9 +1272,11 @@ def test_teaser_renders_no_beta_ui_for_waitlisted_tester(client, settings):
     assert resp.status_code == 200
     body = resp.content.decode()
     assert "Your Crush Connect status" in body
+    # Waitlist position is shown again for the member...
+    assert "on the waitlist" in body.lower()
+    # ...but their internal beta-tester selection status is never surfaced.
     assert "Selected as a beta tester" not in body
-    assert "waitlist" not in body.lower()
-    assert "beta" not in body.lower()
+    assert "beta tester" not in body.lower()
 
 
 @pytest.mark.django_db
