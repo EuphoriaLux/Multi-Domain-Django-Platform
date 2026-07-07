@@ -50,8 +50,10 @@
     <div class="flex gap-1.5 mb-[22px]" role="progressbar"
          aria-valuenow="{{ progress_pct|floatformat:0 }}" aria-valuemin="0" aria-valuemax="100">
         {% for s in connect_steps %}
-        <span class="flex-1 h-1.5 rounded-full transition-colors duration-300
-                     {% if s.state == 'upcoming' %}bg-gray-200 dark:bg-gray-700{% else %}bg-gradient-to-r from-crush-purple to-crush-pink{% endif %}"></span>
+        <span class="flex-1 h-1.5 rounded-full transition-all duration-300
+                     {% if s.state == 'upcoming' %}bg-gray-200 dark:bg-gray-700
+                     {% elif s.state == 'active' %}bg-gradient-to-r from-crush-purple to-crush-pink animate-pulse-active-step ring-2 ring-crush-purple/30
+                     {% else %}bg-crush-purple dark:bg-purple-500{% endif %}"></span>
         {% endfor %}
     </div>
 

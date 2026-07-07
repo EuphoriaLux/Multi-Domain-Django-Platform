@@ -8,17 +8,17 @@
         <label class="cursor-pointer">
             <input type="radio" name="q_{{ row.question.id }}" value="" data-gate class="peer sr-only" @change="onPick"
                    {% if not row.field.value or row.field.value == '' %}checked{% endif %}>
-            <span class="block min-w-0 px-3 py-2 text-center text-gray-500 dark:text-gray-400 bg-white dark:bg-slate-800 peer-checked:bg-slate-700 peer-checked:text-white">{% trans "Skip" %}</span>
+            <span class="block min-w-0 px-3 py-2 text-center text-gray-500 dark:text-gray-400 bg-white dark:bg-slate-800 peer-checked:bg-slate-100 peer-checked:text-slate-800 dark:peer-checked:bg-slate-700 dark:peer-checked:text-white">{% trans "Skip" %}</span>
         </label>
         <label class="cursor-pointer border-l border-gray-200 dark:border-slate-600">
             <input type="radio" name="q_{{ row.question.id }}" value="yes" data-gate class="peer sr-only" @change="onPick"
                    {% if row.field.value == 'yes' %}checked{% endif %}>
-            <span class="block min-w-0 px-3 py-2 text-center text-gray-600 dark:text-gray-300 bg-white dark:bg-slate-800 peer-checked:bg-green-500 peer-checked:text-white">{% trans "Yes" %}</span>
+            <span class="block min-w-0 px-3 py-2 text-center text-gray-600 dark:text-gray-300 bg-white dark:bg-slate-800 peer-checked:bg-green-100 peer-checked:text-green-800 dark:peer-checked:bg-green-900/30 dark:peer-checked:text-green-300">{% trans "Yes" %}</span>
         </label>
         <label class="cursor-pointer border-l border-gray-200 dark:border-slate-600">
             <input type="radio" name="q_{{ row.question.id }}" value="no" data-gate class="peer sr-only" @change="onPick"
                    {% if row.field.value == 'no' %}checked{% endif %}>
-            <span class="block min-w-0 px-3 py-2 text-center text-gray-600 dark:text-gray-300 bg-white dark:bg-slate-800 peer-checked:bg-rose-500 peer-checked:text-white">{% trans "No" %}</span>
+            <span class="block min-w-0 px-3 py-2 text-center text-gray-600 dark:text-gray-300 bg-white dark:bg-slate-800 peer-checked:bg-rose-100 peer-checked:text-rose-800 dark:peer-checked:bg-rose-900/30 dark:peer-checked:text-rose-300">{% trans "No" %}</span>
         </label>
     </div>
 </div>

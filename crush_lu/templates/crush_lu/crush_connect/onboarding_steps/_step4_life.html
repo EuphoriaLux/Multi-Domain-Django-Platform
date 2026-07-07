@@ -42,11 +42,11 @@
 
     {# Work field #}
     {% trans "What field do you work in?" as work_heading %}
-    {% include "crush_lu/crush_connect/onboarding_steps/_radio_tiles.html" with field=form.work_field heading=work_heading cols="grid-cols-2 sm:grid-cols-3" %}
+    {% include "crush_lu/crush_connect/onboarding_steps/_radio_tiles.html" with field=form.work_field heading=work_heading cols="grid-cols-1 sm:grid-cols-3" %}
 
     {# Education level #}
     {% trans "Highest education" as education_heading %}
-    {% include "crush_lu/crush_connect/onboarding_steps/_radio_tiles.html" with field=form.education_level heading=education_heading cols="grid-cols-2 sm:grid-cols-3" %}
+    {% include "crush_lu/crush_connect/onboarding_steps/_radio_tiles.html" with field=form.education_level heading=education_heading cols="grid-cols-1 sm:grid-cols-3" %}
 
     {# Smoking #}
     {% trans "Smoking" as smoking_heading %}

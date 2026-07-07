@@ -27,7 +27,7 @@
 {% endpartialdef %}
 
 {% block title %}{% trans "Edit Your Profile - Crush.lu" %}{% endblock %}
-{% block mobile_page_title %}{% trans "Edit Profile" %}{% endblock %}
+{% block mobile_page_title %}{% if section == 'photos' %}{% trans "Photos" %}{% elif section == 'about' %}{% trans "About You" %}{% elif section == 'privacy' %}{% trans "Privacy" %}{% elif section == 'account' %}{% trans "Account" %}{% elif section == 'about_crushlu' %}{% trans "About Crush.lu" %}{% else %}{% trans "Edit Profile" %}{% endif %}{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'crush_lu/css/components/profile-creation.css' %}">

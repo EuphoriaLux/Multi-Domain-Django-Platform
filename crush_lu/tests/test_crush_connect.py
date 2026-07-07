@@ -1089,6 +1089,32 @@ def test_catalogue_status_renders_for_onboarded_candidate(client, settings):
     assert resp.status_code == 200
     body = resp.content.decode()
     assert "in the mix" in body.lower()
+    # Consenting member sees the positive "You're in" framing, not the nudge.
+    assert "almost in the mix" not in body.lower()
+
+
+@pytest.mark.django_db
+def test_catalogue_status_shows_action_needed_without_photo_consent(client, settings):
+    """Onboarded but photo sharing off → not actually discoverable, so the page
+    drops the "You're in the mix" claim for an action-needed nudge."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="me",
+        preferred_genders=["F"],
+        onboarded=True,
+        premium=False,
+        photo_share_consent=False,
+    )
+    _login_eligible(client, me)
+
+    resp = client.get(CATALOGUE_STATUS_URL)
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert "almost in the mix" in body.lower()
+    assert "Turn on photo sharing" in body
+    # The nudge targets the questions section, where the photo_share_consent
+    # toggle renders — not the bare section index.
+    assert "/crush-connect/profile/?section=questions" in body
 
 
 @pytest.mark.django_db

@@ -28,7 +28,7 @@
                 {# Identity row — blurred mini-avatar + first name + age range + goal chip. #}
                 <div class="flex items-center gap-3 mb-3">
                     <div class="relative w-14 h-14 shrink-0 rounded-2xl overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">
-                        {% profile_photo sender.crushprofile 'photo_1' css_class='w-full h-full object-cover' alt_text=sender.first_name is_blurred=False %}
+                        {% profile_photo sender.crushprofile 'photo_1' css_class='w-full h-full object-cover' alt_text=sender.first_name is_blurred=True %}
                     </div>
                     <div class="min-w-0 flex-1">
                         <div class="flex items-baseline gap-2">
@@ -56,17 +56,19 @@
                 They read your photo well - read them back by answering their 3
                 questions. Reading each other >=2/3 both ways is a match.
                 {% endcomment %}
-                <a href="{% url 'crush_lu:crush_connect_spark_compose' sender.pk %}"
-                   class="btn-crush-primary btn-block inline-flex items-center justify-center gap-1.5 no-underline">
-                    {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
-                    {% trans "Read them back — answer their 3 questions" %}
-                </a>
-                <form method="post" action="{% url 'crush_lu:crush_connect_spark_respond' spark.pk %}" class="mt-2">
-                    {% csrf_token %}
-                    <button type="submit" name="action" value="decline" class="btn-crush-outline btn-block">
-                        {% trans "Pass" %}
-                    </button>
-                </form>
+                <div class="flex flex-row gap-2 mt-3">
+                    <a href="{% url 'crush_lu:crush_connect_spark_compose' sender.pk %}"
+                       class="btn-crush-primary flex-1 inline-flex items-center justify-center gap-1.5 no-underline">
+                        {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
+                        {% trans "Read them back" %}
+                    </a>
+                    <form method="post" action="{% url 'crush_lu:crush_connect_spark_respond' spark.pk %}" class="flex-1 flex">
+                        {% csrf_token %}
+                        <button type="submit" name="action" value="decline" class="btn-crush-outline btn-block">
+                            {% trans "Pass" %}
+                        </button>
+                    </form>
+                </div>
 
                 {% block_report_menu sender source="spark" source_id=spark.pk %}
             </div>
