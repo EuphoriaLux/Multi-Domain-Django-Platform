@@ -124,10 +124,14 @@ def crush_user_context(request):
         # stays off every other page's query budget.
         connect_pending_sparks_count = 0
         try:
-            launched = getattr(settings, "CRUSH_CONNECT_LAUNCHED", False)
+            from crush_lu.connect_phase import candidate_access_open
+
+            # Candidates receive Sparks too, so the badge follows candidate access
+            # (open in the beta), not just the full launch flag.
+            connect_open = candidate_access_open()
             membership = getattr(request.user, "crush_connect_membership", None)
             nav_visible = request.user.is_staff or (
-                launched and membership is not None and membership.is_onboarded
+                connect_open and membership is not None and membership.is_onboarded
             )
             if nav_visible:
                 from .models import CuriositySpark
