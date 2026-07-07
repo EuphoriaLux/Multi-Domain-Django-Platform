@@ -20,6 +20,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.utils.translation import ngettext
 
+from crush_lu.connect_phase import candidate_access_open, receiver_access_open
 from crush_lu.decorators import coach_required, crush_login_required
 from crush_lu.email_helpers import send_crush_connect_catalogue_welcome
 from crush_lu.models import CrushConnectMembership, CrushProfile
@@ -119,7 +120,7 @@ def _connect_access_blocker(user):
     if user.is_staff:
         return None
 
-    if not getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
+    if not candidate_access_open():
         return redirect("crush_lu:crush_connect_teaser")
 
     membership = getattr(user, "crush_connect_membership", None)
@@ -137,6 +138,11 @@ def _connect_access_blocker(user):
         # Candidate-only members don't get Drops — show their catalogue state.
         return redirect("crush_lu:crush_connect_catalogue_status")
 
+    if not receiver_access_open(user):
+        # Beta phase: a Premium member who isn't a selected waitlist tester stays
+        # on the candidate side (Today's Drop is limited to the tester cohort).
+        return redirect("crush_lu:crush_connect_catalogue_status")
+
     return None
 
 
@@ -150,7 +156,7 @@ def _hub_access_blocker(user):
     if user.is_staff:
         return None
 
-    if not getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
+    if not candidate_access_open():
         return redirect("crush_lu:crush_connect_teaser")
 
     membership = getattr(user, "crush_connect_membership", None)
@@ -207,7 +213,7 @@ def _onboarding_gate(request):
     user = request.user
     done_url = _connect_done_url(user)
 
-    if not user.is_staff and not getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
+    if not user.is_staff and not candidate_access_open():
         return redirect("crush_lu:crush_connect_teaser"), None, done_url
 
     # Grandfather already-onboarded members (and bounce excluded ones) BEFORE the
@@ -509,7 +515,7 @@ def crush_connect_profile_edit(request):
     ``onboarded_at`` / ``onboarding_step``.
     """
     user = request.user
-    if not user.is_staff and not getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
+    if not user.is_staff and not candidate_access_open():
         return redirect("crush_lu:crush_connect_teaser")
 
     membership = getattr(user, "crush_connect_membership", None)
@@ -586,7 +592,7 @@ def crush_connect_catalogue_status(request):
     """
     user = request.user
 
-    if not user.is_staff and not getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
+    if not user.is_staff and not candidate_access_open():
         return redirect("crush_lu:crush_connect_teaser")
 
     if _user_is_connect_receiver_eligible(user):
@@ -809,7 +815,7 @@ def crush_connect_spark_compose(request, user_id: int):
     )
 
     user = request.user
-    if not user.is_staff and not getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
+    if not user.is_staff and not candidate_access_open():
         return redirect("crush_lu:crush_connect_teaser")
 
     target = get_object_or_404(
@@ -987,7 +993,7 @@ def crush_connect_sparks_received(request):
     )
 
     user = request.user
-    if not user.is_staff and not getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
+    if not user.is_staff and not candidate_access_open():
         return redirect("crush_lu:crush_connect_teaser")
 
     # Pending Sparks are immutable records — a recipient who lost catalogue
@@ -1247,9 +1253,7 @@ def crush_connect_experience(request, slug):
     if slug not in CONNECT_EXPERIENCES:
         raise Http404
 
-    if not request.user.is_staff and not getattr(
-        settings, "CRUSH_CONNECT_LAUNCHED", False
-    ):
+    if not request.user.is_staff and not candidate_access_open():
         return redirect("crush_lu:crush_connect_teaser")
 
     membership = getattr(request.user, "crush_connect_membership", None)

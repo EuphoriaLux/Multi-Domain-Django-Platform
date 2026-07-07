@@ -469,6 +469,15 @@ PRE_SCREENING_ENABLED = _env_bool("PRE_SCREENING_ENABLED", default=False)
 # in M8, so this flag can stay True in production once beta finishes.
 CRUSH_CONNECT_LAUNCHED = _env_bool("CRUSH_CONNECT_LAUNCHED", default=False)
 
+# Crush Connect BETA phase (candidate-open). When True (and LAUNCHED still False),
+# the candidate "in the Mix" track opens to any verified + LuxID member — they can
+# opt in and become discoverable — while the Premium/receiver track (Today's Drop)
+# stays limited to staff + hand-picked waitlist testers (CrushConnectWaitlist.
+# selected_as_tester), and €15 stays funnelled to the waitlist (PREMIUM_REDIRECTS_
+# TO_BETA). Ignored once LAUNCHED is True (full public launch). See crush_lu/
+# connect_phase.py for the phase helpers that read this.
+CRUSH_CONNECT_CANDIDATE_OPEN = _env_bool("CRUSH_CONNECT_CANDIDATE_OPEN", default=False)
+
 # During the "4 weeks / 4 matches" Crush Connect beta, funnel the Go-Premium flow
 # into the beta waitlist instead of the coach directory. Members with an in-flight
 # (pending) premium request are exempt so they can still manage it. Set False to

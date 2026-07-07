@@ -23,12 +23,15 @@ def crush_connect_visible(user):
     """
     True if the Crush Connect entry point (teaser or app) should be visible.
 
-    Visible when the global launch flag is on, OR the user is staff (so
-    internal review and beta walkthroughs work before public launch).
-    Eligibility (approved profile + attended event) is enforced at the
-    view layer; this filter only controls nav/CTA visibility.
+    Visible when the candidate track is open (full launch OR the beta
+    candidate-open phase), OR the user is staff (so internal review and beta
+    walkthroughs work before public launch). Eligibility (approved profile +
+    LuxID) is enforced at the view layer; this filter only controls nav/CTA
+    visibility.
     """
-    if getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
+    from crush_lu.connect_phase import candidate_access_open
+
+    if candidate_access_open():
         return True
     return bool(user and user.is_authenticated and user.is_staff)
 
@@ -43,14 +46,21 @@ def crush_connect_nav_visible(user):
     That means a Connect-onboarded membership is required. Staff bypass keeps
     internal review working before any user has onboarded.
     """
+    from crush_lu.connect_phase import is_selected_beta_tester
+
     if not user or not user.is_authenticated:
         return False
     if user.is_staff:
         return True
-    if not getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
-        return False
     membership = getattr(user, "crush_connect_membership", None)
-    return bool(membership and membership.is_onboarded)
+    if not (membership and membership.is_onboarded):
+        return False
+    # Today's Drop is the receiver surface: shown post-launch to any onboarded
+    # member, and during the beta only to selected waitlist testers (who are the
+    # only non-staff members that reach it — see connect_phase.receiver_access_open).
+    if getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
+        return True
+    return is_selected_beta_tester(user)
 
 
 @register.simple_tag
