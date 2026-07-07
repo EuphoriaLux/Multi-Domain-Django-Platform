@@ -35167,3 +35167,49 @@ msgstr[1] "%(count)d Fragen ausgewählt"
 msgctxt "work field"
 msgid "Legal"
 msgstr "Recht"
+
+# ── Dashboard Connect status strip (2026-07-07) ────────────────────────
+# Added manually (gettext unavailable on dev box); run makemessages later to
+# merge location comments. DE du-form, capitalized "Du/Dich" per the Connect
+# copy convention. "In the Mix" kept as the English brand term.
+msgid "You're in the Mix"
+msgstr "Du bist mit dabei"
+
+msgid "Crush Coaches can hand-pick you as an introduction for Premium members."
+msgstr "Crush Coaches können Dich als Vorschlag für Premium-Mitglieder auswählen."
+
+msgid "View my status"
+msgstr "Meinen Status ansehen"
+
+msgid "You're not in the Mix yet"
+msgstr "Du bist noch nicht mit dabei"
+
+msgid "Opt in free so a Crush Coach can introduce you to Premium members — you choose what you share."
+msgstr "Mach kostenlos mit, damit ein Crush Coach Dich Premium-Mitgliedern vorstellen kann — Du entscheidest, was Du teilst."
+
+msgid "Join the Mix"
+msgstr "Mach mit"
+
+msgid "Active — In the Mix"
+msgstr "Aktiv — In the Mix"
+
+# ── Connect "action needed" (photo sharing off) (2026-07-07) ───────────
+# Dashboard strip + catalogue_status page for onboarded members whose
+# photo_share_consent is off (so is_catalogue_eligible is False). DE du-form.
+msgid "Almost in the Mix"
+msgstr "Fast mit dabei"
+
+msgid "Turn on photo sharing so a Crush Coach can introduce you to Premium members."
+msgstr "Aktiviere die Fotofreigabe, damit ein Crush Coach Dich Premium-Mitgliedern vorstellen kann."
+
+msgid "Turn on photo sharing"
+msgstr "Fotofreigabe aktivieren"
+
+msgid "Action needed"
+msgstr "Aktion erforderlich"
+
+msgid "You're almost in the mix."
+msgstr "Du bist fast mit dabei."
+
+msgid "Your photo sharing is off, so you're not shown to anyone yet. Turn it back on and a Crush Coach can hand-pick you as a match for a Premium member."
+msgstr "Deine Fotofreigabe ist deaktiviert, deshalb wirst Du noch niemandem angezeigt. Aktiviere sie wieder, und ein Crush Coach kann Dich als Match für ein Premium-Mitglied auswählen."

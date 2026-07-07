@@ -427,6 +427,15 @@ def dashboard(request):
         else:
             greeting = _("Hey, %(name)s") % {"name": name}
 
+        # Crush Connect opt-in state for the non-premium status strip (same
+        # expression as edit_profile). Exclusion is tracked separately so the
+        # strip renders nothing for coach-excluded members instead of a "join"
+        # CTA that the onboarding gate would silently bounce. Photo-share
+        # consent is the last gate between "opted in" and actually discoverable
+        # (see services.crush_connect.is_catalogue_eligible) — without it the
+        # strip nudges to re-enable sharing instead of claiming "in the Mix".
+        connect_membership = getattr(request.user, "crush_connect_membership", None)
+
         from .views_wallet import _is_apple_wallet_configured
 
         context = {
@@ -440,6 +449,15 @@ def dashboard(request):
             "is_premium": is_premium,
             "has_luxid_connected": has_luxid_connected,
             "luxid_connect_url": luxid_connect_url,
+            "connect_onboarded": bool(
+                connect_membership and connect_membership.is_onboarded
+            ),
+            "connect_excluded": bool(
+                connect_membership and connect_membership.excluded_by_coach
+            ),
+            "connect_photo_consent": bool(
+                connect_membership and connect_membership.photo_share_consent
+            ),
             "verifier": verifier,
             "next_event": next_event,
             "greeting": greeting,

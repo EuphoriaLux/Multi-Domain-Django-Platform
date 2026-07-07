@@ -35289,3 +35289,49 @@ msgstr[1] "%(count)d questions choisies"
 msgctxt "work field"
 msgid "Legal"
 msgstr "Juridique"
+
+# ── Dashboard Connect status strip (2026-07-07) ────────────────────────
+# Added manually (gettext unavailable on dev box); run makemessages later to
+# merge location comments. FR vous-form. "In the Mix" kept as the English
+# brand term; "the mix" rendered "la partie" per the existing Connect copy.
+msgid "You're in the Mix"
+msgstr "Vous êtes de la partie"
+
+msgid "Crush Coaches can hand-pick you as an introduction for Premium members."
+msgstr "Les Crush Coaches peuvent vous choisir comme présentation pour les membres Premium."
+
+msgid "View my status"
+msgstr "Voir mon statut"
+
+msgid "You're not in the Mix yet"
+msgstr "Vous n'êtes pas encore de la partie"
+
+msgid "Opt in free so a Crush Coach can introduce you to Premium members — you choose what you share."
+msgstr "Inscrivez-vous gratuitement pour qu'un Crush Coach puisse vous présenter aux membres Premium — vous choisissez ce que vous partagez."
+
+msgid "Join the Mix"
+msgstr "Rejoindre la partie"
+
+msgid "Active — In the Mix"
+msgstr "Actif — In the Mix"
+
+# ── Connect "action needed" (photo sharing off) (2026-07-07) ───────────
+# Dashboard strip + catalogue_status page for onboarded members whose
+# photo_share_consent is off (so is_catalogue_eligible is False). FR vous-form.
+msgid "Almost in the Mix"
+msgstr "Presque de la partie"
+
+msgid "Turn on photo sharing so a Crush Coach can introduce you to Premium members."
+msgstr "Activez le partage de photo pour qu'un Crush Coach puisse vous présenter aux membres Premium."
+
+msgid "Turn on photo sharing"
+msgstr "Activer le partage de photo"
+
+msgid "Action needed"
+msgstr "Action requise"
+
+msgid "You're almost in the mix."
+msgstr "Vous êtes presque de la partie."
+
+msgid "Your photo sharing is off, so you're not shown to anyone yet. Turn it back on and a Crush Coach can hand-pick you as a match for a Premium member."
+msgstr "Votre partage de photo est désactivé, vous n'êtes donc encore montré à personne. Réactivez-le et un Crush Coach pourra vous choisir comme match pour un membre Premium."
