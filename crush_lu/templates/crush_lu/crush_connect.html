@@ -269,6 +269,55 @@
                 </a>
             </div>
             {% endif %}
+
+            <!-- Waitlist status — restored after PR #555 dropped the teaser UI.
+                 Backend was left intact: the view passes on_waitlist /
+                 waitlist_position / total_waitlist, and the Alpine
+                 crushConnectWaitlist component POSTs to /api/crush-connect/join/.
+                 CSP build: only bare getters (buttonText/positionText/isJoined/
+                 hasError) — no negation or inline expressions. -->
+            <div class="pt-4 border-t border-gray-100 dark:border-slate-700"
+                 data-on-waitlist="{{ on_waitlist|yesno:'true,false' }}"
+                 data-position="{{ waitlist_position|default:'0' }}"
+                 data-total="{{ total_waitlist }}"
+                 x-data="crushConnectWaitlist">
+                {% if on_waitlist %}
+                <div class="flex items-center gap-3">
+                    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    </div>
+                    <div>
+                        <p class="text-gray-900 dark:text-white font-medium">{% blocktrans with pos=waitlist_position %}You're #{{ pos }} on the waitlist{% endblocktrans %}</p>
+                        {% if total_waitlist %}
+                        <p class="text-sm text-gray-500 dark:text-gray-400">{% blocktrans count total=total_waitlist %}{{ total }} person already on the waitlist{% plural %}{{ total }} people already on the waitlist{% endblocktrans %}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="flex items-start gap-3">
+                    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-crush-purple/10 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-crush-purple dark:text-crush-pink" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+                    </div>
+                    <div class="flex-1">
+                        <!-- Pre-join state — hidden once the join succeeds (no reload).
+                             x-show="notJoined" (bare getter) instead of "!isJoined":
+                             the Alpine CSP build forbids negation/inline expressions. -->
+                        <div x-show="notJoined">
+                            <p class="text-gray-500 dark:text-gray-400 mb-3">{% trans "Not on the waitlist yet" %}</p>
+                            <button type="button" @click="joinWaitlist"
+                                    class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-pink-600 hover:bg-pink-700 text-white font-semibold transition-colors">
+                                {% trans "Join the Waitlist" %}
+                            </button>
+                        </div>
+                        <p x-show="isJoined" x-cloak class="mt-2 flex items-center gap-2 text-sm text-green-700 dark:text-green-400 font-medium">
+                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            <span x-text="positionText"></span>
+                        </p>
+                        <p x-show="hasError" x-cloak x-text="errorMessage" class="mt-2 text-sm text-red-600 dark:text-red-400"></p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
         </div>
     </div>
 </section>
