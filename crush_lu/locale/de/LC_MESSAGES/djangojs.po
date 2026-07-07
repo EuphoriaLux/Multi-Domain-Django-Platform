@@ -55,13 +55,13 @@ msgstr "Berechtigung verweigert"
 #: .\crush_lu\static\crush_lu\js\alpine-components.js:1755
 #: .\crush_lu\static\crush_lu\js\alpine-components.js:1801
 msgid "Failed to save. Please try again."
-msgstr "Speichern fehlgeschlagen. Bitte versuchen Sie es erneut."
+msgstr "Speichern fehlgeschlagen. Bitte versuche es erneut."
 
 #: .\crush_lu\static\crush_lu\js\alpine-components.js:1722
 #: .\crush_lu\static\crush_lu\js\alpine-components.js:1765
 #: .\crush_lu\static\crush_lu\js\alpine-components.js:1807
 msgid "Network error. Please check your connection."
-msgstr "Netzwerkfehler. Bitte überprüfen Sie Ihre Verbindung."
+msgstr "Netzwerkfehler. Bitte überprüfe deine Verbindung."
 
 #: .\crush_lu\static\crush_lu\js\phone-verification.js:55
 msgid ""
@@ -76,8 +76,8 @@ msgid ""
 "Phone verification is temporarily unavailable. Please try again later or "
 "contact support."
 msgstr ""
-"Telefonverifizierung ist vorübergehend nicht verfügbar. Bitte versuchen Sie "
-"es später erneut oder kontaktieren Sie den Support."
+"Telefonverifizierung ist vorübergehend nicht verfügbar. Bitte versuche es "
+"später erneut oder kontaktiere den Support."
 
 #: .\crush_lu\static\crush_lu\js\phone-verification.js:158
 msgid ""
@@ -85,63 +85,58 @@ msgid ""
 "try again later."
 msgstr ""
 "Telefonverifizierungsdienst konnte nicht initialisiert werden. Bitte "
-"aktualisieren Sie die Seite oder versuchen Sie es später erneut."
+"aktualisiere die Seite oder versuche es später erneut."
 
 #: .\crush_lu\static\crush_lu\js\phone-verification.js:259
 msgid "Please enter a valid phone number"
-msgstr "Bitte geben Sie eine gültige Telefonnummer ein"
+msgstr "Bitte gib eine gültige Telefonnummer ein"
 
 #: .\crush_lu\static\crush_lu\js\phone-verification.js:310
 msgid "No verification in progress. Please request a new code."
-msgstr "Keine Verifizierung läuft. Bitte fordern Sie einen neuen Code an."
+msgstr "Keine Verifizierung läuft. Bitte fordere einen neuen Code an."
 
 #: .\crush_lu\static\crush_lu\js\phone-verification.js:316
 msgid "Please enter the 6-digit code"
-msgstr "Bitte geben Sie den 6-stelligen Code ein"
+msgstr "Bitte gib den 6-stelligen Code ein"
 
 #: .\crush_lu\static\crush_lu\js\phone-verification.js:438
 msgid ""
 "Invalid phone number format. Please use international format (e.g., +352 XXX"
 " XXX)"
 msgstr ""
-"Ungültiges Telefonnummernformat. Bitte verwenden Sie das internationale "
-"Format (z.B. +352 XXX XXX)"
+"Ungültiges Telefonnummernformat. Bitte verwende das internationale Format "
+"(z.B. +352 XXX XXX)"
 
 #: .\crush_lu\static\crush_lu\js\phone-verification.js:439
 msgid "Too many attempts. Please wait a few minutes and try again."
-msgstr ""
-"Zu viele Versuche. Bitte warten Sie einige Minuten und versuchen Sie es "
-"erneut."
+msgstr "Zu viele Versuche. Bitte warte einige Minuten und versuche es erneut."
 
 #: .\crush_lu\static\crush_lu\js\phone-verification.js:440
 msgid "Security verification failed. Please refresh the page and try again."
 msgstr ""
-"Sicherheitsüberprüfung fehlgeschlagen. Bitte aktualisieren Sie die Seite und"
-" versuchen Sie es erneut."
+"Sicherheitsüberprüfung fehlgeschlagen. Bitte aktualisiere die Seite und "
+"versuche es erneut."
 
 #: .\crush_lu\static\crush_lu\js\phone-verification.js:441
 msgid "Invalid code. Please check the code and try again."
-msgstr ""
-"Ungültiger Code. Bitte überprüfen Sie den Code und versuchen Sie es erneut."
+msgstr "Ungültiger Code. Bitte überprüfe den Code und versuche es erneut."
 
 #: .\crush_lu\static\crush_lu\js\phone-verification.js:442
 msgid "Code expired. Please request a new code."
-msgstr "Code abgelaufen. Bitte fordern Sie einen neuen Code an."
+msgstr "Code abgelaufen. Bitte fordere einen neuen Code an."
 
 #: .\crush_lu\static\crush_lu\js\phone-verification.js:443
 msgid "SMS quota exceeded. Please try again later."
-msgstr "SMS-Kontingent überschritten. Bitte versuchen Sie es später erneut."
+msgstr "SMS-Kontingent überschritten. Bitte versuche es später erneut."
 
 #: .\crush_lu\static\crush_lu\js\phone-verification.js:444
 msgid "This phone number has been disabled. Please contact support."
-msgstr ""
-"Diese Telefonnummer wurde deaktiviert. Bitte kontaktieren Sie den Support."
+msgstr "Diese Telefonnummer wurde deaktiviert. Bitte kontaktiere den Support."
 
 #: .\crush_lu\static\crush_lu\js\phone-verification.js:445
 msgid "Phone authentication is not enabled. Please contact support."
 msgstr ""
-"Telefonauthentifizierung ist nicht aktiviert. Bitte kontaktieren Sie den "
-"Support."
+"Telefonauthentifizierung ist nicht aktiviert. Bitte kontaktiere den Support."
 
 #: .\crush_lu\static\crush_lu\js\phone-verification.js:446
 #: .\crush_lu\static\crush_lu\js\phone-verification.js:455
@@ -149,12 +144,12 @@ msgid ""
 "SMS service temporarily unavailable. Please wait a few minutes and try "
 "again."
 msgstr ""
-"SMS-Dienst vorübergehend nicht verfügbar. Bitte warten Sie einige Minuten "
-"und versuchen Sie es erneut."
+"SMS-Dienst vorübergehend nicht verfügbar. Bitte warte einige Minuten und "
+"versuche es erneut."
 
 #: .\crush_lu\static\crush_lu\js\phone-verification.js:458
 msgid "An error occurred. Please try again."
-msgstr "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut."
+msgstr "Ein Fehler ist aufgetreten. Bitte versuche es erneut."
 
 #: .\crush_lu\static\crush_lu\js\push-notifications.js:217
 msgid ""
@@ -162,13 +157,13 @@ msgid ""
 "issues. Please try again later."
 msgstr ""
 "Push-Dienst-Fehler. Dies kann auf eine Serverkonfigurationsfehler oder "
-"Netzwerkprobleme zurückzuführen sein. Bitte versuchen Sie es später erneut."
+"Netzwerkprobleme zurückzuführen sein. Bitte versuche es später erneut."
 
 #: .\crush_lu\static\crush_lu\js\push-notifications.js:220
 msgid ""
 "Push notifications are blocked. Please enable them in your browser settings."
 msgstr ""
-"Push-Benachrichtigungen sind blockiert. Bitte aktivieren Sie diese in Ihren "
+"Push-Benachrichtigungen sind blockiert. Bitte aktiviere diese in deinen "
 "Browsereinstellungen."
 
 #: .\crush_lu\static\crush_lu\js\push-notifications.js:222
@@ -187,7 +182,7 @@ msgstr "Ticket konnte nicht erstellt werden."
 
 #. user-facing string from alpine-components.js (#321)
 msgid "Network error. Please try again."
-msgstr "Netzwerkfehler. Bitte versuchen Sie es erneut."
+msgstr "Netzwerkfehler. Bitte versuche es erneut."
 
 #. user-facing string from alpine-components.js (#321)
 msgid "QR scanner library not loaded."
@@ -198,9 +193,9 @@ msgid ""
 "Camera permission denied. Please allow camera access in your browser "
 "settings (click the lock icon in the address bar) and try again."
 msgstr ""
-"Kamerazugriff verweigert. Bitte erlauben Sie den Kamerazugriff in Ihren "
-"Browsereinstellungen (klicken Sie auf das Schloss-Symbol in der "
-"Adressleiste) und versuchen Sie es erneut."
+"Kamerazugriff verweigert. Bitte erlaube den Kamerazugriff in deinen "
+"Browsereinstellungen (klicke auf das Schloss-Symbol in der Adressleiste) und"
+" versuche es erneut."
 
 #. user-facing string from alpine-components.js (#321)
 msgid "No camera found on this device."
@@ -211,8 +206,8 @@ msgid ""
 "Camera is in use by another application. Please close other apps using the "
 "camera and try again."
 msgstr ""
-"Die Kamera wird von einer anderen Anwendung verwendet. Bitte schließen Sie "
-"andere Apps, die die Kamera nutzen, und versuchen Sie es erneut."
+"Die Kamera wird von einer anderen Anwendung verwendet. Bitte schließe andere"
+" Apps, die die Kamera nutzen, und versuche es erneut."
 
 #. user-facing string from alpine-components.js (#321)
 msgid "Could not start camera: "
@@ -242,8 +237,8 @@ msgstr "Fehler beim Aktualisieren des Abonnements"
 msgid ""
 "Push notification system not loaded. Please refresh the page and try again."
 msgstr ""
-"Das Push-Benachrichtigungssystem ist nicht geladen. Bitte aktualisieren Sie "
-"die Seite und versuchen Sie es erneut."
+"Das Push-Benachrichtigungssystem ist nicht geladen. Bitte aktualisiere die "
+"Seite und versuche es erneut."
 
 #. user-facing string from alpine-components.js (#321)
 msgid "Photo upload failed: "
@@ -251,7 +246,7 @@ msgstr "Foto-Upload fehlgeschlagen: "
 
 #. user-facing string from alpine-components.js (#321)
 msgid "Photo upload failed. Please try again."
-msgstr "Foto-Upload fehlgeschlagen. Bitte versuchen Sie es erneut."
+msgstr "Foto-Upload fehlgeschlagen. Bitte versuche es erneut."
 
 #. user-facing string from alpine-components.js (#321)
 msgid "Could not remove the photo: "
@@ -259,17 +254,16 @@ msgstr "Foto konnte nicht entfernt werden: "
 
 #. user-facing string from alpine-components.js (#321)
 msgid "Could not remove the photo. Please try again."
-msgstr "Foto konnte nicht entfernt werden. Bitte versuchen Sie es erneut."
+msgstr "Foto konnte nicht entfernt werden. Bitte versuche es erneut."
 
 #. user-facing string from alpine-components.js (#321)
 msgid "Network error. Please check your connection and try again."
 msgstr ""
-"Netzwerkfehler. Bitte überprüfen Sie Ihre Verbindung und versuchen Sie es "
-"erneut."
+"Netzwerkfehler. Bitte überprüfe deine Verbindung und versuche es erneut."
 
 #. user-facing string from alpine-components.js (#321)
 msgid "Something went wrong. Please try again."
-msgstr "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut."
+msgstr "Etwas ist schiefgelaufen. Bitte versuche es erneut."
 
 #. user-facing string from alpine-components.js (#321)
 msgid "Claim failed"

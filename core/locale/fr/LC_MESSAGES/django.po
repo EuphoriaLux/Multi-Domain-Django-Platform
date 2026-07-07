@@ -94,7 +94,6 @@ msgid "Cookie Settings"
 msgstr "Paramètres des cookies"
 
 #: .\core\templates\includes\cookie_banner.html:11
-#, fuzzy
 #| msgid ""
 #| "We use cookies to enhance your experience. Analytics cookies help "
 #| "usunderstand how you use our site. You can accept all cookies orcustomize "
@@ -104,9 +103,9 @@ msgid ""
 "understand how you use our site. You can accept all cookies or customize "
 "your preferences."
 msgstr ""
-"Nous utilisons des cookies pour améliorer ton expérience. Les "
-"cookiesd'analyse nous aident à comprendre comment tu utilises notre site. "
-"Tupeux accepter tous les cookies ou personnaliser tes préférences."
+"Nous utilisons des cookies pour améliorer votre expérience. Les cookies "
+"d'analyse nous aident à comprendre comment vous utilisez notre site. Vous "
+"pouvez accepter tous les cookies ou personnaliser vos préférences."
 
 #: .\core\templates\includes\cookie_banner.html:16
 msgid "Customize"
@@ -137,7 +136,6 @@ msgid "Always Active"
 msgstr "Toujours actif"
 
 #: .\core\templates\includes\cookie_banner.html:48
-#, fuzzy
 #| msgid ""
 #| "These cookies are necessary for the website to function and cannot "
 #| "beswitched off. They are usually only set in response to actions madeby you "
@@ -147,16 +145,15 @@ msgid ""
 "switched off. They are usually only set in response to actions made by you "
 "such as logging in or filling in forms."
 msgstr ""
-"Ces cookies sont nécessaires au fonctionnement du site web et nepeuvent pas "
-"être désactivés. Ils sont généralement définis uniquementen réponse à tes "
-"actions, comme la connexion ou le remplissage deformulaires."
+"Ces cookies sont nécessaires au fonctionnement du site web et ne peuvent pas"
+" être désactivés. Ils sont généralement définis uniquement en réponse à vos "
+"actions, comme la connexion ou le remplissage de formulaires."
 
 #: .\core\templates\includes\cookie_banner.html:59
 msgid "Analytics Cookies"
 msgstr "Cookies analytiques"
 
 #: .\core\templates\includes\cookie_banner.html:63
-#, fuzzy
 #| msgid ""
 #| "These cookies allow us to count visits and traffic sources so we canmeasure "
 #| "and improve the performance of our site. They help us knowwhich pages are "
@@ -166,16 +163,15 @@ msgid ""
 " and improve the performance of our site. They help us know which pages are "
 "the most and least popular."
 msgstr ""
-"Ces cookies nous permettent de compter les visites et les sources detrafic "
-"afin de mesurer et d'améliorer les performances de notre site.Ils nous "
-"aident à savoir quelles pages sont les plus et les moinspopulaires."
+"Ces cookies nous permettent de compter les visites et les sources de trafic "
+"afin de mesurer et d'améliorer les performances de notre site. Ils nous "
+"aident à savoir quelles pages sont les plus et les moins populaires."
 
 #: .\core\templates\includes\cookie_banner.html:74
 msgid "Marketing Cookies"
 msgstr "Cookies marketing"
 
 #: .\core\templates\includes\cookie_banner.html:78
-#, fuzzy
 #| msgid ""
 #| "These cookies may be set through our site by our advertisingpartners. They "
 #| "may be used to build a profile of your interests andshow you relevant "
@@ -185,13 +181,13 @@ msgid ""
 "may be used to build a profile of your interests and show you relevant "
 "adverts on other sites."
 msgstr ""
-"Ces cookies peuvent être définis via notre site par nos "
-"partenairespublicitaires. Ils peuvent être utilisés pour créer un profil de "
-"tesintérêts et te montrer des publicités pertinentes sur d'autres sites."
+"Ces cookies peuvent être définis via notre site par nos partenaires "
+"publicitaires. Ils peuvent être utilisés pour créer un profil de vos "
+"intérêts et vous montrer des publicités pertinentes sur d'autres sites."
 
 #: .\core\templates\includes\cookie_banner.html:83
 msgid "Cancel"
-msgstr ""
+msgstr "Annuler"
 
 #: .\core\templates\includes\cookie_banner.html:84
 msgid "Save Preferences"
