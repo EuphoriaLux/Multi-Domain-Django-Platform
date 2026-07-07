@@ -111,8 +111,7 @@ public class MainActivity extends AppCompatActivity {
         settings.setDatabaseEnabled(true);
         settings.setSupportZoom(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
-        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " CrushLUAndroid/1.0.0");
+        settings.setUserAgentString(settings.getUserAgentString() + " CrushLUAndroid/" + BuildConfig.VERSION_NAME);
 
         webView.setWebViewClient(new CrushWebViewClient());
         webView.setWebChromeClient(new WebChromeClient() {
