@@ -180,3 +180,38 @@ class DashboardConnectStatusStripTests(TestCase):
         )
         response = self._get()
         self.assertContains(response, "Active — In the Mix")
+
+    @override_settings(CRUSH_CONNECT_LAUNCHED=True)
+    def test_products_footer_not_in_mix_without_luxid(self):
+        """Onboarded + photo consent but LuxID unlinked → not catalogue-eligible
+        (services.crush_connect.is_catalogue_eligible requires has_luxid_connected),
+        so the card must fall back to a plain "Active", never "In the Mix"."""
+        # Deliberately no _link_luxid → has_luxid_connected is False.
+        CrushConnectMembership.objects.create(
+            user=self.user, onboarded_at=timezone.now(), photo_share_consent=True
+        )
+        response = self._get()
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["has_luxid_connected"])
+        self.assertTrue(response.context["connect_onboarded"])
+        self.assertNotContains(response, "Active — In the Mix")
+        self.assertContains(response, "✓ Active")
+        # The strip prompts to link LuxID instead of confirming discoverability.
+        self.assertContains(response, self.LUXID_BANNER)
+
+    def test_products_footer_not_in_mix_prelaunch_non_staff(self):
+        """Pre-launch (flag off, non-staff), a full membership is still bounced
+        by the launch gate — matching the status strip, the card must not claim
+        "In the Mix" and falls back to a plain "Active"."""
+        _link_luxid(self.user)
+        CrushConnectMembership.objects.create(
+            user=self.user, onboarded_at=timezone.now(), photo_share_consent=True
+        )
+        response = self._get()
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["connect_onboarded"])
+        self.assertNotContains(response, "Active — In the Mix")
+        self.assertContains(response, "✓ Active")
+        # Launch gate off for a non-staff member → the strip shows nothing.
+        self.assertNotContains(response, self.IN_MIX)
+        self.assertNotContains(response, self.JOIN_CTA)

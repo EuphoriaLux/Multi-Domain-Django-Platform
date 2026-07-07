@@ -5,7 +5,10 @@
   Expects: profile (CrushProfile or None), is_premium (bool),
            has_attended_event (bool), next_event (optional),
            connect_onboarded (bool), connect_excluded (bool),
-           connect_photo_consent (bool).
+           connect_photo_consent (bool), has_luxid_connected (bool).
+  The "Active — In the Mix" footer mirrors _connect_status_strip.html's green
+  gate (services.crush_connect.is_catalogue_eligible): onboarded + photo consent
+  + LuxID + not coach-excluded + Connect visible. Any gap falls back to "Active".
   Highlights the viewer's current tier and shows the right CTA.
 {% endcomment %}
 {% with vs=profile.verification_status|default:"incomplete" %}
@@ -38,7 +41,7 @@
           <li class="flex items-center gap-2 text-gray-400 dark:text-gray-500"><span>✕</span> {% trans "No personal coach" %}</li>
         </ul>
 
-        {% if vs == 'verified' and connect_onboarded and connect_photo_consent %}
+        {% if vs == 'verified' and connect_onboarded and connect_photo_consent and has_luxid_connected and not connect_excluded and user|crush_connect_visible %}
           <span class="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 text-sm font-semibold">✓ {% trans "Active — In the Mix" %}</span>
         {% elif vs == 'verified' and not connect_onboarded and has_luxid_connected and not connect_excluded and user|crush_connect_visible %}
           <a href="{% url 'crush_lu:crush_connect_onboarding' %}" class="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl border border-green-300 dark:border-green-700 text-green-700 dark:text-green-300 text-sm font-semibold hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors">{% trans "Join the Mix" %}</a>
