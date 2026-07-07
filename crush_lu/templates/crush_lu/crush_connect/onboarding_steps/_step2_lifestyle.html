@@ -9,7 +9,7 @@
 
     <fieldset class="mb-4">
         <legend class="connect-label">{% trans "Your energy" %}</legend>
-        <div class="grid grid-cols-3 gap-2">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {% for value, label in form.lifestyle_energy.field.choices %}{% if value %}
             <label class="cursor-pointer block">
                 <input type="radio" name="lifestyle_energy" value="{{ value }}" class="peer hidden"
@@ -25,7 +25,7 @@
 
     <fieldset class="mb-4">
         <legend class="connect-label">{% trans "Your social style" %}</legend>
-        <div class="grid grid-cols-3 gap-2">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {% for value, label in form.lifestyle_social.field.choices %}{% if value %}
             <label class="cursor-pointer block">
                 <input type="radio" name="lifestyle_social" value="{{ value }}" class="peer hidden"
@@ -41,7 +41,7 @@
 
     <fieldset>
         <legend class="connect-label">{% trans "Your rhythm" %}</legend>
-        <div class="grid grid-cols-3 gap-2">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {% for value, label in form.lifestyle_pace.field.choices %}{% if value %}
             <label class="cursor-pointer block">
                 <input type="radio" name="lifestyle_pace" value="{{ value }}" class="peer hidden"

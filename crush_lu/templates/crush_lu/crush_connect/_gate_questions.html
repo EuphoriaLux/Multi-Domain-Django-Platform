@@ -29,16 +29,16 @@ would leak the member's private answers.
             {% blocktrans with name=target.first_name|default:_("them") %}Guess {{ name }}'s answers from their photo{% endblocktrans %}
         </p>
         {% for gq in gate_questions %}
-        <div class="flex items-center justify-between gap-3">
-            <span class="flex-1 text-sm text-gray-800 dark:text-gray-100">{{ gq.question.text }}</span>
-            <div class="inline-flex shrink-0 rounded-lg overflow-hidden ring-1 ring-gray-200 dark:ring-slate-600 text-xs font-semibold">
-                <label class="cursor-pointer">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+            <span class="text-sm text-gray-800 dark:text-gray-100">{{ gq.question.text }}</span>
+            <div class="inline-flex rounded-lg overflow-hidden ring-1 ring-gray-200 dark:ring-slate-600 text-xs font-semibold w-full sm:w-auto">
+                <label class="cursor-pointer flex-1 sm:flex-initial text-center">
                     <input type="radio" name="answer_{{ gq.question_id }}" value="yes" data-gate class="peer sr-only" @change="onPick">
-                    <span class="block px-3 py-1.5 text-gray-600 dark:text-gray-300 bg-white dark:bg-slate-800 peer-checked:bg-green-500 peer-checked:text-white">{% trans "Yes" %}</span>
+                    <span class="block px-3 py-1.5 text-gray-600 dark:text-gray-300 bg-white dark:bg-slate-800 peer-checked:bg-green-100 peer-checked:text-green-800 dark:peer-checked:bg-green-900/30 dark:peer-checked:text-green-300">{% trans "Yes" %}</span>
                 </label>
-                <label class="cursor-pointer border-l border-gray-200 dark:border-slate-600">
+                <label class="cursor-pointer border-l border-gray-200 dark:border-slate-600 flex-1 sm:flex-initial text-center">
                     <input type="radio" name="answer_{{ gq.question_id }}" value="no" data-gate class="peer sr-only" @change="onPick">
-                    <span class="block px-3 py-1.5 text-gray-600 dark:text-gray-300 bg-white dark:bg-slate-800 peer-checked:bg-rose-500 peer-checked:text-white">{% trans "No" %}</span>
+                    <span class="block px-3 py-1.5 text-gray-600 dark:text-gray-300 bg-white dark:bg-slate-800 peer-checked:bg-rose-100 peer-checked:text-rose-800 dark:peer-checked:bg-rose-900/30 dark:peer-checked:text-rose-300">{% trans "No" %}</span>
                 </label>
             </div>
         </div>
