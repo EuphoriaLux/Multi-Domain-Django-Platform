@@ -10592,12 +10592,17 @@ html.dark .age-range-slider-track::before {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
     transition:
         border-color 0.15s,
-        box-shadow 0.15s;
+        box-shadow 0.15s,
+        transform 0.1s ease;
 }
 
 .age-range-input::-webkit-slider-thumb:hover {
     border-color: #7c3aed;
     box-shadow: 0 0 0 4px rgba(155, 89, 182, 0.15);
+}
+
+.age-range-input::-webkit-slider-thumb:active {
+    transform: scale(1.2);
 }
 
 html.dark .age-range-input::-webkit-slider-thumb {
@@ -10618,6 +10623,10 @@ html.dark .age-range-input::-webkit-slider-thumb:hover {
     cursor: pointer;
     pointer-events: auto;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s,
+        transform 0.1s ease;
 }
 
 .age-range-input::-moz-range-thumb:hover {
@@ -10625,9 +10634,33 @@ html.dark .age-range-input::-webkit-slider-thumb:hover {
     box-shadow: 0 0 0 4px rgba(155, 89, 182, 0.15);
 }
 
+.age-range-input::-moz-range-thumb:active {
+    transform: scale(1.2);
+}
+
 html.dark .age-range-input::-moz-range-thumb {
     background: #1e293b;
     border-color: #7c3aed;
+}
+
+/* Taller invisible hit area and larger 28px thumb on mobile devices */
+@media (max-width: 640px) {
+    .age-range-input::-webkit-slider-thumb {
+        width: 28px;
+        height: 28px;
+        border-width: 4px;
+    }
+    .age-range-input::-moz-range-thumb {
+        width: 28px;
+        height: 28px;
+        border-width: 4px;
+    }
+    .age-range-slider-track {
+        height: 8px; /* Taller track for easier mobile tapping */
+    }
+    .age-range-input {
+        height: 36px; /* Expand active touch area floor */
+    }
 }
 
 .age-range-input::-moz-range-track {
@@ -13805,10 +13838,45 @@ body.connect-wizard main.has-bottom-nav {
 }
 
 @layer components {
+    @keyframes connectCardEntrance {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
     /* Step card: pure white on the lavender canvas, 24px radius. */
     .connect-card {
         background: var(--color-surface-card);
         @apply shadow-crush-md rounded-3xl px-[18px] py-[22px] sm:p-8 dark:bg-gray-800;
+        animation: connectCardEntrance 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* Custom branded checkboxes inside the Connect card */
+    .connect-card input[type="checkbox"]:not(.sr-only):not(.hidden) {
+        @apply rounded border-gray-300 text-crush-purple focus:ring-crush-purple w-5 h-5 cursor-pointer dark:border-gray-600 dark:bg-gray-700 dark:checked:bg-crush-purple mt-0.5 shrink-0 transition-all duration-150;
+    }
+    .connect-card input[type="checkbox"]:not(.sr-only):not(.hidden):active {
+        @apply scale-90;
+    }
+
+    /* Stepper active segment pulsating animation */
+    @keyframes pulseActiveStep {
+        0%, 100% {
+            opacity: 0.75;
+            filter: brightness(1);
+        }
+        50% {
+            opacity: 1;
+            filter: brightness(1.2) drop-shadow(0 0 2px var(--color-crush-purple));
+        }
+    }
+    .animate-pulse-active-step {
+        animation: pulseActiveStep 2s infinite ease-in-out;
     }
 
     /* Shared option states (design: 2px border, white fill; selected =
@@ -13822,6 +13890,9 @@ body.connect-wizard main.has-bottom-nav {
     }
     .connect-selectable:hover {
         border-color: color-mix(in srgb, var(--color-crush-purple) 50%, transparent);
+    }
+    .connect-selectable:active {
+        transform: scale(0.98);
     }
     input.peer:checked ~ .connect-selectable {
         border-color: var(--color-crush-purple);

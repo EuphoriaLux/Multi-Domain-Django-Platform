@@ -33,14 +33,14 @@
     {# Coach's pick takes the hero slot for receivers when one is open. #}
     {% if coach_pick %}
     <a href="{% url 'crush_lu:crush_connect_home' %}"
-       class="block rounded-2xl p-0.5 bg-gradient-to-r from-crush-purple to-crush-pink shadow-crush-purple mb-4 no-underline">
+       class="block rounded-2xl p-0.5 bg-gradient-to-r from-crush-purple to-crush-pink shadow-crush-purple mb-4 no-underline transition-all hover:-translate-y-0.5 active:scale-[0.98]">
         <div class="flex items-center gap-3 rounded-[14px] bg-white dark:bg-slate-800 p-4">
             <div class="w-11 h-11 rounded-xl bg-crush-purple/15 flex items-center justify-center shrink-0">
                 {% include "shared/icons/heart.html" with class="w-5 h-5 text-crush-purple" %}
             </div>
             <div class="flex-1 min-w-0">
                 <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Your coach picked a match" %}</p>
-                <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Your Coach's Pick for this week is ready — take a look." %}</p>
+                <p class="text-xs md:text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Your Coach's Pick for this week is ready — take a look." %}</p>
             </div>
             {% include "shared/icons/arrow-right.html" with class="w-5 h-5 text-crush-purple shrink-0" %}
         </div>
@@ -52,25 +52,25 @@
         {# Primary: Today's Drop (receivers) or Catalogue status (candidates) — full width. #}
         {% if is_receiver %}
         <a href="{% url 'crush_lu:crush_connect_home' %}"
-           class="col-span-2 flex items-center gap-3 rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 transition-colors">
+           class="col-span-2 flex items-center gap-3 rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
             <div class="w-11 h-11 rounded-xl bg-crush-purple/10 flex items-center justify-center shrink-0">
                 {% include "shared/icons/star.html" with class="w-5 h-5 text-crush-purple" %}
             </div>
             <div class="flex-1 min-w-0">
                 <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Today's Drop" %}</p>
-                <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Up to three fresh faces, every morning at 06:00." %}</p>
+                <p class="text-xs md:text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Up to three fresh faces, every morning at 06:00." %}</p>
             </div>
             {% include "shared/icons/chevron-right.html" with class="w-5 h-5 text-gray-400 shrink-0" %}
         </a>
         {% else %}
         <a href="{% url 'crush_lu:crush_connect_catalogue_status' %}"
-           class="col-span-2 flex items-center gap-3 rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 transition-colors">
+           class="col-span-2 flex items-center gap-3 rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
             <div class="w-11 h-11 rounded-xl bg-crush-purple/10 flex items-center justify-center shrink-0">
                 {% include "shared/icons/sparkles.html" with class="w-5 h-5 text-crush-purple" %}
             </div>
             <div class="flex-1 min-w-0">
                 <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "You're in the mix" %}</p>
-                <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Discoverable, LuxID-verified — a coach can pick you any week." %}</p>
+                <p class="text-xs md:text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Discoverable, LuxID-verified — a coach can pick you any week." %}</p>
             </div>
             {% include "shared/icons/chevron-right.html" with class="w-5 h-5 text-gray-400 shrink-0" %}
         </a>
@@ -78,13 +78,13 @@
 
         {# Sparks (with pending badge). #}
         <a href="{% url 'crush_lu:crush_connect_sparks_received' %}"
-           class="rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 transition-colors">
+           class="rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
             <div class="relative w-11 h-11 rounded-xl bg-crush-purple/10 flex items-center justify-center mb-3">
                 {% include "shared/icons/bell.html" with class="w-5 h-5 text-crush-purple" %}
                 {% if pending_sparks_count %}<span class="absolute -top-1.5 -right-1.5 badge badge-primary ring-2 ring-white dark:ring-slate-800">{{ pending_sparks_count }}</span>{% endif %}
             </div>
             <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Your Sparks" %}</p>
-            <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">
+            <p class="text-xs md:text-sm text-gray-600 dark:text-gray-300 mb-0">
                 {% if pending_sparks_count %}
                     {% blocktrans count count=pending_sparks_count %}{{ count }} person is curious about you.{% plural %}{{ count }} people are curious about you.{% endblocktrans %}
                 {% else %}
@@ -95,24 +95,24 @@
 
         {# Connect profile editor. #}
         <a href="{% url 'crush_lu:crush_connect_profile_edit' %}"
-           class="rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 transition-colors">
+           class="rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
             <div class="w-11 h-11 rounded-xl bg-crush-purple/10 flex items-center justify-center mb-3">
                 {% include "shared/icons/pencil.html" with class="w-5 h-5 text-crush-purple" %}
             </div>
             <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Edit profile" %}</p>
-            <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Your 3 questions, preferences & photos." %}</p>
+            <p class="text-xs md:text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Your 3 questions, preferences & photos." %}</p>
         </a>
 
         {# Coach curation hub. #}
         {% if is_coach %}
         <a href="{% url 'crush_lu:coach_connect_members' %}"
-           class="col-span-2 flex items-center gap-3 rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 transition-colors">
+           class="col-span-2 flex items-center gap-3 rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
             <div class="w-11 h-11 rounded-xl bg-crush-purple/10 flex items-center justify-center shrink-0">
                 {% include "shared/icons/users.html" with class="w-5 h-5 text-crush-purple" %}
             </div>
             <div class="flex-1 min-w-0">
                 <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Curate matches" %}</p>
-                <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Pick matches for your Premium members." %}</p>
+                <p class="text-xs md:text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Pick matches for your Premium members." %}</p>
             </div>
             {% include "shared/icons/chevron-right.html" with class="w-5 h-5 text-gray-400 shrink-0" %}
         </a>

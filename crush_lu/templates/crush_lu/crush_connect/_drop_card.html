@@ -27,7 +27,7 @@ Privacy contract (Crush Connect):
     guess this member's answers from their photo. Shown only to the curated,
     consented, surfaced few (enforced in get_eligible_pool).
     {% endcomment %}
-    <div class="relative aspect-[5/4] overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">
+    <div class="relative aspect-[4/5] sm:aspect-[5/4] overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">
         {% profile_photo target_profile 'photo_1' css_class='w-full h-full object-cover' alt_text=target.first_name is_blurred=False %}
         {# Bottom scrim so the overlaid name stays legible over any photo. #}
         <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/15 pointer-events-none"></div>
