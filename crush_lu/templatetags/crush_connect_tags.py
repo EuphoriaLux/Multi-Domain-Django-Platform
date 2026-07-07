@@ -39,14 +39,17 @@ def crush_connect_visible(user):
 @register.filter
 def crush_connect_nav_visible(user):
     """
-    True if the **Today's Drop** nav tab should be visible to this user.
+    True if the persistent Crush Connect nav (navbar / bottom nav / subnav)
+    should be visible to this user.
 
-    Stricter than ``crush_connect_visible``: we only show the tab when the
-    user can actually reach the Drop page without bouncing through the teaser.
-    That means a Connect-onboarded membership is required. Staff bypass keeps
-    internal review working before any user has onboarded.
+    Stricter than ``crush_connect_visible``: shown only to Connect-onboarded
+    members, so the nav appears once someone is actually in — for BOTH tracks
+    (candidates and receivers) whenever the candidate track is open (beta or full
+    launch). The Drop link within routes a non-receiver to their catalogue
+    status, so beta candidates keep their Connect / Profile / Sparks navigation.
+    Staff bypass keeps internal review working before anyone has onboarded.
     """
-    from crush_lu.connect_phase import is_selected_beta_tester
+    from crush_lu.connect_phase import candidate_access_open
 
     if not user or not user.is_authenticated:
         return False
@@ -55,12 +58,7 @@ def crush_connect_nav_visible(user):
     membership = getattr(user, "crush_connect_membership", None)
     if not (membership and membership.is_onboarded):
         return False
-    # Today's Drop is the receiver surface: shown post-launch to any onboarded
-    # member, and during the beta only to selected waitlist testers (who are the
-    # only non-staff members that reach it — see connect_phase.receiver_access_open).
-    if getattr(settings, "CRUSH_CONNECT_LAUNCHED", False):
-        return True
-    return is_selected_beta_tester(user)
+    return candidate_access_open()
 
 
 @register.simple_tag
