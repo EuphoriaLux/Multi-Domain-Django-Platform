@@ -11996,6 +11996,11 @@ document.addEventListener("alpine:init", function () {
             get isJoined() {
                 return this.onWaitlist;
             },
+            // Bare getter for the pre-join UI: the CSP build can't evaluate
+            // "!isJoined" inline, so x-show needs a named negation.
+            get notJoined() {
+                return !this.onWaitlist;
+            },
             get isLoading() {
                 return this.loading;
             },
