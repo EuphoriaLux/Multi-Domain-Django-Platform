@@ -223,6 +223,41 @@ class GameApiTests(SiteTestMixin, TestCase):
         self.assertEqual(response.json()["error"], "insufficient")
         self.assertIn("insufficient", api_game.CLIENT_ERRORS)
 
+    def test_every_string_empire_js_asks_for_is_defined(self):
+        """
+        empire.js reads T.<key> and the template reads data-t="<key>". A missing
+        key doesn't raise — it renders the literal string "undefined" onto the
+        page, which is exactly the sort of thing that ships. Cross-check both
+        directions so a dead string is caught too.
+        """
+        import re
+        from pathlib import Path
+
+        from crush_empire.views_game import ui_strings
+
+        js = Path("crush_empire/static/crush_empire/js/empire.js").read_text(
+            encoding="utf-8"
+        )
+        tpl = Path("crush_empire/templates/crush_empire/play.html").read_text(
+            encoding="utf-8"
+        )
+
+        used = set(re.findall(r"\bT\.([a-zA-Z]+)", js))
+        used |= set(re.findall(r'data-t="([a-zA-Z]+)"', tpl))
+        # Stamps are looked up indirectly, as T[ending.stamp].
+        used |= set(re.findall(r'stamp:\s*"([a-zA-Z]+)"', js))
+
+        defined = set(ui_strings())
+
+        self.assertFalse(used - defined, f"used in JS but undefined: {used - defined}")
+        self.assertFalse(defined - used, f"defined but never used: {defined - used}")
+
+    def test_unmask_stage_is_present_for_the_reveal(self):
+        response = self.client.get(reverse("crush_empire:play"))
+        html = response.content.decode()
+        for node in ("stage-mask-l", "stage-mask-r", "stage-fish", "stage-stamp"):
+            self.assertIn(f'id="{node}"', html)
+
     def test_deck_payload_carries_no_url(self):
         """
         DOM text assigned to an href is how a javascript: URL executes. The meta

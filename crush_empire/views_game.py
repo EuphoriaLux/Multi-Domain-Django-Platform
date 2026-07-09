@@ -54,6 +54,12 @@ def ui_strings():
         "falseTap": _("You flagged an innocent line."),
         "timeoutGenuine": _("Out of time. No harm done, no reward either."),
         "clearedRight": _("Correct — nothing wrong with that one."),
+        # Stamps slammed across the unmasked fish. Keep them short — they are set
+        # at 18px in a 128px box and must not wrap.
+        "stampGotcha": _("Gotcha"),
+        "stampPartial": _("Half caught"),
+        "stampAway": _("Swam away"),
+        "stampCatfished": _("Catfished"),
     }
 
 

@@ -107,6 +107,20 @@
       <div id="reveal" hidden
            class="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-4">
         <div class="w-full max-w-sm rounded-2xl border border-empire-line bg-empire-panel p-5">
+
+          {# The unmasking. "Catfished" has been a pun this game never cashed in. #}
+          {# The face they showed you cracks down the middle and falls off; what #}
+          {# was underneath is, literally, a fish. #}
+          <div id="stage" hidden class="relative mx-auto mb-2 h-32 w-32">
+            <div id="stage-wave" class="unmask-wave"></div>
+            <div id="stage-fish" class="unmask-fish">🐟</div>
+            <div id="stage-shades" class="unmask-shades">🕶️</div>
+            <div id="stage-mask-l" class="unmask-half unmask-half-l"></div>
+            <div id="stage-mask-r" class="unmask-half unmask-half-r"></div>
+            <div id="stage-crack" class="unmask-crack"></div>
+            <div id="stage-stamp" class="unmask-stamp"></div>
+          </div>
+
           <div id="reveal-title" class="text-lg font-extrabold"></div>
           <div id="reveal-body" class="mt-2 space-y-2 text-sm text-empire-muted"></div>
           <button id="reveal-close" type="button"

@@ -31,7 +31,11 @@
 
 @layer base {
     body {
-        background: radial-gradient(1200px 600px at 50% -10%, #3a1440, var(--color-empire-bg));
+        background: radial-gradient(
+            1200px 600px at 50% -10%,
+            #3a1440,
+            var(--color-empire-bg)
+        );
         -webkit-user-select: none;
         user-select: none;
         touch-action: manipulation;
@@ -61,5 +65,388 @@
     to {
         transform: translateY(-46px);
         opacity: 0;
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * THE UNMASKING
+ *
+ * The payoff of the whole game. A scam profile's face cracks down the middle,
+ * both halves fall away, and what was behind it is a fish — because that is
+ * what "catfished" has always literally meant, and the game has never once
+ * cashed the pun.
+ *
+ * Catch it: the fish is pinned, a stamp slams down, red flags burst out.
+ * Fall for it: the fish puts on sunglasses, eats your crushes, blows you a
+ * kiss and swims off screen. Everything animates transform/opacity only, so
+ * it stays on the compositor and the 250ms tick never stutters.
+ *
+ * All of it collapses to a static end-state under prefers-reduced-motion.
+ * ───────────────────────────────────────────────────────────────────────── */
+
+@layer components {
+    /* Two copies of the same emoji, each clipped to one half. */
+    .unmask-half {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 84px;
+        line-height: 1;
+        will-change: transform, opacity;
+    }
+    .unmask-half-l {
+        clip-path: inset(0 50% 0 0);
+    }
+    .unmask-half-r {
+        clip-path: inset(0 0 0 50%);
+    }
+    .unmask-half-l.go {
+        animation: unmask-fall-l 0.55s cubic-bezier(0.3, -0.4, 0.7, 1) forwards;
+    }
+    .unmask-half-r.go {
+        animation: unmask-fall-r 0.55s cubic-bezier(0.3, -0.4, 0.7, 1) forwards;
+    }
+
+    /* A hairline of light down the seam, right before it splits. */
+    .unmask-crack {
+        position: absolute;
+        top: 12%;
+        bottom: 12%;
+        left: calc(50% - 1px);
+        width: 2px;
+        background: linear-gradient(
+            to bottom,
+            transparent,
+            #fff 20%,
+            #fff 80%,
+            transparent
+        );
+        opacity: 0;
+        transform: scaleY(0);
+        transform-origin: top;
+    }
+    .unmask-crack.go {
+        animation: unmask-crack 0.6s ease-out forwards;
+    }
+
+    .unmask-fish {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 76px;
+        line-height: 1;
+        opacity: 0;
+        will-change: transform, opacity;
+    }
+    /* Caught: it stops dead, pinned. Nothing swims anywhere. */
+    .unmask-fish.caught {
+        animation:
+            unmask-fish-pop 0.4s 0.35s cubic-bezier(0.2, 1.8, 0.4, 1) forwards,
+            unmask-fish-panic 0.28s 0.75s ease-in-out 3;
+    }
+    /* Got away with it. */
+    .unmask-fish.flee {
+        animation:
+            unmask-fish-pop 0.4s 0.35s cubic-bezier(0.2, 1.8, 0.4, 1) forwards,
+            unmask-fish-swim 0.75s 1.15s cubic-bezier(0.5, 0, 0.9, 0.3) forwards;
+    }
+
+    /* The sunglasses land on the fish. It knew exactly what it was doing. */
+    .unmask-shades {
+        position: absolute;
+        top: 26%;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 30px;
+        opacity: 0;
+        will-change: transform, opacity;
+    }
+    .unmask-shades.go {
+        animation: unmask-shades 0.45s 0.7s cubic-bezier(0.2, 1.6, 0.5, 1) forwards;
+    }
+
+    .unmask-stamp {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        white-space: nowrap;
+        padding: 3px 10px;
+        border: 4px solid currentColor;
+        border-radius: 8px;
+        font-weight: 900;
+        font-size: 18px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        opacity: 0;
+        will-change: transform, opacity;
+    }
+    /* The delay lives here, not in a setTimeout: a timer outlives the modal if
+     * the player closes it early, and it makes the whole sequence unscrubbable. */
+    .unmask-stamp.go {
+        animation: unmask-stamp 0.35s 0.82s cubic-bezier(0.2, 1.4, 0.4, 1) forwards;
+    }
+
+    /* Shockwave under the stamp. */
+    .unmask-wave {
+        position: absolute;
+        inset: 12%;
+        border: 3px solid currentColor;
+        border-radius: 9999px;
+        opacity: 0;
+    }
+    .unmask-wave.go {
+        animation: unmask-wave 0.5s 0.82s ease-out forwards;
+    }
+
+    /* Red flags bursting out of a caught scammer; 💘 being stolen by a free one. */
+    .unmask-particle {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        font-size: 22px;
+        pointer-events: none;
+        will-change: transform, opacity;
+    }
+    .unmask-particle.burst {
+        animation: unmask-burst 0.9s cubic-bezier(0.15, 0.9, 0.3, 1) forwards;
+    }
+    .unmask-particle.steal {
+        animation: unmask-steal 0.6s cubic-bezier(0.5, 0, 0.6, 1) forwards;
+    }
+
+    /* Bubbles, because a fish is leaving. */
+    .unmask-bubble {
+        position: absolute;
+        bottom: 18%;
+        font-size: 12px;
+        opacity: 0;
+        pointer-events: none;
+    }
+    .unmask-bubble.go {
+        animation: unmask-bubble 0.9s ease-out forwards;
+    }
+
+    .empire-shake {
+        animation: empire-shake 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+    }
+}
+
+/* Splits open, then dies with the halves — it must not linger across the fish. */
+@keyframes unmask-crack {
+    0% {
+        opacity: 0;
+        transform: scaleY(0);
+    }
+    30% {
+        opacity: 1;
+        transform: scaleY(1);
+    }
+    100% {
+        opacity: 0;
+        transform: scaleY(1);
+    }
+}
+
+@keyframes unmask-fall-l {
+    0% {
+        transform: none;
+        opacity: 1;
+    }
+    25% {
+        transform: translate(-6px, -4px) rotate(-4deg);
+    }
+    100% {
+        transform: translate(-64px, 70px) rotate(-48deg);
+        opacity: 0;
+    }
+}
+
+@keyframes unmask-fall-r {
+    0% {
+        transform: none;
+        opacity: 1;
+    }
+    25% {
+        transform: translate(6px, -4px) rotate(4deg);
+    }
+    100% {
+        transform: translate(64px, 70px) rotate(48deg);
+        opacity: 0;
+    }
+}
+
+@keyframes unmask-fish-pop {
+    from {
+        opacity: 0;
+        transform: scale(0.2) rotate(-25deg);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) rotate(0);
+    }
+}
+
+@keyframes unmask-fish-wobble {
+    0%,
+    100% {
+        transform: rotate(-5deg);
+    }
+    50% {
+        transform: rotate(5deg);
+    }
+}
+
+/* Caught red-handed: a small, guilty flinch. */
+@keyframes unmask-fish-panic {
+    0%,
+    100% {
+        transform: translateX(0) rotate(0);
+    }
+    25% {
+        transform: translateX(-5px) rotate(-8deg);
+    }
+    75% {
+        transform: translateX(5px) rotate(8deg);
+    }
+}
+
+@keyframes unmask-fish-swim {
+    0% {
+        transform: translateX(0) rotate(0) scaleX(1);
+        opacity: 1;
+    }
+    20% {
+        transform: translateX(-18px) rotate(-10deg) scaleX(1);
+    }
+    100% {
+        transform: translateX(260px) rotate(14deg) scaleX(1);
+        opacity: 0;
+    }
+}
+
+@keyframes unmask-shades {
+    from {
+        opacity: 0;
+        transform: translateY(-42px) rotate(-30deg);
+    }
+    70% {
+        opacity: 1;
+        transform: translateY(3px) rotate(4deg);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) rotate(0);
+    }
+}
+
+@keyframes unmask-stamp {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(3.2) rotate(-24deg);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1) rotate(-11deg);
+    }
+}
+
+@keyframes unmask-wave {
+    from {
+        opacity: 0.85;
+        transform: scale(0.25);
+    }
+    to {
+        opacity: 0;
+        transform: scale(2.7);
+    }
+}
+
+/* --dx/--dy are set per-particle from JS via CSSOM. */
+@keyframes unmask-burst {
+    from {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(0.4);
+    }
+    to {
+        opacity: 0;
+        transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.1)
+            rotate(var(--spin));
+    }
+}
+
+@keyframes unmask-steal {
+    from {
+        opacity: 1;
+        transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.2);
+    }
+}
+
+@keyframes unmask-bubble {
+    from {
+        opacity: 0.9;
+        transform: translateY(0) scale(0.6);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-70px) scale(1.2);
+    }
+}
+
+@keyframes empire-shake {
+    10%,
+    90% {
+        transform: translateX(-2px);
+    }
+    20%,
+    80% {
+        transform: translateX(4px);
+    }
+    30%,
+    50%,
+    70% {
+        transform: translateX(-8px);
+    }
+    40%,
+    60% {
+        transform: translateX(8px);
+    }
+}
+
+/* Nobody should be made motion-sick by a joke about a fish. */
+@media (prefers-reduced-motion: reduce) {
+    .unmask-half,
+    .unmask-crack,
+    .unmask-fish,
+    .unmask-shades,
+    .unmask-stamp,
+    .unmask-wave,
+    .unmask-particle,
+    .unmask-bubble,
+    .empire-shake,
+    .empire-rise {
+        animation: none !important;
+    }
+    /* Straight to the punchline: mask gone, fish showing, stamp landed. */
+    .unmask-half.go {
+        opacity: 0;
+    }
+    .unmask-fish.go,
+    .unmask-fish.caught,
+    .unmask-fish.flee,
+    .unmask-shades.go {
+        opacity: 1;
+    }
+    .unmask-stamp.go {
+        opacity: 1;
+        transform: translate(-50%, -50%) rotate(-11deg);
     }
 }
