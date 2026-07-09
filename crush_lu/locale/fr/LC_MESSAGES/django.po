@@ -35335,3 +35335,11 @@ msgstr "Vous êtes presque de la partie."
 
 msgid "Your photo sharing is off, so you're not shown to anyone yet. Turn it back on and a Crush Coach can hand-pick you as a match for a Premium member."
 msgstr "Votre partage de photo est désactivé, vous n'êtes donc encore montré à personne. Réactivez-le et un Crush Coach pourra vous choisir comme match pour un membre Premium."
+
+#: crush_lu/templates/crush_lu/crush_connect/catalogue_status.html
+msgid "Premium is in closed beta."
+msgstr "Premium est en bêta fermée."
+
+#: crush_lu/templates/crush_lu/crush_connect/catalogue_status.html
+msgid "Coaches can already match others with you. Premium — your own coach picking one match a week, plus a daily Drop of fresh faces — is opening to a small group first."
+msgstr "Les coachs peuvent déjà vous proposer à d'autres membres. Premium — votre coach personnel choisit un match par semaine, plus un Drop quotidien de nouveaux visages — s'ouvre d'abord à un petit groupe."

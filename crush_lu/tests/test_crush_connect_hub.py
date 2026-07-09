@@ -28,6 +28,7 @@ HUB_URL = "/en/crush-connect/home/"
 @pytest.mark.django_db
 def test_flag_off_redirects_to_teaser(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = False
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = False
     me = _make_user(username="me", onboarded=True)
     _login_eligible(client, me)
     resp = client.get(HUB_URL)

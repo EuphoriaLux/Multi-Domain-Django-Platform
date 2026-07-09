@@ -1,14 +1,10 @@
-from django.contrib.auth.decorators import login_required as django_login_required
 from functools import wraps
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.core.cache import cache
 from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
-from django.conf import settings
-from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
-from urllib.parse import quote
 
 
 def crush_login_required(function):
@@ -24,25 +20,6 @@ def crush_login_required(function):
             login_url = reverse('crush_lu:login')
             # Use Django's redirect_to_login which safely handles the next parameter
             return redirect_to_login(request.get_full_path(), login_url)
-        return function(request, *args, **kwargs)
-    return wrapper
-
-
-def crush_connect_enabled(function):
-    """
-    Gate a view behind the Crush Connect launch flag.
-
-    When CRUSH_CONNECT_LAUNCHED is False, redirects to the teaser. Staff bypass
-    the flag so beta/internal review works before public launch. The eligibility
-    check (approved profile + ≥1 attended event) belongs in the view itself —
-    this decorator only handles the launch flag.
-    """
-    @wraps(function)
-    def wrapper(request, *args, **kwargs):
-        if not settings.CRUSH_CONNECT_LAUNCHED and not (
-            request.user.is_authenticated and request.user.is_staff
-        ):
-            return redirect('crush_lu:crush_connect_teaser')
         return function(request, *args, **kwargs)
     return wrapper
 

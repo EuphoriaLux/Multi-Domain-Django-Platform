@@ -372,6 +372,21 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2023-12-01' = {
 // Slot-sticky settings configuration
 // These settings won't swap when swapping deployment slots
 // This ensures staging and production maintain their own isolated resources
+//
+// ⚠️ DANGER — THIS RESOURCE IS BADLY OUT OF SYNC WITH THE LIVE APP SERVICE.
+// A PUT here REPLACES slotConfigNames wholesale; it does not merge. As of
+// 2026-07-09 the live resource pins 73 appSettingNames, this file lists ~26,
+// and the live connectionStringNames is ['pythonappConnection'] — NOT the
+// 'AZURE_POSTGRESQL_CONNECTIONSTRING' that used to be listed below (no
+// connection string by that name exists on either slot). Deploying this file
+// as-is would un-stick the database connection string and ~50 app settings,
+// so the NEXT swap would push staging's Postgres database (pythonapp_staging),
+// its ADMIN_API_KEY and its Wallet/WhatsApp secrets into production.
+//
+// Until this list is reconciled against the live resource, pin new sticky
+// settings with the CLI instead of deploying this file:
+//   az webapp config appsettings set -g <rg> -n <app> --slot staging \
+//     --settings NAME=value --slot-settings NAME
 resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
   parent: web
   name: 'slotConfigNames'
@@ -396,8 +411,17 @@ resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
       // never push staging's flags (e.g. CRUSH_CONNECT_LAUNCHED=true) or its
       // ADMIN_API_KEY into production. These were portal-sticky only until
       // 2026-07 (IaC drift); keep this list in sync with the live resource.
+      // NOTE: a non-sticky setting defined on ONE slot only is LOST on swap —
+      // it is exchanged for the other slot's (absent) value, so the app falls
+      // back to the code default. Every Crush Connect phase flag is pinned
+      // here, not just the ones whose values currently differ.
       'ADMIN_API_KEY'
       'CRUSH_CONNECT_LAUNCHED'
+      // BETA phase: opens the candidate track while receivers stay tester-gated.
+      'CRUSH_CONNECT_CANDIDATE_OPEN'
+      // Defaults to True in code. Restoring self-serve Premium at full launch
+      // means setting it false on production only — so it has to stick.
+      'PREMIUM_REDIRECTS_TO_BETA'
       'HYBRID_COACH_SYSTEM_ENABLED'
       'PRE_SCREENING_ENABLED'
       // Analytics - only production should track GA4
@@ -416,8 +440,14 @@ resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
       'XDT_MicrosoftApplicationInsights_Mode'
       'XDT_MicrosoftApplicationInsights_PreemptSdk'
     ]
-    // CRITICAL: Database isolation - prevents staging database from swapping to production
+    // CRITICAL: Database isolation - prevents staging database from swapping to production.
+    // 'pythonappConnection' is the name actually used by both slots (prod →
+    // pythonapp, staging → pythonapp_staging) and is what the live resource
+    // pins. 'AZURE_POSTGRESQL_CONNECTIONSTRING' is kept only because it was
+    // listed here historically; no connection string by that name exists, so it
+    // is an inert orphan. Removing the first entry would un-isolate the database.
     connectionStringNames: [
+      'pythonappConnection'
       'AZURE_POSTGRESQL_CONNECTIONSTRING'
     ]
   }
