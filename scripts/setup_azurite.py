@@ -2,9 +2,15 @@
 """
 Setup script for Azurite (Azure Blob Storage emulator).
 
-Creates the required blob containers for local development:
-- media: Public container for general media files
-- crush-profiles-private: Private container for Crush.lu profile photos
+Creates the required blob containers for local development. Names must match
+the defaults in each STORAGES backend (see crush_lu/storage.py,
+azureproject/storage_shared.py, entreprinder/storage.py, power_up/storage.py):
+- shared-media       : Public  - default/shared assets (SharedMediaStorage)
+- crush-lu-media     : Public  - Crush.lu public media (CrushMediaStorage)
+- crush-lu-private   : Private - Crush.lu profile photos (CrushProfilePhotoStorage)
+- entreprinder-media : Public  - Entreprinder media (EntreprinderMediaStorage)
+- powerup-media      : Public  - PowerUp media (PowerUpMediaStorage)
+- powerup-finops     : Private - FinOps documents (FinOpsStorage)
 
 Usage:
     python scripts/setup_azurite.py
@@ -24,10 +30,16 @@ AZURITE_ACCOUNT_KEY = (
 )
 AZURITE_BLOB_URL = f"http://127.0.0.1:10000/{AZURITE_ACCOUNT_NAME}"
 
-# Containers to create
+# Containers to create. Names MUST match the defaults hardcoded in each
+# STORAGES backend class (prod overrides these via AZURE_*_CONTAINER env vars;
+# locally Azurite uses the defaults).
 CONTAINERS = [
-    {"name": "media", "public_access": PublicAccess.BLOB},  # Public read for blobs
-    {"name": "crush-profiles-private", "public_access": None},  # Private (SAS required)
+    {"name": "shared-media", "public_access": PublicAccess.BLOB},
+    {"name": "crush-lu-media", "public_access": PublicAccess.BLOB},
+    {"name": "crush-lu-private", "public_access": None},  # SAS required
+    {"name": "entreprinder-media", "public_access": PublicAccess.BLOB},
+    {"name": "powerup-media", "public_access": PublicAccess.BLOB},
+    {"name": "powerup-finops", "public_access": None},  # private financial docs
 ]
 
 
@@ -92,9 +104,9 @@ def main():
         print()
         print("Setup complete!")
         print()
-        print("Azurite is ready. Container URLs:")
-        print(f"  - Media:   {AZURITE_BLOB_URL}/media")
-        print(f"  - Private: {AZURITE_BLOB_URL}/crush-profiles-private")
+        print("Azurite is ready. Containers:")
+        for c in CONTAINERS:
+            print(f"  - {AZURITE_BLOB_URL}/{c['name']}")
         return 0
     else:
         print()

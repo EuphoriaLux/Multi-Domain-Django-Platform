@@ -804,6 +804,7 @@ def test_home_requires_login(client):
 @pytest.mark.django_db
 def test_home_redirects_to_teaser_when_flag_off_for_non_staff(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = False
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = False
     me = _make_user(username="me", preferred_genders=["F"])
     _mark_attended(me)
     _login_eligible(client, me)
@@ -898,6 +899,7 @@ def test_home_idempotent_across_refreshes(client, settings):
 @pytest.mark.django_db
 def test_home_staff_bypass_when_flag_off(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = False
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = False
     staff = User.objects.create_user(
         username="staff_preview",
         email="staff_preview@example.com",
@@ -924,6 +926,7 @@ ONBOARDING_URL = "/en/crush-connect/onboarding/"
 @pytest.mark.django_db
 def test_onboarding_redirects_to_teaser_when_flag_off(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = False
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = False
     me = _make_user(username="me", preferred_genders=["F"], onboarded=False)
     _mark_attended(me)
     _login_eligible(client, me)
@@ -1008,6 +1011,7 @@ def test_teaser_shows_waitlist_position_for_member(client, settings):
     waitlist must see their position again. The view/model/API were always
     intact — only the template stopped rendering it."""
     settings.CRUSH_CONNECT_LAUNCHED = False  # pre-launch → teaser renders (no redirect)
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = False
     from crush_lu.models.crush_connect import CrushConnectWaitlist
 
     me = _make_user(username="waiter", premium=False, has_luxid=False, onboarded=False)
@@ -1026,6 +1030,7 @@ def test_teaser_shows_join_cta_when_not_on_waitlist(client, settings):
     """A member not yet on the waitlist sees the join CTA wired to the Alpine
     crushConnectWaitlist component (which POSTs to the still-registered join API)."""
     settings.CRUSH_CONNECT_LAUNCHED = False
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = False
     me = _make_user(username="nolist", premium=False, has_luxid=False, onboarded=False)
     _login_eligible(client, me)
 
@@ -1042,6 +1047,7 @@ def test_teaser_waitlist_position_renders_in_german(client, settings):
     """The restored position reuses the pre-#555 msgid, so its DE translation
     (still compiled in the .mo) renders on /de/ — the locale this was reported on."""
     settings.CRUSH_CONNECT_LAUNCHED = False
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = False
     from crush_lu.models.crush_connect import CrushConnectWaitlist
 
     me = _make_user(username="dewaiter", premium=False, has_luxid=False, onboarded=False)
@@ -1286,6 +1292,7 @@ def test_teaser_shows_waitlist_but_hides_beta_tester_framing(client, settings):
     never surfaced to the member (tester selection is silent; the "4 weeks / 4
     matches / 20 testers" narrative stays retired). See the beta launch plan."""
     settings.CRUSH_CONNECT_LAUNCHED = False  # stay on the teaser, no fast-path
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = False
     from crush_lu.models import CrushConnectWaitlist
 
     me = _make_user(username="me", premium=False, onboarded=False)
@@ -2247,6 +2254,7 @@ def test_experience_page_unknown_slug_404s(client, settings):
 @pytest.mark.django_db
 def test_experience_page_redirects_to_teaser_when_not_launched(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = False
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = False
     me = _make_user(username="me")
     _login_eligible(client, me)
 

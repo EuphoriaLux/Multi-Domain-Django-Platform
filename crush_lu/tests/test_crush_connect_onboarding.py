@@ -566,6 +566,7 @@ def test_candidate_completion_redirects_to_catalogue_with_email(
 @pytest.mark.django_db
 def test_step_redirects_to_teaser_when_flag_off(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = False
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = False
     me = _make_user(username="me", preferred_genders=["F"], onboarded=False)
     _mark_attended(me)
     _login_eligible(client, me)

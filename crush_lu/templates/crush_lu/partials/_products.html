@@ -94,7 +94,7 @@
           <span class="text-[11px] font-bold uppercase tracking-wide text-white/80">{% trans "Premium" %}</span>
         </div>
         <h4 class="font-bold text-white text-lg mb-0.5">{% trans "Premium Package" %}</h4>
-        <p class="text-sm font-bold text-white mb-1">{% trans "€15/month" %}</p>
+        <p class="text-sm font-bold text-white mb-1">{% trans "First month free" %}</p>
         <p class="text-xs text-white/80 mb-4">{% trans "Ticket + your personal coach + the community." %}</p>
 
         <ul class="space-y-2 text-sm mb-5 flex-1">
@@ -113,7 +113,7 @@
           </span>
         {% else %}
           <a href="{% url 'crush_lu:premium_choose_coach' %}" class="inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-white text-crush-purple text-sm font-bold hover:bg-purple-50 transition-colors">
-            {% trans "Go Premium — €15/month" %}
+            {% trans "Go Premium — first month free" %}
             <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
           </a>
         {% endif %}

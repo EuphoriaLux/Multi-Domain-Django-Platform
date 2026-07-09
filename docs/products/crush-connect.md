@@ -60,7 +60,7 @@ Each of the five experiences has its own member-facing explainer page at
 `CONNECT_EXPERIENCES` registry in `crush_lu/views_crush_connect.py`; templates
 in `crush_lu/templates/crush_lu/crush_connect/experiences/`. Deliberately
 softer-gated than the live surfaces: any logged-in member may read them (no
-onboarding required) once `CRUSH_CONNECT_LAUNCHED` is on (staff bypass).
+onboarding required) once `candidate_access_open()` is true (staff bypass).
 Each page: name + tagline + description, a 3-step "How it works", a privacy
 note, a state-aware CTA (receiver / onboarded candidate / not onboarded), and
 sibling cross-links (`experiences/_more_experiences.html`). Linked from the
@@ -82,11 +82,17 @@ fast-path in `crush_lu/views_static.py` (`crush_connect_teaser`):
 
 | User state | Lands on |
 |---|---|
-| Flag off (`CRUSH_CONNECT_LAUNCHED`) or excluded by coach | Teaser `/crush-connect/` |
+| Candidate track closed (`candidate_access_open()` false) or excluded by coach | Teaser `/crush-connect/` |
 | Eligible, not onboarded | Onboarding wizard `/crush-connect/onboarding/` |
 | Onboarded receiver | Hub → Today's Drop |
 | Onboarded candidate | Hub → In the Mix |
 | Guest | Teaser (marketing) |
+
+During BETA the teaser fast-path redirects every approved + LuxID member off
+the teaser, so the waitlist join lives on the **catalogue status page** as well
+(`crush_connect/_waitlist_join.html`). Without that, a beta candidate clicking
+"Discover Premium" would loop premium → teaser → catalogue with no way to join
+the very waitlist the receiver gate reads.
 
 Because the hub self-routes safely for every state, **all logged-in entry
 points should target `crush_lu:crush_connect_hub`**; only guest marketing
@@ -151,9 +157,11 @@ Pricing appears on: teaser pricing section, catalogue-status upsell,
 | Coach Curation UI | Live | `coach_connect_members` |
 | 7-step onboarding | Live | step 7 = questions |
 | **Story mechanic** | **Deprecated (M9)** | `_step7_story.html` unused (live flow uses `_step7_questions.html`); story fields remain on `CrushConnectMembership`; `dev_card_preview.html` still renders story rows (dev-only) |
-| **Beta waitlist / 20-testers program** | **Deprecated — retired from all copy 2026-07** | `CrushConnectWaitlist` model, `join_waitlist`/`waitlist_status` API (`crush_lu/api_crush_connect.py`), and `crushConnectWaitlist` Alpine component remain in code; candidates for removal |
+| **Beta waitlist** | **Load-bearing again — do not remove** | `CrushConnectWaitlist.selected_as_tester` is the receiver gate during the BETA phase (`connect_phase.receiver_access_open`). The model, the `join_waitlist`/`waitlist_status` API (`crush_lu/api_crush_connect.py`) and the `crushConnectWaitlist` Alpine component are all live. Only the "20 testers" framing is retired — the count is no longer fixed |
 | €10/month beta pricing | Retired | superseded by €15/month Premium |
-| `CRUSH_CONNECT_LAUNCHED` flag | Active | gates the whole area; staff bypass for preview |
+| `CRUSH_CONNECT_LAUNCHED` flag | Active | full public launch; opens the receiver track to every Premium member |
+| `CRUSH_CONNECT_CANDIDATE_OPEN` flag | Active | BETA phase: opens the candidate track only. Slot-sticky |
+| `PREMIUM_REDIRECTS_TO_BETA` flag | Active | defaults **True** — Go-Premium funnels to the waitlist. Slot-sticky |
 
 ## 8. Entry-point map
 

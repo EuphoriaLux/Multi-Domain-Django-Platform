@@ -35297,8 +35297,11 @@ msgstr "Juridique"
 msgid "You're in the Mix"
 msgstr "Vous êtes de la partie"
 
-msgid "Crush Coaches can hand-pick you as an introduction for Premium members."
-msgstr "Les Crush Coaches peuvent vous choisir comme présentation pour les membres Premium."
+msgid ""
+"Crush Coaches can hand-pick you as an introduction for Premium members."
+msgstr ""
+"Les Crush Coaches peuvent vous choisir comme présentation pour les membres "
+"Premium."
 
 msgid "View my status"
 msgstr "Voir mon statut"
@@ -35306,8 +35309,12 @@ msgstr "Voir mon statut"
 msgid "You're not in the Mix yet"
 msgstr "Vous n'êtes pas encore de la partie"
 
-msgid "Opt in free so a Crush Coach can introduce you to Premium members — you choose what you share."
-msgstr "Inscrivez-vous gratuitement pour qu'un Crush Coach puisse vous présenter aux membres Premium — vous choisissez ce que vous partagez."
+msgid ""
+"Opt in free so a Crush Coach can introduce you to Premium members — you "
+"choose what you share."
+msgstr ""
+"Inscrivez-vous gratuitement pour qu'un Crush Coach puisse vous présenter aux"
+" membres Premium — vous choisissez ce que vous partagez."
 
 msgid "Join the Mix"
 msgstr "Rejoindre la partie"
@@ -35317,12 +35324,16 @@ msgstr "Actif — In the Mix"
 
 # ── Connect "action needed" (photo sharing off) (2026-07-07) ───────────
 # Dashboard strip + catalogue_status page for onboarded members whose
-# photo_share_consent is off (so is_catalogue_eligible is False). FR vous-form.
+# photo_share_consent is off (so is_catalogue_eligible is False). FR vous-
+# form.
 msgid "Almost in the Mix"
 msgstr "Presque de la partie"
 
-msgid "Turn on photo sharing so a Crush Coach can introduce you to Premium members."
-msgstr "Activez le partage de photo pour qu'un Crush Coach puisse vous présenter aux membres Premium."
+msgid ""
+"Turn on photo sharing so a Crush Coach can introduce you to Premium members."
+msgstr ""
+"Activez le partage de photo pour qu'un Crush Coach puisse vous présenter aux"
+" membres Premium."
 
 msgid "Turn on photo sharing"
 msgstr "Activer le partage de photo"
@@ -35333,5 +35344,75 @@ msgstr "Action requise"
 msgid "You're almost in the mix."
 msgstr "Vous êtes presque de la partie."
 
-msgid "Your photo sharing is off, so you're not shown to anyone yet. Turn it back on and a Crush Coach can hand-pick you as a match for a Premium member."
-msgstr "Votre partage de photo est désactivé, vous n'êtes donc encore montré à personne. Réactivez-le et un Crush Coach pourra vous choisir comme match pour un membre Premium."
+msgid ""
+"Your photo sharing is off, so you're not shown to anyone yet. Turn it back "
+"on and a Crush Coach can hand-pick you as a match for a Premium member."
+msgstr ""
+"Votre partage de photo est désactivé, vous n'êtes donc encore montré à "
+"personne. Réactivez-le et un Crush Coach pourra vous choisir comme match "
+"pour un membre Premium."
+
+#: crush_lu/templates/crush_lu/crush_connect/catalogue_status.html
+msgid "Premium is in closed beta."
+msgstr "Premium est en bêta fermée."
+
+#: crush_lu/templates/crush_lu/crush_connect/catalogue_status.html
+msgid ""
+"Coaches can already match others with you. Premium — your own coach picking "
+"one match a week, plus a daily Drop of fresh faces — is opening to a small "
+"group first."
+msgstr ""
+"Les coachs peuvent déjà vous proposer à d'autres membres. Premium — votre "
+"coach personnel choisit un match par semaine, plus un Drop quotidien de "
+"nouveaux visages — s'ouvre d'abord à un petit groupe."
+
+msgid ""
+"Crush Connect is live: a weekly coach-picked match and a daily Drop of fresh"
+" faces. Go Premium — first month free — or join the mix free with LuxID."
+msgstr ""
+"Crush Connect est arrivé : un match choisi par un coach chaque semaine et un"
+" Drop quotidien de nouveaux visages. Passez à Premium — premier mois offert "
+"— ou rejoignez le mix gratuitement avec LuxID."
+
+msgid ""
+"Crush Connect on Crush.lu: a coach-picked match every week, a daily Drop of "
+"fresh faces, and LuxID-verified members only. Join free, or go Premium — "
+"first month free."
+msgstr ""
+"Crush Connect sur Crush.lu : un match choisi par un coach chaque semaine, un"
+" Drop quotidien de nouveaux visages, et réservé aux membres vérifiés LuxID. "
+"Rejoignez gratuitement, ou passez à Premium — premier mois offert."
+
+msgid "First month free"
+msgstr "Premier mois offert"
+
+#: templates/crush_lu/onboarding/phone.html:67
+msgid ""
+"Free via POST. LuxID verifies you through your mobile number — Luxembourg or"
+" abroad, no Luxembourg ID required."
+msgstr ""
+"Gratuit via POST. LuxID vous vérifie avec votre numéro de portable — au "
+"Luxembourg ou à l'étranger, sans pièce d'identité luxembourgeoise."
+
+msgid "Get your own coach — first month free"
+msgstr "Obtenez votre propre coach — premier mois offert"
+
+msgid "Go Premium — first month free"
+msgstr "Passez à Premium — premier mois offert"
+
+msgid ""
+"One introduction a week, hand-picked by your Crush Coach — plus a daily Drop"
+" of fresh faces. LuxID-verified members only. Join free, or go Premium — "
+"first month free."
+msgstr ""
+"Une présentation par semaine, choisie par votre Crush Coach — plus un Drop "
+"quotidien de nouveaux visages. Réservé aux membres vérifiés LuxID. Rejoignez"
+" gratuitement, ou passez à Premium — premier mois offert."
+
+msgid ""
+"Right now, coaches can match others with you. With Premium, a personal coach"
+" picks one match for you every week — plus a daily Drop of fresh faces."
+msgstr ""
+"Pour l'instant, les coachs peuvent proposer votre profil à d'autres membres."
+" Avec Premium, un coach personnel choisit un match pour vous chaque semaine "
+"— plus un Drop quotidien de nouveaux visages."
