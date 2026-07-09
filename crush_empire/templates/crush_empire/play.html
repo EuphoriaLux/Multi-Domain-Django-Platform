@@ -7,31 +7,12 @@
 {{ initial_state|json_script:"empire-state" }}
 {{ deck|json_script:"empire-deck" }}
 
-{# JS strings come through the page, not the JS bundle: {% trans %} keeps them #}
-{# in the .po extraction. Same handoff quiz_live.html uses. #}
-<div id="empire"
-     data-csrf="{{ csrf_token }}"
-     data-i18n='{"perSec":"{% trans "/ sec" %}",
-                 "swipes":"{% trans "swipes" %}",
-                 "owned":"{% trans "owned" %}",
-                 "locked":"{% trans "keep swiping to unlock" %}",
-                 "allBought":"{% trans "All upgrades bought — you absolute charmer 😏" %}",
-                 "unlocked":"{% trans "unlocked!" %}",
-                 "prestigeConfirm":"{% trans "Delete your account for %s Hearts? This resets your progress. Each Heart permanently boosts production." %}",
-                 "prestigeDone":"{% trans "💍 You fell in love (with yourself). +%s Hearts." %}",
-                 "offline":"{% trans "While you were away: +%s 💘" %}",
-                 "tooPoor":"{% trans "Not enough crushes yet." %}",
-                 "signedOut":"{% trans "You have been signed out. Reload to keep playing." %}",
-                 "error":"{% trans "Something went wrong. Your progress is safe on the server." %}",
-                 "niceCatch":"{% trans "Nice catch. That one was a scam." %}",
-                 "falseReport":"{% trans "That was a real person. You cried wolf — streak lost." %}",
-                 "missed":"{% trans "That was a scam. You dodged it, but you reported nothing." %}",
-                 "catfished":"{% trans "You got catfished." %}",
-                 "compromised":"{% trans "ACCOUNT COMPROMISED — production halved" %}",
-                 "clearDebuff":"{% trans "Spend %s 🚩 to recover now" %}",
-                 "debuffCleared":"{% trans "Account secured. Production restored." %}",
-                 "streakLost":"{% trans "Streak lost." %}",
-                 "gotIt":"{% trans "Got it" %}"}'>
+{# JS strings via json_script, NOT a data-i18n attribute. An apostrophe in a #}
+{# translation ("c'est", "l'application") closes a single-quoted attribute and #}
+{# silently truncates the JSON. See crush_empire/views_game.py:ui_strings. #}
+{{ ui_strings|json_script:"empire-i18n" }}
+
+<div id="empire" data-csrf="{{ csrf_token }}">
 
   <div class="grid gap-4 lg:grid-cols-[1fr_1.25fr]">
 
@@ -87,6 +68,40 @@
           {% trans "Some of these profiles are lying to you. Report them — but reporting a real person costs your streak." %}
         </p>
       </section>
+
+      {# Tier 2: the card freezes into a timed puzzle. #}
+      <div id="spot" hidden
+           class="fixed inset-0 z-40 flex items-center justify-center bg-black/80 p-4">
+        <div class="w-full max-w-md rounded-2xl border-2 border-empire-gold bg-empire-panel p-5">
+          <div class="flex items-baseline justify-between">
+            <h3 class="text-base font-extrabold text-empire-gold" data-t="spotTitle"></h3>
+            <span id="spot-timer" class="font-mono text-sm text-empire-muted">0:15</span>
+          </div>
+          {# Cosmetic. The server decides when time ran out, from issued_at. #}
+          <div class="mt-1.5 h-1 overflow-hidden rounded-full bg-empire-line">
+            <div id="spot-bar" class="h-full w-full bg-empire-gold transition-[width] duration-200 ease-linear"></div>
+          </div>
+
+          <div class="mt-4 flex items-center gap-3">
+            <div id="spot-avatar" class="text-5xl"></div>
+            <div>
+              <div id="spot-name" class="font-extrabold"></div>
+              <div class="text-xs text-empire-muted" data-t="spotHint"></div>
+            </div>
+          </div>
+
+          <div id="spot-segments" class="mt-4 space-y-2"></div>
+
+          <div class="mt-4 flex gap-2">
+            <button id="spot-clear" type="button"
+                    class="flex-1 rounded-full border border-empire-line bg-empire-panel2 px-3 py-2 text-sm font-bold">
+            </button>
+            <button id="spot-report" type="button" disabled
+                    class="flex-1 rounded-full bg-empire-gold px-3 py-2 text-sm font-extrabold text-empire-bg disabled:opacity-40">
+            </button>
+          </div>
+        </div>
+      </div>
 
       {# The teaching moment: shown after every scam card is resolved. #}
       <div id="reveal" hidden

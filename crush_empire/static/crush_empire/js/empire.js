@@ -18,7 +18,7 @@
   if (!root) return;
 
   const CSRF = root.dataset.csrf;
-  const T = JSON.parse(root.dataset.i18n);
+  const T = JSON.parse(document.getElementById("empire-i18n").textContent);
   const DECK = JSON.parse(document.getElementById("empire-deck").textContent);
 
   /** Authoritative state, replaced wholesale by every API response. */
@@ -138,6 +138,15 @@
         return;
       }
       currentChallenge = response.card.challenge_id;
+
+      // A tier-2 card never reaches the deck: it opens the puzzle directly.
+      // Nothing about the card says which it is until the server says so, and
+      // the server deals tier-2 from the genuine pool just as often — otherwise
+      // "the modal opened" would be the answer.
+      if (response.card.tier === 2) {
+        openSpot(response.card);
+        return;
+      }
       data = { profile: response.card };
     }
 
@@ -259,6 +268,112 @@
     render();
   }
 
+  /* ── Tier 2: spot the red flag ───────────────────────────────────────── */
+
+  const spotEl = document.getElementById("spot");
+  const spotSegments = document.getElementById("spot-segments");
+  const spotTimer = document.getElementById("spot-timer");
+  const spotBar = document.getElementById("spot-bar");
+  const spotClear = document.getElementById("spot-clear");
+  const spotReport = document.getElementById("spot-report");
+
+  let tapped = new Set();
+  let spotDeadline = 0;
+  let spotTicker = null;
+
+  function segmentChip(segment) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.dataset.segment = segment.id;
+    chip.className =
+      "block w-full rounded-xl border border-empire-line bg-white/5 px-3 py-2 text-left text-sm transition";
+    chip.textContent = segment.text;
+    return chip;
+  }
+
+  function paintChip(chip) {
+    const on = tapped.has(Number(chip.dataset.segment));
+    chip.classList.toggle("border-empire-gold", on);
+    chip.classList.toggle("bg-empire-gold/15", on);
+    chip.classList.toggle("text-empire-gold", on);
+  }
+
+  function updateSpotButtons() {
+    spotClear.textContent = T.itsFine;
+    spotClear.disabled = tapped.size > 0;
+    spotReport.textContent = T.reportTapped.replace("%s", tapped.size);
+    spotReport.disabled = tapped.size === 0;
+  }
+
+  function openSpot(card) {
+    tapped = new Set();
+    document.getElementById("spot-avatar").textContent = card.emoji;
+    document.getElementById("spot-name").textContent = `${card.name}, ${card.age}`;
+
+    spotSegments.replaceChildren();
+    card.segments.forEach((s) => spotSegments.appendChild(segmentChip(s)));
+
+    // The server's deadline, not ours. If the clocks disagree the bar is wrong;
+    // the verdict still isn't.
+    spotDeadline = new Date(card.deadline).getTime();
+    const total = card.seconds * 1000;
+
+    clearInterval(spotTicker);
+    spotTicker = setInterval(() => {
+      const left = Math.max(0, spotDeadline - Date.now());
+      const secs = Math.ceil(left / 1000);
+      spotTimer.textContent = "0:" + String(secs).padStart(2, "0");
+      spotBar.style.width = (left / total) * 100 + "%";
+      spotBar.classList.toggle("bg-empire-red", left < 5000);
+      if (left <= 0) submitSpot("clear"); // let the server call it a timeout
+    }, 200);
+
+    updateSpotButtons();
+    spotEl.hidden = false;
+  }
+
+  function closeSpot() {
+    clearInterval(spotTicker);
+    spotTicker = null;
+    spotEl.hidden = true;
+  }
+
+  spotSegments.addEventListener("click", (e) => {
+    const chip = e.target.closest("[data-segment]");
+    if (!chip) return;
+    const id = Number(chip.dataset.segment);
+    tapped.has(id) ? tapped.delete(id) : tapped.add(id);
+    paintChip(chip);
+    updateSpotButtons();
+  });
+
+  async function submitSpot(action) {
+    if (!currentChallenge || busy) return;
+    busy = true;
+    clearInterval(spotTicker);
+    spotTicker = null;
+
+    const challenge = currentChallenge;
+    currentChallenge = null;
+    sinceMeta++;
+
+    const data = await post("/api/game/deck/resolve/", {
+      challenge_id: challenge,
+      action,
+      tapped: [...tapped],
+    });
+
+    closeSpot();
+    if (data) announce(data.result);
+
+    busy = false;
+    await buildCard();
+    render();
+  }
+
+  spotClear.addEventListener("click", () => submitSpot("clear"));
+  spotReport.addEventListener("click", () => submitSpot("report"));
+
   /* ── The teaching moment ─────────────────────────────────────────────── */
 
   const revealEl = document.getElementById("reveal");
@@ -273,29 +388,55 @@
    * explanation is the entire reason this mechanic exists.
    */
   function announce(r) {
-    if (r.outcome === "neutral") return;
-
+    // Correctly clearing a genuine card is the common case and must not cost a
+    // tap to dismiss. A toast; nothing to learn.
+    if (r.outcome === "neutral") {
+      if (r.tier === 2) toast(T.clearedRight);
+      return;
+    }
     if (r.outcome === "false_report") {
-      toast(T.falseReport);
+      toast(r.tier === 2 ? T.falseTap : T.falseReport);
+      return;
+    }
+    if (r.outcome === "timeout") {
+      toast(T.timeoutGenuine);
       return;
     }
 
     const titles = {
       correct: "🚩 " + T.niceCatch,
+      partial: "🫤 " + T.partial,
       missed: "😬 " + T.missed,
       catfished: "💔 " + T.catfished,
     };
     revealTitle.textContent = titles[r.outcome] || "";
     revealTitle.className =
       "text-lg font-extrabold " +
-      (r.outcome === "correct" ? "text-empire-green" : "text-empire-red");
+      (r.outcome === "correct" ? "text-empire-green"
+        : r.outcome === "partial" ? "text-empire-gold"
+        : "text-empire-red");
 
     revealBody.replaceChildren();
+
+    // On a tier-2 card, show the actual line — the player just stared at it, and
+    // "which one was it?" is the entire lesson.
     r.reveal.flags.forEach((f) => {
-      const p = document.createElement("p");
-      p.textContent = "🚩 " + f.explanation;
-      revealBody.appendChild(p);
+      const wrap = document.createElement("div");
+      const caught = (r.reveal.tapped || []).includes(f.segment_id);
+
+      if (r.tier === 2 && f.text) {
+        const line = document.createElement("p");
+        line.className =
+          "font-semibold " + (caught ? "text-empire-green" : "text-empire-red");
+        line.textContent = (caught ? "✓ " : "✗ ") + f.text;
+        wrap.appendChild(line);
+      }
+      const why = document.createElement("p");
+      why.textContent = "🚩 " + f.explanation;
+      wrap.appendChild(why);
+      revealBody.appendChild(wrap);
     });
+
     if (r.debuffed) {
       const p = document.createElement("p");
       p.className = "font-bold text-empire-red";

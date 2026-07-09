@@ -24,8 +24,9 @@ User = get_user_model()
 
 
 def make_profile(name, is_scam, segments=None):
+    """Tier-1 fixtures: one or two segments, so never tier2_eligible."""
     profile = GameProfile.objects.create(
-        emoji="🧔", display_name=name, age=30, is_scam=is_scam
+        emoji="🧔", display_name=name, age=30, is_scam=is_scam, tier2_eligible=False
     )
     for i, (text, flag) in enumerate(segments or [("hello", None)]):
         BioSegment.objects.create(
@@ -53,7 +54,7 @@ class DeckSecrecyTests(TestCase):
 
         self.assertEqual(
             set(card),
-            {"challenge_id", "emoji", "name", "age", "segments"},
+            {"challenge_id", "tier", "emoji", "name", "age", "segments"},
             "draw() payload grew a key — check it is not the answer",
         )
         for segment in card["segments"]:

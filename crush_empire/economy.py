@@ -101,8 +101,52 @@ def flag_award(streak):
     return min(1 + streak // STREAK_FLAGS_PER_STEP, MAX_FLAG_AWARD)
 
 
+def partial_flag_award(streak):
+    """Spotted something, missed something. Half credit, never zero."""
+    return max(1, flag_award(streak) // 2)
+
+
 def is_late_game(state):
     return crushes_per_second(state) >= LATE_GAME_CPS_THRESHOLD
+
+
+# ── Tier 2: spot the red flag ────────────────────────────────────────────────
+#
+# The card freezes into a timed puzzle: tap every suspicious line, or declare it
+# fine. Card-level instinct ("this one feels off") is no longer enough — you have
+# to say *which phrase* is wrong.
+#
+# The load-bearing rule lives in services/deck.py, not here: tier-2 cards are
+# drawn from the genuine pool at exactly the same rate as the scam pool. If the
+# modal only ever appeared on scams, the modal would be the answer, and the whole
+# tier would teach nothing.
+
+TIER_SWIPE = 1
+TIER_MODAL = 2
+
+# Server-timed from CardChallenge.issued_at. The client renders a countdown; the
+# server decides. The grace covers round-trip latency, not indecision.
+TIER2_SECONDS = 15
+TIER2_GRACE_SECONDS = 2
+
+# A one-line bio is not a puzzle. Only profiles with enough segments to hide a
+# flag among innocent ones are eligible.
+TIER2_MIN_SEGMENTS = 3
+
+# Once unlocked, this share of draws escalate to the modal. High enough to be
+# the main event, low enough that tier 1 stays the rhythm.
+TIER2_DRAW_RATE = 0.4
+
+TIER2_UNLOCK_SWIPES = 50
+TIER2_UNLOCK_GENERATOR = 2  # Auto-Opener
+
+
+def tier2_unlocked(state):
+    """Learned to report; now learn to say why."""
+    return (
+        state.swipes >= TIER2_UNLOCK_SWIPES
+        or state.generator_count(TIER2_UNLOCK_GENERATOR) > 0
+    )
 
 
 def generator_cost(state, tier):

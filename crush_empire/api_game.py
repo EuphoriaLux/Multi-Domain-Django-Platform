@@ -87,9 +87,13 @@ def resolve(request):
     if data is None:
         return _err("Invalid JSON")
 
+    tapped = data.get("tapped") or []
+    if not isinstance(tapped, list):
+        return _err("Invalid tapped")
+
     try:
         state, result = deck_service.resolve(
-            request.user, data.get("challenge_id"), data.get("action")
+            request.user, data.get("challenge_id"), data.get("action"), tapped=tapped
         )
     except DeckError as exc:
         return _err(str(exc))

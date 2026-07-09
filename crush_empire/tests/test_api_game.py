@@ -97,12 +97,33 @@ class GameApiTests(SiteTestMixin, TestCase):
     def test_get_is_rejected(self):
         self.assertEqual(self.client.get(reverse("empire_api_draw")).status_code, 405)
 
+    def test_ui_strings_survive_an_apostrophe(self):
+        """
+        The strings used to ride in data-i18n='{"k":"v"}'. An apostrophe in a
+        translation closes that attribute and truncates the JSON — English hid it
+        ("It's fine"), French would not survive "c'est" at all. json_script
+        escapes properly; this asserts the page still parses.
+        """
+        import json
+
+        from crush_empire.views_game import ui_strings
+
+        strings = ui_strings()
+        self.assertIn("'", strings["itsFine"], "fixture no longer covers the bug")
+        json.loads(json.dumps(strings))  # must not raise
+
+        response = self.client.get(reverse("crush_empire:play"))
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        self.assertIn('id="empire-i18n"', html)
+        self.assertNotIn("data-i18n=", html)
+
     # ── the anti-cheat promises ──────────────────────────────────────────
 
     def test_drawn_card_carries_no_answer(self):
         card = self.post("empire_api_draw").json()["card"]
         self.assertEqual(
-            set(card), {"challenge_id", "emoji", "name", "age", "segments"}
+            set(card), {"challenge_id", "tier", "emoji", "name", "age", "segments"}
         )
 
     def test_client_supplied_points_are_ignored(self):

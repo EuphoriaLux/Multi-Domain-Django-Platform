@@ -10,18 +10,22 @@ __all__ = ["CardChallenge", "ACTION_CHOICES", "OUTCOME_CHOICES"]
 ACTION_LIKE = "like"
 ACTION_NOPE = "nope"
 ACTION_REPORT = "report"
+ACTION_CLEAR = "clear"  # tier 2 only: "it's fine"
 
 ACTION_CHOICES = [
     (ACTION_LIKE, _("Like")),
     (ACTION_NOPE, _("Nope")),
     (ACTION_REPORT, _("Report")),
+    (ACTION_CLEAR, _("Cleared as genuine")),
 ]
 
 OUTCOME_CHOICES = [
     ("correct", _("Correct")),
+    ("partial", _("Spotted some flags, missed others")),
     ("missed", _("Missed a scam")),
     ("catfished", _("Fell for a scam")),
     ("false_report", _("Reported a genuine profile")),
+    ("timeout", _("Ran out of time")),
     ("neutral", _("Neutral")),
 ]
 
@@ -49,6 +53,11 @@ class CardChallenge(models.Model):
     )
     profile = models.ForeignKey("crush_empire.GameProfile", on_delete=models.PROTECT)
 
+    # 1 = swipe (like/nope/report), 2 = timed spot-the-red-flag modal.
+    tier = models.PositiveSmallIntegerField(default=1)
+
+    # issued_at is the ONLY clock for the tier-2 timer. A client-reported elapsed
+    # time is a wish, not a measurement.
     issued_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
 
@@ -56,6 +65,7 @@ class CardChallenge(models.Model):
     resolved_at = models.DateTimeField(null=True, blank=True)
     action = models.CharField(max_length=16, choices=ACTION_CHOICES, blank=True)
     outcome = models.CharField(max_length=16, choices=OUTCOME_CHOICES, blank=True)
+    tapped_segments = models.JSONField(default=list, blank=True)
 
     reward_points = models.IntegerField(default=0)
     reward_flags = models.IntegerField(default=0)

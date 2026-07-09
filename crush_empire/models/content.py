@@ -40,6 +40,15 @@ class GameProfile(models.Model):
     weight = models.PositiveSmallIntegerField(
         default=1, help_text=_("Relative draw frequency within its kind.")
     )
+    tier2_eligible = models.BooleanField(
+        default=False,
+        help_text=_(
+            "Can be dealt as a timed spot-the-red-flag puzzle. Needs at least "
+            "three segments, so a flag has innocent lines to hide among. Genuine "
+            "profiles must be eligible too — if only scams got the modal, the "
+            "modal would give the answer away."
+        ),
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
