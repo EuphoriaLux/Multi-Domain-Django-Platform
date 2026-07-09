@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crush Empire — a Crush.lu idle game</title>
+<style>
+  :root{
+    --bg:#1a0e1f; --bg2:#25122e; --panel:#2e1638; --panel2:#3a1c46;
+    --pink:#ff5c8a; --pink2:#ff87ac; --gold:#ffd166; --text:#ffe9f1;
+    --muted:#c79cba; --green:#7be3a3; --line:#4a2456;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:"Segoe UI",system-ui,sans-serif; color:var(--text);
+    background:radial-gradient(1200px 600px at 50% -10%,#3a1440,var(--bg));
+    min-height:100vh; -webkit-user-select:none; user-select:none;
+  }
+  header{
+    text-align:center; padding:18px 12px 8px;
+  }
+  header h1{margin:0; font-size:26px; letter-spacing:.5px}
+  header h1 span{color:var(--pink)}
+  header .tag{color:var(--muted); font-size:13px; margin-top:2px}
+  .wrap{max-width:1050px; margin:0 auto; padding:10px 14px 40px;
+    display:grid; grid-template-columns:1fr 1.35fr; gap:16px}
+  @media(max-width:820px){.wrap{grid-template-columns:1fr}}
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel2));
+    border:1px solid var(--line); border-radius:16px; padding:16px;
+    box-shadow:0 8px 30px rgba(0,0,0,.35)}
+  .counter{text-align:center}
+  .counter .big{font-size:40px; font-weight:800; color:var(--pink2)}
+  .counter .rate{color:var(--green); font-size:15px; margin-top:2px}
+  .clicker{
+    margin:16px auto 6px; width:190px; height:190px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,var(--pink2),var(--pink) 55%,#c9426b);
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    font-size:80px; border:none; box-shadow:0 10px 26px rgba(255,92,138,.4);
+    transition:transform .05s;
+  }
+  .clicker:active{transform:scale(.94)}
+  .clickhint{text-align:center; color:var(--muted); font-size:13px}
+  h2{font-size:15px; text-transform:uppercase; letter-spacing:1px;
+    color:var(--pink2); margin:2px 0 10px}
+  .item{display:flex; align-items:center; gap:12px; padding:10px 12px;
+    border:1px solid var(--line); border-radius:12px; margin-bottom:9px;
+    background:rgba(255,255,255,.03); cursor:pointer; transition:.12s}
+  .item:hover:not(.locked){border-color:var(--pink); background:rgba(255,92,138,.08)}
+  .item.locked{opacity:.45; cursor:not-allowed}
+  .item .emoji{font-size:30px; width:42px; text-align:center}
+  .item .info{flex:1}
+  .item .name{font-weight:700}
+  .item .desc{font-size:12px; color:var(--muted)}
+  .item .right{text-align:right; min-width:96px}
+  .item .cost{color:var(--gold); font-weight:700; font-size:14px}
+  .item .owned{font-size:12px; color:var(--muted)}
+  .item.affordable .cost{color:var(--green)}
+  .tabs{display:flex; gap:8px; margin-bottom:10px}
+  .tab{flex:1; text-align:center; padding:8px; border-radius:10px; cursor:pointer;
+    background:rgba(255,255,255,.04); border:1px solid var(--line); font-size:13px}
+  .tab.active{background:var(--pink); border-color:var(--pink); color:#3a0d20; font-weight:700}
+  .funnel{margin-top:14px; text-align:center; background:linear-gradient(90deg,#ff5c8a,#ff9a3d);
+    border-radius:14px; padding:14px}
+  .funnel a{display:inline-block; margin-top:8px; background:#fff; color:#c9426b;
+    text-decoration:none; font-weight:800; padding:9px 18px; border-radius:999px}
+  .funnel .fh{font-weight:800; color:#3a0d20}
+  .funnel .fs{color:#5a1730; font-size:13px}
+  .prestige{margin-top:12px; text-align:center}
+  .btn{background:var(--pink); color:#3a0d20; border:none; font-weight:800;
+    padding:10px 16px; border-radius:999px; cursor:pointer}
+  .btn.ghost{background:transparent; color:var(--muted); border:1px solid var(--line); font-weight:600}
+  .btn:disabled{opacity:.4; cursor:not-allowed}
+  .row{display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:10px}
+  .float{position:fixed; pointer-events:none; font-weight:800; color:var(--pink2);
+    animation:rise .8s ease-out forwards; z-index:50}
+  @keyframes rise{to{transform:translateY(-46px); opacity:0}}
+  .toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
+    background:var(--panel2); border:1px solid var(--pink); padding:10px 16px;
+    border-radius:12px; opacity:0; transition:.3s; z-index:60; max-width:90%}
+  .toast.show{opacity:1}
+  .stat{display:flex; justify-content:space-between; font-size:13px; color:var(--muted);
+    padding:3px 0; border-bottom:1px dashed var(--line)}
+  footer{text-align:center; color:var(--muted); font-size:12px; padding:16px}
+  footer a{color:var(--pink2)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Crush <span>Empire</span> 💘</h1>
+  <div class="tag">Grow your dating empire — an idle game by Crush.lu</div>
+</header>
+
+<div class="wrap">
+  <!-- LEFT: clicker + prestige + funnel -->
+  <div>
+    <div class="card counter">
+      <div class="big"><span id="crushes">0</span> 💘</div>
+      <div class="rate">+<span id="cps">0</span> crushes / sec</div>
+      <button class="clicker" id="clicker">💗</button>
+      <div class="clickhint">Send a Wink — +<span id="perclick">1</span> per tap</div>
+    </div>
+
+    <div class="card prestige">
+      <h2>💍 Fall in Love (Prestige)</h2>
+      <div class="stat"><span>Hearts earned</span><span id="hearts">0</span></div>
+      <div class="stat"><span>Love bonus</span><span id="lovebonus">+0%</span></div>
+      <div style="font-size:12px;color:var(--muted);margin:8px 0">
+        Reset your empire to earn <b>Hearts</b> 💖. Each Heart permanently boosts all crush production.
+      </div>
+      <button class="btn" id="prestigeBtn" disabled>Fall in love (+<span id="pendingHearts">0</span> 💖)</button>
+    </div>
+
+    <div class="card funnel">
+      <div class="fh">Enjoying the game? 💕</div>
+      <div class="fs">Find your real-life crush in Luxembourg.</div>
+      <a href="https://crush.lu" target="_blank" rel="noopener">Join Crush.lu →</a>
+    </div>
+
+    <div class="card">
+      <h2>📊 Stats</h2>
+      <div class="stat"><span>Total crushes earned</span><span id="totalEarned">0</span></div>
+      <div class="stat"><span>Total taps</span><span id="totalClicks">0</span></div>
+      <div class="stat"><span>Time played</span><span id="playtime">0m</span></div>
+      <div class="row">
+        <button class="btn ghost" id="saveBtn">Save</button>
+        <button class="btn ghost" id="resetBtn">Hard reset</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: shop -->
+  <div class="card">
+    <div class="tabs">
+      <div class="tab active" data-tab="gen">💞 Matchmakers</div>
+      <div class="tab" data-tab="up">✨ Upgrades</div>
+    </div>
+    <div id="genList"></div>
+    <div id="upList" style="display:none"></div>
+  </div>
+</div>
+
+<footer>
+  Prototype idle game · saves locally in your browser · <a href="https://crush.lu" target="_blank" rel="noopener">crush.lu</a>
+</footer>
+
+<script>
+// ---------- Game data ----------
+const GEN = [
+  {id:0, emoji:"📱", name:"Dating Profile",       base:15,        cps:0.1,  desc:"A charming bio does the work"},
+  {id:1, emoji:"☕", name:"Coffee Date",          base:100,       cps:1,    desc:"Low-key, always reliable"},
+  {id:2, emoji:"💌", name:"Matchmaker",           base:1100,      cps:8,    desc:"Knows exactly your type"},
+  {id:3, emoji:"🍸", name:"Speed Dating Night",   base:12000,     cps:47,   desc:"Ten crushes an hour"},
+  {id:4, emoji:"💎", name:"Crush.lu Premium",     base:130000,    cps:260,  desc:"Boosted visibility, more matches"},
+  {id:5, emoji:"🤖", name:"AI Wingman",           base:1400000,   cps:1400, desc:"Never runs out of opening lines"},
+  {id:6, emoji:"🏛️", name:"Cupid's HQ",          base:20000000,  cps:7800, desc:"Industrial-scale romance"},
+  {id:7, emoji:"🚀", name:"Love Rocket",          base:330000000, cps:44000,desc:"Crushes across the galaxy"},
+];
+const UP = [
+  {id:0, emoji:"👆", name:"Smoother Winks",  cost:120,     type:"click", mult:2, desc:"Double crushes per tap", req:{clicks:10}},
+  {id:1, emoji:"💬", name:"Better Openers",  cost:1500,    type:"click", mult:2, desc:"Double crushes per tap", req:{clicks:50}},
+  {id:2, emoji:"🌹", name:"Grand Gestures",  cost:40000,   type:"click", mult:3, desc:"Triple crushes per tap", req:{clicks:150}},
+  {id:3, emoji:"🔥", name:"Viral Profiles",  cost:5000,    type:"global",mult:2, desc:"All matchmakers x2",     req:{gen:1,n:10}},
+  {id:4, emoji:"🌟", name:"Golden Hour",     cost:250000,  type:"global",mult:2, desc:"All matchmakers x2",     req:{gen:3,n:5}},
+  {id:5, emoji:"💞", name:"Perfect Chemistry",cost:9000000, type:"global",mult:3,desc:"All matchmakers x3",     req:{gen:4,n:10}},
+];
+
+// ---------- State ----------
+let S = {
+  crushes:0, totalEarned:0, totalClicks:0, hearts:0,
+  owned:GEN.map(()=>0), ups:[], started:Date.now(),
+};
+
+function loadGame(){
+  try{
+    const raw = localStorage.getItem("crushEmpire");
+    if(raw){ const d=JSON.parse(raw); S=Object.assign(S,d);
+      if(!S.owned||S.owned.length!==GEN.length) S.owned=GEN.map((_,i)=>S.owned&&S.owned[i]||0);
+      if(!S.ups) S.ups=[]; }
+  }catch(e){}
+}
+function saveGame(){ localStorage.setItem("crushEmpire", JSON.stringify(S)); }
+
+// ---------- Economy ----------
+const GROWTH = 1.15; // cost multiplier per unit owned
+function genCost(g){ return Math.ceil(GEN[g].base * Math.pow(GROWTH, S.owned[g])); }
+function heartBonus(){ return 1 + S.hearts * 0.02; } // +2% per heart
+function globalMult(){
+  let m = 1;
+  UP.forEach(u=>{ if(u.type==="global" && S.ups.includes(u.id)) m*=u.mult; });
+  return m * heartBonus();
+}
+function clickMult(){
+  let m = 1;
+  UP.forEach(u=>{ if(u.type==="click" && S.ups.includes(u.id)) m*=u.mult; });
+  return m;
+}
+function perClick(){ return Math.max(1, Math.round(1 * clickMult() * heartBonus())); }
+function cps(){
+  let base=0;
+  GEN.forEach(g=> base += S.owned[g.id]*g.cps );
+  return base * globalMult();
+}
+function pendingHearts(){
+  // hearts from lifetime earnings: 1 heart per sqrt(totalEarned/1e6)
+  return Math.floor(Math.sqrt(S.totalEarned / 1e6));
+}
+
+// ---------- Actions ----------
+function addCrushes(n){ S.crushes+=n; S.totalEarned+=n; }
+
+function buyGen(g){
+  const c=genCost(g);
+  if(S.crushes>=c){ S.crushes-=c; S.owned[g]++; render(); }
+}
+function buyUp(u){
+  const up=UP[u];
+  if(S.ups.includes(u)) return;
+  if(!upUnlocked(up)) return;
+  if(S.crushes>=up.cost){ S.crushes-=up.cost; S.ups.push(u); toast(up.emoji+" "+up.name+" unlocked!"); render(); }
+}
+function upUnlocked(up){
+  if(up.req.clicks!==undefined) return S.totalClicks>=up.req.clicks;
+  if(up.req.gen!==undefined) return S.owned[up.req.gen]>=up.req.n;
+  return true;
+}
+function doPrestige(){
+  const gained=pendingHearts();
+  if(gained<1) return;
+  if(!confirm("Fall in love and reset your empire for "+gained+" 💖 Hearts? Each Heart permanently boosts production.")) return;
+  S.hearts+=gained;
+  S.crushes=0; S.totalEarned=0; S.owned=GEN.map(()=>0); S.ups=[];
+  toast("💍 You fell in love! +"+gained+" Hearts. Bonus now +"+((S.hearts*2))+"%");
+  render(); saveGame();
+}
+
+// ---------- Rendering ----------
+function fmt(n){
+  n=Math.floor(n);
+  if(n<1e6) return n.toLocaleString("en-US");
+  const units=["","M","B","T","Qa","Qi","Sx","Sp"];
+  let u=0; let x=n;
+  while(x>=1e6 && u<units.length-1){ x/=1000; u++; if(x<1000)break; }
+  // simpler: scale by thousands after million
+  u=0; x=n;
+  const names=["","K","M","B","T","Qa","Qi","Sx"];
+  while(x>=1000 && u<names.length-1){ x/=1000; u++; }
+  return x.toFixed(2)+names[u];
+}
+
+function render(){
+  document.getElementById("crushes").textContent=fmt(S.crushes);
+  document.getElementById("cps").textContent=fmt(cps());
+  document.getElementById("perclick").textContent=fmt(perClick());
+  document.getElementById("hearts").textContent=S.hearts;
+  document.getElementById("lovebonus").textContent="+"+(S.hearts*2)+"%";
+  document.getElementById("totalEarned").textContent=fmt(S.totalEarned);
+  document.getElementById("totalClicks").textContent=S.totalClicks.toLocaleString();
+  const ph=pendingHearts();
+  document.getElementById("pendingHearts").textContent=ph;
+  document.getElementById("prestigeBtn").disabled=ph<1;
+
+  // generators
+  let gh="";
+  GEN.forEach(g=>{
+    const c=genCost(g.id);
+    const unlocked = g.id===0 || S.owned[g.id-1]>0 || S.owned[g.id]>0;
+    if(!unlocked) return;
+    const aff=S.crushes>=c;
+    gh+=`<div class="item ${aff?'affordable':''}" onclick="buyGen(${g.id})">
+      <div class="emoji">${g.emoji}</div>
+      <div class="info"><div class="name">${g.name}</div>
+        <div class="desc">${g.desc} · +${fmt(g.cps)}/s</div></div>
+      <div class="right"><div class="cost">${fmt(c)} 💘</div>
+        <div class="owned">owned ${S.owned[g.id]}</div></div>
+    </div>`;
+  });
+  document.getElementById("genList").innerHTML=gh;
+
+  // upgrades
+  let uh="";
+  UP.forEach(u=>{
+    if(S.ups.includes(u.id)) return;
+    const unlocked=upUnlocked(u);
+    const aff=S.crushes>=u.cost && unlocked;
+    uh+=`<div class="item ${unlocked?'':'locked'} ${aff?'affordable':''}" onclick="buyUp(${u.id})">
+      <div class="emoji">${u.emoji}</div>
+      <div class="info"><div class="name">${u.name}</div>
+        <div class="desc">${unlocked?u.desc:'🔒 keep playing to unlock'}</div></div>
+      <div class="right"><div class="cost">${fmt(u.cost)} 💘</div></div>
+    </div>`;
+  });
+  if(!uh) uh=`<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">All upgrades bought — you smooth talker 😏</div>`;
+  document.getElementById("upList").innerHTML=uh;
+
+  const mins=Math.floor((Date.now()-S.started)/60000);
+  document.getElementById("playtime").textContent = mins<60?mins+"m":Math.floor(mins/60)+"h "+(mins%60)+"m";
+}
+
+// ---------- Effects ----------
+function toast(msg){
+  const t=document.createElement("div"); t.className="toast"; t.textContent=msg;
+  document.body.appendChild(t); requestAnimationFrame(()=>t.classList.add("show"));
+  setTimeout(()=>{t.classList.remove("show"); setTimeout(()=>t.remove(),300)},2600);
+}
+function floatText(x,y,txt){
+  const f=document.createElement("div"); f.className="float"; f.textContent=txt;
+  f.style.left=x+"px"; f.style.top=y+"px"; document.body.appendChild(f);
+  setTimeout(()=>f.remove(),800);
+}
+
+// ---------- Events ----------
+document.getElementById("clicker").addEventListener("click",e=>{
+  const g=perClick(); addCrushes(g); S.totalClicks++;
+  floatText(e.clientX-10, e.clientY-20, "+"+fmt(g)+" 💘");
+  render();
+});
+document.getElementById("prestigeBtn").addEventListener("click",doPrestige);
+document.getElementById("saveBtn").addEventListener("click",()=>{saveGame(); toast("💾 Game saved");});
+document.getElementById("resetBtn").addEventListener("click",()=>{
+  if(confirm("Hard reset EVERYTHING including Hearts? This cannot be undone.")){
+    localStorage.removeItem("crushEmpire");
+    S={crushes:0,totalEarned:0,totalClicks:0,hearts:0,owned:GEN.map(()=>0),ups:[],started:Date.now()};
+    render();
+  }
+});
+document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+  t.classList.add("active");
+  const tab=t.dataset.tab;
+  document.getElementById("genList").style.display = tab==="gen"?"block":"none";
+  document.getElementById("upList").style.display  = tab==="up"?"block":"none";
+}));
+
+// ---------- Milestone funnel nudges ----------
+let nudged={};
+function checkMilestones(){
+  const marks=[1000, 100000, 10000000];
+  marks.forEach(m=>{
+    if(S.totalEarned>=m && !nudged[m]){ nudged[m]=true;
+      toast("💕 Milestone! Ready for a real crush? Visit crush.lu");
+    }
+  });
+}
+
+// ---------- Main loop ----------
+loadGame();
+render();
+let last=Date.now();
+setInterval(()=>{
+  const now=Date.now(); const dt=(now-last)/1000; last=now;
+  addCrushes(cps()*dt);
+  checkMilestones();
+  render();
+}, 200);
+setInterval(saveGame, 15000); // autosave
+window.addEventListener("beforeunload", saveGame);
+</script>
+</body>
+</html>
