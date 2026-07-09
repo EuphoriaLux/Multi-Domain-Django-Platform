@@ -28,3 +28,38 @@
     --color-empire-green: #7be3a3;
     --color-empire-red: #ff6b6b;
 }
+
+@layer base {
+    body {
+        background: radial-gradient(1200px 600px at 50% -10%, #3a1440, var(--color-empire-bg));
+        -webkit-user-select: none;
+        user-select: none;
+        touch-action: manipulation;
+    }
+    /* The deck is dragged, not scrolled — let pointermove own the gesture. */
+    .swipecard {
+        touch-action: none;
+    }
+    .swipecard.dragging {
+        cursor: grabbing;
+    }
+}
+
+@layer components {
+    /* Stamps fade in with drag distance; JS writes .style.opacity directly. */
+    .stamp {
+        transition: opacity 0.1s linear;
+    }
+
+    /* "+12 💘" drifting up off a swiped card. */
+    .empire-rise {
+        animation: empire-rise 0.8s ease-out forwards;
+    }
+}
+
+@keyframes empire-rise {
+    to {
+        transform: translateY(-46px);
+        opacity: 0;
+    }
+}

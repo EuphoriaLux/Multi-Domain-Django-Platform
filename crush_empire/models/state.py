@@ -35,6 +35,11 @@ class EmpireState(models.Model):
     upgrades = models.JSONField(default=list, blank=True)  # [0, 1, 3]
     safety_upgrades = models.JSONField(default=list, blank=True)  # bought with flags
 
+    # Swipe counters. `swipes` gates the click-upgrade unlocks in economy.py.
+    swipes = models.IntegerField(default=0)
+    likes = models.IntegerField(default=0)
+    nopes = models.IntegerField(default=0)
+
     # Scam layer
     streak = models.IntegerField(default=0)
     best_streak = models.IntegerField(default=0)

@@ -1,6 +1,7 @@
 from functools import wraps
 
 from django.conf import settings
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
 
 
@@ -42,19 +43,48 @@ def empire_login_required(function):
     return wrapper
 
 
+def _flag_open(user):
+    """The launch flag, with the staff bypass so internal review works pre-launch."""
+    return settings.CRUSH_EMPIRE_ENABLED or (user.is_authenticated and user.is_staff)
+
+
 def crush_empire_enabled(function):
     """
-    Gate a view behind the Crush Empire launch flag.
+    Gate a page behind the Crush Empire launch flag.
 
-    When CRUSH_EMPIRE_ENABLED is False, redirects to the teaser. Staff bypass
-    the flag so internal review works before public launch. Mirrors
-    crush_lu.decorators.crush_connect_enabled.
+    When CRUSH_EMPIRE_ENABLED is False, redirects to the teaser. Mirrors the
+    staff-bypass idiom from crush_lu.decorators.
     """
     @wraps(function)
     def wrapper(request, *args, **kwargs):
-        if not settings.CRUSH_EMPIRE_ENABLED and not (
-            request.user.is_authenticated and request.user.is_staff
-        ):
+        if not _flag_open(request.user):
             return redirect('crush_empire:teaser')
+        return function(request, *args, **kwargs)
+    return wrapper
+
+
+def empire_api_required(function):
+    """
+    Gate a JSON endpoint: signed in, not banned, flag open.
+
+    Deliberately not empire_login_required + crush_empire_enabled: those redirect,
+    and fetch() follows redirects. A 302 to crush.lu would surface to the caller
+    as an opaque cross-origin failure rather than "you are signed out". Answer in
+    JSON so the client can react.
+    """
+    @wraps(function)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse(
+                {"success": False, "error": "Not signed in", "reauth": True}, status=403
+            )
+        if _is_banned(request.user):
+            return JsonResponse(
+                {"success": False, "error": "Account suspended"}, status=403
+            )
+        if not _flag_open(request.user):
+            return JsonResponse(
+                {"success": False, "error": "Crush Empire is not open yet"}, status=403
+            )
         return function(request, *args, **kwargs)
     return wrapper

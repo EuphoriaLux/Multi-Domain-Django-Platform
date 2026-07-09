@@ -1,14 +1,117 @@
 {% extends "crush_empire/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Crush Empire" %}{% endblock %}
 
 {% block content %}
-{# Placeholder shell. The swipe deck, generators and the scam tiers land here. #}
-<div class="rounded-2xl border border-empire-line bg-empire-panel p-6 text-center">
-    <p class="text-sm text-empire-muted">
-        {% blocktrans with name=request.user.first_name %}Signed in as {{ name }}.{% endblocktrans %}
-    </p>
-    <p class="mt-2 text-lg font-bold">{% trans "The deck goes here." %}</p>
+{{ initial_state|json_script:"empire-state" }}
+{{ deck|json_script:"empire-deck" }}
+
+{# JS strings come through the page, not the JS bundle: {% trans %} keeps them #}
+{# in the .po extraction. Same handoff quiz_live.html uses. #}
+<div id="empire"
+     data-csrf="{{ csrf_token }}"
+     data-i18n='{"perSec":"{% trans "/ sec" %}",
+                 "swipes":"{% trans "swipes" %}",
+                 "owned":"{% trans "owned" %}",
+                 "locked":"{% trans "keep swiping to unlock" %}",
+                 "allBought":"{% trans "All upgrades bought — you absolute charmer 😏" %}",
+                 "unlocked":"{% trans "unlocked!" %}",
+                 "prestigeConfirm":"{% trans "Delete your account for %s Hearts? This resets your progress. Each Heart permanently boosts production." %}",
+                 "prestigeDone":"{% trans "💍 You fell in love (with yourself). +%s Hearts." %}",
+                 "offline":"{% trans "While you were away: +%s 💘" %}",
+                 "tooPoor":"{% trans "Not enough crushes yet." %}",
+                 "signedOut":"{% trans "You have been signed out. Reload to keep playing." %}",
+                 "error":"{% trans "Something went wrong. Your progress is safe on the server." %}"}'>
+
+  <div class="grid gap-4 lg:grid-cols-[1fr_1.25fr]">
+
+    {# ── Left: counter, deck, prestige, stats ───────────────────────────── #}
+    <div class="flex flex-col gap-4">
+
+      <section class="rounded-2xl border border-empire-line bg-empire-panel p-4 text-center">
+        <div class="text-3xl font-extrabold text-empire-pink2">
+          <span id="points">0</span> 💘
+        </div>
+        <div class="mt-0.5 text-sm text-empire-green">
+          +<span id="cps">0</span> <span data-t="perSec"></span>
+          &nbsp;·&nbsp; <span data-t="swipes"></span>: <span id="swipes">0</span>
+        </div>
+
+        <div id="deck" class="relative mx-auto my-3 h-[360px] max-w-[300px]"></div>
+
+        <div class="flex justify-center gap-4">
+          <button id="btn-nope" type="button" aria-label="{% trans "Nope" %}"
+                  class="flex h-14 w-14 items-center justify-center rounded-full border-2 border-empire-line bg-empire-panel2 text-2xl transition hover:border-empire-red hover:text-empire-red">✖</button>
+          <button id="btn-like" type="button" aria-label="{% trans "Like" %}"
+                  class="flex h-14 w-14 items-center justify-center rounded-full border-2 border-empire-line bg-empire-panel2 text-2xl transition hover:border-empire-green hover:text-empire-green">💚</button>
+        </div>
+        <p class="mt-2 text-xs text-empire-muted">
+          {% trans "Drag the card, or tap the buttons" %}
+          ·&nbsp;→ {% trans "like" %} = +<span id="perlike">2</span>
+          ·&nbsp;← {% trans "nope" %} = +<span id="pernope">1</span>
+        </p>
+      </section>
+
+      <section class="rounded-2xl border border-empire-line bg-empire-panel p-4 text-center">
+        <h2 class="mb-2 text-xs font-bold uppercase tracking-widest text-empire-pink2">
+          {% trans "💍 Fall in Love (Prestige)" %}
+        </h2>
+        <div class="flex justify-between border-b border-dashed border-empire-line py-1 text-sm text-empire-muted">
+          <span>{% trans "Hearts earned" %}</span><span id="hearts">0</span>
+        </div>
+        <div class="flex justify-between border-b border-dashed border-empire-line py-1 text-sm text-empire-muted">
+          <span>{% trans "Love bonus" %}</span><span id="lovebonus">+0%</span>
+        </div>
+        <p class="my-2 text-xs text-empire-muted">
+          {% trans "Delete your account (dramatically) to earn Hearts 💖. Each Heart permanently boosts all production." %}
+        </p>
+        <button id="btn-prestige" type="button" disabled
+                class="rounded-full bg-empire-pink px-4 py-2.5 font-extrabold text-empire-bg disabled:cursor-not-allowed disabled:opacity-40">
+          {% trans "Fall in love" %} (+<span id="pending-hearts">0</span> 💖)
+        </button>
+      </section>
+
+      <section class="rounded-2xl border border-empire-line bg-empire-panel p-4">
+        <h2 class="mb-2 text-xs font-bold uppercase tracking-widest text-empire-pink2">
+          {% trans "📊 Stats" %}
+        </h2>
+        <div class="flex justify-between border-b border-dashed border-empire-line py-1 text-sm text-empire-muted">
+          <span>{% trans "Total 💘 earned" %}</span><span id="total-earned">0</span>
+        </div>
+        <div class="flex justify-between border-b border-dashed border-empire-line py-1 text-sm text-empire-muted">
+          <span>{% trans "Right swipes" %}</span><span id="likes">0</span>
+        </div>
+        <div class="flex justify-between border-b border-dashed border-empire-line py-1 text-sm text-empire-muted">
+          <span>{% trans "Left swipes" %}</span><span id="nopes">0</span>
+        </div>
+        <p class="mt-3 text-center text-xs text-empire-muted">
+          {% trans "Saved to your Crush.lu account, automatically." %}
+        </p>
+      </section>
+    </div>
+
+    {# ── Right: the shop ────────────────────────────────────────────────── #}
+    <section class="rounded-2xl border border-empire-line bg-empire-panel p-4">
+      <div class="mb-3 flex gap-2">
+        <button type="button" data-tab="gen"
+                class="tab flex-1 rounded-xl border border-empire-line bg-white/5 py-2 text-sm">
+          {% trans "💞 Auto-Swipers" %}
+        </button>
+        <button type="button" data-tab="up"
+                class="tab flex-1 rounded-xl border border-empire-line bg-white/5 py-2 text-sm">
+          {% trans "✨ Upgrades" %}
+        </button>
+      </div>
+      <div id="list-gen"></div>
+      <div id="list-up" hidden></div>
+    </section>
+  </div>
 </div>
+
+<div id="toast" class="pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-empire-pink bg-empire-panel2 px-4 py-2.5 text-center opacity-0 transition-opacity"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script defer src="{% static 'crush_empire/js/empire.js' %}"></script>
 {% endblock %}

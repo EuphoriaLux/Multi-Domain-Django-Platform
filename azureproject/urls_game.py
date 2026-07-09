@@ -17,6 +17,8 @@ from django.conf.urls.i18n import i18n_patterns
 from django.urls import include, path
 from django.views.i18n import JavaScriptCatalog
 
+from crush_empire import api_game
+
 from .urls_shared import health_check
 from .views import csp_report
 from .views_empire_auth import empire_auth_callback, empire_auth_start
@@ -25,6 +27,14 @@ from .views_empire_auth import empire_auth_callback, empire_auth_start
 urlpatterns = [
     path("healthz/", health_check, name="health_check"),
     path("csp-report/", csp_report, name="csp_report"),
+
+    # Game API. Called from empire.js with hardcoded paths, so it must NOT sit
+    # inside i18n_patterns. Every one of these POSTs — they all bank idle
+    # production on the server clock, so none are safe to GET.
+    path("api/game/sync/", api_game.sync, name="empire_api_sync"),
+    path("api/game/swipe/", api_game.swipe, name="empire_api_swipe"),
+    path("api/game/buy/", api_game.buy, name="empire_api_buy"),
+    path("api/game/prestige/", api_game.prestige, name="empire_api_prestige"),
 
     # Cross-host session handoff. `auth_start` stashes a state nonce and bounces
     # to crush.lu; `auth_callback` consumes the returned code. Both must stay
