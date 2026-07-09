@@ -100,21 +100,38 @@
     </a>
     {% endif %}
 
-    {# Premium upsell. #}
-    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 ring-1 ring-gray-200 dark:ring-slate-700 p-6 text-center">
+    {# Premium upsell. Before the public launch, Premium is invite-only: the
+       receiver gate reads CrushConnectWaitlist.selected_as_tester, so the CTA
+       is "join the waitlist", not the coach directory. Linking the directory
+       here during BETA would loop premium → teaser → back to this page. #}
+    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 ring-1 ring-gray-200 dark:ring-slate-700 p-6">
         <div class="absolute -right-4 -top-3 w-24 h-24 opacity-50 pointer-events-none">
             {% include "crush_lu/includes/ghost-story-inlove.html" with class="w-full h-full" %}
         </div>
+        {% if connect_launched %}
+        <div class="text-center">
+            <h2 class="relative font-display text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                {% trans "Want your own Coach Pick?" %}
+            </h2>
+            <p class="relative text-sm leading-relaxed text-gray-600 dark:text-gray-300 max-w-sm mx-auto mb-5">
+                {% trans "Right now, coaches can match others with you. With Premium (€15/month), a personal coach picks one match for you every week — plus a daily Drop of fresh faces." %}
+            </p>
+            <a href="{% url 'crush_lu:premium_choose_coach' %}" class="btn-crush-primary inline-flex items-center gap-2">
+                {% trans "Discover Premium" %}
+                {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
+            </a>
+        </div>
+        {% else %}
         <h2 class="relative font-display text-xl font-semibold text-gray-900 dark:text-white mb-2">
-            {% trans "Want your own Coach Pick?" %}
+            {% trans "Premium is in closed beta." %}
         </h2>
-        <p class="relative text-sm leading-relaxed text-gray-600 dark:text-gray-300 max-w-sm mx-auto mb-5">
-            {% trans "Right now, coaches can match others with you. With Premium (€15/month), a personal coach picks one match for you every week — plus a daily Drop of fresh faces." %}
+        <p class="relative text-sm leading-relaxed text-gray-600 dark:text-gray-300 mb-5">
+            {% trans "Coaches can already match others with you. Premium — your own coach picking one match a week, plus a daily Drop of fresh faces — is opening to a small group first." %}
         </p>
-        <a href="{% url 'crush_lu:premium_choose_coach' %}" class="btn-crush-primary inline-flex items-center gap-2">
-            {% trans "Discover Premium" %}
-            {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
-        </a>
+        <div class="relative">
+            {% include "crush_lu/crush_connect/_waitlist_join.html" %}
+        </div>
+        {% endif %}
     </div>
 
     <p class="mt-5 text-center text-xs leading-relaxed text-gray-500 dark:text-gray-400">

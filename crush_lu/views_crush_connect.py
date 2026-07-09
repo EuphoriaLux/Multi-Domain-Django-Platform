@@ -618,7 +618,7 @@ def crush_connect_catalogue_status(request):
     if membership is None or not membership.is_onboarded:
         return redirect("crush_lu:crush_connect_onboarding")
 
-    from crush_lu.models import CuriositySpark
+    from crush_lu.models import CrushConnectWaitlist, CuriositySpark
     from crush_lu.services.blocking import blocked_user_ids
 
     pending_sparks_count = (
@@ -627,6 +627,28 @@ def crush_connect_catalogue_status(request):
         .count()
     )
 
+    # Before the public launch the receiver track is invite-only, gated on
+    # CrushConnectWaitlist.selected_as_tester. The teaser (the other home of the
+    # join button) redirects every approved + LuxID member straight back here
+    # once the candidate track opens, so this page has to carry the waitlist —
+    # otherwise a beta candidate can never join the list that gates Premium.
+    # Tester selection stays silent — the member only ever sees their position.
+    connect_launched = bool(getattr(settings, "CRUSH_CONNECT_LAUNCHED", False))
+    waitlist_context = {
+        "on_waitlist": False,
+        "waitlist_position": None,
+        "total_waitlist": 0,
+    }
+    if not connect_launched:
+        entry = CrushConnectWaitlist.objects.filter(user=user).first()
+        waitlist_context.update(
+            {
+                "on_waitlist": entry is not None,
+                "waitlist_position": entry.waitlist_position if entry else None,
+                "total_waitlist": CrushConnectWaitlist.objects.count(),
+            }
+        )
+
     return render(
         request,
         "crush_lu/crush_connect/catalogue_status.html",
@@ -634,6 +656,8 @@ def crush_connect_catalogue_status(request):
             "membership": membership,
             "pending_sparks_count": pending_sparks_count,
             "gate_stat_rows": _gate_stat_rows(user, membership),
+            "connect_launched": connect_launched,
+            **waitlist_context,
         },
     )
 

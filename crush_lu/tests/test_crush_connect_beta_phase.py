@@ -31,6 +31,9 @@ from crush_lu.tests.test_crush_connect import (
 # crush_connect_hub is served at /crush-connect/home/ (the shared landing for
 # both tracks); Today's Drop lives at /crush-connect/today/ (CONNECT_HOME_URL).
 HUB_URL = "/en/crush-connect/home/"
+# Literal paths: reverse() resolves against the fallback urlconf here, since the
+# crush.lu urlconf is only bound to the request by DomainURLRoutingMiddleware.
+PREMIUM_COACHES_URL = "/en/premium/coaches/"
 
 
 def _select_tester(user):
@@ -250,6 +253,69 @@ def test_beta_nav_visible_for_onboarded_candidate(settings):
     assert crush_connect_nav_visible(candidate) is True
     not_onboarded = _make_user(username="no", premium=False, onboarded=False)
     assert crush_connect_nav_visible(not_onboarded) is False
+
+
+@pytest.mark.django_db
+def test_beta_catalogue_carries_the_waitlist_join(client, settings):
+    """The teaser fast-path redirects every approved + LuxID member away during
+    beta, so the catalogue page must carry the waitlist join — otherwise nobody
+    can join the list that `receiver_access_open` reads."""
+    settings.CRUSH_CONNECT_LAUNCHED = False
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
+    me = _make_user(username="cand3", premium=False, has_luxid=True, onboarded=True)
+    _login_eligible(client, me)
+
+    resp = client.get(CATALOGUE_STATUS_URL)
+    assert resp.status_code == 200
+    assert "Join the Waitlist" in resp.content.decode()
+    assert resp.context["on_waitlist"] is False
+
+
+@pytest.mark.django_db
+def test_beta_go_premium_reaches_the_waitlist_not_a_loop(client, settings):
+    """Regression: Go-Premium used to loop premium → teaser → catalogue with no
+    waitlist anywhere. The chain must now end on a page offering the join."""
+    settings.CRUSH_CONNECT_LAUNCHED = False
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
+    settings.PREMIUM_REDIRECTS_TO_BETA = True
+    me = _make_user(username="cand4", premium=False, has_luxid=True, onboarded=True)
+    _login_eligible(client, me)
+
+    resp = client.get(PREMIUM_COACHES_URL, follow=True)
+    assert resp.status_code == 200
+    assert "Join the Waitlist" in resp.content.decode()
+
+
+@pytest.mark.django_db
+def test_beta_catalogue_keeps_tester_selection_silent(client, settings):
+    """A selected tester sees the ordinary waitlist position, never their
+    internal selection status (same rule as the teaser)."""
+    settings.CRUSH_CONNECT_LAUNCHED = False
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
+    me = _make_user(username="cand5", premium=False, has_luxid=True, onboarded=True)
+    _select_tester(me)
+    _login_eligible(client, me)
+
+    resp = client.get(CATALOGUE_STATUS_URL)
+    body = resp.content.decode()
+    assert resp.context["on_waitlist"] is True
+    assert "on the waitlist" in body.lower()
+    assert "beta tester" not in body.lower()
+
+
+@pytest.mark.django_db
+def test_launched_catalogue_restores_the_coach_directory_cta(client, settings):
+    """Once LAUNCHED, Premium is self-serve again: the coach directory link
+    comes back and the waitlist disappears."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="cand6", premium=False, has_luxid=True, onboarded=True)
+    _login_eligible(client, me)
+
+    resp = client.get(CATALOGUE_STATUS_URL)
+    body = resp.content.decode()
+    assert resp.context["connect_launched"] is True
+    assert "Discover Premium" in body
+    assert "Join the Waitlist" not in body
 
 
 @pytest.mark.django_db
