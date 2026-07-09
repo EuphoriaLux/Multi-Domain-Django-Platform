@@ -1,0 +1,14 @@
+{% extends "crush_empire/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Crush Empire" %}{% endblock %}
+
+{% block content %}
+{# Placeholder shell. The swipe deck, generators and the scam tiers land here. #}
+<div class="rounded-2xl border border-empire-line bg-empire-panel p-6 text-center">
+    <p class="text-sm text-empire-muted">
+        {% blocktrans with name=request.user.first_name %}Signed in as {{ name }}.{% endblocktrans %}
+    </p>
+    <p class="mt-2 text-lg font-bold">{% trans "The deck goes here." %}</p>
+</div>
+{% endblock %}

@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+/* Tailwind v4 source paths */
+@source "../../crush_empire/templates/**/*.html";
+@source "../../crush_empire/**/*.py";
+@source "../../crush_empire/static/crush_empire/js/**/*.js";
+
+/*
+ * Crush Empire is deliberately NOT on the Crush.lu palette. It is an arcade,
+ * hosted on its own domain, showing fictional profiles — several of which are
+ * scams. Nothing about it should read as the real dating product. These tokens
+ * come from the prototype (crush-empire/crush-empire-swipe.html) and have no
+ * relationship to crush_lu/STYLE.md.
+ */
+@theme {
+    --font-sans:
+        system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+    --color-empire-bg: #1a0e1f;
+    --color-empire-panel: #2e1638;
+    --color-empire-panel2: #3a1c46;
+    --color-empire-line: #4a2456;
+    --color-empire-text: #ffe9f1;
+    --color-empire-muted: #c79cba;
+    --color-empire-pink: #ff5c8a;
+    --color-empire-pink2: #ff87ac;
+    --color-empire-gold: #ffd166;
+    --color-empire-green: #7be3a3;
+    --color-empire-red: #ff6b6b;
+}

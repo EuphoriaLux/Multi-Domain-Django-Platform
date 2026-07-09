@@ -11,7 +11,9 @@
     "watch:css:tableau": "tailwindcss -i ./tailwind-src/tableau/tailwind-input.css -o ./tableau/static/tableau/css/tailwind.css --watch",
     "build:css:arborist": "tailwindcss -i ./tailwind-src/arborist/tailwind-input.css -o ./arborist/static/arborist/css/tailwind.css --minify",
     "watch:css:arborist": "tailwindcss -i ./tailwind-src/arborist/tailwind-input.css -o ./arborist/static/arborist/css/tailwind.css --watch",
-    "build:css:all": "npm run build:css && npm run build:css:power-up && npm run build:css:tableau && npm run build:css:arborist",
+    "build:css:empire": "tailwindcss -i ./tailwind-src/crush_empire/tailwind-input.css -o ./crush_empire/static/crush_empire/css/tailwind.css --minify",
+    "watch:css:empire": "tailwindcss -i ./tailwind-src/crush_empire/tailwind-input.css -o ./crush_empire/static/crush_empire/css/tailwind.css --watch",
+    "build:css:all": "npm run build:css && npm run build:css:power-up && npm run build:css:tableau && npm run build:css:arborist && npm run build:css:empire",
     "format": "prettier --write \"**/*.{html,js,css}\"",
     "format:check": "prettier --check \"**/*.{html,js,css}\""
   },

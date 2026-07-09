@@ -1,0 +1,22 @@
+{% extends "crush_empire/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Crush Empire — coming soon" %}{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-md rounded-2xl border border-empire-line bg-empire-panel p-6 text-center">
+    <div class="text-5xl">💘</div>
+    <h2 class="mt-3 text-xl font-bold">{% trans "Not open yet" %}</h2>
+    <p class="mt-2 text-sm text-empire-muted">
+        {% trans "An idle game about swiping, and about spotting the profiles that are lying to you." %}
+    </p>
+
+    <a href="{% url 'empire_auth_start' %}"
+       class="mt-5 inline-block rounded-full bg-empire-pink px-5 py-2.5 font-extrabold text-empire-bg">
+        {% trans "Sign in to play" %}
+    </a>
+    <p class="mt-3 text-xs text-empire-muted">
+        {% trans "Uses your Crush.lu account. You'll sign in on crush.lu and come straight back." %}
+    </p>
+</div>
+{% endblock %}
