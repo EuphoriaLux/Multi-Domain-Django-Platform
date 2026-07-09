@@ -27,12 +27,44 @@ SWIPE_RATE = "480/m"
 ACTION_RATE = "120/m"
 
 
+# The complete set of error codes the client may ever see. Services raise
+# ValueError/DeckError carrying exactly these strings; anything else is a bug and
+# must not reach the response body. Echoing str(exc) straight back would put
+# internals — file paths, SQL, a stray f-string — in front of a player, which is
+# what CodeQL's py/stack-trace-exposure warns about. Failing closed also keeps
+# these codes a stable contract the front-end can branch on.
+CLIENT_ERRORS = frozenset(
+    {
+        "insufficient",
+        "locked",
+        "already owned",
+        "unknown generator",
+        "unknown upgrade",
+        "unknown challenge",
+        "unknown action",
+        "already resolved",
+        "expired",
+        "illegal action for tier",
+        "not debuffed",
+        "deck is empty",
+    }
+)
+
+GENERIC_ERROR = "error"
+
+
 def _ok(state, **extra):
     return JsonResponse({"success": True, "state": state_service.serialize(state), **extra})
 
 
 def _err(message, status=400):
     return JsonResponse({"success": False, "error": message}, status=status)
+
+
+def _err_from(exc, status=400):
+    """Translate an exception into an allowlisted code, never its message."""
+    code = str(exc)
+    return _err(code if code in CLIENT_ERRORS else GENERIC_ERROR, status=status)
 
 
 def _body(request):
@@ -67,7 +99,8 @@ def draw(request):
     try:
         card = deck_service.draw(request.user)
     except DeckError as exc:
-        return _err(str(exc), status=503 if str(exc) == "deck is empty" else 400)
+        # An empty deck is a server-side content problem, not the player's fault.
+        return _err_from(exc, status=503 if str(exc) == "deck is empty" else 400)
 
     return JsonResponse({"success": True, "card": card})
 
@@ -96,7 +129,7 @@ def resolve(request):
             request.user, data.get("challenge_id"), data.get("action"), tapped=tapped
         )
     except DeckError as exc:
-        return _err(str(exc))
+        return _err_from(exc)
 
     return _ok(state, result=result)
 
@@ -110,7 +143,7 @@ def clear_debuff(request):
     try:
         state = deck_service.clear_debuff(request.user)
     except DeckError as exc:
-        return _err(str(exc))
+        return _err_from(exc)
 
     return _ok(state)
 
@@ -138,8 +171,9 @@ def buy(request):
         else:
             return _err("Unknown kind")
     except ValueError as exc:
-        # Note the client is never told a price here — it re-reads the state.
-        return _err(str(exc))
+        # ValueError is broad — an unexpected one must not echo its message.
+        # Note the client is never told a price here either; it re-reads the state.
+        return _err_from(exc)
 
     return _ok(state)
 

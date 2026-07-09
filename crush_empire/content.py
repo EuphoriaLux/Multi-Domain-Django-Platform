@@ -35,13 +35,17 @@ META_CARDS = [
 
 SWIPES_BETWEEN_META = 7
 
-CRUSH_LU_URL = "https://crush.lu?src=game"
-
 
 def deck_payload():
-    """Resolve lazy translations for json_script."""
+    """
+    Resolve lazy translations for json_script.
+
+    Deliberately carries no URL. The meta card's CTA target is a literal in
+    empire.js: assigning DOM-derived text to an `href` is how a `javascript:`
+    URL gets executed, and this target never needs to be dynamic. Everything
+    here reaches the DOM through .textContent, which cannot execute.
+    """
     return {
         "meta": [{k: str(v) for k, v in card.items()} for card in META_CARDS],
         "swipesBetweenMeta": SWIPES_BETWEEN_META,
-        "crushLuUrl": CRUSH_LU_URL,
     }

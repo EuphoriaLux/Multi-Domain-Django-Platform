@@ -21,6 +21,16 @@
   const T = JSON.parse(document.getElementById("empire-i18n").textContent);
   const DECK = JSON.parse(document.getElementById("empire-deck").textContent);
 
+  /**
+   * The meta card's CTA target.
+   *
+   * A literal, not read from the page. Assigning DOM-derived text to `.href` is
+   * how a `javascript:` URL gets executed, and nothing here needs the target to
+   * be dynamic. Everything else from DECK reaches the DOM through .textContent,
+   * which cannot execute.
+   */
+  const CRUSH_LU_URL = "https://crush.lu/?src=game";
+
   /** Authoritative state, replaced wholesale by every API response. */
   let S = JSON.parse(document.getElementById("empire-state").textContent);
 
@@ -170,7 +180,7 @@
       title.textContent = data.meta.title;
       subtitle.textContent = data.meta.subtitle;
       cta.textContent = data.meta.cta;
-      cta.href = DECK.crushLuUrl;
+      cta.href = CRUSH_LU_URL;
       card.querySelector(".bg-black\\/25 > div:last-child").textContent =
         data.meta.subtitle;
     } else {

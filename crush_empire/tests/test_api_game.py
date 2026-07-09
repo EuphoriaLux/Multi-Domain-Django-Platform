@@ -195,6 +195,46 @@ class GameApiTests(SiteTestMixin, TestCase):
         response = self.post("empire_api_buy", {"kind": "hearts", "id": 0})
         self.assertEqual(response.status_code, 400)
 
+    def test_unexpected_exception_message_never_reaches_the_client(self):
+        """
+        The services raise ValueError/DeckError carrying deliberate client-facing
+        codes. An *unexpected* exception of the same class must not echo its
+        message into the response body (CodeQL py/stack-trace-exposure).
+        """
+        from unittest.mock import patch
+
+        from crush_empire import api_game
+
+        secret = "/srv/app/secret_path.py line 42: connection to db failed"
+        with patch.object(
+            api_game.state_service, "buy_generator", side_effect=ValueError(secret)
+        ):
+            response = self.post("empire_api_buy", {"kind": "generator", "id": 0})
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], api_game.GENERIC_ERROR)
+        self.assertNotIn("secret_path", response.content.decode())
+
+    def test_known_error_codes_still_reach_the_client(self):
+        """The allowlist must not swallow the codes the front-end branches on."""
+        from crush_empire import api_game
+
+        response = self.post("empire_api_buy", {"kind": "generator", "id": 0})
+        self.assertEqual(response.json()["error"], "insufficient")
+        self.assertIn("insufficient", api_game.CLIENT_ERRORS)
+
+    def test_deck_payload_carries_no_url(self):
+        """
+        DOM text assigned to an href is how a javascript: URL executes. The meta
+        card's CTA target is a literal in empire.js (CodeQL js/xss-through-dom).
+        """
+        from crush_empire.content import deck_payload
+
+        payload = deck_payload()
+        self.assertNotIn("crushLuUrl", payload)
+        blob = json.dumps(payload)
+        self.assertNotIn("http", blob)
+
     def test_malformed_json_rejected(self):
         response = self.client.post(
             reverse("empire_api_resolve"),
