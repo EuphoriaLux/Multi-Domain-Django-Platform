@@ -30,9 +30,11 @@
 </div>
 
 {% if profile.verification_method != 'luxid' and not profile.has_luxid_connected and not connect_excluded %}
-{# Verified without LuxID — secondary nudge: LuxID is the ticket into the Crush Connect
-   catalogue. Suppressed for coach-excluded members (connect_excluded) — like the
-   status strip, we never invite an excluded member into a Connect flow they can't enter. #}
+{% comment %}
+  Verified without LuxID — secondary nudge: LuxID is the ticket into the Crush Connect
+  catalogue. Suppressed for coach-excluded members (connect_excluded) — like the
+  status strip, we never invite an excluded member into a Connect flow they can't enter.
+{% endcomment %}
 <div class="flex items-center gap-2 -mt-3 mb-5 px-4 py-2 rounded-lg border border-indigo-200 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20">
   {% include "shared/icons/shield-check.html" with class="w-4 h-4 text-indigo-600 dark:text-indigo-400 flex-shrink-0" %}
   <p class="text-xs text-indigo-700 dark:text-indigo-300 flex-1 mb-0">
