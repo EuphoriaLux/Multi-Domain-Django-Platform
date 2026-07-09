@@ -19,12 +19,17 @@ from ..models import EmpireState
 OFFLINE_CAP_SECONDS = 8 * 60 * 60
 
 
-def _accrue(state):
+def accrue(state):
     """
     Credit idle production since last_tick, using the *server's* clock.
 
     Called at the top of every mutating action, so the player's balance is
     always current before anything is priced against it.
+
+    A debuff can expire part-way through the interval, so the elapsed time is
+    split: seconds under ACCOUNT COMPROMISED earn at half rate, the rest at
+    full. Charging the whole window at one rate would either forgive the
+    penalty or over-punish someone who came back an hour later.
     """
     now = timezone.now()
     elapsed = (now - state.last_tick).total_seconds()
@@ -34,14 +39,23 @@ def _accrue(state):
         return 0
 
     elapsed = min(elapsed, OFFLINE_CAP_SECONDS)
-    earned = int(economy.crushes_per_second(state) * elapsed)
+    window_start = now - timezone.timedelta(seconds=elapsed)
+
+    debuffed = 0.0
+    if state.debuff_until and state.debuff_until > window_start:
+        debuffed = (min(state.debuff_until, now) - window_start).total_seconds()
+
+    rate = economy.crushes_per_second(state)
+    earned = int(
+        rate * ((elapsed - debuffed) + debuffed * economy.DEBUFF_MULTIPLIER)
+    )
     if earned > 0:
         state.points += earned
         state.total_earned += earned
     return earned
 
 
-def _locked(user):
+def lock_state(user):
     state, _created = EmpireState.objects.get_or_create(user=user)
     return EmpireState.objects.select_for_update().get(pk=state.pk)
 
@@ -49,39 +63,16 @@ def _locked(user):
 @transaction.atomic
 def sync(user):
     """Heartbeat: bank idle production and hand back the authoritative state."""
-    state = _locked(user)
-    offline = _accrue(state)
+    state = lock_state(user)
+    offline = accrue(state)
     state.save()
     return state, offline
 
 
 @transaction.atomic
-def credit_swipe(user, direction):
-    """direction is 'like' or 'nope'. The reward is computed here, never sent."""
-    if direction not in ("like", "nope"):
-        raise ValueError("unknown direction")
-
-    state = _locked(user)
-    _accrue(state)
-
-    if direction == "like":
-        gained = economy.per_like(state)
-        state.likes += 1
-    else:
-        gained = economy.per_nope(state)
-        state.nopes += 1
-
-    state.swipes += 1
-    state.points += gained
-    state.total_earned += gained
-    state.save()
-    return state, gained
-
-
-@transaction.atomic
 def buy_generator(user, tier):
-    state = _locked(user)
-    _accrue(state)
+    state = lock_state(user)
+    accrue(state)
 
     if tier not in economy.GENERATORS_BY_ID:
         raise ValueError("unknown generator")
@@ -102,8 +93,8 @@ def buy_generator(user, tier):
 
 @transaction.atomic
 def buy_upgrade(user, upgrade_id):
-    state = _locked(user)
-    _accrue(state)
+    state = lock_state(user)
+    accrue(state)
 
     upgrade = economy.UPGRADES_BY_ID.get(upgrade_id)
     if upgrade is None:
@@ -129,8 +120,8 @@ def prestige(user):
     Hearts and flags survive; everything else resets. total_earned resets too,
     which is what makes each successive Heart cost quadratically more.
     """
-    state = _locked(user)
-    _accrue(state)
+    state = lock_state(user)
+    accrue(state)
 
     gained = economy.pending_hearts(state)
     if gained < 1:
@@ -163,11 +154,19 @@ def serialize(state):
         "swipes": state.swipes,
         "likes": state.likes,
         "nopes": state.nopes,
-        "cps": economy.crushes_per_second(state),
+        # The rate the player is actually earning at, debuff included, so the
+        # counter visibly halves when they get catfished.
+        "cps": economy.effective_crushes_per_second(state),
         "per_like": economy.per_like(state),
         "per_nope": economy.per_nope(state),
         "heart_bonus_pct": round(state.hearts * economy.HEART_BONUS_PER_HEART * 100),
         "pending_hearts": economy.pending_hearts(state),
+        # Scam layer
+        "streak": state.streak,
+        "best_streak": state.best_streak,
+        "debuffed": state.is_debuffed,
+        "debuff_until": state.debuff_until.isoformat() if state.debuff_until else None,
+        "debuff_clear_cost": economy.DEBUFF_CLEAR_COST_FLAGS,
         "generators": [
             {
                 "id": g["id"],

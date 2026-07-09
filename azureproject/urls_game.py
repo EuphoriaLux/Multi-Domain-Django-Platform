@@ -32,9 +32,11 @@ urlpatterns = [
     # inside i18n_patterns. Every one of these POSTs — they all bank idle
     # production on the server clock, so none are safe to GET.
     path("api/game/sync/", api_game.sync, name="empire_api_sync"),
-    path("api/game/swipe/", api_game.swipe, name="empire_api_swipe"),
+    path("api/game/deck/draw/", api_game.draw, name="empire_api_draw"),
+    path("api/game/deck/resolve/", api_game.resolve, name="empire_api_resolve"),
     path("api/game/buy/", api_game.buy, name="empire_api_buy"),
     path("api/game/prestige/", api_game.prestige, name="empire_api_prestige"),
+    path("api/game/clear-debuff/", api_game.clear_debuff, name="empire_api_clear_debuff"),
 
     # Cross-host session handoff. `auth_start` stashes a state nonce and bounces
     # to crush.lu; `auth_callback` consumes the returned code. Both must stay

@@ -17,10 +17,12 @@ from django.views.decorators.http import require_POST
 from crush_lu.decorators import ratelimit
 
 from .decorators import empire_api_required
+from .services import deck as deck_service
 from .services import state as state_service
+from .services.deck import DeckError
 
 # A human tops out around economy.MAX_SWIPES_PER_SECOND. The server prices every
-# swipe, so the worst a spammer gains is a few crushes — but bound it anyway.
+# card, so the worst a spammer gains is a few crushes — but bound it anyway.
 SWIPE_RATE = "480/m"
 ACTION_RATE = "120/m"
 
@@ -54,17 +56,59 @@ def sync(request):
 @csrf_protect
 @require_POST
 @ratelimit(key="user", rate=SWIPE_RATE, method="POST")
-def swipe(request):
+def draw(request):
+    """
+    Deal the player's card.
+
+    Idempotent while a card is open: calling this repeatedly returns the same
+    card, so a player cannot re-roll until they get one they like, and cannot
+    probe which ids come back.
+    """
+    try:
+        card = deck_service.draw(request.user)
+    except DeckError as exc:
+        return _err(str(exc), status=503 if str(exc) == "deck is empty" else 400)
+
+    return JsonResponse({"success": True, "card": card})
+
+
+@empire_api_required
+@csrf_protect
+@require_POST
+@ratelimit(key="user", rate=SWIPE_RATE, method="POST")
+def resolve(request):
+    """
+    Answer the open card.
+
+    This is the only response in the whole API that reveals whether a profile was
+    a scam, and it only does so after the action has been written down.
+    """
     data = _body(request)
     if data is None:
         return _err("Invalid JSON")
 
     try:
-        state, gained = state_service.credit_swipe(request.user, data.get("direction"))
-    except ValueError:
-        return _err("Unknown direction")
+        state, result = deck_service.resolve(
+            request.user, data.get("challenge_id"), data.get("action")
+        )
+    except DeckError as exc:
+        return _err(str(exc))
 
-    return _ok(state, gained=gained)
+    return _ok(state, result=result)
+
+
+@empire_api_required
+@csrf_protect
+@require_POST
+@ratelimit(key="user", rate=ACTION_RATE, method="POST")
+def clear_debuff(request):
+    """Spend 🚩 to end ACCOUNT COMPROMISED early — the panic button."""
+    try:
+        state = deck_service.clear_debuff(request.user)
+    except DeckError as exc:
+        return _err(str(exc))
+
+    return _ok(state)
 
 
 @empire_api_required

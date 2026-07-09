@@ -22,7 +22,16 @@
                  "offline":"{% trans "While you were away: +%s 💘" %}",
                  "tooPoor":"{% trans "Not enough crushes yet." %}",
                  "signedOut":"{% trans "You have been signed out. Reload to keep playing." %}",
-                 "error":"{% trans "Something went wrong. Your progress is safe on the server." %}"}'>
+                 "error":"{% trans "Something went wrong. Your progress is safe on the server." %}",
+                 "niceCatch":"{% trans "Nice catch. That one was a scam." %}",
+                 "falseReport":"{% trans "That was a real person. You cried wolf — streak lost." %}",
+                 "missed":"{% trans "That was a scam. You dodged it, but you reported nothing." %}",
+                 "catfished":"{% trans "You got catfished." %}",
+                 "compromised":"{% trans "ACCOUNT COMPROMISED — production halved" %}",
+                 "clearDebuff":"{% trans "Spend %s 🚩 to recover now" %}",
+                 "debuffCleared":"{% trans "Account secured. Production restored." %}",
+                 "streakLost":"{% trans "Streak lost." %}",
+                 "gotIt":"{% trans "Got it" %}"}'>
 
   <div class="grid gap-4 lg:grid-cols-[1fr_1.25fr]">
 
@@ -37,12 +46,34 @@
           +<span id="cps">0</span> <span data-t="perSec"></span>
           &nbsp;·&nbsp; <span data-t="swipes"></span>: <span id="swipes">0</span>
         </div>
+        <div class="mt-1 text-sm">
+          <span class="text-empire-gold"><span id="flags">0</span> 🚩</span>
+          <span class="text-empire-muted">
+            &nbsp;·&nbsp; {% trans "streak" %} <span id="streak">0</span>
+          </span>
+        </div>
+
+        {# ACCOUNT COMPROMISED. Hidden unless the engine is actually throttled. #}
+        <div id="debuff" hidden
+             class="mt-3 rounded-xl border-2 border-empire-red bg-empire-red/10 px-3 py-2">
+          <div class="text-sm font-extrabold text-empire-red">
+            💀 <span data-t="compromised"></span>
+          </div>
+          <div class="mt-0.5 text-xs text-empire-muted">
+            <span id="debuff-remaining">0:00</span>
+          </div>
+          <button id="btn-clear-debuff" type="button"
+                  class="mt-1.5 rounded-full bg-empire-gold px-3 py-1 text-xs font-extrabold text-empire-bg disabled:opacity-40">
+          </button>
+        </div>
 
         <div id="deck" class="relative mx-auto my-3 h-[360px] max-w-[300px]"></div>
 
-        <div class="flex justify-center gap-4">
+        <div class="flex items-center justify-center gap-3">
           <button id="btn-nope" type="button" aria-label="{% trans "Nope" %}"
                   class="flex h-14 w-14 items-center justify-center rounded-full border-2 border-empire-line bg-empire-panel2 text-2xl transition hover:border-empire-red hover:text-empire-red">✖</button>
+          <button id="btn-report" type="button" aria-label="{% trans "Report as a scam" %}"
+                  class="flex h-12 w-12 items-center justify-center rounded-full border-2 border-empire-line bg-empire-panel2 text-xl transition hover:border-empire-gold hover:text-empire-gold">🚩</button>
           <button id="btn-like" type="button" aria-label="{% trans "Like" %}"
                   class="flex h-14 w-14 items-center justify-center rounded-full border-2 border-empire-line bg-empire-panel2 text-2xl transition hover:border-empire-green hover:text-empire-green">💚</button>
         </div>
@@ -50,8 +81,24 @@
           {% trans "Drag the card, or tap the buttons" %}
           ·&nbsp;→ {% trans "like" %} = +<span id="perlike">2</span>
           ·&nbsp;← {% trans "nope" %} = +<span id="pernope">1</span>
+          ·&nbsp;↑ {% trans "report" %}
+        </p>
+        <p class="mt-1 text-xs italic text-empire-muted">
+          {% trans "Some of these profiles are lying to you. Report them — but reporting a real person costs your streak." %}
         </p>
       </section>
+
+      {# The teaching moment: shown after every scam card is resolved. #}
+      <div id="reveal" hidden
+           class="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-4">
+        <div class="w-full max-w-sm rounded-2xl border border-empire-line bg-empire-panel p-5">
+          <div id="reveal-title" class="text-lg font-extrabold"></div>
+          <div id="reveal-body" class="mt-2 space-y-2 text-sm text-empire-muted"></div>
+          <button id="reveal-close" type="button"
+                  class="mt-4 w-full rounded-full bg-empire-pink px-4 py-2 font-extrabold text-empire-bg"
+                  data-t="gotIt"></button>
+        </div>
+      </div>
 
       <section class="rounded-2xl border border-empire-line bg-empire-panel p-4 text-center">
         <h2 class="mb-2 text-xs font-bold uppercase tracking-widest text-empire-pink2">

@@ -86,7 +86,9 @@
       return null;
     }
 
-    S = data.state;
+    // /deck/draw/ returns a card, not a state. Overwriting unconditionally would
+    // blank the mirror and render NaN across the whole page.
+    if (data.state) S = data.state;
     return data;
   }
 
@@ -94,17 +96,9 @@
 
   const deckEl = document.getElementById("deck");
   let currentCard = null;
-  let currentIsMeta = false;
+  let currentChallenge = null; // null on meta cards — they have no right answer
   let sinceMeta = 0;
   let busy = false;
-
-  function pick() {
-    if (sinceMeta >= DECK.swipesBetweenMeta) {
-      sinceMeta = 0;
-      return { meta: DECK.meta[Math.floor(Math.random() * DECK.meta.length)] };
-    }
-    return { profile: DECK.profiles[Math.floor(Math.random() * DECK.profiles.length)] };
-  }
 
   function stamp(kind, label) {
     const el = document.createElement("div");
@@ -118,9 +112,34 @@
     return el;
   }
 
-  function buildCard() {
-    const data = pick();
-    currentIsMeta = Boolean(data.meta);
+  /**
+   * Deal the next card.
+   *
+   * Meta cards are local furniture — an advert, no right answer, no API call.
+   * Real cards come from the server, which alone knows whether the profile is a
+   * scam. The payload deliberately carries no `is_scam` and no red-flag marks;
+   * they arrive only in the resolve() response, after the player has committed.
+   */
+  async function buildCard(attempt = 0) {
+    let data;
+
+    if (sinceMeta >= DECK.swipesBetweenMeta) {
+      sinceMeta = 0;
+      currentChallenge = null;
+      data = { meta: DECK.meta[Math.floor(Math.random() * DECK.meta.length)] };
+    } else {
+      const response = await post("/api/game/deck/draw/");
+      if (!response) {
+        // A 429 or a blip. Without a retry the deck stays empty and the game is
+        // dead until the player reloads — and draw() is idempotent, so asking
+        // again is free: it returns the same open card.
+        const delay = Math.min(4000, 400 * 2 ** attempt);
+        setTimeout(() => buildCard(attempt + 1), delay);
+        return;
+      }
+      currentChallenge = response.card.challenge_id;
+      data = { profile: response.card };
+    }
 
     const card = document.createElement("div");
     card.className =
@@ -156,7 +175,11 @@
       card.querySelector(".avatar").textContent = p.emoji;
       card.querySelector(".nm").textContent = p.name;
       card.querySelector("small").textContent = p.age;
-      card.querySelector(".bio").textContent = p.bio;
+      // Segments render as one sentence here. Tier 2 will make each tappable —
+      // which is exactly why the server sends them apart rather than joined.
+      card.querySelector(".bio").textContent = p.segments
+        .map((s) => s.text)
+        .join(" ");
     }
 
     card.appendChild(stamp("like", "Like"));
@@ -179,43 +202,118 @@
     setTimeout(() => el.remove(), 800);
   }
 
-  async function resolveSwipe(dir) {
+  const FLY = { like: 500, nope: -500, report: 0 };
+
+  /** action is "like" | "nope" | "report". */
+  async function act(action) {
     if (!currentCard || busy) return;
     busy = true;
 
     const card = currentCard;
+    const challenge = currentChallenge;
     currentCard = null;
     sinceMeta++;
 
     // Fly the card out immediately; the server call rides along behind it.
     card.style.transition = "transform .35s ease, opacity .35s";
-    card.style.transform = `translateX(${dir * 500}px) rotate(${dir * 25}deg)`;
+    card.style.transform =
+      action === "report"
+        ? "translateY(-460px) scale(.9)"
+        : `translateX(${FLY[action]}px) rotate(${action === "like" ? 25 : -25}deg)`;
     card.style.opacity = "0";
     setTimeout(() => card.remove(), 340);
 
+    // Meta cards are adverts. Swiping one is not an answer to anything.
+    if (!challenge) {
+      busy = false;
+      await buildCard();
+      render();
+      return;
+    }
+
     const rect = card.getBoundingClientRect();
-    const data = await post("/api/game/swipe/", {
-      direction: dir > 0 ? "like" : "nope",
+    const data = await post("/api/game/deck/resolve/", {
+      challenge_id: challenge,
+      action,
     });
 
     if (data) {
-      floatText(
-        rect.left + rect.width / 2 - 20,
-        rect.top + 40,
-        "+" + fmt(data.gained) + " 💘",
-        dir > 0 ? "var(--color-empire-green)" : "var(--color-empire-pink2)"
-      );
+      const r = data.result;
+      if (r.points > 0) {
+        floatText(rect.left + rect.width / 2 - 20, rect.top + 40,
+          "+" + fmt(r.points) + " 💘",
+          action === "like" ? "var(--color-empire-green)" : "var(--color-empire-pink2)");
+      } else if (r.points < 0) {
+        floatText(rect.left + rect.width / 2 - 30, rect.top + 40,
+          fmt(r.points) + " 💘", "var(--color-empire-red)");
+      }
+      if (r.flags > 0) {
+        floatText(rect.left + rect.width / 2 - 20, rect.top + 90,
+          "+" + r.flags + " 🚩", "var(--color-empire-gold)");
+      }
+      announce(r);
     }
 
     busy = false;
-    buildCard();
+    await buildCard();
     render();
   }
+
+  /* ── The teaching moment ─────────────────────────────────────────────── */
+
+  const revealEl = document.getElementById("reveal");
+  const revealTitle = document.getElementById("reveal-title");
+  const revealBody = document.getElementById("reveal-body");
+
+  /**
+   * Only interrupt when there is something to learn.
+   *
+   * A correct nope on a genuine profile teaches nothing and must not cost a tap.
+   * A scam — caught, dodged or fallen for — always explains itself, because the
+   * explanation is the entire reason this mechanic exists.
+   */
+  function announce(r) {
+    if (r.outcome === "neutral") return;
+
+    if (r.outcome === "false_report") {
+      toast(T.falseReport);
+      return;
+    }
+
+    const titles = {
+      correct: "🚩 " + T.niceCatch,
+      missed: "😬 " + T.missed,
+      catfished: "💔 " + T.catfished,
+    };
+    revealTitle.textContent = titles[r.outcome] || "";
+    revealTitle.className =
+      "text-lg font-extrabold " +
+      (r.outcome === "correct" ? "text-empire-green" : "text-empire-red");
+
+    revealBody.replaceChildren();
+    r.reveal.flags.forEach((f) => {
+      const p = document.createElement("p");
+      p.textContent = "🚩 " + f.explanation;
+      revealBody.appendChild(p);
+    });
+    if (r.debuffed) {
+      const p = document.createElement("p");
+      p.className = "font-bold text-empire-red";
+      p.textContent = T.compromised;
+      revealBody.appendChild(p);
+    }
+    revealEl.hidden = false;
+  }
+
+  document.getElementById("reveal-close").addEventListener("click", () => {
+    revealEl.hidden = true;
+  });
 
   function attachDrag(card) {
     let startX = 0;
     let startY = 0;
     let dx = 0;
+    let dy = 0;
     let down = false;
     const like = card.querySelector('[data-stamp="like"]');
     const nope = card.querySelector('[data-stamp="nope"]');
@@ -229,24 +327,35 @@
     const move = (x, y) => {
       if (!down) return;
       dx = x - startX;
-      const dy = y - startY;
-      card.style.transform = `translate(${dx}px, ${dy * 0.25}px) rotate(${dx * 0.06}deg)`;
-      const t = Math.min(Math.abs(dx) / 120, 1);
+      dy = y - startY;
+      // Up-swipe is a report. Once the drag is clearly vertical, stop rotating —
+      // the card should read as being lifted out, not thrown aside.
+      const vertical = dy < -60 && Math.abs(dy) > Math.abs(dx);
+      card.style.transform = vertical
+        ? `translate(${dx * 0.3}px, ${dy}px) scale(${1 + dy / 2000})`
+        : `translate(${dx}px, ${dy * 0.25}px) rotate(${dx * 0.06}deg)`;
+
+      const t = vertical ? 0 : Math.min(Math.abs(dx) / 120, 1);
       like.style.opacity = dx > 0 ? t : 0;
       nope.style.opacity = dx < 0 ? t : 0;
+      card.style.borderColor = vertical ? "var(--color-empire-gold)" : "";
     };
     const end = () => {
       if (!down) return;
       down = false;
-      if (Math.abs(dx) > 110) {
-        resolveSwipe(dx > 0 ? 1 : -1);
+      if (dy < -110 && Math.abs(dy) > Math.abs(dx)) {
+        act("report");
+      } else if (Math.abs(dx) > 110) {
+        act(dx > 0 ? "like" : "nope");
       } else {
         card.style.transition = "transform .2s";
         card.style.transform = "";
+        card.style.borderColor = "";
         like.style.opacity = 0;
         nope.style.opacity = 0;
       }
       dx = 0;
+      dy = 0;
     };
 
     // Pointer events cover mouse, touch and pen in one path.
@@ -335,10 +444,35 @@
 
   const $ = (id) => document.getElementById(id);
 
+  function renderDebuff() {
+    const banner = $("debuff");
+    if (!S.debuff_until) {
+      banner.hidden = true;
+      return;
+    }
+    const remaining = Math.max(0, new Date(S.debuff_until) - Date.now());
+    if (remaining <= 0) {
+      banner.hidden = true;
+      // The server is authoritative on expiry; ask it rather than guessing.
+      if (S.debuffed) post("/api/game/sync/").then((d) => d && render());
+      return;
+    }
+    banner.hidden = false;
+    const secs = Math.ceil(remaining / 1000);
+    $("debuff-remaining").textContent =
+      Math.floor(secs / 60) + ":" + String(secs % 60).padStart(2, "0");
+
+    const btn = $("btn-clear-debuff");
+    btn.textContent = T.clearDebuff.replace("%s", S.debuff_clear_cost);
+    btn.disabled = S.flags < S.debuff_clear_cost;
+  }
+
   function render() {
     $("points").textContent = fmt(S.points);
     $("cps").textContent = fmtRate(S.cps);
     $("swipes").textContent = S.swipes;
+    $("flags").textContent = S.flags;
+    $("streak").textContent = S.streak;
     $("perlike").textContent = fmt(S.per_like);
     $("pernope").textContent = fmt(S.per_nope);
     $("hearts").textContent = S.hearts;
@@ -348,6 +482,7 @@
     $("nopes").textContent = S.nopes;
     $("pending-hearts").textContent = S.pending_hearts;
     $("btn-prestige").disabled = S.pending_hearts < 1;
+    renderDebuff();
     renderShop();
   }
 
@@ -369,12 +504,26 @@
 
   /* ── Events ──────────────────────────────────────────────────────────── */
 
-  $("btn-like").addEventListener("click", () => resolveSwipe(1));
-  $("btn-nope").addEventListener("click", () => resolveSwipe(-1));
+  $("btn-like").addEventListener("click", () => act("like"));
+  $("btn-nope").addEventListener("click", () => act("nope"));
+  $("btn-report").addEventListener("click", () => act("report"));
 
   window.addEventListener("keydown", (e) => {
-    if (e.key === "ArrowRight") resolveSwipe(1);
-    if (e.key === "ArrowLeft") resolveSwipe(-1);
+    if (!revealEl.hidden) {
+      if (e.key === "Enter" || e.key === "Escape") revealEl.hidden = true;
+      return;
+    }
+    if (e.key === "ArrowRight") act("like");
+    if (e.key === "ArrowLeft") act("nope");
+    if (e.key === "ArrowUp") act("report");
+  });
+
+  $("btn-clear-debuff").addEventListener("click", async () => {
+    const data = await post("/api/game/clear-debuff/");
+    if (data) {
+      toast(T.debuffCleared);
+      render();
+    }
   });
 
   // One delegated listener for the whole shop: rows are rebuilt on every render,
@@ -437,6 +586,7 @@
     S.points += earned;
     S.total_earned += earned;
     $("points").textContent = fmt(S.points);
+    if (S.debuff_until) renderDebuff(); // tick the ACCOUNT COMPROMISED clock
   }, 250);
 
   // Heartbeat. The server banks idle production from its own clock; this just

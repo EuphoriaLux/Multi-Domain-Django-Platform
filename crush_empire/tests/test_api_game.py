@@ -12,12 +12,21 @@ from django.contrib.sites.models import Site
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
-from crush_empire.models import EmpireState
+from crush_empire.models import BioSegment, EmpireState, GameProfile
 
 User = get_user_model()
 
 GAME_URLS = {"ROOT_URLCONF": "azureproject.urls_game"}
 GAME_HOST = "game.crush.lu"
+
+
+def seed_genuine_only():
+    """A deck of nothing but genuine cards, so draws are deterministic."""
+    profile = GameProfile.objects.create(
+        emoji="🧔", display_name="Marc", age=29, is_scam=False
+    )
+    BioSegment.objects.create(profile=profile, order=0, text="Loves the fridge.")
+    return profile
 
 
 class SiteTestMixin:
@@ -38,6 +47,7 @@ class GameApiTests(SiteTestMixin, TestCase):
         # DomainURLRoutingMiddleware picks the urlconf from the Host header.
         self.client = Client(HTTP_HOST=GAME_HOST)
         self.client.force_login(self.user)
+        seed_genuine_only()
 
     def post(self, name, payload=None):
         return self.client.post(
@@ -50,6 +60,14 @@ class GameApiTests(SiteTestMixin, TestCase):
         # The row is created lazily on the first API call, so tests that seed a
         # balance before touching the API must not assume it exists.
         return EmpireState.objects.get_or_create(user=self.user)[0]
+
+    def play(self, action="like"):
+        """Draw a card and answer it, the way the client does."""
+        card = self.post("empire_api_draw").json()["card"]
+        return self.post(
+            "empire_api_resolve",
+            {"challenge_id": card["challenge_id"], "action": action},
+        )
 
     # ── auth / gating ────────────────────────────────────────────────────
 
@@ -77,17 +95,49 @@ class GameApiTests(SiteTestMixin, TestCase):
         self.assertEqual(self.post("empire_api_sync").status_code, 403)
 
     def test_get_is_rejected(self):
-        self.assertEqual(self.client.get(reverse("empire_api_swipe")).status_code, 405)
+        self.assertEqual(self.client.get(reverse("empire_api_draw")).status_code, 405)
 
     # ── the anti-cheat promises ──────────────────────────────────────────
 
-    def test_client_supplied_points_are_ignored(self):
-        response = self.post(
-            "empire_api_swipe",
-            {"direction": "like", "points": 999_999_999, "gained": 999_999_999},
+    def test_drawn_card_carries_no_answer(self):
+        card = self.post("empire_api_draw").json()["card"]
+        self.assertEqual(
+            set(card), {"challenge_id", "emoji", "name", "age", "segments"}
         )
-        self.assertEqual(response.json()["gained"], 2)
+
+    def test_client_supplied_points_are_ignored(self):
+        card = self.post("empire_api_draw").json()["card"]
+        response = self.post(
+            "empire_api_resolve",
+            {
+                "challenge_id": card["challenge_id"],
+                "action": "like",
+                "points": 999_999_999,
+                "flags": 999,
+            },
+        )
+        self.assertEqual(response.json()["result"]["points"], 2)
         self.assertEqual(self.state().points, 2)
+        self.assertEqual(self.state().flags, 0)
+
+    def test_replayed_challenge_rejected(self):
+        card = self.post("empire_api_draw").json()["card"]
+        payload = {"challenge_id": card["challenge_id"], "action": "like"}
+        self.assertEqual(self.post("empire_api_resolve", payload).status_code, 200)
+        self.assertEqual(self.post("empire_api_resolve", payload).status_code, 400)
+        self.assertEqual(self.state().points, 2)
+
+    def test_another_users_challenge_is_unknown(self):
+        other = User.objects.create_user(username="o@e.com", email="o@e.com")
+        other_client = Client(HTTP_HOST=GAME_HOST)
+        other_client.force_login(other)
+        card = other_client.post(reverse("empire_api_draw")).json()["card"]
+
+        response = self.post(
+            "empire_api_resolve", {"challenge_id": card["challenge_id"], "action": "like"}
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "unknown challenge")
 
     def test_client_supplied_price_is_ignored(self):
         """Claiming a generator costs 1 must not buy it for 1."""
@@ -111,8 +161,12 @@ class GameApiTests(SiteTestMixin, TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(self.state().upgrades, [])
 
-    def test_unknown_direction_rejected(self):
-        response = self.post("empire_api_swipe", {"direction": "up"})
+    def test_unknown_action_rejected(self):
+        card = self.post("empire_api_draw").json()["card"]
+        response = self.post(
+            "empire_api_resolve",
+            {"challenge_id": card["challenge_id"], "action": "sideways"},
+        )
         self.assertEqual(response.status_code, 400)
         self.assertEqual(self.state().swipes, 0)
 
@@ -122,7 +176,9 @@ class GameApiTests(SiteTestMixin, TestCase):
 
     def test_malformed_json_rejected(self):
         response = self.client.post(
-            reverse("empire_api_swipe"), data="{not json", content_type="application/json"
+            reverse("empire_api_resolve"),
+            data="{not json",
+            content_type="application/json",
         )
         self.assertEqual(response.status_code, 400)
 
@@ -135,7 +191,7 @@ class GameApiTests(SiteTestMixin, TestCase):
 
     def test_swipe_then_buy_then_cps_rises(self):
         for _ in range(10):
-            self.post("empire_api_swipe", {"direction": "like"})
+            self.play("like")
         self.assertEqual(self.state().points, 20)
 
         response = self.post("empire_api_buy", {"kind": "generator", "id": 0})
@@ -164,7 +220,7 @@ class GameApiTests(SiteTestMixin, TestCase):
         self.assertFalse(body["state"]["upgrades"][0]["unlocked"])
 
         for _ in range(10):
-            self.post("empire_api_swipe", {"direction": "nope"})
+            self.play("nope")
 
         body = self.post("empire_api_sync").json()
         self.assertTrue(body["state"]["upgrades"][0]["unlocked"])

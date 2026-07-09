@@ -59,6 +59,52 @@ UPGRADES_BY_ID = {u["id"]: u for u in UPGRADES}
 MAX_SWIPES_PER_SECOND = 8
 
 
+# ── The scam layer ───────────────────────────────────────────────────────────
+#
+# The only part of this game with a right answer, and therefore the only part
+# where a payoff table has to be reasoned about rather than tuned by feel.
+#
+#                Like →        Nope ←     Report ↑
+#   Genuine      +2 💘         +1 💘      0 · streak reset  ("you cried wolf")
+#   Scam         catfished     0 💘       +🚩 × streak      ("nice catch")
+#
+# Both error types are punished, so "report everything" loses: ~5 of 6 cards are
+# genuine, so indiscriminate reporting forfeits nearly all swipe income and
+# never builds a streak.
+#
+# SCAM_NOPE_REWARD is 0 rather than 1 on purpose. At +1 it costs nothing to
+# quietly skip every suspicious card, and "nope everything" becomes a free
+# opt-out of the entire scam layer. At 0, reporting a scam strictly dominates
+# noping it (same crushes, plus flags), while noping a *genuine* card still pays
+# +1 — caution is fine, cowardice is not. It is also the honest number: silently
+# blocking a scammer protects you and helps nobody else.
+SCAM_CARD_RATE = 1 / 6
+
+SCAM_NOPE_REWARD = 0
+GENUINE_REPORT_REWARD = 0
+
+# Falling for a scam costs what you have to lose. Early that's a slice of the
+# balance; once you own real production it throttles the engine instead, because
+# 10% of a huge balance you regenerate in four seconds is not a punishment.
+LATE_GAME_CPS_THRESHOLD = 100
+CATFISH_POINT_LOSS = 0.10
+DEBUFF_SECONDS = 120
+DEBUFF_MULTIPLIER = 0.5
+DEBUFF_CLEAR_COST_FLAGS = 5
+
+STREAK_FLAGS_PER_STEP = 5
+MAX_FLAG_AWARD = 5
+
+
+def flag_award(streak):
+    """🚩 for a correct report. Sub-linear and capped, so a perfect run can't mint."""
+    return min(1 + streak // STREAK_FLAGS_PER_STEP, MAX_FLAG_AWARD)
+
+
+def is_late_game(state):
+    return crushes_per_second(state) >= LATE_GAME_CPS_THRESHOLD
+
+
 def generator_cost(state, tier):
     """Price of the next copy. Server-side only — the client never sends a cost."""
     gen = GENERATORS_BY_ID[tier]
@@ -126,3 +172,15 @@ def upgrade_unlocked(state, upgrade):
     if "generator" in req:
         return state.generator_count(req["generator"]) >= req["count"]
     return True
+
+
+def effective_crushes_per_second(state):
+    """
+    What the player is actually earning *right now*, debuff included.
+
+    crushes_per_second() stays the undebuffed rate: it is what the shop prices
+    against and what is_late_game() reads, and a temporary throttle should not
+    move a player back across the early/late threshold.
+    """
+    rate = crushes_per_second(state)
+    return rate * DEBUFF_MULTIPLIER if state.is_debuffed else rate

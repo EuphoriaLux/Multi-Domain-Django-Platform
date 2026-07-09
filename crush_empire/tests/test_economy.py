@@ -83,22 +83,6 @@ class ServiceTests(TestCase):
         # Created lazily by the services on first use.
         return EmpireState.objects.get_or_create(user=self.user)[0]
 
-    def test_swipe_reward_is_computed_server_side(self):
-        state, gained = svc.credit_swipe(self.user, "like")
-        self.assertEqual(gained, 2)
-        self.assertEqual(state.points, 2)
-        self.assertEqual(state.likes, 1)
-        self.assertEqual(state.swipes, 1)
-
-        state, gained = svc.credit_swipe(self.user, "nope")
-        self.assertEqual(gained, 1)
-        self.assertEqual(state.points, 3)
-        self.assertEqual(state.nopes, 1)
-
-    def test_unknown_direction_rejected(self):
-        with self.assertRaises(ValueError):
-            svc.credit_swipe(self.user, "diagonally")
-
     def test_buy_charges_the_server_price(self):
         state = self._state()
         state.points = 100
