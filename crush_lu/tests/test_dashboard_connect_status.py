@@ -137,7 +137,9 @@ class DashboardConnectStatusStripTests(TestCase):
         self.assertNotContains(response, self.JOIN_CTA)
         self.assertNotContains(response, self.IN_MIX)
 
-    @override_settings(CRUSH_CONNECT_LAUNCHED=False)
+    @override_settings(
+        CRUSH_CONNECT_LAUNCHED=False, CRUSH_CONNECT_CANDIDATE_OPEN=False
+    )
     def test_prelaunch_hides_mix_states_for_non_staff(self):
         _link_luxid(self.user)
         response = self._get()
@@ -151,7 +153,9 @@ class DashboardConnectStatusStripTests(TestCase):
         response = self._get()
         self.assertContains(response, self.LUXID_BANNER)
 
-    @override_settings(CRUSH_CONNECT_LAUNCHED=False)
+    @override_settings(
+        CRUSH_CONNECT_LAUNCHED=False, CRUSH_CONNECT_CANDIDATE_OPEN=False
+    )
     def test_prelaunch_staff_sees_join_cta(self):
         staff = _make_member("staff@example.com", is_staff=True)
         _link_luxid(staff)
@@ -219,8 +223,11 @@ class DashboardConnectStatusStripTests(TestCase):
         # The strip prompts to link LuxID instead of confirming discoverability.
         self.assertContains(response, self.LUXID_BANNER)
 
+    @override_settings(
+        CRUSH_CONNECT_LAUNCHED=False, CRUSH_CONNECT_CANDIDATE_OPEN=False
+    )
     def test_products_footer_not_in_mix_prelaunch_non_staff(self):
-        """Pre-launch (flag off, non-staff), a full membership is still bounced
+        """Pre-launch (flags off, non-staff), a full membership is still bounced
         by the launch gate — matching the status strip, the card must not claim
         "In the Mix" and falls back to a plain "Active"."""
         _link_luxid(self.user)

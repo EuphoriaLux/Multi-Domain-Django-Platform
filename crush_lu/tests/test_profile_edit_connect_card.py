@@ -109,14 +109,18 @@ class EditProfileConnectCardTests(TestCase):
         self.assertFalse(response.context["connect_onboarded"])
         self.assertContains(response, self.LOCKED_SUBTITLE)
 
-    @override_settings(CRUSH_CONNECT_LAUNCHED=False)
+    @override_settings(
+        CRUSH_CONNECT_LAUNCHED=False, CRUSH_CONNECT_CANDIDATE_OPEN=False
+    )
     def test_card_hidden_pre_launch_for_non_staff(self):
         response = self._get()
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "Crush Connect Profile")
         self.assertNotContains(response, self.LOCKED_SUBTITLE)
 
-    @override_settings(CRUSH_CONNECT_LAUNCHED=False)
+    @override_settings(
+        CRUSH_CONNECT_LAUNCHED=False, CRUSH_CONNECT_CANDIDATE_OPEN=False
+    )
     def test_card_visible_pre_launch_for_staff(self):
         _make_member("staff@example.com", is_staff=True)
         self.client.login(username="staff@example.com", password="testpass123")
