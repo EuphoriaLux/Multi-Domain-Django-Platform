@@ -100,10 +100,12 @@
     </a>
     {% endif %}
 
-    {# Premium upsell. Before the public launch, Premium is invite-only: the
+    {% comment %}
+       Premium upsell. Before the public launch, Premium is invite-only: the
        receiver gate reads CrushConnectWaitlist.selected_as_tester, so the CTA
        is "join the waitlist", not the coach directory. Linking the directory
-       here during BETA would loop premium → teaser → back to this page. #}
+       here during BETA would loop premium → teaser → back to this page.
+    {% endcomment %}
     <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 ring-1 ring-gray-200 dark:ring-slate-700 p-6">
         <div class="absolute -right-4 -top-3 w-24 h-24 opacity-50 pointer-events-none">
             {% include "crush_lu/includes/ghost-story-inlove.html" with class="w-full h-full" %}

@@ -409,9 +409,11 @@
                         {% trans "Messages" %}
                     </h3>
 
-                    {# Message list — polls for the other side's replies. connection-chat.js
+                    {% comment %}
+                       Message list — polls for the other side's replies. connection-chat.js
                        pauses the poll while the tab is hidden and keeps the scroll pinned
-                       to the newest message unless the reader scrolled up. #}
+                       to the newest message unless the reader scrolled up.
+                    {% endcomment %}
                     <div id="messages-container" class="space-y-3 mb-6 max-h-96 overflow-y-auto"
                          hx-get="{% url 'crush_lu:connection_messages' connection.id %}"
                          hx-trigger="every 20s, chat:refresh"

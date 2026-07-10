@@ -1,5 +1,6 @@
 {% load i18n %}
-{# Crush Connect waitlist join — shared by the teaser and the catalogue status
+{% comment %}
+   Crush Connect waitlist join — shared by the teaser and the catalogue status
    page. The catalogue page needs it because the teaser's fast-path redirects
    every approved + LuxID member away during the BETA phase, which would
    otherwise leave them no way onto the waitlist that gates the receiver track
@@ -12,7 +13,8 @@
    expressions.
 
    A selected tester sees the ordinary waitlist position like everyone else:
-   `selected_as_tester` is an internal flag and is never surfaced to the member. #}
+   `selected_as_tester` is an internal flag and is never surfaced to the member.
+{% endcomment %}
 <div data-on-waitlist="{{ on_waitlist|yesno:'true,false' }}"
      data-position="{{ waitlist_position|default:'0' }}"
      data-total="{{ total_waitlist }}"
@@ -35,9 +37,11 @@
             <svg class="w-5 h-5 text-crush-purple dark:text-crush-pink" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
         </div>
         <div class="flex-1">
-            {# Pre-join state — hidden once the join succeeds (no reload).
+            {% comment %}
+               Pre-join state — hidden once the join succeeds (no reload).
                x-show="notJoined" (bare getter) instead of "!isJoined": the
-               Alpine CSP build forbids negation/inline expressions. #}
+               Alpine CSP build forbids negation/inline expressions.
+            {% endcomment %}
             <div x-show="notJoined">
                 <p class="text-gray-500 dark:text-gray-400 mb-3">{% trans "Not on the waitlist yet" %}</p>
                 <button type="button" @click="joinWaitlist" class="btn-crush-primary inline-flex items-center gap-2">
