@@ -13,9 +13,11 @@
     2b. Opted in + photo     → green "You're in the Mix" confirmation (launch flag / staff).
 {% endcomment %}
 {% if connect_excluded %}
-{# Coach-excluded members see no strip at all — checked FIRST so an excluded
+{% comment %}
+   Coach-excluded members see no strip at all — checked FIRST so an excluded
    member (even one with no LuxID linked, or who unlinks it after exclusion) is
-   never invited into a Connect flow the onboarding gate would only bounce. #}
+   never invited into a Connect flow the onboarding gate would only bounce.
+{% endcomment %}
 {% elif not has_luxid_connected %}
 {# LuxID catalogue prompt — verified via coach/admin, but not selectable in Crush Connect until LuxID is linked #}
 <div class="flex items-center gap-3 mb-5 p-4 rounded-xl border border-indigo-200 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20">
