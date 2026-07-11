@@ -28,9 +28,9 @@ _site_config_cache = {"config": None, "expires": 0}
 # Profile verification state → navbar progress indicator
 PROFILE_STEP_INFO = {
     "incomplete": (1, _("Complete your profile")),
-    "pending":    (2, _("Verify your identity")),
-    "verified":   (3, _("Profile verified")),
-    "rejected":   (0, _("Profile rejected")),
+    "pending": (2, _("Verify your identity")),
+    "verified": (3, _("Profile verified")),
+    "rejected": (0, _("Profile rejected")),
     # Legacy wizard-step keys kept for graceful handling of cached values
     "not_started": (1, _("Get started")),
     "step1": (1, _("Tell us about you")),
@@ -47,15 +47,20 @@ def crush_user_context(request):
 
     is_ios_native_app = is_ios_native_request(request)
     is_android_native_app = is_android_native_request(request)
-    ios_native_commerce_enabled = getattr(settings, "IOS_NATIVE_COMMERCE_ENABLED", False)
-    android_native_commerce_enabled = getattr(settings, "ANDROID_NATIVE_COMMERCE_ENABLED", False)
+    ios_native_commerce_enabled = getattr(
+        settings, "IOS_NATIVE_COMMERCE_ENABLED", False
+    )
+    android_native_commerce_enabled = getattr(
+        settings, "ANDROID_NATIVE_COMMERCE_ENABLED", False
+    )
     context = {
         "is_ios_native_app": is_ios_native_app,
         "is_android_native_app": is_android_native_app,
         "ios_native_commerce_enabled": ios_native_commerce_enabled,
         "android_native_commerce_enabled": android_native_commerce_enabled,
         "suppress_ios_commerce": is_ios_native_app and not ios_native_commerce_enabled,
-        "suppress_android_commerce": is_android_native_app and not android_native_commerce_enabled,
+        "suppress_android_commerce": is_android_native_app
+        and not android_native_commerce_enabled,
         "suppress_native_commerce": (
             (is_ios_native_app and not ios_native_commerce_enabled)
             or (is_android_native_app and not android_native_commerce_enabled)
@@ -70,6 +75,7 @@ def crush_user_context(request):
         # Facebook) are listed in SOCIALACCOUNT_EMAIL_VERIFIED_PROVIDERS.
         try:
             from allauth.account.models import EmailAddress
+
             context["email_verified"] = EmailAddress.objects.filter(
                 user=request.user, verified=True
             ).exists()
@@ -101,9 +107,7 @@ def crush_user_context(request):
         # the nav/dashboard badge can't advertise a request the page itself hides
         # (defence-in-depth; blocking also declines the underlying connection).
         pending_requests_count = (
-            EventConnection.objects.filter(
-                recipient=request.user, status="pending"
-            )
+            EventConnection.objects.filter(recipient=request.user, status="pending")
             .exclude(requester_id__in=blocked_ids)
             .count()
         )
@@ -154,10 +158,14 @@ def crush_user_context(request):
         context["profile"] = profile
         if profile:
             verification_status = profile.verification_status
-            context["profile_completion_status"] = verification_status  # backward compat alias
+            context["profile_completion_status"] = (
+                verification_status  # backward compat alias
+            )
 
             # Profile step info for navbar progress indicator
-            step_info = PROFILE_STEP_INFO.get(verification_status, (0, _("Get started")))
+            step_info = PROFILE_STEP_INFO.get(
+                verification_status, (0, _("Get started"))
+            )
             context["profile_completion_step"] = step_info[0]
             context["profile_step_label"] = step_info[1]
 
@@ -178,8 +186,11 @@ def crush_user_context(request):
             # those gates migrate off the legacy flag.
             context["profile_is_approved"] = profile.is_approved
 
+            # Expired submissions are closed-out pre-pivot reviews — the navbar
+            # must not resurrect "needs action" / coach labels for them.
             profile_submission = (
                 ProfileSubmission.objects.filter(profile=profile)
+                .exclude(status="expired")
                 .select_related("coach__user")
                 .order_by("-submitted_at")
                 .first()
@@ -225,8 +236,7 @@ def crush_user_context(request):
         upcoming_registrations = [
             reg
             for reg in upcoming_registrations
-            if reg.event.date_time
-            + timedelta(minutes=reg.event.duration_minutes or 0)
+            if reg.event.date_time + timedelta(minutes=reg.event.duration_minutes or 0)
             >= now
         ][:5]
 

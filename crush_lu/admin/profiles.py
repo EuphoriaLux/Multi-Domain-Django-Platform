@@ -1601,6 +1601,7 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
         "bulk_request_revision",
         "bulk_assign_coach",
         "bulk_mark_call_completed",
+        "bulk_expire_to_self_serve",
         "export_submissions_csv",
     ]
     fieldsets = (
@@ -2002,6 +2003,39 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
             _("Exported %(count)s submission(s) to CSV.") % {"count": queryset.count()},
         )
         return response
+
+    @admin.action(description=_("Expire (route to self-serve verification)"))
+    def bulk_expire_to_self_serve(self, request, queryset):
+        """Close stale coach-review submissions; the user keeps their pending
+        profile and gets the self-serve LuxID/event verification flow instead.
+        Same transition as the expire_stale_submissions management command."""
+        expired_count = 0
+        skipped_count = 0
+        for submission in queryset:
+            if submission.status not in ("pending", "recontact_coach"):
+                skipped_count += 1
+                continue
+            previous = submission.status
+            submission.status = "expired"
+            submission.log_system_action(
+                "expired_to_self_serve",
+                actor=f"admin:{request.user.pk}",
+                previous_status=previous,
+            )
+            submission.save(update_fields=["status", "system_actions"])
+            expired_count += 1
+        if expired_count:
+            django_messages.success(
+                request,
+                _("Expired %(count)s submission(s) — users now verify self-serve.")
+                % {"count": expired_count},
+            )
+        if skipped_count:
+            django_messages.warning(
+                request,
+                _("Skipped %(count)s submission(s) not in pending/recontact status.")
+                % {"count": skipped_count},
+            )
 
 
 class CoachSessionAdmin(admin.ModelAdmin):

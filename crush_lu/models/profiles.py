@@ -419,7 +419,10 @@ class CrushProfile(models.Model):
 
     VERIFICATION_STATUS_CHOICES = [
         ("incomplete", _("Incomplete")),  # profile form not done / not submitted
-        ("pending", _("Pending")),  # submitted, awaiting verification (LuxID or coach at event)
+        (
+            "pending",
+            _("Pending"),
+        ),  # submitted, awaiting verification (LuxID or coach at event)
         ("verified", _("Verified")),  # LuxId verified or grandfathered coach-approved
         ("rejected", _("Rejected")),  # admin/system rejected
     ]
@@ -979,7 +982,13 @@ class ProfileSubmission(models.Model):
         ("rejected", _("Rejected")),
         ("revision", _("Needs Revision")),
         ("recontact_coach", _("Recontact Coach Required")),
+        ("expired", _("Expired — routed to self-serve verification")),
     ]
+
+    # States where a coach review is still expected. "expired" is terminal:
+    # the submission is closed and the user verifies via LuxID or at an event
+    # (user-facing surfaces treat an expired submission like no submission).
+    ACTIVE_REVIEW_STATUSES = ("pending", "revision", "recontact_coach")
 
     profile = models.ForeignKey(CrushProfile, on_delete=models.CASCADE)
     coach = models.ForeignKey(

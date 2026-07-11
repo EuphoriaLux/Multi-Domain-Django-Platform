@@ -504,9 +504,7 @@ def delete_photo_draft(request):
             profile.draft_data["step3"].pop(f"photo_{photo_number}_url", None)
 
         profile.save()
-        logger.info(
-            f"Wizard photo {photo_number} deleted for user {request.user.id}"
-        )
+        logger.info(f"Wizard photo {photo_number} deleted for user {request.user.id}")
         return JsonResponse({"success": True, "photo_number": int(photo_number)})
 
     except Exception as e:
@@ -1279,8 +1277,7 @@ def phone_step(request):
     context = {
         "profile": profile,
         "has_luxid_account": has_luxid_account,
-        "luxid_linked_without_phone": has_luxid_account
-        and not profile.phone_verified,
+        "luxid_linked_without_phone": has_luxid_account and not profile.phone_verified,
     }
     context.update(onboarding.stepper_context(current=2))
     return render(request, "crush_lu/onboarding/phone.html", context)
@@ -1342,7 +1339,11 @@ def meet_coach_step(request):
     if profile is None or profile.verification_status not in ("pending", "verified"):
         return redirect("crush_lu:onboarding_entry")
 
-    submission = profile.profilesubmission_set.order_by("-submitted_at").first()
+    submission = (
+        profile.profilesubmission_set.exclude(status="expired")
+        .order_by("-submitted_at")
+        .first()
+    )
     if submission is None or submission.coach is None:
         return redirect("crush_lu:profile_submitted")
 
@@ -1369,7 +1370,11 @@ def screening_call_step(request):
     if profile is None:
         return redirect("crush_lu:onboarding_entry")
 
-    submission = profile.profilesubmission_set.order_by("-submitted_at").first()
+    submission = (
+        profile.profilesubmission_set.exclude(status="expired")
+        .order_by("-submitted_at")
+        .first()
+    )
     approved = submission is not None and submission.status == "approved"
 
     context = {

@@ -330,9 +330,12 @@ def dashboard(request):
         profile = CrushProfile.objects.select_related("assigned_coach__user").get(
             user=request.user
         )
-        # Get latest submission status
+        # Get latest submission status. Expired submissions are closed-out
+        # pre-pivot reviews — the user verifies self-serve, so render them
+        # like a user with no submission at all.
         latest_submission = (
             ProfileSubmission.objects.filter(profile=profile)
+            .exclude(status="expired")
             .order_by("-submitted_at")
             .first()
         )
@@ -353,7 +356,9 @@ def dashboard(request):
         _blocked_ids = blocked_user_ids(request.user)
         connection_count = (
             EventConnection.objects.active_for_user(request.user)
-            .exclude(_Q(requester_id__in=_blocked_ids) | _Q(recipient_id__in=_blocked_ids))
+            .exclude(
+                _Q(requester_id__in=_blocked_ids) | _Q(recipient_id__in=_blocked_ids)
+            )
             .count()
         )
 
@@ -1494,7 +1499,12 @@ def edit_profile(request):
             profile.verification_status = "pending"
             profile.save()
 
-            submission, created = ProfileSubmission.objects.get_or_create(
+            # Look through expired (closed-out pre-pivot) submissions so a
+            # returning user gets a fresh pending review instead of the
+            # expired row being silently reused.
+            submission, created = ProfileSubmission.objects.exclude(
+                status="expired"
+            ).get_or_create(
                 profile=profile, defaults={"status": "pending", "coach": None}
             )
             if created:
@@ -1519,8 +1529,10 @@ def edit_profile(request):
 
     latest_submission = None
     try:
-        latest_submission = ProfileSubmission.objects.filter(profile=profile).latest(
-            "submitted_at"
+        latest_submission = (
+            ProfileSubmission.objects.filter(profile=profile)
+            .exclude(status="expired")
+            .latest("submitted_at")
         )
     except ProfileSubmission.DoesNotExist:
         pass
@@ -1762,9 +1774,12 @@ def profile_submitted(request):
         return redirect("crush_lu:dashboard")
 
     # Submission only exists for the paid coach path or revision re-submits.
-    # For free LuxId verification, submission is None.
+    # For free LuxId verification, submission is None. Expired submissions
+    # (closed-out pre-pivot reviews) render the same way — the self-serve
+    # "Verify your identity" hero, not the old coach-review messaging.
     submission = (
         ProfileSubmission.objects.filter(profile=profile)
+        .exclude(status="expired")
         .order_by("-submitted_at")
         .first()
     )
@@ -1806,9 +1821,7 @@ def profile_submitted(request):
     except Exception:
         # The CTA is optional decoration — a lookup failure must not 500
         # the status page, but it should be visible in the logs.
-        logger.exception(
-            "LuxID CTA lookup failed for user pk=%s", request.user.pk
-        )
+        logger.exception("LuxID CTA lookup failed for user pk=%s", request.user.pk)
 
     if has_luxid_account and profile.verification_status == "pending":
         # Lazy fix-up: user already has LuxId but their submitted profile
@@ -1991,8 +2004,10 @@ def api_submission_status(request):
     """JSON endpoint for polling submission status changes."""
     try:
         profile = CrushProfile.objects.get(user=request.user)
-        submission = ProfileSubmission.objects.filter(profile=profile).latest(
-            "submitted_at"
+        submission = (
+            ProfileSubmission.objects.filter(profile=profile)
+            .exclude(status="expired")
+            .latest("submitted_at")
         )
     except (CrushProfile.DoesNotExist, ProfileSubmission.DoesNotExist):
         return JsonResponse({"error": "No submission found"}, status=404)
@@ -2036,8 +2051,10 @@ def api_submission_note(request):
     """Allow candidate to send a one-time note to their coach during review."""
     try:
         profile = CrushProfile.objects.get(user=request.user)
-        submission = ProfileSubmission.objects.filter(profile=profile).latest(
-            "submitted_at"
+        submission = (
+            ProfileSubmission.objects.filter(profile=profile)
+            .exclude(status="expired")
+            .latest("submitted_at")
         )
     except (CrushProfile.DoesNotExist, ProfileSubmission.DoesNotExist):
         return JsonResponse({"error": "No submission found"}, status=404)
