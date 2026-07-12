@@ -16,6 +16,7 @@ from .crush_connect import *
 from .crush_connect_questions import *
 from .matching import *
 from .quiz import *
+from .crush_cache import *
 from .changelog import *
 from .notifications import *
 from .metrics import *
