@@ -40,8 +40,10 @@
 
         {% if show_map %}
         <div id="cache-map" class="mb-4 h-64 w-full rounded-xl border border-gray-200 dark:border-gray-700"></div>
-        {# Map data © OpenStreetMap contributors. Tile usage is fine at event
-           scale; switch to MapTiler/Stadia free tier if this becomes daily traffic. #}
+        {% comment %}
+        Map data © OpenStreetMap contributors. Tile usage is fine at event
+        scale; switch to MapTiler/Stadia free tier if this becomes daily traffic.
+        {% endcomment %}
         {% endif %}
 
         {% include "crush_lu/cache/_play_content.html" %}
