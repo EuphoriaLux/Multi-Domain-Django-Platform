@@ -32,7 +32,7 @@ class PermissionsPolicyMiddleware:
         "encrypted-media=()",
         "fullscreen=(self)",  # Allow fullscreen on same origin
         "gamepad=()",
-        "geolocation=()",  # Not used - disable for privacy
+        "geolocation=(self)",  # Required for Crush Cache scavenger hunts
         "gyroscope=()",
         "hid=()",
         "identity-credentials-get=()",
