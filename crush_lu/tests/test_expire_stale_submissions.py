@@ -29,9 +29,11 @@ from crush_lu.models.profiles import (
 
 User = get_user_model()
 
-# Comfortably before the default PIVOT_SWAP_AT cutoff (2026-07-11 21:10 UTC),
-# so "days_ago" arithmetic in the tests is unambiguous either side of it.
-STALE_DAYS = 60
+# A fixed timestamp comfortably before the default PIVOT_SWAP_AT cutoff
+# (2026-07-11 21:10 UTC). Fixed rather than now-relative so the "stale"
+# fixtures stay on the pre-pivot side of the fixed cutoff no matter when the
+# suite runs.
+STALE_SUBMITTED_AT = datetime(2026, 5, 1, 12, 0, tzinfo=dt_tz.utc)
 
 
 def make_profile(username, verification_status="pending"):
@@ -55,14 +57,21 @@ def make_profile(username, verification_status="pending"):
     return user, profile
 
 
-def make_submission(profile, status, days_ago=STALE_DAYS, **fields):
-    """Create a submission back-dated by ``days_ago`` (submitted_at is
-    auto_now_add, so it must be rewritten with a queryset update)."""
+def make_submission(profile, status, days_ago=None, **fields):
+    """Create a submission back-dated to the fixed pre-pivot
+    STALE_SUBMITTED_AT, or by ``days_ago`` from now when given
+    (submitted_at is auto_now_add, so it must be rewritten with a
+    queryset update)."""
     submission = ProfileSubmission.objects.create(
         profile=profile, status=status, **fields
     )
+    submitted_at = (
+        timezone.now() - timedelta(days=days_ago)
+        if days_ago is not None
+        else STALE_SUBMITTED_AT
+    )
     ProfileSubmission.objects.filter(pk=submission.pk).update(
-        submitted_at=timezone.now() - timedelta(days=days_ago)
+        submitted_at=submitted_at
     )
     submission.refresh_from_db()
     return submission
