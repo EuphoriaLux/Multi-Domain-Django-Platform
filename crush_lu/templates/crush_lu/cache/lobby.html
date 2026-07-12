@@ -117,4 +117,33 @@
         {% endif %}
     </div>
 </div>
+
+{% if membership and hunt.status == 'draft' %}
+<script>
+    (function() {
+        var huntId = "{{ hunt.id }}";
+        var ws;
+        var retryCount = 0;
+        function connect() {
+            var protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+            var url = protocol + "//" + window.location.host + "/ws/cache/" + huntId + "/";
+            ws = new WebSocket(url);
+            ws.onmessage = function (event) {
+                var msg;
+                try { msg = JSON.parse(event.data); } catch (e) { return; }
+                if (msg.type === "status" && msg.data && msg.data.status !== "draft") {
+                    window.location.reload();
+                }
+            };
+            ws.onclose = function () {
+                if (retryCount < 10) {
+                    retryCount++;
+                    setTimeout(connect, 2000 * retryCount);
+                }
+            };
+        }
+        connect();
+    })();
+</script>
+{% endif %}
 {% endblock %}

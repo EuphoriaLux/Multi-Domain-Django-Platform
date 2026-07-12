@@ -486,7 +486,9 @@ class CacheTeam(models.Model):
         return f"{self.name} ({self.hunt.event})"
 
     def member_count(self):
-        return self.members.count()
+        return self.members.filter(
+            registration__status__in=["confirmed", "attended"]
+        ).count()
 
 
 class CacheTeamMember(models.Model):

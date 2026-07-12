@@ -253,7 +253,7 @@ def cache_lobby(request, event_id):
     registration = _get_registration(hunt, request.user)
     membership = _get_membership(hunt, request.user) if registration else None
 
-    if membership and hunt.is_live:
+    if membership and (hunt.is_live or hunt.status == "finished"):
         return redirect("crush_lu:cache_play", event_id=event_id)
 
     teams = hunt.teams.prefetch_related(
@@ -314,7 +314,7 @@ def cache_join_team(request, event_id):
                 if team is None:
                     messages.error(request, _("No team found with that code."))
                     return redirect("crush_lu:cache_lobby", event_id=event_id)
-                if team.members.count() >= hunt.team_size_max:
+                if team.member_count() >= hunt.team_size_max:
                     messages.error(request, _("That team is already full."))
                     return redirect("crush_lu:cache_lobby", event_id=event_id)
             elif team_name:
@@ -351,6 +351,10 @@ def cache_leave_team(request, event_id):
 
     if hunt.status != "draft":
         messages.error(request, _("Teams are locked once the hunt has started."))
+        return redirect("crush_lu:cache_lobby", event_id=event_id)
+
+    if not hunt.allow_self_join:
+        messages.error(request, _("Teams are formed by the coach for this hunt."))
         return redirect("crush_lu:cache_lobby", event_id=event_id)
 
     membership = _get_membership(hunt, request.user)
@@ -491,11 +495,17 @@ def cache_position_api(request, event_id):
     if not (-90 <= lat <= 90 and -180 <= lng <= 180 and accuracy >= 0):
         return JsonResponse({"ok": False, "error": "bad_payload"}, status=400)
 
+    if not hunt.is_live:
+        return JsonResponse({"ok": False, "error": "not_live"}, status=403)
+
+    progress = _ensure_progress(hunt, membership.team)
+    if progress.is_finished:
+        return JsonResponse({"ok": False, "error": "finished"}, status=403)
+
     if accuracy > MAX_ACCEPTED_ACCURACY_M:
         return JsonResponse({"ok": True, "accepted": False, "reason": "accuracy"})
 
     now = timezone.now()
-    progress = _ensure_progress(hunt, membership.team)
     CacheTeamProgress.objects.filter(pk=progress.pk).update(
         last_lat=lat, last_lng=lng, last_accuracy=accuracy, last_position_at=now
     )
@@ -748,7 +758,7 @@ def cache_state_api(request, event_id):
 # =============================================================================
 
 
-@coach_required
+@crush_login_required
 def cache_coach_dashboard(request, event_id):
     """Live control room: readiness, start/finish, leaderboard, team map."""
     hunt = _get_hunt_or_404(event_id)
@@ -808,7 +818,7 @@ def cache_coach_dashboard(request, event_id):
     )
 
 
-@coach_required
+@crush_login_required
 @require_POST
 def cache_coach_start(request, event_id):
     """Start the hunt: draft → live, initialize every team's progress."""
@@ -856,7 +866,7 @@ def cache_coach_start(request, event_id):
     return redirect("crush_lu:cache_coach_dashboard", event_id=event_id)
 
 
-@coach_required
+@crush_login_required
 @require_POST
 def cache_coach_finish(request, event_id):
     """Finish the hunt: live → finished. Standings freeze as they are."""
@@ -887,7 +897,7 @@ def cache_coach_finish(request, event_id):
     return redirect("crush_lu:cache_coach_dashboard", event_id=event_id)
 
 
-@coach_required
+@crush_login_required
 @require_POST
 def cache_coach_auto_teams(request, event_id):
     """Split checked-in attendees without a team into teams of ≤ max size."""
@@ -945,7 +955,7 @@ def cache_coach_auto_teams(request, event_id):
     return redirect("crush_lu:cache_coach_dashboard", event_id=event_id)
 
 
-@coach_required
+@crush_login_required
 def cache_coach_state_api(request, event_id):
     """Polling fallback for the coach dashboard (leaderboard + positions)."""
     hunt = _get_hunt_or_404(event_id)

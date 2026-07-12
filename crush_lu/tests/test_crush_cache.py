@@ -853,3 +853,125 @@ class TestReviewFixes:
         payload = hunt.get_serialized_leaderboard()
         json.dumps(payload)  # must not raise
         assert payload[0]["finished_at"] is not None
+
+
+@pytest.mark.django_db
+class TestGeminiReviewFixes:
+    def test_admin_readiness_display_on_add(self):
+        from crush_lu.admin.crush_cache import CacheHuntAdmin
+        from django.contrib.admin.sites import AdminSite
+        admin_site = AdminSite()
+        model_admin = CacheHuntAdmin(CacheHunt, admin_site)
+        res = model_admin.readiness_check_display(None)
+        assert "saving" in str(res)
+
+    def test_capacity_check_ignores_cancelled(self, client, hunt, team, teammate):
+        # Hunt max size is 2. Currently, team has 1 member (player).
+        # Add teammate as a second member:
+        EventRegistration.objects.create(event=hunt.event, user=teammate, status="confirmed")
+        client.force_login(teammate)
+        url = reverse("crush_lu:cache_join_team", args=[hunt.event_id])
+        client.post(url, {"join_code": team.join_code})
+        assert team.member_count() == 2
+
+        # A third user tries to join, should fail because team is full:
+        third_user = User.objects.create_user(
+            username="third@test.com", email="third@test.com", password="x"
+        )
+        _grant_consent(third_user)
+        EventRegistration.objects.create(event=hunt.event, user=third_user, status="confirmed")
+        client.force_login(third_user)
+        response = client.post(url, {"join_code": team.join_code})
+        assert team.member_count() == 2
+
+        # Cancel the second member's registration:
+        reg_teammate = EventRegistration.objects.get(event=hunt.event, user=teammate)
+        reg_teammate.status = "cancelled"
+        reg_teammate.save()
+        assert team.member_count() == 1
+
+        # Now the third user tries to join again, should succeed!
+        client.force_login(third_user)
+        response = client.post(url, {"join_code": team.join_code})
+        assert response.status_code == 302
+        assert team.member_count() == 2
+
+    def test_leave_team_blocked_on_allow_self_join_false(self, client, hunt, team, player):
+        hunt.allow_self_join = False
+        hunt.save()
+        client.force_login(player)
+        url = reverse("crush_lu:cache_leave_team", args=[hunt.event_id])
+        response = client.post(url)
+        assert response.status_code == 302
+        assert team.member_count() == 1  # Still in the team
+
+    def test_position_api_not_live_or_finished(self, client, hunt, team, player):
+        client.force_login(player)
+        url = reverse("crush_lu:cache_position_api", args=[hunt.event_id])
+        
+        # 1. Hunt is draft (not live) -> should fail
+        response = client.post(
+            url,
+            json.dumps({"lat": GELLE_FRA[0], "lng": GELLE_FRA[1], "accuracy": 10}),
+            content_type="application/json",
+        )
+        assert response.status_code == 403
+        
+        # Start hunt, make team finished
+        _start_hunt(hunt)
+        progress = CacheTeamProgress.objects.get(team=team)
+        progress.is_finished = True
+        progress.save()
+
+        # 2. Team is finished -> should fail
+        response = client.post(
+            url,
+            json.dumps({"lat": GELLE_FRA[0], "lng": GELLE_FRA[1], "accuracy": 10}),
+            content_type="application/json",
+        )
+        assert response.status_code == 403
+
+    def test_lobby_redirects_finished(self, client, hunt, team, player):
+        hunt.status = "finished"
+        hunt.save()
+        client.force_login(player)
+        url = reverse("crush_lu:cache_lobby", args=[hunt.event_id])
+        response = client.get(url)
+        assert response.status_code == 302
+        assert reverse("crush_lu:cache_play", args=[hunt.event_id]) in response.url
+
+    def test_non_coach_creator_can_manage(self, client, hunt, stations, team):
+        # Creator is coach_user by default. Let's create a staff user who is NOT a coach.
+        creator = User.objects.create_user(
+            username="creator@test.com", email="creator@test.com", password="x", is_staff=True
+        )
+        _grant_consent(creator)
+        hunt.created_by = creator
+        hunt.save()
+
+        client.force_login(creator)
+        response = client.get(reverse("crush_lu:cache_coach_dashboard", args=[hunt.event_id]))
+        assert response.status_code == 200
+
+        response = client.post(reverse("crush_lu:cache_coach_start", args=[hunt.event_id]))
+        assert response.status_code == 302
+        hunt.refresh_from_db()
+        assert hunt.status == "live"
+
+    def test_cache_join_available_requires_hunt(self, db):
+        event = MeetupEvent.objects.create(
+            title="Temp Hunt",
+            event_type="crush_cache",
+            date_time=timezone.now() + timedelta(hours=1),
+            registration_deadline=timezone.now() + timedelta(minutes=30),
+            location="Luxembourg City",
+            is_published=True,
+        )
+        assert event.cache_join_available is False
+
+        # Create hunt
+        creator = User.objects.create_user(
+            username="temp_creator@test.com", email="temp_creator@test.com", password="x", is_staff=True
+        )
+        CacheHunt.objects.create(event=event, title="Temp Hunt", created_by=creator)
+        assert event.cache_join_available is True

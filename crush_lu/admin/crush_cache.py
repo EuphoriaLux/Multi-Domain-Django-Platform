@@ -161,6 +161,8 @@ class CacheHuntAdmin(AutoTranslateMixin, TranslationAdmin):
     station_count.short_description = _("Stations")
 
     def readiness_check_display(self, obj):
+        if obj is None or not obj.pk:
+            return _("Will be checked after saving.")
         checks = obj.readiness_check()
         rows = format_html_join(
             "\n",
