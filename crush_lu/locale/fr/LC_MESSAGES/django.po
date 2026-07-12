@@ -22109,11 +22109,11 @@ msgstr "Complétez votre profil"
 
 #: templates/crush_lu/emails/welcome.html:96
 msgid ""
-"Get verified — come to an event and a coach verifies you in person, or "
-"connect your LuxID"
+"Get verified — connect your LuxID in seconds, or come to an event and a "
+"coach verifies you in person"
 msgstr ""
-"Faites-vous vérifier — venez à un événement et un coach vous vérifie en "
-"personne, ou connectez votre LuxID"
+"Faites-vous vérifier — connectez votre LuxID en quelques secondes, ou venez "
+"à un événement et un coach vous vérifie en personne"
 
 #: templates/crush_lu/emails/welcome.html:97
 msgid "Meet people in real life at our speed dating & social events"
