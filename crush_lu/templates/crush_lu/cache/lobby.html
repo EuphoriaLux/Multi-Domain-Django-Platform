@@ -1,0 +1,120 @@
+{% extends "crush_lu/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Crush Cache" %} - {{ event.title }}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen pt-4 pb-16">
+    <div class="mx-auto max-w-lg px-4">
+
+        <div class="mb-6 text-center">
+            <p class="text-sm font-semibold uppercase tracking-wide text-purple-500">{% trans "Crush Cache" %}</p>
+            <h1 class="text-2xl font-bold">{{ hunt.title }}</h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ event.title }}</p>
+            {% if hunt.description %}
+            <p class="mt-3 text-gray-600 dark:text-gray-300">{{ hunt.description }}</p>
+            {% endif %}
+        </div>
+
+        {% if hunt.status == 'live' %}
+        <div class="mb-4 rounded-lg border border-green-500 bg-green-50 dark:bg-green-900/30 px-4 py-3 text-center text-green-700 dark:text-green-300 font-semibold">
+            {% trans "The hunt is live!" %}
+        </div>
+        {% elif hunt.status == 'finished' %}
+        <div class="mb-4 rounded-lg border border-gray-400 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-center text-gray-600 dark:text-gray-300">
+            {% trans "This hunt has finished." %}
+        </div>
+        {% endif %}
+
+        {% if not registration %}
+        <div class="rounded-xl border border-amber-400 bg-amber-50 dark:bg-amber-900/30 p-6 text-center">
+            <p class="text-amber-800 dark:text-amber-200">
+                {% trans "You need to be registered for this event to play." %}
+            </p>
+            <a href="{% url 'crush_lu:event_detail' event.id %}" class="btn-crush-primary mt-4 inline-block px-6 py-2">
+                {% trans "View Event" %}
+            </a>
+        </div>
+        {% else %}
+
+        {% if membership %}
+        <div class="rounded-xl border-2 p-6 text-center" style="border-color: {{ membership.team.color }}">
+            <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Your team" %}</p>
+            <h2 class="text-xl font-bold" style="color: {{ membership.team.color }}">{{ membership.team.name }}</h2>
+            <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                {% trans "Join code:" %} <span class="font-mono font-bold tracking-widest">{{ membership.team.join_code }}</span>
+            </p>
+            <div class="mt-3 flex flex-wrap justify-center gap-2">
+                {% for member in membership.team.members.all %}
+                <span class="rounded-full bg-gray-100 dark:bg-gray-700 px-3 py-1 text-sm">
+                    {{ member.registration.user.crushprofile.display_name|default:_("Attendee") }}
+                </span>
+                {% endfor %}
+            </div>
+
+            {% if hunt.status == 'live' %}
+            <a href="{% url 'crush_lu:cache_play' event.id %}" class="btn-crush-primary mt-5 inline-block w-full px-6 py-3">
+                {% trans "Start Playing" %}
+            </a>
+            {% elif hunt.status == 'draft' %}
+            <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">{% trans "Waiting for the coach to start the hunt…" %}</p>
+            <form method="post" action="{% url 'crush_lu:cache_leave_team' event.id %}" class="mt-3">
+                {% csrf_token %}
+                <button type="submit" class="text-sm text-red-500 underline">{% trans "Leave team" %}</button>
+            </form>
+            {% endif %}
+        </div>
+        {% else %}
+
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+            <h2 class="mb-4 text-lg font-semibold">{% trans "Join a team" %}</h2>
+            <form method="post" action="{% url 'crush_lu:cache_join_team' event.id %}" class="flex gap-2">
+                {% csrf_token %}
+                <input type="text" name="join_code" maxlength="6" autocomplete="off"
+                       placeholder="{% trans 'Team code' %}"
+                       class="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 font-mono uppercase tracking-widest">
+                <button type="submit" class="btn-crush-primary px-5 py-2">{% trans "Join" %}</button>
+            </form>
+
+            {% if hunt.allow_self_join %}
+            <div class="my-4 text-center text-sm text-gray-400">{% trans "or" %}</div>
+            <form method="post" action="{% url 'crush_lu:cache_join_team' event.id %}" class="flex gap-2">
+                {% csrf_token %}
+                <input type="text" name="team_name" maxlength="100"
+                       placeholder="{% trans 'New team name' %}"
+                       class="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2">
+                <button type="submit" class="btn-crush-primary px-5 py-2">{% trans "Create" %}</button>
+            </form>
+            {% else %}
+            <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">
+                {% trans "Your coach will assign you to a team." %}
+            </p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if teams %}
+        <div class="mt-6">
+            <h3 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                {% trans "Teams" %} ({{ teams|length }})
+            </h3>
+            <div class="space-y-2">
+                {% for team in teams %}
+                <div class="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-2">
+                    <div class="flex items-center gap-2">
+                        <span class="inline-block h-3 w-3 rounded-full" style="background: {{ team.color }}"></span>
+                        <span class="font-medium">{{ team.name }}</span>
+                    </div>
+                    <span class="text-sm text-gray-500 dark:text-gray-400">
+                        {{ team.members.count }}/{{ hunt.team_size_max }}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

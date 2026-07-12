@@ -484,6 +484,10 @@ CRUSH_CONNECT_CANDIDATE_OPEN = _env_bool("CRUSH_CONNECT_CANDIDATE_OPEN", default
 # fully restore the old premium flow after the beta — no code change needed.
 PREMIUM_REDIRECTS_TO_BETA = _env_bool("PREMIUM_REDIRECTS_TO_BETA", default=True)
 
+# Crush Cache (Crush.lu) — GPS + QR scavenger hunt played at events. When False,
+# all cache routes 404 and the event page hides the hunt button.
+CRUSH_CACHE_ENABLED = _env_bool("CRUSH_CACHE_ENABLED", default=False)
+
 # Event Check-In Configuration
 EVENT_CHECKIN_WINDOW_HOURS = int(os.getenv("EVENT_CHECKIN_WINDOW_HOURS", "12"))
 

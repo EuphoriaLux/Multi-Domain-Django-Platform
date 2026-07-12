@@ -60,6 +60,7 @@ class MeetupEvent(models.Model):
         ("activity", "Activity Meetup"),
         ("themed", "Themed Event"),
         ("quiz_night", "Quiz Night"),
+        ("crush_cache", "Crush Cache Hunt"),
     ]
 
     title = models.CharField(max_length=200)
@@ -473,6 +474,14 @@ class MeetupEvent(models.Model):
         """Quiz join button visible during event + 2 days after."""
         return (
             self.event_type == "quiz_night"
+            and timezone.now() <= self.end_time + timedelta(days=2)
+        )
+
+    @property
+    def cache_join_available(self):
+        """Crush Cache lobby button visible during event + 2 days after."""
+        return (
+            self.event_type == "crush_cache"
             and timezone.now() <= self.end_time + timedelta(days=2)
         )
 

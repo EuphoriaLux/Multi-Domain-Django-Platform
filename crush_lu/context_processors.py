@@ -50,6 +50,7 @@ def crush_user_context(request):
     ios_native_commerce_enabled = getattr(settings, "IOS_NATIVE_COMMERCE_ENABLED", False)
     android_native_commerce_enabled = getattr(settings, "ANDROID_NATIVE_COMMERCE_ENABLED", False)
     context = {
+        "crush_cache_enabled": getattr(settings, "CRUSH_CACHE_ENABLED", False),
         "is_ios_native_app": is_ios_native_app,
         "is_android_native_app": is_android_native_app,
         "ios_native_commerce_enabled": ios_native_commerce_enabled,
