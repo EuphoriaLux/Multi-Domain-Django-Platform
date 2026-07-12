@@ -2009,11 +2009,24 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
         """Close stale coach-review submissions; the user keeps their pending
         profile and gets the self-serve LuxID/event verification flow instead.
         Same transition as the expire_stale_submissions management command."""
+        now = timezone.now()
         expired_count = 0
-        skipped_count = 0
+        skipped_status = 0
+        skipped_protected = 0
         for submission in queryset:
             if submission.status not in ("pending", "recontact_coach"):
-                skipped_count += 1
+                skipped_status += 1
+                continue
+            # Same safety guards as the management command: paused submissions
+            # have their own reactivation story, and a future booked screening
+            # slot means a coach call is genuinely scheduled.
+            if (
+                submission.is_paused
+                or submission.booked_slots.filter(
+                    status="booked", start_at__gte=now
+                ).exists()
+            ):
+                skipped_protected += 1
                 continue
             previous = submission.status
             submission.status = "expired"
@@ -2030,11 +2043,20 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
                 _("Expired %(count)s submission(s) — users now verify self-serve.")
                 % {"count": expired_count},
             )
-        if skipped_count:
+        if skipped_status:
             django_messages.warning(
                 request,
                 _("Skipped %(count)s submission(s) not in pending/recontact status.")
-                % {"count": skipped_count},
+                % {"count": skipped_status},
+            )
+        if skipped_protected:
+            django_messages.warning(
+                request,
+                _(
+                    "Skipped %(count)s submission(s) that are paused or hold a "
+                    "future booked screening call."
+                )
+                % {"count": skipped_protected},
             )
 
 

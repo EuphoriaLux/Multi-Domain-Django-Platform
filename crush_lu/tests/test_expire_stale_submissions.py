@@ -9,7 +9,7 @@ the user exactly like a fresh post-pivot pending signup — the "Verify your
 identity" hero, no dead-end coach messaging, no navbar "needs action" flag.
 """
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone as dt_tz
 from io import StringIO
 
 from django.contrib.auth import get_user_model
@@ -29,8 +29,8 @@ from crush_lu.models.profiles import (
 
 User = get_user_model()
 
-# One day after the default PIVOT_SWAP_DATE cutoff (2026-07-11), so
-# "days_ago" arithmetic in the tests is unambiguous either side of it.
+# Comfortably before the default PIVOT_SWAP_AT cutoff (2026-07-11 21:10 UTC),
+# so "days_ago" arithmetic in the tests is unambiguous either side of it.
 STALE_DAYS = 60
 
 
@@ -145,6 +145,28 @@ class ExpireStaleSubmissionsCommandTests(TestCase):
         self.assertEqual(submission.status, "pending")
         self.assertIn("skipped (future booked slot): 1", output)
 
+    def test_swap_day_submission_before_the_swap_is_included(self):
+        """The default cutoff is the swap moment (21:10 UTC), not local
+        midnight — submissions from earlier on swap day were still created
+        under the old coach-review flow and must be cleaned up too."""
+        _, p1 = make_profile("swapmorning")
+        _, p2 = make_profile("swapevening")
+        morning = make_submission(p1, "pending")
+        evening = make_submission(p2, "pending")
+        ProfileSubmission.objects.filter(pk=morning.pk).update(
+            submitted_at=datetime(2026, 7, 11, 12, 0, tzinfo=dt_tz.utc)
+        )
+        ProfileSubmission.objects.filter(pk=evening.pk).update(
+            submitted_at=datetime(2026, 7, 11, 22, 0, tzinfo=dt_tz.utc)
+        )
+
+        run_command()
+
+        morning.refresh_from_db()
+        evening.refresh_from_db()
+        self.assertEqual(morning.status, "expired")
+        self.assertEqual(evening.status, "pending")
+
     def test_past_booked_slot_does_not_block_expiry(self):
         _, profile = make_profile("pastslot")
         submission = make_submission(profile, "pending")
@@ -165,6 +187,38 @@ class ExpireStaleSubmissionsCommandTests(TestCase):
         submission.refresh_from_db()
         self.assertEqual(submission.status, "expired")
 
+    def test_unrelated_future_slot_does_not_shield_submission(self):
+        """Regression: exclude() matches multiple conditions on a multi-valued
+        relation against possibly *different* rows — a past booked slot plus a
+        separate future non-booked slot must not shield the submission (and
+        must not be silently dropped without appearing in the skip count)."""
+        _, profile = make_profile("splitslots")
+        submission = make_submission(profile, "pending")
+        coach_user = User.objects.create_user(
+            username="coach3@example.com", email="coach3@example.com", password="x"
+        )
+        coach = CrushCoach.objects.create(user=coach_user, is_active=True)
+        ScreeningSlot.objects.create(
+            coach=coach,
+            submission=submission,
+            status="booked",
+            start_at=timezone.now() - timedelta(days=30),
+            end_at=timezone.now() - timedelta(days=30) + timedelta(minutes=30),
+        )
+        ScreeningSlot.objects.create(
+            coach=coach,
+            submission=submission,
+            status="available",
+            start_at=timezone.now() + timedelta(days=2),
+            end_at=timezone.now() + timedelta(days=2, minutes=30),
+        )
+
+        output = run_command()
+
+        submission.refresh_from_db()
+        self.assertEqual(submission.status, "expired")
+        self.assertIn("skipped (future booked slot): 0", output)
+
     def test_dry_run_changes_nothing(self):
         _, profile = make_profile("dryrun")
         submission = make_submission(profile, "recontact_coach")
@@ -180,6 +234,16 @@ class ExpireStaleSubmissionsCommandTests(TestCase):
         _, profile = make_profile("cutoff")
         submission = make_submission(profile, "pending", days_ago=5)
         cutoff = (timezone.now() - timedelta(days=2)).date().isoformat()
+
+        run_command("--before", cutoff)
+
+        submission.refresh_from_db()
+        self.assertEqual(submission.status, "expired")
+
+    def test_custom_cutoff_accepts_datetime(self):
+        _, profile = make_profile("dtcutoff")
+        submission = make_submission(profile, "pending", days_ago=5)
+        cutoff = (timezone.now() - timedelta(days=2)).isoformat()
 
         run_command("--before", cutoff)
 
@@ -289,3 +353,67 @@ class BulkExpireAdminActionTests(TestCase):
         self.assertEqual(approved.status, "approved")
         self.assertEqual(stale.system_actions[-1]["type"], "expired_to_self_serve")
         self.assertEqual(stale.system_actions[-1]["actor"], f"admin:{admin_user.pk}")
+
+    def test_admin_action_skips_paused_and_future_booked(self):
+        """The admin action applies the same safety guards as the command:
+        paused submissions and future booked screening calls are preserved."""
+        from django.contrib import admin as django_admin
+        from django.contrib.messages.storage.fallback import FallbackStorage
+
+        from crush_lu.admin.profiles import ProfileSubmissionAdmin
+
+        _, p1 = make_profile("adminpaused")
+        _, p2 = make_profile("adminbooked")
+        paused = make_submission(p1, "pending", is_paused=True)
+        booked = make_submission(p2, "recontact_coach")
+        coach_user = User.objects.create_user(
+            username="coach4@example.com", email="coach4@example.com", password="x"
+        )
+        coach = CrushCoach.objects.create(user=coach_user, is_active=True)
+        ScreeningSlot.objects.create(
+            coach=coach,
+            submission=booked,
+            status="booked",
+            start_at=timezone.now() + timedelta(days=1),
+            end_at=timezone.now() + timedelta(days=1, minutes=30),
+        )
+
+        admin_user = User.objects.create_superuser(
+            username="admin2@example.com", email="admin2@example.com", password="x"
+        )
+        factory = RequestFactory()
+        request = factory.post("/admin/")
+        request.user = admin_user
+        request.session = self.client.session
+        request._messages = FallbackStorage(request)
+
+        model_admin = ProfileSubmissionAdmin(ProfileSubmission, django_admin.site)
+        model_admin.bulk_expire_to_self_serve(
+            request, ProfileSubmission.objects.filter(pk__in=[paused.pk, booked.pk])
+        )
+
+        paused.refresh_from_db()
+        booked.refresh_from_db()
+        self.assertEqual(paused.status, "pending")
+        self.assertEqual(booked.status, "recontact_coach")
+
+
+class ProfileReviewFormTests(TestCase):
+    """Coaches must never be offered the system-only 'expired' status."""
+
+    def test_expired_not_offered_and_rejected(self):
+        from crush_lu.forms import ProfileReviewForm
+
+        form = ProfileReviewForm()
+        self.assertNotIn(
+            "expired", [value for value, label in form.fields["status"].choices]
+        )
+
+        _, profile = make_profile("coachform")
+        submission = make_submission(profile, "pending")
+        form = ProfileReviewForm(
+            data={"status": "expired", "coach_notes": "", "feedback_to_user": ""},
+            instance=submission,
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("status", form.errors)

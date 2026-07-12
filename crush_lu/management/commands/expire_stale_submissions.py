@@ -20,8 +20,9 @@ Usage:
     # Expire everything submitted before the pivot swap (default cutoff)
     python manage.py expire_stale_submissions
 
-    # Custom cutoff date (submissions strictly before this date, local midnight)
+    # Custom cutoff: a date (local midnight) or an ISO datetime
     python manage.py expire_stale_submissions --before 2026-07-01
+    python manage.py expire_stale_submissions --before 2026-07-11T21:10:42+00:00
 
 Safety: paused submissions (own reactivation story) and submissions holding a
 future booked screening slot are always skipped. Approved / rejected /
@@ -34,12 +35,15 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.db.models import Count
 from django.utils import timezone
-from django.utils.dateparse import parse_date
+from django.utils.dateparse import parse_date, parse_datetime
 
 from crush_lu.models import ProfileSubmission
 
-# The production slot swap that shipped the verification pivot.
-PIVOT_SWAP_DATE = "2026-07-11"
+# The production slot swap that shipped the verification pivot — the swap's
+# "Succeeded" event in the Azure activity log. Submissions made earlier that
+# day were still created under the old coach-review flow, so the cutoff is
+# the swap moment itself, not the day's midnight.
+PIVOT_SWAP_AT = "2026-07-11T21:10:42+00:00"
 
 
 class Command(BaseCommand):
@@ -51,11 +55,11 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument(
             "--before",
-            default=PIVOT_SWAP_DATE,
+            default=PIVOT_SWAP_AT,
             help=(
-                "Only expire submissions submitted strictly before this date "
-                f"(YYYY-MM-DD, local midnight). Default: {PIVOT_SWAP_DATE}, "
-                "the pivot swap date."
+                "Only expire submissions submitted strictly before this cutoff: "
+                "a YYYY-MM-DD date (local midnight) or an ISO datetime. "
+                f"Default: {PIVOT_SWAP_AT}, the moment the pivot swap completed."
             ),
         )
         parser.add_argument(
@@ -65,14 +69,17 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        cutoff_date = parse_date(options["before"])
-        if cutoff_date is None:
-            raise CommandError(
-                f"--before must be a YYYY-MM-DD date, got {options['before']!r}"
-            )
-        cutoff = timezone.make_aware(
-            datetime.datetime.combine(cutoff_date, datetime.time.min)
-        )
+        cutoff = parse_datetime(options["before"])
+        if cutoff is None:
+            cutoff_date = parse_date(options["before"])
+            if cutoff_date is None:
+                raise CommandError(
+                    "--before must be a YYYY-MM-DD date or an ISO datetime, "
+                    f"got {options['before']!r}"
+                )
+            cutoff = datetime.datetime.combine(cutoff_date, datetime.time.min)
+        if timezone.is_naive(cutoff):
+            cutoff = timezone.make_aware(cutoff)
         now = timezone.now()
         dry_run = options["dry_run"]
 
@@ -84,14 +91,16 @@ class Command(BaseCommand):
         skipped_paused = candidates.filter(is_paused=True).count()
         candidates = candidates.exclude(is_paused=True)
         # A future booked screening call means a coach interaction is genuinely
-        # scheduled — both kwargs apply to the same slot row, so this only
-        # skips submissions with an upcoming *booked* slot.
-        future_booked = {
-            "booked_slots__status": "booked",
-            "booked_slots__start_at__gte": now,
-        }
-        skipped_booked = candidates.filter(**future_booked).count()
-        candidates = candidates.exclude(**future_booked)
+        # scheduled. filter() binds both kwargs to the same slot row, but
+        # exclude() would not (it matches the conditions on possibly different
+        # slots), so resolve the matching submissions via filter() and exclude
+        # by pk.
+        future_booked_pks = candidates.filter(
+            booked_slots__status="booked",
+            booked_slots__start_at__gte=now,
+        ).values("pk")
+        skipped_booked = future_booked_pks.distinct().count()
+        candidates = candidates.exclude(pk__in=future_booked_pks)
 
         by_status = {
             row["status"]: row["n"]
