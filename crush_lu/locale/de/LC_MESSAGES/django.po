@@ -22037,11 +22037,11 @@ msgstr "Vervollständige dein Profil (dauert 5-10 Minuten)"
 
 #: templates/crush_lu/emails/welcome.html:96
 msgid ""
-"Get verified — come to an event and a coach verifies you in person, or "
-"connect your LuxID"
+"Get verified — connect your LuxID in seconds, or come to an event and a "
+"coach verifies you in person"
 msgstr ""
-"Verifiziere dich — komm zu einem Event und ein Coach verifiziert dich "
-"persönlich, oder verbinde dein LuxID"
+"Verifiziere dich — verbinde dein LuxID in Sekunden, oder komm zu einem "
+"Event und ein Coach verifiziert dich persönlich"
 
 #: templates/crush_lu/emails/welcome.html:97
 msgid "Meet people in real life at our speed dating & social events"
