@@ -65,7 +65,12 @@
                 <tr>
                     <td class="py-1 pr-2">{% if check.ok %}✅{% else %}❌{% endif %}</td>
                     <td class="py-1 pr-2 font-medium">{{ check.label }}</td>
-                    <td class="py-1 text-gray-500 dark:text-gray-400">{{ check.detail }}</td>
+                    <td class="py-1 text-gray-500 dark:text-gray-400">
+                        {{ check.detail }}
+                        {% if not check.ok and check.blocking %}
+                        <span class="ml-1 text-xs font-semibold text-red-500">{% trans "blocks start" %}</span>
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </table>

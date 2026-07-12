@@ -1821,7 +1821,7 @@ class CacheHuntConsumer(AsyncJsonWebsocketConsumer):
         self.cache_group = f"cache_{self.hunt_id}"
         await self.channel_layer.group_add(self.cache_group, self.channel_name)
 
-        if await self._cache_is_coach(user):
+        if await self._cache_is_host(user):
             self.cache_coach_group = f"cache_{self.hunt_id}_coach"
             await self.channel_layer.group_add(
                 self.cache_coach_group, self.channel_name
@@ -1860,29 +1860,48 @@ class CacheHuntConsumer(AsyncJsonWebsocketConsumer):
     async def cache_position(self, event):
         await self.send_json({"type": "position", "data": event["data"]})
 
+    def _is_hunt_host(self, user):
+        """The hunt's creator or a coach assigned to its event — mirrors
+        QuizConsumer.is_host. NOT any active coach: the coach group
+        receives live team GPS positions."""
+        from crush_lu.models import CrushCoach
+        from crush_lu.models.crush_cache import CacheHunt
+
+        hunt = (
+            CacheHunt.objects.only("created_by_id", "event_id")
+            .filter(pk=self.hunt_id)
+            .first()
+        )
+        if hunt is None:
+            return False
+        if hunt.created_by_id == user.id:
+            return True
+        return CrushCoach.objects.filter(
+            user=user, is_active=True, assigned_events=hunt.event_id
+        ).exists()
+
     @database_sync_to_async
     def _can_join(self, user):
-        """Hunt members and active coaches may connect."""
+        """Hunt hosts and members with an active registration may connect."""
         from django.conf import settings
 
-        from crush_lu.models import CrushCoach
         from crush_lu.models.crush_cache import CacheHunt, CacheTeamMember
 
         if not getattr(settings, "CRUSH_CACHE_ENABLED", False):
             return False
         if not CacheHunt.objects.filter(pk=self.hunt_id).exists():
             return False
-        if CrushCoach.objects.filter(user=user, is_active=True).exists():
+        if self._is_hunt_host(user):
             return True
         return CacheTeamMember.objects.filter(
-            hunt_id=self.hunt_id, registration__user=user
+            hunt_id=self.hunt_id,
+            registration__user=user,
+            registration__status__in=["confirmed", "attended"],
         ).exists()
 
     @database_sync_to_async
-    def _cache_is_coach(self, user):
-        from crush_lu.models import CrushCoach
-
-        return CrushCoach.objects.filter(user=user, is_active=True).exists()
+    def _cache_is_host(self, user):
+        return self._is_hunt_host(user)
 
     @database_sync_to_async
     def _initial_state(self):
@@ -1893,13 +1912,5 @@ class CacheHuntConsumer(AsyncJsonWebsocketConsumer):
             return None
         return {
             "status": hunt.status,
-            "leaderboard": [
-                {
-                    **entry,
-                    "finished_at": entry["finished_at"].isoformat()
-                    if entry["finished_at"]
-                    else None,
-                }
-                for entry in hunt.get_leaderboard()
-            ],
+            "leaderboard": hunt.get_serialized_leaderboard(),
         }

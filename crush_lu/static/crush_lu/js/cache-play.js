@@ -232,6 +232,10 @@ document.addEventListener("alpine:init", function () {
             },
 
             getCsrfToken: function () {
+                // CSRF_COOKIE_HTTPONLY is on, so the cookie is unreadable —
+                // use the hidden input from base.html (same as htmx-csrf.js)
+                var input = document.getElementById("csrf-token-input");
+                if (input && input.value) return input.value;
                 var row = document.cookie.split("; ").find(function (r) {
                     return r.startsWith("csrftoken=");
                 });

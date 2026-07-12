@@ -742,3 +742,114 @@ class TestCoach:
         assert data["ok"] and data["status"] == "live"
         assert len(data["leaderboard"]) == 1
         assert len(data["positions"]) == 1
+
+
+# ============================================================================
+# CODEX REVIEW REGRESSIONS (PR #610)
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestReviewFixes:
+    def test_self_join_disabled_blocks_code_join(self, client, hunt, team, teammate):
+        """allow_self_join=False must gate join-by-code, not just creation."""
+        hunt.allow_self_join = False
+        hunt.save()
+        EventRegistration.objects.create(
+            event=hunt.event, user=teammate, status="confirmed"
+        )
+        client.force_login(teammate)
+        url = reverse("crush_lu:cache_join_team", args=[hunt.event_id])
+        client.post(url, {"join_code": "ABC234"})
+        assert team.members.count() == 1  # roster unchanged
+        client.post(url, {"team_name": "Rogues"})
+        assert not hunt.teams.filter(name="Rogues").exists()
+
+    def test_cancelled_registration_loses_access(
+        self, client, hunt, stations, team, registration, player
+    ):
+        """Cancelling the event registration revokes gameplay access."""
+        _start_hunt(hunt)
+        registration.status = "cancelled"
+        registration.save()
+        client.force_login(player)
+
+        response = client.get(reverse("crush_lu:cache_play", args=[hunt.event_id]))
+        assert response.status_code == 302
+        assert reverse("crush_lu:cache_lobby", args=[hunt.event_id]) in response.url
+
+        response = client.post(
+            reverse("crush_lu:cache_position_api", args=[hunt.event_id]),
+            json.dumps({"lat": GELLE_FRA[0], "lng": GELLE_FRA[1], "accuracy": 10}),
+            content_type="application/json",
+        )
+        assert response.status_code == 403
+
+    def test_unrelated_coach_denied(self, client, hunt, stations, team):
+        """An active coach who neither created the hunt nor is assigned to
+        the event cannot view the dashboard or start the hunt."""
+        other = User.objects.create_user(
+            username="othercoach@test.com",
+            email="othercoach@test.com",
+            password="x",
+            is_staff=True,
+        )
+        _grant_consent(other)
+        CrushCoach.objects.create(
+            user=other, bio="b", specializations="s", is_active=True
+        )
+        client.force_login(other)
+
+        response = client.get(
+            reverse("crush_lu:cache_coach_dashboard", args=[hunt.event_id])
+        )
+        assert response.status_code == 302
+
+        client.post(reverse("crush_lu:cache_coach_start", args=[hunt.event_id]))
+        hunt.refresh_from_db()
+        assert hunt.status == "draft"
+
+        response = client.get(
+            reverse("crush_lu:cache_coach_state_api", args=[hunt.event_id])
+        )
+        assert response.status_code == 403
+
+    def test_start_blocked_by_blocking_readiness(
+        self, client, hunt, stations, team, coach_user
+    ):
+        """Starting is refused while a GPS station has no coordinates."""
+        stations[0].latitude = None
+        stations[0].longitude = None
+        stations[0].save()
+        client.force_login(coach_user)
+        client.post(reverse("crush_lu:cache_coach_start", args=[hunt.event_id]))
+        hunt.refresh_from_db()
+        assert hunt.status == "draft"
+
+        stations[0].latitude = GELLE_FRA[0]
+        stations[0].longitude = GELLE_FRA[1]
+        stations[0].save()
+        client.post(reverse("crush_lu:cache_coach_start", args=[hunt.event_id]))
+        hunt.refresh_from_db()
+        assert hunt.status == "live"
+
+    def test_start_allowed_with_zero_teams(self, client, hunt, stations, coach_user):
+        """Teams/registrations checks are non-blocking — they may form after
+        start (progress rows are created lazily)."""
+        client.force_login(coach_user)
+        client.post(reverse("crush_lu:cache_coach_start", args=[hunt.event_id]))
+        hunt.refresh_from_db()
+        assert hunt.status == "live"
+
+    def test_serialized_leaderboard_is_json_safe(self, hunt, stations, team):
+        """Regression: raw datetimes crashed the channel-layer broadcast the
+        moment the first team finished."""
+        CacheTeamProgress.objects.create(
+            team=team,
+            total_points=150,
+            is_finished=True,
+            finished_at=timezone.now(),
+        )
+        payload = hunt.get_serialized_leaderboard()
+        json.dumps(payload)  # must not raise
+        assert payload[0]["finished_at"] is not None

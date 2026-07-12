@@ -149,10 +149,28 @@ class CacheHunt(models.Model):
             entry["rank"] = rank
         return entries
 
+    def get_serialized_leaderboard(self):
+        """Leaderboard with JSON-safe values — required for anything that
+        crosses the channel layer or a JsonResponse (datetimes don't
+        survive channels' JSON/msgpack serialization)."""
+        return [
+            {
+                **entry,
+                "finished_at": entry["finished_at"].isoformat()
+                if entry["finished_at"]
+                else None,
+            }
+            for entry in self.get_leaderboard()
+        ]
+
     def readiness_check(self):
         """Return a list of checks with pass/fail status for hunt readiness.
 
-        Each item: {"label": str, "ok": bool, "detail": str}
+        Each item: {"label": str, "ok": bool, "detail": str, "blocking": bool}.
+        Blocking failures make the hunt unplayable (missing coordinates,
+        unanswerable challenges) and prevent starting; non-blocking ones
+        (registrations, teams) are informational — teams may legitimately
+        form after the hunt goes live.
         """
         from crush_lu.models.events import EventRegistration
 
@@ -161,6 +179,7 @@ class CacheHunt(models.Model):
         stations = list(self.stations.prefetch_related("challenges").order_by("order"))
         checks.append({
             "label": _("Stations"),
+            "blocking": True,
             "ok": len(stations) > 0,
             "detail": str(len(stations)) if stations else _("No stations created"),
         })
@@ -173,6 +192,7 @@ class CacheHunt(models.Model):
         ]
         checks.append({
             "label": _("GPS coordinates"),
+            "blocking": True,
             "ok": len(missing_coords) == 0,
             "detail": (
                 _("All GPS stations have coordinates")
@@ -185,6 +205,7 @@ class CacheHunt(models.Model):
         without_challenges = [s.name for s in stations if not s.challenges.exists()]
         checks.append({
             "label": _("Challenges"),
+            "blocking": True,
             "ok": len(stations) > 0 and len(without_challenges) == 0,
             "detail": (
                 _("Every station has at least one challenge")
@@ -204,6 +225,7 @@ class CacheHunt(models.Model):
         ]
         checks.append({
             "label": _("Correct answers"),
+            "blocking": True,
             "ok": len(bad_mc) == 0,
             "detail": (
                 _("All multiple-choice challenges have a correct answer")
@@ -217,6 +239,7 @@ class CacheHunt(models.Model):
         ).count()
         checks.append({
             "label": _("Registrations"),
+            "blocking": False,
             "ok": reg_count >= 2,
             "detail": (
                 _("%(count)d confirmed/attended") % {"count": reg_count}
@@ -229,6 +252,7 @@ class CacheHunt(models.Model):
         member_count = CacheTeamMember.objects.filter(hunt=self).count()
         checks.append({
             "label": _("Teams"),
+            "blocking": False,
             "ok": team_count > 0 and member_count > 0,
             "detail": (
                 _("%(teams)d teams, %(members)d members")

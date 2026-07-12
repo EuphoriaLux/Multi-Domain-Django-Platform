@@ -74,11 +74,33 @@ def _get_registration(hunt, user):
 
 
 def _get_membership(hunt, user):
+    """The user's team membership, only while their registration is active.
+
+    Cancelled/no-show registrations keep their CacheTeamMember row (history)
+    but lose all gameplay access — every player endpoint gates on this.
+    """
     return (
-        CacheTeamMember.objects.filter(hunt=hunt, registration__user=user)
+        CacheTeamMember.objects.filter(
+            hunt=hunt,
+            registration__user=user,
+            registration__status__in=["confirmed", "attended"],
+        )
         .select_related("team", "registration")
         .first()
     )
+
+
+def _can_manage_hunt(user, hunt):
+    """Mirror of the quiz host check (QuizConsumer.is_host): the hunt's
+    creator or a coach assigned to its event — NOT any active coach, since
+    coach pages expose live team GPS and start/finish controls."""
+    if hunt.created_by_id == user.id:
+        return True
+    from .models import CrushCoach
+
+    return CrushCoach.objects.filter(
+        user=user, is_active=True, assigned_events=hunt.event_id
+    ).exists()
 
 
 def _first_station(hunt):
@@ -266,6 +288,12 @@ def cache_join_team(request, event_id):
         messages.error(request, _("This hunt has already finished."))
         return redirect("crush_lu:cache_lobby", event_id=event_id)
 
+    if not hunt.allow_self_join:
+        # Coach forms ALL teams for this hunt — joining by code would let
+        # anyone with a leaked code alter coach-made rosters.
+        messages.error(request, _("Teams are formed by the coach for this hunt."))
+        return redirect("crush_lu:cache_lobby", event_id=event_id)
+
     if _get_membership(hunt, request.user):
         messages.info(request, _("You are already in a team."))
         return redirect("crush_lu:cache_lobby", event_id=event_id)
@@ -273,32 +301,36 @@ def cache_join_team(request, event_id):
     join_code = request.POST.get("join_code", "").strip().upper()
     team_name = request.POST.get("team_name", "").strip()
 
-    if join_code:
-        team = hunt.teams.filter(join_code=join_code).first()
-        if team is None:
-            messages.error(request, _("No team found with that code."))
-            return redirect("crush_lu:cache_lobby", event_id=event_id)
-        if team.members.count() >= hunt.team_size_max:
-            messages.error(request, _("That team is already full."))
-            return redirect("crush_lu:cache_lobby", event_id=event_id)
-    elif team_name:
-        if not hunt.allow_self_join:
-            messages.error(
-                request, _("Teams are formed by the coach for this hunt.")
-            )
-            return redirect("crush_lu:cache_lobby", event_id=event_id)
-        color = CacheTeam.COLOR_CHOICES[
-            hunt.teams.count() % len(CacheTeam.COLOR_CHOICES)
-        ][0]
-        team = CacheTeam.objects.create(hunt=hunt, name=team_name[:100], color=color)
-    else:
-        messages.error(request, _("Enter a join code or a new team name."))
-        return redirect("crush_lu:cache_lobby", event_id=event_id)
-
     try:
-        CacheTeamMember.objects.create(
-            hunt=hunt, team=team, registration=registration
-        )
+        with transaction.atomic():
+            if join_code:
+                # Lock the team row so two concurrent joins can't both pass
+                # the capacity check for the last remaining slot.
+                team = (
+                    hunt.teams.select_for_update()
+                    .filter(join_code=join_code)
+                    .first()
+                )
+                if team is None:
+                    messages.error(request, _("No team found with that code."))
+                    return redirect("crush_lu:cache_lobby", event_id=event_id)
+                if team.members.count() >= hunt.team_size_max:
+                    messages.error(request, _("That team is already full."))
+                    return redirect("crush_lu:cache_lobby", event_id=event_id)
+            elif team_name:
+                color = CacheTeam.COLOR_CHOICES[
+                    hunt.teams.count() % len(CacheTeam.COLOR_CHOICES)
+                ][0]
+                team = CacheTeam.objects.create(
+                    hunt=hunt, name=team_name[:100], color=color
+                )
+            else:
+                messages.error(request, _("Enter a join code or a new team name."))
+                return redirect("crush_lu:cache_lobby", event_id=event_id)
+
+            CacheTeamMember.objects.create(
+                hunt=hunt, team=team, registration=registration
+            )
     except IntegrityError:
         messages.info(request, _("You are already in a team."))
         return redirect("crush_lu:cache_lobby", event_id=event_id)
@@ -633,7 +665,9 @@ def cache_answer_api(request, event_id, challenge_id):
                 },
             )
         _broadcast_cache(
-            hunt.id, "cache.leaderboard", {"leaderboard": hunt.get_leaderboard()}
+            hunt.id,
+            "cache.leaderboard",
+            {"leaderboard": hunt.get_serialized_leaderboard()},
         )
 
     if station_completed:
@@ -704,10 +738,7 @@ def cache_state_api(request, event_id):
         {
             "ok": True,
             "status": hunt.status,
-            "leaderboard": [
-                {**e, "finished_at": e["finished_at"].isoformat() if e["finished_at"] else None}
-                for e in hunt.get_leaderboard()
-            ],
+            "leaderboard": hunt.get_serialized_leaderboard(),
         }
     )
 
@@ -721,6 +752,9 @@ def cache_state_api(request, event_id):
 def cache_coach_dashboard(request, event_id):
     """Live control room: readiness, start/finish, leaderboard, team map."""
     hunt = _get_hunt_or_404(event_id)
+    if not _can_manage_hunt(request.user, hunt):
+        messages.error(request, _("You are not a coach for this event."))
+        return redirect("crush_lu:dashboard")
 
     teams = hunt.teams.prefetch_related(
         "members__registration__user__crushprofile"
@@ -779,6 +813,9 @@ def cache_coach_dashboard(request, event_id):
 def cache_coach_start(request, event_id):
     """Start the hunt: draft → live, initialize every team's progress."""
     hunt = _get_hunt_or_404(event_id)
+    if not _can_manage_hunt(request.user, hunt):
+        messages.error(request, _("You are not a coach for this event."))
+        return redirect("crush_lu:dashboard")
 
     if not hunt.can_transition_to("live"):
         messages.error(
@@ -788,8 +825,22 @@ def cache_coach_start(request, event_id):
         )
         return redirect("crush_lu:cache_coach_dashboard", event_id=event_id)
 
-    if _first_station(hunt) is None:
-        messages.error(request, _("Add at least one station before starting."))
+    blocking_failures = [
+        check
+        for check in hunt.readiness_check()
+        if check.get("blocking") and not check["ok"]
+    ]
+    if blocking_failures:
+        messages.error(
+            request,
+            _("Cannot start — fix these first: %(issues)s")
+            % {
+                "issues": "; ".join(
+                    f"{check['label']}: {check['detail']}"
+                    for check in blocking_failures
+                )
+            },
+        )
         return redirect("crush_lu:cache_coach_dashboard", event_id=event_id)
 
     now = timezone.now()
@@ -810,6 +861,9 @@ def cache_coach_start(request, event_id):
 def cache_coach_finish(request, event_id):
     """Finish the hunt: live → finished. Standings freeze as they are."""
     hunt = _get_hunt_or_404(event_id)
+    if not _can_manage_hunt(request.user, hunt):
+        messages.error(request, _("You are not a coach for this event."))
+        return redirect("crush_lu:dashboard")
 
     if not hunt.can_transition_to("finished"):
         messages.error(
@@ -825,7 +879,9 @@ def cache_coach_finish(request, event_id):
 
     _broadcast_cache(hunt.id, "cache.status", {"status": "finished"})
     _broadcast_cache(
-        hunt.id, "cache.leaderboard", {"leaderboard": hunt.get_leaderboard()}
+        hunt.id,
+        "cache.leaderboard",
+        {"leaderboard": hunt.get_serialized_leaderboard()},
     )
     messages.success(request, _("The hunt is finished."))
     return redirect("crush_lu:cache_coach_dashboard", event_id=event_id)
@@ -836,6 +892,9 @@ def cache_coach_finish(request, event_id):
 def cache_coach_auto_teams(request, event_id):
     """Split checked-in attendees without a team into teams of ≤ max size."""
     hunt = _get_hunt_or_404(event_id)
+    if not _can_manage_hunt(request.user, hunt):
+        messages.error(request, _("You are not a coach for this event."))
+        return redirect("crush_lu:dashboard")
 
     if hunt.status == "finished":
         messages.error(request, _("The hunt has already finished."))
@@ -890,6 +949,8 @@ def cache_coach_auto_teams(request, event_id):
 def cache_coach_state_api(request, event_id):
     """Polling fallback for the coach dashboard (leaderboard + positions)."""
     hunt = _get_hunt_or_404(event_id)
+    if not _can_manage_hunt(request.user, hunt):
+        return JsonResponse({"ok": False, "error": "not_event_coach"}, status=403)
     positions = [
         {
             "team_id": p.team_id,
@@ -907,10 +968,7 @@ def cache_coach_state_api(request, event_id):
         {
             "ok": True,
             "status": hunt.status,
-            "leaderboard": [
-                {**e, "finished_at": e["finished_at"].isoformat() if e["finished_at"] else None}
-                for e in hunt.get_leaderboard()
-            ],
+            "leaderboard": hunt.get_serialized_leaderboard(),
             "positions": positions,
         }
     )
