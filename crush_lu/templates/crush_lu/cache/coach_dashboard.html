@@ -1,0 +1,122 @@
+{% extends "crush_lu/base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Crush Cache Control" %} - {{ event.title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen pt-4 pb-16">
+    <div class="mx-auto max-w-3xl px-4"
+         id="cache-coach-root"
+         data-hunt-id="{{ hunt.id }}"
+         data-state-url="{% url 'crush_lu:cache_coach_state_api' event.id %}"
+         data-map-data="{{ map_data_json }}">
+
+        <div class="mb-6 flex items-center justify-between">
+            <div>
+                <p class="text-sm font-semibold uppercase tracking-wide text-purple-500">{% trans "Crush Cache Control" %}</p>
+                <h1 class="text-2xl font-bold">{{ hunt.title }}</h1>
+                <p class="text-sm text-gray-500 dark:text-gray-400">{{ event.title }}</p>
+            </div>
+            <span class="rounded-full px-4 py-1 text-sm font-bold
+                  {% if hunt.status == 'live' %}bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300
+                  {% elif hunt.status == 'finished' %}bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300
+                  {% else %}bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300{% endif %}"
+                  id="hunt-status-badge">
+                {{ hunt.get_status_display }}
+            </span>
+        </div>
+
+        {# --- Controls --- #}
+        <div class="mb-6 flex flex-wrap gap-3">
+            {% if hunt.status == 'draft' %}
+            <form method="post" action="{% url 'crush_lu:cache_coach_start' event.id %}">
+                {% csrf_token %}
+                <button type="submit" class="btn-crush-primary px-6 py-2">▶ {% trans "Start Hunt" %}</button>
+            </form>
+            {% elif hunt.status == 'live' %}
+            <form method="post" action="{% url 'crush_lu:cache_coach_finish' event.id %}"
+                  onsubmit="return confirm('{% filter escapejs %}{% trans "Finish the hunt for all teams?" %}{% endfilter %}')">
+                {% csrf_token %}
+                <button type="submit" class="rounded-lg bg-red-600 px-6 py-2 font-semibold text-white">■ {% trans "Finish Hunt" %}</button>
+            </form>
+            {% endif %}
+            {% if hunt.status != 'finished' %}
+            <form method="post" action="{% url 'crush_lu:cache_coach_auto_teams' event.id %}">
+                {% csrf_token %}
+                <button type="submit" class="rounded-lg border border-purple-500 px-6 py-2 font-semibold text-purple-600 dark:text-purple-300">
+                    👥 {% trans "Auto-form teams" %}
+                    {% if unassigned_count %}({{ unassigned_count }}){% endif %}
+                </button>
+            </form>
+            {% endif %}
+        </div>
+
+        {# --- Readiness (draft only) --- #}
+        {% if hunt.status == 'draft' %}
+        <div class="mb-6 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+            <h3 class="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{% trans "Readiness" %}</h3>
+            <table class="w-full text-sm">
+                {% for check in readiness %}
+                <tr>
+                    <td class="py-1 pr-2">{% if check.ok %}✅{% else %}❌{% endif %}</td>
+                    <td class="py-1 pr-2 font-medium">{{ check.label }}</td>
+                    <td class="py-1 text-gray-500 dark:text-gray-400">{{ check.detail }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+        {% endif %}
+
+        {# --- Live map --- #}
+        <div id="coach-map" class="mb-6 h-80 w-full rounded-xl border border-gray-200 dark:border-gray-700"></div>
+
+        <div class="grid gap-6 md:grid-cols-2">
+            {# --- Leaderboard --- #}
+            <div>
+                {% include "crush_lu/cache/_leaderboard.html" with leaderboard=leaderboard %}
+                <div id="progress-feed" class="mt-4 space-y-1 text-sm text-gray-500 dark:text-gray-400"></div>
+            </div>
+
+            {# --- Teams --- #}
+            <div class="mt-6">
+                <h3 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    {% trans "Teams" %} ({{ teams|length }})
+                </h3>
+                <div class="space-y-2">
+                    {% for team in teams %}
+                    <div class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-2">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="inline-block h-3 w-3 rounded-full" style="background: {{ team.color }}"></span>
+                                <span class="font-medium">{{ team.name }}</span>
+                            </div>
+                            <span class="font-mono text-sm tracking-widest text-gray-400">{{ team.join_code }}</span>
+                        </div>
+                        <div class="mt-1 flex flex-wrap gap-1">
+                            {% for member in team.members.all %}
+                            <span class="rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs">
+                                {{ member.registration.user.crushprofile.display_name|default:_("Attendee") }}
+                            </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-sm text-gray-400">{% trans "No teams yet — use auto-form or let attendees create their own." %}</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="{% static 'crush_lu/js/cache-coach.js' %}"></script>
+{% endblock %}

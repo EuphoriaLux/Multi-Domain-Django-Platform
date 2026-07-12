@@ -1793,3 +1793,113 @@ class CheckinConsumer(AsyncJsonWebsocketConsumer):
         from crush_lu.models import CrushCoach
 
         return CrushCoach.objects.filter(user=user, is_active=True).exists()
+
+
+class CacheHuntConsumer(AsyncJsonWebsocketConsumer):
+    """WebSocket consumer for live Crush Cache hunt updates.
+
+    Read-mostly relay (like CheckinConsumer): all mutations flow through
+    the HTTP views in views_crush_cache.py, which broadcast via the
+    channel layer. Every hunt member gets status/progress/leaderboard;
+    team positions are broadcast to the coach group only, so teams never
+    see each other's location.
+    """
+
+    async def connect(self):
+        user = self.scope.get("user")
+        if not user or not user.is_authenticated:
+            await self.close()
+            return
+
+        self.hunt_id = self.scope["url_route"]["kwargs"]["hunt_id"]
+
+        allowed = await self._can_join(user)
+        if not allowed:
+            await self.close()
+            return
+
+        self.cache_group = f"cache_{self.hunt_id}"
+        await self.channel_layer.group_add(self.cache_group, self.channel_name)
+
+        if await self._cache_is_coach(user):
+            self.cache_coach_group = f"cache_{self.hunt_id}_coach"
+            await self.channel_layer.group_add(
+                self.cache_coach_group, self.channel_name
+            )
+
+        await self.accept()
+
+        state = await self._initial_state()
+        if state:
+            await self.send_json({"type": "state", "data": state})
+
+    async def disconnect(self, close_code):
+        if hasattr(self, "cache_group"):
+            await self.channel_layer.group_discard(
+                self.cache_group, self.channel_name
+            )
+        if hasattr(self, "cache_coach_group"):
+            await self.channel_layer.group_discard(
+                self.cache_coach_group, self.channel_name
+            )
+
+    async def receive_json(self, content):
+        pass
+
+    # --- Channel layer handlers (types sent by _broadcast_cache) ---
+
+    async def cache_status(self, event):
+        await self.send_json({"type": "status", "data": event["data"]})
+
+    async def cache_progress(self, event):
+        await self.send_json({"type": "progress", "data": event["data"]})
+
+    async def cache_leaderboard(self, event):
+        await self.send_json({"type": "leaderboard", "data": event["data"]})
+
+    async def cache_position(self, event):
+        await self.send_json({"type": "position", "data": event["data"]})
+
+    @database_sync_to_async
+    def _can_join(self, user):
+        """Hunt members and active coaches may connect."""
+        from django.conf import settings
+
+        from crush_lu.models import CrushCoach
+        from crush_lu.models.crush_cache import CacheHunt, CacheTeamMember
+
+        if not getattr(settings, "CRUSH_CACHE_ENABLED", False):
+            return False
+        if not CacheHunt.objects.filter(pk=self.hunt_id).exists():
+            return False
+        if CrushCoach.objects.filter(user=user, is_active=True).exists():
+            return True
+        return CacheTeamMember.objects.filter(
+            hunt_id=self.hunt_id, registration__user=user
+        ).exists()
+
+    @database_sync_to_async
+    def _cache_is_coach(self, user):
+        from crush_lu.models import CrushCoach
+
+        return CrushCoach.objects.filter(user=user, is_active=True).exists()
+
+    @database_sync_to_async
+    def _initial_state(self):
+        from crush_lu.models.crush_cache import CacheHunt
+
+        hunt = CacheHunt.objects.filter(pk=self.hunt_id).first()
+        if not hunt:
+            return None
+        return {
+            "status": hunt.status,
+            "leaderboard": [
+                {
+                    **entry,
+                    "finished_at": entry["finished_at"].isoformat()
+                    if entry["finished_at"]
+                    else None,
+                }
+                for entry in hunt.get_leaderboard()
+            ],
+        }

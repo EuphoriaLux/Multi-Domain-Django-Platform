@@ -108,6 +108,7 @@ from . import views_ticket
 from . import views_quiz
 from . import views_coach as views_coach_module
 from . import views_quiz_config
+from . import views_crush_cache
 from . import views_changelog
 from . import views_premium
 
@@ -393,6 +394,23 @@ urlpatterns = [
     # Live Quiz (WebSocket-based)
     path('events/<int:event_id>/quiz/', views_quiz.quiz_live_view, name='quiz_live'),
     path('events/<int:event_id>/quiz/coach/', views_quiz.quiz_coach_view, name='quiz_coach'),
+
+    # Crush Cache — GPS + QR scavenger hunt
+    path('events/<int:event_id>/cache/', views_crush_cache.cache_lobby, name='cache_lobby'),
+    path('events/<int:event_id>/cache/join/', views_crush_cache.cache_join_team, name='cache_join_team'),
+    path('events/<int:event_id>/cache/leave/', views_crush_cache.cache_leave_team, name='cache_leave_team'),
+    path('events/<int:event_id>/cache/play/', views_crush_cache.cache_play, name='cache_play'),
+    path('events/<int:event_id>/cache/scanner/', views_crush_cache.cache_scanner, name='cache_scanner'),
+    path('cache/qr/<uuid:token>/', views_crush_cache.cache_qr_scan, name='cache_qr_scan'),
+    path('events/<int:event_id>/cache/api/position/', views_crush_cache.cache_position_api, name='cache_position_api'),
+    path('events/<int:event_id>/cache/api/challenge/<int:challenge_id>/answer/', views_crush_cache.cache_answer_api, name='cache_answer_api'),
+    path('events/<int:event_id>/cache/api/challenge/<int:challenge_id>/hint/<int:hint_number>/', views_crush_cache.cache_hint_api, name='cache_hint_api'),
+    path('events/<int:event_id>/cache/api/state/', views_crush_cache.cache_state_api, name='cache_state_api'),
+    path('events/<int:event_id>/cache/coach/', views_crush_cache.cache_coach_dashboard, name='cache_coach_dashboard'),
+    path('events/<int:event_id>/cache/coach/start/', views_crush_cache.cache_coach_start, name='cache_coach_start'),
+    path('events/<int:event_id>/cache/coach/finish/', views_crush_cache.cache_coach_finish, name='cache_coach_finish'),
+    path('events/<int:event_id>/cache/coach/auto-teams/', views_crush_cache.cache_coach_auto_teams, name='cache_coach_auto_teams'),
+    path('events/<int:event_id>/cache/coach/api/state/', views_crush_cache.cache_coach_state_api, name='cache_coach_state_api'),
 
     # Voting Demo/Guided Tour
     path('voting-demo/', views.voting_demo, name='voting_demo'),
