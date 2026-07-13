@@ -843,3 +843,86 @@ class SmsInviteExpiredCohortTests(TestCase):
         pool_ids = self._pool_profile_ids()
 
         self.assertNotIn(pending_profile.id, pool_ids)
+
+    def test_approved_profile_with_expired_latest_is_not_invitable(self):
+        """A cleanup user who has since verified (e.g. via LuxID) must stay
+        out of the unverified pool — event_register rejects is_approved
+        users for unverified events, so inviting them is a dead end."""
+        _, verified_since = self._make_invitable_profile("smsverified")
+        make_submission(verified_since, "expired")
+        CrushProfile.objects.filter(pk=verified_since.pk).update(
+            is_approved=True, verification_status="verified"
+        )
+
+        _, approved_no_sub = self._make_invitable_profile("smsapproved")
+        CrushProfile.objects.filter(pk=approved_no_sub.pk).update(
+            is_approved=True, verification_status="verified"
+        )
+
+        pool_ids = self._pool_profile_ids()
+
+        self.assertNotIn(verified_since.id, pool_ids)
+        self.assertNotIn(approved_no_sub.id, pool_ids)
+
+
+class LegacyBulkActionExpiredGuardTests(TestCase):
+    """The legacy bulk actions (approve/reject/revision) must skip expired
+    rows — they would otherwise resurrect a closed-out user into a legacy
+    state and flip their profile without any audit or recovery path."""
+
+    def _run_action(self, action_name, submission):
+        from django.contrib import admin as django_admin
+        from django.contrib.messages.storage.fallback import FallbackStorage
+
+        from crush_lu.admin.profiles import ProfileSubmissionAdmin
+
+        admin_user = User.objects.create_superuser(
+            username=f"{action_name}@example.com",
+            email=f"{action_name}@example.com",
+            password="x",
+        )
+        request = RequestFactory().post("/admin/")
+        request.user = admin_user
+        request.session = self.client.session
+        request._messages = FallbackStorage(request)
+
+        model_admin = ProfileSubmissionAdmin(ProfileSubmission, django_admin.site)
+        getattr(model_admin, action_name)(
+            request, ProfileSubmission.objects.filter(pk=submission.pk)
+        )
+
+    def test_bulk_reject_skips_expired(self):
+        _, profile = make_profile("bulkrejectexp")
+        submission = make_submission(profile, "expired")
+
+        self._run_action("bulk_reject_profiles", submission)
+
+        submission.refresh_from_db()
+        profile.refresh_from_db()
+        self.assertEqual(submission.status, "expired")
+        self.assertEqual(profile.verification_status, "pending")
+
+    def test_bulk_revision_skips_expired(self):
+        _, profile = make_profile("bulkrevexp")
+        submission = make_submission(profile, "expired")
+
+        self._run_action("bulk_request_revision", submission)
+
+        submission.refresh_from_db()
+        profile.refresh_from_db()
+        self.assertEqual(submission.status, "expired")
+        self.assertEqual(profile.verification_status, "pending")
+
+    def test_bulk_approve_skips_expired_even_with_completed_call(self):
+        """An expired row with review_call_completed=True must not be
+        approvable — the row is terminal and the profile must not flip."""
+        _, profile = make_profile("bulkapproveexp")
+        submission = make_submission(profile, "expired", review_call_completed=True)
+
+        self._run_action("bulk_approve_profiles", submission)
+
+        submission.refresh_from_db()
+        profile.refresh_from_db()
+        self.assertEqual(submission.status, "expired")
+        self.assertFalse(profile.is_approved)
+        self.assertEqual(profile.verification_status, "pending")

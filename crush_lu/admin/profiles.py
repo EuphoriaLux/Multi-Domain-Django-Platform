@@ -1832,8 +1832,14 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
         now = timezone.now()
         approved_count = 0
         skipped_count = 0
+        skipped_expired = 0
 
         for submission in queryset.select_related("profile", "profile__user"):
+            # Expired rows are terminal cleanup state — even with a completed
+            # call, approval must not resurrect them (or flip the profile).
+            if submission.status == "expired":
+                skipped_expired += 1
+                continue
             if not submission.review_call_completed:
                 skipped_count += 1
                 continue
@@ -1870,13 +1876,26 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
                 _("Skipped %(count)s profile(s) - screening call not completed")
                 % {"count": skipped_count},
             )
+        if skipped_expired > 0:
+            django_messages.warning(
+                request,
+                _(
+                    "Skipped %(count)s expired submission(s) — closed out to "
+                    "self-serve verification and no longer reviewable."
+                )
+                % {"count": skipped_expired},
+            )
 
     @admin.action(description=_("Reject selected profiles"))
     def bulk_reject_profiles(self, request, queryset):
         """Bulk reject profiles"""
         now = timezone.now()
         count = 0
+        skipped_expired = 0
         for submission in queryset.select_related("profile", "profile__user"):
+            if submission.status == "expired":
+                skipped_expired += 1
+                continue
             submission.status = "rejected"
             submission.reviewed_at = now
             submission.save()
@@ -1896,13 +1915,26 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
         django_messages.success(
             request, _("Rejected %(count)s profile(s)") % {"count": count}
         )
+        if skipped_expired > 0:
+            django_messages.warning(
+                request,
+                _(
+                    "Skipped %(count)s expired submission(s) — closed out to "
+                    "self-serve verification and no longer reviewable."
+                )
+                % {"count": skipped_expired},
+            )
 
     @admin.action(description=_("Request revision for selected profiles"))
     def bulk_request_revision(self, request, queryset):
         """Request revision for profiles"""
         now = timezone.now()
         count = 0
+        skipped_expired = 0
         for submission in queryset.select_related("profile", "profile__user"):
+            if submission.status == "expired":
+                skipped_expired += 1
+                continue
             submission.status = "revision"
             submission.reviewed_at = now
             submission.save()
@@ -1924,6 +1956,15 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
         django_messages.success(
             request, _("Requested revision for %(count)s profile(s)") % {"count": count}
         )
+        if skipped_expired > 0:
+            django_messages.warning(
+                request,
+                _(
+                    "Skipped %(count)s expired submission(s) — closed out to "
+                    "self-serve verification and no longer reviewable."
+                )
+                % {"count": skipped_expired},
+            )
 
     @admin.action(description=_("Auto-assign available coach"))
     def bulk_assign_coach(self, request, queryset):

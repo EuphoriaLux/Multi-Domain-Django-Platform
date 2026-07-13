@@ -2360,7 +2360,10 @@ def coach_event_sms_invite(request, event_id):
         # "No submission" here follows the expired-latest invariant: a profile
         # whose newest submission is expired (closed out by the pivot cleanup)
         # behaves like one with no submission at all, so that cohort stays
-        # invitable to unverified/entry events.
+        # invitable to unverified/entry events. Approved profiles are excluded
+        # to mirror event_register, which rejects is_approved users for
+        # unverified events — e.g. a cleanup user who has since verified via
+        # LuxID while their expired row remains the latest.
         latest_submission_status = Subquery(
             ProfileSubmission.objects.filter(profile=OuterRef("pk"))
             .order_by("-submitted_at")
@@ -2369,6 +2372,7 @@ def coach_event_sms_invite(request, event_id):
         profile_pool_qs = (
             CrushProfile.objects.filter(phone_q)
             .filter(age_filter)
+            .filter(is_approved=False)
             .annotate(latest_submission_status=latest_submission_status)
             .filter(
                 Q(latest_submission_status__isnull=True)
