@@ -459,13 +459,25 @@ def cache_qr_scan(request, token):
         team=membership.team, station=station
     )
     if attempt.scanned_at is None:
+        now = timezone.now()
         CacheStationAttempt.objects.filter(
             pk=attempt.pk, scanned_at__isnull=True
-        ).update(scanned_at=timezone.now())
-        messages.success(
-            request,
-            _("Code scanned — %(station)s unlocked!") % {"station": station.name},
-        )
+        ).update(scanned_at=now)
+        attempt.scanned_at = now  # reflect the write for the is_unlocked check
+        if attempt.is_unlocked:
+            messages.success(
+                request,
+                _("Code scanned — %(station)s unlocked!") % {"station": station.name},
+            )
+        else:
+            # A gps_qr station scanned before the team has arrived: the scan is
+            # recorded, but GPS arrival is still required — don't claim it's
+            # unlocked when it isn't.
+            messages.info(
+                request,
+                _("Code scanned — now reach the location to unlock %(station)s.")
+                % {"station": station.name},
+            )
     return redirect("crush_lu:cache_play", event_id=event_id)
 
 
