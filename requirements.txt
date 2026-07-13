@@ -53,6 +53,7 @@ whitenoise==6.12.0  # Updated from 6.7.0 (security fix for autorefresh mode)
 requests==2.34.2
 httpx[http2]==0.28.1
 qrcode[pil]==8.2  # QR code generation for Journey Gifts
+reportlab==4.4.4  # Printable QR sheets (Advent + Crush Cache)
 
 
 # Push Notifications

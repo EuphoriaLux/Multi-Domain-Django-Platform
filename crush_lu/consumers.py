@@ -1793,3 +1793,124 @@ class CheckinConsumer(AsyncJsonWebsocketConsumer):
         from crush_lu.models import CrushCoach
 
         return CrushCoach.objects.filter(user=user, is_active=True).exists()
+
+
+class CacheHuntConsumer(AsyncJsonWebsocketConsumer):
+    """WebSocket consumer for live Crush Cache hunt updates.
+
+    Read-mostly relay (like CheckinConsumer): all mutations flow through
+    the HTTP views in views_crush_cache.py, which broadcast via the
+    channel layer. Every hunt member gets status/progress/leaderboard;
+    team positions are broadcast to the coach group only, so teams never
+    see each other's location.
+    """
+
+    async def connect(self):
+        user = self.scope.get("user")
+        if not user or not user.is_authenticated:
+            await self.close()
+            return
+
+        self.hunt_id = self.scope["url_route"]["kwargs"]["hunt_id"]
+
+        allowed = await self._can_join(user)
+        if not allowed:
+            await self.close()
+            return
+
+        self.cache_group = f"cache_{self.hunt_id}"
+        await self.channel_layer.group_add(self.cache_group, self.channel_name)
+
+        if await self._cache_is_host(user):
+            self.cache_coach_group = f"cache_{self.hunt_id}_coach"
+            await self.channel_layer.group_add(
+                self.cache_coach_group, self.channel_name
+            )
+
+        await self.accept()
+
+        state = await self._initial_state()
+        if state:
+            await self.send_json({"type": "state", "data": state})
+
+    async def disconnect(self, close_code):
+        if hasattr(self, "cache_group"):
+            await self.channel_layer.group_discard(
+                self.cache_group, self.channel_name
+            )
+        if hasattr(self, "cache_coach_group"):
+            await self.channel_layer.group_discard(
+                self.cache_coach_group, self.channel_name
+            )
+
+    async def receive_json(self, content):
+        pass
+
+    # --- Channel layer handlers (types sent by _broadcast_cache) ---
+
+    async def cache_status(self, event):
+        await self.send_json({"type": "status", "data": event["data"]})
+
+    async def cache_progress(self, event):
+        await self.send_json({"type": "progress", "data": event["data"]})
+
+    async def cache_leaderboard(self, event):
+        await self.send_json({"type": "leaderboard", "data": event["data"]})
+
+    async def cache_position(self, event):
+        await self.send_json({"type": "position", "data": event["data"]})
+
+    def _is_hunt_host(self, user):
+        """The hunt's creator or a coach assigned to its event — mirrors
+        QuizConsumer.is_host. NOT any active coach: the coach group
+        receives live team GPS positions."""
+        from crush_lu.models import CrushCoach
+        from crush_lu.models.crush_cache import CacheHunt
+
+        hunt = (
+            CacheHunt.objects.only("created_by_id", "event_id")
+            .filter(pk=self.hunt_id)
+            .first()
+        )
+        if hunt is None:
+            return False
+        if hunt.created_by_id == user.id:
+            return True
+        return CrushCoach.objects.filter(
+            user=user, is_active=True, assigned_events=hunt.event_id
+        ).exists()
+
+    @database_sync_to_async
+    def _can_join(self, user):
+        """Hunt hosts and members with an active registration may connect."""
+        from django.conf import settings
+
+        from crush_lu.models.crush_cache import CacheHunt, CacheTeamMember
+
+        if not getattr(settings, "CRUSH_CACHE_ENABLED", False):
+            return False
+        if not CacheHunt.objects.filter(pk=self.hunt_id).exists():
+            return False
+        if self._is_hunt_host(user):
+            return True
+        return CacheTeamMember.objects.filter(
+            hunt_id=self.hunt_id,
+            registration__user=user,
+            registration__status__in=["confirmed", "attended"],
+        ).exists()
+
+    @database_sync_to_async
+    def _cache_is_host(self, user):
+        return self._is_hunt_host(user)
+
+    @database_sync_to_async
+    def _initial_state(self):
+        from crush_lu.models.crush_cache import CacheHunt
+
+        hunt = CacheHunt.objects.filter(pk=self.hunt_id).first()
+        if not hunt:
+            return None
+        return {
+            "status": hunt.status,
+            "leaderboard": hunt.get_serialized_leaderboard(),
+        }

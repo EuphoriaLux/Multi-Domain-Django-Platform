@@ -14,6 +14,7 @@ from .models.site_config import CrushSiteConfig
 from .models.events import MeetupEvent
 from .models.event_polls import EventPoll, EventPollOption
 from .models.quiz import QuizRound, QuizQuestion
+from .models.crush_cache import CacheHunt, CacheStation, CacheChallenge
 from .models.changelog import PatchRelease, PatchNote
 from .models.crush_connect import ConnectInterest, SparkPrompt
 from .models.crush_connect_questions import ConnectQuestion
@@ -116,6 +117,30 @@ class QuizQuestionTranslationOptions(TranslationOptions):
     fields = ('text', 'choices', 'correct_answer')
 
 
+class CacheHuntTranslationOptions(TranslationOptions):
+    """Translatable fields for Crush Cache hunts."""
+
+    fields = ('title', 'description')
+
+
+class CacheStationTranslationOptions(TranslationOptions):
+    """Translatable fields for Crush Cache stations."""
+
+    fields = ('name', 'intro_text', 'completion_message')
+
+
+class CacheChallengeTranslationOptions(TranslationOptions):
+    """Translatable fields for Crush Cache challenges.
+
+    Note: 'correct_answer' and 'alternative_answers' are NOT translated
+    because they contain validation logic values. The 'options' field IS
+    translated because it contains display text participants see. Same
+    pattern as JourneyChallenge.
+    """
+
+    fields = ('question', 'hint_1', 'hint_2', 'hint_3', 'success_message', 'options')
+
+
 class NewsletterTranslationOptions(TranslationOptions):
     """Translatable fields for newsletters (subject, body content)."""
 
@@ -167,6 +192,9 @@ translator.register(EventPoll, EventPollTranslationOptions)
 translator.register(EventPollOption, EventPollOptionTranslationOptions)
 translator.register(QuizRound, QuizRoundTranslationOptions)
 translator.register(QuizQuestion, QuizQuestionTranslationOptions)
+translator.register(CacheHunt, CacheHuntTranslationOptions)
+translator.register(CacheStation, CacheStationTranslationOptions)
+translator.register(CacheChallenge, CacheChallengeTranslationOptions)
 translator.register(PatchRelease, PatchReleaseTranslationOptions)
 translator.register(PatchNote, PatchNoteTranslationOptions)
 translator.register(SparkPrompt, SparkPromptTranslationOptions)
