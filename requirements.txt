@@ -1,5 +1,5 @@
 # Core Django
-Django==6.0.6  # Security patch (PYSEC-2026-197..201); requires Python 3.12+
+Django==6.0.7  # Security patch (PYSEC-2026-2090..2092: cache_page cookie leak, DomainNameValidator header injection, GDALRaster over-read); requires Python 3.12+
 djangorestframework==3.17.1
 djangorestframework-simplejwt==5.5.1
 django-crispy-forms==2.6
@@ -53,6 +53,7 @@ whitenoise==6.12.0  # Updated from 6.7.0 (security fix for autorefresh mode)
 requests==2.34.2
 httpx[http2]==0.28.1
 qrcode[pil]==8.2  # QR code generation for Journey Gifts
+reportlab==4.4.4  # Printable QR sheets (Advent + Crush Cache)
 
 
 # Push Notifications

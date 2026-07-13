@@ -108,6 +108,86 @@ def generate_advent_qr_url(token: uuid.UUID, domain: str = "crush.lu") -> str:
     return f"https://{domain}/advent/qr/{token}/"
 
 
+def generate_cache_qr_url(token: uuid.UUID, domain: str = "crush.lu") -> str:
+    """
+    Generate the full URL for a Crush Cache station QR code.
+
+    Args:
+        token: The CacheStation.qr_token UUID
+        domain: The domain to use (default: crush.lu)
+
+    Returns:
+        Full URL string (e.g., https://crush.lu/cache/qr/uuid-here/)
+    """
+    return f"https://{domain}/cache/qr/{token}/"
+
+
+def generate_cache_station_sheet(
+    stations: List,
+    title: str = "Crush Cache Station QR Codes",
+) -> Optional[bytes]:
+    """
+    Generate a printable A4 PDF sheet with one QR code per hunt station.
+
+    Same 4-column grid as the Advent sheet; stations are labelled
+    "Station N — name" so the organizer knows where to stick each code.
+
+    Args:
+        stations: List of CacheStation instances (ordered)
+        title: Title to display on the PDF
+
+    Returns:
+        PDF bytes
+    """
+    if not HAS_REPORTLAB:
+        raise ImportError("reportlab package not installed. Run: pip install reportlab")
+
+    if not HAS_QRCODE:
+        raise ImportError("qrcode package not installed. Run: pip install qrcode[pil]")
+
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+
+    margin = 15 * mm
+    qr_size = 40 * mm
+    cols = 4
+    rows = 6
+    per_page = cols * rows
+    col_width = (width - 2 * margin) / cols
+    row_height = (height - 3 * margin) / rows
+
+    for page_start in range(0, len(stations), per_page):
+        c.setFont("Helvetica-Bold", 16)
+        c.drawCentredString(width / 2, height - margin, title)
+
+        for i, station in enumerate(stations[page_start:page_start + per_page]):
+            col = i % cols
+            row = i // cols
+
+            x = margin + col * col_width + (col_width - qr_size) / 2
+            y = height - 2 * margin - (row + 1) * row_height + (row_height - qr_size) / 2
+
+            url = generate_cache_qr_url(station.qr_token)
+            qr_bytes = generate_qr_code_image(url, box_size=5, border=2)
+            qr_image = ImageReader(io.BytesIO(qr_bytes))
+
+            c.drawImage(qr_image, x, y, qr_size, qr_size)
+
+            c.setFont("Helvetica", 10)
+            label = f"Station {station.order} — {station.name}"
+            # Truncate labels that would overflow the grid cell
+            if len(label) > 30:
+                label = label[:27] + "..."
+            c.drawCentredString(x + qr_size / 2, y - 5 * mm, label)
+
+        c.showPage()
+
+    c.save()
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
 def generate_tokens_for_user(user, calendar, save: bool = True) -> List:
     """
     Generate QR code tokens for all doors in a calendar for a specific user.

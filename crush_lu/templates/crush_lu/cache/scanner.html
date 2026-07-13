@@ -1,0 +1,127 @@
+{% extends "crush_lu/base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Scan Station Code" %} - {{ event.title }}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen pt-4 pb-16">
+    <div class="mx-auto max-w-lg px-4">
+        <div class="mb-4">
+            <a href="{% url 'crush_lu:cache_play' event.id %}" class="text-sm text-gray-400 underline">
+                ← {% trans "Back to the hunt" %}
+            </a>
+        </div>
+
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+            <h2 class="mb-2 text-center text-xl font-bold">
+                📷 {% trans "Scan Station Code" %}
+            </h2>
+            <p class="mb-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                {% trans "Point your camera at the QR code you found at the station." %}
+            </p>
+
+            <div class="cache-scanner-container">
+                <video id="qr-video" playsinline></video>
+                <div class="cache-scanner-overlay">
+                    <div class="cache-scanner-frame"></div>
+                </div>
+            </div>
+
+            <div id="scanner-status" class="mt-3 text-center text-sm text-gray-500 dark:text-gray-400">
+                {% trans "Looking for QR code…" %}
+            </div>
+
+            <div class="mt-5 border-t border-gray-200 dark:border-gray-700 pt-4">
+                <p class="mb-2 text-center text-sm text-gray-500 dark:text-gray-400">
+                    {% trans "Camera not working? Enter the code manually:" %}
+                </p>
+                <form id="manual-code-form" class="flex gap-2">
+                    <input type="text" id="manual-code" autocomplete="off"
+                           placeholder="{% trans 'Enter code from QR' %}"
+                           class="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2">
+                    <button type="submit" class="btn-crush-primary px-4 py-2">✓</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .cache-scanner-container {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 1;
+        max-width: 350px;
+        margin: 0 auto;
+        border-radius: 12px;
+        overflow: hidden;
+        background: #000;
+    }
+    #qr-video { width: 100%; height: 100%; object-fit: cover; }
+    .cache-scanner-overlay {
+        position: absolute; inset: 0;
+        display: flex; align-items: center; justify-content: center;
+        pointer-events: none;
+    }
+    .cache-scanner-frame {
+        width: 70%; height: 70%;
+        border: 3px solid #8b5cf6;
+        border-radius: 12px;
+        box-shadow: 0 0 0 9999px rgba(0,0,0,0.5);
+    }
+</style>
+
+<!-- QR Code Scanner Library -->
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+<script nonce="{{ csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    var statusEl = document.getElementById('scanner-status');
+    var scanUrlTemplate = '{% url "crush_lu:cache_qr_scan" "00000000-0000-0000-0000-000000000000" %}';
+
+    var msgQrDetected = '{% filter escapejs %}{% trans "QR Code detected! Redirecting..." %}{% endfilter %}';
+    var msgCameraDenied = '{% filter escapejs %}{% trans "Camera access denied. Please use manual input below." %}{% endfilter %}';
+    var msgNoCamera = '{% filter escapejs %}{% trans "No camera found. Please use manual input below." %}{% endfilter %}';
+    var msgCameraError = '{% filter escapejs %}{% trans "Could not access camera. Please use manual input." %}{% endfilter %}';
+
+    var html5QrCode = new Html5Qrcode("qr-video");
+    var config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1 };
+
+    function goToToken(token) {
+        window.location.href = scanUrlTemplate.replace('00000000-0000-0000-0000-000000000000', token);
+    }
+
+    function onScanSuccess(decodedText) {
+        html5QrCode.stop();
+        statusEl.textContent = msgQrDetected;
+
+        var token = decodedText;
+        if (decodedText.includes('/cache/qr/')) {
+            var match = decodedText.match(/\/cache\/qr\/([a-f0-9-]+)/i);
+            if (match) token = match[1];
+        }
+        goToToken(token);
+    }
+
+    function showWarning(msg) { statusEl.textContent = msg; }
+
+    Html5Qrcode.getCameras().then(function(devices) {
+        if (devices && devices.length) {
+            var backCamera = devices.find(function(d) { return d.label.toLowerCase().includes('back'); });
+            var cameraId = backCamera ? backCamera.id : devices[0].id;
+            html5QrCode.start(cameraId, config, onScanSuccess, function() {})
+                .catch(function() { showWarning(msgCameraDenied); });
+        } else {
+            showWarning(msgNoCamera);
+        }
+    }).catch(function() { showWarning(msgCameraError); });
+
+    document.getElementById('manual-code-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        var code = document.getElementById('manual-code').value.trim();
+        var uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (code && uuidRegex.test(code)) goToToken(code);
+    });
+});
+</script>
+{% endblock %}

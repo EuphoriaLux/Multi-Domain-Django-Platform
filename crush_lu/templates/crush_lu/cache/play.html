@@ -1,0 +1,60 @@
+{% extends "crush_lu/base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Crush Cache" %} - {{ event.title }}{% endblock %}
+
+{% block extra_css %}
+{% if show_map %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen pt-4 pb-16">
+    <div class="mx-auto max-w-lg px-4"
+         id="cache-play-root"
+         x-data="cachePlay"
+         data-position-url="{% url 'crush_lu:cache_position_api' event.id %}"
+         data-hunt-id="{{ hunt.id }}"
+         data-hunt-status="{{ hunt.status }}"
+         data-nav-mode="{{ hunt.navigation_mode }}"
+         data-needs-gps="{{ needs_gps|yesno:'true,false' }}"
+         data-unlocked="{{ attempt.is_unlocked|yesno:'true,false' }}"
+         {% if show_map and station and station.latitude is not None %}
+         data-target-lat="{{ station.latitude }}"
+         data-target-lng="{{ station.longitude }}"
+         data-target-radius="{{ station.radius_meters }}"
+         {% endif %}
+         data-completed-stations="{{ completed_stations_json|default:'[]' }}">
+
+        <div class="mb-4 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="inline-block h-3 w-3 rounded-full" style="background: {{ team.color }}"></span>
+                <span class="font-semibold">{{ team.name }}</span>
+            </div>
+            <a href="{% url 'crush_lu:cache_lobby' event.id %}" class="text-sm text-gray-400 underline">
+                {% trans "Lobby" %}
+            </a>
+        </div>
+
+        {% if show_map %}
+        <div id="cache-map" class="mb-4 h-64 w-full rounded-xl border border-gray-200 dark:border-gray-700"></div>
+        {% comment %}
+        Map data © OpenStreetMap contributors. Tile usage is fine at event
+        scale; switch to MapTiler/Stadia free tier if this becomes daily traffic.
+        {% endcomment %}
+        {% endif %}
+
+        {% include "crush_lu/cache/_play_content.html" %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if show_map %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+{% endif %}
+<script src="{% static 'crush_lu/js/cache-play.js' %}"></script>
+{% endblock %}
