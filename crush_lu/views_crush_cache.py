@@ -228,13 +228,17 @@ def _play_context(hunt, membership):
     return context
 
 
-def _render_play_content(request, hunt, membership):
-    """The single HTMX-swappable play region — every mutation returns it."""
-    return render(
-        request,
-        "crush_lu/cache/_play_content.html",
-        _play_context(hunt, membership),
-    )
+def _render_play_content(request, hunt, membership, extra=None):
+    """The single HTMX-swappable play region — every mutation returns it.
+
+    `extra` carries transient, response-only context (celebration and
+    answer-feedback flags) on top of the re-entrant DB-derived state —
+    a refresh always lands back on plain derived state.
+    """
+    context = _play_context(hunt, membership)
+    if extra:
+        context.update(extra)
+    return render(request, "crush_lu/cache/_play_content.html", context)
 
 
 # =============================================================================
@@ -741,18 +745,35 @@ def cache_answer_api(request, event_id, challenge_id):
         )
 
     if station_completed:
-        # The play shell (map, target coords) is stale once the station
-        # changes — have HTMX do a full page refresh instead of a swap.
-        messages.success(
+        # Render an in-flow celebration instead of an abrupt HX-Refresh;
+        # its "Continue" link does the full reload that refreshes the
+        # stale play shell (map, target coords). A manual refresh in the
+        # meantime simply lands on the next station's derived state.
+        return _render_play_content(
             request,
-            challenge.station.completion_message
-            or _("Station complete — on to the next one!"),
+            hunt,
+            membership,
+            extra={
+                "celebrated_station": challenge.station,
+                "celebrated_points": attempt.points_earned,
+                "hunt_completed": hunt_completed,
+            },
         )
-        response = _render_play_content(request, hunt, membership)
-        response["HX-Refresh"] = "true"
-        return response
 
-    return _render_play_content(request, hunt, membership)
+    if answer_correct:
+        # Correct but more challenges remain at this station: flash the
+        # success before showing the next challenge.
+        return _render_play_content(
+            request,
+            hunt,
+            membership,
+            extra={
+                "just_correct": True,
+                "just_correct_message": challenge.success_message,
+            },
+        )
+
+    return _render_play_content(request, hunt, membership, extra={"just_wrong": True})
 
 
 @crush_login_required
