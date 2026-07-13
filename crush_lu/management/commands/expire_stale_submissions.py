@@ -153,11 +153,19 @@ class Command(BaseCommand):
         expired = 0
         skipped_late = 0
         with transaction.atomic():
-            for submission in candidates.select_for_update().iterator():
-                # The guards above were evaluated before this row lock was
-                # taken — re-check them under the lock so a pause, completed
-                # call, booking, or status change committed in the meantime
-                # still protects the row.
+            # Freeze the final candidate set and lock those rows, then
+            # re-evaluate every guard under the locks: rows AND siblings can
+            # change state between the read pass above and this write pass
+            # (candidates is lazy, so re-iterating it could silently drop a
+            # newly protected sibling while still expiring its profile-mate).
+            final_pks = list(candidates.values_list("pk", flat=True))
+            locked = list(
+                ProfileSubmission.objects.filter(
+                    pk__in=final_pks
+                ).select_for_update()
+            )
+            expirable = []
+            for submission in locked:
                 if (
                     submission.status not in ("pending", "recontact_coach")
                     or submission.is_paused
@@ -165,6 +173,22 @@ class Command(BaseCommand):
                     or submission.booked_slots.filter(
                         status="booked", end_at__gte=now
                     ).exists()
+                ):
+                    skipped_late += 1
+                    continue
+                expirable.append(submission)
+            # Sibling guard re-run against the final, locked state: a row
+            # late-skipped above — or any live row outside this run — keeps
+            # its whole profile out of the expiry.
+            expirable_pks = {s.pk for s in expirable}
+            for submission in expirable:
+                if (
+                    ProfileSubmission.objects.filter(
+                        profile_id=submission.profile_id,
+                        status__in=("pending", "recontact_coach"),
+                    )
+                    .exclude(pk__in=expirable_pks)
+                    .exists()
                 ):
                     skipped_late += 1
                     continue
