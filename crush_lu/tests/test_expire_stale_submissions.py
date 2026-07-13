@@ -152,7 +152,31 @@ class ExpireStaleSubmissionsCommandTests(TestCase):
 
         submission.refresh_from_db()
         self.assertEqual(submission.status, "pending")
-        self.assertIn("skipped (future booked slot): 1", output)
+        self.assertIn("skipped (active/future booked slot): 1", output)
+
+    def test_skips_submission_with_booked_slot_in_progress(self):
+        """A slot stays 'booked' until the coach completes it — a call
+        happening right now (start_at past, end_at future) must protect the
+        submission from being expired mid-call."""
+        _, profile = make_profile("midcall")
+        submission = make_submission(profile, "pending")
+        coach_user = User.objects.create_user(
+            username="coach5@example.com", email="coach5@example.com", password="x"
+        )
+        coach = CrushCoach.objects.create(user=coach_user, is_active=True)
+        ScreeningSlot.objects.create(
+            coach=coach,
+            submission=submission,
+            status="booked",
+            start_at=timezone.now() - timedelta(minutes=10),
+            end_at=timezone.now() + timedelta(minutes=20),
+        )
+
+        output = run_command()
+
+        submission.refresh_from_db()
+        self.assertEqual(submission.status, "pending")
+        self.assertIn("skipped (active/future booked slot): 1", output)
 
     def test_swap_day_submission_before_the_swap_is_included(self):
         """The default cutoff is the swap moment (21:10 UTC), not local
@@ -226,7 +250,7 @@ class ExpireStaleSubmissionsCommandTests(TestCase):
 
         submission.refresh_from_db()
         self.assertEqual(submission.status, "expired")
-        self.assertIn("skipped (future booked slot): 0", output)
+        self.assertIn("skipped (active/future booked slot): 0", output)
 
     def test_dry_run_changes_nothing(self):
         _, profile = make_profile("dryrun")
@@ -417,6 +441,45 @@ class BulkExpireAdminActionTests(TestCase):
         booked.refresh_from_db()
         self.assertEqual(paused.status, "pending")
         self.assertEqual(booked.status, "recontact_coach")
+
+    def test_admin_action_skips_booked_slot_in_progress(self):
+        """Parity with the command: a booked slot that started but hasn't
+        ended protects the row from the bulk expire action too."""
+        from django.contrib import admin as django_admin
+        from django.contrib.messages.storage.fallback import FallbackStorage
+
+        from crush_lu.admin.profiles import ProfileSubmissionAdmin
+
+        _, profile = make_profile("adminmidcall")
+        submission = make_submission(profile, "pending")
+        coach_user = User.objects.create_user(
+            username="coach6@example.com", email="coach6@example.com", password="x"
+        )
+        coach = CrushCoach.objects.create(user=coach_user, is_active=True)
+        ScreeningSlot.objects.create(
+            coach=coach,
+            submission=submission,
+            status="booked",
+            start_at=timezone.now() - timedelta(minutes=10),
+            end_at=timezone.now() + timedelta(minutes=20),
+        )
+
+        admin_user = User.objects.create_superuser(
+            username="admin5@example.com", email="admin5@example.com", password="x"
+        )
+        factory = RequestFactory()
+        request = factory.post("/admin/")
+        request.user = admin_user
+        request.session = self.client.session
+        request._messages = FallbackStorage(request)
+
+        model_admin = ProfileSubmissionAdmin(ProfileSubmission, django_admin.site)
+        model_admin.bulk_expire_to_self_serve(
+            request, ProfileSubmission.objects.filter(pk=submission.pk)
+        )
+
+        submission.refresh_from_db()
+        self.assertEqual(submission.status, "pending")
 
     def test_admin_action_skips_completed_screening_call(self):
         """Parity with the command: a completed screening call protects the

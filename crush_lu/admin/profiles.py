@@ -2121,13 +2121,15 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
                 continue
             # Same safety guards as the management command: paused submissions
             # have their own reactivation story, a completed screening call
-            # puts the row on the "Ready to Approve" path, and a future booked
-            # slot means a coach call is genuinely scheduled.
+            # puts the row on the "Ready to Approve" path, and a booked slot
+            # that hasn't ended yet means a coach call is scheduled or in
+            # progress right now (slots stay 'booked' until completed, so
+            # test end_at, not start_at).
             if (
                 submission.is_paused
                 or submission.review_call_completed
                 or submission.booked_slots.filter(
-                    status="booked", start_at__gte=now
+                    status="booked", end_at__gte=now
                 ).exists()
             ):
                 skipped_protected += 1

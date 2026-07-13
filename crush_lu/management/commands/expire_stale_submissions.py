@@ -96,17 +96,19 @@ class Command(BaseCommand):
         # those for an explicit approve/expire decision.
         skipped_call_done = candidates.filter(review_call_completed=True).count()
         candidates = candidates.exclude(review_call_completed=True)
-        # A future booked screening call means a coach interaction is genuinely
-        # scheduled. filter() binds both kwargs to the same slot row, but
-        # exclude() would not (it matches the conditions on possibly different
-        # slots), so resolve the matching submissions via filter() and exclude
-        # by pk.
-        future_booked_pks = candidates.filter(
+        # An active or future booked screening call means a coach interaction
+        # is genuinely scheduled (or happening right now — a slot stays
+        # 'booked' until the coach completes it, so test end_at, not
+        # start_at, or a mid-call submission would be expired). filter()
+        # binds both kwargs to the same slot row, but exclude() would not
+        # (it matches the conditions on possibly different slots), so
+        # resolve the matching submissions via filter() and exclude by pk.
+        active_booked_pks = candidates.filter(
             booked_slots__status="booked",
-            booked_slots__start_at__gte=now,
+            booked_slots__end_at__gte=now,
         ).values("pk")
-        skipped_booked = future_booked_pks.distinct().count()
-        candidates = candidates.exclude(pk__in=future_booked_pks)
+        skipped_booked = active_booked_pks.distinct().count()
+        candidates = candidates.exclude(pk__in=active_booked_pks)
 
         by_status = {
             row["status"]: row["n"]
@@ -119,7 +121,7 @@ class Command(BaseCommand):
             self.stdout.write(f"  {status}: {by_status.get(status, 0)}")
         self.stdout.write(f"  skipped (paused): {skipped_paused}")
         self.stdout.write(f"  skipped (completed screening call): {skipped_call_done}")
-        self.stdout.write(f"  skipped (future booked slot): {skipped_booked}")
+        self.stdout.write(f"  skipped (active/future booked slot): {skipped_booked}")
 
         if dry_run:
             self.stdout.write(
