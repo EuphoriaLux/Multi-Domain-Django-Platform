@@ -668,6 +668,28 @@ class ProfileSubmissionAdminFormTests(TestCase):
         submission.refresh_from_db()
         self.assertEqual(submission.status, "pending")
 
+    def test_profile_inline_uses_guarded_form(self):
+        """The submission inline on the CrushProfile admin renders an
+        editable status select too — it must go through the same guarded
+        form, or profile-page edits bypass the expired lock entirely."""
+        from django.contrib import admin as django_admin
+
+        from crush_lu.admin.profiles import (
+            ProfileSubmissionAdminForm,
+            ProfileSubmissionProfileInline,
+        )
+
+        inline = ProfileSubmissionProfileInline(CrushProfile, django_admin.site)
+        formset_class = inline.get_formset(self._admin_request("inlineform"))
+        self.assertTrue(issubclass(formset_class.form, ProfileSubmissionAdminForm))
+
+        _, profile = make_profile("inlinerow")
+        submission = make_submission(profile, "pending")
+        form = formset_class.form(instance=submission)
+        self.assertNotIn(
+            "expired", [value for value, label in form.fields["status"].choices]
+        )
+
     def test_changelist_keeps_already_expired_row_saveable(self):
         """An already-expired row keeps its value in the select so a
         changelist save of other rows doesn't force it out of 'expired'."""
@@ -759,6 +781,34 @@ class CoachReviewExpiredSubmissionTests(TestCase):
         self.submission.refresh_from_db()
         self.assertEqual(self.submission.status, "expired")
         self.assertIsNone(self.submission.reviewed_at)
+
+    def test_older_row_behind_expired_latest_is_blocked_too(self):
+        """An older assigned pending row hidden behind a newer expired row
+        must also be unreviewable — the member's newest submission was
+        closed out, so they are a self-serve case regardless of which
+        row id the stale link points at."""
+        _, profile = make_profile("hiddenreview")
+        older_pending = make_submission(profile, "pending", coach=self.coach)
+        ProfileSubmission.objects.filter(pk=older_pending.pk).update(
+            submitted_at=STALE_SUBMITTED_AT - timedelta(days=10)
+        )
+        make_submission(profile, "expired")
+
+        self.client.force_login(self.coach_user)
+        response = self.client.get(
+            reverse("crush_lu:coach_review_profile", args=[older_pending.id])
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("crush_lu:coach_profiles"))
+
+        response = self.client.post(
+            reverse("crush_lu:coach_review_profile", args=[older_pending.id]),
+            data={"status": "approved", "coach_notes": "", "feedback_to_user": ""},
+        )
+        self.assertEqual(response.status_code, 302)
+        older_pending.refresh_from_db()
+        self.assertEqual(older_pending.status, "pending")
+        self.assertIsNone(older_pending.reviewed_at)
 
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")

@@ -224,10 +224,66 @@ class CrushCoachAdmin(AutoTranslateMixin, TranslationAdmin):
         return qs.select_related("user")
 
 
+class ProfileSubmissionAdminForm(forms.ModelForm):
+    """Keeps the terminal "expired" state out of direct status edits — both
+    the change form and the changelist's list_editable select. Expiring must
+    go through the bulk_expire_to_self_serve action, which applies the
+    safety guards and writes the audit entry. The transition is locked in
+    BOTH directions: non-expired rows can't be set to expired here, and
+    expired rows can't be reactivated (select shows only "expired", so the
+    row stays displayable and re-savable unchanged). The recovery path for
+    an expired user is their own resubmission, which creates a fresh row."""
+
+    class Meta:
+        model = ProfileSubmission
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        status_field = self.fields.get("status")
+        if status_field is not None:
+            if self.instance.status == "expired":
+                status_field.choices = [
+                    (value, label)
+                    for value, label in status_field.choices
+                    if value == "expired"
+                ]
+            else:
+                status_field.choices = [
+                    (value, label)
+                    for value, label in status_field.choices
+                    if value != "expired"
+                ]
+
+    def clean_status(self):
+        status = self.cleaned_data.get("status")
+        if status == "expired" and self.instance.status != "expired":
+            raise forms.ValidationError(
+                _(
+                    'Use the "Expire to self-serve" bulk action instead: it '
+                    "applies the safety guards (paused, completed or booked "
+                    "screening calls) and records the audit entry."
+                )
+            )
+        if self.instance.status == "expired" and status != "expired":
+            raise forms.ValidationError(
+                _(
+                    "Expired submissions cannot be reactivated here — the "
+                    "member re-enters review by resubmitting, which creates "
+                    "a fresh submission with its own audit trail."
+                )
+            )
+        return status
+
+
 class ProfileSubmissionProfileInline(admin.TabularInline):
     """Show profile submission/review history"""
 
     model = ProfileSubmission
+    # Same guarded form as ProfileSubmissionAdmin: the inline renders an
+    # editable status select too, and must not offer/accept transitions
+    # into or out of "expired" either.
+    form = ProfileSubmissionAdminForm
     extra = 0
     fields = ("coach", "status", "review_call_completed", "submitted_at", "reviewed_at")
     readonly_fields = ("submitted_at", "reviewed_at")
@@ -1563,58 +1619,6 @@ class CallAttemptInline(admin.TabularInline):
 
     def has_add_permission(self, request, obj=None):
         return False  # Only created through coach interface
-
-
-class ProfileSubmissionAdminForm(forms.ModelForm):
-    """Keeps the terminal "expired" state out of direct status edits — both
-    the change form and the changelist's list_editable select. Expiring must
-    go through the bulk_expire_to_self_serve action, which applies the
-    safety guards and writes the audit entry. The transition is locked in
-    BOTH directions: non-expired rows can't be set to expired here, and
-    expired rows can't be reactivated (select shows only "expired", so the
-    row stays displayable and re-savable unchanged). The recovery path for
-    an expired user is their own resubmission, which creates a fresh row."""
-
-    class Meta:
-        model = ProfileSubmission
-        fields = "__all__"
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        status_field = self.fields.get("status")
-        if status_field is not None:
-            if self.instance.status == "expired":
-                status_field.choices = [
-                    (value, label)
-                    for value, label in status_field.choices
-                    if value == "expired"
-                ]
-            else:
-                status_field.choices = [
-                    (value, label)
-                    for value, label in status_field.choices
-                    if value != "expired"
-                ]
-
-    def clean_status(self):
-        status = self.cleaned_data.get("status")
-        if status == "expired" and self.instance.status != "expired":
-            raise forms.ValidationError(
-                _(
-                    'Use the "Expire to self-serve" bulk action instead: it '
-                    "applies the safety guards (paused, completed or booked "
-                    "screening calls) and records the audit entry."
-                )
-            )
-        if self.instance.status == "expired" and status != "expired":
-            raise forms.ValidationError(
-                _(
-                    "Expired submissions cannot be reactivated here — the "
-                    "member re-enters review by resubmitting, which creates "
-                    "a fresh submission with its own audit trail."
-                )
-            )
-        return status
 
 
 class ProfileSubmissionAdmin(admin.ModelAdmin):

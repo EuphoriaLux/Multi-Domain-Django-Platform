@@ -1086,8 +1086,13 @@ def coach_review_profile(request, submission_id):
     # "expired" rows were closed out by the post-pivot cleanup and their
     # users routed to self-serve verification. A stale /coach/review/<id>/
     # link must not let a coach re-open one and pull the user back into
-    # the legacy review flow.
-    if submission.status == "expired":
+    # the legacy review flow — nor an older assigned row hidden behind a
+    # newer expired row (latest_for_profile None ⇒ the member's newest
+    # submission is expired, so they are a self-serve case).
+    if (
+        submission.status == "expired"
+        or ProfileSubmission.latest_for_profile(submission.profile) is None
+    ):
         messages.info(
             request,
             _(
