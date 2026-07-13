@@ -8,6 +8,7 @@ Includes:
 - CoachSessionAdmin
 """
 
+from django import forms
 from django.contrib import admin
 from django.contrib import messages as django_messages
 from django.db import transaction
@@ -1564,7 +1565,43 @@ class CallAttemptInline(admin.TabularInline):
         return False  # Only created through coach interface
 
 
+class ProfileSubmissionAdminForm(forms.ModelForm):
+    """Keeps the terminal "expired" state out of direct status edits — both
+    the change form and the changelist's list_editable select. Expiring must
+    go through the bulk_expire_to_self_serve action, which applies the
+    paused/booked-call guards and writes the audit entry. Rows that are
+    already expired keep the choice so they can be displayed and re-saved
+    unchanged."""
+
+    class Meta:
+        model = ProfileSubmission
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        status_field = self.fields.get("status")
+        if status_field is not None and self.instance.status != "expired":
+            status_field.choices = [
+                (value, label)
+                for value, label in status_field.choices
+                if value != "expired"
+            ]
+
+    def clean_status(self):
+        status = self.cleaned_data.get("status")
+        if status == "expired" and self.instance.status != "expired":
+            raise forms.ValidationError(
+                _(
+                    'Use the "Expire to self-serve" bulk action instead: it '
+                    "skips paused submissions and future booked calls, and "
+                    "records the audit entry."
+                )
+            )
+        return status
+
+
 class ProfileSubmissionAdmin(admin.ModelAdmin):
+    form = ProfileSubmissionAdminForm
     list_display = (
         "get_profile_link",
         "get_user_email",
@@ -1629,6 +1666,13 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
         ("Review", {"fields": ("coach_notes", "feedback_to_user")}),
         ("Timestamps", {"fields": ("submitted_at", "reviewed_at")}),
     )
+
+    def get_changelist_form(self, request, **kwargs):
+        # The changelist (list_editable) builds its own plain ModelForm and
+        # ignores self.form — hand it the guarded form so inline status
+        # edits can't reach "expired" either.
+        kwargs.setdefault("form", ProfileSubmissionAdminForm)
+        return super().get_changelist_form(request, **kwargs)
 
     def get_queryset(self, request):
         """

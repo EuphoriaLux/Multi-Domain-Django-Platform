@@ -426,3 +426,188 @@ class ProfileReviewFormTests(TestCase):
         )
         self.assertFalse(form.is_valid())
         self.assertIn("status", form.errors)
+
+
+class ProfileSubmissionAdminFormTests(TestCase):
+    """Direct admin status edits (change form + list_editable) must never
+    offer or accept 'expired' — only bulk_expire_to_self_serve may set it,
+    because it applies the safety guards and writes the audit entry."""
+
+    def _admin_request(self, suffix):
+        admin_user = User.objects.create_superuser(
+            username=f"admin{suffix}@example.com",
+            email=f"admin{suffix}@example.com",
+            password="x",
+        )
+        request = RequestFactory().post("/admin/")
+        request.user = admin_user
+        return request
+
+    def test_expired_choice_hidden_for_active_rows(self):
+        from crush_lu.admin.profiles import ProfileSubmissionAdminForm
+
+        _, profile = make_profile("adminform")
+        submission = make_submission(profile, "pending")
+        form = ProfileSubmissionAdminForm(instance=submission)
+        self.assertNotIn(
+            "expired", [value for value, label in form.fields["status"].choices]
+        )
+
+    def test_expired_choice_kept_for_already_expired_rows(self):
+        from crush_lu.admin.profiles import ProfileSubmissionAdminForm
+
+        _, profile = make_profile("adminformexp")
+        submission = make_submission(profile, "expired")
+        form = ProfileSubmissionAdminForm(instance=submission)
+        self.assertIn(
+            "expired", [value for value, label in form.fields["status"].choices]
+        )
+
+    def test_change_form_uses_guarded_form(self):
+        from django.contrib import admin as django_admin
+
+        from crush_lu.admin.profiles import (
+            ProfileSubmissionAdmin,
+            ProfileSubmissionAdminForm,
+        )
+
+        model_admin = ProfileSubmissionAdmin(ProfileSubmission, django_admin.site)
+        form_class = model_admin.get_form(self._admin_request("changeform"))
+        self.assertTrue(issubclass(form_class, ProfileSubmissionAdminForm))
+
+    def test_changelist_edit_to_expired_is_rejected(self):
+        """list_editable saves go through get_changelist_form, which ignores
+        ModelAdmin.form — the override must hand it the guarded form."""
+        from django.contrib import admin as django_admin
+
+        from crush_lu.admin.profiles import ProfileSubmissionAdmin
+
+        _, profile = make_profile("listeditrow")
+        submission = make_submission(profile, "pending")
+
+        model_admin = ProfileSubmissionAdmin(ProfileSubmission, django_admin.site)
+        form_class = model_admin.get_changelist_form(
+            self._admin_request("listedit"),
+            fields=["status", "review_call_completed"],
+        )
+        form = form_class({"status": "expired"}, instance=submission)
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("status", form.errors)
+        submission.refresh_from_db()
+        self.assertEqual(submission.status, "pending")
+
+    def test_changelist_keeps_already_expired_row_saveable(self):
+        """An already-expired row keeps its value in the select so a
+        changelist save of other rows doesn't force it out of 'expired'."""
+        from django.contrib import admin as django_admin
+
+        from crush_lu.admin.profiles import ProfileSubmissionAdmin
+
+        _, profile = make_profile("expkeeprow")
+        submission = make_submission(profile, "expired")
+
+        model_admin = ProfileSubmissionAdmin(ProfileSubmission, django_admin.site)
+        form_class = model_admin.get_changelist_form(
+            self._admin_request("expkeep"),
+            fields=["status", "review_call_completed"],
+        )
+        form = form_class({"status": "expired"}, instance=submission)
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class CoachReviewExpiredSubmissionTests(TestCase):
+    """A stale /coach/review/<id>/ link must not let a coach re-open an
+    expired row and pull the user back into the legacy review flow."""
+
+    def setUp(self):
+        self.coach_user = User.objects.create_user(
+            username="reviewcoach@example.com",
+            email="reviewcoach@example.com",
+            password="pass12345",
+            first_name="Cam",
+        )
+        UserDataConsent.objects.filter(user=self.coach_user).update(
+            crushlu_consent_given=True
+        )
+        self.coach = CrushCoach.objects.create(user=self.coach_user, is_active=True)
+        _, profile = make_profile("expiredreview")
+        self.submission = make_submission(profile, "expired", coach=self.coach)
+
+    def test_get_redirects_away(self):
+        self.client.force_login(self.coach_user)
+        response = self.client.get(
+            reverse("crush_lu:coach_review_profile", args=[self.submission.id])
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("crush_lu:coach_profiles"))
+
+    def test_post_cannot_reopen_expired_row(self):
+        self.client.force_login(self.coach_user)
+        response = self.client.post(
+            reverse("crush_lu:coach_review_profile", args=[self.submission.id]),
+            data={"status": "approved", "coach_notes": "", "feedback_to_user": ""},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.submission.refresh_from_db()
+        self.assertEqual(self.submission.status, "expired")
+        self.assertIsNone(self.submission.reviewed_at)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class ExpiredLatestSubmissionFallbackTests(TestCase):
+    """When the latest row is expired, user-facing surfaces must treat the
+    profile as having no submission — not fall back to an older non-expired
+    row (e.g. an old 'revision' skipped by the cleanup), which would
+    resurrect legacy coach messaging for exactly the users whose review
+    was closed out."""
+
+    def setUp(self):
+        self.user, self.profile = make_profile("fallback")
+        # Older revision row, skipped by the cleanup command...
+        self.old_revision = make_submission(self.profile, "revision")
+        ProfileSubmission.objects.filter(pk=self.old_revision.pk).update(
+            submitted_at=STALE_SUBMITTED_AT - timedelta(days=30)
+        )
+        # ...and the newer row that the cleanup expired.
+        self.expired = make_submission(self.profile, "expired")
+
+    def test_helper_returns_none_when_latest_is_expired(self):
+        self.assertIsNone(ProfileSubmission.latest_for_profile(self.profile))
+
+    def test_helper_returns_latest_row_when_not_expired(self):
+        newer = make_submission(self.profile, "pending", days_ago=0)
+        self.assertEqual(
+            ProfileSubmission.latest_for_profile(self.profile).pk, newer.pk
+        )
+
+    def test_profile_submitted_does_not_resurrect_older_row(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("crush_lu:profile_submitted"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.context["submission"])
+        self.assertNotContains(response, "Coach Needs to Speak With You")
+
+    def test_navbar_context_does_not_resurrect_older_row(self):
+        request = RequestFactory().get("/en/dashboard/")
+        request.user = self.user
+        context = crush_user_context(request)
+
+        self.assertNotIn("profile_submission", context)
+        self.assertNotIn("profile_needs_action", context)
+
+    def test_dashboard_does_not_resurrect_older_row(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("crush_lu:dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.context["submission"])
+
+    def test_api_submission_status_404s_when_latest_is_expired(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("api_submission_status"))
+
+        self.assertEqual(response.status_code, 404)

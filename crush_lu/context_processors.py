@@ -188,13 +188,10 @@ def crush_user_context(request):
             context["profile_is_approved"] = profile.is_approved
 
             # Expired submissions are closed-out pre-pivot reviews — the navbar
-            # must not resurrect "needs action" / coach labels for them.
-            profile_submission = (
-                ProfileSubmission.objects.filter(profile=profile)
-                .exclude(status="expired")
-                .select_related("coach__user")
-                .order_by("-submitted_at")
-                .first()
+            # must not resurrect "needs action" / coach labels for them, not
+            # even from an older non-expired row.
+            profile_submission = ProfileSubmission.latest_for_profile(
+                profile, select_related=("coach__user",)
             )
 
             if profile_submission:

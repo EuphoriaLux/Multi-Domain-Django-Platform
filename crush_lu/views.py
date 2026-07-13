@@ -332,13 +332,9 @@ def dashboard(request):
         )
         # Get latest submission status. Expired submissions are closed-out
         # pre-pivot reviews — the user verifies self-serve, so render them
-        # like a user with no submission at all.
-        latest_submission = (
-            ProfileSubmission.objects.filter(profile=profile)
-            .exclude(status="expired")
-            .order_by("-submitted_at")
-            .first()
-        )
+        # like a user with no submission at all (even when older non-expired
+        # rows exist — no falling back to legacy messaging).
+        latest_submission = ProfileSubmission.latest_for_profile(profile)
 
         # Get user's event registrations
         registrations = (
@@ -1527,15 +1523,7 @@ def edit_profile(request):
     else:
         form = CrushProfileForm(instance=profile)
 
-    latest_submission = None
-    try:
-        latest_submission = (
-            ProfileSubmission.objects.filter(profile=profile)
-            .exclude(status="expired")
-            .latest("submitted_at")
-        )
-    except ProfileSubmission.DoesNotExist:
-        pass
+    latest_submission = ProfileSubmission.latest_for_profile(profile)
 
     current_step_to_show = None
     if latest_submission and latest_submission.status in [
@@ -1774,15 +1762,11 @@ def profile_submitted(request):
         return redirect("crush_lu:dashboard")
 
     # Submission only exists for the paid coach path or revision re-submits.
-    # For free LuxId verification, submission is None. Expired submissions
-    # (closed-out pre-pivot reviews) render the same way — the self-serve
-    # "Verify your identity" hero, not the old coach-review messaging.
-    submission = (
-        ProfileSubmission.objects.filter(profile=profile)
-        .exclude(status="expired")
-        .order_by("-submitted_at")
-        .first()
-    )
+    # For free LuxId verification, submission is None. An expired latest
+    # submission (closed-out pre-pivot review) renders the same way — the
+    # self-serve "Verify your identity" hero, not the old coach-review
+    # messaging — and must not fall back to an older non-expired row.
+    submission = ProfileSubmission.latest_for_profile(profile)
 
     now = timezone.now()
 
@@ -2004,12 +1988,10 @@ def api_submission_status(request):
     """JSON endpoint for polling submission status changes."""
     try:
         profile = CrushProfile.objects.get(user=request.user)
-        submission = (
-            ProfileSubmission.objects.filter(profile=profile)
-            .exclude(status="expired")
-            .latest("submitted_at")
-        )
-    except (CrushProfile.DoesNotExist, ProfileSubmission.DoesNotExist):
+    except CrushProfile.DoesNotExist:
+        return JsonResponse({"error": "No submission found"}, status=404)
+    submission = ProfileSubmission.latest_for_profile(profile)
+    if submission is None:
         return JsonResponse({"error": "No submission found"}, status=404)
 
     now = timezone.now()
@@ -2051,12 +2033,10 @@ def api_submission_note(request):
     """Allow candidate to send a one-time note to their coach during review."""
     try:
         profile = CrushProfile.objects.get(user=request.user)
-        submission = (
-            ProfileSubmission.objects.filter(profile=profile)
-            .exclude(status="expired")
-            .latest("submitted_at")
-        )
-    except (CrushProfile.DoesNotExist, ProfileSubmission.DoesNotExist):
+    except CrushProfile.DoesNotExist:
+        return JsonResponse({"error": "No submission found"}, status=404)
+    submission = ProfileSubmission.latest_for_profile(profile)
+    if submission is None:
         return JsonResponse({"error": "No submission found"}, status=404)
 
     if submission.status != "pending":

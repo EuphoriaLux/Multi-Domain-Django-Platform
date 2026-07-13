@@ -1160,6 +1160,24 @@ class ProfileSubmission(models.Model):
     def __str__(self):
         return f"{self.profile.user.username} - {self.get_status_display()}"
 
+    @classmethod
+    def latest_for_profile(cls, profile, *, select_related=None):
+        """Latest submission for a profile, treating an expired latest row
+        as no submission at all.
+
+        Deliberately does NOT fall back to an older non-expired row: the
+        expired row closed out the user's whole coach-review story, so
+        resurrecting an older revision/pending row would pull them back
+        into the legacy flow the cleanup routed them out of.
+        """
+        qs = cls.objects.filter(profile=profile)
+        if select_related:
+            qs = qs.select_related(*select_related)
+        latest = qs.order_by("-submitted_at").first()
+        if latest is not None and latest.status == "expired":
+            return None
+        return latest
+
     @property
     def sla_state(self):
         """Current SLA bucket: ok / warning / urgent / breach / escalated.

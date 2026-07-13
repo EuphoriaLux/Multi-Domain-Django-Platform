@@ -1083,6 +1083,20 @@ def coach_review_profile(request, submission_id):
 
     submission = get_object_or_404(ProfileSubmission, id=submission_id, coach=coach)
 
+    # "expired" rows were closed out by the post-pivot cleanup and their
+    # users routed to self-serve verification. A stale /coach/review/<id>/
+    # link must not let a coach re-open one and pull the user back into
+    # the legacy review flow.
+    if submission.status == "expired":
+        messages.info(
+            request,
+            _(
+                "This submission was closed out — the member now verifies "
+                "their identity self-serve. It can no longer be reviewed."
+            ),
+        )
+        return redirect("crush_lu:coach_profiles")
+
     # Block changes to already-reviewed submissions
     if submission.status in ("approved", "rejected") and submission.reviewed_at:
         messages.info(
