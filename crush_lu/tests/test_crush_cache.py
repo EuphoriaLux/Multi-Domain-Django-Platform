@@ -975,3 +975,73 @@ class TestGeminiReviewFixes:
         )
         CacheHunt.objects.create(event=event, title="Temp Hunt", created_by=creator)
         assert event.cache_join_available is True
+
+
+@pytest.mark.django_db
+class TestCodexReviewFixes:
+    """Regression coverage for Codex review findings on PR #616."""
+
+    def test_reregistration_after_cancel_does_not_exceed_capacity(
+        self, client, hunt, team, teammate
+    ):
+        """A cancelled member who re-registers must not silently reactivate
+        their old team membership and push the team over ``team_size_max``.
+
+        Repro: full team (cap 2) -> a member cancels, so the active-only
+        ``member_count()`` frees the slot -> a replacement takes it -> the
+        original re-registers, reusing their cancelled EventRegistration row.
+        Their stale CacheTeamMember must be cleared so the team stays at
+        capacity instead of ballooning to 3.
+        """
+        from datetime import date
+
+        from crush_lu.models import CrushProfile
+
+        # The `team` fixture already holds `player` (attended). Cap is 2.
+        # event.profile_requirement defaults to "completed", so give the
+        # teammate a verified profile so event_register accepts the re-signup.
+        CrushProfile.objects.create(
+            user=teammate,
+            date_of_birth=date(1995, 5, 15),
+            gender="M",
+            location="Luxembourg",
+            verification_status="verified",
+            is_approved=True,
+            is_active=True,
+        )
+
+        # Teammate had joined, then cancelled — the membership row lingers.
+        cancelled = EventRegistration.objects.create(
+            event=hunt.event, user=teammate, status="cancelled"
+        )
+        CacheTeamMember.objects.create(hunt=hunt, team=team, registration=cancelled)
+
+        # A replacement claimed the freed slot; the team is full again.
+        replacement = User.objects.create_user(
+            username="replace@test.com", email="replace@test.com", password="x"
+        )
+        _grant_consent(replacement)
+        reg_replacement = EventRegistration.objects.create(
+            event=hunt.event, user=replacement, status="confirmed"
+        )
+        CacheTeamMember.objects.create(
+            hunt=hunt, team=team, registration=reg_replacement
+        )
+        assert team.member_count() == 2  # player + replacement
+
+        # The original teammate re-registers: reuses the cancelled row.
+        client.force_login(teammate)
+        response = client.post(
+            reverse("crush_lu:event_register", args=[hunt.event_id]), {}
+        )
+        assert response.status_code == 302
+        cancelled.refresh_from_db()
+        assert cancelled.status == "confirmed"  # re-registration itself succeeded
+
+        # ...but the stale hunt membership was cleared: the team holds at
+        # capacity and the re-registered user is no longer on it (they re-join
+        # afresh, subject to the capacity check).
+        assert team.member_count() == 2
+        assert not CacheTeamMember.objects.filter(
+            hunt=hunt, registration__user=teammate
+        ).exists()
