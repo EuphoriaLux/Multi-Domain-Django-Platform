@@ -14,6 +14,9 @@
          id="cache-coach-root"
          data-hunt-id="{{ hunt.id }}"
          data-state-url="{% url 'crush_lu:cache_coach_state_api' event.id %}"
+         data-msg-finished="{% trans '{team} finished the hunt! 🏁' %}"
+         data-msg-completed="{% trans '{team} completed station {order} ({points} pts)' %}"
+         data-msg-station="{% trans 'station {order}' %}"
          data-map-data="{{ map_data_json }}">
 
         <div class="mb-6 flex items-center justify-between">

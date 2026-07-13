@@ -122,6 +122,7 @@
 <script>
     (function() {
         var huntId = "{{ hunt.id }}";
+        var stateUrl = "{% url 'crush_lu:cache_state_api' event.id %}";
         var ws;
         var retryCount = 0;
         function connect() {
@@ -143,6 +144,20 @@
             };
         }
         connect();
+        // Polling fallback: with the channel layer down the socket never
+        // delivers the start signal — check the state API instead so
+        // players still leave the lobby when the coach presses start.
+        setInterval(function () {
+            if (ws && ws.readyState === WebSocket.OPEN) return;
+            fetch(stateUrl, { headers: { "Accept": "application/json" } })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (data) {
+                    if (data && data.ok && data.status !== "draft") {
+                        window.location.reload();
+                    }
+                })
+                .catch(function () {});
+        }, 20000);
     })();
 </script>
 {% endif %}
