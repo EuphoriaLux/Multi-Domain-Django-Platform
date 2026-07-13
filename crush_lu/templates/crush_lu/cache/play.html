@@ -1,5 +1,5 @@
 {% extends "crush_lu/base.html" %}
-{% load static i18n %}
+{% load static i18n l10n %}
 
 {% block title %}{% trans "Crush Cache" %} - {{ event.title }}{% endblock %}
 
@@ -22,9 +22,9 @@
          data-needs-gps="{{ needs_gps|yesno:'true,false' }}"
          data-unlocked="{{ attempt.is_unlocked|yesno:'true,false' }}"
          {% if show_map and station and station.latitude is not None %}
-         data-target-lat="{{ station.latitude }}"
-         data-target-lng="{{ station.longitude }}"
-         data-target-radius="{{ station.radius_meters }}"
+         data-target-lat="{{ station.latitude|unlocalize }}"
+         data-target-lng="{{ station.longitude|unlocalize }}"
+         data-target-radius="{{ station.radius_meters|unlocalize }}"
          {% endif %}
          data-completed-stations="{{ completed_stations_json|default:'[]' }}">
 
