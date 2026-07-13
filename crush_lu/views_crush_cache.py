@@ -140,9 +140,7 @@ def _broadcast_cache(hunt_id, msg_type, data, coach_only=False):
         return
     group = f"cache_{hunt_id}_coach" if coach_only else f"cache_{hunt_id}"
     try:
-        async_to_sync(channel_layer.group_send)(
-            group, {"type": msg_type, "data": data}
-        )
+        async_to_sync(channel_layer.group_send)(group, {"type": msg_type, "data": data})
     except Exception:
         logger.exception("Failed to broadcast %s for hunt %s", msg_type, hunt_id)
 
@@ -180,7 +178,6 @@ def _play_context(hunt, membership):
         "current_challenge_attempt": None,
         "station_count": hunt.stations.count(),
         "show_target_coords": hunt.navigation_mode == "map",
-        "leaderboard": hunt.get_leaderboard(),
     }
 
     if progress.is_finished or hunt.status == "finished":
@@ -190,13 +187,9 @@ def _play_context(hunt, membership):
     if station is None:
         return context
 
-    attempt, _ = CacheStationAttempt.objects.get_or_create(
-        team=team, station=station
-    )
+    attempt, _ = CacheStationAttempt.objects.get_or_create(team=team, station=station)
     states = _challenge_states(attempt)
-    current = next(
-        ((c, ca) for c, ca in states if not (ca and ca.is_correct)), None
-    )
+    current = next(((c, ca) for c, ca in states if not (ca and ca.is_correct)), None)
     current_attempt = current[1] if current else None
     needs_gps = station.requires_gps and attempt.arrived_at is None
     context.update(
@@ -206,7 +199,9 @@ def _play_context(hunt, membership):
             "challenge_states": states,
             "current_challenge": current[0] if current else None,
             "current_challenge_attempt": current_attempt,
-            "current_hints_used": (current_attempt.hints_used or []) if current_attempt else [],
+            "current_hints_used": (
+                (current_attempt.hints_used or []) if current_attempt else []
+            ),
             "needs_gps": needs_gps,
             # Target coordinates reach the client ONLY in map mode
             "show_map": (
@@ -307,9 +302,7 @@ def cache_join_team(request, event_id):
                 # Lock the team row so two concurrent joins can't both pass
                 # the capacity check for the last remaining slot.
                 team = (
-                    hunt.teams.select_for_update()
-                    .filter(join_code=join_code)
-                    .first()
+                    hunt.teams.select_for_update().filter(join_code=join_code).first()
                 )
                 if team is None:
                     messages.error(request, _("No team found with that code."))
@@ -335,9 +328,7 @@ def cache_join_team(request, event_id):
         messages.info(request, _("You are already in a team."))
         return redirect("crush_lu:cache_lobby", event_id=event_id)
 
-    messages.success(
-        request, _("You joined %(team)s!") % {"team": team.name}
-    )
+    messages.success(request, _("You joined %(team)s!") % {"team": team.name})
     if hunt.is_live:
         return redirect("crush_lu:cache_play", event_id=event_id)
     return redirect("crush_lu:cache_lobby", event_id=event_id)
@@ -389,6 +380,9 @@ def cache_play(request, event_id):
 
     context = _play_context(hunt, membership)
     if context["progress"].is_finished or hunt.status == "finished":
+        # Only the finish screen shows the leaderboard — the play screen
+        # and its HTMX swaps don't, so _play_context skips the query.
+        context["leaderboard"] = hunt.get_leaderboard()
         return render(request, "crush_lu/cache/finish.html", context)
     return render(request, "crush_lu/cache/play.html", context)
 
@@ -478,6 +472,17 @@ def cache_qr_scan(request, token):
                 _("Code scanned — now reach the location to unlock %(station)s.")
                 % {"station": station.name},
             )
+    elif attempt.is_unlocked:
+        messages.info(
+            request,
+            _("Already scanned — your challenges await below."),
+        )
+    else:
+        messages.info(
+            request,
+            _("Already scanned — now reach the location to unlock %(station)s.")
+            % {"station": station.name},
+        )
     return redirect("crush_lu:cache_play", event_id=event_id)
 
 
@@ -574,6 +579,7 @@ def cache_position_api(request, event_id):
 
 @crush_login_required
 @require_POST
+@ratelimit(key="user", rate="20/m", method="POST")
 def cache_answer_api(request, event_id, challenge_id):
     """Submit an answer for the current station (HTMX form post).
 
@@ -581,6 +587,9 @@ def cache_answer_api(request, event_id, challenge_id):
     and the (station_attempt, challenge) unique constraint makes the
     first correct submission win — a concurrent duplicate re-renders as
     "already answered".
+
+    Rate-limited per user: without it a multiple-choice challenge is
+    brute-forceable in seconds (position API is likewise capped).
     """
     hunt = _get_hunt_or_404(event_id)
     membership = _get_membership(hunt, request.user)
@@ -635,18 +644,14 @@ def cache_answer_api(request, event_id, challenge_id):
         answer_correct = challenge.check_answer(answer)
         if answer_correct:
             ca.is_correct = True
-            ca.points_earned = max(
-                0, challenge.points_awarded - ca.hint_cost_total()
-            )
+            ca.points_earned = max(0, challenge.points_awarded - ca.hint_cost_total())
             ca.answered_at = now
             progress.total_points += ca.points_earned
         ca.save()
 
         if answer_correct:
             total_challenges = challenge.station.challenges.count()
-            correct_count = attempt.challenge_attempts.filter(
-                is_correct=True
-            ).count()
+            correct_count = attempt.challenge_attempts.filter(is_correct=True).count()
             if correct_count >= total_challenges:
                 station_completed = True
                 attempt.completed_at = now
@@ -799,12 +804,16 @@ def cache_coach_dashboard(request, event_id):
                 "id": t.id,
                 "name": t.name,
                 "color": t.color,
-                "lat": float(t.progress.last_lat)
-                if hasattr(t, "progress") and t.progress.last_lat is not None
-                else None,
-                "lng": float(t.progress.last_lng)
-                if hasattr(t, "progress") and t.progress.last_lng is not None
-                else None,
+                "lat": (
+                    float(t.progress.last_lat)
+                    if hasattr(t, "progress") and t.progress.last_lat is not None
+                    else None
+                ),
+                "lng": (
+                    float(t.progress.last_lng)
+                    if hasattr(t, "progress") and t.progress.last_lng is not None
+                    else None
+                ),
             }
             for t in teams.select_related("progress")
         ],
@@ -945,11 +954,13 @@ def cache_coach_auto_teams(request, event_id):
 
     created = 0
     for i in range(num_teams):
-        color = CacheTeam.COLOR_CHOICES[
-            (existing + i) % len(CacheTeam.COLOR_CHOICES)
-        ][0]
+        color = CacheTeam.COLOR_CHOICES[(existing + i) % len(CacheTeam.COLOR_CHOICES)][
+            0
+        ]
         team = CacheTeam.objects.create(
-            hunt=hunt, name=f"Team {existing + i + 1}", color=color
+            hunt=hunt,
+            name=_("Team %(number)d") % {"number": existing + i + 1},
+            color=color,
         )
         for registration in registrations[i * size : (i + 1) * size]:
             CacheTeamMember.objects.create(

@@ -55,6 +55,17 @@ def cache_enabled(settings):
     settings.ROOT_URLCONF = "azureproject.urls_crush"
 
 
+@pytest.fixture(autouse=True)
+def _isolate_ratelimit_counters():
+    """LocMem cache outlives the per-test DB rollback while SQLite reuses
+    primary keys across tests — without this, @ratelimit counters keyed on
+    user_<pk> leak between tests in the same worker."""
+    from django.core.cache import cache
+
+    cache.clear()
+    yield
+
+
 @pytest.fixture
 def player(db):
     user = User.objects.create_user(
@@ -200,9 +211,7 @@ class TestGeo:
     def test_haversine_accepts_decimals(self):
         from decimal import Decimal
 
-        d = haversine_m(
-            Decimal("49.60972"), Decimal("6.12917"), *PONT_ADOLPHE
-        )
+        d = haversine_m(Decimal("49.60972"), Decimal("6.12917"), *PONT_ADOLPHE)
         assert 230 <= d <= 330
 
     def test_bearing_range(self):
@@ -237,6 +246,24 @@ class TestCheckAnswer:
     def test_blank_accepts_everything(self):
         c = self._challenge(correct="")
         assert c.check_answer("anything at all")
+
+    def test_accent_folding(self):
+        """Players shouldn't lose points over accents they can't type
+        outdoors: Pétrusse == petrusse, Gëlle == gelle."""
+        c = self._challenge(correct="Pétrusse")
+        assert c.check_answer("petrusse")
+        assert c.check_answer("PÉTRUSSE")
+        c = self._challenge(correct="Gelle Fra")
+        assert c.check_answer("Gëlle Fra")
+
+    def test_accents_fold_in_alternatives(self):
+        c = self._challenge(correct="x", alternative_answers=["Vallée de la Pétrusse"])
+        assert c.check_answer("vallee de la petrusse")
+
+    def test_inner_whitespace_collapsed(self):
+        c = self._challenge(correct="Gelle  Fra")
+        assert c.check_answer("gelle fra")
+        assert c.check_answer("  gelle   fra ")
 
 
 @pytest.mark.django_db
@@ -307,7 +334,9 @@ class TestAccess:
         response = client.get(url)
         assert response.status_code == 302
 
-    def test_lobby_renders_for_registered_user(self, client, hunt, registration, player):
+    def test_lobby_renders_for_registered_user(
+        self, client, hunt, registration, player
+    ):
         client.force_login(player)
         url = reverse("crush_lu:cache_lobby", args=[hunt.event_id])
         response = client.get(url)
@@ -318,7 +347,8 @@ class TestAccess:
         client.force_login(player)
         url = reverse("crush_lu:cache_position_api", args=[hunt.event_id])
         response = client.post(
-            url, json.dumps({"lat": 49.6, "lng": 6.1, "accuracy": 10}),
+            url,
+            json.dumps({"lat": 49.6, "lng": 6.1, "accuracy": 10}),
             content_type="application/json",
         )
         assert response.status_code == 403
@@ -490,6 +520,21 @@ class TestQRScan:
             team=team, station=stations[0], scanned_at__isnull=False
         ).exists()
 
+    def test_rescan_shows_info_message(self, client, hunt, stations, team, player):
+        """A second scan of the current station is acknowledged, not silent."""
+        stations[0].unlock_mode = "qr"
+        stations[0].save()
+        _start_hunt(hunt)
+        client.force_login(player)
+        url = reverse("crush_lu:cache_qr_scan", args=[stations[0].qr_token])
+        client.get(url)
+        response = client.get(url, follow=True)
+
+        from django.contrib.messages import constants as msg_constants
+
+        levels = [m.level for m in response.context["messages"]]
+        assert msg_constants.INFO in levels
+
     def test_gps_qr_requires_both(self, client, hunt, stations, team, player):
         stations[0].unlock_mode = "gps_qr"
         stations[0].save()
@@ -518,9 +563,7 @@ class TestAnswering:
         return attempt
 
     def _answer(self, client, hunt, challenge, answer):
-        url = reverse(
-            "crush_lu:cache_answer_api", args=[hunt.event_id, challenge.id]
-        )
+        url = reverse("crush_lu:cache_answer_api", args=[hunt.event_id, challenge.id])
         return client.post(url, {"answer": answer})
 
     def test_wrong_answer_no_points(self, client, hunt, stations, team, player):
@@ -556,7 +599,7 @@ class TestAnswering:
         assert progress.current_station_id == stations[1].id
 
     def test_double_submit_scores_once(self, client, hunt, stations, team, player):
-        attempt = self._unlock_station_one(hunt, stations, team)
+        self._unlock_station_one(hunt, stations, team)
         challenge = stations[0].challenges.first()
         client.force_login(player)
         self._answer(client, hunt, challenge, "Gelle Fra")
@@ -610,6 +653,24 @@ class TestAnswering:
 
         board = hunt.get_leaderboard()
         assert board[0]["team_id"] == team.id and board[0]["is_finished"]
+
+    def test_answer_api_rate_limited(self, client, hunt, stations, team, player):
+        """Multiple-choice must not be brute-forceable: 21st POST within a
+        minute is rejected with 429 and never reaches the scoring logic."""
+        attempt = self._unlock_station_one(hunt, stations, team)
+        challenge = stations[0].challenges.first()
+        client.force_login(player)
+
+        for _ in range(20):
+            response = self._answer(client, hunt, challenge, "wrong guess")
+            assert response.status_code == 200
+        response = self._answer(client, hunt, challenge, "wrong guess")
+        assert response.status_code == 429
+
+        ca = CacheChallengeAttempt.objects.get(
+            station_attempt=attempt, challenge=challenge
+        )
+        assert ca.attempts_count == 20  # the blocked POST didn't count
 
     def test_stale_form_after_advance(self, client, hunt, stations, team, player):
         """Answering a challenge from a station the team already left is a no-op."""
@@ -672,6 +733,9 @@ class TestPlayView:
         response = client.get(reverse("crush_lu:cache_play", args=[hunt.event_id]))
         assert response.status_code == 200
         assert b"150" in response.content
+        # The leaderboard only feeds the finish screen (dropped from the
+        # play/HTMX context) — make sure it still arrives here.
+        assert b"Rank #" in response.content
 
 
 # ============================================================================
@@ -860,6 +924,7 @@ class TestGeminiReviewFixes:
     def test_admin_readiness_display_on_add(self):
         from crush_lu.admin.crush_cache import CacheHuntAdmin
         from django.contrib.admin.sites import AdminSite
+
         admin_site = AdminSite()
         model_admin = CacheHuntAdmin(CacheHunt, admin_site)
         res = model_admin.readiness_check_display(None)
@@ -868,7 +933,9 @@ class TestGeminiReviewFixes:
     def test_capacity_check_ignores_cancelled(self, client, hunt, team, teammate):
         # Hunt max size is 2. Currently, team has 1 member (player).
         # Add teammate as a second member:
-        EventRegistration.objects.create(event=hunt.event, user=teammate, status="confirmed")
+        EventRegistration.objects.create(
+            event=hunt.event, user=teammate, status="confirmed"
+        )
         client.force_login(teammate)
         url = reverse("crush_lu:cache_join_team", args=[hunt.event_id])
         client.post(url, {"join_code": team.join_code})
@@ -879,7 +946,9 @@ class TestGeminiReviewFixes:
             username="third@test.com", email="third@test.com", password="x"
         )
         _grant_consent(third_user)
-        EventRegistration.objects.create(event=hunt.event, user=third_user, status="confirmed")
+        EventRegistration.objects.create(
+            event=hunt.event, user=third_user, status="confirmed"
+        )
         client.force_login(third_user)
         response = client.post(url, {"join_code": team.join_code})
         assert team.member_count() == 2
@@ -896,7 +965,9 @@ class TestGeminiReviewFixes:
         assert response.status_code == 302
         assert team.member_count() == 2
 
-    def test_leave_team_blocked_on_allow_self_join_false(self, client, hunt, team, player):
+    def test_leave_team_blocked_on_allow_self_join_false(
+        self, client, hunt, team, player
+    ):
         hunt.allow_self_join = False
         hunt.save()
         client.force_login(player)
@@ -908,7 +979,7 @@ class TestGeminiReviewFixes:
     def test_position_api_not_live_or_finished(self, client, hunt, team, player):
         client.force_login(player)
         url = reverse("crush_lu:cache_position_api", args=[hunt.event_id])
-        
+
         # 1. Hunt is draft (not live) -> should fail
         response = client.post(
             url,
@@ -916,7 +987,7 @@ class TestGeminiReviewFixes:
             content_type="application/json",
         )
         assert response.status_code == 403
-        
+
         # Start hunt, make team finished
         _start_hunt(hunt)
         progress = CacheTeamProgress.objects.get(team=team)
@@ -943,17 +1014,24 @@ class TestGeminiReviewFixes:
     def test_non_coach_creator_can_manage(self, client, hunt, stations, team):
         # Creator is coach_user by default. Let's create a staff user who is NOT a coach.
         creator = User.objects.create_user(
-            username="creator@test.com", email="creator@test.com", password="x", is_staff=True
+            username="creator@test.com",
+            email="creator@test.com",
+            password="x",
+            is_staff=True,
         )
         _grant_consent(creator)
         hunt.created_by = creator
         hunt.save()
 
         client.force_login(creator)
-        response = client.get(reverse("crush_lu:cache_coach_dashboard", args=[hunt.event_id]))
+        response = client.get(
+            reverse("crush_lu:cache_coach_dashboard", args=[hunt.event_id])
+        )
         assert response.status_code == 200
 
-        response = client.post(reverse("crush_lu:cache_coach_start", args=[hunt.event_id]))
+        response = client.post(
+            reverse("crush_lu:cache_coach_start", args=[hunt.event_id])
+        )
         assert response.status_code == 302
         hunt.refresh_from_db()
         assert hunt.status == "live"
@@ -971,7 +1049,10 @@ class TestGeminiReviewFixes:
 
         # Create hunt
         creator = User.objects.create_user(
-            username="temp_creator@test.com", email="temp_creator@test.com", password="x", is_staff=True
+            username="temp_creator@test.com",
+            email="temp_creator@test.com",
+            password="x",
+            is_staff=True,
         )
         CacheHunt.objects.create(event=event, title="Temp Hunt", created_by=creator)
         assert event.cache_join_available is True
