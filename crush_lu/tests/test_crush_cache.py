@@ -970,6 +970,25 @@ class TestCoach:
         for t in hunt.teams.all():
             assert t.members.count() <= hunt.team_size_max
 
+    def test_coach_event_detail_links_to_cache_control(
+        self, client, hunt, coach_user, settings
+    ):
+        """The coach event page must surface the Crush Cache dashboard —
+        it was previously reachable only by typing the URL."""
+        client.force_login(coach_user)
+        url = reverse("crush_lu:coach_event_detail", args=[hunt.event_id])
+        cache_url = reverse(
+            "crush_lu:cache_coach_dashboard", args=[hunt.event_id]
+        )
+
+        response = client.get(url)
+        assert response.status_code == 200
+        assert cache_url.encode() in response.content
+
+        settings.CRUSH_CACHE_ENABLED = False
+        response = client.get(url)
+        assert cache_url.encode() not in response.content
+
     def test_qr_sheet_requires_coach(self, client, hunt, stations, team, player):
         client.force_login(player)
         url = reverse("crush_lu:cache_coach_qr_sheet", args=[hunt.event_id])

@@ -2084,6 +2084,11 @@ def coach_event_detail(request, event_id):
 
     has_quiz = hasattr(event, "quiz")
 
+    from django.conf import settings as django_settings
+
+    cache_enabled = getattr(django_settings, "CRUSH_CACHE_ENABLED", False)
+    has_cache_hunt = cache_enabled and hasattr(event, "cache_hunt")
+
     # Per-coach recap: of users this coach onboarded (approved), how many
     # attended, how many sent connection requests, how many had a mutual
     # match, and how many connections of theirs still need an intro approved.
@@ -2177,6 +2182,7 @@ def coach_event_detail(request, event_id):
         "spark_count": spark_count,
         "sparks_pending": sparks_pending,
         "has_quiz": has_quiz,
+        "has_cache_hunt": has_cache_hunt,
         "feedback_summary": feedback_summary,
         "feedback_responses": feedback_responses,
         "coach_recap": coach_recap,
