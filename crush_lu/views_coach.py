@@ -2344,12 +2344,23 @@ def coach_event_sms_invite(request, event_id):
 
     if event.profile_requirement == "unverified":
         # Current behavior: pending/recontact submissions + profiles with no submission
+        latest_status_for_submission = Subquery(
+            ProfileSubmission.objects.filter(profile=OuterRef("profile_id"))
+            .order_by("-submitted_at")
+            .values("status")[:1]
+        )
         pending_submissions_qs = (
             ProfileSubmission.objects.filter(
                 status__in=["pending", "recontact_coach"],
             )
             .filter(sub_phone_q)
             .filter(sub_age_q)
+            # De-dupe against the expired-latest pool below: a profile whose
+            # newest row is expired lands there as "no submission", so an
+            # older surviving pending/recontact row must not list the same
+            # member a second time here.
+            .annotate(profile_latest_status=latest_status_for_submission)
+            .exclude(profile_latest_status="expired")
         )
         if has_language_filter:
             pending_submissions_qs = pending_submissions_qs.filter(sub_lang_q)

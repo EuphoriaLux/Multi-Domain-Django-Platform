@@ -2115,34 +2115,65 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
         expired_count = 0
         skipped_status = 0
         skipped_protected = 0
-        for submission in queryset:
-            if submission.status not in ("pending", "recontact_coach"):
-                skipped_status += 1
-                continue
-            # Same safety guards as the management command: paused submissions
-            # have their own reactivation story, a completed screening call
-            # puts the row on the "Ready to Approve" path, and a booked slot
-            # that hasn't ended yet means a coach call is scheduled or in
-            # progress right now (slots stay 'booked' until completed, so
-            # test end_at, not start_at).
-            if (
-                submission.is_paused
-                or submission.review_call_completed
-                or submission.booked_slots.filter(
-                    status="booked", end_at__gte=now
-                ).exists()
-            ):
-                skipped_protected += 1
-                continue
-            previous = submission.status
-            submission.status = "expired"
-            submission.log_system_action(
-                "expired_to_self_serve",
-                actor=f"admin:{request.user.pk}",
-                previous_status=previous,
+        skipped_sibling = 0
+        with transaction.atomic():
+            # Lock the rows first: the self-booking flow takes a
+            # select_for_update() on the submission before creating its
+            # booked slot, so evaluating the guards under the same lock
+            # closes the window where a booking commits between the
+            # exists() check and the status save.
+            submissions = list(
+                ProfileSubmission.objects.filter(
+                    pk__in=queryset.values("pk")
+                ).select_for_update()
             )
-            submission.save(update_fields=["status", "system_actions"])
-            expired_count += 1
+            expirable = []
+            for submission in submissions:
+                if submission.status not in ("pending", "recontact_coach"):
+                    skipped_status += 1
+                    continue
+                # Same safety guards as the management command: paused
+                # submissions have their own reactivation story, a completed
+                # screening call puts the row on the "Ready to Approve" path,
+                # and a booked slot that hasn't ended yet means a coach call
+                # is scheduled or in progress right now (slots stay 'booked'
+                # until completed, so test end_at, not start_at).
+                if (
+                    submission.is_paused
+                    or submission.review_call_completed
+                    or submission.booked_slots.filter(
+                        status="booked", end_at__gte=now
+                    ).exists()
+                ):
+                    skipped_protected += 1
+                    continue
+                expirable.append(submission)
+            # Sibling guard (same rule as the command): if the profile keeps
+            # another live pending/recontact row after this run — unselected
+            # or protected above — expiring this row could make it the
+            # profile's latest and the expired-latest invariant would hide
+            # the surviving review.
+            expirable_pks = {s.pk for s in expirable}
+            for submission in expirable:
+                if (
+                    ProfileSubmission.objects.filter(
+                        profile_id=submission.profile_id,
+                        status__in=("pending", "recontact_coach"),
+                    )
+                    .exclude(pk__in=expirable_pks)
+                    .exists()
+                ):
+                    skipped_sibling += 1
+                    continue
+                previous = submission.status
+                submission.status = "expired"
+                submission.log_system_action(
+                    "expired_to_self_serve",
+                    actor=f"admin:{request.user.pk}",
+                    previous_status=previous,
+                )
+                submission.save(update_fields=["status", "system_actions"])
+                expired_count += 1
         if expired_count:
             django_messages.success(
                 request,
@@ -2164,6 +2195,15 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
                     "screening call."
                 )
                 % {"count": skipped_protected},
+            )
+        if skipped_sibling:
+            django_messages.warning(
+                request,
+                _(
+                    "Skipped %(count)s submission(s) whose profile keeps "
+                    "another live review row — expiring them could hide it."
+                )
+                % {"count": skipped_sibling},
             )
 
 

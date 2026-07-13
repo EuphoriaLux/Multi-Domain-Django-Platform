@@ -252,6 +252,38 @@ class ExpireStaleSubmissionsCommandTests(TestCase):
         self.assertEqual(submission.status, "expired")
         self.assertIn("skipped (active/future booked slot): 0", output)
 
+    def test_skips_sibling_of_protected_row(self):
+        """A newer stale row must not be expired while the profile keeps a
+        protected live row (e.g. an older pending with an active booked
+        call): expiring it would make the expired row the latest and the
+        expired-latest invariant would hide the surviving review."""
+        _, profile = make_profile("siblingprotect")
+        older_booked = make_submission(profile, "pending")
+        ProfileSubmission.objects.filter(pk=older_booked.pk).update(
+            submitted_at=STALE_SUBMITTED_AT - timedelta(days=10)
+        )
+        newer_stale = make_submission(profile, "pending")
+        coach_user = User.objects.create_user(
+            username="coach7@example.com", email="coach7@example.com", password="x"
+        )
+        coach = CrushCoach.objects.create(user=coach_user, is_active=True)
+        ScreeningSlot.objects.create(
+            coach=coach,
+            submission=older_booked,
+            status="booked",
+            start_at=timezone.now() + timedelta(days=1),
+            end_at=timezone.now() + timedelta(days=1, minutes=30),
+        )
+
+        output = run_command()
+
+        older_booked.refresh_from_db()
+        newer_stale.refresh_from_db()
+        self.assertEqual(older_booked.status, "pending")
+        self.assertEqual(newer_stale.status, "pending")
+        self.assertIn("skipped (active/future booked slot): 1", output)
+        self.assertIn("skipped (protected sibling row): 1", output)
+
     def test_dry_run_changes_nothing(self):
         _, profile = make_profile("dryrun")
         submission = make_submission(profile, "recontact_coach")
@@ -480,6 +512,42 @@ class BulkExpireAdminActionTests(TestCase):
 
         submission.refresh_from_db()
         self.assertEqual(submission.status, "pending")
+
+    def test_admin_action_skips_sibling_of_unselected_live_row(self):
+        """Selecting only the newer stale row while the profile keeps an
+        older live pending row must skip it — expiring it would hide the
+        surviving review behind the expired-latest invariant."""
+        from django.contrib import admin as django_admin
+        from django.contrib.messages.storage.fallback import FallbackStorage
+
+        from crush_lu.admin.profiles import ProfileSubmissionAdmin
+
+        _, profile = make_profile("adminsibling")
+        older_live = make_submission(profile, "pending")
+        ProfileSubmission.objects.filter(pk=older_live.pk).update(
+            submitted_at=STALE_SUBMITTED_AT - timedelta(days=10),
+            is_paused=True,
+        )
+        newer_stale = make_submission(profile, "pending")
+
+        admin_user = User.objects.create_superuser(
+            username="admin6@example.com", email="admin6@example.com", password="x"
+        )
+        factory = RequestFactory()
+        request = factory.post("/admin/")
+        request.user = admin_user
+        request.session = self.client.session
+        request._messages = FallbackStorage(request)
+
+        model_admin = ProfileSubmissionAdmin(ProfileSubmission, django_admin.site)
+        model_admin.bulk_expire_to_self_serve(
+            request, ProfileSubmission.objects.filter(pk=newer_stale.pk)
+        )
+
+        older_live.refresh_from_db()
+        newer_stale.refresh_from_db()
+        self.assertEqual(older_live.status, "pending")
+        self.assertEqual(newer_stale.status, "pending")
 
     def test_admin_action_skips_completed_screening_call(self):
         """Parity with the command: a completed screening call protects the
@@ -906,6 +974,31 @@ class SmsInviteExpiredCohortTests(TestCase):
         pool_ids = self._pool_profile_ids()
 
         self.assertNotIn(pending_profile.id, pool_ids)
+
+    def test_latest_expired_profile_renders_exactly_once(self):
+        """A profile with an older surviving pending row + newer expired row
+        must appear once (in the no-submission pool), not also as the older
+        row in the submitted bucket — no duplicate invite targets."""
+        _, dup_profile = self._make_invitable_profile("smsdup")
+        older_pending = make_submission(dup_profile, "pending")
+        ProfileSubmission.objects.filter(pk=older_pending.pk).update(
+            submitted_at=STALE_SUBMITTED_AT - timedelta(days=10)
+        )
+        make_submission(dup_profile, "expired")
+
+        self.client.force_login(self.coach_user)
+        response = self.client.get(
+            reverse("crush_lu:coach_event_sms_invite", args=[self.event.id])
+        )
+        self.assertEqual(response.status_code, 200)
+        pool_ids = [
+            row["profile"].id for row in response.context["unsubmitted_profiles"]
+        ]
+        submitted_ids = [
+            row["profile"].id for row in response.context["submitted_profiles"]
+        ]
+        self.assertEqual(pool_ids.count(dup_profile.id), 1)
+        self.assertNotIn(dup_profile.id, submitted_ids)
 
     def test_expired_profile_keeps_sent_invite_state(self):
         """An invite logged against the submission while it was still pending

@@ -109,6 +109,26 @@ class Command(BaseCommand):
         ).values("pk")
         skipped_booked = active_booked_pks.distinct().count()
         candidates = candidates.exclude(pk__in=active_booked_pks)
+        # Sibling guard: if the profile keeps another live pending/recontact
+        # row after this run (protected above, or post-cutoff), expiring this
+        # candidate could make it the profile's newest row — and the
+        # expired-latest invariant would then hide the surviving review
+        # (e.g. its booked call) behind the self-serve flow.
+        candidate_pks = list(candidates.values_list("pk", flat=True))
+        surviving_profile_ids = (
+            ProfileSubmission.objects.filter(
+                status__in=("pending", "recontact_coach")
+            )
+            .exclude(pk__in=candidate_pks)
+            .values("profile_id")
+        )
+        sibling_protected_pks = list(
+            ProfileSubmission.objects.filter(
+                pk__in=candidate_pks, profile_id__in=surviving_profile_ids
+            ).values_list("pk", flat=True)
+        )
+        skipped_sibling = len(sibling_protected_pks)
+        candidates = candidates.exclude(pk__in=sibling_protected_pks)
 
         by_status = {
             row["status"]: row["n"]
@@ -122,6 +142,7 @@ class Command(BaseCommand):
         self.stdout.write(f"  skipped (paused): {skipped_paused}")
         self.stdout.write(f"  skipped (completed screening call): {skipped_call_done}")
         self.stdout.write(f"  skipped (active/future booked slot): {skipped_booked}")
+        self.stdout.write(f"  skipped (protected sibling row): {skipped_sibling}")
 
         if dry_run:
             self.stdout.write(
