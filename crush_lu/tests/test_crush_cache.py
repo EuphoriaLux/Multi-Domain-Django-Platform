@@ -970,6 +970,37 @@ class TestCoach:
         for t in hunt.teams.all():
             assert t.members.count() <= hunt.team_size_max
 
+    def test_qr_sheet_requires_coach(self, client, hunt, stations, team, player):
+        client.force_login(player)
+        url = reverse("crush_lu:cache_coach_qr_sheet", args=[hunt.event_id])
+        response = client.get(url)
+        assert response.status_code == 302
+        assert reverse("crush_lu:dashboard") in response.url
+
+    def test_qr_sheet_without_qr_stations_redirects(
+        self, client, hunt, stations, coach_user
+    ):
+        # Fixture stations are gps + none — nothing to print
+        client.force_login(coach_user)
+        url = reverse("crush_lu:cache_coach_qr_sheet", args=[hunt.event_id])
+        response = client.get(url)
+        assert response.status_code == 302
+        assert (
+            reverse("crush_lu:cache_coach_dashboard", args=[hunt.event_id])
+            in response.url
+        )
+
+    def test_qr_sheet_downloads_pdf(self, client, hunt, stations, coach_user):
+        pytest.importorskip("reportlab")
+        pytest.importorskip("qrcode")
+        stations[0].unlock_mode = "qr"
+        stations[0].save()
+        client.force_login(coach_user)
+        url = reverse("crush_lu:cache_coach_qr_sheet", args=[hunt.event_id])
+        response = client.get(url)
+        assert response.status_code == 200
+        assert response["Content-Type"] == "application/pdf"
+
     def test_coach_state_api(self, client, hunt, stations, team, coach_user):
         _start_hunt(hunt)
         client.force_login(coach_user)

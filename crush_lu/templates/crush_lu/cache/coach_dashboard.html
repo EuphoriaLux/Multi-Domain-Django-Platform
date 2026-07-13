@@ -45,18 +45,22 @@
             <form method="post" action="{% url 'crush_lu:cache_coach_finish' event.id %}"
                   onsubmit="return confirm('{% filter escapejs %}{% trans "Finish the hunt for all teams?" %}{% endfilter %}')">
                 {% csrf_token %}
-                <button type="submit" class="rounded-lg bg-red-600 px-6 py-2 font-semibold text-white">■ {% trans "Finish Hunt" %}</button>
+                <button type="submit" class="btn-danger px-6 py-2">■ {% trans "Finish Hunt" %}</button>
             </form>
             {% endif %}
             {% if hunt.status != 'finished' %}
-            <form method="post" action="{% url 'crush_lu:cache_coach_auto_teams' event.id %}">
+            <form method="post" action="{% url 'crush_lu:cache_coach_auto_teams' event.id %}"
+                  onsubmit="return confirm('{% filter escapejs %}{% trans "Place all unassigned attendees into new teams?" %}{% endfilter %}')">
                 {% csrf_token %}
-                <button type="submit" class="rounded-lg border border-purple-500 px-6 py-2 font-semibold text-purple-600 dark:text-purple-300">
+                <button type="submit" class="btn-crush-outline px-6 py-2">
                     👥 {% trans "Auto-form teams" %}
                     {% if unassigned_count %}({{ unassigned_count }}){% endif %}
                 </button>
             </form>
             {% endif %}
+            <a href="{% url 'crush_lu:cache_coach_qr_sheet' event.id %}" class="btn-crush-outline px-6 py-2">
+                🖨 {% trans "QR sheet (PDF)" %}
+            </a>
         </div>
 
         {# --- Readiness (draft only) --- #}
@@ -87,7 +91,8 @@
             {# --- Leaderboard --- #}
             <div>
                 {% include "crush_lu/cache/_leaderboard.html" with leaderboard=leaderboard %}
-                <div id="progress-feed" class="mt-4 space-y-1 text-sm text-gray-500 dark:text-gray-400"></div>
+                <div id="progress-feed" class="mt-4 space-y-1 text-sm text-gray-500 dark:text-gray-400"
+                     aria-live="polite" aria-label="{% trans 'Team progress feed' %}"></div>
             </div>
 
             {# --- Teams --- #}

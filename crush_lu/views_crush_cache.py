@@ -19,7 +19,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.db import IntegrityError, transaction
 from django.db.models import Sum
-from django.http import Http404, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.translation import gettext as _
@@ -1069,3 +1069,43 @@ def cache_coach_state_api(request, event_id):
             "positions": positions,
         }
     )
+
+
+@crush_login_required
+def cache_coach_qr_sheet(request, event_id):
+    """Printable A4 PDF of the hunt's QR-station codes — the coach-facing
+    twin of the admin action (coaches aren't admin users, but they are
+    the ones sticking codes to lampposts on event day)."""
+    from .qr_utils import HAS_REPORTLAB, generate_cache_station_sheet
+
+    hunt = _get_hunt_or_404(event_id)
+    if not _can_manage_hunt(request.user, hunt):
+        messages.error(request, _("You are not a coach for this event."))
+        return redirect("crush_lu:dashboard")
+
+    stations = [s for s in hunt.ordered_stations() if s.requires_qr]
+    if not stations:
+        messages.warning(
+            request,
+            _("No station of this hunt unlocks via QR — nothing to print."),
+        )
+        return redirect("crush_lu:cache_coach_dashboard", event_id=event_id)
+
+    if not HAS_REPORTLAB:
+        messages.warning(
+            request,
+            _(
+                "PDF generation is unavailable on this server — download the "
+                "QR images from the station admin instead."
+            ),
+        )
+        return redirect("crush_lu:cache_coach_dashboard", event_id=event_id)
+
+    pdf_bytes = generate_cache_station_sheet(
+        stations, title=f"Crush Cache — {hunt.title}"
+    )
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = (
+        f'attachment; filename="crush-cache-{hunt.pk}-qr-sheet.pdf"'
+    )
+    return response
