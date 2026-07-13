@@ -1045,3 +1045,36 @@ class TestCodexReviewFixes:
         assert not CacheTeamMember.objects.filter(
             hunt=hunt, registration__user=teammate
         ).exists()
+
+
+@pytest.mark.django_db
+class TestQrUnlockMessaging:
+    def test_scan_before_arrival_does_not_claim_unlocked(
+        self, client, hunt, team, player
+    ):
+        """Scanning a gps_qr station before arriving records the scan but must
+        NOT claim the station is unlocked — GPS arrival is still required."""
+        station = CacheStation.objects.create(
+            hunt=hunt,
+            order=1,
+            name="Grand Ducal Palace",
+            unlock_mode="gps_qr",
+            latitude="49.610600",
+            longitude="6.131900",
+            radius_meters=40,
+        )
+        _start_hunt(hunt)  # hunt live + progress parked at this first station
+        client.force_login(player)
+
+        url = reverse("crush_lu:cache_qr_scan", args=[station.qr_token])
+        response = client.get(url, follow=True)
+
+        attempt = CacheStationAttempt.objects.get(team=team, station=station)
+        assert attempt.scanned_at is not None  # the scan is recorded
+        assert attempt.is_unlocked is False  # ...but still locked (not arrived)
+
+        from django.contrib.messages import constants as msg_constants
+
+        levels = [m.level for m in response.context["messages"]]
+        assert msg_constants.SUCCESS not in levels  # must not say "unlocked!"
+        assert msg_constants.INFO in levels  # nudge to reach the location

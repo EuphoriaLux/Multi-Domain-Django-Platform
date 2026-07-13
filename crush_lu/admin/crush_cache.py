@@ -83,6 +83,20 @@ def generate_cache_qr_sheet(modeladmin, request, queryset):
         messages.error(request, _("'%(hunt)s' has no stations yet.") % {"hunt": hunt})
         return None
 
+    # Only stations that actually unlock via QR (qr / gps_qr) need a printed
+    # code — a GPS or 'none' station's QR is a no-op sticker.
+    stations = [s for s in stations if s.requires_qr]
+    if not stations:
+        messages.warning(
+            request,
+            _(
+                "None of '%(hunt)s' stations unlock via QR (they are all GPS or "
+                "none), so there is nothing to print."
+            )
+            % {"hunt": hunt},
+        )
+        return None
+
     if not HAS_REPORTLAB:
         messages.warning(
             request,
@@ -213,6 +227,10 @@ class CacheStationAdmin(AutoTranslateMixin, TranslationAdmin):
         """Inline QR image — right-click to save as PNG when no reportlab."""
         if not obj.pk:
             return _("Save the station first to get its QR code.")
+        if not obj.requires_qr:
+            return _(
+                "No QR needed — this station unlocks by “%(mode)s”."
+            ) % {"mode": obj.get_unlock_mode_display()}
         from crush_lu.qr_utils import generate_cache_qr_url, generate_qr_code_base64
 
         url = generate_cache_qr_url(obj.qr_token)
