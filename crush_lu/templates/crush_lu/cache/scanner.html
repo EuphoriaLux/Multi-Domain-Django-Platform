@@ -33,13 +33,19 @@
 
             <div class="mt-5 border-t border-gray-200 dark:border-gray-700 pt-4">
                 <p class="mb-2 text-center text-sm text-gray-500 dark:text-gray-400">
-                    {% trans "Camera not working? Enter the code manually:" %}
+                    {% trans "Camera not working? Type the short code printed under the QR:" %}
                 </p>
-                <form id="manual-code-form" class="flex gap-2">
-                    <input type="text" id="manual-code" autocomplete="off"
-                           placeholder="{% trans 'Enter code from QR' %}"
-                           class="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2">
-                    <button type="submit" class="btn-crush-primary px-4 py-2">✓</button>
+                <form method="post" action="{% url 'crush_lu:cache_manual_code' event.id %}" class="flex gap-2">
+                    {% csrf_token %}
+                    <input type="text" name="code" autocomplete="off" required
+                           autocapitalize="characters" autocorrect="off" spellcheck="false"
+                           maxlength="80"
+                           placeholder="{% trans 'e.g. ABC123' %}"
+                           class="input-crush flex-1 font-mono uppercase tracking-widest">
+                    <button type="submit" class="btn-crush-solid px-4 py-2">
+                        <span aria-hidden="true">✓</span>
+                        <span class="sr-only">{% trans "Submit code" %}</span>
+                    </button>
                 </form>
             </div>
         </div>
@@ -115,13 +121,6 @@ document.addEventListener('DOMContentLoaded', function() {
             showWarning(msgNoCamera);
         }
     }).catch(function() { showWarning(msgCameraError); });
-
-    document.getElementById('manual-code-form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        var code = document.getElementById('manual-code').value.trim();
-        var uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (code && uuidRegex.test(code)) goToToken(code);
-    });
 });
 </script>
 {% endblock %}

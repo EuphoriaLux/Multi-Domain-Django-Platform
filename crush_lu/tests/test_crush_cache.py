@@ -547,6 +547,116 @@ class TestQRScan:
 
 
 # ============================================================================
+# MANUAL CODE ENTRY (scanner fallback)
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestManualCode:
+    def _post_code(self, client, hunt, code, **kwargs):
+        url = reverse("crush_lu:cache_manual_code", args=[hunt.event_id])
+        return client.post(url, {"code": code}, **kwargs)
+
+    def test_codes_generated_from_join_alphabet(self, hunt, stations):
+        from crush_lu.models.crush_cache import JOIN_CODE_ALPHABET
+
+        for station in stations:
+            assert len(station.manual_code) == 6
+            assert all(ch in JOIN_CODE_ALPHABET for ch in station.manual_code)
+        assert stations[0].manual_code != stations[1].manual_code
+
+    def test_manual_code_records_scan(self, client, hunt, stations, team, player):
+        stations[0].unlock_mode = "qr"
+        stations[0].save()
+        _start_hunt(hunt)
+        client.force_login(player)
+        # Lowercase input must work — players type in a hurry
+        response = self._post_code(client, hunt, stations[0].manual_code.lower())
+        assert response.status_code == 302
+        assert reverse("crush_lu:cache_play", args=[hunt.event_id]) in response.url
+        attempt = CacheStationAttempt.objects.get(team=team, station=stations[0])
+        assert attempt.scanned_at is not None
+
+    def test_unknown_code_returns_to_scanner_with_error(
+        self, client, hunt, stations, team, player
+    ):
+        _start_hunt(hunt)
+        client.force_login(player)
+        response = self._post_code(client, hunt, "XXXXXX", follow=True)
+
+        from django.contrib.messages import constants as msg_constants
+
+        assert (
+            reverse("crush_lu:cache_scanner", args=[hunt.event_id])
+            in [r[0] for r in response.redirect_chain][0]
+        )
+        levels = [m.level for m in response.context["messages"]]
+        assert msg_constants.ERROR in levels
+
+    def test_other_hunts_code_rejected(self, client, hunt, stations, team, player):
+        other_event = MeetupEvent.objects.create(
+            title="Other Hunt Night",
+            event_type="crush_cache",
+            date_time=timezone.now() + timedelta(hours=1),
+            registration_deadline=timezone.now() + timedelta(minutes=30),
+            location="Esch",
+            is_published=True,
+        )
+        other_hunt = CacheHunt.objects.create(
+            event=other_event, title="Other", created_by=hunt.created_by
+        )
+        other_station = CacheStation.objects.create(
+            hunt=other_hunt, order=1, name="Elsewhere", unlock_mode="qr"
+        )
+        _start_hunt(hunt)
+        client.force_login(player)
+        self._post_code(client, hunt, other_station.manual_code)
+        assert not CacheStationAttempt.objects.filter(
+            team=team, station=other_station
+        ).exists()
+
+    def test_pasted_uuid_and_url_still_work(self, client, hunt, stations, team, player):
+        stations[0].unlock_mode = "qr"
+        stations[0].save()
+        _start_hunt(hunt)
+        client.force_login(player)
+        response = self._post_code(
+            client, hunt, f"https://crush.lu/cache/qr/{stations[0].qr_token}/"
+        )
+        assert response.status_code == 302
+        attempt = CacheStationAttempt.objects.get(team=team, station=stations[0])
+        assert attempt.scanned_at is not None
+
+    def test_wrong_station_code_redirects_to_play(
+        self, client, hunt, stations, team, player
+    ):
+        _start_hunt(hunt)  # current station is stations[0]
+        client.force_login(player)
+        response = self._post_code(client, hunt, stations[1].manual_code)
+        assert reverse("crush_lu:cache_play", args=[hunt.event_id]) in response.url
+        assert not CacheStationAttempt.objects.filter(
+            team=team, station=stations[1], scanned_at__isnull=False
+        ).exists()
+
+    def test_requires_membership(self, client, hunt, stations, registration, player):
+        # Registered but not in a team
+        _start_hunt(hunt)
+        client.force_login(player)
+        response = self._post_code(client, hunt, stations[0].manual_code)
+        assert reverse("crush_lu:cache_lobby", args=[hunt.event_id]) in response.url
+
+    def test_qr_sheet_generates_with_codes(self, hunt, stations):
+        pytest.importorskip("reportlab")
+        pytest.importorskip("qrcode")
+        from crush_lu.qr_utils import generate_cache_station_sheet
+
+        stations[0].unlock_mode = "qr"
+        stations[0].save()
+        pdf = generate_cache_station_sheet([stations[0]])
+        assert pdf[:4] == b"%PDF"
+
+
+# ============================================================================
 # ANSWERING & PROGRESSION
 # ============================================================================
 

@@ -11,6 +11,7 @@ layer, mirroring views_checkin.py; CacheHuntConsumer is a read-only relay.
 
 import json
 import logging
+import uuid
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -403,7 +404,7 @@ def cache_scanner(request, event_id):
 
 @crush_login_required
 def cache_qr_scan(request, token):
-    """Destination of a scanned station QR code (or manual code entry).
+    """Destination of a scanned station QR code.
 
     The token only identifies the station — authorization is the scanning
     user's team state. Many teams scan the same physical sticker.
@@ -413,6 +414,48 @@ def cache_qr_scan(request, token):
     station = get_object_or_404(
         CacheStation.objects.select_related("hunt__event"), qr_token=token
     )
+    return _process_station_scan(request, station)
+
+
+@crush_login_required
+@require_POST
+@ratelimit(key="user", rate="20/m", method="POST")
+def cache_manual_code(request, event_id):
+    """Manual fallback for the QR scanner: type the short code printed
+    under the QR (or paste a full token URL/UUID) instead of scanning."""
+    hunt = _get_hunt_or_404(event_id)
+    if _get_membership(hunt, request.user) is None:
+        messages.error(request, _("Join a team first, then enter the code again."))
+        return redirect("crush_lu:cache_lobby", event_id=event_id)
+
+    code = request.POST.get("code", "").strip()
+    station = None
+    if code:
+        # A pasted QR URL or raw UUID still works; otherwise treat the
+        # input as the printed short code. Both scoped to this hunt.
+        try:
+            token = uuid.UUID(code.rstrip("/").rsplit("/", 1)[-1])
+        except ValueError:
+            station = hunt.stations.filter(manual_code=code.upper()).first()
+        else:
+            station = hunt.stations.filter(qr_token=token).first()
+
+    if station is None:
+        messages.error(
+            request,
+            _(
+                "That code doesn't match any station of this hunt — check the "
+                "characters printed under the QR code."
+            ),
+        )
+        return redirect("crush_lu:cache_scanner", event_id=event_id)
+
+    return _process_station_scan(request, station)
+
+
+def _process_station_scan(request, station):
+    """Shared body of the QR-scan and manual-code endpoints: record the
+    scan for the user's team if this is their current station."""
     hunt = station.hunt
     event_id = hunt.event_id
 
