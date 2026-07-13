@@ -2446,11 +2446,19 @@ def coach_event_sms_invite(request, event_id):
         ).values_list("submission_id", flat=True)
     )
 
-    # Get IDs of profiles (without submission) already sent an invite
+    # Get IDs of profiles (without submission) already sent an invite.
+    # Also counts attempts logged against a submission — e.g. an invite sent
+    # while the row was still pending before the pivot cleanup expired it —
+    # so an expired-latest profile landing in the no-submission pool keeps
+    # its sent state instead of inviting the member twice.
     already_sent_profile_ids = set(
         CallAttempt.objects.filter(
             event=event, result="event_invite_sms", profile__isnull=False
         ).values_list("profile_id", flat=True)
+    ) | set(
+        CallAttempt.objects.filter(
+            event=event, result="event_invite_sms", submission__isnull=False
+        ).values_list("submission__profile_id", flat=True)
     )
 
     # Users already registered for this event

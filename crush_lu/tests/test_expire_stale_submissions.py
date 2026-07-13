@@ -907,6 +907,32 @@ class SmsInviteExpiredCohortTests(TestCase):
 
         self.assertNotIn(pending_profile.id, pool_ids)
 
+    def test_expired_profile_keeps_sent_invite_state(self):
+        """An invite logged against the submission while it was still pending
+        must survive the row's expiry — the profile lands in the
+        no-submission pool marked already_sent, not as a fresh target."""
+        from crush_lu.models import CallAttempt
+
+        _, invited = self._make_invitable_profile("smsalreadysent")
+        expired_sub = make_submission(invited, "expired")
+        CallAttempt.objects.create(
+            submission=expired_sub,
+            event=self.event,
+            result="event_invite_sms",
+        )
+
+        self.client.force_login(self.coach_user)
+        response = self.client.get(
+            reverse("crush_lu:coach_event_sms_invite", args=[self.event.id])
+        )
+        self.assertEqual(response.status_code, 200)
+        rows = {
+            row["profile"].id: row
+            for row in response.context["unsubmitted_profiles"]
+        }
+        self.assertIn(invited.id, rows)
+        self.assertTrue(rows[invited.id]["already_sent"])
+
     def test_approved_profile_with_expired_latest_is_not_invitable(self):
         """A cleanup user who has since verified (e.g. via LuxID) must stay
         out of the unverified pool — event_register rejects is_approved

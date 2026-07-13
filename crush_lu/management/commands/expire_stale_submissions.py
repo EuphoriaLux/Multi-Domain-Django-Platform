@@ -130,8 +130,23 @@ class Command(BaseCommand):
             return
 
         expired = 0
+        skipped_late = 0
         with transaction.atomic():
             for submission in candidates.select_for_update().iterator():
+                # The guards above were evaluated before this row lock was
+                # taken — re-check them under the lock so a pause, completed
+                # call, booking, or status change committed in the meantime
+                # still protects the row.
+                if (
+                    submission.status not in ("pending", "recontact_coach")
+                    or submission.is_paused
+                    or submission.review_call_completed
+                    or submission.booked_slots.filter(
+                        status="booked", end_at__gte=now
+                    ).exists()
+                ):
+                    skipped_late += 1
+                    continue
                 previous = submission.status
                 submission.status = "expired"
                 submission.log_system_action(
@@ -143,6 +158,10 @@ class Command(BaseCommand):
                 submission.save(update_fields=["status", "system_actions"])
                 expired += 1
 
+        if skipped_late:
+            self.stdout.write(
+                f"  skipped (state changed during run): {skipped_late}"
+            )
         self.stdout.write(
             self.style.SUCCESS(
                 f"Expired {expired} submission(s) — their users now get the "

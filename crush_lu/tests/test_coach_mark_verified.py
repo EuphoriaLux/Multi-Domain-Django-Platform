@@ -144,6 +144,31 @@ class CoachMarkVerifiedTests(SiteTestMixin, TestCase):
         self.assertEqual(sub.coach_id, self.coach.id)
         self.assertTrue(sub.review_call_completed)
 
+    def test_expired_latest_row_blocks_older_pending_approval(self):
+        """Expired-latest invariant: the profile still verifies, but an
+        older pending row must not be resurrected to approved — the member
+        is a self-serve case, not a legacy coach review."""
+        from crush_lu.models import ProfileSubmission
+
+        profile, reg = self._make_attendee("expiredlatest@example.com")
+        older_pending = ProfileSubmission.objects.create(
+            profile=profile, status="pending"
+        )
+        expired = ProfileSubmission.objects.create(profile=profile, status="expired")
+
+        self.client.force_login(self.coach_user)
+        resp = self.client.post(self._url(reg))
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()["success"])
+
+        profile.refresh_from_db()
+        older_pending.refresh_from_db()
+        expired.refresh_from_db()
+        self.assertEqual(profile.verification_status, "verified")
+        self.assertEqual(older_pending.status, "pending")
+        self.assertIsNone(older_pending.reviewed_at)
+        self.assertEqual(expired.status, "expired")
+
     def test_premium_member_requires_assigned_coach(self):
         profile, reg = self._make_attendee(
             "premium@example.com", assigned_coach=self.other_coach

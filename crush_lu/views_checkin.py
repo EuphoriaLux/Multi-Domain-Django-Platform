@@ -303,11 +303,17 @@ def coach_mark_verified(request, event_id, registration_id):
             ]
         )
 
-        submission = (
-            ProfileSubmission.objects.filter(profile=profile, status="pending")
-            .order_by("-submitted_at")
-            .first()
-        )
+        # Approve a pending submission opportunistically, gated on the
+        # expired-latest invariant: when the newest row was closed out by
+        # the pivot cleanup (latest_for_profile returns None), the member
+        # is a self-serve case — never resurrect an older pending row.
+        submission = None
+        if ProfileSubmission.latest_for_profile(profile) is not None:
+            submission = (
+                ProfileSubmission.objects.filter(profile=profile, status="pending")
+                .order_by("-submitted_at")
+                .first()
+            )
         if submission:
             submission.status = "approved"
             submission.reviewed_at = now
