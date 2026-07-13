@@ -5,7 +5,7 @@ djangorestframework-simplejwt==5.5.1
 django-crispy-forms==2.6
 crispy-tailwind==1.0.3
 django-cors-headers==4.9.0
-django-htmx==1.27.0  # HTMX server-side integration
+django-htmx==1.28.0  # HTMX server-side integration
 
 # Database
 psycopg2-binary==2.9.12  # Updated from 2.9.10 (security & bug fixes)
@@ -14,7 +14,7 @@ psycopg2-binary==2.9.12  # Updated from 2.9.10 (security & bug fixes)
 django-allauth==65.18.0  # Updated from 65.1.0 (latest stable)
 PyJWT==2.13.0  # Updated from 2.11.0 (CVE-2026-32597: crit header bypass)
 cryptography>=49.0.0  # Required for JWT token verification with RSA keys (CVE-2026-26007, OpenSSL fixes)
-google-auth==2.55.1  # Required for Google Wallet API authentication
+google-auth==2.55.2  # Required for Google Wallet API authentication
 
 # Analytics reporting (GA4 Data API + Search Console) — used by scripts/ga4_report.py,
 # gsc_report.py, seo_funnel_report.py for SEO/traffic reporting.
@@ -45,7 +45,7 @@ gunicorn==26.0.0
 channels==4.3.2
 channels-redis==4.3.0
 django-redis==7.0.0  # Redis cache backend for Django 6.0
-uvicorn[standard]==0.50.1
+uvicorn[standard]==0.51.0
 
 # Utilities
 python-dotenv==1.2.2  # Updated from 1.0.1
