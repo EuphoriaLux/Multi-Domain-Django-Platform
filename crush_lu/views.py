@@ -642,11 +642,16 @@ def create_profile(request):
                         )
                         return redirect("crush_lu:profile_rejected")
 
-                    revision_submission = (
-                        ProfileSubmission.objects.select_for_update()
-                        .filter(profile=profile, status="revision")
-                        .first()
-                    )
+                    # An expired latest row means the pivot cleanup closed this
+                    # user's coach-review story — never requeue an older legacy
+                    # revision row for them; they verify self-serve instead.
+                    revision_submission = None
+                    if ProfileSubmission.latest_for_profile(profile) is not None:
+                        revision_submission = (
+                            ProfileSubmission.objects.select_for_update()
+                            .filter(profile=profile, status="revision")
+                            .first()
+                        )
 
                     is_revision = False
                     submission = None

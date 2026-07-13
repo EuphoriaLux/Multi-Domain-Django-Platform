@@ -2289,7 +2289,7 @@ def coach_event_sms_invite(request, event_id):
     from datetime import date
     from urllib.parse import quote
 
-    from django.db.models import Q
+    from django.db.models import OuterRef, Q, Subquery
     from django.urls import reverse
     from django.utils.formats import date_format
 
@@ -2357,11 +2357,22 @@ def coach_event_sms_invite(request, event_id):
             "profile__user", "coach__user"
         ).order_by("submitted_at")
 
+        # "No submission" here follows the expired-latest invariant: a profile
+        # whose newest submission is expired (closed out by the pivot cleanup)
+        # behaves like one with no submission at all, so that cohort stays
+        # invitable to unverified/entry events.
+        latest_submission_status = Subquery(
+            ProfileSubmission.objects.filter(profile=OuterRef("pk"))
+            .order_by("-submitted_at")
+            .values("status")[:1]
+        )
         profile_pool_qs = (
             CrushProfile.objects.filter(phone_q)
             .filter(age_filter)
-            .exclude(
-                id__in=ProfileSubmission.objects.values_list("profile_id", flat=True)
+            .annotate(latest_submission_status=latest_submission_status)
+            .filter(
+                Q(latest_submission_status__isnull=True)
+                | Q(latest_submission_status="expired")
             )
         )
         if has_language_filter:

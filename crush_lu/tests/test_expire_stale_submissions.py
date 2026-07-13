@@ -259,6 +259,18 @@ class ExpireStaleSubmissionsCommandTests(TestCase):
         submission.refresh_from_db()
         self.assertEqual(submission.status, "expired")
 
+    def test_skips_submission_with_completed_screening_call(self):
+        """A completed screening call means the row sits on the admin's
+        'Ready to Approve' path — expiring it would discard the call."""
+        _, profile = make_profile("calldone")
+        submission = make_submission(profile, "pending", review_call_completed=True)
+
+        output = run_command()
+
+        submission.refresh_from_db()
+        self.assertEqual(submission.status, "pending")
+        self.assertIn("skipped (completed screening call): 1", output)
+
 
 # api_submission_status is defined in urls_crush.py at root level
 # (language-neutral), so reversing it needs the crush urlconf explicitly.
@@ -406,6 +418,34 @@ class BulkExpireAdminActionTests(TestCase):
         self.assertEqual(paused.status, "pending")
         self.assertEqual(booked.status, "recontact_coach")
 
+    def test_admin_action_skips_completed_screening_call(self):
+        """Parity with the command: a completed screening call protects the
+        row from the bulk expire action too."""
+        from django.contrib import admin as django_admin
+        from django.contrib.messages.storage.fallback import FallbackStorage
+
+        from crush_lu.admin.profiles import ProfileSubmissionAdmin
+
+        _, profile = make_profile("admincalldone")
+        call_done = make_submission(profile, "pending", review_call_completed=True)
+
+        admin_user = User.objects.create_superuser(
+            username="admin4@example.com", email="admin4@example.com", password="x"
+        )
+        factory = RequestFactory()
+        request = factory.post("/admin/")
+        request.user = admin_user
+        request.session = self.client.session
+        request._messages = FallbackStorage(request)
+
+        model_admin = ProfileSubmissionAdmin(ProfileSubmission, django_admin.site)
+        model_admin.bulk_expire_to_self_serve(
+            request, ProfileSubmission.objects.filter(pk=call_done.pk)
+        )
+
+        call_done.refresh_from_db()
+        self.assertEqual(call_done.status, "pending")
+
 
 class ProfileReviewFormTests(TestCase):
     """Coaches must never be offered the system-only 'expired' status."""
@@ -516,6 +556,40 @@ class ProfileSubmissionAdminFormTests(TestCase):
 
         self.assertTrue(form.is_valid(), form.errors)
 
+    def test_expired_row_offers_only_expired(self):
+        """The select on an expired row must not offer reactivation targets."""
+        from crush_lu.admin.profiles import ProfileSubmissionAdminForm
+
+        _, profile = make_profile("expiredonlychoice")
+        submission = make_submission(profile, "expired")
+        form = ProfileSubmissionAdminForm(instance=submission)
+        self.assertEqual(
+            [value for value, label in form.fields["status"].choices], ["expired"]
+        )
+
+    def test_expired_row_cannot_be_reactivated_directly(self):
+        """Saving an expired row as pending/approved/... must be rejected —
+        reactivation would bypass the audit trail; the recovery path is the
+        member's own resubmission (a fresh row)."""
+        from django.contrib import admin as django_admin
+
+        from crush_lu.admin.profiles import ProfileSubmissionAdmin
+
+        _, profile = make_profile("reactivaterow")
+        submission = make_submission(profile, "expired")
+
+        model_admin = ProfileSubmissionAdmin(ProfileSubmission, django_admin.site)
+        form_class = model_admin.get_changelist_form(
+            self._admin_request("reactivate"),
+            fields=["status", "review_call_completed"],
+        )
+        for target in ("pending", "approved", "revision"):
+            form = form_class({"status": target}, instance=submission)
+            self.assertFalse(form.is_valid(), f"'{target}' must be rejected")
+            self.assertIn("status", form.errors)
+        submission.refresh_from_db()
+        self.assertEqual(submission.status, "expired")
+
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class CoachReviewExpiredSubmissionTests(TestCase):
@@ -611,3 +685,161 @@ class ExpiredLatestSubmissionFallbackTests(TestCase):
         response = self.client.get(reverse("api_submission_status"))
 
         self.assertEqual(response.status_code, 404)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class ExpiredLatestResubmitGuardTests(TestCase):
+    """The submit endpoints must honor the expired-latest invariant: when the
+    newest row is expired, a POST must NOT requeue an older revision/recontact
+    row back to pending — the user stays in the self-serve flow."""
+
+    def setUp(self):
+        self.user, self.profile = make_profile("resubguard")
+        # The journey guards in complete_profile_submission require a verified
+        # phone, an acked coach intro, and a verified email address.
+        CrushProfile.objects.filter(pk=self.profile.pk).update(
+            phone_number="+352123456700",
+            phone_verified=True,
+            coach_intro_seen_at=timezone.now(),
+        )
+        self.profile.refresh_from_db()
+        from allauth.account.models import EmailAddress
+
+        EmailAddress.objects.update_or_create(
+            user=self.user,
+            email=self.user.email,
+            defaults={"verified": True, "primary": True},
+        )
+        # Older legacy revision row, skipped by the cleanup...
+        self.old_revision = make_submission(self.profile, "revision")
+        ProfileSubmission.objects.filter(pk=self.old_revision.pk).update(
+            submitted_at=STALE_SUBMITTED_AT - timedelta(days=30)
+        )
+        # ...and the newer row that the cleanup expired.
+        self.expired = make_submission(self.profile, "expired")
+
+    def test_api_complete_does_not_requeue_older_revision_row(self):
+        from unittest.mock import patch
+
+        self.client.force_login(self.user)
+        with patch(
+            "crush_lu.models.CrushProfile.get_missing_fields", return_value=[]
+        ), patch(
+            "crush_lu.views_profile.broadcast_new_submission_to_channel"
+        ) as broadcast:
+            self.client.post(
+                reverse("api_complete_profile_submission"),
+                content_type="application/json",
+                data="{}",
+            )
+
+        self.old_revision.refresh_from_db()
+        self.expired.refresh_from_db()
+        # The older row must stay a closed-out legacy revision, not re-enter
+        # the coach channel; the expired row stays terminal.
+        self.assertEqual(self.old_revision.status, "revision")
+        self.assertEqual(self.expired.status, "expired")
+        broadcast.assert_not_called()
+
+    def test_api_complete_still_requeues_live_revision_row(self):
+        """Control: without an expired latest row, a revision resubmit still
+        returns to the verification channel as pending."""
+        from unittest.mock import patch
+
+        self.expired.delete()
+        self.client.force_login(self.user)
+        with patch(
+            "crush_lu.models.CrushProfile.get_missing_fields", return_value=[]
+        ), patch("crush_lu.views_profile.broadcast_new_submission_to_channel"):
+            self.client.post(
+                reverse("api_complete_profile_submission"),
+                content_type="application/json",
+                data="{}",
+            )
+
+        self.old_revision.refresh_from_db()
+        self.assertEqual(self.old_revision.status, "pending")
+        self.assertIsNone(self.old_revision.coach_id)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class SmsInviteExpiredCohortTests(TestCase):
+    """Users whose latest submission is expired behave like users with no
+    submission, so they must appear in the unverified-event SMS invite pool
+    (they were previously in neither the pending-submissions bucket nor the
+    no-submission bucket)."""
+
+    def setUp(self):
+        from crush_lu.models import MeetupEvent
+
+        coach_user = User.objects.create_user(
+            username="smscoach@example.com",
+            email="smscoach@example.com",
+            password="pass12345",
+            first_name="Cam",
+        )
+        UserDataConsent.objects.filter(user=coach_user).update(
+            crushlu_consent_given=True
+        )
+        CrushCoach.objects.create(user=coach_user, is_active=True)
+        self.coach_user = coach_user
+
+        self.event = MeetupEvent.objects.create(
+            title="Unverified Mixer",
+            description="Test event",
+            event_type="mixer",
+            location="Luxembourg City",
+            address="1 Test Street",
+            date_time=timezone.now() + timedelta(days=7),
+            registration_deadline=timezone.now() + timedelta(days=6),
+            profile_requirement="unverified",
+        )
+
+    def _make_invitable_profile(self, name):
+        user, profile = make_profile(name)
+        CrushProfile.objects.filter(pk=profile.pk).update(
+            phone_number=f"+3526{abs(hash(name)) % 10**8:08d}",
+            phone_verified=True,
+        )
+        profile.refresh_from_db()
+        return user, profile
+
+    def _pool_profile_ids(self):
+        self.client.force_login(self.coach_user)
+        response = self.client.get(
+            reverse("crush_lu:coach_event_sms_invite", args=[self.event.id])
+        )
+        self.assertEqual(response.status_code, 200)
+        return {
+            row["profile"].id for row in response.context["unsubmitted_profiles"]
+        }
+
+    def test_expired_only_profile_is_invitable(self):
+        _, expired_only = self._make_invitable_profile("smsexpired")
+        make_submission(expired_only, "expired")
+
+        _, no_submission = self._make_invitable_profile("smsfresh")
+
+        _, old_rev_expired = self._make_invitable_profile("smsoldrev")
+        old_rev = make_submission(old_rev_expired, "revision")
+        ProfileSubmission.objects.filter(pk=old_rev.pk).update(
+            submitted_at=STALE_SUBMITTED_AT - timedelta(days=30)
+        )
+        make_submission(old_rev_expired, "expired")
+
+        pool_ids = self._pool_profile_ids()
+
+        self.assertIn(expired_only.id, pool_ids)
+        self.assertIn(no_submission.id, pool_ids)
+        # Latest expired + older revision row still counts as "no submission".
+        self.assertIn(old_rev_expired.id, pool_ids)
+
+    def test_live_submission_profile_stays_out_of_no_submission_pool(self):
+        """Control: a live pending submission keeps the profile in the
+        submissions bucket, not the no-submission pool."""
+        _, pending_profile = self._make_invitable_profile("smspending")
+        make_submission(pending_profile, "pending", days_ago=0)
+
+        pool_ids = self._pool_profile_ids()
+
+        self.assertNotIn(pending_profile.id, pool_ids)

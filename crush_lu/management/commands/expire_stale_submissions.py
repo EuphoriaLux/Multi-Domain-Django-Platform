@@ -90,6 +90,12 @@ class Command(BaseCommand):
         # Paused submissions carry their own reactivation flow — leave them.
         skipped_paused = candidates.filter(is_paused=True).count()
         candidates = candidates.exclude(is_paused=True)
+        # A completed screening call puts the row on the admin's "Ready to
+        # Approve" path (bulk_approve_profiles only needs the call done) —
+        # expiring it would throw away a call that already happened. Leave
+        # those for an explicit approve/expire decision.
+        skipped_call_done = candidates.filter(review_call_completed=True).count()
+        candidates = candidates.exclude(review_call_completed=True)
         # A future booked screening call means a coach interaction is genuinely
         # scheduled. filter() binds both kwargs to the same slot row, but
         # exclude() would not (it matches the conditions on possibly different
@@ -112,6 +118,7 @@ class Command(BaseCommand):
         for status in ("pending", "recontact_coach"):
             self.stdout.write(f"  {status}: {by_status.get(status, 0)}")
         self.stdout.write(f"  skipped (paused): {skipped_paused}")
+        self.stdout.write(f"  skipped (completed screening call): {skipped_call_done}")
         self.stdout.write(f"  skipped (future booked slot): {skipped_booked}")
 
         if dry_run:

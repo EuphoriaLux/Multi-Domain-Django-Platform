@@ -696,11 +696,19 @@ def complete_profile_submission(request):
                 # who already have an in-flight submission from before the
                 # verification pivot (a coach may be mid-review). Verification
                 # now happens at an event (in person) or via LuxID.
-                revision_submission = (
-                    ProfileSubmission.objects.select_for_update()
-                    .filter(profile=profile, status__in=["revision", "recontact_coach"])
-                    .first()
-                )
+                # An expired latest row means the pivot cleanup closed this
+                # user's coach-review story — never requeue an older legacy
+                # row for them; they verify self-serve (LuxID/event) instead.
+                revision_submission = None
+                if ProfileSubmission.latest_for_profile(profile) is not None:
+                    revision_submission = (
+                        ProfileSubmission.objects.select_for_update()
+                        .filter(
+                            profile=profile,
+                            status__in=["revision", "recontact_coach"],
+                        )
+                        .first()
+                    )
 
                 legacy_submission = None
                 if revision_submission:

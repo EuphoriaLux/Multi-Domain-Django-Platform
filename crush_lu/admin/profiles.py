@@ -1569,9 +1569,11 @@ class ProfileSubmissionAdminForm(forms.ModelForm):
     """Keeps the terminal "expired" state out of direct status edits — both
     the change form and the changelist's list_editable select. Expiring must
     go through the bulk_expire_to_self_serve action, which applies the
-    paused/booked-call guards and writes the audit entry. Rows that are
-    already expired keep the choice so they can be displayed and re-saved
-    unchanged."""
+    safety guards and writes the audit entry. The transition is locked in
+    BOTH directions: non-expired rows can't be set to expired here, and
+    expired rows can't be reactivated (select shows only "expired", so the
+    row stays displayable and re-savable unchanged). The recovery path for
+    an expired user is their own resubmission, which creates a fresh row."""
 
     class Meta:
         model = ProfileSubmission
@@ -1580,12 +1582,19 @@ class ProfileSubmissionAdminForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         status_field = self.fields.get("status")
-        if status_field is not None and self.instance.status != "expired":
-            status_field.choices = [
-                (value, label)
-                for value, label in status_field.choices
-                if value != "expired"
-            ]
+        if status_field is not None:
+            if self.instance.status == "expired":
+                status_field.choices = [
+                    (value, label)
+                    for value, label in status_field.choices
+                    if value == "expired"
+                ]
+            else:
+                status_field.choices = [
+                    (value, label)
+                    for value, label in status_field.choices
+                    if value != "expired"
+                ]
 
     def clean_status(self):
         status = self.cleaned_data.get("status")
@@ -1593,8 +1602,16 @@ class ProfileSubmissionAdminForm(forms.ModelForm):
             raise forms.ValidationError(
                 _(
                     'Use the "Expire to self-serve" bulk action instead: it '
-                    "skips paused submissions and future booked calls, and "
-                    "records the audit entry."
+                    "applies the safety guards (paused, completed or booked "
+                    "screening calls) and records the audit entry."
+                )
+            )
+        if self.instance.status == "expired" and status != "expired":
+            raise forms.ValidationError(
+                _(
+                    "Expired submissions cannot be reactivated here — the "
+                    "member re-enters review by resubmitting, which creates "
+                    "a fresh submission with its own audit trail."
                 )
             )
         return status
@@ -2062,10 +2079,12 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
                 skipped_status += 1
                 continue
             # Same safety guards as the management command: paused submissions
-            # have their own reactivation story, and a future booked screening
+            # have their own reactivation story, a completed screening call
+            # puts the row on the "Ready to Approve" path, and a future booked
             # slot means a coach call is genuinely scheduled.
             if (
                 submission.is_paused
+                or submission.review_call_completed
                 or submission.booked_slots.filter(
                     status="booked", start_at__gte=now
                 ).exists()
@@ -2097,8 +2116,9 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
             django_messages.warning(
                 request,
                 _(
-                    "Skipped %(count)s submission(s) that are paused or hold a "
-                    "future booked screening call."
+                    "Skipped %(count)s submission(s) that are paused, have a "
+                    "completed screening call, or hold a future booked "
+                    "screening call."
                 )
                 % {"count": skipped_protected},
             )
