@@ -227,12 +227,20 @@ def _play_context(hunt, membership):
     return context
 
 
-def _render_play_content(request, hunt, membership):
-    """The single HTMX-swappable play region — every mutation returns it."""
+def _render_play_content(request, hunt, membership, extra=None):
+    """The single HTMX-swappable play region — every mutation returns it.
+
+    `extra` carries transient, response-only flags (e.g. a rate-limit
+    notice) on top of the DB-derived state — a refresh always lands back
+    on plain derived state.
+    """
+    context = _play_context(hunt, membership)
+    if extra:
+        context.update(extra)
     return render(
         request,
         "crush_lu/cache/_play_content.html",
-        _play_context(hunt, membership),
+        context,
     )
 
 
@@ -579,7 +587,7 @@ def cache_position_api(request, event_id):
 
 @crush_login_required
 @require_POST
-@ratelimit(key="user", rate="20/m", method="POST")
+@ratelimit(key="user", rate="20/m", method="POST", block=False)
 def cache_answer_api(request, event_id, challenge_id):
     """Submit an answer for the current station (HTMX form post).
 
@@ -589,7 +597,13 @@ def cache_answer_api(request, event_id, challenge_id):
     "already answered".
 
     Rate-limited per user: without it a multiple-choice challenge is
-    brute-forceable in seconds (position API is likewise capped).
+    brute-forceable in seconds (position API is likewise capped). We ask
+    the decorator not to block (``block=False``) and handle the limit
+    here: this form swaps ``#play-content``, and HTMX ignores a bare 429,
+    so a blocking response would just make the button silently stop
+    working. Re-rendering the panel with a visible notice instead — and
+    returning before the attempt row is touched, so a throttled post never
+    counts against the team.
     """
     hunt = _get_hunt_or_404(event_id)
     membership = _get_membership(hunt, request.user)
@@ -597,6 +611,10 @@ def cache_answer_api(request, event_id, challenge_id):
         return redirect("crush_lu:cache_lobby", event_id=event_id)
     if not hunt.is_live:
         return _render_play_content(request, hunt, membership)
+    if getattr(request, "limited", False):
+        return _render_play_content(
+            request, hunt, membership, extra={"rate_limited": True}
+        )
 
     challenge = get_object_or_404(
         CacheChallenge.objects.select_related("station"),

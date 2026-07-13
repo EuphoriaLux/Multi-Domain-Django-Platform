@@ -2,6 +2,12 @@
 {# The single HTMX-swappable play region. Every answer/hint post returns it. #}
 <div id="play-content">
 
+    {% if rate_limited %}
+    <div class="mb-4 rounded-xl border border-amber-400 bg-amber-50 dark:bg-amber-900/30 px-4 py-3 text-center text-sm font-semibold text-amber-800 dark:text-amber-200" role="alert">
+        ⏳ {% trans "Too many attempts. Take a breath and try again in a minute." %}
+    </div>
+    {% endif %}
+
     {% if progress.is_finished or hunt.status == 'finished' %}
     <div class="rounded-xl border border-green-500 bg-green-50 dark:bg-green-900/30 p-6 text-center">
         <h2 class="text-xl font-bold text-green-700 dark:text-green-300">🏁 {% trans "You made it!" %}</h2>
