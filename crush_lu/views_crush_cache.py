@@ -24,7 +24,7 @@ from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 
-from .decorators import coach_required, crush_login_required, ratelimit
+from .decorators import crush_login_required, ratelimit
 from .geo import bearing_deg, haversine_m
 from .models import EventRegistration
 from .models.crush_cache import (
