@@ -504,9 +504,7 @@ def delete_photo_draft(request):
             profile.draft_data["step3"].pop(f"photo_{photo_number}_url", None)
 
         profile.save()
-        logger.info(
-            f"Wizard photo {photo_number} deleted for user {request.user.id}"
-        )
+        logger.info(f"Wizard photo {photo_number} deleted for user {request.user.id}")
         return JsonResponse({"success": True, "photo_number": int(photo_number)})
 
     except Exception as e:
@@ -698,11 +696,19 @@ def complete_profile_submission(request):
                 # who already have an in-flight submission from before the
                 # verification pivot (a coach may be mid-review). Verification
                 # now happens at an event (in person) or via LuxID.
-                revision_submission = (
-                    ProfileSubmission.objects.select_for_update()
-                    .filter(profile=profile, status__in=["revision", "recontact_coach"])
-                    .first()
-                )
+                # An expired latest row means the pivot cleanup closed this
+                # user's coach-review story — never requeue an older legacy
+                # row for them; they verify self-serve (LuxID/event) instead.
+                revision_submission = None
+                if ProfileSubmission.latest_for_profile(profile) is not None:
+                    revision_submission = (
+                        ProfileSubmission.objects.select_for_update()
+                        .filter(
+                            profile=profile,
+                            status__in=["revision", "recontact_coach"],
+                        )
+                        .first()
+                    )
 
                 legacy_submission = None
                 if revision_submission:
@@ -1279,8 +1285,7 @@ def phone_step(request):
     context = {
         "profile": profile,
         "has_luxid_account": has_luxid_account,
-        "luxid_linked_without_phone": has_luxid_account
-        and not profile.phone_verified,
+        "luxid_linked_without_phone": has_luxid_account and not profile.phone_verified,
     }
     context.update(onboarding.stepper_context(current=2))
     return render(request, "crush_lu/onboarding/phone.html", context)
@@ -1342,7 +1347,7 @@ def meet_coach_step(request):
     if profile is None or profile.verification_status not in ("pending", "verified"):
         return redirect("crush_lu:onboarding_entry")
 
-    submission = profile.profilesubmission_set.order_by("-submitted_at").first()
+    submission = ProfileSubmission.latest_for_profile(profile)
     if submission is None or submission.coach is None:
         return redirect("crush_lu:profile_submitted")
 
@@ -1369,7 +1374,7 @@ def screening_call_step(request):
     if profile is None:
         return redirect("crush_lu:onboarding_entry")
 
-    submission = profile.profilesubmission_set.order_by("-submitted_at").first()
+    submission = ProfileSubmission.latest_for_profile(profile)
     approved = submission is not None and submission.status == "approved"
 
     context = {

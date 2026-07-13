@@ -419,7 +419,10 @@ class CrushProfile(models.Model):
 
     VERIFICATION_STATUS_CHOICES = [
         ("incomplete", _("Incomplete")),  # profile form not done / not submitted
-        ("pending", _("Pending")),  # submitted, awaiting verification (LuxID or coach at event)
+        (
+            "pending",
+            _("Pending"),
+        ),  # submitted, awaiting verification (LuxID or coach at event)
         ("verified", _("Verified")),  # LuxId verified or grandfathered coach-approved
         ("rejected", _("Rejected")),  # admin/system rejected
     ]
@@ -979,7 +982,13 @@ class ProfileSubmission(models.Model):
         ("rejected", _("Rejected")),
         ("revision", _("Needs Revision")),
         ("recontact_coach", _("Recontact Coach Required")),
+        ("expired", _("Expired — routed to self-serve verification")),
     ]
+
+    # States where a coach review is still expected. "expired" is terminal:
+    # the submission is closed and the user verifies via LuxID or at an event
+    # (user-facing surfaces treat an expired submission like no submission).
+    ACTIVE_REVIEW_STATUSES = ("pending", "revision", "recontact_coach")
 
     profile = models.ForeignKey(CrushProfile, on_delete=models.CASCADE)
     coach = models.ForeignKey(
@@ -1150,6 +1159,24 @@ class ProfileSubmission(models.Model):
 
     def __str__(self):
         return f"{self.profile.user.username} - {self.get_status_display()}"
+
+    @classmethod
+    def latest_for_profile(cls, profile, *, select_related=None):
+        """Latest submission for a profile, treating an expired latest row
+        as no submission at all.
+
+        Deliberately does NOT fall back to an older non-expired row: the
+        expired row closed out the user's whole coach-review story, so
+        resurrecting an older revision/pending row would pull them back
+        into the legacy flow the cleanup routed them out of.
+        """
+        qs = cls.objects.filter(profile=profile)
+        if select_related:
+            qs = qs.select_related(*select_related)
+        latest = qs.order_by("-submitted_at").first()
+        if latest is not None and latest.status == "expired":
+            return None
+        return latest
 
     @property
     def sla_state(self):

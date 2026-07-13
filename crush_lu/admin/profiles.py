@@ -8,6 +8,7 @@ Includes:
 - CoachSessionAdmin
 """
 
+from django import forms
 from django.contrib import admin
 from django.contrib import messages as django_messages
 from django.db import transaction
@@ -223,10 +224,66 @@ class CrushCoachAdmin(AutoTranslateMixin, TranslationAdmin):
         return qs.select_related("user")
 
 
+class ProfileSubmissionAdminForm(forms.ModelForm):
+    """Keeps the terminal "expired" state out of direct status edits — both
+    the change form and the changelist's list_editable select. Expiring must
+    go through the bulk_expire_to_self_serve action, which applies the
+    safety guards and writes the audit entry. The transition is locked in
+    BOTH directions: non-expired rows can't be set to expired here, and
+    expired rows can't be reactivated (select shows only "expired", so the
+    row stays displayable and re-savable unchanged). The recovery path for
+    an expired user is their own resubmission, which creates a fresh row."""
+
+    class Meta:
+        model = ProfileSubmission
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        status_field = self.fields.get("status")
+        if status_field is not None:
+            if self.instance.status == "expired":
+                status_field.choices = [
+                    (value, label)
+                    for value, label in status_field.choices
+                    if value == "expired"
+                ]
+            else:
+                status_field.choices = [
+                    (value, label)
+                    for value, label in status_field.choices
+                    if value != "expired"
+                ]
+
+    def clean_status(self):
+        status = self.cleaned_data.get("status")
+        if status == "expired" and self.instance.status != "expired":
+            raise forms.ValidationError(
+                _(
+                    'Use the "Expire to self-serve" bulk action instead: it '
+                    "applies the safety guards (paused, completed or booked "
+                    "screening calls) and records the audit entry."
+                )
+            )
+        if self.instance.status == "expired" and status != "expired":
+            raise forms.ValidationError(
+                _(
+                    "Expired submissions cannot be reactivated here — the "
+                    "member re-enters review by resubmitting, which creates "
+                    "a fresh submission with its own audit trail."
+                )
+            )
+        return status
+
+
 class ProfileSubmissionProfileInline(admin.TabularInline):
     """Show profile submission/review history"""
 
     model = ProfileSubmission
+    # Same guarded form as ProfileSubmissionAdmin: the inline renders an
+    # editable status select too, and must not offer/accept transitions
+    # into or out of "expired" either.
+    form = ProfileSubmissionAdminForm
     extra = 0
     fields = ("coach", "status", "review_call_completed", "submitted_at", "reviewed_at")
     readonly_fields = ("submitted_at", "reviewed_at")
@@ -1565,6 +1622,7 @@ class CallAttemptInline(admin.TabularInline):
 
 
 class ProfileSubmissionAdmin(admin.ModelAdmin):
+    form = ProfileSubmissionAdminForm
     list_display = (
         "get_profile_link",
         "get_user_email",
@@ -1601,6 +1659,7 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
         "bulk_request_revision",
         "bulk_assign_coach",
         "bulk_mark_call_completed",
+        "bulk_expire_to_self_serve",
         "export_submissions_csv",
     ]
     fieldsets = (
@@ -1628,6 +1687,13 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
         ("Review", {"fields": ("coach_notes", "feedback_to_user")}),
         ("Timestamps", {"fields": ("submitted_at", "reviewed_at")}),
     )
+
+    def get_changelist_form(self, request, **kwargs):
+        # The changelist (list_editable) builds its own plain ModelForm and
+        # ignores self.form — hand it the guarded form so inline status
+        # edits can't reach "expired" either.
+        kwargs.setdefault("form", ProfileSubmissionAdminForm)
+        return super().get_changelist_form(request, **kwargs)
 
     def get_queryset(self, request):
         """
@@ -1770,8 +1836,14 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
         now = timezone.now()
         approved_count = 0
         skipped_count = 0
+        skipped_expired = 0
 
         for submission in queryset.select_related("profile", "profile__user"):
+            # Expired rows are terminal cleanup state — even with a completed
+            # call, approval must not resurrect them (or flip the profile).
+            if submission.status == "expired":
+                skipped_expired += 1
+                continue
             if not submission.review_call_completed:
                 skipped_count += 1
                 continue
@@ -1808,13 +1880,26 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
                 _("Skipped %(count)s profile(s) - screening call not completed")
                 % {"count": skipped_count},
             )
+        if skipped_expired > 0:
+            django_messages.warning(
+                request,
+                _(
+                    "Skipped %(count)s expired submission(s) — closed out to "
+                    "self-serve verification and no longer reviewable."
+                )
+                % {"count": skipped_expired},
+            )
 
     @admin.action(description=_("Reject selected profiles"))
     def bulk_reject_profiles(self, request, queryset):
         """Bulk reject profiles"""
         now = timezone.now()
         count = 0
+        skipped_expired = 0
         for submission in queryset.select_related("profile", "profile__user"):
+            if submission.status == "expired":
+                skipped_expired += 1
+                continue
             submission.status = "rejected"
             submission.reviewed_at = now
             submission.save()
@@ -1834,13 +1919,26 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
         django_messages.success(
             request, _("Rejected %(count)s profile(s)") % {"count": count}
         )
+        if skipped_expired > 0:
+            django_messages.warning(
+                request,
+                _(
+                    "Skipped %(count)s expired submission(s) — closed out to "
+                    "self-serve verification and no longer reviewable."
+                )
+                % {"count": skipped_expired},
+            )
 
     @admin.action(description=_("Request revision for selected profiles"))
     def bulk_request_revision(self, request, queryset):
         """Request revision for profiles"""
         now = timezone.now()
         count = 0
+        skipped_expired = 0
         for submission in queryset.select_related("profile", "profile__user"):
+            if submission.status == "expired":
+                skipped_expired += 1
+                continue
             submission.status = "revision"
             submission.reviewed_at = now
             submission.save()
@@ -1862,6 +1960,15 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
         django_messages.success(
             request, _("Requested revision for %(count)s profile(s)") % {"count": count}
         )
+        if skipped_expired > 0:
+            django_messages.warning(
+                request,
+                _(
+                    "Skipped %(count)s expired submission(s) — closed out to "
+                    "self-serve verification and no longer reviewable."
+                )
+                % {"count": skipped_expired},
+            )
 
     @admin.action(description=_("Auto-assign available coach"))
     def bulk_assign_coach(self, request, queryset):
@@ -2002,6 +2109,106 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
             _("Exported %(count)s submission(s) to CSV.") % {"count": queryset.count()},
         )
         return response
+
+    @admin.action(description=_("Expire (route to self-serve verification)"))
+    def bulk_expire_to_self_serve(self, request, queryset):
+        """Close stale coach-review submissions; the user keeps their pending
+        profile and gets the self-serve LuxID/event verification flow instead.
+        Same transition as the expire_stale_submissions management command."""
+        now = timezone.now()
+        expired_count = 0
+        skipped_status = 0
+        skipped_protected = 0
+        skipped_sibling = 0
+        with transaction.atomic():
+            # Lock the rows first: the self-booking flow takes a
+            # select_for_update() on the submission before creating its
+            # booked slot, so evaluating the guards under the same lock
+            # closes the window where a booking commits between the
+            # exists() check and the status save.
+            submissions = list(
+                ProfileSubmission.objects.filter(
+                    pk__in=queryset.values("pk")
+                ).select_for_update()
+            )
+            expirable = []
+            for submission in submissions:
+                if submission.status not in ("pending", "recontact_coach"):
+                    skipped_status += 1
+                    continue
+                # Same safety guards as the management command: paused
+                # submissions have their own reactivation story, a completed
+                # screening call puts the row on the "Ready to Approve" path,
+                # and a booked slot that hasn't ended yet means a coach call
+                # is scheduled or in progress right now (slots stay 'booked'
+                # until completed, so test end_at, not start_at).
+                if (
+                    submission.is_paused
+                    or submission.review_call_completed
+                    or submission.booked_slots.filter(
+                        status="booked", end_at__gte=now
+                    ).exists()
+                ):
+                    skipped_protected += 1
+                    continue
+                expirable.append(submission)
+            # Sibling guard (same rule as the command): if the profile keeps
+            # another live pending/recontact row after this run — unselected
+            # or protected above — expiring this row could make it the
+            # profile's latest and the expired-latest invariant would hide
+            # the surviving review.
+            expirable_pks = {s.pk for s in expirable}
+            for submission in expirable:
+                if (
+                    ProfileSubmission.objects.filter(
+                        profile_id=submission.profile_id,
+                        status__in=("pending", "recontact_coach"),
+                    )
+                    .exclude(pk__in=expirable_pks)
+                    .exists()
+                ):
+                    skipped_sibling += 1
+                    continue
+                previous = submission.status
+                submission.status = "expired"
+                submission.log_system_action(
+                    "expired_to_self_serve",
+                    actor=f"admin:{request.user.pk}",
+                    previous_status=previous,
+                )
+                submission.save(update_fields=["status", "system_actions"])
+                expired_count += 1
+        if expired_count:
+            django_messages.success(
+                request,
+                _("Expired %(count)s submission(s) — users now verify self-serve.")
+                % {"count": expired_count},
+            )
+        if skipped_status:
+            django_messages.warning(
+                request,
+                _("Skipped %(count)s submission(s) not in pending/recontact status.")
+                % {"count": skipped_status},
+            )
+        if skipped_protected:
+            django_messages.warning(
+                request,
+                _(
+                    "Skipped %(count)s submission(s) that are paused, have a "
+                    "completed screening call, or hold a future booked "
+                    "screening call."
+                )
+                % {"count": skipped_protected},
+            )
+        if skipped_sibling:
+            django_messages.warning(
+                request,
+                _(
+                    "Skipped %(count)s submission(s) whose profile keeps "
+                    "another live review row — expiring them could hide it."
+                )
+                % {"count": skipped_sibling},
+            )
 
 
 class CoachSessionAdmin(admin.ModelAdmin):

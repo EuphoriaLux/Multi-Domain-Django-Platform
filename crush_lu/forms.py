@@ -574,6 +574,17 @@ class CrushProfileForm(forms.ModelForm):
 class ProfileReviewForm(forms.ModelForm):
     """Form for coaches to review profiles"""
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # "expired" is a system-only terminal state (post-pivot cleanup by the
+        # expire_stale_submissions command / admin action) — never a coach
+        # decision. Dropping it from the choices also rejects it server-side.
+        self.fields['status'].choices = [
+            (value, label)
+            for value, label in self.fields['status'].choices
+            if value != 'expired'
+        ]
+
     class Meta:
         model = ProfileSubmission
         fields = ['status', 'coach_notes', 'feedback_to_user']

@@ -2255,12 +2255,17 @@ def auto_approve_profile_on_luxid_connect(sender, request, sociallogin, **kwargs
         return
 
     # Use any pending submission opportunistically (paid coach / revision path).
-    # For the standard free path there will be none — that is fine.
-    submission = (
-        ProfileSubmission.objects.filter(profile=profile, status="pending")
-        .order_by("-submitted_at")
-        .first()
-    )
+    # For the standard free path there will be none — that is fine. Gated on
+    # the expired-latest invariant: when the newest row was closed out by the
+    # pivot cleanup (latest_for_profile returns None), the member is the
+    # standard free path — never resurrect an older pending row.
+    submission = None
+    if ProfileSubmission.latest_for_profile(profile) is not None:
+        submission = (
+            ProfileSubmission.objects.filter(profile=profile, status="pending")
+            .order_by("-submitted_at")
+            .first()
+        )
 
     _execute_luxid_direct_verify(user, profile, submission, request)
 
