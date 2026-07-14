@@ -1380,3 +1380,100 @@ class TestQrUnlockMessaging:
         levels = [m.level for m in response.context["messages"]]
         assert msg_constants.SUCCESS not in levels  # must not say "unlocked!"
         assert msg_constants.INFO in levels  # nudge to reach the location
+
+
+# ============================================================================
+# COACH EVENT DETAIL — Crush Cache Control card gating
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestCoachEventDetailCacheCard:
+    """The Event Control grid's Crush Cache card must only render when the
+    coach can actually open the dashboard: a CacheHunt row exists (the view
+    404s without one) and _can_manage_hunt allows this coach."""
+
+    def _detail(self, client, event):
+        return client.get(reverse("crush_lu:coach_event_detail", args=[event.id]))
+
+    def _dashboard_url(self, event):
+        return reverse("crush_lu:cache_coach_dashboard", args=[event.id])
+
+    def test_card_shown_to_hunt_creator(self, client, hunt, coach_user):
+        client.force_login(coach_user)
+        response = self._detail(client, hunt.event)
+        assert response.status_code == 200
+        assert self._dashboard_url(hunt.event).encode() in response.content
+
+    def test_card_hidden_when_hunt_missing(self, client, coach_user):
+        # Event type already switched to crush_cache, but no CacheHunt yet —
+        # the dashboard would 404.
+        event = MeetupEvent.objects.create(
+            title="Huntless Cache Night",
+            event_type="crush_cache",
+            date_time=timezone.now() + timedelta(hours=1),
+            registration_deadline=timezone.now() + timedelta(minutes=30),
+            location="Luxembourg City",
+            is_published=True,
+        )
+        client.force_login(coach_user)
+        response = self._detail(client, event)
+        assert response.status_code == 200
+        assert self._dashboard_url(event).encode() not in response.content
+
+    def test_card_hidden_from_unassigned_coach(self, client, hunt):
+        # Active coach, but neither the hunt's creator nor assigned to the
+        # event — cache_coach_dashboard would bounce them, so no card.
+        other = User.objects.create_user(
+            username="othercoach@test.com",
+            email="othercoach@test.com",
+            password="testpass123",
+            is_staff=True,
+        )
+        _grant_consent(other)
+        CrushCoach.objects.create(
+            user=other,
+            bio="Other coach",
+            specializations="Events",
+            is_active=True,
+        )
+        client.force_login(other)
+        response = self._detail(client, hunt.event)
+        assert response.status_code == 200
+        assert self._dashboard_url(hunt.event).encode() not in response.content
+
+
+@pytest.mark.django_db
+class TestDashboardAttendeesLink:
+    """The cache dashboard's "View attendees" link targets coach_event_detail
+    (@coach_required) — render it only for active coaches, since a non-coach
+    hunt creator can manage the dashboard but would just get bounced."""
+
+    def _dashboard(self, client, hunt):
+        return client.get(
+            reverse("crush_lu:cache_coach_dashboard", args=[hunt.event_id])
+        )
+
+    def test_link_shown_to_active_coach(self, client, hunt, coach_user):
+        client.force_login(coach_user)
+        response = self._dashboard(client, hunt)
+        assert response.status_code == 200
+        roster_url = reverse("crush_lu:coach_event_detail", args=[hunt.event_id])
+        assert roster_url.encode() in response.content
+
+    def test_link_hidden_from_non_coach_creator(self, client, hunt):
+        creator = User.objects.create_user(
+            username="creator@test.com",
+            email="creator@test.com",
+            password="x",
+            is_staff=True,
+        )
+        _grant_consent(creator)
+        hunt.created_by = creator
+        hunt.save()
+
+        client.force_login(creator)
+        response = self._dashboard(client, hunt)
+        assert response.status_code == 200  # they can still run the hunt
+        roster_url = reverse("crush_lu:coach_event_detail", args=[hunt.event_id])
+        assert roster_url.encode() not in response.content
