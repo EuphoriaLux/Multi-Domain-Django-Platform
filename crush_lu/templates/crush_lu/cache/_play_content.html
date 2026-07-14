@@ -4,6 +4,12 @@
 {# the answer view only — a refresh always re-derives plain state from DB.  #}
 <div id="play-content">
 
+    {% if rate_limited %}
+    <div class="mb-4 rounded-xl border border-amber-400 bg-amber-50 dark:bg-amber-900/30 px-4 py-3 text-center text-sm font-semibold text-amber-800 dark:text-amber-200" role="alert">
+        ⏳ {% trans "Too many attempts. Take a breath and try again in a minute." %}
+    </div>
+    {% endif %}
+
     {% if celebrated_station %}
     {# --- Station / hunt completed celebration --- #}
     <div class="cache-pop rounded-2xl border-2 border-crush-purple bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 dark:from-crush-purple/20 dark:to-crush-pink/20 p-8 text-center shadow-crush-md"

@@ -332,8 +332,12 @@ document.addEventListener("alpine:init", function () {
                 this.ws.onmessage = function (event) {
                     var msg;
                     try { msg = JSON.parse(event.data); } catch (e) { return; }
-                    if (msg.type === "status" && msg.data && msg.data.status !== self.huntStatus) {
-                        window.location.reload();
+                    // The consumer sends "state" on connect and "status" on
+                    // every change; both carry the hunt status. React to
+                    // either so a status change that happened between page
+                    // render and group subscription still lands.
+                    if ((msg.type === "status" || msg.type === "state") && msg.data && msg.data.status && msg.data.status !== self.huntStatus) {
+                        self.stopAndReload();
                     }
                 };
                 this.ws.onclose = function () {
@@ -350,9 +354,13 @@ document.addEventListener("alpine:init", function () {
                 var self = this;
                 if (!this.stateUrl) return;
                 this.pollTimer = setInterval(function () {
-                    // The socket delivers status changes when it's up —
-                    // only poll while it isn't.
-                    if (self.ws && self.ws.readyState === WebSocket.OPEN) return;
+                    // Safety-net poll. An OPEN socket can still miss a status
+                    // event (group_send failed, or the change landed between
+                    // page render and group subscription), and QR/no-GPS
+                    // screens have no position POST to surface the 403
+                    // fallback. So poll regardless of socket health — cheap
+                    // on the server, and the only guaranteed exit from a
+                    // finished hunt.
                     fetch(self.stateUrl, { headers: { "Accept": "application/json" } })
                         .then(function (r) { return r.ok ? r.json() : null; })
                         .then(function (data) {

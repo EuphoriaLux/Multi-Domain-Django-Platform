@@ -132,7 +132,11 @@
             ws.onmessage = function (event) {
                 var msg;
                 try { msg = JSON.parse(event.data); } catch (e) { return; }
-                if (msg.type === "status" && msg.data && msg.data.status !== "draft") {
+                // The consumer sends "state" on connect and "status" on every
+                // change; both carry the hunt status. React to either so a
+                // start that lands between page render and group subscription
+                // (the initial "state" already reflects it) isn't missed.
+                if ((msg.type === "status" || msg.type === "state") && msg.data && msg.data.status !== "draft") {
                     window.location.reload();
                 }
             };
@@ -144,11 +148,12 @@
             };
         }
         connect();
-        // Polling fallback: with the channel layer down the socket never
-        // delivers the start signal — check the state API instead so
-        // players still leave the lobby when the coach presses start.
+        // Safety-net poll. The socket delivers the start instantly, but it
+        // can't be the only path: with the channel layer down it never fires,
+        // and even on a healthy socket a dropped group_send would strand the
+        // lobby. So poll the state API regardless of socket health — cheap on
+        // a transient waiting screen, and reload is idempotent.
         setInterval(function () {
-            if (ws && ws.readyState === WebSocket.OPEN) return;
             fetch(stateUrl, { headers: { "Accept": "application/json" } })
                 .then(function (r) { return r.ok ? r.json() : null; })
                 .then(function (data) {
