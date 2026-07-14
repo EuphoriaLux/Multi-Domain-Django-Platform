@@ -2086,8 +2086,17 @@ def coach_event_detail(request, event_id):
 
     from django.conf import settings as django_settings
 
+    # Crush Cache Control link: only render it for coaches who can actually
+    # open the hunt dashboard. The hunt row must exist (the dashboard 404s
+    # without it) and cache_coach_dashboard denies coaches who neither
+    # created the hunt nor are assigned to the event (_can_manage_hunt),
+    # which would make the link dead.
     cache_enabled = getattr(django_settings, "CRUSH_CACHE_ENABLED", False)
     has_cache_hunt = cache_enabled and hasattr(event, "cache_hunt")
+    if has_cache_hunt:
+        from .views_crush_cache import _can_manage_hunt
+
+        has_cache_hunt = _can_manage_hunt(request.user, event.cache_hunt)
 
     # Per-coach recap: of users this coach onboarded (approved), how many
     # attended, how many sent connection requests, how many had a mutual

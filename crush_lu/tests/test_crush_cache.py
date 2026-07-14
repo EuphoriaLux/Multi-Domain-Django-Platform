@@ -1036,6 +1036,33 @@ class TestCoach:
         response = client.get(url)
         assert cache_url.encode() not in response.content
 
+    def test_coach_event_detail_hides_cache_control_from_unassigned_coach(
+        self, client, hunt
+    ):
+        """An active coach who neither created the hunt nor is assigned to
+        the event gets bounced by cache_coach_dashboard — don't render a
+        dead link for them."""
+        other = User.objects.create_user(
+            username="othercoach@test.com",
+            email="othercoach@test.com",
+            password="testpass123",
+            is_staff=True,
+        )
+        _grant_consent(other)
+        CrushCoach.objects.create(
+            user=other,
+            bio="Other coach",
+            specializations="Events",
+            is_active=True,
+        )
+        client.force_login(other)
+        response = client.get(
+            reverse("crush_lu:coach_event_detail", args=[hunt.event_id])
+        )
+        assert response.status_code == 200
+        cache_url = reverse("crush_lu:cache_coach_dashboard", args=[hunt.event_id])
+        assert cache_url.encode() not in response.content
+
     def test_qr_sheet_requires_coach(self, client, hunt, stations, team, player):
         client.force_login(player)
         url = reverse("crush_lu:cache_coach_qr_sheet", args=[hunt.event_id])
