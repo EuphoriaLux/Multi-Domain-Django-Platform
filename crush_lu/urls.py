@@ -412,6 +412,7 @@ urlpatterns = [
     path('events/<int:event_id>/cache/coach/finish/', views_crush_cache.cache_coach_finish, name='cache_coach_finish'),
     path('events/<int:event_id>/cache/coach/auto-teams/', views_crush_cache.cache_coach_auto_teams, name='cache_coach_auto_teams'),
     path('events/<int:event_id>/cache/coach/api/state/', views_crush_cache.cache_coach_state_api, name='cache_coach_state_api'),
+    path('events/<int:event_id>/cache/coach/qr-sheet/', views_crush_cache.cache_coach_qr_sheet, name='cache_coach_qr_sheet'),
 
     # Voting Demo/Guided Tour
     path('voting-demo/', views.voting_demo, name='voting_demo'),

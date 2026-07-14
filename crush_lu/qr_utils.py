@@ -127,6 +127,7 @@ def generate_cache_qr_url(token: uuid.UUID, domain: str = "crush.lu") -> str:
 def generate_cache_station_sheet(
     stations: List,
     title: str = "Crush Cache Station QR Codes",
+    domain: str = "crush.lu",
 ) -> Optional[bytes]:
     """
     Generate a printable A4 PDF sheet with one QR code per hunt station.
@@ -137,6 +138,9 @@ def generate_cache_station_sheet(
     Args:
         stations: List of CacheStation instances (ordered)
         title: Title to display on the PDF
+        domain: Host the QR URLs point at — pass request.get_host() so a
+            sheet printed from a test slot or localhost doesn't send
+            players to production
 
     Returns:
         PDF bytes
@@ -175,7 +179,7 @@ def generate_cache_station_sheet(
             # manual-code lines below the image must stay inside the cell.
             y = height - 2 * margin - row * row_height - 2 * mm - qr_size
 
-            url = generate_cache_qr_url(station.qr_token)
+            url = generate_cache_qr_url(station.qr_token, domain=domain)
             qr_bytes = generate_qr_code_image(url, box_size=5, border=2)
             qr_image = ImageReader(io.BytesIO(qr_bytes))
 

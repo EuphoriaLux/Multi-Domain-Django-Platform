@@ -2084,13 +2084,18 @@ def coach_event_detail(request, event_id):
 
     has_quiz = hasattr(event, "quiz")
 
-    # Crush Cache Control card: only render it for coaches who can actually
-    # open the hunt dashboard. The event type alone isn't enough — the hunt
-    # row may not exist yet (the dashboard 404s), and cache_coach_dashboard
-    # denies coaches who neither created the hunt nor are assigned to the
-    # event (_can_manage_hunt), which would make the card a dead link.
-    can_manage_cache_hunt = False
-    if event.event_type == "crush_cache" and hasattr(event, "cache_hunt"):
+    from django.conf import settings as django_settings
+
+    # Crush Cache Control links (header button + Event Control card): only
+    # render them for coaches who can actually open the hunt dashboard.
+    # The feature must be enabled, the hunt row must exist (the dashboard
+    # 404s without it), and cache_coach_dashboard denies coaches who
+    # neither created the hunt nor are assigned to the event
+    # (_can_manage_hunt) — anything less renders a dead link.
+    can_manage_cache_hunt = getattr(
+        django_settings, "CRUSH_CACHE_ENABLED", False
+    ) and hasattr(event, "cache_hunt")
+    if can_manage_cache_hunt:
         from .views_crush_cache import _can_manage_hunt
 
         can_manage_cache_hunt = _can_manage_hunt(request.user, event.cache_hunt)

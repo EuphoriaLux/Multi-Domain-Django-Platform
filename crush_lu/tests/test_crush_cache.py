@@ -1017,6 +1017,108 @@ class TestCoach:
         for t in hunt.teams.all():
             assert t.members.count() <= hunt.team_size_max
 
+    def test_coach_event_detail_links_to_cache_control(
+        self, client, hunt, coach_user, settings
+    ):
+        """The coach event page must surface the Crush Cache dashboard —
+        it was previously reachable only by typing the URL."""
+        client.force_login(coach_user)
+        url = reverse("crush_lu:coach_event_detail", args=[hunt.event_id])
+        cache_url = reverse(
+            "crush_lu:cache_coach_dashboard", args=[hunt.event_id]
+        )
+
+        response = client.get(url)
+        assert response.status_code == 200
+        assert cache_url.encode() in response.content
+
+        settings.CRUSH_CACHE_ENABLED = False
+        response = client.get(url)
+        assert cache_url.encode() not in response.content
+
+    def test_coach_event_detail_hides_cache_control_from_unassigned_coach(
+        self, client, hunt
+    ):
+        """An active coach who neither created the hunt nor is assigned to
+        the event gets bounced by cache_coach_dashboard — don't render a
+        dead link for them."""
+        other = User.objects.create_user(
+            username="othercoach@test.com",
+            email="othercoach@test.com",
+            password="testpass123",
+            is_staff=True,
+        )
+        _grant_consent(other)
+        CrushCoach.objects.create(
+            user=other,
+            bio="Other coach",
+            specializations="Events",
+            is_active=True,
+        )
+        client.force_login(other)
+        response = client.get(
+            reverse("crush_lu:coach_event_detail", args=[hunt.event_id])
+        )
+        assert response.status_code == 200
+        cache_url = reverse("crush_lu:cache_coach_dashboard", args=[hunt.event_id])
+        assert cache_url.encode() not in response.content
+
+    def test_qr_sheet_requires_coach(self, client, hunt, stations, team, player):
+        client.force_login(player)
+        url = reverse("crush_lu:cache_coach_qr_sheet", args=[hunt.event_id])
+        response = client.get(url)
+        assert response.status_code == 302
+        assert reverse("crush_lu:dashboard") in response.url
+
+    def test_qr_sheet_without_qr_stations_redirects(
+        self, client, hunt, stations, coach_user
+    ):
+        # Fixture stations are gps + none — nothing to print
+        client.force_login(coach_user)
+        url = reverse("crush_lu:cache_coach_qr_sheet", args=[hunt.event_id])
+        response = client.get(url)
+        assert response.status_code == 302
+        assert (
+            reverse("crush_lu:cache_coach_dashboard", args=[hunt.event_id])
+            in response.url
+        )
+
+    def test_qr_sheet_downloads_pdf(self, client, hunt, stations, coach_user):
+        pytest.importorskip("reportlab")
+        pytest.importorskip("qrcode")
+        stations[0].unlock_mode = "qr"
+        stations[0].save()
+        client.force_login(coach_user)
+        url = reverse("crush_lu:cache_coach_qr_sheet", args=[hunt.event_id])
+        response = client.get(url)
+        assert response.status_code == 200
+        assert response["Content-Type"] == "application/pdf"
+
+    def test_qr_sheet_uses_request_host(
+        self, client, hunt, stations, coach_user, monkeypatch
+    ):
+        """A sheet printed from a test slot or localhost must encode that
+        host in its QR URLs, not production crush.lu."""
+        pytest.importorskip("reportlab")
+        pytest.importorskip("qrcode")
+        import crush_lu.qr_utils as qr_utils
+
+        stations[0].unlock_mode = "qr"
+        stations[0].save()
+        seen = []
+        real = qr_utils.generate_cache_qr_url
+
+        def spy(token, domain="crush.lu"):
+            seen.append(domain)
+            return real(token, domain=domain)
+
+        monkeypatch.setattr(qr_utils, "generate_cache_qr_url", spy)
+        client.force_login(coach_user)
+        url = reverse("crush_lu:cache_coach_qr_sheet", args=[hunt.event_id])
+        response = client.get(url)
+        assert response.status_code == 200
+        assert seen and all(d == "testserver" for d in seen)
+
     def test_coach_state_api(self, client, hunt, stations, team, coach_user):
         _start_hunt(hunt)
         client.force_login(coach_user)
