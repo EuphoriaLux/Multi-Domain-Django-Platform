@@ -342,6 +342,15 @@ class CacheStation(models.Model):
     # Reusable station identifier — many teams scan the same physical sticker.
     # Authorization comes from the scanning user's team state, not the token.
     qr_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    # Human-typeable fallback for the QR code (broken camera, glare):
+    # printed under the QR on the station sheet, entered on the scanner
+    # page. Same no-ambiguity alphabet as team join codes. Auto-generated
+    # on save; unique per hunt (codes may repeat across hunts).
+    manual_code = models.CharField(
+        max_length=JOIN_CODE_LENGTH,
+        blank=True,
+        help_text=_("Short code players can type instead of scanning the QR"),
+    )
     completion_message = models.TextField(
         blank=True,
         help_text=_("Message shown when the team completes this station"),
@@ -349,12 +358,28 @@ class CacheStation(models.Model):
 
     class Meta:
         ordering = ["order"]
-        unique_together = [("hunt", "order")]
+        unique_together = [("hunt", "order"), ("hunt", "manual_code")]
         verbose_name = _("Cache Station")
         verbose_name_plural = _("📍 2. Cache Stations")
 
     def __str__(self):
         return f"Station {self.order}: {self.name}"
+
+    def save(self, *args, **kwargs):
+        if not self.manual_code:
+            self.manual_code = self._generate_manual_code()
+        super().save(*args, **kwargs)
+
+    def _generate_manual_code(self):
+        for _attempt in range(20):
+            code = generate_join_code()
+            if (
+                not CacheStation.objects.filter(hunt_id=self.hunt_id, manual_code=code)
+                .exclude(pk=self.pk)
+                .exists()
+            ):
+                return code
+        raise RuntimeError("Could not generate a unique station code")
 
     @property
     def requires_gps(self):

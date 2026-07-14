@@ -128,7 +128,11 @@ def regenerate_cache_qr_tokens(modeladmin, request, queryset):
         count = 0
         for station in hunt.stations.all():
             station.qr_token = uuid.uuid4()
-            station.save(update_fields=["qr_token"])
+            # Printed sheets also carry the typeable fallback — rotate it
+            # with the token, or an old sheet keeps unlocking stations via
+            # manual entry. save() regenerates a blank manual_code.
+            station.manual_code = ""
+            station.save(update_fields=["qr_token", "manual_code"])
             count += 1
         messages.warning(
             request,
@@ -196,9 +200,7 @@ class CacheHuntAdmin(AutoTranslateMixin, TranslationAdmin):
                 for c in checks
             ),
         )
-        return format_html(
-            '<table style="border-collapse:collapse">{}</table>', rows
-        )
+        return format_html('<table style="border-collapse:collapse">{}</table>', rows)
 
     readiness_check_display.short_description = _("Readiness Check")
 
@@ -209,6 +211,7 @@ class CacheStationAdmin(AutoTranslateMixin, TranslationAdmin):
         "name",
         "hunt",
         "unlock_mode",
+        "manual_code",
         "radius_meters",
         "challenge_count",
     )
@@ -216,7 +219,7 @@ class CacheStationAdmin(AutoTranslateMixin, TranslationAdmin):
     list_filter = ("hunt__event", "unlock_mode")
     inlines = [CacheChallengeInline]
     raw_id_fields = ("hunt",)
-    readonly_fields = ("qr_token", "qr_code_preview")
+    readonly_fields = ("qr_token", "manual_code", "qr_code_preview")
 
     def challenge_count(self, obj):
         return obj.challenges.count()
@@ -228,17 +231,19 @@ class CacheStationAdmin(AutoTranslateMixin, TranslationAdmin):
         if not obj.pk:
             return _("Save the station first to get its QR code.")
         if not obj.requires_qr:
-            return _(
-                "No QR needed — this station unlocks by “%(mode)s”."
-            ) % {"mode": obj.get_unlock_mode_display()}
+            return _("No QR needed — this station unlocks by “%(mode)s”.") % {
+                "mode": obj.get_unlock_mode_display()
+            }
         from crush_lu.qr_utils import generate_cache_qr_url, generate_qr_code_base64
 
         url = generate_cache_qr_url(obj.qr_token)
         return format_html(
             '<img src="{}" alt="QR" style="width:180px;height:180px">'
-            '<div style="color:#666;font-size:12px">{}</div>',
+            '<div style="color:#666;font-size:12px">{}</div>'
+            '<div style="font-size:13px;font-weight:600">{}</div>',
             generate_qr_code_base64(url),
             url,
+            _("Manual code: %(code)s") % {"code": obj.manual_code},
         )
 
     qr_code_preview.short_description = _("QR Code")

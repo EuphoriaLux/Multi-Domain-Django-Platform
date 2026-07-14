@@ -402,6 +402,7 @@ urlpatterns = [
     path('events/<int:event_id>/cache/play/', views_crush_cache.cache_play, name='cache_play'),
     path('events/<int:event_id>/cache/scanner/', views_crush_cache.cache_scanner, name='cache_scanner'),
     path('cache/qr/<uuid:token>/', views_crush_cache.cache_qr_scan, name='cache_qr_scan'),
+    path('events/<int:event_id>/cache/manual-code/', views_crush_cache.cache_manual_code, name='cache_manual_code'),
     path('events/<int:event_id>/cache/api/position/', views_crush_cache.cache_position_api, name='cache_position_api'),
     path('events/<int:event_id>/cache/api/challenge/<int:challenge_id>/answer/', views_crush_cache.cache_answer_api, name='cache_answer_api'),
     path('events/<int:event_id>/cache/api/challenge/<int:challenge_id>/hint/<int:hint_number>/', views_crush_cache.cache_hint_api, name='cache_hint_api'),
