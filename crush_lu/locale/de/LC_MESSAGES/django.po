@@ -35616,3 +35616,7 @@ msgstr "{team} hat Station {order} geschafft ({points} Pkt.)"
 
 msgid "station {order}"
 msgstr "Station {order}"
+
+#: crush_lu/templates/crush_lu/event_detail.html:374
+msgid "Join the Hunt"
+msgstr "Mach mit bei der Jagd"
