@@ -1139,3 +1139,39 @@ class TestCoachEventDetailCacheCard:
         response = self._detail(client, hunt.event)
         assert response.status_code == 200
         assert self._dashboard_url(hunt.event).encode() not in response.content
+
+
+@pytest.mark.django_db
+class TestDashboardAttendeesLink:
+    """The cache dashboard's "View attendees" link targets coach_event_detail
+    (@coach_required) — render it only for active coaches, since a non-coach
+    hunt creator can manage the dashboard but would just get bounced."""
+
+    def _dashboard(self, client, hunt):
+        return client.get(
+            reverse("crush_lu:cache_coach_dashboard", args=[hunt.event_id])
+        )
+
+    def test_link_shown_to_active_coach(self, client, hunt, coach_user):
+        client.force_login(coach_user)
+        response = self._dashboard(client, hunt)
+        assert response.status_code == 200
+        roster_url = reverse("crush_lu:coach_event_detail", args=[hunt.event_id])
+        assert roster_url.encode() in response.content
+
+    def test_link_hidden_from_non_coach_creator(self, client, hunt):
+        creator = User.objects.create_user(
+            username="creator@test.com",
+            email="creator@test.com",
+            password="x",
+            is_staff=True,
+        )
+        _grant_consent(creator)
+        hunt.created_by = creator
+        hunt.save()
+
+        client.force_login(creator)
+        response = self._dashboard(client, hunt)
+        assert response.status_code == 200  # they can still run the hunt
+        roster_url = reverse("crush_lu:coach_event_detail", args=[hunt.event_id])
+        assert roster_url.encode() not in response.content
