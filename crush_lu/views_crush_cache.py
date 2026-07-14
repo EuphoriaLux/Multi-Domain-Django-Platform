@@ -388,6 +388,15 @@ def cache_play(request, event_id):
         # Only the finish screen shows the leaderboard — the play screen
         # and its HTMX swaps don't, so _play_context skips the query.
         context["leaderboard"] = hunt.get_leaderboard()
+        if hunt.status != "finished":
+            # Baseline for the finish page's standings poll: mirror the
+            # cache_state_api payload so the first poll compares against
+            # the rendered page instead of becoming the baseline itself
+            # (which would swallow any change in the first interval).
+            context["state_snapshot"] = {
+                "status": hunt.status,
+                "leaderboard": hunt.get_serialized_leaderboard(),
+            }
         return render(request, "crush_lu/cache/finish.html", context)
     return render(request, "crush_lu/cache/play.html", context)
 

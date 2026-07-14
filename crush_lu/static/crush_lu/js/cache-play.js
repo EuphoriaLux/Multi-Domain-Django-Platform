@@ -21,6 +21,7 @@ document.addEventListener("alpine:init", function () {
             geoSupported: !!navigator.geolocation,
             gpsDenied: false,
             arrivalCelebrating: false,
+            suspended: false,
             distanceM: null,
             bearing: null,
             heading: null,
@@ -68,6 +69,18 @@ document.addEventListener("alpine:init", function () {
                     this.connectWebSocket();
                     this.startPolling();
                 }
+                // A station/hunt-complete celebration swapped into the play
+                // region makes this shell's data stale — progress already
+                // points at the next station, so the next position POST
+                // would report "unlocked" and reload right over the card.
+                // Suspend navigation while it's on screen; its Continue
+                // link does the reload.
+                var self = this;
+                root.addEventListener("htmx:afterSwap", function () {
+                    if (document.getElementById("cache-celebration")) {
+                        self.suspendNavigation();
+                    }
+                });
                 if (document.getElementById("cache-map") && window.L) {
                     this.initMap();
                 }
@@ -170,6 +183,7 @@ document.addEventListener("alpine:init", function () {
                             return r.json()
                                 .catch(function () { return null; })
                                 .then(function (err) {
+                                    if (self.suspended) return null;
                                     var code = err && err.error;
                                     if (code === "finished" || code === "not_live" || code === "no_team") {
                                         // Hunt or membership state changed under
@@ -188,7 +202,7 @@ document.addEventListener("alpine:init", function () {
                     })
                     .then(function (data) {
                         self.posting = false;
-                        if (!data || !data.ok) return;
+                        if (!data || !data.ok || self.suspended) return;
                         if (typeof data.distance_m === "number") self.distanceM = data.distance_m;
                         if (typeof data.bearing === "number") self.bearing = data.bearing;
                         // Server-side arrival — celebrate for a beat, then
@@ -208,15 +222,28 @@ document.addEventListener("alpine:init", function () {
             },
 
             celebrateArrival: function () {
-                if (this.reloading) return;
+                if (this.reloading || this.suspended) return;
                 this.reloading = true;
                 this.stopWatching();
                 this.arrivalCelebrating = true;
+                var self = this;
                 var reduce = window.matchMedia
                     && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
                 setTimeout(function () {
+                    if (self.suspended) return;
                     window.location.reload();
                 }, reduce ? 700 : 1600);
+            },
+
+            // A station-complete celebration owns the screen: stop GPS
+            // posting and cancel any armed arrival reload so the card is
+            // actually readable. The status poll stays live so a finished
+            // hunt still exits to the results screen.
+            suspendNavigation: function () {
+                this.suspended = true;
+                this.arrivalCelebrating = false;
+                this.reloading = false;
+                this.stopWatching();
             },
 
             // --- Compass (device orientation) ---
