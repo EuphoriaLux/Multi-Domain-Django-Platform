@@ -11,6 +11,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
     var huntId = root.dataset.huntId;
     var stateUrl = root.dataset.stateUrl;
+    // Translated feed strings ({team}/{order}/{points} placeholders) —
+    // literals are English fallbacks only.
+    var msgs = {
+        finished: root.dataset.msgFinished || "{team} finished the hunt! 🏁",
+        completed: root.dataset.msgCompleted || "{team} completed station {order} ({points} pts)",
+        station: root.dataset.msgStation || "station {order}",
+    };
+    function fillMsg(template, values) {
+        return template.replace(/\{(\w+)\}/g, function (m, key) {
+            return key in values ? values[key] : m;
+        });
+    }
     var mapData;
     try {
         mapData = JSON.parse(root.dataset.mapData || "{}");
@@ -93,11 +105,10 @@ document.addEventListener("DOMContentLoaded", function () {
             if (msg.type === "position" && data.team_id) {
                 upsertTeamMarker(data.team_id, data.team_name, data.team_color, data.lat, data.lng);
             } else if (msg.type === "progress") {
-                addFeedLine(
-                    data.team_name + (data.is_finished
-                        ? " finished the hunt! 🏁"
-                        : " completed station " + data.station_order + " (" + data.points + " pts)")
-                );
+                addFeedLine(fillMsg(
+                    data.is_finished ? msgs.finished : msgs.completed,
+                    { team: data.team_name, order: data.station_order, points: data.points }
+                ));
             } else if (msg.type === "leaderboard" || msg.type === "status") {
                 // Leaderboard/status are server-rendered — refresh to stay simple
                 // and correct. Positions keep flowing over the socket meanwhile.
@@ -165,7 +176,7 @@ document.addEventListener("DOMContentLoaded", function () {
             } else if (e.station_order) {
                 var st = document.createElement("span");
                 st.className = "text-xs text-gray-400";
-                st.textContent = "station " + e.station_order;
+                st.textContent = fillMsg(msgs.station, { order: e.station_order });
                 left.appendChild(st);
             }
 
