@@ -11150,9 +11150,9 @@ html.dark .crush-connect-cta {
         min-width: 44px;
         color: #9ca3af;
         text-decoration: none;
-        font-size: 10px;
+        font-size: 9px;
         font-weight: 500;
-        letter-spacing: 0.01em;
+        letter-spacing: 0;
         transition: color 0.15s ease;
         -webkit-tap-highlight-color: transparent;
         position: relative;
@@ -11185,6 +11185,19 @@ html.dark .crush-connect-cta {
     .bottom-nav-item-active svg {
         background: var(--gradient-crush-primary);
         color: #fff;
+    }
+
+    /* Keep each tab label on one line, clipped to its own column, so a long
+       localized word (DE "Veranstaltungen", FR "Événements") can never spill
+       into the neighbouring tab. Common phone widths still show the full word;
+       the tightest layout (6-tab coach nav on a small phone) degrades to a
+       clean ellipsis instead of colliding. */
+    .bottom-nav-item > span:not(.bottom-nav-badge) {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        line-height: 1.15;
     }
 
     .bottom-nav-badge {
