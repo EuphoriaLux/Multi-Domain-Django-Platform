@@ -104,10 +104,21 @@
 
 {% if hunt.status != 'finished' %}
 {# Teams still playing: keep the standings honest without WebSockets. #}
+{{ state_snapshot|json_script:"cache-state-snapshot" }}
 <script nonce="{{ csp_nonce }}">
     (function () {
         var stateUrl = "{% url 'crush_lu:cache_state_api' event.id %}";
+        // Seed the baseline from the rendered page, not the first poll —
+        // otherwise a change in the first 30s window is treated as the
+        // baseline and never triggers a reload.
         var snapshot = null;
+        var seedEl = document.getElementById("cache-state-snapshot");
+        if (seedEl) {
+            try {
+                var seed = JSON.parse(seedEl.textContent);
+                snapshot = JSON.stringify([seed.status, seed.leaderboard]);
+            } catch (e) { /* fall back to first-poll baseline */ }
+        }
         setInterval(function () {
             fetch(stateUrl, { headers: { "Accept": "application/json" } })
                 .then(function (r) { return r.ok ? r.json() : null; })

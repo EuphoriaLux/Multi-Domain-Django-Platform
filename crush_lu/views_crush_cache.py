@@ -231,9 +231,9 @@ def _play_context(hunt, membership):
 def _render_play_content(request, hunt, membership, extra=None):
     """The single HTMX-swappable play region — every mutation returns it.
 
-    `extra` carries transient, response-only context (celebration and
-    answer-feedback flags) on top of the re-entrant DB-derived state —
-    a refresh always lands back on plain derived state.
+    `extra` carries transient, response-only context (celebration,
+    answer-feedback and rate-limit flags) on top of the re-entrant
+    DB-derived state — a refresh always lands back on plain derived state.
     """
     context = _play_context(hunt, membership)
     if extra:
@@ -388,6 +388,15 @@ def cache_play(request, event_id):
         # Only the finish screen shows the leaderboard — the play screen
         # and its HTMX swaps don't, so _play_context skips the query.
         context["leaderboard"] = hunt.get_leaderboard()
+        if hunt.status != "finished":
+            # Baseline for the finish page's standings poll: mirror the
+            # cache_state_api payload so the first poll compares against
+            # the rendered page instead of becoming the baseline itself
+            # (which would swallow any change in the first interval).
+            context["state_snapshot"] = {
+                "status": hunt.status,
+                "leaderboard": hunt.get_serialized_leaderboard(),
+            }
         return render(request, "crush_lu/cache/finish.html", context)
     return render(request, "crush_lu/cache/play.html", context)
 
@@ -626,7 +635,7 @@ def cache_position_api(request, event_id):
 
 @crush_login_required
 @require_POST
-@ratelimit(key="user", rate="20/m", method="POST")
+@ratelimit(key="user", rate="20/m", method="POST", block=False)
 def cache_answer_api(request, event_id, challenge_id):
     """Submit an answer for the current station (HTMX form post).
 
@@ -636,7 +645,13 @@ def cache_answer_api(request, event_id, challenge_id):
     "already answered".
 
     Rate-limited per user: without it a multiple-choice challenge is
-    brute-forceable in seconds (position API is likewise capped).
+    brute-forceable in seconds (position API is likewise capped). We ask
+    the decorator not to block (``block=False``) and handle the limit
+    here: this form swaps ``#play-content``, and HTMX ignores a bare 429,
+    so a blocking response would just make the button silently stop
+    working. Re-rendering the panel with a visible notice instead — and
+    returning before the attempt row is touched, so a throttled post never
+    counts against the team.
     """
     hunt = _get_hunt_or_404(event_id)
     membership = _get_membership(hunt, request.user)
@@ -644,6 +659,10 @@ def cache_answer_api(request, event_id, challenge_id):
         return redirect("crush_lu:cache_lobby", event_id=event_id)
     if not hunt.is_live:
         return _render_play_content(request, hunt, membership)
+    if getattr(request, "limited", False):
+        return _render_play_content(
+            request, hunt, membership, extra={"rate_limited": True}
+        )
 
     challenge = get_object_or_404(
         CacheChallenge.objects.select_related("station"),

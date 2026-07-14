@@ -5,6 +5,8 @@ from datetime import timedelta
 
 import pytest
 from django.contrib.auth.models import User
+from django.contrib.messages.storage.fallback import FallbackStorage
+from django.test import RequestFactory
 from django.urls import reverse
 from django.utils import timezone
 
@@ -655,6 +657,22 @@ class TestManualCode:
         pdf = generate_cache_station_sheet([stations[0]])
         assert pdf[:4] == b"%PDF"
 
+    def test_regenerate_tokens_also_rotates_manual_codes(self, hunt, stations):
+        # The admin action's promise is "printed sheets are now invalid" —
+        # sheets carry the typeable fallback too, so it must rotate as well.
+        from crush_lu.admin.crush_cache import regenerate_cache_qr_tokens
+
+        old = {s.pk: (s.qr_token, s.manual_code) for s in stations}
+        request = RequestFactory().post("/")
+        request.session = {}
+        request._messages = FallbackStorage(request)
+        regenerate_cache_qr_tokens(None, request, CacheHunt.objects.filter(pk=hunt.pk))
+        for station in CacheStation.objects.filter(hunt=hunt):
+            old_token, old_code = old[station.pk]
+            assert station.qr_token != old_token
+            assert station.manual_code != old_code
+            assert station.manual_code  # regenerated, not left blank
+
 
 # ============================================================================
 # ANSWERING & PROGRESSION
@@ -781,6 +799,10 @@ class TestAnswering:
         content = response.content.decode()
         assert "The golden lady salutes you!" in content
         assert "+100" in content  # points earned at the station
+        # The marker cache-play.js uses to suspend GPS navigation while
+        # the celebration is on screen — without it the next position
+        # POST reloads right over the card.
+        assert 'id="cache-celebration"' in content
 
     def test_hunt_complete_renders_results_link(
         self, client, hunt, stations, team, player
@@ -829,8 +851,10 @@ class TestAnswering:
         assert 'value="golden woman"' in content
 
     def test_answer_api_rate_limited(self, client, hunt, stations, team, player):
-        """Multiple-choice must not be brute-forceable: 21st POST within a
-        minute is rejected with 429 and never reaches the scoring logic."""
+        """Multiple-choice must not be brute-forceable: the 21st POST within a
+        minute is refused before scoring. The form swaps #play-content and HTMX
+        ignores a bare 429, so the refusal re-renders the panel with a visible
+        notice instead of the button silently going dead."""
         attempt = self._unlock_station_one(hunt, stations, team)
         challenge = stations[0].challenges.first()
         client.force_login(player)
@@ -839,12 +863,15 @@ class TestAnswering:
             response = self._answer(client, hunt, challenge, "wrong guess")
             assert response.status_code == 200
         response = self._answer(client, hunt, challenge, "wrong guess")
-        assert response.status_code == 429
+        assert response.status_code == 200
+        # The swappable panel, carrying the throttle notice — not a bare 429.
+        assert b'id="play-content"' in response.content
+        assert b"Too many attempts" in response.content
 
         ca = CacheChallengeAttempt.objects.get(
             station_attempt=attempt, challenge=challenge
         )
-        assert ca.attempts_count == 20  # the blocked POST didn't count
+        assert ca.attempts_count == 20  # the throttled POST didn't count
 
     def test_stale_form_after_advance(self, client, hunt, stations, team, player):
         """Answering a challenge from a station the team already left is a no-op."""
@@ -910,6 +937,26 @@ class TestPlayView:
         # The leaderboard only feeds the finish screen (dropped from the
         # play/HTMX context) — make sure it still arrives here.
         assert b"Rank #" in response.content
+        # Hunt still live: the standings poll must seed its baseline from
+        # the rendered state, or a change in the first 30s is swallowed.
+        assert b'id="cache-state-snapshot"' in response.content
+
+    def test_finish_screen_after_hunt_finished_has_no_poll(
+        self, client, hunt, stations, team, player
+    ):
+        _start_hunt(hunt)
+        progress = CacheTeamProgress.objects.get(team=team)
+        progress.is_finished = True
+        progress.finished_at = timezone.now()
+        progress.current_station = None
+        progress.save()
+        hunt.status = "finished"
+        hunt.save(update_fields=["status"])
+        client.force_login(player)
+        response = client.get(reverse("crush_lu:cache_play", args=[hunt.event_id]))
+        assert response.status_code == 200
+        # Standings are final — no snapshot, no poll.
+        assert b'id="cache-state-snapshot"' not in response.content
 
 
 # ============================================================================

@@ -154,7 +154,10 @@ def generate_cache_station_sheet(
     margin = 15 * mm
     qr_size = 40 * mm
     cols = 4
-    rows = 6
+    # 4 rows, not 6: each cell holds a 40mm QR plus two text lines
+    # hanging ~10mm below it, so a cell needs ~52mm — six 42mm rows
+    # would draw row N's text inside row N+1's QR image.
+    rows = 4
     per_page = cols * rows
     col_width = (width - 2 * margin) / cols
     row_height = (height - 3 * margin) / rows
@@ -168,12 +171,9 @@ def generate_cache_station_sheet(
             row = i // cols
 
             x = margin + col * col_width + (col_width - qr_size) / 2
-            y = (
-                height
-                - 2 * margin
-                - (row + 1) * row_height
-                + (row_height - qr_size) / 2
-            )
+            # Anchor the QR near the top of its cell — the label and
+            # manual-code lines below the image must stay inside the cell.
+            y = height - 2 * margin - row * row_height - 2 * mm - qr_size
 
             url = generate_cache_qr_url(station.qr_token)
             qr_bytes = generate_qr_code_image(url, box_size=5, border=2)
