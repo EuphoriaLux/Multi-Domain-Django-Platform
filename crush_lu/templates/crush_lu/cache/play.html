@@ -72,8 +72,7 @@
 
         {% include "crush_lu/cache/_play_content.html" %}
 
-        {# Arrival celebration — shown by cache-play.js for a beat before the
-           reload advances the state machine. #}
+        {# Arrival celebration — cache-play.js shows it briefly pre-reload. #}
         <div x-show="arrivalCelebrating" x-cloak role="status"
              class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-br from-crush-purple to-crush-pink text-white">
             {% include "crush_lu/includes/ghost-logo-animated.html" with class="w-24 h-24" %}
