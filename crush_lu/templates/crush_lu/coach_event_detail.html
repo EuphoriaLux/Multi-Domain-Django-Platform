@@ -50,7 +50,7 @@
                 <span>{% trans "Quiz Host Panel" %}</span>
             </a>
             {% endif %}
-            {% if has_cache_hunt %}
+            {% if can_manage_cache_hunt %}
             <a href="{% url 'crush_lu:cache_coach_dashboard' event.id %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-teal-600 text-white hover:bg-teal-700 rounded-lg transition-colors">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                 <span>{% trans "Crush Cache Control" %}</span>
@@ -126,6 +126,21 @@
                 <div>
                     <p class="font-semibold dark:text-white">{% trans "Presentation Control" %}</p>
                     <p class="text-xs text-gray-500 dark:text-gray-400">{% trans "Manage presenter queue" %}</p>
+                </div>
+            </div>
+        </a>
+        {% endif %}
+        {# can_manage_cache_hunt = feature on + CacheHunt row exists (the  #}
+        {# dashboard 404s without it) + this coach passes _can_manage_hunt. #}
+        {% if can_manage_cache_hunt %}
+        <a href="{% url 'crush_lu:cache_coach_dashboard' event.id %}" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 hover:shadow-md dark:hover:shadow-gray-900/40 hover:ring-1 hover:ring-crush-purple/30 transition-all">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-lg">
+                    🧭
+                </div>
+                <div>
+                    <p class="font-semibold dark:text-white">{% trans "Crush Cache Control" %}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{% trans "Run the scavenger hunt & follow teams live" %}</p>
                 </div>
             </div>
         </a>
