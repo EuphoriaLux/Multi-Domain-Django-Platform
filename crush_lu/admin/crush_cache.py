@@ -128,7 +128,11 @@ def regenerate_cache_qr_tokens(modeladmin, request, queryset):
         count = 0
         for station in hunt.stations.all():
             station.qr_token = uuid.uuid4()
-            station.save(update_fields=["qr_token"])
+            # Printed sheets also carry the typeable fallback — rotate it
+            # with the token, or an old sheet keeps unlocking stations via
+            # manual entry. save() regenerates a blank manual_code.
+            station.manual_code = ""
+            station.save(update_fields=["qr_token", "manual_code"])
             count += 1
         messages.warning(
             request,

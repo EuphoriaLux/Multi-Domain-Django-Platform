@@ -5,6 +5,8 @@ from datetime import timedelta
 
 import pytest
 from django.contrib.auth.models import User
+from django.contrib.messages.storage.fallback import FallbackStorage
+from django.test import RequestFactory
 from django.urls import reverse
 from django.utils import timezone
 
@@ -654,6 +656,22 @@ class TestManualCode:
         stations[0].save()
         pdf = generate_cache_station_sheet([stations[0]])
         assert pdf[:4] == b"%PDF"
+
+    def test_regenerate_tokens_also_rotates_manual_codes(self, hunt, stations):
+        # The admin action's promise is "printed sheets are now invalid" —
+        # sheets carry the typeable fallback too, so it must rotate as well.
+        from crush_lu.admin.crush_cache import regenerate_cache_qr_tokens
+
+        old = {s.pk: (s.qr_token, s.manual_code) for s in stations}
+        request = RequestFactory().post("/")
+        request.session = {}
+        request._messages = FallbackStorage(request)
+        regenerate_cache_qr_tokens(None, request, CacheHunt.objects.filter(pk=hunt.pk))
+        for station in CacheStation.objects.filter(hunt=hunt):
+            old_token, old_code = old[station.pk]
+            assert station.qr_token != old_token
+            assert station.manual_code != old_code
+            assert station.manual_code  # regenerated, not left blank
 
 
 # ============================================================================
