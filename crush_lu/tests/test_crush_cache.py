@@ -765,8 +765,10 @@ class TestAnswering:
         assert board[0]["team_id"] == team.id and board[0]["is_finished"]
 
     def test_answer_api_rate_limited(self, client, hunt, stations, team, player):
-        """Multiple-choice must not be brute-forceable: 21st POST within a
-        minute is rejected with 429 and never reaches the scoring logic."""
+        """Multiple-choice must not be brute-forceable: the 21st POST within a
+        minute is refused before scoring. The form swaps #play-content and HTMX
+        ignores a bare 429, so the refusal re-renders the panel with a visible
+        notice instead of the button silently going dead."""
         attempt = self._unlock_station_one(hunt, stations, team)
         challenge = stations[0].challenges.first()
         client.force_login(player)
@@ -775,12 +777,15 @@ class TestAnswering:
             response = self._answer(client, hunt, challenge, "wrong guess")
             assert response.status_code == 200
         response = self._answer(client, hunt, challenge, "wrong guess")
-        assert response.status_code == 429
+        assert response.status_code == 200
+        # The swappable panel, carrying the throttle notice — not a bare 429.
+        assert b'id="play-content"' in response.content
+        assert b"Too many attempts" in response.content
 
         ca = CacheChallengeAttempt.objects.get(
             station_attempt=attempt, challenge=challenge
         )
-        assert ca.attempts_count == 20  # the blocked POST didn't count
+        assert ca.attempts_count == 20  # the throttled POST didn't count
 
     def test_stale_form_after_advance(self, client, hunt, stations, team, player):
         """Answering a challenge from a station the team already left is a no-op."""
