@@ -2084,6 +2084,17 @@ def coach_event_detail(request, event_id):
 
     has_quiz = hasattr(event, "quiz")
 
+    # Crush Cache Control card: only render it for coaches who can actually
+    # open the hunt dashboard. The event type alone isn't enough — the hunt
+    # row may not exist yet (the dashboard 404s), and cache_coach_dashboard
+    # denies coaches who neither created the hunt nor are assigned to the
+    # event (_can_manage_hunt), which would make the card a dead link.
+    can_manage_cache_hunt = False
+    if event.event_type == "crush_cache" and hasattr(event, "cache_hunt"):
+        from .views_crush_cache import _can_manage_hunt
+
+        can_manage_cache_hunt = _can_manage_hunt(request.user, event.cache_hunt)
+
     # Per-coach recap: of users this coach onboarded (approved), how many
     # attended, how many sent connection requests, how many had a mutual
     # match, and how many connections of theirs still need an intro approved.
@@ -2177,6 +2188,7 @@ def coach_event_detail(request, event_id):
         "spark_count": spark_count,
         "sparks_pending": sparks_pending,
         "has_quiz": has_quiz,
+        "can_manage_cache_hunt": can_manage_cache_hunt,
         "feedback_summary": feedback_summary,
         "feedback_responses": feedback_responses,
         "coach_recap": coach_recap,
