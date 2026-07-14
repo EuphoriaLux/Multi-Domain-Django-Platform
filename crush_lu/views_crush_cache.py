@@ -1121,7 +1121,11 @@ def cache_coach_qr_sheet(request, event_id):
         return redirect("crush_lu:cache_coach_dashboard", event_id=event_id)
 
     pdf_bytes = generate_cache_station_sheet(
-        stations, title=f"Crush Cache — {hunt.title}"
+        stations,
+        title=f"Crush Cache — {hunt.title}",
+        # Print URLs for the host the coach is on — a sheet generated on a
+        # test slot or localhost must not send players to production.
+        domain=request.get_host(),
     )
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
     response["Content-Disposition"] = (

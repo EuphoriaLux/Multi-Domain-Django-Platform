@@ -1067,6 +1067,31 @@ class TestCoach:
         assert response.status_code == 200
         assert response["Content-Type"] == "application/pdf"
 
+    def test_qr_sheet_uses_request_host(
+        self, client, hunt, stations, coach_user, monkeypatch
+    ):
+        """A sheet printed from a test slot or localhost must encode that
+        host in its QR URLs, not production crush.lu."""
+        pytest.importorskip("reportlab")
+        pytest.importorskip("qrcode")
+        import crush_lu.qr_utils as qr_utils
+
+        stations[0].unlock_mode = "qr"
+        stations[0].save()
+        seen = []
+        real = qr_utils.generate_cache_qr_url
+
+        def spy(token, domain="crush.lu"):
+            seen.append(domain)
+            return real(token, domain=domain)
+
+        monkeypatch.setattr(qr_utils, "generate_cache_qr_url", spy)
+        client.force_login(coach_user)
+        url = reverse("crush_lu:cache_coach_qr_sheet", args=[hunt.event_id])
+        response = client.get(url)
+        assert response.status_code == 200
+        assert seen and all(d == "testserver" for d in seen)
+
     def test_coach_state_api(self, client, hunt, stations, team, coach_user):
         _start_hunt(hunt)
         client.force_login(coach_user)

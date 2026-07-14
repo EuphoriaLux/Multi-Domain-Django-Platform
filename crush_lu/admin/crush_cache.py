@@ -109,7 +109,11 @@ def generate_cache_qr_sheet(modeladmin, request, queryset):
         return None
 
     pdf_bytes = generate_cache_station_sheet(
-        stations, title=f"Crush Cache — {hunt.title}"
+        stations,
+        title=f"Crush Cache — {hunt.title}",
+        # Same-host URLs: the crush admin serves from the player-facing
+        # host, so a sheet printed on a test slot stays on that slot.
+        domain=request.get_host(),
     )
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
     response["Content-Disposition"] = (
