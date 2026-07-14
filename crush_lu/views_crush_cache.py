@@ -902,6 +902,16 @@ def cache_coach_dashboard(request, event_id):
         ],
     }
 
+    # The "View attendees" link targets coach_event_detail, which is
+    # @coach_required — but _can_manage_hunt also admits the hunt's
+    # creator even when they aren't an active coach, and for them that
+    # link would only bounce back with a coach-access error.
+    from .models import CrushCoach
+
+    viewer_is_coach = CrushCoach.objects.filter(
+        user=request.user, is_active=True
+    ).exists()
+
     return render(
         request,
         "crush_lu/cache/coach_dashboard.html",
@@ -913,6 +923,7 @@ def cache_coach_dashboard(request, event_id):
             "readiness": hunt.readiness_check(),
             "leaderboard": hunt.get_leaderboard(),
             "map_data_json": json.dumps(map_data),
+            "viewer_is_coach": viewer_is_coach,
             "unassigned_count": EventRegistration.objects.filter(
                 event=hunt.event, status__in=["confirmed", "attended"]
             )
