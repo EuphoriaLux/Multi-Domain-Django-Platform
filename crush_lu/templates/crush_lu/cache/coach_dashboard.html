@@ -54,6 +54,14 @@
                 </button>
             </form>
             {% endif %}
+            {# coach_event_detail is @coach_required; a non-coach hunt   #}
+            {# creator can manage this dashboard but would only bounce.  #}
+            {% if viewer_is_coach %}
+            <a href="{% url 'crush_lu:coach_event_detail' event.id %}"
+               class="rounded-lg border border-gray-300 px-6 py-2 font-semibold text-gray-600 dark:border-gray-600 dark:text-gray-300">
+                👥 {% trans "View attendees" %}
+            </a>
+            {% endif %}
         </div>
 
         {# --- Readiness (draft only) --- #}
