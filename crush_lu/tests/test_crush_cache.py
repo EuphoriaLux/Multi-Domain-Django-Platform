@@ -782,6 +782,74 @@ class TestAnswering:
         board = hunt.get_leaderboard()
         assert board[0]["team_id"] == team.id and board[0]["is_finished"]
 
+    def test_station_complete_renders_celebration(
+        self, client, hunt, stations, team, player
+    ):
+        """Completing a station returns an in-flow celebration (with the
+        completion message and a Continue link) instead of HX-Refresh."""
+        stations[0].completion_message = "The golden lady salutes you!"
+        stations[0].save()
+        self._unlock_station_one(hunt, stations, team)
+        challenge = stations[0].challenges.first()
+        client.force_login(player)
+
+        response = self._answer(client, hunt, challenge, "Gelle Fra")
+        assert response.status_code == 200
+        assert "HX-Refresh" not in response.headers
+        content = response.content.decode()
+        assert "The golden lady salutes you!" in content
+        assert "+100" in content  # points earned at the station
+        # The marker cache-play.js uses to suspend GPS navigation while
+        # the celebration is on screen — without it the next position
+        # POST reloads right over the card.
+        assert 'id="cache-celebration"' in content
+
+    def test_hunt_complete_renders_results_link(
+        self, client, hunt, stations, team, player
+    ):
+        self._unlock_station_one(hunt, stations, team)
+        client.force_login(player)
+        self._answer(client, hunt, stations[0].challenges.first(), "Gelle Fra")
+        response = self._answer(
+            client, hunt, stations[1].challenges.first(), "petrusse"
+        )
+        content = response.content.decode()
+        assert "Hunt complete!" in content
+        assert reverse("crush_lu:cache_play", args=[hunt.event_id]) in content
+
+    def test_correct_midstation_answer_flashes_success(
+        self, client, hunt, stations, team, player
+    ):
+        """A correct answer that doesn't finish the station shows the
+        success flash and the next challenge."""
+        CacheChallenge.objects.create(
+            station=stations[0],
+            challenge_order=2,
+            challenge_type="open_text",
+            question="Second question here?",
+            correct_answer="second",
+            points_awarded=50,
+        )
+        self._unlock_station_one(hunt, stations, team)
+        client.force_login(player)
+        response = self._answer(
+            client, hunt, stations[0].challenges.first(), "Gelle Fra"
+        )
+        content = response.content.decode()
+        assert "Correct!" in content
+        assert "Second question here?" in content
+
+    def test_wrong_answer_preserves_typed_text(
+        self, client, hunt, stations, team, player
+    ):
+        self._unlock_station_one(hunt, stations, team)
+        challenge = stations[0].challenges.first()
+        client.force_login(player)
+        response = self._answer(client, hunt, challenge, "golden woman")
+        content = response.content.decode()
+        assert "Not quite" in content
+        assert 'value="golden woman"' in content
+
     def test_answer_api_rate_limited(self, client, hunt, stations, team, player):
         """Multiple-choice must not be brute-forceable: the 21st POST within a
         minute is refused before scoring. The form swaps #play-content and HTMX
@@ -869,6 +937,26 @@ class TestPlayView:
         # The leaderboard only feeds the finish screen (dropped from the
         # play/HTMX context) — make sure it still arrives here.
         assert b"Rank #" in response.content
+        # Hunt still live: the standings poll must seed its baseline from
+        # the rendered state, or a change in the first 30s is swallowed.
+        assert b'id="cache-state-snapshot"' in response.content
+
+    def test_finish_screen_after_hunt_finished_has_no_poll(
+        self, client, hunt, stations, team, player
+    ):
+        _start_hunt(hunt)
+        progress = CacheTeamProgress.objects.get(team=team)
+        progress.is_finished = True
+        progress.finished_at = timezone.now()
+        progress.current_station = None
+        progress.save()
+        hunt.status = "finished"
+        hunt.save(update_fields=["status"])
+        client.force_login(player)
+        response = client.get(reverse("crush_lu:cache_play", args=[hunt.event_id]))
+        assert response.status_code == 200
+        # Standings are final — no snapshot, no poll.
+        assert b'id="cache-state-snapshot"' not in response.content
 
 
 # ============================================================================

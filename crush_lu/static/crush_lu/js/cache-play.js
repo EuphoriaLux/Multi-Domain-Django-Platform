@@ -19,6 +19,9 @@ document.addEventListener("alpine:init", function () {
     Alpine.data("cachePlay", function () {
         return {
             geoSupported: !!navigator.geolocation,
+            gpsDenied: false,
+            arrivalCelebrating: false,
+            suspended: false,
             distanceM: null,
             bearing: null,
             heading: null,
@@ -66,6 +69,18 @@ document.addEventListener("alpine:init", function () {
                     this.connectWebSocket();
                     this.startPolling();
                 }
+                // A station/hunt-complete celebration swapped into the play
+                // region makes this shell's data stale — progress already
+                // points at the next station, so the next position POST
+                // would report "unlocked" and reload right over the card.
+                // Suspend navigation while it's on screen; its Continue
+                // link does the reload.
+                var self = this;
+                root.addEventListener("htmx:afterSwap", function () {
+                    if (document.getElementById("cache-celebration")) {
+                        self.suspendNavigation();
+                    }
+                });
                 if (document.getElementById("cache-map") && window.L) {
                     this.initMap();
                 }
@@ -101,6 +116,12 @@ document.addEventListener("alpine:init", function () {
                 return "transform: rotate(" + rotation + "deg)";
             },
 
+            // CSP-build note: x-show only takes property paths, so the
+            // negation lives here instead of "!geoSupported" in templates.
+            get geoUnsupported() {
+                return !this.geoSupported;
+            },
+
             // --- Geolocation ---
 
             startWatching: function () {
@@ -110,9 +131,13 @@ document.addEventListener("alpine:init", function () {
                     return;
                 }
                 this.watchId = navigator.geolocation.watchPosition(
-                    function (pos) { self.onPosition(pos); },
+                    function (pos) {
+                        self.gpsDenied = false;
+                        self.onPosition(pos);
+                    },
                     function (err) {
-                        self.gpsStatus = err.code === err.PERMISSION_DENIED
+                        self.gpsDenied = err.code === err.PERMISSION_DENIED;
+                        self.gpsStatus = self.gpsDenied
                             ? self.msgs.gpsDenied
                             : self.msgs.gpsWaiting;
                     },
@@ -158,6 +183,7 @@ document.addEventListener("alpine:init", function () {
                             return r.json()
                                 .catch(function () { return null; })
                                 .then(function (err) {
+                                    if (self.suspended) return null;
                                     var code = err && err.error;
                                     if (code === "finished" || code === "not_live" || code === "no_team") {
                                         // Hunt or membership state changed under
@@ -176,12 +202,13 @@ document.addEventListener("alpine:init", function () {
                     })
                     .then(function (data) {
                         self.posting = false;
-                        if (!data || !data.ok) return;
+                        if (!data || !data.ok || self.suspended) return;
                         if (typeof data.distance_m === "number") self.distanceM = data.distance_m;
                         if (typeof data.bearing === "number") self.bearing = data.bearing;
-                        // Server-side arrival — reload so the state machine advances
+                        // Server-side arrival — celebrate for a beat, then
+                        // reload so the state machine advances
                         if (self.needsGps && (data.arrived || data.unlocked)) {
-                            window.location.reload();
+                            self.celebrateArrival();
                         }
                     })
                     .catch(function () { self.posting = false; });
@@ -192,6 +219,31 @@ document.addEventListener("alpine:init", function () {
                 this.reloading = true;
                 this.stopWatching();
                 window.location.reload();
+            },
+
+            celebrateArrival: function () {
+                if (this.reloading || this.suspended) return;
+                this.reloading = true;
+                this.stopWatching();
+                this.arrivalCelebrating = true;
+                var self = this;
+                var reduce = window.matchMedia
+                    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+                setTimeout(function () {
+                    if (self.suspended) return;
+                    window.location.reload();
+                }, reduce ? 700 : 1600);
+            },
+
+            // A station-complete celebration owns the screen: stop GPS
+            // posting and cancel any armed arrival reload so the card is
+            // actually readable. The status poll stays live so a finished
+            // hunt still exits to the results screen.
+            suspendNavigation: function () {
+                this.suspended = true;
+                this.arrivalCelebrating = false;
+                this.reloading = false;
+                this.stopWatching();
             },
 
             // --- Compass (device orientation) ---
@@ -357,6 +409,31 @@ document.addEventListener("alpine:init", function () {
                 });
                 return row ? row.split("=")[1] : "";
             },
+        };
+    });
+
+    /**
+     * Two-tap hint confirm: a stray thumb must never spend points.
+     * armHint reads the hint number from the button's data-hint attribute
+     * (the CSP build can't pass arguments in x-on expressions), and the
+     * per-hint getters exist because x-show only takes property paths.
+     * State resets naturally on every HTMX swap of the hints block.
+     */
+    Alpine.data("cacheHints", function () {
+        return {
+            armed: 0,
+            armHint: function (event) {
+                this.armed = parseInt(event.currentTarget.dataset.hint, 10) || 0;
+            },
+            disarm: function () {
+                this.armed = 0;
+            },
+            get hint1Idle() { return this.armed !== 1; },
+            get hint1Armed() { return this.armed === 1; },
+            get hint2Idle() { return this.armed !== 2; },
+            get hint2Armed() { return this.armed === 2; },
+            get hint3Idle() { return this.armed !== 3; },
+            get hint3Armed() { return this.armed === 3; },
         };
     });
 });

@@ -8,24 +8,66 @@
     <div class="mx-auto max-w-lg px-4">
 
         <div class="mb-6 text-center">
-            <div class="text-5xl">🏁</div>
-            <h1 class="mt-2 text-2xl font-bold">{% trans "Hunt Complete!" %}</h1>
+            <div class="mx-auto w-20 ghost-glow">
+                {% include "crush_lu/includes/ghost-logo-animated.html" with class="w-20 h-20" %}
+            </div>
+            <h1 class="mt-3 font-display text-3xl font-bold">🏁 {% trans "Hunt complete!" %}</h1>
             <p class="mt-1 text-gray-500 dark:text-gray-400">{{ hunt.title }}</p>
         </div>
 
-        <div class="rounded-xl border-2 p-6 text-center" style="border-color: {{ team.color }}">
+        {# --- Your team --- #}
+        <div class="rounded-2xl border-2 p-6 text-center shadow-crush-sm" style="border-color: {{ team.color }}">
             <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Your team" %}</p>
             <h2 class="text-xl font-bold" style="color: {{ team.color }}">{{ team.name }}</h2>
-            <div class="mt-3 text-4xl font-extrabold">{{ progress.total_points }}</div>
+            <div class="mt-3 font-display text-5xl font-extrabold">{{ progress.total_points }}</div>
             <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "points" %}</p>
             {% for entry in leaderboard %}
                 {% if entry.team_id == team.id %}
-                <p class="mt-3 text-lg font-semibold text-purple-600 dark:text-purple-300">
-                    {% blocktrans with rank=entry.rank %}Rank #{{ rank }}{% endblocktrans %}
+                <p class="mt-3 text-lg font-semibold text-crush-purple dark:text-purple-300">
+                    {% blocktrans with rank=entry.rank total=leaderboard|length %}Rank #{{ rank }} of {{ total }} teams{% endblocktrans %}
                 </p>
                 {% endif %}
             {% endfor %}
         </div>
+
+        {# --- Podium (decorative; the list below is the accessible version) --- #}
+        {% if leaderboard|length >= 2 %}
+        <div class="mt-8 flex items-end justify-center gap-3" aria-hidden="true">
+            {% with first=leaderboard.0 second=leaderboard.1 third=leaderboard.2 %}
+            {% if second %}
+            <div class="flex w-24 flex-col items-center">
+                <span class="mb-1 truncate max-w-full text-sm font-semibold">{{ second.team_name }}</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">{{ second.points }} {% trans "pts" %}</span>
+                <div class="mt-1 flex h-20 w-full items-start justify-center rounded-t-xl pt-1 text-lg font-bold text-white"
+                     style="background: {{ second.team_color }}">2</div>
+            </div>
+            {% endif %}
+            {% if first %}
+            <div class="flex w-24 flex-col items-center">
+                <span class="text-2xl">🏆</span>
+                <span class="mb-1 truncate max-w-full text-sm font-bold">{{ first.team_name }}</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">{{ first.points }} {% trans "pts" %}</span>
+                <div class="mt-1 flex h-28 w-full items-start justify-center rounded-t-xl pt-1 text-lg font-bold text-white"
+                     style="background: {{ first.team_color }}">1</div>
+            </div>
+            {% endif %}
+            {% if third %}
+            <div class="flex w-24 flex-col items-center">
+                <span class="mb-1 truncate max-w-full text-sm font-semibold">{{ third.team_name }}</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">{{ third.points }} {% trans "pts" %}</span>
+                <div class="mt-1 flex h-14 w-full items-start justify-center rounded-t-xl pt-1 text-lg font-bold text-white"
+                     style="background: {{ third.team_color }}">3</div>
+            </div>
+            {% endif %}
+            {% endwith %}
+        </div>
+        {% endif %}
+
+        {% if hunt.status != 'finished' %}
+        <p class="mt-3 text-center text-xs text-gray-500 dark:text-gray-400" role="status">
+            {% trans "Other teams are still out hunting — standings update as they play." %}
+        </p>
+        {% endif %}
 
         {% include "crush_lu/cache/_leaderboard.html" with leaderboard=leaderboard highlight_team_id=team.id %}
 
@@ -36,14 +78,15 @@
             </h3>
             <div class="space-y-2">
                 {% for sa in team.station_attempts.all %}
-                <div class="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-2">
-                    <div>
+                <div class="flex items-center justify-between rounded-xl border border-gray-200 dark:border-gray-700 px-4 py-2">
+                    <div class="flex items-center gap-2">
+                        <span aria-hidden="true">{% if sa.completed_at %}✅{% else %}⭕{% endif %}</span>
                         <span class="font-medium">{{ sa.station.order }}. {{ sa.station.name }}</span>
                         {% if not sa.completed_at %}
-                        <span class="ml-2 text-xs text-gray-400">{% trans "(not completed)" %}</span>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">{% trans "(not completed)" %}</span>
                         {% endif %}
                     </div>
-                    <span class="text-sm font-semibold {% if sa.completed_at %}text-green-600 dark:text-green-400{% else %}text-gray-400{% endif %}">
+                    <span class="text-sm font-semibold {% if sa.completed_at %}text-green-600 dark:text-green-400{% else %}text-gray-500 dark:text-gray-400{% endif %}">
                         {{ sa.points_earned }} {% trans "pts" %}
                     </span>
                 </div>
@@ -53,9 +96,41 @@
 
         <div class="mt-8 text-center">
             <a href="{% url 'crush_lu:event_detail' event.id %}" class="btn-crush-primary inline-block px-8 py-3">
-                {% trans "Back to Event" %}
+                {% trans "Back to event" %}
             </a>
         </div>
     </div>
 </div>
+
+{% if hunt.status != 'finished' %}
+{# Teams still playing: keep the standings honest without WebSockets. #}
+{{ state_snapshot|json_script:"cache-state-snapshot" }}
+<script nonce="{{ csp_nonce }}">
+    (function () {
+        var stateUrl = "{% url 'crush_lu:cache_state_api' event.id %}";
+        // Seed the baseline from the rendered page, not the first poll —
+        // otherwise a change in the first 30s window is treated as the
+        // baseline and never triggers a reload.
+        var snapshot = null;
+        var seedEl = document.getElementById("cache-state-snapshot");
+        if (seedEl) {
+            try {
+                var seed = JSON.parse(seedEl.textContent);
+                snapshot = JSON.stringify([seed.status, seed.leaderboard]);
+            } catch (e) { /* fall back to first-poll baseline */ }
+        }
+        setInterval(function () {
+            fetch(stateUrl, { headers: { "Accept": "application/json" } })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (data) {
+                    if (!data || !data.ok) return;
+                    var next = JSON.stringify([data.status, data.leaderboard]);
+                    if (snapshot === null) { snapshot = next; return; }
+                    if (next !== snapshot) window.location.reload();
+                })
+                .catch(function () {});
+        }, 30000);
+    })();
+</script>
+{% endif %}
 {% endblock %}
