@@ -21,7 +21,7 @@ class GameProfileAdmin(admin.ModelAdmin):
     inlines = [BioSegmentInline]
 
     fieldsets = (
-        (None, {"fields": ("emoji", "display_name", "age")}),
+        (None, {"fields": ("emoji", "avatar_seed", "display_name", "age")}),
         (
             "Deck",
             {

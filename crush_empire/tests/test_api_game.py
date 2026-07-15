@@ -123,7 +123,8 @@ class GameApiTests(SiteTestMixin, TestCase):
     def test_drawn_card_carries_no_answer(self):
         card = self.post("empire_api_draw").json()["card"]
         self.assertEqual(
-            set(card), {"challenge_id", "tier", "emoji", "name", "age", "segments"}
+            set(card),
+            {"challenge_id", "tier", "emoji", "avatar", "name", "age", "segments"},
         )
 
     def test_client_supplied_points_are_ignored(self):

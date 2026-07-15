@@ -18,6 +18,7 @@ import random
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.templatetags.static import static
 from django.utils import timezone
 
 from .. import economy
@@ -67,6 +68,18 @@ def _pick(rng, state):
     return rng.choices(pool, weights=[p.weight for p in pool], k=1)[0], tier
 
 
+def _avatar_url(profile):
+    if not profile.avatar_static_path:
+        return None
+    try:
+        return static(profile.avatar_static_path)
+    except ValueError:
+        # Production's manifest storage raises for files that were never
+        # collected. An authored card whose portrait was not generated and
+        # committed degrades to its emoji; it must not 500 the draw.
+        return None
+
+
 def _card_payload(challenge):
     """
     What the client is allowed to see.
@@ -85,6 +98,9 @@ def _card_payload(challenge):
         "challenge_id": str(challenge.id),
         "tier": challenge.tier,
         "emoji": profile.emoji,
+        # The generated portrait (None = emoji-only card). Derived from the
+        # name, never from is_scam — a "scam look" would be an oracle.
+        "avatar": _avatar_url(profile),
         "name": profile.display_name,
         "age": profile.age,
         "segments": [

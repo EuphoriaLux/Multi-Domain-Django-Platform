@@ -104,7 +104,7 @@ class Tier2SecrecyTests(TestCase):
 
         self.assertEqual(
             set(card),
-            {"challenge_id", "tier", "emoji", "name", "age", "segments", "deadline", "seconds"},
+            {"challenge_id", "tier", "emoji", "avatar", "name", "age", "segments", "deadline", "seconds"},
         )
         for segment in card["segments"]:
             self.assertEqual(set(segment), {"id", "text"})

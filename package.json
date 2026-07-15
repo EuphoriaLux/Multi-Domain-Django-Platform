@@ -22,6 +22,8 @@
     "htmx.org": "^2.0.10"
   },
   "devDependencies": {
+    "@dicebear/collection": "^9.4.2",
+    "@dicebear/core": "^9.4.3",
     "@playwright/mcp": "^0.0.78",
     "@tailwindcss/cli": "^4.3.2",
     "@tailwindcss/forms": "^0.5.7",

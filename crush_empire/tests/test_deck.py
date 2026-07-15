@@ -54,11 +54,22 @@ class DeckSecrecyTests(TestCase):
 
         self.assertEqual(
             set(card),
-            {"challenge_id", "tier", "emoji", "name", "age", "segments"},
+            {"challenge_id", "tier", "emoji", "avatar", "name", "age", "segments"},
             "draw() payload grew a key — check it is not the answer",
         )
         for segment in card["segments"]:
             self.assertEqual(set(segment), {"id", "text"})
+
+    def test_avatar_derives_from_the_seed_never_from_the_kind(self):
+        """No seed → None (emoji card); a seed → a static URL. Nothing about
+        is_scam may reach the picture — a 'scam look' would be an oracle."""
+        card = deck_service.draw(self.user)
+        self.assertIsNone(card["avatar"])
+
+        GameProfile.objects.filter(pk=self.scam.pk).update(avatar_seed="Dimitri")
+        CardChallenge.objects.all().delete()
+        card = deck_service.draw(self.user)
+        self.assertIn("crush_empire/avatars/dimitri.svg", card["avatar"])
 
     def test_drawn_card_payload_has_no_scam_marker_anywhere(self):
         """Belt and braces: no nested key leaks it either."""

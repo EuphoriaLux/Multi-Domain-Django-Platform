@@ -226,6 +226,9 @@ class Command(BaseCommand):
                 "age": age,
                 "is_active": True,
                 "tier2_eligible": len(segments) >= TIER2_MIN_SEGMENTS,
+                # The portrait is deterministic from this seed; the SVG itself
+                # comes from `manage.py generate_empire_avatars`, committed.
+                "avatar_seed": name,
             },
         )
         profile.segments.all().delete()

@@ -116,8 +116,31 @@
     let currentCard = null;
     let currentChallenge = null; // null on meta cards — they have no right answer
     let currentEmoji = "🧔"; // the face they were wearing, kept for the unmasking
+    let currentAvatar = null; // its portrait URL, when the card has one
     let sinceMeta = 0;
     let busy = false;
+
+    /**
+     * Put a face into `el`: the generated portrait when the card has one, the
+     * emoji otherwise. A missing or broken portrait file degrades to the emoji
+     * rather than the browser's broken-image glyph — the deck must never look
+     * broken over an asset. No inline handlers: addEventListener, CSP-clean.
+     */
+    function faceInto(el, avatar, emoji, imgClass) {
+        if (!avatar) {
+            el.textContent = emoji;
+            return;
+        }
+        const img = document.createElement("img");
+        img.src = avatar;
+        img.alt = "";
+        img.draggable = false;
+        img.className = imgClass;
+        img.addEventListener("error", () => {
+            el.textContent = emoji;
+        });
+        el.replaceChildren(img);
+    }
 
     function stamp(kind, label) {
         const el = document.createElement("div");
@@ -201,7 +224,8 @@
                 '<div class="bio mt-0.5 min-h-[34px] text-xs text-empire-pink2"></div>' +
                 "</div>";
             currentEmoji = p.emoji;
-            card.querySelector(".avatar").textContent = p.emoji;
+            currentAvatar = p.avatar || null;
+            faceInto(card.querySelector(".avatar"), currentAvatar, p.emoji, "avatar-img");
             card.querySelector(".nm").textContent = p.name;
             card.querySelector("small").textContent = p.age;
             // Segments render as one sentence here. Tier 2 will make each tappable —
@@ -341,7 +365,13 @@
     function openSpot(card) {
         tapped = new Set();
         currentEmoji = card.emoji;
-        document.getElementById("spot-avatar").textContent = card.emoji;
+        currentAvatar = card.avatar || null;
+        faceInto(
+            document.getElementById("spot-avatar"),
+            currentAvatar,
+            card.emoji,
+            "avatar-img-sm",
+        );
         document.getElementById("spot-name").textContent = `${card.name}, ${card.age}`;
 
         spotSegments.replaceChildren();
@@ -501,8 +531,9 @@
         );
         stage.hidden = false;
 
-        left.textContent = currentEmoji;
-        right.textContent = currentEmoji;
+        // Both halves wear the same face; the clip-path does the splitting.
+        faceInto(left, currentAvatar, currentEmoji, "unmask-img");
+        faceInto(right, currentAvatar, currentEmoji, "unmask-img");
         stamp.textContent = T[ending.stamp];
         stamp.style.color = ending.colour;
         wave.style.color = ending.colour;

@@ -79,6 +79,22 @@
     .empire-working {
         animation: empire-pulse 1.8s ease-in-out infinite;
     }
+
+    /* Generated card portraits (DiceBear lorelei, committed SVGs). One face,
+     * three sizes: the deck card, the tier-2 header, the unmasking halves. */
+    .avatar-img {
+        width: 10rem;
+        height: 10rem;
+        pointer-events: none; /* the drag belongs to the card, not the image */
+    }
+    .avatar-img-sm {
+        width: 3.5rem;
+        height: 3.5rem;
+    }
+    .unmask-img {
+        width: 6rem;
+        height: 6rem;
+    }
 }
 
 @keyframes empire-rise {
