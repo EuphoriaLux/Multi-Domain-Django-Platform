@@ -108,6 +108,24 @@ class SendProfileIncompleteReminderTests(TestCase):
             ProfileReminder.objects.filter(user=user, reminder_type="24h").exists()
         )
 
+    def test_de_72h_heading_is_grammatical(self):
+        """The 72h heading concatenates "Your profile is" + a fragment; the DE
+        fragment must read as a complement of "ist" ("noch nicht erstellt"),
+        not as a second conjugated verb ("ist warten/wartet darauf ...")."""
+        user = make_incomplete_user(
+            "german",
+            created_hours_ago=80,
+            completion_status="not_started",
+            preferred_language="de",
+        )
+        ProfileReminder.objects.create(user=user, reminder_type="24h")
+
+        self.assertTrue(send_profile_incomplete_reminder(user, "72h", request=None))
+        body = mail.outbox[0].body
+        self.assertIn("Dein Profil ist noch nicht erstellt", body)
+        self.assertNotIn("ist warten", body)
+        self.assertNotIn("ist wartet", body)
+
     def test_unsubscribed_user_is_skipped(self):
         user = make_incomplete_user("optout", created_hours_ago=30)
         prefs = EmailPreference.get_or_create_for_user(user)
