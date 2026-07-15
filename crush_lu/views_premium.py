@@ -11,7 +11,7 @@ import logging
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, F
+from django.db.models import Count, F, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
@@ -23,10 +23,20 @@ logger = logging.getLogger(__name__)
 
 
 def _available_coaches():
-    """Coaches open to new premium members and not yet at capacity."""
+    """Coaches open to new premium members and not yet at capacity.
+
+    Capacity counts ACTIVE PremiumMemberships, not assigned_members — coach
+    assignment also happens without payment (backfill, attendance
+    auto-assign) and must not exhaust premium capacity.
+    """
     return (
         CrushCoach.objects.filter(is_active=True, accepting_premium=True, is_away=False)
-        .annotate(member_count=Count("assigned_members"))
+        .annotate(
+            member_count=Count(
+                "premium_memberships",
+                filter=Q(premium_memberships__status="active"),
+            )
+        )
         .filter(member_count__lt=F("max_premium_members"))
         .select_related("user")
         .order_by("user__first_name")
@@ -60,8 +70,10 @@ def premium_choose_coach(request):
         messages.info(request, _("Create your profile first to go premium."))
         return redirect("crush_lu:dashboard")
 
-    # Already premium — nothing to choose.
-    if profile.assigned_coach_id:
+    # Already premium — nothing to choose. Checks the membership, not
+    # assigned_coach: a coach assigned without payment (backfill, attendance
+    # auto-assign) must not lock the member out of actually buying Premium.
+    if profile.has_active_premium:
         messages.info(request, _("You already have a personal coach."))
         return redirect("crush_lu:dashboard")
 
@@ -101,7 +113,7 @@ def premium_select_coach(request, coach_id):
         messages.info(request, _("Create your profile first to go premium."))
         return redirect("crush_lu:dashboard")
 
-    if profile.assigned_coach_id:
+    if profile.has_active_premium:
         messages.info(request, _("You already have a personal coach."))
         return redirect("crush_lu:dashboard")
 

@@ -78,9 +78,9 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
     Return the queryset of users eligible to appear in ``user``'s Crush Connect Drop.
 
     The requester must be eligible to RECEIVE (profile approved, PREMIUM =
-    personal coach assigned, onboarded into Crush Connect, not coach-excluded),
-    otherwise an empty queryset. Candidates don't need Premium — the catalogue
-    requires LuxID + opt-in instead (asymmetric model).
+    active PremiumMembership, onboarded into Crush Connect, not
+    coach-excluded), otherwise an empty queryset. Candidates don't need
+    Premium — the catalogue requires LuxID + opt-in instead (asymmetric model).
 
     ``candidate_pk`` narrows the pool to a single candidate BEFORE the Python
     gender-preference step below — point lookups ("is X in the pool?") must use
@@ -94,8 +94,10 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
     if user_profile is None or not user_profile.is_approved:
         return User.objects.none()
 
-    # Premium gate: Crush Connect requires a personal coach (the Premium product).
-    if not user_profile.assigned_coach_id:
+    # Premium gate: receiving Drops requires an ACTIVE PremiumMembership.
+    # assigned_coach alone is NOT the entitlement (backfill / attendance
+    # auto-assign set it without payment).
+    if not user_profile.has_active_premium:
         return User.objects.none()
 
     user_membership = getattr(user, "crush_connect_membership", None)
@@ -498,8 +500,8 @@ def is_catalogue_eligible(user) -> bool:
 def is_sender_eligible(user) -> bool:
     """
     Whether ``user`` currently qualifies to SEND Sparks (the receiver track):
-    approved profile + Premium coach assigned + onboarded (not excluded) + has
-    given photo-share consent.
+    approved profile + active PremiumMembership + onboarded (not excluded) +
+    has given photo-share consent.
 
     Consent matters on the SEND side too now: reading a candidate exposes the
     sender's clear photo to that candidate on the answer-back surface, so a
@@ -516,7 +518,7 @@ def is_sender_eligible(user) -> bool:
     return bool(
         profile is not None
         and profile.is_approved
-        and profile.assigned_coach_id
+        and profile.has_active_premium
         and membership is not None
         and membership.is_onboarded
         and membership.photo_share_consent

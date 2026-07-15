@@ -23,6 +23,7 @@ from crush_lu.models import (
     EventConnection,
     EventRegistration,
     MeetupEvent,
+    PremiumMembership,
     SparkPrompt,
 )
 from crush_lu.services.crush_connect import (
@@ -124,6 +125,15 @@ def _make_user(
         profile.assigned_coach = _get_coach()
         profile.assigned_coach_at = timezone.now()
         profile.save(update_fields=["assigned_coach", "assigned_coach_at"])
+        # Premium entitlement = ACTIVE PremiumMembership (the receiver gates
+        # key off it); assigned_coach alone is just the service relationship.
+        PremiumMembership.objects.create(
+            user=user,
+            coach=profile.assigned_coach,
+            status="active",
+            payment_confirmed=True,
+            payment_date=timezone.now(),
+        )
     if has_luxid:
         SocialAccount.objects.create(user=user, provider="luxid", uid=username)
 
@@ -241,6 +251,35 @@ def test_pool_includes_non_premium_luxid_targets():
     me = _make_user(username="me", preferred_genders=["F", "M"])
     non_premium = _make_user(username="nonprem", premium=False, has_luxid=True)
     assert non_premium in get_eligible_pool(me)
+
+
+@pytest.mark.django_db
+def test_pool_empty_for_coach_assigned_member_without_membership(settings):
+    """Stage-5 receiver gate: a coach assigned WITHOUT an active
+    PremiumMembership (the 0150 backfill, the attendance auto-assign signal)
+    must not unlock the receiver track at full launch."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])
+    _make_user(username="cand", gender="F", premium=False)
+    PremiumMembership.objects.filter(user=me).delete()
+    me.crushprofile.refresh_from_db()
+    assert me.crushprofile.assigned_coach_id is not None  # coach stays
+    assert not get_eligible_pool(me).exists()
+
+
+@pytest.mark.django_db
+def test_receiver_eligibility_requires_active_membership():
+    """The view-layer receiver gate keys off PremiumMembership status, not
+    assigned_coach — cancelling the membership revokes receiving even while
+    the coach relationship remains."""
+    from crush_lu.views_crush_connect import _user_is_connect_receiver_eligible
+
+    me = _make_user(username="me")
+    assert _user_is_connect_receiver_eligible(me)
+
+    PremiumMembership.objects.filter(user=me).update(status="cancelled")
+    assert not _user_is_connect_receiver_eligible(me)
+    assert me.crushprofile.assigned_coach_id is not None
 
 
 @pytest.mark.django_db
@@ -1820,8 +1859,7 @@ def test_respond_accept_blocked_when_sender_lost_eligibility():
     _surface_in_drop(me, her)
     spark = send_spark(me, her)
 
-    me.crushprofile.assigned_coach = None
-    me.crushprofile.save(update_fields=["assigned_coach"])
+    PremiumMembership.objects.filter(user=me).update(status="cancelled")
 
     respond_to_spark(spark, accept=True)
     spark.refresh_from_db()
@@ -1839,8 +1877,7 @@ def test_sparks_received_hides_sparks_from_ineligible_sender(client, settings):
     _surface_in_drop(me, her)
     send_spark(me, her, message="Hello there")
 
-    me.crushprofile.assigned_coach = None
-    me.crushprofile.save(update_fields=["assigned_coach"])
+    PremiumMembership.objects.filter(user=me).update(status="cancelled")
 
     _login_eligible(client, her)
     resp = client.get(SPARKS_RECEIVED_URL)

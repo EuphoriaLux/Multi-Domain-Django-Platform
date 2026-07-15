@@ -61,15 +61,18 @@ def dev_connect_card_preview(request, user_id: int):
 
 
 def _user_is_connect_receiver_eligible(user) -> bool:
-    """Verified profile + PREMIUM (personal coach assigned).
+    """Verified profile + PREMIUM (active ``PremiumMembership``).
 
-    Receiving Drops is the Premium product: it unlocks when a coach is
-    assigned, not on plain event attendance or LuxID alone.
+    Receiving Drops is the Premium product: it unlocks with an ACTIVE
+    membership (paid or admin-comped via ``PremiumMembership.confirm()``),
+    NOT with ``assigned_coach`` alone — coaches are also assigned without
+    payment (0150 backfill, attendance auto-assign), and those members must
+    not become free receivers at full launch.
     """
     profile = getattr(user, "crushprofile", None)
     if profile is None or not profile.is_approved:
         return False
-    return profile.assigned_coach_id is not None
+    return profile.has_active_premium
 
 
 def _user_can_receive_now(user) -> bool:
@@ -1114,9 +1117,15 @@ def coach_connect_members(request):
 
     coach = request.coach
     members = (
-        User.objects.filter(crushprofile__assigned_coach=coach)
+        # Active premium members only — coach assignment alone (backfill,
+        # attendance auto-assign) doesn't put a member in the curation hub.
+        User.objects.filter(
+            crushprofile__assigned_coach=coach,
+            premium_memberships__status="active",
+        )
         .select_related("crushprofile", "crush_connect_membership")
         .order_by("first_name", "pk")
+        .distinct()
     )
     # Iterate oldest-first so the NEWEST row wins the per-member map —
     # default model ordering is newest-first, which would let an older
@@ -1165,9 +1174,12 @@ def coach_connect_member(request, user_id: int):
 
     coach = request.coach
     member = get_object_or_404(
-        User.objects.select_related("crushprofile", "crush_connect_membership"),
+        User.objects.select_related(
+            "crushprofile", "crush_connect_membership"
+        ).distinct(),
         pk=user_id,
         crushprofile__assigned_coach=coach,
+        premium_memberships__status="active",
     )
 
     if request.method == "POST":
