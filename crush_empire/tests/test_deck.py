@@ -248,6 +248,10 @@ class PayoffMatrixTests(TestCase):
         state.points = 10_000
         # Tier-4 generators put cps over the late-game threshold.
         state.generators = {"4": 1}
+        # Pin the accrual clock ahead so resolve()'s accrue() banks nothing:
+        # at 260 cps the milliseconds this test itself takes would mint points
+        # and break the exact balance assertion below.
+        state.last_tick = timezone.now() + timedelta(seconds=60)
         state.save()
         self.assertTrue(economy.is_late_game(state))
 
