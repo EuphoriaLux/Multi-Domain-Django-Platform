@@ -8,8 +8,11 @@
     <div class="mx-auto max-w-lg px-4">
 
         <div class="mb-6 text-center">
-            <p class="text-sm font-semibold uppercase tracking-wide text-purple-500">{% trans "Crush Cache" %}</p>
-            <h1 class="text-2xl font-bold">{{ hunt.title }}</h1>
+            <div class="mx-auto w-16 ghost-glow">
+                {% include "crush_lu/includes/ghost-logo-animated.html" with class="w-16 h-16" %}
+            </div>
+            <p class="mt-2 text-sm font-semibold uppercase tracking-widest text-crush-purple">{% trans "Crush Cache" %}</p>
+            <h1 class="font-display text-3xl font-bold">{{ hunt.title }}</h1>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ event.title }}</p>
             {% if hunt.description %}
             <p class="mt-3 text-gray-600 dark:text-gray-300">{{ hunt.description }}</p>
@@ -17,34 +20,40 @@
         </div>
 
         {% if hunt.status == 'live' %}
-        <div class="mb-4 rounded-lg border border-green-500 bg-green-50 dark:bg-green-900/30 px-4 py-3 text-center text-green-700 dark:text-green-300 font-semibold">
+        <div class="mb-4 rounded-xl border border-green-500 bg-green-50 dark:bg-green-900/30 px-4 py-3 text-center font-semibold text-green-700 dark:text-green-300" role="status">
             {% trans "The hunt is live!" %}
         </div>
         {% elif hunt.status == 'finished' %}
-        <div class="mb-4 rounded-lg border border-gray-400 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-center text-gray-600 dark:text-gray-300">
+        <div class="mb-4 rounded-xl border border-gray-400 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-center text-gray-600 dark:text-gray-300">
             {% trans "This hunt has finished." %}
         </div>
         {% endif %}
 
         {% if not registration %}
-        <div class="rounded-xl border border-amber-400 bg-amber-50 dark:bg-amber-900/30 p-6 text-center">
+        <div class="rounded-2xl border border-amber-400 bg-amber-50 dark:bg-amber-900/30 p-6 text-center shadow-crush-sm">
             <p class="text-amber-800 dark:text-amber-200">
                 {% trans "You need to be registered for this event to play." %}
             </p>
             <a href="{% url 'crush_lu:event_detail' event.id %}" class="btn-crush-primary mt-4 inline-block px-6 py-2">
-                {% trans "View Event" %}
+                {% trans "View event" %}
             </a>
         </div>
         {% else %}
 
         {% if membership %}
-        <div class="rounded-xl border-2 p-6 text-center" style="border-color: {{ membership.team.color }}">
+        <div class="rounded-2xl border-2 p-6 text-center shadow-crush-sm" style="border-color: {{ membership.team.color }}">
             <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Your team" %}</p>
             <h2 class="text-xl font-bold" style="color: {{ membership.team.color }}">{{ membership.team.name }}</h2>
             <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                {% trans "Join code:" %} <span class="font-mono font-bold tracking-widest">{{ membership.team.join_code }}</span>
+                {% trans "Join code:" %} <span class="font-mono text-lg font-bold tracking-widest">{{ membership.team.join_code }}</span>
             </p>
-            <div class="mt-3 flex flex-wrap justify-center gap-2">
+            <button type="button" id="copy-join-code"
+                    data-code="{{ membership.team.join_code }}"
+                    data-msg-copied="{% trans 'Join code copied — shout it or share it!' %}"
+                    class="btn-crush-outline btn-sm mt-2">
+                📋 {% trans "Copy code" %}
+            </button>
+            <div class="mt-4 flex flex-wrap justify-center gap-2">
                 {% for member in membership.team.members.all %}
                 <span class="rounded-full bg-gray-100 dark:bg-gray-700 px-3 py-1 text-sm">
                     {{ member.registration.user.crushprofile.display_name|default:_("Attendee") }}
@@ -53,43 +62,70 @@
             </div>
 
             {% if hunt.status == 'live' %}
-            <a href="{% url 'crush_lu:cache_play' event.id %}" class="btn-crush-primary mt-5 inline-block w-full px-6 py-3">
-                {% trans "Start Playing" %}
+            <a href="{% url 'crush_lu:cache_play' event.id %}" class="btn-crush-primary mt-5 inline-block w-full py-4">
+                {% trans "Start playing" %}
             </a>
             {% elif hunt.status == 'draft' %}
-            <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">{% trans "Waiting for the coach to start the hunt…" %}</p>
+            <p class="mt-4 text-sm text-gray-500 dark:text-gray-400" role="status">
+                <span class="mr-1 inline-block h-2 w-2 animate-pulse rounded-full bg-amber-400 motion-reduce:animate-none" aria-hidden="true"></span>
+                {% trans "Waiting for the coach to start the hunt…" %}
+            </p>
             <form method="post" action="{% url 'crush_lu:cache_leave_team' event.id %}" class="mt-3">
                 {% csrf_token %}
-                <button type="submit" class="text-sm text-red-500 underline">{% trans "Leave team" %}</button>
+                <button type="submit" class="btn-link text-sm text-red-600 dark:text-red-400">{% trans "Leave team" %}</button>
             </form>
             {% endif %}
         </div>
         {% else %}
 
-        <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+        <div class="rounded-2xl border border-gray-200 dark:border-gray-700 p-6 shadow-crush-sm">
             <h2 class="mb-4 text-lg font-semibold">{% trans "Join a team" %}</h2>
             <form method="post" action="{% url 'crush_lu:cache_join_team' event.id %}" class="flex gap-2">
                 {% csrf_token %}
-                <input type="text" name="join_code" maxlength="6" autocomplete="off"
+                <label class="sr-only" for="join-code-input">{% trans "Team code" %}</label>
+                <input type="text" name="join_code" id="join-code-input" maxlength="6" autocomplete="off"
+                       autocapitalize="characters" autocorrect="off" spellcheck="false"
                        placeholder="{% trans 'Team code' %}"
-                       class="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 font-mono uppercase tracking-widest">
+                       class="input-crush flex-1 font-mono uppercase tracking-widest">
                 <button type="submit" class="btn-crush-primary px-5 py-2">{% trans "Join" %}</button>
             </form>
 
             {% if hunt.allow_self_join %}
-            <div class="my-4 text-center text-sm text-gray-400">{% trans "or" %}</div>
+            <div class="my-4 text-center text-sm text-gray-500 dark:text-gray-400">{% trans "or" %}</div>
             <form method="post" action="{% url 'crush_lu:cache_join_team' event.id %}" class="flex gap-2">
                 {% csrf_token %}
-                <input type="text" name="team_name" maxlength="100"
+                <label class="sr-only" for="team-name-input">{% trans "New team name" %}</label>
+                <input type="text" name="team_name" id="team-name-input" maxlength="100"
                        placeholder="{% trans 'New team name' %}"
-                       class="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2">
-                <button type="submit" class="btn-crush-primary px-5 py-2">{% trans "Create" %}</button>
+                       class="input-crush flex-1">
+                <button type="submit" class="btn-crush-solid px-5 py-2">{% trans "Create" %}</button>
             </form>
             {% else %}
             <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">
                 {% trans "Your coach will assign you to a team." %}
             </p>
             {% endif %}
+        </div>
+        {% endif %}
+
+        {% if hunt.status == 'draft' %}
+        {# How it works — first-timers read this while teams form #}
+        <div class="mt-6 grid grid-cols-3 gap-2 text-center">
+            <div class="rounded-2xl border border-gray-200 dark:border-gray-700 p-3">
+                <div class="text-2xl" aria-hidden="true">👯</div>
+                <p class="mt-1 text-xs font-semibold">{% trans "Team up" %}</p>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{% trans "Join with a code or start your own" %}</p>
+            </div>
+            <div class="rounded-2xl border border-gray-200 dark:border-gray-700 p-3">
+                <div class="text-2xl" aria-hidden="true">🧭</div>
+                <p class="mt-1 text-xs font-semibold">{% trans "Follow the clues" %}</p>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{% trans "Reach each station on foot" %}</p>
+            </div>
+            <div class="rounded-2xl border border-gray-200 dark:border-gray-700 p-3">
+                <div class="text-2xl" aria-hidden="true">🧩</div>
+                <p class="mt-1 text-xs font-semibold">{% trans "Solve for points" %}</p>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{% trans "Answer challenges, top the board" %}</p>
+            </div>
         </div>
         {% endif %}
 
@@ -100,9 +136,9 @@
             </h3>
             <div class="space-y-2">
                 {% for team in teams %}
-                <div class="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-2">
+                <div class="flex items-center justify-between rounded-xl border border-gray-200 dark:border-gray-700 px-4 py-2">
                     <div class="flex items-center gap-2">
-                        <span class="inline-block h-3 w-3 rounded-full" style="background: {{ team.color }}"></span>
+                        <span class="inline-block h-3 w-3 rounded-full" style="background: {{ team.color }}" aria-hidden="true"></span>
                         <span class="font-medium">{{ team.name }}</span>
                     </div>
                     <span class="text-sm text-gray-500 dark:text-gray-400">
@@ -117,4 +153,70 @@
         {% endif %}
     </div>
 </div>
+
+{% if membership %}
+<script nonce="{{ csp_nonce }}">
+    (function () {
+        var btn = document.getElementById("copy-join-code");
+        if (!btn) return;
+        if (!navigator.clipboard) { btn.style.display = "none"; return; }
+        btn.addEventListener("click", function () {
+            navigator.clipboard.writeText(btn.dataset.code).then(function () {
+                window.dispatchEvent(new CustomEvent("show-toast", {
+                    detail: { type: "success", message: btn.dataset.msgCopied }
+                }));
+            }).catch(function () {});
+        });
+    })();
+</script>
+{% endif %}
+
+{% if membership and hunt.status == 'draft' %}
+<script nonce="{{ csp_nonce }}">
+    (function() {
+        var huntId = "{{ hunt.id }}";
+        var stateUrl = "{% url 'crush_lu:cache_state_api' event.id %}";
+        var ws;
+        var retryCount = 0;
+        function connect() {
+            var protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+            var url = protocol + "//" + window.location.host + "/ws/cache/" + huntId + "/";
+            ws = new WebSocket(url);
+            ws.onmessage = function (event) {
+                var msg;
+                try { msg = JSON.parse(event.data); } catch (e) { return; }
+                // The consumer sends "state" on connect and "status" on every
+                // change; both carry the hunt status. React to either so a
+                // start that lands between page render and group subscription
+                // (the initial "state" already reflects it) isn't missed.
+                if ((msg.type === "status" || msg.type === "state") && msg.data && msg.data.status !== "draft") {
+                    window.location.reload();
+                }
+            };
+            ws.onclose = function () {
+                if (retryCount < 10) {
+                    retryCount++;
+                    setTimeout(connect, 2000 * retryCount);
+                }
+            };
+        }
+        connect();
+        // Safety-net poll. The socket delivers the start instantly, but it
+        // can't be the only path: with the channel layer down it never fires,
+        // and even on a healthy socket a dropped group_send would strand the
+        // lobby. So poll the state API regardless of socket health — cheap on
+        // a transient waiting screen, and reload is idempotent.
+        setInterval(function () {
+            fetch(stateUrl, { headers: { "Accept": "application/json" } })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (data) {
+                    if (data && data.ok && data.status !== "draft") {
+                        window.location.reload();
+                    }
+                })
+                .catch(function () {});
+        }, 20000);
+    })();
+</script>
+{% endif %}
 {% endblock %}

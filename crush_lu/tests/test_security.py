@@ -133,7 +133,7 @@ class TestPermissionsPolicy(SiteTestCase):
         pp = response.get('Permissions-Policy', '')
 
         # These features should be disabled
-        disabled_features = ['microphone', 'geolocation']
+        disabled_features = ['microphone']
         for feature in disabled_features:
             self.assertIn(f'{feature}=()', pp,
                          f"{feature} should be disabled in Permissions-Policy")
@@ -141,6 +141,11 @@ class TestPermissionsPolicy(SiteTestCase):
         # Camera is allowed on same origin only (needed for QR check-in scanner)
         self.assertIn('camera=(self)', pp,
                      "camera should be allowed on same origin for QR check-in")
+
+        # Geolocation is allowed on same origin only (needed for Crush Cache
+        # GPS scavenger hunts)
+        self.assertIn('geolocation=(self)', pp,
+                     "geolocation should be allowed on same origin for Crush Cache")
 
 
 class TestPIIMasking(TestCase):

@@ -11,6 +11,7 @@ layer, mirroring views_checkin.py; CacheHuntConsumer is a read-only relay.
 
 import json
 import logging
+import uuid
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -18,13 +19,13 @@ from django.conf import settings
 from django.contrib import messages
 from django.db import IntegrityError, transaction
 from django.db.models import Sum
-from django.http import Http404, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 
-from .decorators import coach_required, crush_login_required, ratelimit
+from .decorators import crush_login_required, ratelimit
 from .geo import bearing_deg, haversine_m
 from .models import EventRegistration
 from .models.crush_cache import (
@@ -140,9 +141,7 @@ def _broadcast_cache(hunt_id, msg_type, data, coach_only=False):
         return
     group = f"cache_{hunt_id}_coach" if coach_only else f"cache_{hunt_id}"
     try:
-        async_to_sync(channel_layer.group_send)(
-            group, {"type": msg_type, "data": data}
-        )
+        async_to_sync(channel_layer.group_send)(group, {"type": msg_type, "data": data})
     except Exception:
         logger.exception("Failed to broadcast %s for hunt %s", msg_type, hunt_id)
 
@@ -180,7 +179,6 @@ def _play_context(hunt, membership):
         "current_challenge_attempt": None,
         "station_count": hunt.stations.count(),
         "show_target_coords": hunt.navigation_mode == "map",
-        "leaderboard": hunt.get_leaderboard(),
     }
 
     if progress.is_finished or hunt.status == "finished":
@@ -190,13 +188,9 @@ def _play_context(hunt, membership):
     if station is None:
         return context
 
-    attempt, _ = CacheStationAttempt.objects.get_or_create(
-        team=team, station=station
-    )
+    attempt, _ = CacheStationAttempt.objects.get_or_create(team=team, station=station)
     states = _challenge_states(attempt)
-    current = next(
-        ((c, ca) for c, ca in states if not (ca and ca.is_correct)), None
-    )
+    current = next(((c, ca) for c, ca in states if not (ca and ca.is_correct)), None)
     current_attempt = current[1] if current else None
     needs_gps = station.requires_gps and attempt.arrived_at is None
     context.update(
@@ -206,7 +200,9 @@ def _play_context(hunt, membership):
             "challenge_states": states,
             "current_challenge": current[0] if current else None,
             "current_challenge_attempt": current_attempt,
-            "current_hints_used": (current_attempt.hints_used or []) if current_attempt else [],
+            "current_hints_used": (
+                (current_attempt.hints_used or []) if current_attempt else []
+            ),
             "needs_gps": needs_gps,
             # Target coordinates reach the client ONLY in map mode
             "show_map": (
@@ -232,13 +228,17 @@ def _play_context(hunt, membership):
     return context
 
 
-def _render_play_content(request, hunt, membership):
-    """The single HTMX-swappable play region — every mutation returns it."""
-    return render(
-        request,
-        "crush_lu/cache/_play_content.html",
-        _play_context(hunt, membership),
-    )
+def _render_play_content(request, hunt, membership, extra=None):
+    """The single HTMX-swappable play region — every mutation returns it.
+
+    `extra` carries transient, response-only context (celebration,
+    answer-feedback and rate-limit flags) on top of the re-entrant
+    DB-derived state — a refresh always lands back on plain derived state.
+    """
+    context = _play_context(hunt, membership)
+    if extra:
+        context.update(extra)
+    return render(request, "crush_lu/cache/_play_content.html", context)
 
 
 # =============================================================================
@@ -253,7 +253,7 @@ def cache_lobby(request, event_id):
     registration = _get_registration(hunt, request.user)
     membership = _get_membership(hunt, request.user) if registration else None
 
-    if membership and hunt.is_live:
+    if membership and (hunt.is_live or hunt.status == "finished"):
         return redirect("crush_lu:cache_play", event_id=event_id)
 
     teams = hunt.teams.prefetch_related(
@@ -307,14 +307,12 @@ def cache_join_team(request, event_id):
                 # Lock the team row so two concurrent joins can't both pass
                 # the capacity check for the last remaining slot.
                 team = (
-                    hunt.teams.select_for_update()
-                    .filter(join_code=join_code)
-                    .first()
+                    hunt.teams.select_for_update().filter(join_code=join_code).first()
                 )
                 if team is None:
                     messages.error(request, _("No team found with that code."))
                     return redirect("crush_lu:cache_lobby", event_id=event_id)
-                if team.members.count() >= hunt.team_size_max:
+                if team.member_count() >= hunt.team_size_max:
                     messages.error(request, _("That team is already full."))
                     return redirect("crush_lu:cache_lobby", event_id=event_id)
             elif team_name:
@@ -335,9 +333,7 @@ def cache_join_team(request, event_id):
         messages.info(request, _("You are already in a team."))
         return redirect("crush_lu:cache_lobby", event_id=event_id)
 
-    messages.success(
-        request, _("You joined %(team)s!") % {"team": team.name}
-    )
+    messages.success(request, _("You joined %(team)s!") % {"team": team.name})
     if hunt.is_live:
         return redirect("crush_lu:cache_play", event_id=event_id)
     return redirect("crush_lu:cache_lobby", event_id=event_id)
@@ -351,6 +347,10 @@ def cache_leave_team(request, event_id):
 
     if hunt.status != "draft":
         messages.error(request, _("Teams are locked once the hunt has started."))
+        return redirect("crush_lu:cache_lobby", event_id=event_id)
+
+    if not hunt.allow_self_join:
+        messages.error(request, _("Teams are formed by the coach for this hunt."))
         return redirect("crush_lu:cache_lobby", event_id=event_id)
 
     membership = _get_membership(hunt, request.user)
@@ -385,6 +385,18 @@ def cache_play(request, event_id):
 
     context = _play_context(hunt, membership)
     if context["progress"].is_finished or hunt.status == "finished":
+        # Only the finish screen shows the leaderboard — the play screen
+        # and its HTMX swaps don't, so _play_context skips the query.
+        context["leaderboard"] = hunt.get_leaderboard()
+        if hunt.status != "finished":
+            # Baseline for the finish page's standings poll: mirror the
+            # cache_state_api payload so the first poll compares against
+            # the rendered page instead of becoming the baseline itself
+            # (which would swallow any change in the first interval).
+            context["state_snapshot"] = {
+                "status": hunt.status,
+                "leaderboard": hunt.get_serialized_leaderboard(),
+            }
         return render(request, "crush_lu/cache/finish.html", context)
     return render(request, "crush_lu/cache/play.html", context)
 
@@ -405,7 +417,7 @@ def cache_scanner(request, event_id):
 
 @crush_login_required
 def cache_qr_scan(request, token):
-    """Destination of a scanned station QR code (or manual code entry).
+    """Destination of a scanned station QR code.
 
     The token only identifies the station — authorization is the scanning
     user's team state. Many teams scan the same physical sticker.
@@ -415,6 +427,48 @@ def cache_qr_scan(request, token):
     station = get_object_or_404(
         CacheStation.objects.select_related("hunt__event"), qr_token=token
     )
+    return _process_station_scan(request, station)
+
+
+@crush_login_required
+@require_POST
+@ratelimit(key="user", rate="20/m", method="POST")
+def cache_manual_code(request, event_id):
+    """Manual fallback for the QR scanner: type the short code printed
+    under the QR (or paste a full token URL/UUID) instead of scanning."""
+    hunt = _get_hunt_or_404(event_id)
+    if _get_membership(hunt, request.user) is None:
+        messages.error(request, _("Join a team first, then enter the code again."))
+        return redirect("crush_lu:cache_lobby", event_id=event_id)
+
+    code = request.POST.get("code", "").strip()
+    station = None
+    if code:
+        # A pasted QR URL or raw UUID still works; otherwise treat the
+        # input as the printed short code. Both scoped to this hunt.
+        try:
+            token = uuid.UUID(code.rstrip("/").rsplit("/", 1)[-1])
+        except ValueError:
+            station = hunt.stations.filter(manual_code=code.upper()).first()
+        else:
+            station = hunt.stations.filter(qr_token=token).first()
+
+    if station is None:
+        messages.error(
+            request,
+            _(
+                "That code doesn't match any station of this hunt — check the "
+                "characters printed under the QR code."
+            ),
+        )
+        return redirect("crush_lu:cache_scanner", event_id=event_id)
+
+    return _process_station_scan(request, station)
+
+
+def _process_station_scan(request, station):
+    """Shared body of the QR-scan and manual-code endpoints: record the
+    scan for the user's team if this is their current station."""
     hunt = station.hunt
     event_id = hunt.event_id
 
@@ -455,12 +509,35 @@ def cache_qr_scan(request, token):
         team=membership.team, station=station
     )
     if attempt.scanned_at is None:
+        now = timezone.now()
         CacheStationAttempt.objects.filter(
             pk=attempt.pk, scanned_at__isnull=True
-        ).update(scanned_at=timezone.now())
-        messages.success(
+        ).update(scanned_at=now)
+        attempt.scanned_at = now  # reflect the write for the is_unlocked check
+        if attempt.is_unlocked:
+            messages.success(
+                request,
+                _("Code scanned — %(station)s unlocked!") % {"station": station.name},
+            )
+        else:
+            # A gps_qr station scanned before the team has arrived: the scan is
+            # recorded, but GPS arrival is still required — don't claim it's
+            # unlocked when it isn't.
+            messages.info(
+                request,
+                _("Code scanned — now reach the location to unlock %(station)s.")
+                % {"station": station.name},
+            )
+    elif attempt.is_unlocked:
+        messages.info(
             request,
-            _("Code scanned — %(station)s unlocked!") % {"station": station.name},
+            _("Already scanned — your challenges await below."),
+        )
+    else:
+        messages.info(
+            request,
+            _("Already scanned — now reach the location to unlock %(station)s.")
+            % {"station": station.name},
         )
     return redirect("crush_lu:cache_play", event_id=event_id)
 
@@ -491,11 +568,17 @@ def cache_position_api(request, event_id):
     if not (-90 <= lat <= 90 and -180 <= lng <= 180 and accuracy >= 0):
         return JsonResponse({"ok": False, "error": "bad_payload"}, status=400)
 
+    if not hunt.is_live:
+        return JsonResponse({"ok": False, "error": "not_live"}, status=403)
+
+    progress = _ensure_progress(hunt, membership.team)
+    if progress.is_finished:
+        return JsonResponse({"ok": False, "error": "finished"}, status=403)
+
     if accuracy > MAX_ACCEPTED_ACCURACY_M:
         return JsonResponse({"ok": True, "accepted": False, "reason": "accuracy"})
 
     now = timezone.now()
-    progress = _ensure_progress(hunt, membership.team)
     CacheTeamProgress.objects.filter(pk=progress.pk).update(
         last_lat=lat, last_lng=lng, last_accuracy=accuracy, last_position_at=now
     )
@@ -552,6 +635,7 @@ def cache_position_api(request, event_id):
 
 @crush_login_required
 @require_POST
+@ratelimit(key="user", rate="20/m", method="POST", block=False)
 def cache_answer_api(request, event_id, challenge_id):
     """Submit an answer for the current station (HTMX form post).
 
@@ -559,6 +643,15 @@ def cache_answer_api(request, event_id, challenge_id):
     and the (station_attempt, challenge) unique constraint makes the
     first correct submission win — a concurrent duplicate re-renders as
     "already answered".
+
+    Rate-limited per user: without it a multiple-choice challenge is
+    brute-forceable in seconds (position API is likewise capped). We ask
+    the decorator not to block (``block=False``) and handle the limit
+    here: this form swaps ``#play-content``, and HTMX ignores a bare 429,
+    so a blocking response would just make the button silently stop
+    working. Re-rendering the panel with a visible notice instead — and
+    returning before the attempt row is touched, so a throttled post never
+    counts against the team.
     """
     hunt = _get_hunt_or_404(event_id)
     membership = _get_membership(hunt, request.user)
@@ -566,6 +659,10 @@ def cache_answer_api(request, event_id, challenge_id):
         return redirect("crush_lu:cache_lobby", event_id=event_id)
     if not hunt.is_live:
         return _render_play_content(request, hunt, membership)
+    if getattr(request, "limited", False):
+        return _render_play_content(
+            request, hunt, membership, extra={"rate_limited": True}
+        )
 
     challenge = get_object_or_404(
         CacheChallenge.objects.select_related("station"),
@@ -613,18 +710,14 @@ def cache_answer_api(request, event_id, challenge_id):
         answer_correct = challenge.check_answer(answer)
         if answer_correct:
             ca.is_correct = True
-            ca.points_earned = max(
-                0, challenge.points_awarded - ca.hint_cost_total()
-            )
+            ca.points_earned = max(0, challenge.points_awarded - ca.hint_cost_total())
             ca.answered_at = now
             progress.total_points += ca.points_earned
         ca.save()
 
         if answer_correct:
             total_challenges = challenge.station.challenges.count()
-            correct_count = attempt.challenge_attempts.filter(
-                is_correct=True
-            ).count()
+            correct_count = attempt.challenge_attempts.filter(is_correct=True).count()
             if correct_count >= total_challenges:
                 station_completed = True
                 attempt.completed_at = now
@@ -671,18 +764,35 @@ def cache_answer_api(request, event_id, challenge_id):
         )
 
     if station_completed:
-        # The play shell (map, target coords) is stale once the station
-        # changes — have HTMX do a full page refresh instead of a swap.
-        messages.success(
+        # Render an in-flow celebration instead of an abrupt HX-Refresh;
+        # its "Continue" link does the full reload that refreshes the
+        # stale play shell (map, target coords). A manual refresh in the
+        # meantime simply lands on the next station's derived state.
+        return _render_play_content(
             request,
-            challenge.station.completion_message
-            or _("Station complete — on to the next one!"),
+            hunt,
+            membership,
+            extra={
+                "celebrated_station": challenge.station,
+                "celebrated_points": attempt.points_earned,
+                "hunt_completed": hunt_completed,
+            },
         )
-        response = _render_play_content(request, hunt, membership)
-        response["HX-Refresh"] = "true"
-        return response
 
-    return _render_play_content(request, hunt, membership)
+    if answer_correct:
+        # Correct but more challenges remain at this station: flash the
+        # success before showing the next challenge.
+        return _render_play_content(
+            request,
+            hunt,
+            membership,
+            extra={
+                "just_correct": True,
+                "just_correct_message": challenge.success_message,
+            },
+        )
+
+    return _render_play_content(request, hunt, membership, extra={"just_wrong": True})
 
 
 @crush_login_required
@@ -748,7 +858,7 @@ def cache_state_api(request, event_id):
 # =============================================================================
 
 
-@coach_required
+@crush_login_required
 def cache_coach_dashboard(request, event_id):
     """Live control room: readiness, start/finish, leaderboard, team map."""
     hunt = _get_hunt_or_404(event_id)
@@ -777,16 +887,30 @@ def cache_coach_dashboard(request, event_id):
                 "id": t.id,
                 "name": t.name,
                 "color": t.color,
-                "lat": float(t.progress.last_lat)
-                if hasattr(t, "progress") and t.progress.last_lat is not None
-                else None,
-                "lng": float(t.progress.last_lng)
-                if hasattr(t, "progress") and t.progress.last_lng is not None
-                else None,
+                "lat": (
+                    float(t.progress.last_lat)
+                    if hasattr(t, "progress") and t.progress.last_lat is not None
+                    else None
+                ),
+                "lng": (
+                    float(t.progress.last_lng)
+                    if hasattr(t, "progress") and t.progress.last_lng is not None
+                    else None
+                ),
             }
             for t in teams.select_related("progress")
         ],
     }
+
+    # The "View attendees" link targets coach_event_detail, which is
+    # @coach_required — but _can_manage_hunt also admits the hunt's
+    # creator even when they aren't an active coach, and for them that
+    # link would only bounce back with a coach-access error.
+    from .models import CrushCoach
+
+    viewer_is_coach = CrushCoach.objects.filter(
+        user=request.user, is_active=True
+    ).exists()
 
     return render(
         request,
@@ -799,6 +923,7 @@ def cache_coach_dashboard(request, event_id):
             "readiness": hunt.readiness_check(),
             "leaderboard": hunt.get_leaderboard(),
             "map_data_json": json.dumps(map_data),
+            "viewer_is_coach": viewer_is_coach,
             "unassigned_count": EventRegistration.objects.filter(
                 event=hunt.event, status__in=["confirmed", "attended"]
             )
@@ -808,7 +933,7 @@ def cache_coach_dashboard(request, event_id):
     )
 
 
-@coach_required
+@crush_login_required
 @require_POST
 def cache_coach_start(request, event_id):
     """Start the hunt: draft → live, initialize every team's progress."""
@@ -856,7 +981,7 @@ def cache_coach_start(request, event_id):
     return redirect("crush_lu:cache_coach_dashboard", event_id=event_id)
 
 
-@coach_required
+@crush_login_required
 @require_POST
 def cache_coach_finish(request, event_id):
     """Finish the hunt: live → finished. Standings freeze as they are."""
@@ -887,7 +1012,7 @@ def cache_coach_finish(request, event_id):
     return redirect("crush_lu:cache_coach_dashboard", event_id=event_id)
 
 
-@coach_required
+@crush_login_required
 @require_POST
 def cache_coach_auto_teams(request, event_id):
     """Split checked-in attendees without a team into teams of ≤ max size."""
@@ -923,11 +1048,13 @@ def cache_coach_auto_teams(request, event_id):
 
     created = 0
     for i in range(num_teams):
-        color = CacheTeam.COLOR_CHOICES[
-            (existing + i) % len(CacheTeam.COLOR_CHOICES)
-        ][0]
+        color = CacheTeam.COLOR_CHOICES[(existing + i) % len(CacheTeam.COLOR_CHOICES)][
+            0
+        ]
         team = CacheTeam.objects.create(
-            hunt=hunt, name=f"Team {existing + i + 1}", color=color
+            hunt=hunt,
+            name=_("Team %(number)d") % {"number": existing + i + 1},
+            color=color,
         )
         for registration in registrations[i * size : (i + 1) * size]:
             CacheTeamMember.objects.create(
@@ -945,7 +1072,7 @@ def cache_coach_auto_teams(request, event_id):
     return redirect("crush_lu:cache_coach_dashboard", event_id=event_id)
 
 
-@coach_required
+@crush_login_required
 def cache_coach_state_api(request, event_id):
     """Polling fallback for the coach dashboard (leaderboard + positions)."""
     hunt = _get_hunt_or_404(event_id)
@@ -972,3 +1099,47 @@ def cache_coach_state_api(request, event_id):
             "positions": positions,
         }
     )
+
+
+@crush_login_required
+def cache_coach_qr_sheet(request, event_id):
+    """Printable A4 PDF of the hunt's QR-station codes — the coach-facing
+    twin of the admin action (coaches aren't admin users, but they are
+    the ones sticking codes to lampposts on event day)."""
+    from .qr_utils import HAS_REPORTLAB, generate_cache_station_sheet
+
+    hunt = _get_hunt_or_404(event_id)
+    if not _can_manage_hunt(request.user, hunt):
+        messages.error(request, _("You are not a coach for this event."))
+        return redirect("crush_lu:dashboard")
+
+    stations = [s for s in hunt.ordered_stations() if s.requires_qr]
+    if not stations:
+        messages.warning(
+            request,
+            _("No station of this hunt unlocks via QR — nothing to print."),
+        )
+        return redirect("crush_lu:cache_coach_dashboard", event_id=event_id)
+
+    if not HAS_REPORTLAB:
+        messages.warning(
+            request,
+            _(
+                "PDF generation is unavailable on this server — download the "
+                "QR images from the station admin instead."
+            ),
+        )
+        return redirect("crush_lu:cache_coach_dashboard", event_id=event_id)
+
+    pdf_bytes = generate_cache_station_sheet(
+        stations,
+        title=f"Crush Cache — {hunt.title}",
+        # Print URLs for the host the coach is on — a sheet generated on a
+        # test slot or localhost must not send players to production.
+        domain=request.get_host(),
+    )
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = (
+        f'attachment; filename="crush-cache-{hunt.pk}-qr-sheet.pdf"'
+    )
+    return response

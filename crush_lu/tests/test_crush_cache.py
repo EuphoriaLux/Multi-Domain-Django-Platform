@@ -5,6 +5,8 @@ from datetime import timedelta
 
 import pytest
 from django.contrib.auth.models import User
+from django.contrib.messages.storage.fallback import FallbackStorage
+from django.test import RequestFactory
 from django.urls import reverse
 from django.utils import timezone
 
@@ -53,6 +55,17 @@ def cache_enabled(settings):
     # Match the urlconf the domain middleware picks for the test host, so
     # reverse() and the routed request agree (same pattern as test_events.py)
     settings.ROOT_URLCONF = "azureproject.urls_crush"
+
+
+@pytest.fixture(autouse=True)
+def _isolate_ratelimit_counters():
+    """LocMem cache outlives the per-test DB rollback while SQLite reuses
+    primary keys across tests — without this, @ratelimit counters keyed on
+    user_<pk> leak between tests in the same worker."""
+    from django.core.cache import cache
+
+    cache.clear()
+    yield
 
 
 @pytest.fixture
@@ -200,9 +213,7 @@ class TestGeo:
     def test_haversine_accepts_decimals(self):
         from decimal import Decimal
 
-        d = haversine_m(
-            Decimal("49.60972"), Decimal("6.12917"), *PONT_ADOLPHE
-        )
+        d = haversine_m(Decimal("49.60972"), Decimal("6.12917"), *PONT_ADOLPHE)
         assert 230 <= d <= 330
 
     def test_bearing_range(self):
@@ -237,6 +248,24 @@ class TestCheckAnswer:
     def test_blank_accepts_everything(self):
         c = self._challenge(correct="")
         assert c.check_answer("anything at all")
+
+    def test_accent_folding(self):
+        """Players shouldn't lose points over accents they can't type
+        outdoors: Pétrusse == petrusse, Gëlle == gelle."""
+        c = self._challenge(correct="Pétrusse")
+        assert c.check_answer("petrusse")
+        assert c.check_answer("PÉTRUSSE")
+        c = self._challenge(correct="Gelle Fra")
+        assert c.check_answer("Gëlle Fra")
+
+    def test_accents_fold_in_alternatives(self):
+        c = self._challenge(correct="x", alternative_answers=["Vallée de la Pétrusse"])
+        assert c.check_answer("vallee de la petrusse")
+
+    def test_inner_whitespace_collapsed(self):
+        c = self._challenge(correct="Gelle  Fra")
+        assert c.check_answer("gelle fra")
+        assert c.check_answer("  gelle   fra ")
 
 
 @pytest.mark.django_db
@@ -307,7 +336,9 @@ class TestAccess:
         response = client.get(url)
         assert response.status_code == 302
 
-    def test_lobby_renders_for_registered_user(self, client, hunt, registration, player):
+    def test_lobby_renders_for_registered_user(
+        self, client, hunt, registration, player
+    ):
         client.force_login(player)
         url = reverse("crush_lu:cache_lobby", args=[hunt.event_id])
         response = client.get(url)
@@ -318,7 +349,8 @@ class TestAccess:
         client.force_login(player)
         url = reverse("crush_lu:cache_position_api", args=[hunt.event_id])
         response = client.post(
-            url, json.dumps({"lat": 49.6, "lng": 6.1, "accuracy": 10}),
+            url,
+            json.dumps({"lat": 49.6, "lng": 6.1, "accuracy": 10}),
             content_type="application/json",
         )
         assert response.status_code == 403
@@ -490,6 +522,21 @@ class TestQRScan:
             team=team, station=stations[0], scanned_at__isnull=False
         ).exists()
 
+    def test_rescan_shows_info_message(self, client, hunt, stations, team, player):
+        """A second scan of the current station is acknowledged, not silent."""
+        stations[0].unlock_mode = "qr"
+        stations[0].save()
+        _start_hunt(hunt)
+        client.force_login(player)
+        url = reverse("crush_lu:cache_qr_scan", args=[stations[0].qr_token])
+        client.get(url)
+        response = client.get(url, follow=True)
+
+        from django.contrib.messages import constants as msg_constants
+
+        levels = [m.level for m in response.context["messages"]]
+        assert msg_constants.INFO in levels
+
     def test_gps_qr_requires_both(self, client, hunt, stations, team, player):
         stations[0].unlock_mode = "gps_qr"
         stations[0].save()
@@ -499,6 +546,132 @@ class TestQRScan:
         attempt = CacheStationAttempt.objects.get(team=team, station=stations[0])
         assert attempt.scanned_at is not None
         assert not attempt.is_unlocked  # still needs GPS arrival
+
+
+# ============================================================================
+# MANUAL CODE ENTRY (scanner fallback)
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestManualCode:
+    def _post_code(self, client, hunt, code, **kwargs):
+        url = reverse("crush_lu:cache_manual_code", args=[hunt.event_id])
+        return client.post(url, {"code": code}, **kwargs)
+
+    def test_codes_generated_from_join_alphabet(self, hunt, stations):
+        from crush_lu.models.crush_cache import JOIN_CODE_ALPHABET
+
+        for station in stations:
+            assert len(station.manual_code) == 6
+            assert all(ch in JOIN_CODE_ALPHABET for ch in station.manual_code)
+        assert stations[0].manual_code != stations[1].manual_code
+
+    def test_manual_code_records_scan(self, client, hunt, stations, team, player):
+        stations[0].unlock_mode = "qr"
+        stations[0].save()
+        _start_hunt(hunt)
+        client.force_login(player)
+        # Lowercase input must work — players type in a hurry
+        response = self._post_code(client, hunt, stations[0].manual_code.lower())
+        assert response.status_code == 302
+        assert reverse("crush_lu:cache_play", args=[hunt.event_id]) in response.url
+        attempt = CacheStationAttempt.objects.get(team=team, station=stations[0])
+        assert attempt.scanned_at is not None
+
+    def test_unknown_code_returns_to_scanner_with_error(
+        self, client, hunt, stations, team, player
+    ):
+        _start_hunt(hunt)
+        client.force_login(player)
+        response = self._post_code(client, hunt, "XXXXXX", follow=True)
+
+        from django.contrib.messages import constants as msg_constants
+
+        assert (
+            reverse("crush_lu:cache_scanner", args=[hunt.event_id])
+            in [r[0] for r in response.redirect_chain][0]
+        )
+        levels = [m.level for m in response.context["messages"]]
+        assert msg_constants.ERROR in levels
+
+    def test_other_hunts_code_rejected(self, client, hunt, stations, team, player):
+        other_event = MeetupEvent.objects.create(
+            title="Other Hunt Night",
+            event_type="crush_cache",
+            date_time=timezone.now() + timedelta(hours=1),
+            registration_deadline=timezone.now() + timedelta(minutes=30),
+            location="Esch",
+            is_published=True,
+        )
+        other_hunt = CacheHunt.objects.create(
+            event=other_event, title="Other", created_by=hunt.created_by
+        )
+        other_station = CacheStation.objects.create(
+            hunt=other_hunt, order=1, name="Elsewhere", unlock_mode="qr"
+        )
+        _start_hunt(hunt)
+        client.force_login(player)
+        self._post_code(client, hunt, other_station.manual_code)
+        assert not CacheStationAttempt.objects.filter(
+            team=team, station=other_station
+        ).exists()
+
+    def test_pasted_uuid_and_url_still_work(self, client, hunt, stations, team, player):
+        stations[0].unlock_mode = "qr"
+        stations[0].save()
+        _start_hunt(hunt)
+        client.force_login(player)
+        response = self._post_code(
+            client, hunt, f"https://crush.lu/cache/qr/{stations[0].qr_token}/"
+        )
+        assert response.status_code == 302
+        attempt = CacheStationAttempt.objects.get(team=team, station=stations[0])
+        assert attempt.scanned_at is not None
+
+    def test_wrong_station_code_redirects_to_play(
+        self, client, hunt, stations, team, player
+    ):
+        _start_hunt(hunt)  # current station is stations[0]
+        client.force_login(player)
+        response = self._post_code(client, hunt, stations[1].manual_code)
+        assert reverse("crush_lu:cache_play", args=[hunt.event_id]) in response.url
+        assert not CacheStationAttempt.objects.filter(
+            team=team, station=stations[1], scanned_at__isnull=False
+        ).exists()
+
+    def test_requires_membership(self, client, hunt, stations, registration, player):
+        # Registered but not in a team
+        _start_hunt(hunt)
+        client.force_login(player)
+        response = self._post_code(client, hunt, stations[0].manual_code)
+        assert reverse("crush_lu:cache_lobby", args=[hunt.event_id]) in response.url
+
+    def test_qr_sheet_generates_with_codes(self, hunt, stations):
+        pytest.importorskip("reportlab")
+        pytest.importorskip("qrcode")
+        from crush_lu.qr_utils import generate_cache_station_sheet
+
+        stations[0].unlock_mode = "qr"
+        stations[0].save()
+        pdf = generate_cache_station_sheet([stations[0]])
+        assert pdf[:4] == b"%PDF"
+
+    def test_regenerate_tokens_also_rotates_manual_codes(self, hunt, stations):
+        # The admin action's promise is "printed sheets are now invalid" —
+        # sheets carry the typeable fallback too, so it must rotate as well.
+        from crush_lu.admin.crush_cache import regenerate_cache_qr_tokens
+
+        old = {s.pk: (s.qr_token, s.manual_code) for s in stations}
+        request = RequestFactory().post("/")
+        request.session = {}
+        request._messages = FallbackStorage(request)
+        regenerate_cache_qr_tokens(None, request, CacheHunt.objects.filter(pk=hunt.pk))
+        for station in CacheStation.objects.filter(hunt=hunt):
+            old_token, old_code = old[station.pk]
+            assert station.qr_token != old_token
+            assert station.manual_code != old_code
+            assert station.manual_code  # regenerated, not left blank
 
 
 # ============================================================================
@@ -518,9 +691,7 @@ class TestAnswering:
         return attempt
 
     def _answer(self, client, hunt, challenge, answer):
-        url = reverse(
-            "crush_lu:cache_answer_api", args=[hunt.event_id, challenge.id]
-        )
+        url = reverse("crush_lu:cache_answer_api", args=[hunt.event_id, challenge.id])
         return client.post(url, {"answer": answer})
 
     def test_wrong_answer_no_points(self, client, hunt, stations, team, player):
@@ -556,7 +727,7 @@ class TestAnswering:
         assert progress.current_station_id == stations[1].id
 
     def test_double_submit_scores_once(self, client, hunt, stations, team, player):
-        attempt = self._unlock_station_one(hunt, stations, team)
+        self._unlock_station_one(hunt, stations, team)
         challenge = stations[0].challenges.first()
         client.force_login(player)
         self._answer(client, hunt, challenge, "Gelle Fra")
@@ -610,6 +781,97 @@ class TestAnswering:
 
         board = hunt.get_leaderboard()
         assert board[0]["team_id"] == team.id and board[0]["is_finished"]
+
+    def test_station_complete_renders_celebration(
+        self, client, hunt, stations, team, player
+    ):
+        """Completing a station returns an in-flow celebration (with the
+        completion message and a Continue link) instead of HX-Refresh."""
+        stations[0].completion_message = "The golden lady salutes you!"
+        stations[0].save()
+        self._unlock_station_one(hunt, stations, team)
+        challenge = stations[0].challenges.first()
+        client.force_login(player)
+
+        response = self._answer(client, hunt, challenge, "Gelle Fra")
+        assert response.status_code == 200
+        assert "HX-Refresh" not in response.headers
+        content = response.content.decode()
+        assert "The golden lady salutes you!" in content
+        assert "+100" in content  # points earned at the station
+        # The marker cache-play.js uses to suspend GPS navigation while
+        # the celebration is on screen — without it the next position
+        # POST reloads right over the card.
+        assert 'id="cache-celebration"' in content
+
+    def test_hunt_complete_renders_results_link(
+        self, client, hunt, stations, team, player
+    ):
+        self._unlock_station_one(hunt, stations, team)
+        client.force_login(player)
+        self._answer(client, hunt, stations[0].challenges.first(), "Gelle Fra")
+        response = self._answer(
+            client, hunt, stations[1].challenges.first(), "petrusse"
+        )
+        content = response.content.decode()
+        assert "Hunt complete!" in content
+        assert reverse("crush_lu:cache_play", args=[hunt.event_id]) in content
+
+    def test_correct_midstation_answer_flashes_success(
+        self, client, hunt, stations, team, player
+    ):
+        """A correct answer that doesn't finish the station shows the
+        success flash and the next challenge."""
+        CacheChallenge.objects.create(
+            station=stations[0],
+            challenge_order=2,
+            challenge_type="open_text",
+            question="Second question here?",
+            correct_answer="second",
+            points_awarded=50,
+        )
+        self._unlock_station_one(hunt, stations, team)
+        client.force_login(player)
+        response = self._answer(
+            client, hunt, stations[0].challenges.first(), "Gelle Fra"
+        )
+        content = response.content.decode()
+        assert "Correct!" in content
+        assert "Second question here?" in content
+
+    def test_wrong_answer_preserves_typed_text(
+        self, client, hunt, stations, team, player
+    ):
+        self._unlock_station_one(hunt, stations, team)
+        challenge = stations[0].challenges.first()
+        client.force_login(player)
+        response = self._answer(client, hunt, challenge, "golden woman")
+        content = response.content.decode()
+        assert "Not quite" in content
+        assert 'value="golden woman"' in content
+
+    def test_answer_api_rate_limited(self, client, hunt, stations, team, player):
+        """Multiple-choice must not be brute-forceable: the 21st POST within a
+        minute is refused before scoring. The form swaps #play-content and HTMX
+        ignores a bare 429, so the refusal re-renders the panel with a visible
+        notice instead of the button silently going dead."""
+        attempt = self._unlock_station_one(hunt, stations, team)
+        challenge = stations[0].challenges.first()
+        client.force_login(player)
+
+        for _ in range(20):
+            response = self._answer(client, hunt, challenge, "wrong guess")
+            assert response.status_code == 200
+        response = self._answer(client, hunt, challenge, "wrong guess")
+        assert response.status_code == 200
+        # The swappable panel, carrying the throttle notice — not a bare 429.
+        assert b'id="play-content"' in response.content
+        assert b"Too many attempts" in response.content
+
+        ca = CacheChallengeAttempt.objects.get(
+            station_attempt=attempt, challenge=challenge
+        )
+        assert ca.attempts_count == 20  # the throttled POST didn't count
 
     def test_stale_form_after_advance(self, client, hunt, stations, team, player):
         """Answering a challenge from a station the team already left is a no-op."""
@@ -672,6 +934,29 @@ class TestPlayView:
         response = client.get(reverse("crush_lu:cache_play", args=[hunt.event_id]))
         assert response.status_code == 200
         assert b"150" in response.content
+        # The leaderboard only feeds the finish screen (dropped from the
+        # play/HTMX context) — make sure it still arrives here.
+        assert b"Rank #" in response.content
+        # Hunt still live: the standings poll must seed its baseline from
+        # the rendered state, or a change in the first 30s is swallowed.
+        assert b'id="cache-state-snapshot"' in response.content
+
+    def test_finish_screen_after_hunt_finished_has_no_poll(
+        self, client, hunt, stations, team, player
+    ):
+        _start_hunt(hunt)
+        progress = CacheTeamProgress.objects.get(team=team)
+        progress.is_finished = True
+        progress.finished_at = timezone.now()
+        progress.current_station = None
+        progress.save()
+        hunt.status = "finished"
+        hunt.save(update_fields=["status"])
+        client.force_login(player)
+        response = client.get(reverse("crush_lu:cache_play", args=[hunt.event_id]))
+        assert response.status_code == 200
+        # Standings are final — no snapshot, no poll.
+        assert b'id="cache-state-snapshot"' not in response.content
 
 
 # ============================================================================
@@ -731,6 +1016,108 @@ class TestCoach:
         assert CacheTeamMember.objects.filter(hunt=hunt).count() == 5
         for t in hunt.teams.all():
             assert t.members.count() <= hunt.team_size_max
+
+    def test_coach_event_detail_links_to_cache_control(
+        self, client, hunt, coach_user, settings
+    ):
+        """The coach event page must surface the Crush Cache dashboard —
+        it was previously reachable only by typing the URL."""
+        client.force_login(coach_user)
+        url = reverse("crush_lu:coach_event_detail", args=[hunt.event_id])
+        cache_url = reverse(
+            "crush_lu:cache_coach_dashboard", args=[hunt.event_id]
+        )
+
+        response = client.get(url)
+        assert response.status_code == 200
+        assert cache_url.encode() in response.content
+
+        settings.CRUSH_CACHE_ENABLED = False
+        response = client.get(url)
+        assert cache_url.encode() not in response.content
+
+    def test_coach_event_detail_hides_cache_control_from_unassigned_coach(
+        self, client, hunt
+    ):
+        """An active coach who neither created the hunt nor is assigned to
+        the event gets bounced by cache_coach_dashboard — don't render a
+        dead link for them."""
+        other = User.objects.create_user(
+            username="othercoach@test.com",
+            email="othercoach@test.com",
+            password="testpass123",
+            is_staff=True,
+        )
+        _grant_consent(other)
+        CrushCoach.objects.create(
+            user=other,
+            bio="Other coach",
+            specializations="Events",
+            is_active=True,
+        )
+        client.force_login(other)
+        response = client.get(
+            reverse("crush_lu:coach_event_detail", args=[hunt.event_id])
+        )
+        assert response.status_code == 200
+        cache_url = reverse("crush_lu:cache_coach_dashboard", args=[hunt.event_id])
+        assert cache_url.encode() not in response.content
+
+    def test_qr_sheet_requires_coach(self, client, hunt, stations, team, player):
+        client.force_login(player)
+        url = reverse("crush_lu:cache_coach_qr_sheet", args=[hunt.event_id])
+        response = client.get(url)
+        assert response.status_code == 302
+        assert reverse("crush_lu:dashboard") in response.url
+
+    def test_qr_sheet_without_qr_stations_redirects(
+        self, client, hunt, stations, coach_user
+    ):
+        # Fixture stations are gps + none — nothing to print
+        client.force_login(coach_user)
+        url = reverse("crush_lu:cache_coach_qr_sheet", args=[hunt.event_id])
+        response = client.get(url)
+        assert response.status_code == 302
+        assert (
+            reverse("crush_lu:cache_coach_dashboard", args=[hunt.event_id])
+            in response.url
+        )
+
+    def test_qr_sheet_downloads_pdf(self, client, hunt, stations, coach_user):
+        pytest.importorskip("reportlab")
+        pytest.importorskip("qrcode")
+        stations[0].unlock_mode = "qr"
+        stations[0].save()
+        client.force_login(coach_user)
+        url = reverse("crush_lu:cache_coach_qr_sheet", args=[hunt.event_id])
+        response = client.get(url)
+        assert response.status_code == 200
+        assert response["Content-Type"] == "application/pdf"
+
+    def test_qr_sheet_uses_request_host(
+        self, client, hunt, stations, coach_user, monkeypatch
+    ):
+        """A sheet printed from a test slot or localhost must encode that
+        host in its QR URLs, not production crush.lu."""
+        pytest.importorskip("reportlab")
+        pytest.importorskip("qrcode")
+        import crush_lu.qr_utils as qr_utils
+
+        stations[0].unlock_mode = "qr"
+        stations[0].save()
+        seen = []
+        real = qr_utils.generate_cache_qr_url
+
+        def spy(token, domain="crush.lu"):
+            seen.append(domain)
+            return real(token, domain=domain)
+
+        monkeypatch.setattr(qr_utils, "generate_cache_qr_url", spy)
+        client.force_login(coach_user)
+        url = reverse("crush_lu:cache_coach_qr_sheet", args=[hunt.event_id])
+        response = client.get(url)
+        assert response.status_code == 200
+        assert seen and all(d == "testserver" for d in seen)
 
     def test_coach_state_api(self, client, hunt, stations, team, coach_user):
         _start_hunt(hunt)
@@ -853,3 +1240,342 @@ class TestReviewFixes:
         payload = hunt.get_serialized_leaderboard()
         json.dumps(payload)  # must not raise
         assert payload[0]["finished_at"] is not None
+
+
+@pytest.mark.django_db
+class TestGeminiReviewFixes:
+    def test_admin_readiness_display_on_add(self):
+        from crush_lu.admin.crush_cache import CacheHuntAdmin
+        from django.contrib.admin.sites import AdminSite
+
+        admin_site = AdminSite()
+        model_admin = CacheHuntAdmin(CacheHunt, admin_site)
+        res = model_admin.readiness_check_display(None)
+        assert "saving" in str(res)
+
+    def test_capacity_check_ignores_cancelled(self, client, hunt, team, teammate):
+        # Hunt max size is 2. Currently, team has 1 member (player).
+        # Add teammate as a second member:
+        EventRegistration.objects.create(
+            event=hunt.event, user=teammate, status="confirmed"
+        )
+        client.force_login(teammate)
+        url = reverse("crush_lu:cache_join_team", args=[hunt.event_id])
+        client.post(url, {"join_code": team.join_code})
+        assert team.member_count() == 2
+
+        # A third user tries to join, should fail because team is full:
+        third_user = User.objects.create_user(
+            username="third@test.com", email="third@test.com", password="x"
+        )
+        _grant_consent(third_user)
+        EventRegistration.objects.create(
+            event=hunt.event, user=third_user, status="confirmed"
+        )
+        client.force_login(third_user)
+        response = client.post(url, {"join_code": team.join_code})
+        assert team.member_count() == 2
+
+        # Cancel the second member's registration:
+        reg_teammate = EventRegistration.objects.get(event=hunt.event, user=teammate)
+        reg_teammate.status = "cancelled"
+        reg_teammate.save()
+        assert team.member_count() == 1
+
+        # Now the third user tries to join again, should succeed!
+        client.force_login(third_user)
+        response = client.post(url, {"join_code": team.join_code})
+        assert response.status_code == 302
+        assert team.member_count() == 2
+
+    def test_leave_team_blocked_on_allow_self_join_false(
+        self, client, hunt, team, player
+    ):
+        hunt.allow_self_join = False
+        hunt.save()
+        client.force_login(player)
+        url = reverse("crush_lu:cache_leave_team", args=[hunt.event_id])
+        response = client.post(url)
+        assert response.status_code == 302
+        assert team.member_count() == 1  # Still in the team
+
+    def test_position_api_not_live_or_finished(self, client, hunt, team, player):
+        client.force_login(player)
+        url = reverse("crush_lu:cache_position_api", args=[hunt.event_id])
+
+        # 1. Hunt is draft (not live) -> should fail
+        response = client.post(
+            url,
+            json.dumps({"lat": GELLE_FRA[0], "lng": GELLE_FRA[1], "accuracy": 10}),
+            content_type="application/json",
+        )
+        assert response.status_code == 403
+
+        # Start hunt, make team finished
+        _start_hunt(hunt)
+        progress = CacheTeamProgress.objects.get(team=team)
+        progress.is_finished = True
+        progress.save()
+
+        # 2. Team is finished -> should fail
+        response = client.post(
+            url,
+            json.dumps({"lat": GELLE_FRA[0], "lng": GELLE_FRA[1], "accuracy": 10}),
+            content_type="application/json",
+        )
+        assert response.status_code == 403
+
+    def test_lobby_redirects_finished(self, client, hunt, team, player):
+        hunt.status = "finished"
+        hunt.save()
+        client.force_login(player)
+        url = reverse("crush_lu:cache_lobby", args=[hunt.event_id])
+        response = client.get(url)
+        assert response.status_code == 302
+        assert reverse("crush_lu:cache_play", args=[hunt.event_id]) in response.url
+
+    def test_non_coach_creator_can_manage(self, client, hunt, stations, team):
+        # Creator is coach_user by default. Let's create a staff user who is NOT a coach.
+        creator = User.objects.create_user(
+            username="creator@test.com",
+            email="creator@test.com",
+            password="x",
+            is_staff=True,
+        )
+        _grant_consent(creator)
+        hunt.created_by = creator
+        hunt.save()
+
+        client.force_login(creator)
+        response = client.get(
+            reverse("crush_lu:cache_coach_dashboard", args=[hunt.event_id])
+        )
+        assert response.status_code == 200
+
+        response = client.post(
+            reverse("crush_lu:cache_coach_start", args=[hunt.event_id])
+        )
+        assert response.status_code == 302
+        hunt.refresh_from_db()
+        assert hunt.status == "live"
+
+    def test_cache_join_available_requires_hunt(self, db):
+        event = MeetupEvent.objects.create(
+            title="Temp Hunt",
+            event_type="crush_cache",
+            date_time=timezone.now() + timedelta(hours=1),
+            registration_deadline=timezone.now() + timedelta(minutes=30),
+            location="Luxembourg City",
+            is_published=True,
+        )
+        assert event.cache_join_available is False
+
+        # Create hunt
+        creator = User.objects.create_user(
+            username="temp_creator@test.com",
+            email="temp_creator@test.com",
+            password="x",
+            is_staff=True,
+        )
+        CacheHunt.objects.create(event=event, title="Temp Hunt", created_by=creator)
+        assert event.cache_join_available is True
+
+
+@pytest.mark.django_db
+class TestCodexReviewFixes:
+    """Regression coverage for Codex review findings on PR #616."""
+
+    def test_reregistration_after_cancel_does_not_exceed_capacity(
+        self, client, hunt, team, teammate
+    ):
+        """A cancelled member who re-registers must not silently reactivate
+        their old team membership and push the team over ``team_size_max``.
+
+        Repro: full team (cap 2) -> a member cancels, so the active-only
+        ``member_count()`` frees the slot -> a replacement takes it -> the
+        original re-registers, reusing their cancelled EventRegistration row.
+        Their stale CacheTeamMember must be cleared so the team stays at
+        capacity instead of ballooning to 3.
+        """
+        from datetime import date
+
+        from crush_lu.models import CrushProfile
+
+        # The `team` fixture already holds `player` (attended). Cap is 2.
+        # event.profile_requirement defaults to "completed", so give the
+        # teammate a verified profile so event_register accepts the re-signup.
+        CrushProfile.objects.create(
+            user=teammate,
+            date_of_birth=date(1995, 5, 15),
+            gender="M",
+            location="Luxembourg",
+            verification_status="verified",
+            is_approved=True,
+            is_active=True,
+        )
+
+        # Teammate had joined, then cancelled — the membership row lingers.
+        cancelled = EventRegistration.objects.create(
+            event=hunt.event, user=teammate, status="cancelled"
+        )
+        CacheTeamMember.objects.create(hunt=hunt, team=team, registration=cancelled)
+
+        # A replacement claimed the freed slot; the team is full again.
+        replacement = User.objects.create_user(
+            username="replace@test.com", email="replace@test.com", password="x"
+        )
+        _grant_consent(replacement)
+        reg_replacement = EventRegistration.objects.create(
+            event=hunt.event, user=replacement, status="confirmed"
+        )
+        CacheTeamMember.objects.create(
+            hunt=hunt, team=team, registration=reg_replacement
+        )
+        assert team.member_count() == 2  # player + replacement
+
+        # The original teammate re-registers: reuses the cancelled row.
+        client.force_login(teammate)
+        response = client.post(
+            reverse("crush_lu:event_register", args=[hunt.event_id]), {}
+        )
+        assert response.status_code == 302
+        cancelled.refresh_from_db()
+        assert cancelled.status == "confirmed"  # re-registration itself succeeded
+
+        # ...but the stale hunt membership was cleared: the team holds at
+        # capacity and the re-registered user is no longer on it (they re-join
+        # afresh, subject to the capacity check).
+        assert team.member_count() == 2
+        assert not CacheTeamMember.objects.filter(
+            hunt=hunt, registration__user=teammate
+        ).exists()
+
+
+@pytest.mark.django_db
+class TestQrUnlockMessaging:
+    def test_scan_before_arrival_does_not_claim_unlocked(
+        self, client, hunt, team, player
+    ):
+        """Scanning a gps_qr station before arriving records the scan but must
+        NOT claim the station is unlocked — GPS arrival is still required."""
+        station = CacheStation.objects.create(
+            hunt=hunt,
+            order=1,
+            name="Grand Ducal Palace",
+            unlock_mode="gps_qr",
+            latitude="49.610600",
+            longitude="6.131900",
+            radius_meters=40,
+        )
+        _start_hunt(hunt)  # hunt live + progress parked at this first station
+        client.force_login(player)
+
+        url = reverse("crush_lu:cache_qr_scan", args=[station.qr_token])
+        response = client.get(url, follow=True)
+
+        attempt = CacheStationAttempt.objects.get(team=team, station=station)
+        assert attempt.scanned_at is not None  # the scan is recorded
+        assert attempt.is_unlocked is False  # ...but still locked (not arrived)
+
+        from django.contrib.messages import constants as msg_constants
+
+        levels = [m.level for m in response.context["messages"]]
+        assert msg_constants.SUCCESS not in levels  # must not say "unlocked!"
+        assert msg_constants.INFO in levels  # nudge to reach the location
+
+
+# ============================================================================
+# COACH EVENT DETAIL — Crush Cache Control card gating
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestCoachEventDetailCacheCard:
+    """The Event Control grid's Crush Cache card must only render when the
+    coach can actually open the dashboard: a CacheHunt row exists (the view
+    404s without one) and _can_manage_hunt allows this coach."""
+
+    def _detail(self, client, event):
+        return client.get(reverse("crush_lu:coach_event_detail", args=[event.id]))
+
+    def _dashboard_url(self, event):
+        return reverse("crush_lu:cache_coach_dashboard", args=[event.id])
+
+    def test_card_shown_to_hunt_creator(self, client, hunt, coach_user):
+        client.force_login(coach_user)
+        response = self._detail(client, hunt.event)
+        assert response.status_code == 200
+        assert self._dashboard_url(hunt.event).encode() in response.content
+
+    def test_card_hidden_when_hunt_missing(self, client, coach_user):
+        # Event type already switched to crush_cache, but no CacheHunt yet —
+        # the dashboard would 404.
+        event = MeetupEvent.objects.create(
+            title="Huntless Cache Night",
+            event_type="crush_cache",
+            date_time=timezone.now() + timedelta(hours=1),
+            registration_deadline=timezone.now() + timedelta(minutes=30),
+            location="Luxembourg City",
+            is_published=True,
+        )
+        client.force_login(coach_user)
+        response = self._detail(client, event)
+        assert response.status_code == 200
+        assert self._dashboard_url(event).encode() not in response.content
+
+    def test_card_hidden_from_unassigned_coach(self, client, hunt):
+        # Active coach, but neither the hunt's creator nor assigned to the
+        # event — cache_coach_dashboard would bounce them, so no card.
+        other = User.objects.create_user(
+            username="othercoach@test.com",
+            email="othercoach@test.com",
+            password="testpass123",
+            is_staff=True,
+        )
+        _grant_consent(other)
+        CrushCoach.objects.create(
+            user=other,
+            bio="Other coach",
+            specializations="Events",
+            is_active=True,
+        )
+        client.force_login(other)
+        response = self._detail(client, hunt.event)
+        assert response.status_code == 200
+        assert self._dashboard_url(hunt.event).encode() not in response.content
+
+
+@pytest.mark.django_db
+class TestDashboardAttendeesLink:
+    """The cache dashboard's "View attendees" link targets coach_event_detail
+    (@coach_required) — render it only for active coaches, since a non-coach
+    hunt creator can manage the dashboard but would just get bounced."""
+
+    def _dashboard(self, client, hunt):
+        return client.get(
+            reverse("crush_lu:cache_coach_dashboard", args=[hunt.event_id])
+        )
+
+    def test_link_shown_to_active_coach(self, client, hunt, coach_user):
+        client.force_login(coach_user)
+        response = self._dashboard(client, hunt)
+        assert response.status_code == 200
+        roster_url = reverse("crush_lu:coach_event_detail", args=[hunt.event_id])
+        assert roster_url.encode() in response.content
+
+    def test_link_hidden_from_non_coach_creator(self, client, hunt):
+        creator = User.objects.create_user(
+            username="creator@test.com",
+            email="creator@test.com",
+            password="x",
+            is_staff=True,
+        )
+        _grant_consent(creator)
+        hunt.created_by = creator
+        hunt.save()
+
+        client.force_login(creator)
+        response = self._dashboard(client, hunt)
+        assert response.status_code == 200  # they can still run the hunt
+        roster_url = reverse("crush_lu:coach_event_detail", args=[hunt.event_id])
+        assert roster_url.encode() not in response.content

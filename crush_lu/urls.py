@@ -402,6 +402,7 @@ urlpatterns = [
     path('events/<int:event_id>/cache/play/', views_crush_cache.cache_play, name='cache_play'),
     path('events/<int:event_id>/cache/scanner/', views_crush_cache.cache_scanner, name='cache_scanner'),
     path('cache/qr/<uuid:token>/', views_crush_cache.cache_qr_scan, name='cache_qr_scan'),
+    path('events/<int:event_id>/cache/manual-code/', views_crush_cache.cache_manual_code, name='cache_manual_code'),
     path('events/<int:event_id>/cache/api/position/', views_crush_cache.cache_position_api, name='cache_position_api'),
     path('events/<int:event_id>/cache/api/challenge/<int:challenge_id>/answer/', views_crush_cache.cache_answer_api, name='cache_answer_api'),
     path('events/<int:event_id>/cache/api/challenge/<int:challenge_id>/hint/<int:hint_number>/', views_crush_cache.cache_hint_api, name='cache_hint_api'),
@@ -411,6 +412,7 @@ urlpatterns = [
     path('events/<int:event_id>/cache/coach/finish/', views_crush_cache.cache_coach_finish, name='cache_coach_finish'),
     path('events/<int:event_id>/cache/coach/auto-teams/', views_crush_cache.cache_coach_auto_teams, name='cache_coach_auto_teams'),
     path('events/<int:event_id>/cache/coach/api/state/', views_crush_cache.cache_coach_state_api, name='cache_coach_state_api'),
+    path('events/<int:event_id>/cache/coach/qr-sheet/', views_crush_cache.cache_coach_qr_sheet, name='cache_coach_qr_sheet'),
 
     # Voting Demo/Guided Tour
     path('voting-demo/', views.voting_demo, name='voting_demo'),

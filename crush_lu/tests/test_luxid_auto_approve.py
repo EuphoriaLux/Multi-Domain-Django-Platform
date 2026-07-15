@@ -765,3 +765,42 @@ class TestLuxidProfileDataOverwrite(TestCase):
         profile.refresh_from_db()
         self.assertFalse(profile.phone_verified)
         self.assertEqual(profile.phone_number, "")
+
+
+@override_settings(**CRUSH_LU_URL_SETTINGS)
+class TestAutoApproveExpiredLatestInvariant(TestCase):
+    """When the newest submission is expired (pivot cleanup), LuxID connect
+    verifies the profile directly but must not resurrect an older pending
+    row to approved — the member is a self-serve case, not a legacy review."""
+
+    def setUp(self):
+        crush_signals._thread_local.is_crush_luxid_login = True
+        self.user, self.profile, self.older_pending = (
+            _make_user_with_pending_profile()
+        )
+        self.expired = ProfileSubmission.objects.create(
+            profile=self.profile, status="expired"
+        )
+        self.request = _make_request(host="crush.lu")
+
+    def tearDown(self):
+        crush_signals._thread_local.is_crush_luxid_login = False
+
+    @patch("crush_lu.referrals.check_and_apply_profile_approved_reward")
+    @patch("crush_lu.notification_service.notify_profile_approved")
+    def test_profile_verified_but_older_pending_untouched(
+        self, mock_notify, mock_reward
+    ):
+        sl = _make_sociallogin(self.user, provider="luxid")
+        social_account_added.send(
+            sender=SocialAccount, request=self.request, sociallogin=sl
+        )
+
+        self.profile.refresh_from_db()
+        self.older_pending.refresh_from_db()
+        self.expired.refresh_from_db()
+        self.assertTrue(self.profile.is_approved)
+        self.assertEqual(self.profile.verification_status, "verified")
+        self.assertEqual(self.older_pending.status, "pending")
+        self.assertIsNone(self.older_pending.reviewed_at)
+        self.assertEqual(self.expired.status, "expired")

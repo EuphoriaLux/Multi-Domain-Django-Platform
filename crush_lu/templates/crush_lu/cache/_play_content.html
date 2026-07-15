@@ -1,35 +1,92 @@
 {% load i18n %}
 {# The single HTMX-swappable play region. Every answer/hint post returns it. #}
+{# Transient flags (celebrated_station, just_correct, just_wrong) come from #}
+{# the answer view only — a refresh always re-derives plain state from DB.  #}
 <div id="play-content">
 
-    {% if progress.is_finished or hunt.status == 'finished' %}
-    <div class="rounded-xl border border-green-500 bg-green-50 dark:bg-green-900/30 p-6 text-center">
-        <h2 class="text-xl font-bold text-green-700 dark:text-green-300">🏁 {% trans "You made it!" %}</h2>
-        <p class="mt-2 text-green-800 dark:text-green-200">
+    {% if rate_limited %}
+    <div class="mb-4 rounded-xl border border-amber-400 bg-amber-50 dark:bg-amber-900/30 px-4 py-3 text-center text-sm font-semibold text-amber-800 dark:text-amber-200" role="alert">
+        ⏳ {% trans "Too many attempts. Take a breath and try again in a minute." %}
+    </div>
+    {% endif %}
+
+    {% if celebrated_station %}
+    {# --- Station / hunt completed celebration --- #}
+    {# The id is load-bearing: cache-play.js suspends GPS navigation while #}
+    {# this card is on screen (the shell data is stale — progress already  #}
+    {# points at the next station), so the Continue link owns the reload.  #}
+    <div id="cache-celebration"
+         class="cache-pop rounded-2xl border-2 border-crush-purple bg-gradient-to-br from-crush-purple/10 to-crush-pink/10 dark:from-crush-purple/20 dark:to-crush-pink/20 p-8 text-center shadow-crush-md"
+         role="status">
+        <div class="mx-auto w-24">
+            {% include "crush_lu/includes/ghost-logo-animated.html" with class="w-24 h-24" %}
+        </div>
+        {% if hunt_completed %}
+        <h2 class="mt-4 font-display text-3xl font-bold">🏁 {% trans "Hunt complete!" %}</h2>
+        {% else %}
+        <h2 class="mt-4 font-display text-3xl font-bold">{% trans "Station complete!" %}</h2>
+        {% endif %}
+        <p class="mt-3 text-4xl font-extrabold text-crush-purple dark:text-purple-300">
+            +{{ celebrated_points }} {% trans "pts" %}
+        </p>
+        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+            {% blocktrans with total=progress.total_points %}{{ total }} points in total{% endblocktrans %}
+        </p>
+        {% if celebrated_station.completion_message %}
+        <p class="mt-4 text-gray-700 dark:text-gray-200">{{ celebrated_station.completion_message }}</p>
+        {% endif %}
+        {% if hunt_completed %}
+        <a href="{% url 'crush_lu:cache_play' event.id %}" class="btn-crush-primary mt-6 inline-block w-full py-4">
+            {% trans "See results" %} →
+        </a>
+        {% else %}
+        <a href="{% url 'crush_lu:cache_play' event.id %}" class="btn-crush-primary mt-6 inline-block w-full py-4">
+            {% trans "On to the next station" %} →
+        </a>
+        {% endif %}
+    </div>
+
+    {% elif progress.is_finished or hunt.status == 'finished' %}
+    <div class="rounded-2xl border border-gray-200 dark:border-gray-700 p-8 text-center shadow-crush-sm">
+        <div class="mx-auto w-20 ghost-glow">
+            {% include "crush_lu/includes/ghost-logo-animated.html" with class="w-20 h-20" %}
+        </div>
+        <h2 class="mt-4 font-display text-2xl font-bold">🏁 {% trans "You made it!" %}</h2>
+        <p class="mt-2 text-gray-600 dark:text-gray-300">
             {% blocktrans with points=progress.total_points %}Your team finished with {{ points }} points.{% endblocktrans %}
         </p>
-        <a href="{% url 'crush_lu:cache_play' event.id %}" class="btn-crush-primary mt-4 inline-block px-6 py-2">
-            {% trans "See Results" %}
+        <a href="{% url 'crush_lu:cache_play' event.id %}" class="btn-crush-primary mt-5 inline-block w-full py-4">
+            {% trans "See results" %}
         </a>
     </div>
 
     {% elif not station %}
-    <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-6 text-center text-gray-500 dark:text-gray-400">
-        {% trans "Waiting for the hunt to start…" %}
+    <div class="rounded-2xl border border-gray-200 dark:border-gray-700 p-8 text-center shadow-crush-sm">
+        <div class="mx-auto w-16 animate-pulse motion-reduce:animate-none">
+            {% include "crush_lu/includes/ghost-logo-animated.html" with class="w-16 h-16" %}
+        </div>
+        <p class="mt-4 text-gray-600 dark:text-gray-300">{% trans "Waiting for the hunt to start…" %}</p>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{% trans "This page refreshes by itself when the coach opens the course." %}</p>
     </div>
 
     {% else %}
 
-    {# --- Station header --- #}
-    <div class="mb-4 flex items-center justify-between">
-        <div>
-            <p class="text-xs font-semibold uppercase tracking-wide text-purple-500">
+    {# --- Expedition header: where you are in the hunt --- #}
+    <div class="mb-4 rounded-2xl bg-gradient-to-r from-crush-purple to-crush-pink p-4 text-white shadow-crush-md dark:brightness-90">
+        <div class="flex items-center justify-between gap-2">
+            <p class="text-xs font-semibold uppercase tracking-widest text-white/80">
                 {% blocktrans with order=station.order total=station_count %}Station {{ order }} of {{ total }}{% endblocktrans %}
             </p>
-            <h2 class="text-xl font-bold">{{ station.name }}</h2>
+            <p class="rounded-full bg-white/20 px-3 py-0.5 text-sm font-bold" aria-label="{% trans 'Team points' %}">
+                {{ progress.total_points }} {% trans "pts" %}
+            </p>
         </div>
-        <div class="rounded-full bg-purple-100 dark:bg-purple-900/50 px-4 py-1 text-sm font-bold text-purple-700 dark:text-purple-300">
-            {{ progress.total_points }} {% trans "pts" %}
+        <h2 class="mt-1 font-display text-2xl font-bold leading-tight">{{ station.name }}</h2>
+        <div class="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/25"
+             role="progressbar" aria-valuemin="0" aria-valuemax="{{ station_count }}"
+             aria-valuenow="{{ station.order|add:'-1' }}"
+             aria-label="{% trans 'Stations completed' %}">
+            <div class="h-full rounded-full bg-white" style="width: {% widthratio station.order|add:'-1' station_count 100 %}%"></div>
         </div>
     </div>
 
@@ -37,45 +94,56 @@
 
     {# --- Navigate / unlock state --- #}
     {% if station.intro_text %}
-    <div class="mb-4 rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-gray-700 dark:text-gray-200">
+    <div class="mb-4 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 text-gray-700 dark:text-gray-200 shadow-crush-sm">
         {{ station.intro_text|linebreaks }}
     </div>
     {% endif %}
     {% if station.photo %}
-    <img src="{{ station.photo.url }}" alt="{{ station.name }}" class="mb-4 w-full rounded-xl">
+    <img src="{{ station.photo.url }}" alt="{{ station.name }}" class="mb-4 w-full rounded-2xl">
     {% endif %}
 
     {% if station.requires_gps and not attempt.arrived_at %}
-    <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-4 text-center">
-        <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Get to the location to unlock this station." %}</p>
+    <div class="rounded-2xl border border-gray-200 dark:border-gray-700 p-6 text-center shadow-crush-sm">
+        <p class="text-sm text-gray-600 dark:text-gray-300">{% trans "Get to the location to unlock this station." %}</p>
 
         {# Live distance/compass readout — filled in by cache-play.js #}
-        <div class="mt-3" x-show="geoSupported" x-cloak>
-            <div class="text-3xl font-bold" x-text="distanceDisplay">—</div>
+        <div class="mt-4" x-show="geoSupported" x-cloak>
+            <div class="font-display text-6xl font-bold tabular-nums leading-none" x-text="distanceDisplay">…</div>
+            <p class="mt-1 text-xs uppercase tracking-widest text-gray-500 dark:text-gray-400">{% trans "to go" %}</p>
             {% if hunt.navigation_mode == 'compass' %}
-            <div class="mx-auto mt-2 h-12 w-12 transition-transform" :style="arrowStyle">
-                <svg viewBox="0 0 24 24" fill="currentColor" class="h-12 w-12 text-purple-500">
+            <div class="mx-auto mt-4 h-14 w-14 transition-transform motion-reduce:transition-none" :style="arrowStyle">
+                <svg viewBox="0 0 24 24" fill="currentColor" class="h-14 w-14 text-crush-purple" aria-hidden="true">
                     <path d="M12 2L4.5 20.3a.5.5 0 0 0 .7.6L12 17l6.8 3.9a.5.5 0 0 0 .7-.6L12 2z"/>
                 </svg>
             </div>
+            {# iOS only fires orientation events after an explicit user-gesture grant #}
+            <button type="button" x-show="compassNeedsPermission" x-cloak
+                    x-on:click="enableCompass"
+                    class="btn-crush-outline btn-sm mt-3">
+                🧭 {% trans "Enable compass" %}
+            </button>
             {% endif %}
-            <p class="mt-2 text-xs text-gray-400" x-text="gpsStatus"></p>
+            <p class="mt-3 text-xs text-gray-500 dark:text-gray-400" x-text="gpsStatus"></p>
+            <div class="mt-3 rounded-xl bg-amber-50 dark:bg-amber-900/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200 text-left"
+                 x-show="gpsDenied" x-cloak>
+                {% trans "Location is blocked. Allow location access for this site in your browser settings, or let a teammate with GPS lead the way." %}
+            </div>
         </div>
-        <div class="mt-3 text-sm text-amber-600 dark:text-amber-400" x-show="!geoSupported" x-cloak>
+        <div class="mt-3 text-sm text-amber-700 dark:text-amber-300" x-show="geoUnsupported" x-cloak>
             {% trans "Location is unavailable on this device. Ask a teammate to navigate!" %}
         </div>
     </div>
     {% endif %}
 
     {% if station.requires_qr %}
-    <div class="mt-4 text-center">
+    <div class="mt-4 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 text-center shadow-crush-sm">
         {% if not station.requires_gps or attempt.arrived_at %}
-        <p class="mb-2 text-sm text-gray-500 dark:text-gray-400">{% trans "Find the QR code and scan it." %}</p>
-        <a href="{% url 'crush_lu:cache_scanner' event.id %}" class="btn-crush-primary inline-block px-6 py-3">
-            📷 {% trans "Open Scanner" %}
+        <p class="mb-3 text-sm text-gray-600 dark:text-gray-300">{% trans "Find the QR code and scan it." %}</p>
+        <a href="{% url 'crush_lu:cache_scanner' event.id %}" class="btn-crush-primary inline-block w-full py-4">
+            📷 {% trans "Open scanner" %}
         </a>
         {% else %}
-        <p class="text-sm text-gray-400">{% trans "Reach the location first, then scan the QR code you find there." %}</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Reach the location first, then scan the QR code you find there." %}</p>
         {% endif %}
     </div>
     {% endif %}
@@ -83,9 +151,12 @@
     {% else %}
 
     {# --- Challenge state --- #}
-    {% if attempt.arrived_at or attempt.scanned_at %}
-    <div class="mb-4 rounded-lg bg-green-50 dark:bg-green-900/30 px-4 py-2 text-center text-sm text-green-700 dark:text-green-300">
-        ✅ {% trans "Station unlocked" %}
+
+    {% if just_correct %}
+    <div class="cache-pop mb-4 rounded-2xl bg-green-50 dark:bg-green-900/30 border border-green-500 px-4 py-3 text-center text-green-800 dark:text-green-200"
+         role="status">
+        <span class="font-bold">✓ {% trans "Correct!" %}</span>
+        {% if just_correct_message %}<span class="block mt-1 text-sm">{{ just_correct_message }}</span>{% endif %}
     </div>
     {% endif %}
 
@@ -93,14 +164,19 @@
     {% if challenge_states|length > 1 %}
     <div class="mb-4 flex justify-center gap-2">
         {% for challenge, ca in challenge_states %}
-        <span class="inline-block h-2.5 w-2.5 rounded-full {% if ca and ca.is_correct %}bg-green-500{% elif challenge == current_challenge %}bg-purple-500{% else %}bg-gray-300 dark:bg-gray-600{% endif %}"></span>
+        <span class="inline-block h-3 w-3 rounded-full {% if ca and ca.is_correct %}bg-green-500{% elif challenge == current_challenge %}bg-crush-purple{% else %}bg-gray-300 dark:bg-gray-600{% endif %}">
+            <span class="sr-only">
+                {% blocktrans with num=forloop.counter total=challenge_states|length %}Challenge {{ num }} of {{ total }}{% endblocktrans %}
+                {% if ca and ca.is_correct %}{% trans "(solved)" %}{% elif challenge == current_challenge %}{% trans "(current)" %}{% endif %}
+            </span>
+        </span>
         {% endfor %}
     </div>
     {% endif %}
 
     {% if current_challenge %}
-    <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-5">
-        <p class="text-lg font-medium">{{ current_challenge.question|linebreaks }}</p>
+    <div class="rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-crush-sm {% if just_wrong %}cache-shake{% endif %}">
+        <div class="text-lg font-medium">{{ current_challenge.question|linebreaks }}</div>
 
         <form hx-post="{% url 'crush_lu:cache_answer_api' event.id current_challenge.id %}"
               hx-target="#play-content" hx-swap="outerHTML"
@@ -109,10 +185,10 @@
             {% csrf_token %}
 
             {% if current_challenge.challenge_type == 'multiple_choice' and current_challenge.options %}
-            <div class="space-y-2">
+            <div class="space-y-2" role="radiogroup" aria-label="{% trans 'Answer choices' %}">
                 {% for key, value in current_challenge.options.items %}
-                <label class="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-3 has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50 dark:has-[:checked]:bg-purple-900/30">
-                    <input type="radio" name="answer" value="{{ key }}" class="text-purple-600" required>
+                <label class="flex min-h-13 cursor-pointer items-center gap-3 rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-3 transition-colors focus-within:ring-2 focus-within:ring-crush-purple has-[:checked]:border-crush-purple has-[:checked]:bg-purple-50 dark:has-[:checked]:bg-purple-900/30 active:scale-[.99]">
+                    <input type="radio" name="answer" value="{{ key }}" class="text-crush-purple" required>
                     <span class="font-bold">{{ key }}</span>
                     <span>{{ value }}</span>
                 </label>
@@ -120,61 +196,100 @@
             </div>
             {% elif current_challenge.challenge_type == 'photo_task' %}
             <input type="file" name="photo" accept="image/*" capture="environment" required
-                   class="w-full rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2">
+                   class="input-crush w-full">
             <input type="hidden" name="answer" value="">
             {% else %}
             <input type="text" name="answer" autocomplete="off" required
+                   autocapitalize="off" autocorrect="off" spellcheck="false"
+                   {% if just_wrong and current_challenge_attempt %}value="{{ current_challenge_attempt.last_answer }}"{% endif %}
                    placeholder="{% trans 'Your answer' %}"
-                   class="w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-3">
+                   class="input-crush w-full text-lg">
             {% endif %}
 
-            <button type="submit" class="btn-crush-primary w-full px-6 py-3">
-                {% trans "Submit Answer" %}
+            <button type="submit" class="btn-crush-primary w-full py-4">
+                {% trans "Submit answer" %}
             </button>
         </form>
 
-        {% if current_challenge_attempt and current_challenge_attempt.attempts_count > 0 and not current_challenge_attempt.is_correct %}
-        <p class="mt-3 text-center text-sm text-red-500">
+        {% if just_wrong and current_challenge_attempt and not current_challenge_attempt.is_correct %}
+        <p class="mt-3 text-center text-sm font-semibold text-red-600 dark:text-red-400" role="status">
             {% blocktrans with count=current_challenge_attempt.attempts_count %}Not quite — {{ count }} tries so far. Keep going!{% endblocktrans %}
+        </p>
+        {% elif current_challenge_attempt and current_challenge_attempt.attempts_count > 0 and not current_challenge_attempt.is_correct %}
+        <p class="mt-3 text-center text-sm text-gray-500 dark:text-gray-400">
+            {% blocktrans with count=current_challenge_attempt.attempts_count %}{{ count }} tries so far.{% endblocktrans %}
         </p>
         {% endif %}
 
-        {# --- Hints --- #}
+        {# --- Hints: two taps, so a stray thumb can't spend points --- #}
         {% if current_challenge.hint_1 or current_challenge.hint_2 or current_challenge.hint_3 %}
-        <div class="mt-5 border-t border-gray-200 dark:border-gray-700 pt-4">
-            <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">{% trans "Hints (cost points)" %}</p>
+        <div class="mt-5 border-t border-gray-200 dark:border-gray-700 pt-4" x-data="cacheHints">
+            <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{% trans "Hints (cost points)" %}</p>
             <div class="space-y-2">
                 {% if current_challenge.hint_1 %}
                 {% if 1 in current_hints_used %}
-                <div class="rounded-lg bg-amber-50 dark:bg-amber-900/30 px-4 py-2 text-sm text-amber-800 dark:text-amber-200">💡 {{ current_challenge.hint_1 }}</div>
+                <div class="rounded-xl bg-amber-50 dark:bg-amber-900/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">💡 {{ current_challenge.hint_1 }}</div>
                 {% else %}
-                <button hx-post="{% url 'crush_lu:cache_hint_api' event.id current_challenge.id 1 %}"
-                        hx-target="#play-content" hx-swap="outerHTML"
-                        class="w-full rounded-lg border border-amber-300 px-4 py-2 text-sm text-amber-700 dark:text-amber-300">
+                <button type="button" data-hint="1" x-on:click="armHint" x-show="hint1Idle"
+                        class="w-full rounded-xl border border-amber-400 px-4 py-3 text-sm font-medium text-amber-700 dark:text-amber-300">
                     💡 {% trans "Hint 1" %} (−{{ current_challenge.hint_1_cost }} {% trans "pts" %})
                 </button>
+                <div class="flex items-center gap-2 rounded-xl border border-amber-400 bg-amber-50 dark:bg-amber-900/30 px-3 py-2"
+                     x-show="hint1Armed" x-cloak>
+                    <span class="flex-1 text-sm text-amber-800 dark:text-amber-200">{% blocktrans with cost=current_challenge.hint_1_cost %}Reveal for −{{ cost }} pts?{% endblocktrans %}</span>
+                    <button hx-post="{% url 'crush_lu:cache_hint_api' event.id current_challenge.id 1 %}"
+                            hx-target="#play-content" hx-swap="outerHTML"
+                            class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white">
+                        {% trans "Reveal" %}
+                    </button>
+                    <button type="button" x-on:click="disarm" class="px-2 py-2 text-sm text-gray-500 dark:text-gray-400">
+                        {% trans "Cancel" %}
+                    </button>
+                </div>
                 {% endif %}
                 {% endif %}
                 {% if current_challenge.hint_2 %}
                 {% if 2 in current_hints_used %}
-                <div class="rounded-lg bg-amber-50 dark:bg-amber-900/30 px-4 py-2 text-sm text-amber-800 dark:text-amber-200">💡 {{ current_challenge.hint_2 }}</div>
+                <div class="rounded-xl bg-amber-50 dark:bg-amber-900/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">💡 {{ current_challenge.hint_2 }}</div>
                 {% else %}
-                <button hx-post="{% url 'crush_lu:cache_hint_api' event.id current_challenge.id 2 %}"
-                        hx-target="#play-content" hx-swap="outerHTML"
-                        class="w-full rounded-lg border border-amber-300 px-4 py-2 text-sm text-amber-700 dark:text-amber-300">
+                <button type="button" data-hint="2" x-on:click="armHint" x-show="hint2Idle"
+                        class="w-full rounded-xl border border-amber-400 px-4 py-3 text-sm font-medium text-amber-700 dark:text-amber-300">
                     💡 {% trans "Hint 2" %} (−{{ current_challenge.hint_2_cost }} {% trans "pts" %})
                 </button>
+                <div class="flex items-center gap-2 rounded-xl border border-amber-400 bg-amber-50 dark:bg-amber-900/30 px-3 py-2"
+                     x-show="hint2Armed" x-cloak>
+                    <span class="flex-1 text-sm text-amber-800 dark:text-amber-200">{% blocktrans with cost=current_challenge.hint_2_cost %}Reveal for −{{ cost }} pts?{% endblocktrans %}</span>
+                    <button hx-post="{% url 'crush_lu:cache_hint_api' event.id current_challenge.id 2 %}"
+                            hx-target="#play-content" hx-swap="outerHTML"
+                            class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white">
+                        {% trans "Reveal" %}
+                    </button>
+                    <button type="button" x-on:click="disarm" class="px-2 py-2 text-sm text-gray-500 dark:text-gray-400">
+                        {% trans "Cancel" %}
+                    </button>
+                </div>
                 {% endif %}
                 {% endif %}
                 {% if current_challenge.hint_3 %}
                 {% if 3 in current_hints_used %}
-                <div class="rounded-lg bg-amber-50 dark:bg-amber-900/30 px-4 py-2 text-sm text-amber-800 dark:text-amber-200">💡 {{ current_challenge.hint_3 }}</div>
+                <div class="rounded-xl bg-amber-50 dark:bg-amber-900/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">💡 {{ current_challenge.hint_3 }}</div>
                 {% else %}
-                <button hx-post="{% url 'crush_lu:cache_hint_api' event.id current_challenge.id 3 %}"
-                        hx-target="#play-content" hx-swap="outerHTML"
-                        class="w-full rounded-lg border border-amber-300 px-4 py-2 text-sm text-amber-700 dark:text-amber-300">
+                <button type="button" data-hint="3" x-on:click="armHint" x-show="hint3Idle"
+                        class="w-full rounded-xl border border-amber-400 px-4 py-3 text-sm font-medium text-amber-700 dark:text-amber-300">
                     💡 {% trans "Hint 3" %} (−{{ current_challenge.hint_3_cost }} {% trans "pts" %})
                 </button>
+                <div class="flex items-center gap-2 rounded-xl border border-amber-400 bg-amber-50 dark:bg-amber-900/30 px-3 py-2"
+                     x-show="hint3Armed" x-cloak>
+                    <span class="flex-1 text-sm text-amber-800 dark:text-amber-200">{% blocktrans with cost=current_challenge.hint_3_cost %}Reveal for −{{ cost }} pts?{% endblocktrans %}</span>
+                    <button hx-post="{% url 'crush_lu:cache_hint_api' event.id current_challenge.id 3 %}"
+                            hx-target="#play-content" hx-swap="outerHTML"
+                            class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white">
+                        {% trans "Reveal" %}
+                    </button>
+                    <button type="button" x-on:click="disarm" class="px-2 py-2 text-sm text-gray-500 dark:text-gray-400">
+                        {% trans "Cancel" %}
+                    </button>
+                </div>
                 {% endif %}
                 {% endif %}
             </div>

@@ -1083,6 +1083,25 @@ def coach_review_profile(request, submission_id):
 
     submission = get_object_or_404(ProfileSubmission, id=submission_id, coach=coach)
 
+    # "expired" rows were closed out by the post-pivot cleanup and their
+    # users routed to self-serve verification. A stale /coach/review/<id>/
+    # link must not let a coach re-open one and pull the user back into
+    # the legacy review flow — nor an older assigned row hidden behind a
+    # newer expired row (latest_for_profile None ⇒ the member's newest
+    # submission is expired, so they are a self-serve case).
+    if (
+        submission.status == "expired"
+        or ProfileSubmission.latest_for_profile(submission.profile) is None
+    ):
+        messages.info(
+            request,
+            _(
+                "This submission was closed out — the member now verifies "
+                "their identity self-serve. It can no longer be reviewed."
+            ),
+        )
+        return redirect("crush_lu:coach_profiles")
+
     # Block changes to already-reviewed submissions
     if submission.status in ("approved", "rejected") and submission.reviewed_at:
         messages.info(
@@ -2065,6 +2084,22 @@ def coach_event_detail(request, event_id):
 
     has_quiz = hasattr(event, "quiz")
 
+    from django.conf import settings as django_settings
+
+    # Crush Cache Control links (header button + Event Control card): only
+    # render them for coaches who can actually open the hunt dashboard.
+    # The feature must be enabled, the hunt row must exist (the dashboard
+    # 404s without it), and cache_coach_dashboard denies coaches who
+    # neither created the hunt nor are assigned to the event
+    # (_can_manage_hunt) — anything less renders a dead link.
+    can_manage_cache_hunt = getattr(
+        django_settings, "CRUSH_CACHE_ENABLED", False
+    ) and hasattr(event, "cache_hunt")
+    if can_manage_cache_hunt:
+        from .views_crush_cache import _can_manage_hunt
+
+        can_manage_cache_hunt = _can_manage_hunt(request.user, event.cache_hunt)
+
     # Per-coach recap: of users this coach onboarded (approved), how many
     # attended, how many sent connection requests, how many had a mutual
     # match, and how many connections of theirs still need an intro approved.
@@ -2158,6 +2193,7 @@ def coach_event_detail(request, event_id):
         "spark_count": spark_count,
         "sparks_pending": sparks_pending,
         "has_quiz": has_quiz,
+        "can_manage_cache_hunt": can_manage_cache_hunt,
         "feedback_summary": feedback_summary,
         "feedback_responses": feedback_responses,
         "coach_recap": coach_recap,
@@ -2275,7 +2311,7 @@ def coach_event_sms_invite(request, event_id):
     from datetime import date
     from urllib.parse import quote
 
-    from django.db.models import Q
+    from django.db.models import OuterRef, Q, Subquery
     from django.urls import reverse
     from django.utils.formats import date_format
 
@@ -2330,12 +2366,23 @@ def coach_event_sms_invite(request, event_id):
 
     if event.profile_requirement == "unverified":
         # Current behavior: pending/recontact submissions + profiles with no submission
+        latest_status_for_submission = Subquery(
+            ProfileSubmission.objects.filter(profile=OuterRef("profile_id"))
+            .order_by("-submitted_at")
+            .values("status")[:1]
+        )
         pending_submissions_qs = (
             ProfileSubmission.objects.filter(
                 status__in=["pending", "recontact_coach"],
             )
             .filter(sub_phone_q)
             .filter(sub_age_q)
+            # De-dupe against the expired-latest pool below: a profile whose
+            # newest row is expired lands there as "no submission", so an
+            # older surviving pending/recontact row must not list the same
+            # member a second time here.
+            .annotate(profile_latest_status=latest_status_for_submission)
+            .exclude(profile_latest_status="expired")
         )
         if has_language_filter:
             pending_submissions_qs = pending_submissions_qs.filter(sub_lang_q)
@@ -2343,11 +2390,26 @@ def coach_event_sms_invite(request, event_id):
             "profile__user", "coach__user"
         ).order_by("submitted_at")
 
+        # "No submission" here follows the expired-latest invariant: a profile
+        # whose newest submission is expired (closed out by the pivot cleanup)
+        # behaves like one with no submission at all, so that cohort stays
+        # invitable to unverified/entry events. Approved profiles are excluded
+        # to mirror event_register, which rejects is_approved users for
+        # unverified events — e.g. a cleanup user who has since verified via
+        # LuxID while their expired row remains the latest.
+        latest_submission_status = Subquery(
+            ProfileSubmission.objects.filter(profile=OuterRef("pk"))
+            .order_by("-submitted_at")
+            .values("status")[:1]
+        )
         profile_pool_qs = (
             CrushProfile.objects.filter(phone_q)
             .filter(age_filter)
-            .exclude(
-                id__in=ProfileSubmission.objects.values_list("profile_id", flat=True)
+            .filter(is_approved=False)
+            .annotate(latest_submission_status=latest_submission_status)
+            .filter(
+                Q(latest_submission_status__isnull=True)
+                | Q(latest_submission_status="expired")
             )
         )
         if has_language_filter:
@@ -2417,11 +2479,19 @@ def coach_event_sms_invite(request, event_id):
         ).values_list("submission_id", flat=True)
     )
 
-    # Get IDs of profiles (without submission) already sent an invite
+    # Get IDs of profiles (without submission) already sent an invite.
+    # Also counts attempts logged against a submission — e.g. an invite sent
+    # while the row was still pending before the pivot cleanup expired it —
+    # so an expired-latest profile landing in the no-submission pool keeps
+    # its sent state instead of inviting the member twice.
     already_sent_profile_ids = set(
         CallAttempt.objects.filter(
             event=event, result="event_invite_sms", profile__isnull=False
         ).values_list("profile_id", flat=True)
+    ) | set(
+        CallAttempt.objects.filter(
+            event=event, result="event_invite_sms", submission__isnull=False
+        ).values_list("submission__profile_id", flat=True)
     )
 
     # Users already registered for this event

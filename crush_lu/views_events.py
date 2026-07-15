@@ -994,6 +994,14 @@ def event_register(request, event_id):
 
                 if cancelled_registration:
                     registration = cancelled_registration
+                    # A re-registration is treated as brand new (its
+                    # registered_at is reset below), so drop any stale hunt-team
+                    # membership tied to this row. Otherwise reconfirming it
+                    # would silently reactivate the old CacheTeamMember: the
+                    # active-only member_count() freed the slot on cancellation,
+                    # a replacement may have taken it, and the team would then
+                    # exceed team_size_max. The user re-joins a team afresh.
+                    registration.cache_memberships.all().delete()
                     registration.dietary_restrictions = form.cleaned_data.get(
                         "dietary_restrictions", ""
                     )

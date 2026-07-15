@@ -482,6 +482,7 @@ class MeetupEvent(models.Model):
         """Crush Cache lobby button visible during event + 2 days after."""
         return (
             self.event_type == "crush_cache"
+            and hasattr(self, "cache_hunt")
             and timezone.now() <= self.end_time + timedelta(days=2)
         )
 

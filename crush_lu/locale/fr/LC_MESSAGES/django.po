@@ -35416,3 +35416,333 @@ msgstr ""
 "Pour l'instant, les coachs peuvent proposer votre profil à d'autres membres."
 " Avec Premium, un coach personnel choisit un match pour vous chaque semaine "
 "— plus un Drop quotidien de nouveaux visages."
+
+msgid "Hunt complete!"
+msgstr "Chasse terminée !"
+
+msgid "Station complete!"
+msgstr "Station terminée !"
+
+#, python-format
+msgid "%(total)s points in total"
+msgstr "%(total)s points au total"
+
+msgid "See results"
+msgstr "Voir les résultats"
+
+msgid "On to the next station"
+msgstr "En route vers la prochaine station"
+
+msgid "You made it!"
+msgstr "Vous y êtes arrivés !"
+
+#, python-format
+msgid "Your team finished with %(points)s points."
+msgstr "Votre équipe a terminé avec %(points)s points."
+
+msgid "Waiting for the hunt to start…"
+msgstr "En attente du début de la chasse…"
+
+msgid "This page refreshes by itself when the coach opens the course."
+msgstr ""
+"Cette page se met à jour automatiquement dès que le coach lance le parcours."
+
+#, python-format
+msgid "Station %(order)s of %(total)s"
+msgstr "Station %(order)s sur %(total)s"
+
+msgid "Team points"
+msgstr "Points de l'équipe"
+
+msgid "Stations completed"
+msgstr "Stations terminées"
+
+msgid "Get to the location to unlock this station."
+msgstr "Rejoignez le lieu pour débloquer cette station."
+
+msgid "to go"
+msgstr "à parcourir"
+
+msgid "Enable compass"
+msgstr "Activer la boussole"
+
+msgid ""
+"Location is blocked. Allow location access for this site in your browser "
+"settings, or let a teammate with GPS lead the way."
+msgstr ""
+"La localisation est bloquée. Autorisez l'accès à la position pour ce site "
+"dans les réglages de votre navigateur, ou laissez un coéquipier avec GPS "
+"ouvrir la voie."
+
+msgid "Location is unavailable on this device. Ask a teammate to navigate!"
+msgstr ""
+"La localisation n'est pas disponible sur cet appareil. Demandez à un "
+"coéquipier de vous guider !"
+
+msgid "Find the QR code and scan it."
+msgstr "Trouvez le code QR et scannez-le."
+
+msgid "Open scanner"
+msgstr "Ouvrir le scanner"
+
+msgid "Reach the location first, then scan the QR code you find there."
+msgstr ""
+"Rejoignez d'abord le lieu, puis scannez le code QR que vous y trouverez."
+
+#, python-format
+msgid "Challenge %(num)s of %(total)s"
+msgstr "Défi %(num)s sur %(total)s"
+
+msgid "(solved)"
+msgstr "(résolu)"
+
+msgid "Answer choices"
+msgstr "Choix de réponse"
+
+msgid "Submit answer"
+msgstr "Envoyer la réponse"
+
+#, python-format
+msgid "Not quite — %(count)s tries so far. Keep going!"
+msgstr "Pas tout à fait — %(count)s essais pour l'instant. Continuez !"
+
+#, python-format
+msgid "%(count)s tries so far."
+msgstr "%(count)s essais pour l'instant."
+
+msgid "Hints (cost points)"
+msgstr "Indices (coûtent des points)"
+
+#, python-format
+msgid "Reveal for −%(cost)s pts?"
+msgstr "Révéler pour −%(cost)s pts ?"
+
+msgid "Reveal"
+msgstr "Révéler"
+
+msgid "Location permission denied"
+msgstr "Accès à la position refusé"
+
+msgid "Waiting for GPS…"
+msgstr "En attente du GPS…"
+
+msgid "GPS accuracy: ±{n} m"
+msgstr "Précision GPS : ±{n} m"
+
+msgid "You've arrived!"
+msgstr "Vous y êtes !"
+
+msgid "Scan Station Code"
+msgstr "Scanner le code de la station"
+
+msgid "Point your camera at the QR code you found at the station."
+msgstr "Pointez votre caméra vers le code QR trouvé à la station."
+
+msgid "Looking for QR code…"
+msgstr "Recherche du code QR…"
+
+msgid "Camera not working? Type the short code printed under the QR:"
+msgstr ""
+"La caméra ne fonctionne pas ? Saisissez le code court imprimé sous le QR :"
+
+msgid "e.g. ABC123"
+msgstr "ex. ABC123"
+
+msgid "Submit code"
+msgstr "Envoyer le code"
+
+msgid "Back to the hunt"
+msgstr "Retour à la chasse"
+
+msgid "The hunt is live!"
+msgstr "La chasse est lancée !"
+
+msgid "This hunt has finished."
+msgstr "Cette chasse est terminée."
+
+msgid "You need to be registered for this event to play."
+msgstr "Vous devez être inscrit à cet événement pour jouer."
+
+msgid "View event"
+msgstr "Voir l'événement"
+
+msgid "Your team"
+msgstr "Votre équipe"
+
+msgid "Join code:"
+msgstr "Code d'équipe :"
+
+msgid "Copy code"
+msgstr "Copier le code"
+
+msgid "Join code copied — shout it or share it!"
+msgstr "Code copié — criez-le ou partagez-le !"
+
+msgid "Start playing"
+msgstr "Commencer à jouer"
+
+msgid "Waiting for the coach to start the hunt…"
+msgstr "En attente du lancement par le coach…"
+
+msgid "Leave team"
+msgstr "Quitter l'équipe"
+
+msgid "Join a team"
+msgstr "Rejoindre une équipe"
+
+msgid "Team code"
+msgstr "Code d'équipe"
+
+msgid "New team name"
+msgstr "Nom de la nouvelle équipe"
+
+msgid "Create"
+msgstr "Créer"
+
+msgid "Your coach will assign you to a team."
+msgstr "Votre coach vous attribuera une équipe."
+
+msgid "Team up"
+msgstr "Faites équipe"
+
+msgid "Join with a code or start your own"
+msgstr "Rejoignez avec un code ou créez la vôtre"
+
+msgid "Follow the clues"
+msgstr "Suivez les indices"
+
+msgid "Reach each station on foot"
+msgstr "Rejoignez chaque station à pied"
+
+msgid "Solve for points"
+msgstr "Résolvez pour des points"
+
+msgid "Answer challenges, top the board"
+msgstr "Répondez aux défis, dominez le classement"
+
+msgid "Teams"
+msgstr "Équipes"
+
+msgid "Hunt Results"
+msgstr "Résultats de la chasse"
+
+#, python-format
+msgid "Rank #%(rank)s of %(total)s teams"
+msgstr "Rang %(rank)s sur %(total)s équipes"
+
+msgid "Other teams are still out hunting — standings update as they play."
+msgstr ""
+"D'autres équipes sont encore en chasse — le classement se met à jour en "
+"continu."
+
+msgid "Your route"
+msgstr "Votre parcours"
+
+msgid "(not completed)"
+msgstr "(non terminée)"
+
+msgid "No teams yet."
+msgstr "Pas encore d'équipes."
+
+#, python-format
+msgid "station %(order)s"
+msgstr "station %(order)s"
+
+msgid "You must be registered for this event to play."
+msgstr "Vous devez être inscrit à cet événement pour jouer."
+
+msgid "This hunt has already finished."
+msgstr "Cette chasse est déjà terminée."
+
+msgid "Teams are formed by the coach for this hunt."
+msgstr "Les équipes sont formées par le coach pour cette chasse."
+
+msgid "You are already in a team."
+msgstr "Vous êtes déjà dans une équipe."
+
+msgid "No team found with that code."
+msgstr "Aucune équipe trouvée avec ce code."
+
+msgid "That team is already full."
+msgstr "Cette équipe est déjà complète."
+
+msgid "Enter a join code or a new team name."
+msgstr "Saisissez un code d'équipe ou un nouveau nom d'équipe."
+
+#, python-format
+msgid "You joined %(team)s!"
+msgstr "Vous avez rejoint %(team)s !"
+
+msgid "Teams are locked once the hunt has started."
+msgstr "Les équipes sont verrouillées une fois la chasse lancée."
+
+msgid "You left the team."
+msgstr "Vous avez quitté l'équipe."
+
+msgid "Join a team first."
+msgstr "Rejoignez d'abord une équipe."
+
+msgid "The hunt hasn't started yet."
+msgstr "La chasse n'a pas encore commencé."
+
+msgid "Join a team first, then scan the code again."
+msgstr "Rejoignez d'abord une équipe, puis scannez à nouveau le code."
+
+msgid "The hunt isn't running right now — this code will work once it starts."
+msgstr ""
+"La chasse n'est pas en cours — ce code fonctionnera dès son lancement."
+
+#, python-format
+msgid "Your team already completed %(station)s."
+msgstr "Votre équipe a déjà terminé %(station)s."
+
+msgid "That's not your current station — keep following your clue!"
+msgstr ""
+"Ce n'est pas votre station actuelle — continuez à suivre votre indice !"
+
+#, python-format
+msgid "Code scanned — %(station)s unlocked!"
+msgstr "Code scanné — %(station)s débloquée !"
+
+#, python-format
+msgid "Code scanned — now reach the location to unlock %(station)s."
+msgstr ""
+"Code scanné — rejoignez maintenant le lieu pour débloquer %(station)s."
+
+msgid "Already scanned — your challenges await below."
+msgstr "Déjà scanné — vos défis vous attendent ci-dessous."
+
+#, python-format
+msgid "Already scanned — now reach the location to unlock %(station)s."
+msgstr ""
+"Déjà scanné — rejoignez maintenant le lieu pour débloquer %(station)s."
+
+msgid "Join a team first, then enter the code again."
+msgstr "Rejoignez d'abord une équipe, puis saisissez à nouveau le code."
+
+msgid ""
+"That code doesn't match any station of this hunt — check the characters "
+"printed under the QR code."
+msgstr ""
+"Ce code ne correspond à aucune station de cette chasse — vérifiez les "
+"caractères imprimés sous le code QR."
+
+msgid "Please take a photo to complete this task."
+msgstr "Veuillez prendre une photo pour terminer cette tâche."
+
+#, python-format
+msgid "Team %(number)d"
+msgstr "Équipe %(number)d"
+
+msgid "{team} finished the hunt! 🏁"
+msgstr "{team} a terminé la chasse ! 🏁"
+
+msgid "{team} completed station {order} ({points} pts)"
+msgstr "{team} a terminé la station {order} ({points} pts)"
+
+msgid "station {order}"
+msgstr "station {order}"
+
+#: crush_lu/templates/crush_lu/event_detail.html:374
+msgid "Join the Hunt"
+msgstr "Rejoindre la chasse"

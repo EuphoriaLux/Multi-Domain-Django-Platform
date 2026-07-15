@@ -25,9 +25,20 @@
         align-items: center;
         justify-content: center;
         box-shadow: 0 4px 12px rgba(37, 211, 102, 0.4);
-        transition: transform 0.2s, box-shadow 0.2s;
+        transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
         z-index: 40;
         text-decoration: none;
+    }
+    /* Tucked away by whatsapp-fab.js while the button would cover a primary
+       call-to-action, so the CTA underneath stays visible and tappable. */
+    .crush-whatsapp-btn.crush-whatsapp-btn--tucked {
+        opacity: 0;
+        pointer-events: none;
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .crush-whatsapp-btn {
+            transition: none;
+        }
     }
     /* On mobile, raise above the bottom nav bar (56px + spacing) */
     @media (max-width: 1023px) {

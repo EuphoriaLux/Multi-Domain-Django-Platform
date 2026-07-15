@@ -7,30 +7,44 @@
  * reports the current station as arrived/unlocked, the page reloads so
  * the server-rendered state machine advances.
  *
- * Uses the native WebSocket API for hunt status changes — no libraries.
+ * Live updates arrive over the native WebSocket API; a 20 s polling
+ * fallback against the state API keeps the game moving when the channel
+ * layer is down (HTTP gameplay must never depend on Redis).
+ *
+ * User-facing strings come from data-msg-* attributes on the root
+ * element so templates translate them ({% trans %}); the literals here
+ * are English fallbacks only.
  */
 document.addEventListener("alpine:init", function () {
     Alpine.data("cachePlay", function () {
         return {
             geoSupported: !!navigator.geolocation,
+            gpsDenied: false,
+            arrivalCelebrating: false,
+            suspended: false,
             distanceM: null,
             bearing: null,
             heading: null,
             gpsStatus: "",
             arrived: false,
             unlocked: false,
+            compassNeedsPermission: false,
+            hasAbsoluteHeading: false,
             watchId: null,
             lastPostAt: 0,
             posting: false,
+            reloading: false,
             map: null,
             selfMarker: null,
             accuracyCircle: null,
             ws: null,
             wsRetry: 0,
+            pollTimer: null,
 
             init: function () {
                 var root = this.$el;
                 this.positionUrl = root.dataset.positionUrl;
+                this.stateUrl = root.dataset.stateUrl;
                 this.huntId = root.dataset.huntId;
                 this.huntStatus = root.dataset.huntStatus;
                 this.navMode = root.dataset.navMode;
@@ -39,6 +53,11 @@ document.addEventListener("alpine:init", function () {
                 this.targetLat = root.dataset.targetLat ? parseFloat(root.dataset.targetLat) : null;
                 this.targetLng = root.dataset.targetLng ? parseFloat(root.dataset.targetLng) : null;
                 this.targetRadius = root.dataset.targetRadius ? parseInt(root.dataset.targetRadius, 10) : null;
+                this.msgs = {
+                    gpsDenied: root.dataset.msgGpsDenied || "Location permission denied",
+                    gpsWaiting: root.dataset.msgGpsWaiting || "Waiting for GPS…",
+                    gpsAccuracy: root.dataset.msgGpsAccuracy || "GPS accuracy: ±{n} m",
+                };
                 try {
                     this.completedStations = JSON.parse(root.dataset.completedStations || "[]");
                 } catch (e) {
@@ -48,7 +67,20 @@ document.addEventListener("alpine:init", function () {
                 if (this.huntStatus === "live") {
                     this.startWatching();
                     this.connectWebSocket();
+                    this.startPolling();
                 }
+                // A station/hunt-complete celebration swapped into the play
+                // region makes this shell's data stale — progress already
+                // points at the next station, so the next position POST
+                // would report "unlocked" and reload right over the card.
+                // Suspend navigation while it's on screen; its Continue
+                // link does the reload.
+                var self = this;
+                root.addEventListener("htmx:afterSwap", function () {
+                    if (document.getElementById("cache-celebration")) {
+                        self.suspendNavigation();
+                    }
+                });
                 if (document.getElementById("cache-map") && window.L) {
                     this.initMap();
                 }
@@ -58,8 +90,9 @@ document.addEventListener("alpine:init", function () {
             },
 
             destroy: function () {
-                if (this.watchId !== null && navigator.geolocation) {
-                    navigator.geolocation.clearWatch(this.watchId);
+                this.stopWatching();
+                if (this.pollTimer !== null) {
+                    clearInterval(this.pollTimer);
                 }
                 if (this.ws) {
                     this.ws.onclose = null;
@@ -83,6 +116,12 @@ document.addEventListener("alpine:init", function () {
                 return "transform: rotate(" + rotation + "deg)";
             },
 
+            // CSP-build note: x-show only takes property paths, so the
+            // negation lives here instead of "!geoSupported" in templates.
+            get geoUnsupported() {
+                return !this.geoSupported;
+            },
+
             // --- Geolocation ---
 
             startWatching: function () {
@@ -92,14 +131,25 @@ document.addEventListener("alpine:init", function () {
                     return;
                 }
                 this.watchId = navigator.geolocation.watchPosition(
-                    function (pos) { self.onPosition(pos); },
+                    function (pos) {
+                        self.gpsDenied = false;
+                        self.onPosition(pos);
+                    },
                     function (err) {
-                        self.gpsStatus = err.code === err.PERMISSION_DENIED
-                            ? "Location permission denied"
-                            : "Waiting for GPS…";
+                        self.gpsDenied = err.code === err.PERMISSION_DENIED;
+                        self.gpsStatus = self.gpsDenied
+                            ? self.msgs.gpsDenied
+                            : self.msgs.gpsWaiting;
                     },
                     { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
                 );
+            },
+
+            stopWatching: function () {
+                if (this.watchId !== null && navigator.geolocation) {
+                    navigator.geolocation.clearWatch(this.watchId);
+                    this.watchId = null;
+                }
             },
 
             onPosition: function (pos) {
@@ -108,7 +158,7 @@ document.addEventListener("alpine:init", function () {
                 var accuracy = pos.coords.accuracy || 0;
 
                 this.updateSelfMarker(lat, lng, accuracy);
-                this.gpsStatus = "GPS accuracy: ±" + Math.round(accuracy) + " m";
+                this.gpsStatus = this.msgs.gpsAccuracy.replace("{n}", Math.round(accuracy));
 
                 // Throttle server posts to one every 3 seconds
                 var now = Date.now();
@@ -128,27 +178,117 @@ document.addEventListener("alpine:init", function () {
                     },
                     body: JSON.stringify({ lat: lat, lng: lng, accuracy: accuracy }),
                 })
-                    .then(function (r) { return r.ok ? r.json() : null; })
+                    .then(function (r) {
+                        if (r.status === 403) {
+                            return r.json()
+                                .catch(function () { return null; })
+                                .then(function (err) {
+                                    if (self.suspended) return null;
+                                    var code = err && err.error;
+                                    if (code === "finished" || code === "not_live" || code === "no_team") {
+                                        // Hunt or membership state changed under
+                                        // us — stop posting, re-render from the
+                                        // server (e.g. show the finish screen).
+                                        self.stopAndReload();
+                                    } else {
+                                        // Unknown 403 (e.g. CSRF): stop posting
+                                        // but never enter a reload loop.
+                                        self.stopWatching();
+                                    }
+                                    return null;
+                                });
+                        }
+                        return r.ok ? r.json() : null;
+                    })
                     .then(function (data) {
                         self.posting = false;
-                        if (!data || !data.ok) return;
+                        if (!data || !data.ok || self.suspended) return;
                         if (typeof data.distance_m === "number") self.distanceM = data.distance_m;
                         if (typeof data.bearing === "number") self.bearing = data.bearing;
-                        // Server-side arrival — reload so the state machine advances
+                        // Server-side arrival — celebrate for a beat, then
+                        // reload so the state machine advances
                         if (self.needsGps && (data.arrived || data.unlocked)) {
-                            window.location.reload();
+                            self.celebrateArrival();
                         }
                     })
                     .catch(function () { self.posting = false; });
             },
 
+            stopAndReload: function () {
+                if (this.reloading) return;
+                this.reloading = true;
+                this.stopWatching();
+                window.location.reload();
+            },
+
+            celebrateArrival: function () {
+                if (this.reloading || this.suspended) return;
+                this.reloading = true;
+                this.stopWatching();
+                this.arrivalCelebrating = true;
+                var self = this;
+                var reduce = window.matchMedia
+                    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+                setTimeout(function () {
+                    if (self.suspended) return;
+                    window.location.reload();
+                }, reduce ? 700 : 1600);
+            },
+
+            // A station-complete celebration owns the screen: stop GPS
+            // posting and cancel any armed arrival reload so the card is
+            // actually readable. The status poll stays live so a finished
+            // hunt still exits to the results screen.
+            suspendNavigation: function () {
+                this.suspended = true;
+                this.arrivalCelebrating = false;
+                this.reloading = false;
+                this.stopWatching();
+            },
+
             // --- Compass (device orientation) ---
 
             listenToCompass: function () {
-                var self = this;
                 if (!window.DeviceOrientationEvent) return;
+                if (typeof DeviceOrientationEvent.requestPermission === "function") {
+                    // iOS: orientation events only flow after a user-gesture
+                    // permission grant — surface an "enable compass" button.
+                    this.compassNeedsPermission = true;
+                    return;
+                }
+                this.attachCompass();
+            },
+
+            enableCompass: function () {
+                var self = this;
+                if (typeof DeviceOrientationEvent.requestPermission !== "function") {
+                    this.compassNeedsPermission = false;
+                    this.attachCompass();
+                    return;
+                }
+                DeviceOrientationEvent.requestPermission()
+                    .then(function (state) {
+                        self.compassNeedsPermission = false;
+                        if (state === "granted") self.attachCompass();
+                    })
+                    .catch(function () { self.compassNeedsPermission = false; });
+            },
+
+            attachCompass: function () {
+                var self = this;
                 window.addEventListener("deviceorientationabsolute", function (e) {
-                    if (e.alpha !== null) self.heading = 360 - e.alpha;
+                    if (e.alpha !== null) {
+                        self.hasAbsoluteHeading = true;
+                        self.heading = 360 - e.alpha;
+                    }
+                }, true);
+                window.addEventListener("deviceorientation", function (e) {
+                    if (typeof e.webkitCompassHeading === "number") {
+                        // iOS Safari: degrees clockwise from north, ready to use
+                        self.heading = e.webkitCompassHeading;
+                    } else if (!self.hasAbsoluteHeading && e.absolute && e.alpha !== null) {
+                        self.heading = 360 - e.alpha;
+                    }
                 }, true);
             },
 
@@ -219,8 +359,12 @@ document.addEventListener("alpine:init", function () {
                 this.ws.onmessage = function (event) {
                     var msg;
                     try { msg = JSON.parse(event.data); } catch (e) { return; }
-                    if (msg.type === "status" && msg.data && msg.data.status !== self.huntStatus) {
-                        window.location.reload();
+                    // The consumer sends "state" on connect and "status" on
+                    // every change; both carry the hunt status. React to
+                    // either so a status change that happened between page
+                    // render and group subscription still lands.
+                    if ((msg.type === "status" || msg.type === "state") && msg.data && msg.data.status && msg.data.status !== self.huntStatus) {
+                        self.stopAndReload();
                     }
                 };
                 this.ws.onclose = function () {
@@ -229,6 +373,30 @@ document.addEventListener("alpine:init", function () {
                         setTimeout(function () { self.connectWebSocket(); }, 2000 * self.wsRetry);
                     }
                 };
+            },
+
+            // --- Polling fallback: keeps the hunt advancing without Redis ---
+
+            startPolling: function () {
+                var self = this;
+                if (!this.stateUrl) return;
+                this.pollTimer = setInterval(function () {
+                    // Safety-net poll. An OPEN socket can still miss a status
+                    // event (group_send failed, or the change landed between
+                    // page render and group subscription), and QR/no-GPS
+                    // screens have no position POST to surface the 403
+                    // fallback. So poll regardless of socket health — cheap
+                    // on the server, and the only guaranteed exit from a
+                    // finished hunt.
+                    fetch(self.stateUrl, { headers: { "Accept": "application/json" } })
+                        .then(function (r) { return r.ok ? r.json() : null; })
+                        .then(function (data) {
+                            if (data && data.ok && data.status !== self.huntStatus) {
+                                self.stopAndReload();
+                            }
+                        })
+                        .catch(function () {});
+                }, 20000);
             },
 
             getCsrfToken: function () {
@@ -241,6 +409,31 @@ document.addEventListener("alpine:init", function () {
                 });
                 return row ? row.split("=")[1] : "";
             },
+        };
+    });
+
+    /**
+     * Two-tap hint confirm: a stray thumb must never spend points.
+     * armHint reads the hint number from the button's data-hint attribute
+     * (the CSP build can't pass arguments in x-on expressions), and the
+     * per-hint getters exist because x-show only takes property paths.
+     * State resets naturally on every HTMX swap of the hints block.
+     */
+    Alpine.data("cacheHints", function () {
+        return {
+            armed: 0,
+            armHint: function (event) {
+                this.armed = parseInt(event.currentTarget.dataset.hint, 10) || 0;
+            },
+            disarm: function () {
+                this.armed = 0;
+            },
+            get hint1Idle() { return this.armed !== 1; },
+            get hint1Armed() { return this.armed === 1; },
+            get hint2Idle() { return this.armed !== 2; },
+            get hint2Armed() { return this.armed === 2; },
+            get hint3Idle() { return this.armed !== 3; },
+            get hint3Armed() { return this.armed === 3; },
         };
     });
 });

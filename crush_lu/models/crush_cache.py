@@ -13,11 +13,11 @@ JourneyChallenge, which is bound to the per-person gift ownership chain.
 """
 
 import secrets
+import unicodedata
 import uuid
 
 from django.conf import settings
 from django.db import models
-from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from .profiles import get_crush_photo_storage
@@ -33,6 +33,18 @@ JOIN_CODE_LENGTH = 6
 
 def generate_join_code():
     return "".join(secrets.choice(JOIN_CODE_ALPHABET) for _ in range(JOIN_CODE_LENGTH))
+
+
+def _normalize_answer(text):
+    """Fold case, accents and whitespace for lenient answer comparison.
+
+    Players type on phones outdoors: "Pétrusse", "petrusse " and
+    "PETRUSSE" must all match. NFKD + dropping combining marks folds
+    accents (é→e, ë→e); casefold handles ß/İ better than lower().
+    """
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    return " ".join(text.casefold().split())
 
 
 class CacheHunt(models.Model):
@@ -118,9 +130,8 @@ class CacheHunt(models.Model):
         Returns a list of dicts ready for templates/WS payloads.
         """
         entries = []
-        progresses = (
-            CacheTeamProgress.objects.filter(team__hunt=self)
-            .select_related("team", "current_station")
+        progresses = CacheTeamProgress.objects.filter(team__hunt=self).select_related(
+            "team", "current_station"
         )
         for progress in progresses:
             entries.append(
@@ -156,9 +167,9 @@ class CacheHunt(models.Model):
         return [
             {
                 **entry,
-                "finished_at": entry["finished_at"].isoformat()
-                if entry["finished_at"]
-                else None,
+                "finished_at": (
+                    entry["finished_at"].isoformat() if entry["finished_at"] else None
+                ),
             }
             for entry in self.get_leaderboard()
         ]
@@ -177,12 +188,14 @@ class CacheHunt(models.Model):
         checks = []
 
         stations = list(self.stations.prefetch_related("challenges").order_by("order"))
-        checks.append({
-            "label": _("Stations"),
-            "blocking": True,
-            "ok": len(stations) > 0,
-            "detail": str(len(stations)) if stations else _("No stations created"),
-        })
+        checks.append(
+            {
+                "label": _("Stations"),
+                "blocking": True,
+                "ok": len(stations) > 0,
+                "detail": str(len(stations)) if stations else _("No stations created"),
+            }
+        )
 
         missing_coords = [
             s.name
@@ -190,32 +203,38 @@ class CacheHunt(models.Model):
             if s.unlock_mode in ("gps", "gps_qr")
             and (s.latitude is None or s.longitude is None)
         ]
-        checks.append({
-            "label": _("GPS coordinates"),
-            "blocking": True,
-            "ok": len(missing_coords) == 0,
-            "detail": (
-                _("All GPS stations have coordinates")
-                if not missing_coords
-                else ", ".join(missing_coords[:3])
-                + ("..." if len(missing_coords) > 3 else "")
-            ),
-        })
+        checks.append(
+            {
+                "label": _("GPS coordinates"),
+                "blocking": True,
+                "ok": len(missing_coords) == 0,
+                "detail": (
+                    _("All GPS stations have coordinates")
+                    if not missing_coords
+                    else ", ".join(missing_coords[:3])
+                    + ("..." if len(missing_coords) > 3 else "")
+                ),
+            }
+        )
 
         without_challenges = [s.name for s in stations if not s.challenges.exists()]
-        checks.append({
-            "label": _("Challenges"),
-            "blocking": True,
-            "ok": len(stations) > 0 and len(without_challenges) == 0,
-            "detail": (
-                _("Every station has at least one challenge")
-                if stations and not without_challenges
-                else ", ".join(without_challenges[:3])
-                + ("..." if len(without_challenges) > 3 else "")
-                if without_challenges
-                else _("No stations to check")
-            ),
-        })
+        checks.append(
+            {
+                "label": _("Challenges"),
+                "blocking": True,
+                "ok": len(stations) > 0 and len(without_challenges) == 0,
+                "detail": (
+                    _("Every station has at least one challenge")
+                    if stations and not without_challenges
+                    else (
+                        ", ".join(without_challenges[:3])
+                        + ("..." if len(without_challenges) > 3 else "")
+                        if without_challenges
+                        else _("No stations to check")
+                    )
+                ),
+            }
+        )
 
         bad_mc = [
             c.question[:40]
@@ -223,44 +242,50 @@ class CacheHunt(models.Model):
             for c in s.challenges.all()
             if c.challenge_type == "multiple_choice" and not c.correct_answer
         ]
-        checks.append({
-            "label": _("Correct answers"),
-            "blocking": True,
-            "ok": len(bad_mc) == 0,
-            "detail": (
-                _("All multiple-choice challenges have a correct answer")
-                if not bad_mc
-                else ", ".join(bad_mc[:3]) + ("..." if len(bad_mc) > 3 else "")
-            ),
-        })
+        checks.append(
+            {
+                "label": _("Correct answers"),
+                "blocking": True,
+                "ok": len(bad_mc) == 0,
+                "detail": (
+                    _("All multiple-choice challenges have a correct answer")
+                    if not bad_mc
+                    else ", ".join(bad_mc[:3]) + ("..." if len(bad_mc) > 3 else "")
+                ),
+            }
+        )
 
         reg_count = EventRegistration.objects.filter(
             event=self.event, status__in=["confirmed", "attended"]
         ).count()
-        checks.append({
-            "label": _("Registrations"),
-            "blocking": False,
-            "ok": reg_count >= 2,
-            "detail": (
-                _("%(count)d confirmed/attended") % {"count": reg_count}
-                if reg_count >= 2
-                else _("%(count)d (need at least 2)") % {"count": reg_count}
-            ),
-        })
+        checks.append(
+            {
+                "label": _("Registrations"),
+                "blocking": False,
+                "ok": reg_count >= 2,
+                "detail": (
+                    _("%(count)d confirmed/attended") % {"count": reg_count}
+                    if reg_count >= 2
+                    else _("%(count)d (need at least 2)") % {"count": reg_count}
+                ),
+            }
+        )
 
         team_count = self.teams.count()
         member_count = CacheTeamMember.objects.filter(hunt=self).count()
-        checks.append({
-            "label": _("Teams"),
-            "blocking": False,
-            "ok": team_count > 0 and member_count > 0,
-            "detail": (
-                _("%(teams)d teams, %(members)d members")
-                % {"teams": team_count, "members": member_count}
-                if team_count
-                else _("No teams formed yet")
-            ),
-        })
+        checks.append(
+            {
+                "label": _("Teams"),
+                "blocking": False,
+                "ok": team_count > 0 and member_count > 0,
+                "detail": (
+                    _("%(teams)d teams, %(members)d members")
+                    % {"teams": team_count, "members": member_count}
+                    if team_count
+                    else _("No teams formed yet")
+                ),
+            }
+        )
 
         return checks
 
@@ -317,6 +342,15 @@ class CacheStation(models.Model):
     # Reusable station identifier — many teams scan the same physical sticker.
     # Authorization comes from the scanning user's team state, not the token.
     qr_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    # Human-typeable fallback for the QR code (broken camera, glare):
+    # printed under the QR on the station sheet, entered on the scanner
+    # page. Same no-ambiguity alphabet as team join codes. Auto-generated
+    # on save; unique per hunt (codes may repeat across hunts).
+    manual_code = models.CharField(
+        max_length=JOIN_CODE_LENGTH,
+        blank=True,
+        help_text=_("Short code players can type instead of scanning the QR"),
+    )
     completion_message = models.TextField(
         blank=True,
         help_text=_("Message shown when the team completes this station"),
@@ -324,12 +358,28 @@ class CacheStation(models.Model):
 
     class Meta:
         ordering = ["order"]
-        unique_together = [("hunt", "order")]
+        unique_together = [("hunt", "order"), ("hunt", "manual_code")]
         verbose_name = _("Cache Station")
         verbose_name_plural = _("📍 2. Cache Stations")
 
     def __str__(self):
         return f"Station {self.order}: {self.name}"
+
+    def save(self, *args, **kwargs):
+        if not self.manual_code:
+            self.manual_code = self._generate_manual_code()
+        super().save(*args, **kwargs)
+
+    def _generate_manual_code(self):
+        for _attempt in range(20):
+            code = generate_join_code()
+            if (
+                not CacheStation.objects.filter(hunt_id=self.hunt_id, manual_code=code)
+                .exclude(pk=self.pk)
+                .exists()
+            ):
+                return code
+        raise RuntimeError("Could not generate a unique station code")
 
     @property
     def requires_gps(self):
@@ -431,21 +481,22 @@ class CacheChallenge(models.Model):
     def check_answer(self, user_answer):
         """Check if the submitted answer is correct.
 
-        Same semantics as AdventDoorContent.check_answer: a blank
-        correct_answer accepts everything.
+        Same blank-accepts-everything semantics as
+        AdventDoorContent.check_answer, but comparison additionally folds
+        accents and inner whitespace (see _normalize_answer) — hunt answers
+        are Luxembourgish/French place names typed on phones.
         """
         if not self.correct_answer:
             return True
 
-        normalized_user = user_answer.strip().lower()
-        normalized_correct = self.correct_answer.strip().lower()
+        normalized_user = _normalize_answer(user_answer)
 
-        if normalized_user == normalized_correct:
+        if normalized_user == _normalize_answer(self.correct_answer):
             return True
 
         if self.alternative_answers:
             for alt in self.alternative_answers:
-                if normalized_user == alt.strip().lower():
+                if normalized_user == _normalize_answer(alt):
                     return True
 
         return False
@@ -486,7 +537,9 @@ class CacheTeam(models.Model):
         return f"{self.name} ({self.hunt.event})"
 
     def member_count(self):
-        return self.members.count()
+        return self.members.filter(
+            registration__status__in=["confirmed", "attended"]
+        ).count()
 
 
 class CacheTeamMember(models.Model):

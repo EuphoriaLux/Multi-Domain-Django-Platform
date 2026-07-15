@@ -1,5 +1,5 @@
 {% extends "crush_lu/base.html" %}
-{% load static i18n %}
+{% load static i18n l10n %}
 
 {% block title %}{% trans "Crush Cache" %} - {{ event.title }}{% endblock %}
 
@@ -8,6 +8,26 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 {% endif %}
+<style>
+    /* Feedback animations for the play state machine; all suppressed
+       under prefers-reduced-motion. */
+    @keyframes cache-shake {
+        10%, 90% { transform: translateX(-1px); }
+        20%, 80% { transform: translateX(2px); }
+        30%, 50%, 70% { transform: translateX(-4px); }
+        40%, 60% { transform: translateX(4px); }
+    }
+    .cache-shake { animation: cache-shake .5s ease-in-out 1; }
+    @keyframes cache-pop {
+        0% { transform: scale(.92); opacity: 0; }
+        60% { transform: scale(1.03); }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    .cache-pop { animation: cache-pop .35s ease-out 1; }
+    @media (prefers-reduced-motion: reduce) {
+        .cache-shake, .cache-pop { animation: none; }
+    }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -16,30 +36,34 @@
          id="cache-play-root"
          x-data="cachePlay"
          data-position-url="{% url 'crush_lu:cache_position_api' event.id %}"
+         data-state-url="{% url 'crush_lu:cache_state_api' event.id %}"
+         data-msg-gps-denied="{% trans 'Location permission denied' %}"
+         data-msg-gps-waiting="{% trans 'Waiting for GPS…' %}"
+         data-msg-gps-accuracy="{% trans 'GPS accuracy: ±{n} m' %}"
          data-hunt-id="{{ hunt.id }}"
          data-hunt-status="{{ hunt.status }}"
          data-nav-mode="{{ hunt.navigation_mode }}"
          data-needs-gps="{{ needs_gps|yesno:'true,false' }}"
          data-unlocked="{{ attempt.is_unlocked|yesno:'true,false' }}"
          {% if show_map and station and station.latitude is not None %}
-         data-target-lat="{{ station.latitude }}"
-         data-target-lng="{{ station.longitude }}"
-         data-target-radius="{{ station.radius_meters }}"
+         data-target-lat="{{ station.latitude|unlocalize }}"
+         data-target-lng="{{ station.longitude|unlocalize }}"
+         data-target-radius="{{ station.radius_meters|unlocalize }}"
          {% endif %}
          data-completed-stations="{{ completed_stations_json|default:'[]' }}">
 
         <div class="mb-4 flex items-center justify-between">
             <div class="flex items-center gap-2">
-                <span class="inline-block h-3 w-3 rounded-full" style="background: {{ team.color }}"></span>
+                <span class="inline-block h-3 w-3 rounded-full" style="background: {{ team.color }}" aria-hidden="true"></span>
                 <span class="font-semibold">{{ team.name }}</span>
             </div>
-            <a href="{% url 'crush_lu:cache_lobby' event.id %}" class="text-sm text-gray-400 underline">
+            <a href="{% url 'crush_lu:cache_lobby' event.id %}" class="text-sm text-gray-500 dark:text-gray-400 underline">
                 {% trans "Lobby" %}
             </a>
         </div>
 
         {% if show_map %}
-        <div id="cache-map" class="mb-4 h-64 w-full rounded-xl border border-gray-200 dark:border-gray-700"></div>
+        <div id="cache-map" class="mb-4 h-64 w-full rounded-2xl border border-gray-200 dark:border-gray-700"></div>
         {% comment %}
         Map data © OpenStreetMap contributors. Tile usage is fine at event
         scale; switch to MapTiler/Stadia free tier if this becomes daily traffic.
@@ -47,6 +71,17 @@
         {% endif %}
 
         {% include "crush_lu/cache/_play_content.html" %}
+
+        {# Arrival celebration — cache-play.js shows it briefly pre-reload. #}
+        {# z-[1200] clears Leaflet's map panes/controls (they stack ~400-1000). #}
+        <div x-show="arrivalCelebrating" x-cloak role="status"
+             class="fixed inset-0 z-[1200] flex flex-col items-center justify-center bg-gradient-to-br from-crush-purple to-crush-pink text-white">
+            {% include "crush_lu/includes/ghost-logo-animated.html" with class="w-24 h-24" %}
+            <p class="mt-5 font-display text-4xl font-bold">{% trans "You've arrived!" %}</p>
+            {% if station %}
+            <p class="mt-2 text-lg text-white/85">{{ station.name }}</p>
+            {% endif %}
+        </div>
     </div>
 </div>
 {% endblock %}
