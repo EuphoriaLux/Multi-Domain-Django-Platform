@@ -113,12 +113,40 @@ def buy_upgrade(user, upgrade_id):
 
 
 @transaction.atomic
+def buy_safety(user, upgrade_id):
+    """
+    The 🚩 shop. Priced in flags, not crushes: it is what catching scams buys.
+
+    Raises "insufficient flags" rather than reusing "insufficient" — the client
+    tells the player they are short of crushes on that code, and being told to
+    swipe more when what you need is to catch more scams is the wrong lesson.
+    """
+    state = lock_state(user)
+    accrue(state)
+
+    upgrade = economy.SAFETY_UPGRADES_BY_ID.get(upgrade_id)
+    if upgrade is None:
+        raise ValueError("unknown upgrade")
+    if upgrade_id in (state.safety_upgrades or []):
+        raise ValueError("already owned")
+    if state.flags < upgrade["cost"]:
+        raise ValueError("insufficient flags")
+
+    state.flags -= upgrade["cost"]
+    state.safety_upgrades = sorted([*(state.safety_upgrades or []), upgrade_id])
+    state.save()
+    return state
+
+
+@transaction.atomic
 def prestige(user):
     """
     "Fall in Love": trade all progress for permanent Hearts.
 
-    Hearts and flags survive; everything else resets. total_earned resets too,
-    which is what makes each successive Heart cost quadratically more.
+    Hearts, flags and safety upgrades survive; everything else resets. Safety
+    upgrades are paid for in flags and flags survive, so resetting them would
+    just tax the scam layer for prestiging. total_earned resets too, which is
+    what makes each successive Heart cost quadratically more.
     """
     state = lock_state(user)
     accrue(state)
@@ -191,5 +219,17 @@ def serialize(state):
                 "unlocked": economy.upgrade_unlocked(state, u),
             }
             for u in economy.UPGRADES
+        ],
+        # Always visible, even at 0 🚩 — wanting the currency is the motivation.
+        "safety": [
+            {
+                "id": u["id"],
+                "emoji": u["emoji"],
+                "name": str(u["name"]),
+                "desc": str(u["desc"]),
+                "cost": u["cost"],
+                "owned": economy.safety_owned(state, u["id"]),
+            }
+            for u in economy.SAFETY_UPGRADES
         ],
     }

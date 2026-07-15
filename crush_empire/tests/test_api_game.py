@@ -182,6 +182,28 @@ class GameApiTests(SiteTestMixin, TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(self.state().upgrades, [])
 
+    def test_buy_safety_charges_flags_not_crushes(self):
+        state = self.state()
+        state.flags = 25
+        state.points = 3
+        state.save()
+
+        response = self.post("empire_api_buy", {"kind": "safety", "id": 0})
+        body = response.json()
+        self.assertTrue(body["success"])
+        self.assertEqual(body["state"]["flags"], 5)  # 25 - the badge's 20
+        self.assertEqual(body["state"]["points"], 3)
+        rows = {r["id"]: r for r in body["state"]["safety"]}
+        self.assertTrue(rows[0]["owned"])
+
+    def test_buy_safety_short_of_flags_gets_its_own_code(self):
+        """Not "insufficient": that toast tells the player to swipe more, when
+        what they actually need is to catch more scams."""
+        response = self.post("empire_api_buy", {"kind": "safety", "id": 0})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "insufficient flags")
+        self.assertEqual(self.state().safety_upgrades, [])
+
     def test_unknown_action_rejected(self):
         card = self.post("empire_api_draw").json()["card"]
         response = self.post(

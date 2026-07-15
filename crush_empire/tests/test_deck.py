@@ -215,7 +215,6 @@ class PayoffMatrixTests(TestCase):
         self.assertEqual(state.points, 0)
 
     def test_reporting_a_scam_strictly_dominates_noping_it(self):
-        alice = self.user
         bob = User.objects.create_user(username="b@b.c", email="b@b.c")
 
         _, reported = self._play(self.scam, "report")
@@ -273,6 +272,42 @@ class PayoffMatrixTests(TestCase):
         # is_late_game must read the undebuffed rate, or a throttle would bounce
         # the player back across the early/late threshold.
         self.assertTrue(economy.is_late_game(state))
+
+    # ── the 🚩 shop's effects ────────────────────────────────────────────
+
+    def test_scam_shield_halves_an_early_catfish(self):
+        state = self._state()
+        state.points = 1000
+        state.safety_upgrades = [economy.SAFETY_SCAM_SHIELD]
+        state.save()
+
+        state, r = self._play(self.scam, "like")
+        self.assertEqual(r["points"], -50)  # 5%, not the naked 10%
+        self.assertEqual(state.points, 950)
+
+    def test_scam_shield_halves_the_late_game_debuff(self):
+        state = self._state()
+        state.points = 10_000
+        state.generators = {"4": 1}
+        state.safety_upgrades = [economy.SAFETY_SCAM_SHIELD]
+        # Same accrual-clock pin as the unshielded test above.
+        state.last_tick = timezone.now() + timedelta(seconds=60)
+        state.save()
+
+        before = timezone.now()
+        state, r = self._play(self.scam, "like")
+        self.assertTrue(state.is_debuffed)
+        remaining = (state.debuff_until - before).total_seconds()
+        self.assertGreater(remaining, 50)
+        self.assertLessEqual(remaining, 61, "shield should serve 60s, not 120s")
+
+    def test_workshop_pays_one_extra_flag_on_a_report(self):
+        state = self._state()
+        state.safety_upgrades = [economy.SAFETY_WORKSHOP]
+        state.save()
+
+        _, r = self._play(self.scam, "report")
+        self.assertEqual(r["flags"], economy.flag_award(1) + 1)
 
     # ── reveal ───────────────────────────────────────────────────────────
 

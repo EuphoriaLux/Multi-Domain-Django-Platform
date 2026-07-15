@@ -24,6 +24,7 @@ def ui_strings():
         "owned": _("owned"),
         "locked": _("keep swiping to unlock"),
         "allBought": _("All upgrades bought — you absolute charmer 😏"),
+        "allSafe": _("Fully protected. The scammers hate you. 🛡️"),
         "unlocked": _("unlocked!"),
         "prestigeConfirm": _(
             "Delete your account for %s Hearts? This resets your progress. "
@@ -32,6 +33,8 @@ def ui_strings():
         "prestigeDone": _("💍 You fell in love (with yourself). +%s Hearts."),
         "offline": _("While you were away: +%s 💘"),
         "tooPoor": _("Not enough crushes yet."),
+        "tooPoorFlags": _("Not enough 🚩 — catch more scams."),
+        "empireAtWork": _("Your empire at work"),
         "signedOut": _("You have been signed out. Reload to keep playing."),
         "error": _("Something went wrong. Your progress is safe on the server."),
         # Scam layer

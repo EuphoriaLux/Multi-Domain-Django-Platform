@@ -133,9 +133,10 @@ TIER2_GRACE_SECONDS = 2
 # flag among innocent ones are eligible.
 TIER2_MIN_SEGMENTS = 3
 
-# Once unlocked, this share of draws escalate to the modal. High enough to be
-# the main event, low enough that tier 1 stays the rhythm.
-TIER2_DRAW_RATE = 0.4
+# Once unlocked, this share of draws escalate to the modal. Play-testing at 0.4
+# felt like an ambush — a fullscreen interrupt nearly every other card. At ~1 in
+# 5 the puzzle is an event; tier-1 swiping stays the rhythm.
+TIER2_DRAW_RATE = 0.2
 
 TIER2_UNLOCK_SWIPES = 50
 TIER2_UNLOCK_GENERATOR = 2  # Auto-Opener
@@ -146,6 +147,59 @@ def tier2_unlocked(state):
     return (
         state.swipes >= TIER2_UNLOCK_SWIPES
         or state.generator_count(TIER2_UNLOCK_GENERATOR) > 0
+    )
+
+
+# ── The 🚩 shop: safety upgrades ─────────────────────────────────────────────
+#
+# What the flags are FOR. With the 5-flag panic button as the only sink, the
+# scam layer pays in a currency nobody spends and catching scams stops mattering
+# economically. These are priced well above the panic button so a stash still
+# feels worth holding, and every effect is themed as protection — the thing
+# reporting scammers actually buys you.
+
+SAFETY_VERIFIED_BADGE = 0
+SAFETY_SCAM_SHIELD = 1
+SAFETY_WORKSHOP = 2
+
+SAFETY_UPGRADES = [
+    {"id": SAFETY_VERIFIED_BADGE, "emoji": "✅", "cost": 20,  "mult": 1.10, "name": _("Verified Badge"),  "desc": _("A profile people can trust. All auto-swipers +10%")},
+    {"id": SAFETY_SCAM_SHIELD,    "emoji": "🛡️", "cost": 50,               "name": _("Scam Shield"),     "desc": _("Catfish damage halved — smaller losses, shorter lockouts")},
+    {"id": SAFETY_WORKSHOP,       "emoji": "🎓", "cost": 120,              "name": _("Safety Workshop"), "desc": _("+1 🚩 on every clean catch")},
+]
+
+SAFETY_UPGRADES_BY_ID = {u["id"]: u for u in SAFETY_UPGRADES}
+
+
+def safety_owned(state, sid):
+    return sid in (state.safety_upgrades or [])
+
+
+def catfish_loss_fraction(state):
+    """Slice of the balance an early-game catfish takes."""
+    loss = CATFISH_POINT_LOSS
+    return loss / 2 if safety_owned(state, SAFETY_SCAM_SHIELD) else loss
+
+
+def debuff_seconds(state):
+    """How long ACCOUNT COMPROMISED throttles the engine."""
+    secs = DEBUFF_SECONDS
+    return secs // 2 if safety_owned(state, SAFETY_SCAM_SHIELD) else secs
+
+
+def report_flag_bonus(state):
+    """
+    Extra 🚩 on a fully-correct report only. Partial credit keeps its own
+    award: the Workshop rewards clean catches, not enthusiasm.
+    """
+    return 1 if safety_owned(state, SAFETY_WORKSHOP) else 0
+
+
+def safety_multiplier(state):
+    return _product(
+        u.get("mult", 1)
+        for u in SAFETY_UPGRADES
+        if u["id"] in (state.safety_upgrades or [])
     )
 
 
@@ -168,9 +222,13 @@ def _product(mults):
 
 def global_multiplier(state):
     owned = set(state.upgrades or [])
-    return _product(
-        u["mult"] for u in UPGRADES if u["kind"] == GLOBAL and u["id"] in owned
-    ) * heart_bonus(state)
+    return (
+        _product(
+            u["mult"] for u in UPGRADES if u["kind"] == GLOBAL and u["id"] in owned
+        )
+        * heart_bonus(state)
+        * safety_multiplier(state)
+    )
 
 
 def click_multiplier(state):

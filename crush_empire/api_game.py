@@ -36,6 +36,7 @@ ACTION_RATE = "120/m"
 CLIENT_ERRORS = frozenset(
     {
         "insufficient",
+        "insufficient flags",
         "locked",
         "already owned",
         "unknown generator",
@@ -168,6 +169,8 @@ def buy(request):
             state = state_service.buy_generator(request.user, item_id)
         elif kind == "upgrade":
             state = state_service.buy_upgrade(request.user, item_id)
+        elif kind == "safety":
+            state = state_service.buy_safety(request.user, item_id)
         else:
             return _err("Unknown kind")
     except ValueError as exc:

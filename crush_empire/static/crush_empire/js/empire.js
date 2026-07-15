@@ -96,6 +96,8 @@
                 toast(T.signedOut);
             } else if (data && data.error === "insufficient") {
                 toast(T.tooPoor);
+            } else if (data && data.error === "insufficient flags") {
+                toast(T.tooPoorFlags);
             } else if (data && data.error) {
                 toast(T.error);
             }
@@ -714,9 +716,12 @@
 
     const listGen = document.getElementById("list-gen");
     const listUp = document.getElementById("list-up");
+    const listSafety = document.getElementById("list-safety");
 
     function itemRow(opts) {
-        const { emoji, name, desc, cost, right, disabled, affordable, dataset } = opts;
+        // `currency` defaults to 💘; the Safety tab prices in 🚩.
+        const { emoji, name, desc, cost, right, disabled, affordable, dataset, currency } =
+            opts;
         const row = document.createElement("button");
         row.type = "button";
         row.disabled = Boolean(disabled);
@@ -734,7 +739,7 @@
         emojiEl.textContent = emoji;
         info.children[0].textContent = name;
         info.children[1].textContent = desc;
-        priceBox.children[0].textContent = fmt(cost) + " 💘";
+        priceBox.children[0].textContent = fmt(cost) + " " + (currency || "💘");
         priceBox.children[0].className =
             "text-sm font-bold " +
             (affordable ? "text-empire-green" : "text-empire-gold");
@@ -766,7 +771,6 @@
             p.className = "p-5 text-center text-sm text-empire-muted";
             p.textContent = T.allBought;
             listUp.appendChild(p);
-            return;
         }
         pending.forEach((u) => {
             listUp.appendChild(
@@ -781,6 +785,121 @@
                 }),
             );
         });
+
+        // The 🚩 shop. Always listed, even at 0 flags — wanting the currency is
+        // the point: it is what catching scams buys.
+        listSafety.replaceChildren();
+        const safetyPending = (S.safety || []).filter((u) => !u.owned);
+        if (!safetyPending.length) {
+            const p = document.createElement("p");
+            p.className = "p-5 text-center text-sm text-empire-muted";
+            p.textContent = T.allSafe;
+            listSafety.appendChild(p);
+        }
+        safetyPending.forEach((u) => {
+            listSafety.appendChild(
+                itemRow({
+                    emoji: u.emoji,
+                    name: u.name,
+                    desc: u.desc,
+                    cost: u.cost,
+                    currency: "🚩",
+                    affordable: S.flags >= u.cost,
+                    dataset: { buy: "safety", id: u.id },
+                }),
+            );
+        });
+    }
+
+    /* ── The empire at work ──────────────────────────────────────────────── */
+
+    const workEl = $("empire-work");
+    const stripEl = $("empire-strip");
+    let stripSig = "";
+
+    /**
+     * Owned auto-swipers as a pulsing row: 👆×12 🤳×5 …
+     *
+     * Rebuilt only when the counts actually change — render() runs after every
+     * API response, and replacing the children restarts the CSS pulse, which
+     * would read as a stutter rather than a hum.
+     */
+    function renderStrip() {
+        const owned = S.generators.filter((g) => g.owned > 0);
+        if (!owned.length) {
+            workEl.hidden = true;
+            stripSig = "";
+            return;
+        }
+        workEl.hidden = false;
+
+        const sig = owned.map((g) => g.id + ":" + g.owned).join("|");
+        if (sig === stripSig) return;
+        stripSig = sig;
+
+        stripEl.replaceChildren();
+        owned.forEach((g, i) => {
+            const item = document.createElement("span");
+            item.className = "empire-working inline-flex items-baseline gap-0.5";
+            // Staggered so the workshop hums instead of marching in step.
+            item.style.animationDelay = (i * 0.35).toFixed(2) + "s";
+
+            const emoji = document.createElement("span");
+            emoji.textContent = g.emoji;
+            const count = document.createElement("small");
+            count.className = "text-xs font-bold text-empire-muted";
+            count.textContent = "×" + g.owned;
+            item.append(emoji, count);
+            stripEl.appendChild(item);
+        });
+    }
+
+    /**
+     * Ambient 💘 drifting up the counter while production runs.
+     *
+     * Spawned from the existing 250ms tick (no extra timer), rate-limited by a
+     * fractional budget so slow production trickles rather than never showing.
+     * S.cps is the *effective* rate, so ACCOUNT COMPROMISED visibly halves the
+     * hearts without any extra wiring.
+     */
+    const heartsLayer = $("hearts-layer");
+    const MAX_HEARTS = 10;
+    let heartBudget = 0;
+    let liveHearts = 0;
+
+    function heartRate() {
+        if (S.cps <= 0) return 0;
+        return Math.min(3, 0.4 + 0.8 * Math.log10(1 + S.cps));
+    }
+
+    function spawnHeart() {
+        const el = document.createElement("div");
+        el.className = "empire-heart";
+        el.textContent = Math.random() < 0.15 ? "💖" : "💘";
+        el.style.left = 8 + Math.random() * 84 + "%";
+        // CSSOM, not setAttribute("style") — the latter is what CSP blocks.
+        el.style.setProperty("--dx", (Math.random() * 36 - 18).toFixed(0) + "px");
+        const dur = 1600 + Math.random() * 1000;
+        el.style.animationDuration = dur + "ms";
+        heartsLayer.appendChild(el);
+        liveHearts++;
+        setTimeout(() => {
+            el.remove();
+            liveHearts--;
+        }, dur);
+    }
+
+    function tickHearts(dt) {
+        if (document.hidden || reducedMotion.matches) {
+            heartBudget = 0;
+            return;
+        }
+        // Budget is capped so a laggy frame can't burst-spawn a swarm.
+        heartBudget = Math.min(heartBudget + heartRate() * dt, 2);
+        while (heartBudget >= 1 && liveHearts < MAX_HEARTS) {
+            heartBudget -= 1;
+            spawnHeart();
+        }
     }
 
     /* ── Render ──────────────────────────────────────────────────────────── */
@@ -824,6 +943,7 @@
         $("pending-hearts").textContent = S.pending_hearts;
         $("btn-prestige").disabled = S.pending_hearts < 1;
         renderDebuff();
+        renderStrip();
         renderShop();
     }
 
@@ -884,6 +1004,8 @@
                 const after = S.upgrades.filter((u) => u.owned).length;
                 if (after > before)
                     toast(`${row.children[0].textContent} ${T.unlocked}`);
+            } else if (row.dataset.buy === "safety") {
+                toast(`${row.children[0].textContent} ${T.unlocked}`);
             }
             render();
         }
@@ -911,6 +1033,7 @@
             });
             listGen.hidden = tab.dataset.tab !== "gen";
             listUp.hidden = tab.dataset.tab !== "up";
+            listSafety.hidden = tab.dataset.tab !== "safety";
         });
     });
     document.querySelector('.tab[data-tab="gen"]').click();
@@ -928,6 +1051,7 @@
         S.points += earned;
         S.total_earned += earned;
         $("points").textContent = fmt(S.points);
+        tickHearts(dt);
         if (S.debuff_until) renderDebuff(); // tick the ACCOUNT COMPROMISED clock
     }, 250);
 

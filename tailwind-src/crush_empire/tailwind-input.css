@@ -59,12 +59,56 @@
     .empire-rise {
         animation: empire-rise 0.8s ease-out forwards;
     }
+
+    /* Ambient 💘 drifting up the counter: proof the auto-swipers are working.
+     * Spawn rate and duration come from JS; --dx is per-particle drift. Base
+     * opacity is 0, so with the animation disabled a stray particle is simply
+     * invisible. */
+    .empire-heart {
+        position: absolute;
+        bottom: -4px;
+        font-size: 13px;
+        opacity: 0;
+        pointer-events: none;
+        will-change: transform, opacity;
+        animation: empire-float 2s ease-out forwards;
+    }
+
+    /* One owned generator = one pulsing item in the "empire at work" strip.
+     * animation-delay is staggered from JS so the row hums, not marches. */
+    .empire-working {
+        animation: empire-pulse 1.8s ease-in-out infinite;
+    }
 }
 
 @keyframes empire-rise {
     to {
         transform: translateY(-46px);
         opacity: 0;
+    }
+}
+
+@keyframes empire-float {
+    0% {
+        opacity: 0;
+        transform: translate(0, 0) scale(0.7);
+    }
+    15% {
+        opacity: 0.85;
+    }
+    100% {
+        opacity: 0;
+        transform: translate(var(--dx, 0px), -84px) scale(1.1);
+    }
+}
+
+@keyframes empire-pulse {
+    0%,
+    100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.12);
     }
 }
 
@@ -432,7 +476,9 @@
     .unmask-particle,
     .unmask-bubble,
     .empire-shake,
-    .empire-rise {
+    .empire-rise,
+    .empire-heart,
+    .empire-working {
         animation: none !important;
     }
     /* Straight to the punchline: mask gone, fish showing, stamp landed. */

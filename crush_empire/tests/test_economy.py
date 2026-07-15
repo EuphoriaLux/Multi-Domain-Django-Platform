@@ -175,6 +175,95 @@ class ServiceTests(TestCase):
         self.assertEqual(state.swipes, 0)
 
 
+class SafetyUpgradeTests(TestCase):
+    """The 🚩 shop: what catching scams buys."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="a@b.c", email="a@b.c")
+        self.state = EmpireState.objects.create(user=self.user)
+
+    def _reload(self):
+        self.state.refresh_from_db()
+        return self.state
+
+    # ── effects ──────────────────────────────────────────────────────────
+
+    def test_verified_badge_multiplies_production_not_clicks(self):
+        self.state.generators = {"1": 1}
+        self.state.safety_upgrades = [economy.SAFETY_VERIFIED_BADGE]
+        self.assertAlmostEqual(economy.crushes_per_second(self.state), 1.10)
+        self.assertEqual(economy.per_like(self.state), economy.BASE_PER_LIKE)
+
+    def test_scam_shield_halves_catfish_loss_and_debuff(self):
+        self.assertAlmostEqual(economy.catfish_loss_fraction(self.state), 0.10)
+        self.assertEqual(economy.debuff_seconds(self.state), 120)
+
+        self.state.safety_upgrades = [economy.SAFETY_SCAM_SHIELD]
+        self.assertAlmostEqual(economy.catfish_loss_fraction(self.state), 0.05)
+        self.assertEqual(economy.debuff_seconds(self.state), 60)
+
+    def test_workshop_pays_a_report_bonus(self):
+        self.assertEqual(economy.report_flag_bonus(self.state), 0)
+        self.state.safety_upgrades = [economy.SAFETY_WORKSHOP]
+        self.assertEqual(economy.report_flag_bonus(self.state), 1)
+
+    # ── the purchase ─────────────────────────────────────────────────────
+
+    def test_buy_safety_charges_flags_not_crushes(self):
+        self.state.flags = 25
+        self.state.points = 7
+        self.state.save()
+
+        state = svc.buy_safety(self.user, economy.SAFETY_VERIFIED_BADGE)
+        self.assertEqual(state.safety_upgrades, [economy.SAFETY_VERIFIED_BADGE])
+        self.assertEqual(state.flags, 5)
+        self.assertEqual(state.points, 7)  # crushes are the wrong currency here
+
+    def test_buy_safety_rejects_when_short_of_flags(self):
+        self.state.flags = 19
+        self.state.save()
+
+        with self.assertRaisesMessage(ValueError, "insufficient flags"):
+            svc.buy_safety(self.user, economy.SAFETY_VERIFIED_BADGE)
+        self.assertEqual(self._reload().safety_upgrades, [])
+
+    def test_buy_safety_rejects_a_double_purchase(self):
+        self.state.flags = 100
+        self.state.save()
+
+        svc.buy_safety(self.user, economy.SAFETY_VERIFIED_BADGE)
+        with self.assertRaisesMessage(ValueError, "already owned"):
+            svc.buy_safety(self.user, economy.SAFETY_VERIFIED_BADGE)
+        self.assertEqual(self._reload().flags, 80, "a rejected buy must not charge")
+
+    def test_buy_safety_rejects_an_unknown_id(self):
+        self.state.flags = 10_000
+        self.state.save()
+        with self.assertRaisesMessage(ValueError, "unknown upgrade"):
+            svc.buy_safety(self.user, 999)
+
+    def test_safety_upgrades_survive_prestige(self):
+        """Paid for in flags, and flags survive — resetting them would just tax
+        the scam layer for prestiging."""
+        self.state.total_earned = 1_000_000
+        self.state.safety_upgrades = [economy.SAFETY_SCAM_SHIELD]
+        self.state.save()
+
+        state, _gained = svc.prestige(self.user)
+        self.assertEqual(state.safety_upgrades, [economy.SAFETY_SCAM_SHIELD])
+
+    def test_serializer_exposes_the_safety_shop(self):
+        self.state.safety_upgrades = [economy.SAFETY_SCAM_SHIELD]
+        rows = {r["id"]: r for r in svc.serialize(self.state)["safety"]}
+
+        self.assertTrue(rows[economy.SAFETY_SCAM_SHIELD]["owned"])
+        self.assertFalse(rows[economy.SAFETY_VERIFIED_BADGE]["owned"])
+        self.assertEqual(
+            rows[economy.SAFETY_VERIFIED_BADGE]["cost"],
+            economy.SAFETY_UPGRADES_BY_ID[economy.SAFETY_VERIFIED_BADGE]["cost"],
+        )
+
+
 class SerializerTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="a@b.c", email="a@b.c")

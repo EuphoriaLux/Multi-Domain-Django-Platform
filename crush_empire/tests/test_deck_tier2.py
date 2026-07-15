@@ -229,6 +229,19 @@ class Tier2ScoringTests(TestCase):
         self.assertEqual(r["streak"], 0)
         self.assertGreaterEqual(r["flags"], 1)
 
+    def test_workshop_bonus_pays_on_clean_catches_only(self):
+        """The Safety Workshop rewards precision, not enthusiasm: a full catch
+        earns the extra 🚩, partial credit earns exactly what it always did."""
+        state = self._state()
+        state.safety_upgrades = [economy.SAFETY_WORKSHOP]
+        state.save()
+
+        _, full = self._play(self.scam, "report", tapped=self.scam_flags)
+        self.assertEqual(full["flags"], economy.flag_award(1) + 1)
+
+        _, partial = self._play(self.scam, "report", tapped=self.scam_flags[:1])
+        self.assertEqual(partial["flags"], economy.partial_flag_award(1))
+
     def test_clearing_a_genuine_card_pays_like_a_like(self):
         state, r = self._play(self.genuine, "clear")
         self.assertEqual(r["outcome"], "neutral")

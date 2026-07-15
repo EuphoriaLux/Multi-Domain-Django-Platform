@@ -19,7 +19,11 @@
     {# ── Left: counter, deck, prestige, stats ───────────────────────────── #}
     <div class="flex flex-col gap-4">
 
-      <section class="rounded-2xl border border-empire-line bg-empire-panel p-4 text-center">
+      <section class="relative rounded-2xl border border-empire-line bg-empire-panel p-4 text-center">
+        {# Ambient 💘 rising while the auto-swipers work. Clipped to this band, #}
+        {# NOT the section — overflow-hidden there would clip swiped cards' fly-out. #}
+        <div id="hearts-layer" aria-hidden="true"
+             class="pointer-events-none absolute inset-x-0 top-0 h-28 overflow-hidden"></div>
         <div class="text-3xl font-extrabold text-empire-pink2">
           <span id="points">0</span> 💘
         </div>
@@ -32,6 +36,15 @@
           <span class="text-empire-muted">
             &nbsp;·&nbsp; {% trans "streak" %} <span id="streak">0</span>
           </span>
+        </div>
+
+        {# The empire at work: owned auto-swipers, pulsing. Label lives outside #}
+        {# #empire-strip because JS rebuilds the strip's children wholesale. #}
+        <div id="empire-work" hidden class="mt-3">
+          <div class="text-[10px] font-bold uppercase tracking-widest text-empire-muted"
+               data-t="empireAtWork"></div>
+          <div id="empire-strip" aria-hidden="true"
+               class="mt-1 flex flex-wrap items-baseline justify-center gap-x-3 gap-y-1 text-lg"></div>
         </div>
 
         {# ACCOUNT COMPROMISED. Hidden unless the engine is actually throttled. #}
@@ -178,9 +191,14 @@
                 class="tab flex-1 rounded-xl border border-empire-line bg-white/5 py-2 text-sm">
           {% trans "✨ Upgrades" %}
         </button>
+        <button type="button" data-tab="safety"
+                class="tab flex-1 rounded-xl border border-empire-line bg-white/5 py-2 text-sm">
+          {% trans "🚩 Safety" %}
+        </button>
       </div>
       <div id="list-gen"></div>
       <div id="list-up" hidden></div>
+      <div id="list-safety" hidden></div>
     </section>
   </div>
 </div>

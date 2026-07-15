@@ -123,10 +123,10 @@ def draw(user, rng=None):
 
 
 def _catfish(state):
-    """Falling for a scam costs what you have to lose."""
+    """Falling for a scam costs what you have to lose — less with a Scam Shield."""
     if economy.is_late_game(state):
         return "catfished", 0, 0, 0, True
-    loss = int(state.points * economy.CATFISH_POINT_LOSS)
+    loss = int(state.points * economy.catfish_loss_fraction(state))
     return "catfished", -loss, 0, 0, False
 
 
@@ -147,7 +147,8 @@ def _score_swipe(state, is_scam, action):
 
     if action == ACTION_REPORT:
         streak = state.streak + 1
-        return "correct", 0, economy.flag_award(streak), streak, False
+        flags = economy.flag_award(streak) + economy.report_flag_bonus(state)
+        return "correct", 0, flags, streak, False
 
     if action == ACTION_NOPE:
         # Dodged it, but told nobody. Deliberately zero, not one.
@@ -197,7 +198,8 @@ def _score_modal(state, profile, action, tapped, timed_out):
 
     if found == flags:
         streak = state.streak + 1
-        return "correct", 0, economy.flag_award(streak), streak, False
+        award = economy.flag_award(streak) + economy.report_flag_bonus(state)
+        return "correct", 0, award, streak, False
 
     # Spotted something, missed something. Credit, but no streak.
     return "partial", 0, economy.partial_flag_award(state.streak), state.streak, False
@@ -275,7 +277,7 @@ def resolve(user, challenge_id, action, tapped=None):
 
     if debuff:
         now = timezone.now()
-        until = now + timezone.timedelta(seconds=economy.DEBUFF_SECONDS)
+        until = now + timezone.timedelta(seconds=economy.debuff_seconds(state))
         # Stack by extending, not by replacing: a second catfish during a debuff
         # should not reset the clock to a shorter remaining time.
         state.debuff_until = max(state.debuff_until or now, until)
