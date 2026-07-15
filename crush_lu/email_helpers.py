@@ -1499,6 +1499,9 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
             html_message=html_message,
             recipient_list=[user.email],
             request=request,
+            # Batch runs (management command, admin panel) pass request=None;
+            # without an explicit domain the config falls back to powerup.lu.
+            domain='crush.lu',
             fail_silently=False,
         )
 
