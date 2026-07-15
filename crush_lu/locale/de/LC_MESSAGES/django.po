@@ -21386,7 +21386,7 @@ msgstr "Dein Profil ist"
 
 #: templates/crush_lu/emails/profile_incomplete_72h.html:9
 msgid "waiting to be created"
-msgstr "wartet darauf, erstellt zu werden"
+msgstr "noch nicht erstellt"
 
 #: templates/crush_lu/emails/profile_incomplete_72h.html:9
 msgid "almost ready"
