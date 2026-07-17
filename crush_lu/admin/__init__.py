@@ -197,7 +197,12 @@ from .matching import TraitAdmin, MatchScoreAdmin
 
 from .moderation import UserReportAdmin, UserBlockAdmin
 
-from .event_lobby import EventLobbyParticipationAdmin, EventMeetSignalAdmin
+from .event_lobby import (
+    ConfirmedEncounterAdmin,
+    EventLobbyParticipationAdmin,
+    EventMeetingConfirmationAdmin,
+    EventMeetSignalAdmin,
+)
 
 from .metrics import WeeklyMetricsSnapshotAdmin
 
@@ -318,6 +323,8 @@ from crush_lu.models import (
     UserBlock,
     EventLobbyParticipation,
     EventMeetSignal,
+    EventMeetingConfirmation,
+    ConfirmedEncounter,
 )
 
 
@@ -451,6 +458,8 @@ crush_admin_site.register(UserBlock, UserBlockAdmin)
 # Event Lobby (read-only oversight)
 crush_admin_site.register(EventLobbyParticipation, EventLobbyParticipationAdmin)
 crush_admin_site.register(EventMeetSignal, EventMeetSignalAdmin)
+crush_admin_site.register(EventMeetingConfirmation, EventMeetingConfirmationAdmin)
+crush_admin_site.register(ConfirmedEncounter, ConfirmedEncounterAdmin)
 
 # Matching System
 crush_admin_site.register(Trait, TraitAdmin)

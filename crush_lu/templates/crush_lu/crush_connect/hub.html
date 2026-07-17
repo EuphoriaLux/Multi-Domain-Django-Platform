@@ -123,6 +123,20 @@
             <p class="text-xs md:text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Your 3 questions, preferences & photos." %}</p>
         </a>
 
+        {# People I've Met — permanent hub section (§7.8). #}
+        <a href="{% url 'crush_lu:event_lobby_people' %}"
+           class="col-span-2 flex items-center gap-3 rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
+            <div class="relative w-11 h-11 rounded-xl bg-crush-purple/10 flex items-center justify-center shrink-0">
+                {% include "shared/icons/heart.html" with class="w-5 h-5 text-crush-purple" %}
+                {% if people_ive_met_count %}<span class="absolute -top-1.5 -right-1.5 badge badge-primary ring-2 ring-white dark:ring-slate-800">{{ people_ive_met_count }}</span>{% endif %}
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "People I've Met" %}</p>
+                <p class="text-xs md:text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Real-world encounters you both confirmed." %}</p>
+            </div>
+            {% include "shared/icons/chevron-right.html" with class="w-5 h-5 text-gray-400 shrink-0" %}
+        </a>
+
         {# Coach curation hub. #}
         {% if is_coach %}
         <a href="{% url 'crush_lu:coach_connect_members' %}"

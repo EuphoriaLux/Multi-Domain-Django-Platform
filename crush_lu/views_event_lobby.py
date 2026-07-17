@@ -28,15 +28,22 @@ from .decorators import crush_login_required, ratelimit
 from .models import EventRegistration, MeetupEvent
 from .services.event_lobby import (
     PHASE_LIVE,
+    PHASE_RECAP,
+    confirm_meeting,
     eligible_participations,
+    encounter_counterpart,
     event_lobby_phase,
     get_mutuals,
+    get_people_ive_met,
+    get_recap_roster,
     get_roster,
     handle_checkin,
+    incoming_confirmation_count,
     incoming_signal_count,
     lobby_feature_enabled,
     lobby_state,
     participant_gate,
+    recap_state,
     send_meet_signal,
     viewer_participation,
 )
@@ -121,10 +128,22 @@ def event_lobby(request, event_id):
     if created:
         broadcast_participant_joined(event.pk)
 
+    # Recap phase (§7.7): the live lobby is closed, but the member joined
+    # before the exact end so their frozen participation grants recap access.
+    if phase == PHASE_RECAP and participation is not None:
+        context = {
+            "event": event,
+            "participation": participation,
+            "state": recap_state(request.user, event, now),
+            "roster": get_recap_roster(request.user, event),
+            "ws_path": f"/ws/event-lobby/{event.pk}/",
+        }
+        response = render(request, "crush_lu/event_lobby/recap.html", context)
+        response["Cache-Control"] = "private, no-store"
+        return response
+
     if phase != PHASE_LIVE or participation is None:
-        # PROTOTYPE-STUB: §7.7–§7.8 — the 48-hour recap grid, meeting
-        # confirmations, and People I've Met are outside this prototype
-        # slice; after the live phase we render a phase notice instead.
+        # Closed, or a member who never joined before the end (§5.3).
         return render(
             request,
             "crush_lu/event_lobby/lobby_closed.html",
@@ -142,6 +161,39 @@ def event_lobby(request, event_id):
     }
     response = render(request, "crush_lu/event_lobby/lobby.html", context)
     # §13: the roster must never be cacheable.
+    response["Cache-Control"] = "private, no-store"
+    return response
+
+
+@crush_login_required
+def people_ive_met(request):
+    """The permanent "People I've Met" collection (§7.8). One flat
+    chronological list; current photo + first name only. Non-participants of
+    the feature (or deactivated members) simply see an empty collection."""
+    entries = get_people_ive_met(request.user)
+    response = render(
+        request,
+        "crush_lu/event_lobby/people_ive_met.html",
+        {"people": entries},
+    )
+    response["Cache-Control"] = "private, no-store"
+    return response
+
+
+@crush_login_required
+def event_lobby_person(request, user_id):
+    """The full current Crush Connect profile reached from a People I've Met
+    entry (§7.8). Authorized by an active permanent encounter — never an
+    unguessable id (§13). Opens no chat, contact request, or Spark."""
+    other = encounter_counterpart(request.user, user_id)
+    if other is None:
+        raise Http404("Not found")
+    membership = getattr(other, "crush_connect_membership", None)
+    response = render(
+        request,
+        "crush_lu/event_lobby/person_profile.html",
+        {"person": other, "profile": other.crushprofile, "membership": membership},
+    )
     response["Cache-Control"] = "private, no-store"
     return response
 
@@ -164,21 +216,82 @@ def lobby_state_api(request, event_id):
 
     now = timezone.now()
     phase = event_lobby_phase(event, now)
-    payload = {
-        "ok": True,
-        "state": lobby_state(request.user, event, now),
-    }
     if phase == PHASE_LIVE:
-        payload["roster"] = get_roster(request.user, event)
-        payload["mutuals"] = get_mutuals(request.user, event)
+        payload = {
+            "ok": True,
+            "state": lobby_state(request.user, event, now),
+            "roster": get_roster(request.user, event),
+            "mutuals": get_mutuals(request.user, event),
+        }
+    elif phase == PHASE_RECAP:
+        # §7.6: at the exact end the live roster is replaced by the recap grid.
+        payload = {
+            "ok": True,
+            "state": recap_state(request.user, event, now),
+            "roster": get_recap_roster(request.user, event),
+            "mutuals": [],
+        }
     else:
-        # §7.6: at the exact end the live roster is gone; clients flip to the
-        # ended state. PROTOTYPE-STUB: the recap payload (§7.7) goes here.
-        payload["roster"] = []
-        payload["mutuals"] = []
+        payload = {
+            "ok": True,
+            "state": lobby_state(request.user, event, now),
+            "roster": [],
+            "mutuals": [],
+        }
     response = JsonResponse(payload)
     response["Cache-Control"] = "private, no-store"
     return response
+
+
+@crush_login_required
+@ratelimit(key="user", rate="60/m", method="POST")
+@require_POST
+def lobby_confirm_api(request, event_id):
+    """Confirm a real-world meeting during the recap (§7.7). CSRF-protected
+    POST; the server re-derives phase inside the service transaction."""
+    event = _get_lobby_event(event_id)
+
+    try:
+        data = json.loads(request.body)
+        handle = str(data["handle"])
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+        return JsonResponse({"ok": False, "error": "bad_payload"}, status=400)
+
+    result = confirm_meeting(request.user, event, handle)
+    outcome = result.get("result")
+
+    if outcome in ("feature_disabled", "not_participant"):
+        return JsonResponse({"ok": False, "error": outcome}, status=403)
+    if outcome == "unknown_participant":
+        return JsonResponse({"ok": False, "error": outcome}, status=404)
+
+    recipient_user_id = result.pop("recipient_user_id", None)
+    if recipient_user_id is not None and outcome == "confirmed":
+        _push_confirmation_counter(event, recipient_user_id)
+    elif recipient_user_id is not None and outcome == "encounter":
+        # Private hint; the counterpart's client refetches authoritative state.
+        _notify_lobby_user(event.pk, recipient_user_id, "lobby.encounter", {})
+
+    result["ok"] = True
+    response = JsonResponse(result)
+    response["Cache-Control"] = "private, no-store"
+    return response
+
+
+def _push_confirmation_counter(event, recipient_user_id):
+    """Push the recipient's fresh exact anonymous confirmation count (§7.7)."""
+    from django.contrib.auth.models import User
+
+    try:
+        recipient = User.objects.get(pk=recipient_user_id)
+    except User.DoesNotExist:
+        return
+    _notify_lobby_user(
+        event.pk,
+        recipient_user_id,
+        "lobby.counter",
+        {"incoming_confirmations": incoming_confirmation_count(recipient, event)},
+    )
 
 
 @crush_login_required

@@ -402,8 +402,15 @@ class TestRoster:
         assert len(roster) == 2
         for entry in roster:
             # §13: opaque handle + authorized photo URL only before a reveal.
-            assert set(entry.keys()) == {"handle", "photo_url", "is_mutual", "signalled"}
+            assert set(entry.keys()) == {
+                "handle",
+                "photo_url",
+                "is_mutual",
+                "already_met",
+                "signalled",
+            }
             assert entry["is_mutual"] is False
+            assert entry["already_met"] is False
             # The photo route is handle-addressed, never the durable user-id
             # route used by serve_profile_photo.
             assert entry["photo_url"] == reverse(
@@ -731,7 +738,10 @@ class TestStateApi:
         assert [m["first_name"] for m in payload["mutuals"]] == ["Ben"]
         assert payload["roster"][0]["is_mutual"] is True
 
-    def test_after_end_state_is_recap_with_empty_roster(self, client):
+    def test_after_end_state_flips_to_recap_grid(self, client):
+        """At the exact end the live roster is replaced by the recap grid
+        (§7.6) — recap state carries the confirmation counter, not a live
+        countdown, and the recap roster is populated."""
         event = _make_event()
         alice = _make_member("alice")
         ben = _make_member("ben", gender="M")
@@ -741,8 +751,9 @@ class TestStateApi:
         _login(client, alice)
         payload = client.get(_state_url(event)).json()
         assert payload["state"]["phase"] == "recap"
-        assert payload["roster"] == []
-        assert payload["state"]["seconds_to_end"] == 0
+        assert "incoming_confirmations" in payload["state"]
+        assert "seconds_to_end" not in payload["state"]
+        assert len(payload["roster"]) == 1
 
 
 class TestSignalApi:

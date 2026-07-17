@@ -67,3 +67,65 @@ class EventMeetSignalAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+class EventMeetingConfirmationAdmin(admin.ModelAdmin):
+    list_display = ("event", "confirmer", "other_user", "created_at")
+    list_select_related = ["event", "confirmer", "other_user"]
+    list_filter = ("created_at",)
+    search_fields = (
+        "confirmer__username",
+        "confirmer__email",
+        "other_user__username",
+        "other_user__email",
+        "event__title",
+    )
+    raw_id_fields = ("event", "confirmer", "other_user")
+    readonly_fields = ("event", "confirmer", "other_user", "created_at")
+    date_hierarchy = "created_at"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+class ConfirmedEncounterAdmin(admin.ModelAdmin):
+    """Read/oversight only — status transitions belong to the (future) removal
+    review workflow (§8.1), not manual admin edits."""
+
+    list_display = (
+        "user_low",
+        "user_high",
+        "status",
+        "created_at",
+        "created_from_event",
+    )
+    list_select_related = ["user_low", "user_high", "created_from_event"]
+    list_filter = ("status", "created_at")
+    search_fields = (
+        "user_low__username",
+        "user_low__email",
+        "user_high__username",
+        "user_high__email",
+    )
+    raw_id_fields = ("user_low", "user_high", "created_from_event")
+    readonly_fields = (
+        "user_low",
+        "user_high",
+        "created_from_event",
+        "created_at",
+        "hidden_at",
+        "removed_at",
+    )
+    date_hierarchy = "created_at"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

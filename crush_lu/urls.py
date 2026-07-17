@@ -402,7 +402,11 @@ urlpatterns = [
     path('events/<int:event_id>/lobby/', views_event_lobby.event_lobby, name='event_lobby'),
     path('events/<int:event_id>/lobby/api/state/', views_event_lobby.lobby_state_api, name='event_lobby_state_api'),
     path('events/<int:event_id>/lobby/api/signal/', views_event_lobby.lobby_signal_api, name='event_lobby_signal_api'),
+    path('events/<int:event_id>/lobby/api/confirm/', views_event_lobby.lobby_confirm_api, name='event_lobby_confirm_api'),
     path('events/<int:event_id>/lobby/photo/<str:handle>/', views_event_lobby.lobby_photo, name='event_lobby_photo'),
+    # People I've Met — permanent collection + full-profile view (§7.8)
+    path('crush-connect/people-ive-met/', views_event_lobby.people_ive_met, name='event_lobby_people'),
+    path('crush-connect/people-ive-met/<int:user_id>/', views_event_lobby.event_lobby_person, name='event_lobby_person'),
 
     # Crush Cache — GPS + QR scavenger hunt
     path('events/<int:event_id>/cache/', views_crush_cache.cache_lobby, name='cache_lobby'),

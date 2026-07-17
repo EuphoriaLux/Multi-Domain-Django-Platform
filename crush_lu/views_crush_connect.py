@@ -740,8 +740,14 @@ def crush_connect_hub(request):
     coach_pick = get_active_coach_pick(user) if is_receiver else None
 
     # Event Lobby hub card (spec §2 Navigation): shown only while the member
-    # is an eligible participant of a currently-live event lobby.
-    from crush_lu.services.event_lobby import get_active_live_lobby
+    # is an eligible participant of a currently-live event lobby. People I've
+    # Met is a permanent hub section (§7.8).
+    from crush_lu.services.event_lobby import (
+        get_active_live_lobby,
+        get_people_ive_met,
+    )
+
+    people_ive_met_count = len(get_people_ive_met(user))
 
     context = {
         "membership": membership,
@@ -752,6 +758,7 @@ def crush_connect_hub(request):
         "coach_pick": coach_pick,
         "next_drop_at": _next_drop_at(),
         "active_lobby": get_active_live_lobby(user),
+        "people_ive_met_count": people_ive_met_count,
     }
     return render(request, "crush_lu/crush_connect/hub.html", context)
 

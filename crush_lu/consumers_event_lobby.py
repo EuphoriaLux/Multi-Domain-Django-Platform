@@ -99,5 +99,8 @@ class EventLobbyConsumer(AsyncJsonWebsocketConsumer):
     async def lobby_mutual(self, event):
         await self.send_json({"type": "mutual", "data": event.get("data", {})})
 
+    async def lobby_encounter(self, event):
+        await self.send_json({"type": "encounter", "data": event.get("data", {})})
+
     async def lobby_phase(self, event):
         await self.send_json({"type": "phase", "data": event.get("data", {})})

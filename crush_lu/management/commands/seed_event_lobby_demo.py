@@ -143,6 +143,9 @@ class Command(BaseCommand):
             state = "in lobby" if participation else "checked in (no lobby)"
             self.stdout.write(f"  {username} / {password} — {kind}: {state}")
 
+        recap_event = self._seed_recap_event(now)
+        self._seed_people_ive_met(now)
+
         launched = bool(
             getattr(settings, "CRUSH_CONNECT_LAUNCHED", False)
             or getattr(settings, "CRUSH_CONNECT_CANDIDATE_OPEN", False)
@@ -160,9 +163,111 @@ class Command(BaseCommand):
                 )
             )
         self.stdout.write("")
-        self.stdout.write(f"Lobby URL:  /en/events/{event.pk}/lobby/")
-        self.stdout.write("Hub URL:    /en/crush-connect/home/ (live-lobby card)")
+        self.stdout.write(f"Live lobby:   /en/events/{event.pk}/lobby/")
+        self.stdout.write(f"48h recap:    /en/events/{recap_event.pk}/lobby/")
+        self.stdout.write("People I've Met: /en/crush-connect/people-ive-met/")
+        self.stdout.write("Hub:          /en/crush-connect/home/ (live-lobby + People I've Met cards)")
         self.stdout.write("Login at /accounts/login/ with <username>@example.com / password above.")
+        self.stdout.write(
+            "  Demo: log in as lobby_alice — confirm lobby_chloe in the recap, "
+            "then confirm alice back from lobby_chloe to mint a People-I've-Met entry."
+        )
+
+    # ------------------------------------------------------------------
+
+    def _seed_recap_event(self, now):
+        """A second event already inside its 48h recap window, with the three
+        Connect members joined (participations created directly, since the
+        event has ended) and one live mutual (alice↔chloe) pinned so the recap
+        grid shows the 'You wanted to meet' highlight."""
+        from datetime import timedelta
+
+        from crush_lu.models import (
+            EventLobbyParticipation,
+            EventMeetSignal,
+            EventRegistration,
+            MeetupEvent,
+        )
+
+        title = "Event Lobby Recap Demo"
+        # Ended 3h ago → inside the recap window (opens at end, closes +48h).
+        start = now - timedelta(hours=5)
+        event, _ = MeetupEvent.objects.update_or_create(
+            title=title,
+            defaults={
+                "description": "Local demo event in its 48-hour recap window.",
+                "event_type": "mixer",
+                "location": "Demo Bar, Luxembourg",
+                "address": "1 Demo Street, Luxembourg City",
+                "canton": "Luxembourg",
+                "date_time": start,
+                "duration_minutes": 120,
+                "max_participants": 30,
+                "registration_deadline": start - timedelta(hours=1),
+                "is_published": True,
+                "is_cancelled": False,
+                "profile_requirement": "none",
+            },
+        )
+        connect_usernames = [
+            u for u, (_f, _g, _c, kind) in DEMO_USERS.items() if kind == "connect"
+        ]
+        members = list(User.objects.filter(username__in=connect_usernames))
+        joined_at = start + timedelta(minutes=10)
+        for member in members:
+            registration, _ = EventRegistration.objects.update_or_create(
+                event=event,
+                user=member,
+                defaults={"status": "attended", "checked_in_at": joined_at},
+            )
+            # Direct create — the event has already ended, so the real
+            # check-in path would (correctly) refuse; this simulates a join
+            # that happened while it was live.
+            EventLobbyParticipation.objects.update_or_create(
+                event_registration=registration,
+                defaults={
+                    "event": event,
+                    "user": member,
+                    "joined_at": joined_at,
+                    "eligibility_source": "checkin",
+                },
+            )
+        # A live mutual alice↔chloe (both signalled during the event).
+        by_name = {m.username: m for m in members}
+        alice = by_name.get("lobby_alice")
+        chloe = by_name.get("lobby_chloe")
+        if alice and chloe:
+            revealed = joined_at + timedelta(minutes=20)
+            for sender, recipient in [(alice, chloe), (chloe, alice)]:
+                EventMeetSignal.objects.update_or_create(
+                    event=event,
+                    sender=sender,
+                    recipient=recipient,
+                    defaults={"mutual_revealed_at": revealed},
+                )
+        self.stdout.write("")
+        self.stdout.write(
+            f"Recap event:  {event.title} (id={event.pk}) — in 48h recap window"
+        )
+        return event
+
+    def _seed_people_ive_met(self, now):
+        """One pre-existing permanent encounter (alice↔ben) so People I've Met
+        has content and the live grid shows the 'You've already met' tile."""
+        from crush_lu.models import ConfirmedEncounter, MeetupEvent
+
+        alice = User.objects.filter(username="lobby_alice").first()
+        ben = User.objects.filter(username="lobby_ben").first()
+        if not (alice and ben):
+            return
+        low, high = ConfirmedEncounter.canonical_pair(alice, ben)
+        source = MeetupEvent.objects.filter(title=DEMO_EVENT_TITLE).first()
+        ConfirmedEncounter.objects.update_or_create(
+            user_low=low,
+            user_high=high,
+            defaults={"created_from_event": source, "status": "active"},
+        )
+        self.stdout.write("People I've Met: seeded 1 encounter (lobby_alice ↔ lobby_ben)")
 
     # ------------------------------------------------------------------
 

@@ -3,8 +3,8 @@ Event Lobby service layer — eligibility, phase math, roster shaping, and the
 irrevocable meet-signal loop.
 
 Spec: docs/superpowers/specs/2026-07-17-crush-connect-event-lobby-design.md
-(§5 eligibility, §6 time/state model, §7.2–7.4 live lobby, §9–10 domain model
-and service boundaries, §13 privacy invariants).
+(§5 eligibility, §6 time/state model, §7.2–7.8 live lobby / recap / People
+I've Met, §9–10 domain model and service boundaries, §13 privacy invariants).
 
 Every rule lives here — not in templates, consumers, or the check-in endpoint
 (§10). All functions re-derive phase and eligibility from server time and
@@ -260,6 +260,9 @@ def get_roster(viewer, event) -> list[dict]:
 
     blocked = blocked_user_ids(viewer)
     mutual_ids = _mutual_user_ids(viewer, event)
+    # §7.3 step 2 / §2: pairs already in People I've Met stay visible but are
+    # non-actionable ("You've already met") and can never consume a signal.
+    encounter_ids = _encounter_user_ids(viewer)
     # The viewer's own outgoing signals — own data, shown back to them so a
     # signalled tile renders as "sent" (never exposed to anyone else).
     signalled_ids = set(
@@ -272,16 +275,16 @@ def get_roster(viewer, event) -> list[dict]:
     for participation in qs:
         if participation.user_id in blocked:
             continue
-        # PROTOTYPE-STUB: §7.3 step 2 — once ConfirmedEncounter exists, pairs
-        # already in "People I've Met" render a non-actionable "You've already
-        # met" tile here instead of a signal target.
         entry = {
             "handle": participation.handle,
             "photo_url": _photo_url(event, participation.handle),
             "is_mutual": participation.user_id in mutual_ids,
+            "already_met": participation.user_id in encounter_ids,
             "signalled": participation.user_id in signalled_ids,
         }
-        if entry["is_mutual"]:
+        # First name authorized for live mutuals and existing permanent
+        # encounters (both already revealed); never for a plain participant.
+        if entry["is_mutual"] or entry["already_met"]:
             entry["first_name"] = participation.user.first_name
         roster.append(entry)
     return roster
@@ -383,6 +386,8 @@ def send_meet_signal(sender, event, target_handle, now=None) -> dict:
     - ``duplicate``         — sender already signalled this member (idempotent,
                               consumes nothing; re-reports ``mutual`` when the
                               pair is already revealed)
+    - ``already_met``       — pair already has a permanent encounter (§7.3
+                              step 2); non-actionable, consumes nothing
     - ``quota_exhausted``   — three distinct recipients already used
     - ``phase_closed``      — live phase over / event not live (§7.6)
     - ``feature_disabled``  — rollout flag or launch phase off
@@ -441,6 +446,16 @@ def send_meet_signal(sender, event, target_handle, now=None) -> dict:
         # §6: compare server time inside the same transaction as the write.
         if timezone.now() >= event.end_time:
             return {"result": "phase_closed"}
+
+        # §7.3 step 2 / §2: an existing permanent encounter is non-actionable —
+        # tapping shows "You've already met" and consumes no signal.
+        if recipient.pk in _encounter_user_ids(sender):
+            return {
+                "result": "already_met",
+                "handle": target.handle,
+                "first_name": recipient.first_name,
+                "signals_remaining": signals_remaining(sender, event),
+            }
 
         existing = EventMeetSignal.objects.filter(
             event=event, sender=sender, recipient=recipient
@@ -529,3 +544,320 @@ def get_active_live_lobby(user, now=None):
         if event_lobby_phase(participation.event, now) == PHASE_LIVE:
             return participation
     return None
+
+
+# ---------------------------------------------------------------------------
+# Recap phase — meeting confirmations & permanent encounters (§7.7, §9.3–9.4)
+# ---------------------------------------------------------------------------
+
+
+def _is_active_connect_member(user) -> bool:
+    """Lighter check than ``participant_gate`` — onboarded + not excluded.
+    Connect deactivation/exclusion hides the collection and recap access."""
+    membership = getattr(user, "crush_connect_membership", None)
+    return (
+        membership is not None
+        and membership.onboarded_at is not None
+        and not membership.excluded_by_coach
+    )
+
+
+def _can_appear_in_collection(user) -> bool:
+    """A counterpart is renderable in People I've Met only while they remain an
+    active Connect member with a usable current photo (§7.8: entries disappear
+    while either side is inactive/excluded)."""
+    if not _is_active_connect_member(user):
+        return False
+    profile = getattr(user, "crushprofile", None)
+    return bool(
+        profile is not None
+        and profile.verification_status == "verified"
+        and profile.photo_1
+    )
+
+
+def _encounter_user_ids(viewer) -> set[int]:
+    """User ids ``viewer`` already has an active permanent encounter with."""
+    from crush_lu.models import ConfirmedEncounter
+
+    ids = set()
+    pairs = ConfirmedEncounter.objects.filter(
+        Q(user_low=viewer) | Q(user_high=viewer), status="active"
+    ).values_list("user_low_id", "user_high_id")
+    for low_id, high_id in pairs:
+        ids.add(high_id if low_id == viewer.pk else low_id)
+    return ids
+
+
+def incoming_confirmation_count(user, event) -> int:
+    """The recap's exact anonymous counter (§7.7): incoming "we met"
+    confirmations from still-eligible, non-blocked senders the viewer has NOT
+    reciprocally confirmed (a reciprocal confirmation is revealed as an
+    encounter, so it leaves the anonymous count — mirrors the live counter)."""
+    from crush_lu.models import EventMeetingConfirmation
+
+    blocked = blocked_user_ids(user)
+    eligible_sender_ids = eligible_participations(event).values("user_id")
+    reciprocated = EventMeetingConfirmation.objects.filter(
+        event=event, confirmer=user
+    ).values("other_user_id")
+    qs = EventMeetingConfirmation.objects.filter(
+        event=event, other_user=user, confirmer_id__in=eligible_sender_ids
+    ).exclude(confirmer_id__in=reciprocated)
+    if blocked:
+        qs = qs.exclude(confirmer_id__in=blocked)
+    return qs.count()
+
+
+def get_recap_roster(viewer, event) -> list[dict]:
+    """The 48-hour recap grid (§7.7): every eligible lobby participant except
+    self and blocked pairs. Live mutuals sort first and keep photo + first
+    name ("You wanted to meet at the event"); everyone else is photo-only.
+    Pairs already in a permanent encounter are non-actionable "You've already
+    met" tiles."""
+    from crush_lu.models import EventMeetingConfirmation
+
+    blocked = blocked_user_ids(viewer)
+    live_mutual_ids = _mutual_user_ids(viewer, event)
+    encounter_ids = _encounter_user_ids(viewer)
+    confirmed_ids = set(
+        EventMeetingConfirmation.objects.filter(
+            event=event, confirmer=viewer
+        ).values_list("other_user_id", flat=True)
+    )
+    entries = []
+    qs = eligible_participations(event).exclude(user=viewer).order_by("-joined_at")
+    for participation in qs:
+        if participation.user_id in blocked:
+            continue
+        is_live_mutual = participation.user_id in live_mutual_ids
+        already_met = participation.user_id in encounter_ids
+        entry = {
+            "handle": participation.handle,
+            "photo_url": _photo_url(event, participation.handle),
+            "is_live_mutual": is_live_mutual,
+            "already_met": already_met,
+            "confirmed": participation.user_id in confirmed_ids,
+        }
+        # First name is authorized for live mutuals (already revealed live) and
+        # for permanent encounters (already revealed) — never for a plain
+        # unconfirmed participant (§13).
+        if is_live_mutual or already_met:
+            entry["first_name"] = participation.user.first_name
+        entries.append(entry)
+    # Stable sort: live mutuals first, order otherwise preserved (newest join).
+    entries.sort(key=lambda e: not e["is_live_mutual"])
+    return entries
+
+
+def recap_state(user, event, now=None) -> dict:
+    """Own recap-state payload for the header + pollers (§11): phase, countdown
+    to recap close, exact incoming confirmation counter — no roster identity."""
+    now = now or timezone.now()
+    end = event.end_time
+    recap_closes = end + timedelta(hours=RECAP_WINDOW_HOURS)
+    return {
+        "phase": event_lobby_phase(event, now),
+        "event_end_at": end.isoformat(),
+        "recap_closes_at": recap_closes.isoformat(),
+        "seconds_to_recap_close": max(0, int((recap_closes - now).total_seconds())),
+        "incoming_confirmations": incoming_confirmation_count(user, event),
+    }
+
+
+def _create_or_get_encounter(user_a, user_b, event):
+    """Idempotently return the pair's ConfirmedEncounter (§9.4).
+
+    A removed/removal_pending encounter is returned UNCHANGED — approved
+    removal is permanent and never resurrected by a later confirmation
+    (§7.8). ``created_at`` and ordering are set once and never touched by
+    later shared events.
+    """
+    from crush_lu.models import ConfirmedEncounter
+
+    low, high = ConfirmedEncounter.canonical_pair(user_a, user_b)
+    encounter, created = ConfirmedEncounter.objects.get_or_create(
+        user_low=low,
+        user_high=high,
+        defaults={"created_from_event": event, "status": "active"},
+    )
+    return encounter, created
+
+
+def confirm_meeting(confirmer, event, target_handle, now=None) -> dict:
+    """One irreversible, anonymous "Yes, we met" confirmation (§7.7, §9.3).
+
+    Returns a dict whose ``result`` is one of:
+
+    - ``confirmed``         — one-sided confirmation created, still anonymous
+    - ``encounter``         — reverse confirmation existed; permanent encounter
+                              created/returned and the first name revealed
+    - ``already_met``       — pair already has an active permanent encounter
+                              (non-actionable, consumes nothing)
+    - ``duplicate``         — confirmer already confirmed this person
+    - ``phase_closed``      — not in the 48-hour recap window
+    - ``feature_disabled``  — rollout flag / launch phase off
+    - ``not_participant``   — confirmer has no participation or lost eligibility
+    - ``unknown_participant`` — handle not in this event's eligible roster
+                              (also covers blocked pairs — not probeable, §8.2)
+
+    ``encounter`` results include ``recipient_user_id`` for server-side private
+    notification routing; it must never reach any client payload (§13).
+    """
+    from crush_lu.models import (
+        ConfirmedEncounter,
+        EventLobbyParticipation,
+        EventMeetingConfirmation,
+    )
+
+    now = now or timezone.now()
+
+    if not lobby_feature_enabled():
+        return {"result": "feature_disabled"}
+    if event_lobby_phase(event, now) != PHASE_RECAP:
+        return {"result": "phase_closed"}
+    ok, _reason = participant_gate(confirmer)
+    if not ok:
+        return {"result": "not_participant"}
+    if not EventLobbyParticipation.objects.filter(
+        event=event, user=confirmer
+    ).exists():
+        return {"result": "not_participant"}
+
+    target = (
+        eligible_participations(event)
+        .filter(handle=target_handle)
+        .exclude(user=confirmer)
+        .first()
+    )
+    if target is None or is_blocked_pair(confirmer, target.user):
+        return {"result": "unknown_participant"}
+    other = target.user
+
+    with transaction.atomic():
+        # §6: re-derive the phase inside the write transaction.
+        if event_lobby_phase(event, timezone.now()) != PHASE_RECAP:
+            return {"result": "phase_closed"}
+
+        low, high = ConfirmedEncounter.canonical_pair(confirmer, other)
+        existing = (
+            ConfirmedEncounter.objects.select_for_update()
+            .filter(user_low=low, user_high=high)
+            .first()
+        )
+        if existing is not None and existing.status == "active":
+            # §7.7: previously confirmed permanent encounters are non-actionable.
+            return {
+                "result": "already_met",
+                "handle": target.handle,
+                "first_name": other.first_name,
+            }
+
+        confirmation, created = EventMeetingConfirmation.objects.get_or_create(
+            event=event, confirmer=confirmer, other_user=other
+        )
+        if not created:
+            return {"result": "duplicate"}
+
+        reverse_exists = EventMeetingConfirmation.objects.filter(
+            event=event, confirmer=other, other_user=confirmer
+        ).exists()
+        if reverse_exists:
+            encounter, _enc_created = _create_or_get_encounter(confirmer, other, event)
+            logger.info(
+                "Lobby permanent encounter for event %s (pair %s+%s)",
+                event.pk,
+                low.pk,
+                high.pk,
+            )
+            return {
+                "result": "encounter",
+                "handle": target.handle,
+                "first_name": other.first_name,
+                "recipient_user_id": other.pk,
+            }
+
+    logger.info(
+        "Lobby meeting confirmation for event %s (confirmation %s)",
+        event.pk,
+        confirmation.pk,
+    )
+    return {"result": "confirmed", "recipient_user_id": other.pk}
+
+
+# ---------------------------------------------------------------------------
+# People I've Met — permanent collection (§7.8)
+# ---------------------------------------------------------------------------
+
+
+def get_people_ive_met(user) -> list[dict]:
+    """The flat, chronological permanent collection (§7.8), newest first.
+
+    One entry per pair; current photo + first name only; no event, date,
+    counter, or history. Entries disappear while either side is
+    inactive/excluded or the pair is blocked; the viewer must be an active
+    Connect member (deactivation hides the whole collection)."""
+    from crush_lu.models import ConfirmedEncounter
+    from crush_lu.views_media import get_profile_photo_url
+
+    if not user.is_authenticated or not _is_active_connect_member(user):
+        return []
+
+    blocked = blocked_user_ids(user)
+    entries = []
+    encounters = (
+        ConfirmedEncounter.objects.filter(
+            Q(user_low=user) | Q(user_high=user), status="active"
+        )
+        .select_related(
+            "user_low",
+            "user_high",
+            "user_low__crushprofile",
+            "user_high__crushprofile",
+            "user_low__crush_connect_membership",
+            "user_high__crush_connect_membership",
+        )
+        .order_by("-created_at")
+    )
+    for encounter in encounters:
+        other = encounter.counterpart_of(user)
+        if other.pk in blocked or not _can_appear_in_collection(other):
+            continue
+        entries.append(
+            {
+                "user_id": other.pk,
+                "first_name": other.first_name,
+                "photo_url": get_profile_photo_url(other.crushprofile, "photo_1"),
+                "profile_url": reverse(
+                    "crush_lu:event_lobby_person", kwargs={"user_id": other.pk}
+                ),
+                "created_at": encounter.created_at.isoformat(),
+            }
+        )
+    return entries
+
+
+def encounter_counterpart(viewer, user_id):
+    """Return the other user IFF ``viewer`` has an active permanent encounter
+    with them and they can still appear (§13: full-profile access is
+    authorized by the encounter, not an unguessable id). Else None."""
+    from django.contrib.auth.models import User
+
+    from crush_lu.models import ConfirmedEncounter
+
+    if not _is_active_connect_member(viewer):
+        return None
+    other = (
+        User.objects.select_related("crushprofile", "crush_connect_membership")
+        .filter(pk=user_id)
+        .first()
+    )
+    if other is None or other.pk == viewer.pk:
+        return None
+    if is_blocked_pair(viewer, other) or not _can_appear_in_collection(other):
+        return None
+    low, high = ConfirmedEncounter.canonical_pair(viewer, other)
+    has_active = ConfirmedEncounter.objects.filter(
+        user_low=low, user_high=high, status="active"
+    ).exists()
+    return other if has_active else None
