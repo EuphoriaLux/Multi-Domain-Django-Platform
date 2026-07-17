@@ -25,7 +25,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from .decorators import crush_login_required, ratelimit
-from .models import EventRegistration, MeetupEvent
+from .models import EventLobbyParticipation, EventRegistration, MeetupEvent
 from .services.event_lobby import (
     PHASE_LIVE,
     PHASE_RECAP,
@@ -123,10 +123,15 @@ def event_lobby(request, event_id):
 
     # Idempotent self-heal (§10: evaluate/create participation is idempotent):
     # covers members whose check-in predates the feature rollout. Creates only
-    # while the live phase lasts — never retroactively (§5.3).
+    # while the live phase lasts — never retroactively (§5.3). During recap it
+    # returns None, so read the member's frozen participation directly.
     participation, created = handle_checkin(registration)
     if created:
         broadcast_participant_joined(event.pk)
+    if participation is None:
+        participation = EventLobbyParticipation.objects.filter(
+            event=event, user=request.user
+        ).first()
 
     # Recap phase (§7.7): the live lobby is closed, but the member joined
     # before the exact end so their frozen participation grants recap access.

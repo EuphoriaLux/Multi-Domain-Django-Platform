@@ -430,6 +430,39 @@ class TestConfirmApi:
         assert "Ben" not in json.dumps(payload)  # non-mutual → no name
 
 
+class TestRecapPage:
+    def test_recap_page_renders_grid_for_participant(self, client):
+        """The lobby page renders the recap grid during the 48h window — the
+        member's frozen participation grants access even though the live
+        self-heal no longer creates one after the end."""
+        event = _recap_event()
+        alice = _make_member("alice")
+        ben = _make_member("ben", gender="M")
+        _join(alice, event)
+        _join(ben, event)
+        _to_recap(event)
+        _login(client, alice)
+        response = client.get(reverse("crush_lu:event_lobby", args=[event.pk]))
+        assert response.status_code == 200
+        assert response["Cache-Control"] == "private, no-store"
+        html = response.content.decode()
+        assert "recap-grid" in html
+        assert "Who did you meet?" in html
+
+    def test_recap_page_locked_for_non_onboarded(self, client):
+        event = _recap_event()
+        ben = _make_member("ben", gender="M")
+        _join(ben, event)
+        _to_recap(event)
+        guest = _make_member("guest", onboarded=False)
+        _attend(guest, event)
+        _login(client, guest)
+        response = client.get(reverse("crush_lu:event_lobby", args=[event.pk]))
+        assert response.status_code == 200
+        assert "Finish Crush Connect" in response.content.decode()
+        assert "recap-grid" not in response.content.decode()
+
+
 class TestPeopleIveMetPages:
     def test_collection_lists_encounters(self, client):
         alice = _make_member("alice")
