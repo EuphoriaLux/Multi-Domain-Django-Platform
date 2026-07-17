@@ -30,7 +30,7 @@ from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
-from crush_lu.models import CrushProfile, ProfileSubmission
+from crush_lu.models import CrushProfile, PremiumMembership, ProfileSubmission
 from crush_lu.models.crush_connect import CrushConnectMembership, SparkPrompt
 from crush_lu.models.profiles import CrushCoach
 
@@ -292,6 +292,17 @@ class Command(BaseCommand):
                 profile_kwargs["assigned_coach_at"] = timezone.now()
 
             profile = CrushProfile.objects.create(**profile_kwargs)
+
+            if is_premium:
+                # The receiver gate keys off an ACTIVE PremiumMembership, not
+                # assigned_coach — give premium seeds the real entitlement.
+                PremiumMembership.objects.create(
+                    user=user,
+                    coach=coach,
+                    status="active",
+                    payment_confirmed=True,
+                    payment_date=timezone.now(),
+                )
 
             if user_data.get("photo_data"):
                 try:

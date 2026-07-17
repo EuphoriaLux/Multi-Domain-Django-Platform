@@ -166,10 +166,16 @@ class DashboardConnectStatusStripTests(TestCase):
 
     @override_settings(CRUSH_CONNECT_LAUNCHED=True)
     def test_premium_member_gets_no_strip(self):
+        from crush_lu.models import PremiumMembership
+
         coach = _make_coach("coach_p", "+352999999")
         profile = self.user.crushprofile
-        profile.assigned_coach = coach  # premium
+        profile.assigned_coach = coach
         profile.save()
+        # Premium = active membership, not the coach assignment alone.
+        PremiumMembership.objects.create(
+            user=self.user, coach=coach, status="active", payment_confirmed=True
+        )
         _link_luxid(self.user)
         response = self._get()
         self.assertEqual(response.status_code, 200)
