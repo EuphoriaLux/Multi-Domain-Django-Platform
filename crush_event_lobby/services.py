@@ -37,11 +37,7 @@ def event_end_at(event):
 
 def is_live(event, now=None):
     now = now or timezone.now()
-    return (
-        event.is_published
-        and not event.is_cancelled
-        and now < event_end_at(event)
-    )
+    return event.is_published and not event.is_cancelled and now < event_end_at(event)
 
 
 def _active_member_reason(user, *, require_lobby_consent=True):
@@ -65,11 +61,9 @@ def _active_member_reason(user, *, require_lobby_consent=True):
     if not membership.photo_share_consent or not profile.photo_1:
         return "not_available"
     if require_lobby_consent:
-        try:
-            consent = user.event_lobby_consent
-        except ObjectDoesNotExist:
-            consent = None
-        if consent is None or consent.version != CURRENT_CONSENT_VERSION:
+        if not EventLobbyConsent.objects.filter(
+            user=user, version=CURRENT_CONSENT_VERSION
+        ).exists():
             return "consent_required"
     return None
 
@@ -180,9 +174,7 @@ def list_live_participants(event, viewer):
     sent, received = _signal_sets(event, viewer)
     payload = []
     for participation in visible:
-        mutual = (
-            participation.user_id in sent and participation.user_id in received
-        )
+        mutual = participation.user_id in sent and participation.user_id in received
         item = {
             "handle": str(participation.opaque_handle),
             "photo_url": reverse(
@@ -270,8 +262,10 @@ def send_meet_signal(event, sender, recipient_handle):
             raise LobbyAccessError("not_available")
 
         try:
-            sender_participation = EventLobbyParticipation.objects.select_for_update().get(
-                event=locked_event, user=sender
+            sender_participation = (
+                EventLobbyParticipation.objects.select_for_update().get(
+                    event=locked_event, user=sender
+                )
             )
         except EventLobbyParticipation.DoesNotExist:
             raise LobbyAccessError("not_available") from None
@@ -318,9 +312,7 @@ def send_meet_signal(event, sender, recipient_handle):
                 first_name=recipient.first_name if mutual else None,
             )
 
-        used = EventMeetSignal.objects.filter(
-            event=locked_event, sender=sender
-        ).count()
+        used = EventMeetSignal.objects.filter(event=locked_event, sender=sender).count()
         if used >= SIGNAL_LIMIT:
             raise LobbyAccessError("signal_limit_reached")
 

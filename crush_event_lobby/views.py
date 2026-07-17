@@ -64,9 +64,7 @@ def consent(request):
         except LobbyAccessError as error:
             return _handle_page_error(request, error)
         if event_id and event_id.isdigit():
-            return redirect(
-                "crush_lu:event_lobby:lobby", event_id=int(event_id)
-            )
+            return redirect("crush_lu:event_lobby:lobby", event_id=int(event_id))
         return redirect("crush_lu:crush_connect_hub")
     return _private(
         render(request, "crush_event_lobby/consent.html", {"event_id": event_id})
@@ -174,4 +172,3 @@ def signal(request, event_id, handle):
     else:
         messages.info(request, "Your anonymous signal was already sent.")
     return redirect("crush_lu:event_lobby:lobby", event_id=event.pk)
-

@@ -58,9 +58,7 @@ class EventLobbyParticipation(models.Model):
             )
         ]
         indexes = [
-            models.Index(
-                fields=["event", "joined_at"], name="lobby_event_joined_idx"
-            )
+            models.Index(fields=["event", "joined_at"], name="lobby_event_joined_idx")
         ]
 
     def clean(self):
@@ -114,9 +112,7 @@ class EventMeetSignal(models.Model):
             ),
         ]
         indexes = [
-            models.Index(
-                fields=["event", "sender"], name="lobby_signal_sender_idx"
-            ),
+            models.Index(fields=["event", "sender"], name="lobby_signal_sender_idx"),
             models.Index(
                 fields=["event", "recipient"], name="lobby_signal_recipient_idx"
             ),
@@ -128,4 +124,3 @@ class EventMeetSignal(models.Model):
 
     def __str__(self):
         return f"Event signal {self.pk} at event {self.event_id}"
-
