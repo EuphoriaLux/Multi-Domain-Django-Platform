@@ -8,14 +8,24 @@ from django.conf import settings
 from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.translation import gettext as _
 
-from crush_lu.models import EventRegistration, MeetupEvent
+from crush_lu.models import EventRegistration, MeetupEvent, Notification
 from crush_lu.services.blocking import blocked_user_ids, is_blocked_pair
 
-from .models import EventLobbyConsent, EventLobbyParticipation, EventMeetSignal
+from .models import (
+    ConfirmedEncounter,
+    EventLobbyConsent,
+    EventLobbyParticipation,
+    EventMeetingConfirmation,
+    EventMeetSignal,
+    EventRecapNotice,
+)
 
 CURRENT_CONSENT_VERSION = 1
 SIGNAL_LIMIT = 3
+RECAP_DURATION = timedelta(hours=48)
+RECAP_REMINDER_AFTER = timedelta(hours=24)
 logger = logging.getLogger(__name__)
 
 
@@ -35,13 +45,38 @@ class SignalResult:
     first_name: str | None = None
 
 
+@dataclass(frozen=True)
+class ConfirmationResult:
+    created: bool
+    mutual: bool
+    first_name: str | None = None
+
+
 def event_end_at(event):
     return event.date_time + timedelta(minutes=event.duration_minutes)
 
 
-def is_live(event, now=None):
+def recap_closes_at(event):
+    return event_end_at(event) + RECAP_DURATION
+
+
+def event_phase(event, now=None):
     now = now or timezone.now()
-    return event.is_published and not event.is_cancelled and now < event_end_at(event)
+    if not event.is_published or event.is_cancelled:
+        return "closed"
+    if now < event_end_at(event):
+        return "live"
+    if now < recap_closes_at(event):
+        return "recap"
+    return "closed"
+
+
+def is_live(event, now=None):
+    return event_phase(event, now) == "live"
+
+
+def is_recap(event, now=None):
+    return event_phase(event, now) == "recap"
 
 
 def broadcast_lobby_refresh(event_id, reason, *, user_ids=None):
@@ -212,8 +247,76 @@ def lobby_entry_url(event, user):
     )
 
 
+def materialize_recap_notifications(event, now=None):
+    """Persist due recap notifications once; safe for a periodic tick or request."""
+
+    now = now or timezone.now()
+    if event_phase(event, now) != "recap":
+        return 0
+
+    created_count = 0
+    participations = EventLobbyParticipation.objects.filter(event=event).select_related(
+        "user",
+        "user__crushprofile",
+        "user__crush_connect_membership",
+        "user__event_lobby_consent",
+    )
+    for participation in participations:
+        if _active_member_reason(participation.user) is not None:
+            continue
+        with transaction.atomic():
+            (
+                notice,
+                _created,
+            ) = EventRecapNotice.objects.select_for_update().get_or_create(
+                participation=participation
+            )
+            if notice.opened_notification_at is None:
+                Notification.objects.create(
+                    user=participation.user,
+                    notification_type="event_lobby_recap_open",
+                    title=_("Who did you meet?"),
+                    body=_("You have 48 hours to confirm who you met at the event."),
+                    link_url=reverse(
+                        "crush_lu:event_lobby:recap",
+                        kwargs={"event_id": event.pk},
+                    ),
+                    metadata={"event_id": event.pk},
+                )
+                notice.opened_notification_at = now
+                notice.save(update_fields=["opened_notification_at"])
+                created_count += 1
+
+            reminder_due = now >= event_end_at(event) + RECAP_REMINDER_AFTER
+            has_recap_action = EventMeetingConfirmation.objects.filter(
+                event=event, confirmer=participation.user
+            ).exists()
+            if (
+                reminder_due
+                and not has_recap_action
+                and notice.reminder_notification_at is None
+            ):
+                Notification.objects.create(
+                    user=participation.user,
+                    notification_type="event_lobby_recap_reminder",
+                    title=_("Your event recap closes in 24 hours"),
+                    body=_("Confirm anyone you met before the private recap closes."),
+                    link_url=reverse(
+                        "crush_lu:event_lobby:recap",
+                        kwargs={"event_id": event.pk},
+                    ),
+                    metadata={"event_id": event.pk},
+                )
+                notice.reminder_notification_at = now
+                notice.save(update_fields=["reminder_notification_at"])
+                created_count += 1
+    if created_count:
+        broadcast_lobby_refresh(event.pk, "phase_changed")
+    return created_count
+
+
 def active_lobby_card(user):
-    """Build the private active-lobby hub card, or hide it completely."""
+    """Build the member's current live-lobby or recap hub card."""
 
     if _active_member_reason(user, require_lobby_consent=False) is not None:
         return None
@@ -229,8 +332,10 @@ def active_lobby_card(user):
     )
     for registration in registrations:
         event = registration.event
-        if is_live(event):
+        phase = event_phase(event)
+        if phase == "live":
             return {
+                "phase": "live",
                 "event_title": event.title,
                 "event_end_at": event_end_at(event),
                 "url": reverse(
@@ -238,7 +343,31 @@ def active_lobby_card(user):
                     kwargs={"event_id": event.pk},
                 ),
             }
+        if (
+            phase == "recap"
+            and EventLobbyParticipation.objects.filter(event=event, user=user).exists()
+        ):
+            materialize_recap_notifications(event)
+            return {
+                "phase": "recap",
+                "event_title": event.title,
+                "recap_closes_at": recap_closes_at(event),
+                "url": reverse(
+                    "crush_lu:event_lobby:recap",
+                    kwargs={"event_id": event.pk},
+                ),
+            }
     return None
+
+
+def _viewer_participation_any_phase(event, user):
+    reason = _active_member_reason(user)
+    if reason:
+        raise LobbyAccessError(reason)
+    try:
+        return EventLobbyParticipation.objects.get(event=event, user=user)
+    except EventLobbyParticipation.DoesNotExist:
+        raise LobbyAccessError("not_available") from None
 
 
 def _viewer_participation(event, user):
@@ -251,6 +380,14 @@ def _viewer_participation(event, user):
         participation = EventLobbyParticipation.objects.get(event=event, user=user)
     except EventLobbyParticipation.DoesNotExist:
         participation = ensure_participation(event, user)
+    return participation
+
+
+def _viewer_recap_participation(event, user):
+    if not is_recap(event):
+        raise LobbyAccessError("not_available")
+    participation = _viewer_participation_any_phase(event, user)
+    materialize_recap_notifications(event)
     return participation
 
 
@@ -315,6 +452,27 @@ def list_live_participants(event, viewer):
 
 
 def lobby_state(event, viewer):
+    phase = event_phase(event)
+    if phase != "live":
+        _viewer_participation_any_phase(event, viewer)
+        payload = {
+            "phase": phase,
+            "event_title": event.title,
+            "hub_url": reverse("crush_lu:crush_connect_hub"),
+        }
+        if phase == "recap":
+            materialize_recap_notifications(event)
+            payload.update(
+                {
+                    "recap_closes_at": recap_closes_at(event).isoformat(),
+                    "recap_url": reverse(
+                        "crush_lu:event_lobby:recap",
+                        kwargs={"event_id": event.pk},
+                    ),
+                }
+            )
+        return payload
+
     _viewer_participation(event, viewer)
     visible_ids = {
         participation.user_id
@@ -335,8 +493,11 @@ def lobby_state(event, viewer):
     }
 
 
-def _target_participation(event, viewer, handle):
-    _viewer_participation(event, viewer)
+def _target_participation(event, viewer, handle, *, phase="live"):
+    if phase == "recap":
+        _viewer_recap_participation(event, viewer)
+    else:
+        _viewer_participation(event, viewer)
     try:
         target = EventLobbyParticipation.objects.select_related(
             "user",
@@ -466,5 +627,164 @@ def send_meet_signal(event, sender, recipient_handle):
 
 
 def get_authorized_photo(event, viewer, handle):
-    target = _target_participation(event, viewer, handle)
+    phase = event_phase(event)
+    if phase not in {"live", "recap"}:
+        raise LobbyAccessError("not_available")
+    target = _target_participation(event, viewer, handle, phase=phase)
     return target.user.crushprofile.photo_1
+
+
+def _confirmation_sets(event, viewer):
+    sent = set(
+        EventMeetingConfirmation.objects.filter(
+            event=event, confirmer=viewer
+        ).values_list("other_user_id", flat=True)
+    )
+    received = set(
+        EventMeetingConfirmation.objects.filter(
+            event=event, other_user=viewer
+        ).values_list("confirmer_id", flat=True)
+    )
+    return sent, received
+
+
+def _encounter_for_pair(user_a, user_b):
+    low_id, high_id = sorted((user_a.pk, user_b.pk))
+    return ConfirmedEncounter.objects.filter(
+        user_low_id=low_id, user_high_id=high_id
+    ).first()
+
+
+def list_recap_participants(event, viewer):
+    _viewer_recap_participation(event, viewer)
+    visible = _currently_visible_participations(event, viewer)
+    signal_sent, signal_received = _signal_sets(event, viewer)
+    confirmed_sent, confirmed_received = _confirmation_sets(event, viewer)
+    payload = []
+    for participation in visible:
+        other = participation.user
+        live_mutual = other.pk in signal_sent and other.pk in signal_received
+        confirmed_mutual = other.pk in confirmed_sent and other.pk in confirmed_received
+        encounter = _encounter_for_pair(viewer, other)
+        item = {
+            "handle": str(participation.opaque_handle),
+            "photo_url": reverse(
+                "crush_lu:event_lobby:participant_photo",
+                kwargs={
+                    "event_id": event.pk,
+                    "handle": participation.opaque_handle,
+                },
+            ),
+            "live_mutual": live_mutual,
+            "confirmation_sent": other.pk in confirmed_sent,
+            "confirmed_mutual": confirmed_mutual,
+            "already_met": encounter is not None,
+        }
+        if live_mutual or confirmed_mutual or encounter is not None:
+            item["first_name"] = other.first_name
+        payload.append(item)
+    payload.sort(key=lambda item: (not item["live_mutual"],))
+    return payload
+
+
+def recap_state(event, viewer):
+    _viewer_recap_participation(event, viewer)
+    visible_ids = {
+        participation.user_id
+        for participation in _currently_visible_participations(event, viewer)
+    }
+    incoming_count = EventMeetingConfirmation.objects.filter(
+        event=event,
+        other_user=viewer,
+        confirmer_id__in=visible_ids,
+    ).count()
+    return {
+        "phase": "recap",
+        "event_title": event.title,
+        "recap_closes_at": recap_closes_at(event),
+        "incoming_confirmation_count": incoming_count,
+    }
+
+
+def get_recap_confirmation_target(event, viewer, handle):
+    target = _target_participation(event, viewer, handle, phase="recap")
+    confirmation_sent, confirmation_received = _confirmation_sets(event, viewer)
+    live_sent, live_received = _signal_sets(event, viewer)
+    encounter = _encounter_for_pair(viewer, target.user)
+    live_mutual = target.user_id in live_sent and target.user_id in live_received
+    confirmed_mutual = (
+        target.user_id in confirmation_sent and target.user_id in confirmation_received
+    )
+    payload = {
+        "handle": str(target.opaque_handle),
+        "photo_url": reverse(
+            "crush_lu:event_lobby:participant_photo",
+            kwargs={"event_id": event.pk, "handle": target.opaque_handle},
+        ),
+        "live_mutual": live_mutual,
+        "confirmation_sent": target.user_id in confirmation_sent,
+        "confirmed_mutual": confirmed_mutual,
+        "already_met": encounter is not None,
+    }
+    if live_mutual or confirmed_mutual or encounter is not None:
+        payload["first_name"] = target.user.first_name
+    return payload
+
+
+def _notify_confirmed_encounter(encounter, user_a, user_b):
+    for recipient, other in ((user_a, user_b), (user_b, user_a)):
+        Notification.objects.get_or_create(
+            user=recipient,
+            notification_type="event_lobby_encounter_confirmed",
+            metadata={"encounter_id": encounter.pk},
+            defaults={
+                "title": _("%(name)s was added to People I've Met")
+                % {"name": other.first_name or _("Someone you met")},
+                "body": _("You both confirmed that you met at the event."),
+                "link_url": reverse("crush_lu:crush_connect_hub"),
+            },
+        )
+
+
+def confirm_event_meeting(event, confirmer, other_handle):
+    """Create an irreversible recap confirmation and permanent mutual pair."""
+
+    now = timezone.now()
+    with transaction.atomic():
+        locked_event = MeetupEvent.objects.select_for_update().get(pk=event.pk)
+        if event_phase(locked_event, now) != "recap":
+            raise LobbyAccessError("not_available")
+        _viewer_participation_any_phase(locked_event, confirmer)
+        target = _target_participation(
+            locked_event, confirmer, other_handle, phase="recap"
+        )
+        other = target.user
+        if _encounter_for_pair(confirmer, other) is not None:
+            raise LobbyAccessError("already_met")
+
+        confirmation, created = EventMeetingConfirmation.objects.get_or_create(
+            event=locked_event,
+            confirmer=confirmer,
+            other_user=other,
+        )
+        reverse_exists = EventMeetingConfirmation.objects.filter(
+            event=locked_event,
+            confirmer=other,
+            other_user=confirmer,
+        ).exists()
+        if not reverse_exists:
+            return ConfirmationResult(created=created, mutual=False)
+
+        low, high = sorted((confirmer, other), key=lambda user: user.pk)
+        encounter, encounter_created = ConfirmedEncounter.objects.get_or_create(
+            user_low=low,
+            user_high=high,
+            defaults={"created_from_event": locked_event},
+        )
+        if encounter_created:
+            _notify_confirmed_encounter(encounter, confirmer, other)
+        return ConfirmationResult(
+            created=created,
+            mutual=True,
+            first_name=other.first_name,
+        )

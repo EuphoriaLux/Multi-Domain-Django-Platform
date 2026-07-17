@@ -14,10 +14,15 @@ from crush_lu.models import MeetupEvent
 from .services import (
     LobbyAccessError,
     acknowledge_consent,
+    confirm_event_meeting,
+    event_phase,
     get_authorized_photo,
     get_confirmation_target,
+    get_recap_confirmation_target,
     list_live_participants,
+    list_recap_participants,
     lobby_state,
+    recap_state,
     send_meet_signal,
 )
 
@@ -76,6 +81,8 @@ def consent(request):
 @require_GET
 def lobby(request, event_id):
     event = get_object_or_404(MeetupEvent, pk=event_id)
+    if event_phase(event) == "recap":
+        return redirect("crush_lu:event_lobby:recap", event_id=event.pk)
     try:
         state = lobby_state(event, request.user)
         participants = list_live_participants(event, request.user)
@@ -172,3 +179,80 @@ def signal(request, event_id, handle):
     else:
         messages.info(request, "Your anonymous signal was already sent.")
     return redirect("crush_lu:event_lobby:lobby", event_id=event.pk)
+
+
+@login_required
+@never_cache
+@require_GET
+def recap(request, event_id):
+    event = get_object_or_404(MeetupEvent, pk=event_id)
+    try:
+        state = recap_state(event, request.user)
+        participants = list_recap_participants(event, request.user)
+    except LobbyAccessError as error:
+        return _handle_page_error(request, error, event_id)
+    return _private(
+        render(
+            request,
+            "crush_event_lobby/recap.html",
+            {"event": event, "state": state, "participants": participants},
+        )
+    )
+
+
+@login_required
+@never_cache
+@require_GET
+def recap_participants_api(request, event_id):
+    event = get_object_or_404(MeetupEvent, pk=event_id)
+    try:
+        participants = list_recap_participants(event, request.user)
+    except LobbyAccessError:
+        return _unavailable_json()
+    return _private(JsonResponse({"participants": participants}))
+
+
+@login_required
+@never_cache
+@require_GET
+def confirm_meeting(request, event_id, handle):
+    event = get_object_or_404(MeetupEvent, pk=event_id)
+    try:
+        target = get_recap_confirmation_target(event, request.user, handle)
+    except LobbyAccessError as error:
+        return _handle_page_error(request, error, event_id)
+    return _private(
+        render(
+            request,
+            "crush_event_lobby/confirm_meeting.html",
+            {"event": event, "target": target},
+        )
+    )
+
+
+@login_required
+@never_cache
+@require_POST
+def meeting_confirmation(request, event_id, handle):
+    event = get_object_or_404(MeetupEvent, pk=event_id)
+    try:
+        result = confirm_event_meeting(event, request.user, handle)
+    except LobbyAccessError as error:
+        if error.code == "already_met":
+            messages.info(request, "You've already met this person.")
+            return redirect("crush_lu:event_lobby:recap", event_id=event.pk)
+        return _handle_page_error(request, error, event_id)
+
+    if result.mutual:
+        messages.success(
+            request,
+            f"{result.first_name} was added to People I've Met.",
+        )
+    elif result.created:
+        messages.success(
+            request,
+            "Meeting confirmed anonymously. This cannot be undone.",
+        )
+    else:
+        messages.info(request, "You already confirmed meeting this person.")
+    return redirect("crush_lu:event_lobby:recap", event_id=event.pk)

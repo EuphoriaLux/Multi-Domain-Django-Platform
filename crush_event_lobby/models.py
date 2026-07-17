@@ -124,3 +124,112 @@ class EventMeetSignal(models.Model):
 
     def __str__(self):
         return f"Event signal {self.pk} at event {self.event_id}"
+
+
+class EventMeetingConfirmation(models.Model):
+    """An immutable directional assertion made during the event recap."""
+
+    event = models.ForeignKey(
+        "crush_lu.MeetupEvent",
+        on_delete=models.CASCADE,
+        related_name="event_meeting_confirmations",
+    )
+    confirmer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="event_meeting_confirmations_made",
+    )
+    other_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="event_meeting_confirmations_received",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event", "confirmer", "other_user"],
+                name="event_lobby_unique_confirmation",
+            ),
+            models.CheckConstraint(
+                condition=~Q(confirmer=F("other_user")),
+                name="event_lobby_confirmation_no_self",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["event", "confirmer"], name="lobby_confirm_sender_idx"
+            ),
+            models.Index(fields=["event", "other_user"], name="lobby_confirm_recv_idx"),
+        ]
+
+    def __str__(self):
+        return f"Event confirmation {self.pk} at event {self.event_id}"
+
+
+class ConfirmedEncounter(models.Model):
+    """One durable, canonically ordered pair for People I've Met."""
+
+    STATUS_ACTIVE = "active"
+    STATUS_REMOVAL_PENDING = "removal_pending"
+    STATUS_REMOVED = "removed"
+    STATUS_CHOICES = [
+        (STATUS_ACTIVE, "Active"),
+        (STATUS_REMOVAL_PENDING, "Removal pending"),
+        (STATUS_REMOVED, "Removed"),
+    ]
+
+    user_low = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="confirmed_encounters_as_low",
+    )
+    user_high = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="confirmed_encounters_as_high",
+    )
+    created_from_event = models.ForeignKey(
+        "crush_lu.MeetupEvent",
+        on_delete=models.PROTECT,
+        related_name="confirmed_encounters",
+    )
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default=STATUS_ACTIVE
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    hidden_at = models.DateTimeField(null=True, blank=True)
+    removed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user_low", "user_high"],
+                name="event_lobby_unique_encounter_pair",
+            ),
+            models.CheckConstraint(
+                condition=Q(user_low__lt=F("user_high")),
+                name="event_lobby_encounter_canonical_pair",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Confirmed encounter {self.user_low_id}:{self.user_high_id}"
+
+
+class EventRecapNotice(models.Model):
+    """Idempotency record for persisted recap notifications."""
+
+    participation = models.OneToOneField(
+        EventLobbyParticipation,
+        on_delete=models.CASCADE,
+        related_name="recap_notice",
+    )
+    opened_notification_at = models.DateTimeField(null=True, blank=True)
+    reminder_notification_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Recap notice state for participation {self.participation_id}"

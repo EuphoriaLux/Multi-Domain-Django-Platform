@@ -1,3 +1,5 @@
+import asyncio
+
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
@@ -21,8 +23,15 @@ class EventLobbyConsumer(AsyncJsonWebsocketConsumer):
         await self.channel_layer.group_add(self.event_group, self.channel_name)
         await self.channel_layer.group_add(self.private_group, self.channel_name)
         await self.accept()
+        seconds_until_end = await self._seconds_until_end(self.event_id)
+        self.phase_task = asyncio.create_task(
+            self._close_at_event_end(seconds_until_end)
+        )
 
     async def disconnect(self, close_code):
+        phase_task = getattr(self, "phase_task", None)
+        if phase_task and phase_task is not asyncio.current_task():
+            phase_task.cancel()
         if hasattr(self, "event_group"):
             await self.channel_layer.group_discard(
                 self.event_group,
@@ -54,6 +63,16 @@ class EventLobbyConsumer(AsyncJsonWebsocketConsumer):
             }
         )
 
+    async def _close_at_event_end(self, seconds_until_end):
+        try:
+            await asyncio.sleep(max(0, seconds_until_end))
+            await self.send_json(
+                {"type": "event_lobby.refresh", "reason": "phase_changed"}
+            )
+            await self.close(code=1000)
+        except asyncio.CancelledError:
+            return
+
     @database_sync_to_async
     def _can_join(self, user_id, event_id):
         from crush_event_lobby.models import EventLobbyParticipation
@@ -73,3 +92,13 @@ class EventLobbyConsumer(AsyncJsonWebsocketConsumer):
             is_live(participation.event)
             and _active_member_reason(participation.user) is None
         )
+
+    @database_sync_to_async
+    def _seconds_until_end(self, event_id):
+        from django.utils import timezone
+
+        from crush_event_lobby.services import event_end_at
+        from crush_lu.models import MeetupEvent
+
+        event = MeetupEvent.objects.get(pk=event_id)
+        return max(0, (event_end_at(event) - timezone.now()).total_seconds())

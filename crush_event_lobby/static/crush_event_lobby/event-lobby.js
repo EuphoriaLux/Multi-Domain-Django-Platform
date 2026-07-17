@@ -52,8 +52,22 @@
 
     function poll() {
         if (document.hidden || reloadTimer) return;
-        Promise.all([fetchJson(stateUrl), fetchJson(participantsUrl)])
+        fetchJson(stateUrl)
+            .then(function (state) {
+                if (state.phase === "recap" && state.recap_url) {
+                    window.location.assign(state.recap_url);
+                    return null;
+                }
+                if (state.phase === "closed" && state.hub_url) {
+                    window.location.assign(state.hub_url);
+                    return null;
+                }
+                return fetchJson(participantsUrl).then(function (participants) {
+                    return [state, participants];
+                });
+            })
             .then(function (payloads) {
+                if (payloads === null) return;
                 var fingerprint = JSON.stringify(payloads);
                 if (baseline !== null && baseline !== fingerprint) {
                     scheduleReload("poll_changed");

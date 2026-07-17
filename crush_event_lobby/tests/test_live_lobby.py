@@ -13,18 +13,26 @@ from django.urls import reverse
 from django.utils import timezone
 
 from crush_event_lobby.models import (
+    ConfirmedEncounter,
     EventLobbyConsent,
     EventLobbyParticipation,
+    EventMeetingConfirmation,
     EventMeetSignal,
+    EventRecapNotice,
 )
 from crush_event_lobby.services import (
     LobbyAccessError,
     active_lobby_card,
+    confirm_event_meeting,
+    event_phase,
     evaluate_participations_after_onboarding,
     ensure_participation,
     list_live_participants,
+    list_recap_participants,
     lobby_entry_url,
     lobby_state,
+    materialize_recap_notifications,
+    recap_state,
     send_meet_signal,
 )
 from crush_lu.models import (
@@ -32,6 +40,7 @@ from crush_lu.models import (
     CrushProfile,
     EventRegistration,
     MeetupEvent,
+    Notification,
     UserBlock,
     UserDataConsent,
 )
@@ -125,6 +134,14 @@ def error_code(callable_):
 def checkin_url(registration):
     token = Signer().sign(f"{registration.pk}:{registration.event_id}")
     return f"/api/events/checkin/{registration.pk}/{token}/"
+
+
+def move_event_to_recap(event, *, hours_since_end=1):
+    event.date_time = timezone.now() - timedelta(
+        minutes=event.duration_minutes, hours=hours_since_end
+    )
+    event.save(update_fields=["date_time"])
+    return event
 
 
 def test_real_qr_checkin_enrolls_eligible_member(
@@ -662,3 +679,180 @@ def test_signal_endpoint_requires_csrf():
     )
     assert response.status_code == 403
     assert not EventMeetSignal.objects.filter(event=event).exists()
+
+
+def test_exact_end_state_redirects_open_lobby_to_recap(client):
+    event = make_event()
+    member = make_member("phase-member")
+    attend_and_join(member, event)
+    client.force_login(member)
+    move_event_to_recap(event)
+
+    assert event_phase(event) == "recap"
+    state = client.get(
+        reverse("crush_lu:event_lobby:state", kwargs={"event_id": event.pk})
+    )
+    lobby_response = client.get(
+        reverse("crush_lu:event_lobby:lobby", kwargs={"event_id": event.pk})
+    )
+
+    assert state.status_code == 200
+    assert state.json()["phase"] == "recap"
+    assert state.json()["recap_url"] == reverse(
+        "crush_lu:event_lobby:recap", kwargs={"event_id": event.pk}
+    )
+    assert lobby_response.status_code == 302
+    assert lobby_response.url == state.json()["recap_url"]
+
+
+def test_exact_end_rejects_a_signal_from_an_already_open_lobby():
+    event = make_event()
+    sender = make_member("ended-sender")
+    target = make_member("ended-target")
+    attend_and_join(sender, event)
+    target_participation = attend_and_join(target, event)
+    move_event_to_recap(event, hours_since_end=0)
+
+    assert (
+        error_code(
+            lambda: send_meet_signal(event, sender, target_participation.opaque_handle)
+        )
+        == "not_available"
+    )
+    assert not EventMeetSignal.objects.filter(event=event).exists()
+
+
+def test_recap_grid_keeps_only_live_mutual_name_and_sorts_it_first():
+    event = make_event()
+    viewer = make_member("recap-viewer")
+    anonymous = make_member("recap-anonymous")
+    mutual = make_member("recap-mutual")
+    viewer_participation = attend_and_join(viewer, event)
+    attend_and_join(anonymous, event)
+    mutual_participation = attend_and_join(mutual, event)
+    send_meet_signal(event, viewer, mutual_participation.opaque_handle)
+    send_meet_signal(event, mutual, viewer_participation.opaque_handle)
+    move_event_to_recap(event)
+
+    participants = list_recap_participants(event, viewer)
+
+    assert [item["handle"] for item in participants] == [
+        str(mutual_participation.opaque_handle),
+        str(
+            EventLobbyParticipation.objects.get(
+                event=event, user=anonymous
+            ).opaque_handle
+        ),
+    ]
+    assert participants[0]["first_name"] == "Recap-Mutual"
+    assert participants[0]["live_mutual"] is True
+    assert "first_name" not in participants[1]
+
+
+def test_reciprocal_recap_confirmation_creates_one_encounter_and_notifications():
+    event = make_event()
+    alex = make_member("recap-alex")
+    blair = make_member("recap-blair")
+    alex_participation = attend_and_join(alex, event)
+    blair_participation = attend_and_join(blair, event)
+    move_event_to_recap(event)
+
+    first = confirm_event_meeting(event, alex, blair_participation.opaque_handle)
+    duplicate = confirm_event_meeting(event, alex, blair_participation.opaque_handle)
+    assert first.created is True
+    assert first.mutual is False
+    assert first.first_name is None
+    assert duplicate.created is False
+    assert EventMeetingConfirmation.objects.filter(event=event).count() == 1
+    assert not ConfirmedEncounter.objects.exists()
+
+    reciprocal = confirm_event_meeting(event, blair, alex_participation.opaque_handle)
+
+    assert reciprocal.mutual is True
+    assert reciprocal.first_name == "Recap-Alex"
+    encounter = ConfirmedEncounter.objects.get()
+    assert (encounter.user_low_id, encounter.user_high_id) == tuple(
+        sorted((alex.pk, blair.pk))
+    )
+    notifications = Notification.objects.filter(
+        notification_type="event_lobby_encounter_confirmed"
+    )
+    assert notifications.count() == 2
+    assert set(notifications.values_list("user_id", flat=True)) == {
+        alex.pk,
+        blair.pk,
+    }
+
+
+def test_recap_open_notification_is_persisted_once_per_participant():
+    event = make_event()
+    alex = make_member("notice-alex")
+    blair = make_member("notice-blair")
+    attend_and_join(alex, event)
+    attend_and_join(blair, event)
+    move_event_to_recap(event)
+
+    assert materialize_recap_notifications(event) == 2
+    assert materialize_recap_notifications(event) == 0
+    assert (
+        EventRecapNotice.objects.filter(opened_notification_at__isnull=False).count()
+        == 2
+    )
+    assert (
+        Notification.objects.filter(notification_type="event_lobby_recap_open").count()
+        == 2
+    )
+
+
+def test_recap_hub_card_replaces_live_card_and_page_loads(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
+    event = make_event()
+    member = make_member("recap-hub")
+    attend_and_join(member, event)
+    move_event_to_recap(event)
+    client.force_login(member)
+
+    card = active_lobby_card(member)
+    response = client.get(reverse("crush_lu:crush_connect_hub"))
+    recap_response = client.get(card["url"])
+
+    assert card["phase"] == "recap"
+    assert response.status_code == 200
+    assert "48-hour event recap" in response.content.decode()
+    assert recap_response.status_code == 200
+    assert "Who did you meet?" in recap_response.content.decode()
+
+
+def test_recap_close_rejects_confirmation_and_hides_roster():
+    event = make_event()
+    viewer = make_member("closed-viewer")
+    other = make_member("closed-other")
+    attend_and_join(viewer, event)
+    other_participation = attend_and_join(other, event)
+    move_event_to_recap(event, hours_since_end=49)
+
+    assert event_phase(event) == "closed"
+    assert (
+        error_code(
+            lambda: confirm_event_meeting(
+                event, viewer, other_participation.opaque_handle
+            )
+        )
+        == "not_available"
+    )
+    assert error_code(lambda: recap_state(event, viewer)) == "not_available"
+
+
+def test_blocked_confirmation_is_removed_from_recap_and_anonymous_count():
+    event = make_event()
+    viewer = make_member("recap-block-viewer")
+    other = make_member("recap-block-other")
+    viewer_participation = attend_and_join(viewer, event)
+    attend_and_join(other, event)
+    move_event_to_recap(event)
+    confirm_event_meeting(event, other, viewer_participation.opaque_handle)
+    UserBlock.objects.create(blocker=viewer, blocked=other)
+
+    assert list_recap_participants(event, viewer) == []
+    assert recap_state(event, viewer)["incoming_confirmation_count"] == 0

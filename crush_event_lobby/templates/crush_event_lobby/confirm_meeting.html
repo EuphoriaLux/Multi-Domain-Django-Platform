@@ -1,0 +1,40 @@
+{% extends "crush_lu/crush_connect/_base_connect.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Confirm you met" %}{% endblock %}
+{% block mobile_page_title %}{% trans "Confirm meeting" %}{% endblock %}
+
+{% block connect_content %}
+<main class="max-w-md mx-auto px-4 py-6 pb-24 lg:pb-10">
+    <article class="overflow-hidden rounded-2xl bg-white dark:bg-slate-800 ring-1 ring-gray-200 dark:ring-slate-700 shadow-crush-sm">
+        <img src="{{ target.photo_url }}"
+             alt="{% if target.first_name %}{% blocktrans with name=target.first_name %}Photo of {{ name }}{% endblocktrans %}{% else %}{% trans 'Participant photo' %}{% endif %}"
+             class="aspect-square w-full object-cover">
+        <div class="p-5">
+            <h1 class="card-title mb-2">{% trans "Did you meet this person?" %}</h1>
+            {% if target.live_mutual %}
+            <p class="text-sm font-medium text-crush-pink-dark dark:text-crush-pink mb-2">
+                {% blocktrans with name=target.first_name %}You and {{ name }} wanted to meet at the event.{% endblocktrans %}
+            </p>
+            {% endif %}
+            <p class="text-sm text-gray-600 dark:text-gray-300 mb-5">
+                {% trans "Are you sure? This cannot be undone. They will only learn it was you if they confirm you too." %}
+            </p>
+
+            {% if target.already_met or target.confirmed_mutual %}
+            <p class="rounded-xl bg-crush-purple/10 p-3 text-sm font-medium text-crush-purple-dark dark:text-purple-200 mb-4">{% trans "You've already met this person." %}</p>
+            <a class="btn-crush-outline btn-block" href="{% url 'crush_lu:event_lobby:recap' event_id=event.pk %}">{% trans "Back to recap" %}</a>
+            {% elif target.confirmation_sent %}
+            <p class="rounded-xl bg-crush-purple/10 p-3 text-sm font-medium text-crush-purple-dark dark:text-purple-200 mb-4">{% trans "You already confirmed meeting this person." %}</p>
+            <a class="btn-crush-outline btn-block" href="{% url 'crush_lu:event_lobby:recap' event_id=event.pk %}">{% trans "Back to recap" %}</a>
+            {% else %}
+            <form method="post" action="{% url 'crush_lu:event_lobby:meeting_confirmation' event_id=event.pk handle=target.handle %}">
+                {% csrf_token %}
+                <button class="btn-crush-solid btn-block mb-3" type="submit">{% trans "Yes, we met" %}</button>
+                <a class="btn-crush-outline btn-block" href="{% url 'crush_lu:event_lobby:recap' event_id=event.pk %}">{% trans "Not this person" %}</a>
+            </form>
+            {% endif %}
+        </div>
+    </article>
+</main>
+{% endblock %}
