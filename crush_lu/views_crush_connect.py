@@ -9,6 +9,7 @@ will continue to grow in this module across M5–M7.
 """
 
 from datetime import timedelta
+import logging
 
 from django.conf import settings
 from django.contrib import messages
@@ -37,6 +38,7 @@ from crush_lu.onboarding_connect import (
 from crush_lu.services import get_or_create_daily_drop
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 @staff_member_required
@@ -281,6 +283,22 @@ def _emit_onboarding_complete(request, done_url):
         send_crush_connect_catalogue_welcome(user, request)
 
 
+def _join_live_event_lobbies_after_onboarding(user):
+    """Best-effort hook: Connect onboarding must never fail with the lobby."""
+
+    try:
+        from crush_event_lobby.services import (
+            evaluate_participations_after_onboarding,
+        )
+
+        evaluate_participations_after_onboarding(user)
+    except Exception:
+        logger.exception(
+            "Event Lobby enrollment failed after onboarding for user %s",
+            user.pk,
+        )
+
+
 def _recompute_member_match_scores(user):
     """Refresh the member's trait-based MatchScores after their Connect traits
     change. Best-effort — scoring is a soft signal for the Drop (missing pairs
@@ -379,6 +397,7 @@ def crush_connect_onboarding_step(request, step: int):
                     ]
                 )
                 _emit_onboarding_complete(request, done_url)
+                _join_live_event_lobbies_after_onboarding(request.user)
                 # Member is now in the pool — score them against other members so
                 # their first Drop (and theirs in others') reflects their traits.
                 _recompute_member_match_scores(request.user)
@@ -697,6 +716,7 @@ def crush_connect_hub(request):
     from crush_lu.models import CuriositySpark
     from crush_lu.services.blocking import blocked_user_ids
     from crush_lu.services.crush_connect import get_active_coach_pick
+    from crush_event_lobby.services import active_lobby_card
 
     user = request.user
     blocker = _hub_access_blocker(user)
@@ -723,6 +743,7 @@ def crush_connect_hub(request):
         "pending_sparks_count": pending_sparks_count,
         "coach_pick": coach_pick,
         "next_drop_at": _next_drop_at(),
+        "active_event_lobby": active_lobby_card(user),
     }
     return render(request, "crush_lu/crush_connect/hub.html", context)
 

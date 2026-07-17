@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 from datetime import timedelta
+import logging
 
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from django.conf import settings
 from django.db import transaction
 from django.urls import reverse
@@ -13,6 +16,7 @@ from .models import EventLobbyConsent, EventLobbyParticipation, EventMeetSignal
 
 CURRENT_CONSENT_VERSION = 1
 SIGNAL_LIMIT = 3
+logger = logging.getLogger(__name__)
 
 
 class LobbyAccessError(Exception):
@@ -38,6 +42,34 @@ def event_end_at(event):
 def is_live(event, now=None):
     now = now or timezone.now()
     return event.is_published and not event.is_cancelled and now < event_end_at(event)
+
+
+def broadcast_lobby_refresh(event_id, reason, *, user_ids=None):
+    """Send identity-free refetch hints to authorized lobby clients."""
+
+    channel_layer = get_channel_layer()
+    if channel_layer is None:
+        return
+    groups = (
+        [f"event_lobby_{event_id}"]
+        if user_ids is None
+        else [f"event_lobby_{event_id}_user_{user_id}" for user_id in user_ids]
+    )
+    for group in groups:
+        try:
+            async_to_sync(channel_layer.group_send)(
+                group,
+                {
+                    "type": "lobby.refresh",
+                    "reason": reason,
+                },
+            )
+        except Exception:
+            # Realtime is advisory; HTTP state remains authoritative.
+            logger.exception(
+                "Event Lobby realtime hint failed for event %s",
+                event_id,
+            )
 
 
 def _active_member_reason(user, *, require_lobby_consent=True):
@@ -96,9 +128,8 @@ def ensure_participation(event, user, source=EventLobbyParticipation.SOURCE_CHEC
     if not is_live(event, now):
         raise LobbyAccessError("not_available")
 
-    # PROTOTYPE-STUB: onboarding completion should call this service for any
-    # attended event that is still live. QR check-in is integrated after commit;
-    # authenticated lobby entry remains an idempotent fallback.
+    # QR check-in and onboarding completion call this service; authenticated
+    # lobby entry remains an idempotent fallback for interrupted side effects.
     with transaction.atomic():
         registration = (
             EventRegistration.objects.select_for_update()
@@ -107,7 +138,7 @@ def ensure_participation(event, user, source=EventLobbyParticipation.SOURCE_CHEC
         )
         if registration is None:
             raise LobbyAccessError("not_available")
-        participation, _ = EventLobbyParticipation.objects.get_or_create(
+        participation, created = EventLobbyParticipation.objects.get_or_create(
             event_registration=registration,
             defaults={
                 "event": event,
@@ -116,6 +147,13 @@ def ensure_participation(event, user, source=EventLobbyParticipation.SOURCE_CHEC
                 "eligibility_source": source,
             },
         )
+        if created:
+            transaction.on_commit(
+                lambda event_id=event.pk: broadcast_lobby_refresh(
+                    event_id,
+                    "participant_joined",
+                )
+            )
         return participation
 
 
@@ -129,6 +167,30 @@ def evaluate_participation_after_checkin(event, user):
         user,
         source=EventLobbyParticipation.SOURCE_CHECKIN,
     )
+
+
+def evaluate_participations_after_onboarding(user):
+    """Join every still-live attended event after Connect onboarding."""
+
+    participations = []
+    registrations = EventRegistration.objects.filter(
+        user=user,
+        status="attended",
+        event__is_published=True,
+        event__is_cancelled=False,
+    ).select_related("event")
+    for registration in registrations:
+        if is_live(registration.event):
+            try:
+                participation = ensure_participation(
+                    registration.event,
+                    user,
+                    source=EventLobbyParticipation.SOURCE_ONBOARDING,
+                )
+            except LobbyAccessError:
+                continue
+            participations.append(participation)
+    return participations
 
 
 def lobby_entry_url(event, user):
@@ -148,6 +210,35 @@ def lobby_entry_url(event, user):
         "crush_lu:event_lobby:lobby",
         kwargs={"event_id": event.pk},
     )
+
+
+def active_lobby_card(user):
+    """Build the private active-lobby hub card, or hide it completely."""
+
+    if _active_member_reason(user, require_lobby_consent=False) is not None:
+        return None
+    registrations = (
+        EventRegistration.objects.filter(
+            user=user,
+            status="attended",
+            event__is_published=True,
+            event__is_cancelled=False,
+        )
+        .select_related("event")
+        .order_by("-event__date_time")
+    )
+    for registration in registrations:
+        event = registration.event
+        if is_live(event):
+            return {
+                "event_title": event.title,
+                "event_end_at": event_end_at(event),
+                "url": reverse(
+                    "crush_lu:event_lobby:lobby",
+                    kwargs={"event_id": event.pk},
+                ),
+            }
+    return None
 
 
 def _viewer_participation(event, user):
@@ -357,10 +448,15 @@ def send_meet_signal(event, sender, recipient_handle):
             EventMeetSignal.objects.filter(
                 pk__in=[signal.pk, reverse_signal.pk], mutual_revealed_at__isnull=True
             ).update(mutual_revealed_at=now)
-
-        # PROTOTYPE-STUB: a production implementation sends a sanitized refetch
-        # hint to the recipient's private lobby channel. Polling and page refresh
-        # are authoritative in this local slice, and no outbound channel fires.
+        reason = "mutual_revealed" if mutual else "incoming_signal"
+        refresh_user_ids = [sender.pk, recipient.pk] if mutual else [recipient.pk]
+        transaction.on_commit(
+            lambda event_id=locked_event.pk, reason=reason, user_ids=refresh_user_ids: broadcast_lobby_refresh(
+                event_id,
+                reason,
+                user_ids=user_ids,
+            )
+        )
         return SignalResult(
             created=True,
             mutual=mutual,

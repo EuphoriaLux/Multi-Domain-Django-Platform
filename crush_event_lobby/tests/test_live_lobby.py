@@ -1,7 +1,11 @@
 from datetime import date, timedelta
+import json
 
 import pytest
 from allauth.socialaccount.models import SocialAccount
+from asgiref.sync import async_to_sync
+from asgiref.testing import ApplicationCommunicator
+from channels.layers import get_channel_layer
 from django.contrib.auth import get_user_model
 from django.test import Client
 from django.core.signing import Signer
@@ -15,6 +19,8 @@ from crush_event_lobby.models import (
 )
 from crush_event_lobby.services import (
     LobbyAccessError,
+    active_lobby_card,
+    evaluate_participations_after_onboarding,
     ensure_participation,
     list_live_participants,
     lobby_entry_url,
@@ -264,6 +270,196 @@ def test_lobby_entry_is_hidden_from_non_connect_guest(client):
     assert detail.status_code == 200
     assert "Enter live lobby" not in ticket.content.decode()
     assert "Enter live lobby" not in detail.content.decode()
+
+
+def test_active_lobby_card_appears_on_connect_hub(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
+    event = make_event()
+    member = make_member("hub-lobby")
+    EventRegistration.objects.create(
+        user=member,
+        event=event,
+        status="attended",
+        checked_in_at=timezone.now(),
+    )
+    client.force_login(member)
+
+    response = client.get(reverse("crush_lu:crush_connect_hub"))
+
+    assert response.status_code == 200
+    card = response.context["active_event_lobby"]
+    assert card["event_title"] == event.title
+    assert card["url"] == reverse(
+        "crush_lu:event_lobby:lobby",
+        kwargs={"event_id": event.pk},
+    )
+    body = response.content.decode()
+    assert "Live Event Lobby" in body
+    assert "You're checked in" in body
+
+
+def test_active_lobby_card_is_hidden_from_non_connect_guest():
+    event = make_event()
+    guest = User.objects.create_user(username="hub-hidden-guest")
+    EventRegistration.objects.create(
+        user=guest,
+        event=event,
+        status="attended",
+        checked_in_at=timezone.now(),
+    )
+
+    assert active_lobby_card(guest) is None
+
+
+def test_finishing_onboarding_joins_current_attended_event():
+    event = make_event()
+    member = make_member("mid-event-onboarding", onboarded=False)
+    EventRegistration.objects.create(
+        user=member,
+        event=event,
+        status="attended",
+        checked_in_at=timezone.now(),
+    )
+    membership = member.crush_connect_membership
+    membership.onboarded_at = timezone.now()
+    membership.save(update_fields=["onboarded_at"])
+
+    participations = evaluate_participations_after_onboarding(member)
+
+    assert len(participations) == 1
+    participation = EventLobbyParticipation.objects.get(event=event, user=member)
+    assert participation.eligibility_source == EventLobbyParticipation.SOURCE_ONBOARDING
+
+
+def test_signal_realtime_hint_is_private_and_identity_free(
+    django_capture_on_commit_callbacks,
+    monkeypatch,
+):
+    event = make_event()
+    sender = make_member("realtime-sender")
+    recipient = make_member("realtime-recipient")
+    attend_and_join(sender, event)
+    recipient_participation = attend_and_join(recipient, event)
+    calls = []
+
+    def record(event_id, reason, *, user_ids=None):
+        calls.append((event_id, reason, user_ids))
+
+    monkeypatch.setattr("crush_event_lobby.services.broadcast_lobby_refresh", record)
+    with django_capture_on_commit_callbacks(execute=True):
+        send_meet_signal(event, sender, recipient_participation.opaque_handle)
+
+    assert calls == [(event.pk, "incoming_signal", [recipient.pk])]
+    assert sender.first_name not in repr(calls)
+
+    calls.clear()
+    sender_participation = EventLobbyParticipation.objects.get(
+        event=event,
+        user=sender,
+    )
+    with django_capture_on_commit_callbacks(execute=True):
+        result = send_meet_signal(
+            event,
+            recipient,
+            sender_participation.opaque_handle,
+        )
+
+    assert result.mutual is True
+    assert calls == [(event.pk, "mutual_revealed", [recipient.pk, sender.pk])]
+
+
+@pytest.mark.django_db(transaction=True)
+def test_event_lobby_consumer_accepts_member_and_sanitizes_broadcast():
+    from crush_event_lobby.consumers import EventLobbyConsumer
+
+    event = make_event()
+    member = make_member("socket-member")
+    attend_and_join(member, event)
+
+    async def scenario():
+        communicator = ApplicationCommunicator(
+            EventLobbyConsumer.as_asgi(),
+            {
+                "type": "websocket",
+                "path": f"/ws/event-lobby/{event.pk}/",
+                "headers": [],
+                "query_string": b"",
+                "subprotocols": [],
+                "user": member,
+                "url_route": {"kwargs": {"event_id": event.pk}},
+            },
+        )
+        await communicator.send_input({"type": "websocket.connect"})
+        assert (await communicator.receive_output())["type"] == "websocket.accept"
+        await get_channel_layer().group_send(
+            f"event_lobby_{event.pk}",
+            {
+                "type": "lobby.refresh",
+                "reason": "participant_joined",
+                "first_name": "Must not leak",
+                "user_id": 999,
+            },
+        )
+        output = await communicator.receive_output()
+        assert output["type"] == "websocket.send"
+        message = json.loads(output["text"])
+        assert message == {
+            "type": "event_lobby.refresh",
+            "reason": "participant_joined",
+        }
+        await communicator.send_input({"type": "websocket.disconnect", "code": 1000})
+        await communicator.wait()
+
+    async_to_sync(scenario)()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_event_lobby_consumer_rejects_non_participant():
+    from crush_event_lobby.consumers import EventLobbyConsumer
+
+    event = make_event()
+    outsider = make_member("socket-outsider")
+
+    async def scenario():
+        communicator = ApplicationCommunicator(
+            EventLobbyConsumer.as_asgi(),
+            {
+                "type": "websocket",
+                "path": f"/ws/event-lobby/{event.pk}/",
+                "headers": [],
+                "query_string": b"",
+                "subprotocols": [],
+                "user": outsider,
+                "url_route": {"kwargs": {"event_id": event.pk}},
+            },
+        )
+        await communicator.send_input({"type": "websocket.connect"})
+        assert (await communicator.receive_output())["type"] == "websocket.close"
+        await communicator.wait()
+
+    async_to_sync(scenario)()
+
+
+def test_lobby_page_loads_realtime_and_polling_contract(client):
+    event = make_event()
+    member = make_member("realtime-page")
+    attend_and_join(member, event)
+    client.force_login(member)
+
+    response = client.get(
+        reverse("crush_lu:event_lobby:lobby", kwargs={"event_id": event.pk})
+    )
+
+    assert response.status_code == 200
+    body = response.content.decode()
+    assert "data-event-lobby" in body
+    assert reverse("crush_lu:event_lobby:state", kwargs={"event_id": event.pk}) in body
+    assert (
+        reverse("crush_lu:event_lobby:participants", kwargs={"event_id": event.pk})
+        in body
+    )
+    assert "crush_event_lobby/event-lobby.js" in body
 
 
 def test_mutual_signal_flow_is_anonymous_until_reciprocal():

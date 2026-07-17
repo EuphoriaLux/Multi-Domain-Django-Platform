@@ -1,11 +1,23 @@
 {% extends "crush_lu/crush_connect/_base_connect.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Event Lobby" %} — {{ event.title }}{% endblock %}
 {% block mobile_page_title %}{% trans "Event Lobby" %}{% endblock %}
 
 {% block connect_content %}
-<main class="max-w-3xl mx-auto px-4 py-6 pb-24 lg:pb-10">
+<main class="max-w-3xl mx-auto px-4 py-6 pb-24 lg:pb-10"
+      data-event-lobby
+      data-event-id="{{ event.pk }}"
+      data-state-url="{% url 'crush_lu:event_lobby:state' event_id=event.pk %}"
+      data-participants-url="{% url 'crush_lu:event_lobby:participants' event_id=event.pk %}"
+      data-arrival-message="{% trans 'Someone new arrived.' %}"
+      data-signal-message="{% trans 'Someone here would like to meet you.' %}"
+      data-mutual-message="{% trans 'You have a mutual match — say hello now.' %}"
+      data-update-message="{% trans 'The Event Lobby was updated.' %}">
+    <div id="event-lobby-live-banner"
+         class="hidden rounded-xl bg-crush-purple/10 dark:bg-crush-purple/20 ring-1 ring-crush-purple/25 px-4 py-3 mb-4 text-sm font-medium text-crush-purple-dark dark:text-purple-200"
+         role="status"
+         aria-live="polite"></div>
     <header class="rounded-2xl bg-gradient-to-br from-crush-purple to-crush-pink p-5 text-white shadow-crush-sm mb-5">
         <p class="text-xs font-bold uppercase tracking-[0.14em] text-white/80 mb-2">{% trans "Live Event Lobby" %}</p>
         <h1 class="font-display text-3xl font-semibold text-white mb-2">{{ event.title }}</h1>
@@ -67,3 +79,6 @@
 </main>
 {% endblock %}
 
+{% block extra_js %}
+<script src="{% static 'crush_event_lobby/event-lobby.js' %}" defer></script>
+{% endblock %}
