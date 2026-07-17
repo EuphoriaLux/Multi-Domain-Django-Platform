@@ -129,6 +129,7 @@ INSTALLED_APPS = [
     # Order matters: crush_lu before entreprinder so its account/ templates take priority
     "core",  # Shared templates (cookie_banner, etc.) across all domains
     "crush_lu",  # Must be before entreprinder for account/ template override on crush.lu
+    "crush_event_lobby.apps.CrushEventLobbyConfig",
     "delegations",
     "vinsdelux",
     "entreprinder",  # Includes merged: matching, finops, vibe_coding
@@ -468,6 +469,9 @@ PRE_SCREENING_ENABLED = _env_bool("PRE_SCREENING_ENABLED", default=False)
 # daily Drop. Per-user staged unlock is handled via CrushConnectWaitlistCohort
 # in M8, so this flag can stay True in production once beta finishes.
 CRUSH_CONNECT_LAUNCHED = _env_bool("CRUSH_CONNECT_LAUNCHED", default=False)
+CRUSH_EVENT_LOBBY_ENABLED = _env_bool(
+    "CRUSH_EVENT_LOBBY_ENABLED", default=False
+)
 
 # Crush Connect BETA phase (candidate-open). When True (and LAUNCHED still False),
 # the candidate "in the Mix" track opens to any verified + LuxID member — they can
