@@ -183,6 +183,23 @@ def event_checkin_api(request, registration_id, token):
                 registration.id,
             )
 
+    # Crush Connect Event Lobby: evaluate participation only after attendance
+    # committed. Best-effort — a lobby failure must be logged but must never
+    # fail or delay a valid event check-in (spec §10.1/§19).
+    try:
+        from .services.event_lobby import handle_checkin as lobby_handle_checkin
+
+        _lobby_participation, lobby_created = lobby_handle_checkin(registration)
+        if lobby_created:
+            from .views_event_lobby import broadcast_participant_joined
+
+            broadcast_participant_joined(registration.event_id)
+    except Exception:
+        logger.exception(
+            "Event lobby participation evaluation failed for registration %s",
+            registration.id,
+        )
+
     display_name = _get_display_name(registration)
 
     logger.info(
