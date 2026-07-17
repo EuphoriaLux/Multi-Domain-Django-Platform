@@ -23,3 +23,4 @@ from .metrics import *
 from .moderation import *
 from .ios_app import *
 from .android_app import *
+from .event_lobby import *
