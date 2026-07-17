@@ -382,6 +382,21 @@ def crush_connect_onboarding_step(request, step: int):
                 # Member is now in the pool — score them against other members so
                 # their first Drop (and theirs in others') reflects their traits.
                 _recompute_member_match_scores(request.user)
+
+                # Auto-join any currently attended event lobbies that have not yet ended
+                try:
+                    from crush_connect_lobby.services import evaluate_and_join_lobby
+                    attended_regs = EventRegistration.objects.filter(user=request.user, status="attended").select_related("event")
+                    now = timezone.now()
+                    for reg in attended_regs:
+                        event = reg.event
+                        event_end = event.date_time + timedelta(minutes=event.duration_minutes)
+                        if now < event_end:
+                            evaluate_and_join_lobby(request.user, event, source="onboarding_completed")
+                except Exception:
+                    import logging
+                    logging.getLogger(__name__).exception("Failed to join event lobbies on onboarding complete")
+
                 return redirect(done_url)
 
             obj.onboarding_step = new_pointer

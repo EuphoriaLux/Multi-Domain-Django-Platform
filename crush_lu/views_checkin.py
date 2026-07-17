@@ -211,6 +211,17 @@ def event_checkin_api(request, registration_id, token):
     if table_assignment:
         _broadcast_quiz_table_update(registration.event, table_assignment)
 
+    # Event lobby participation hook
+    try:
+        from crush_connect_lobby.services import evaluate_and_join_lobby
+        evaluate_and_join_lobby(registration.user, registration.event, source="checkin")
+    except Exception:
+        logger.exception(
+            "Event lobby participation creation failed for user %s at event %s",
+            registration.user_id,
+            registration.event_id,
+        )
+
     return JsonResponse(response_data)
 
 

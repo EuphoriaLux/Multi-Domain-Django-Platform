@@ -388,6 +388,7 @@ urlpatterns = [
 # URLs will be: /en/events/, /de/events/, /fr/events/, etc.
 urlpatterns += i18n_patterns(
     # Crush.lu app URLs
+    path('crush-connect/', include('crush_connect_lobby.urls', namespace='crush_connect_lobby')),
     path('', include('crush_lu.urls', namespace='crush_lu')),
 
     # Quiz projector display — language-prefixed so Django's LocaleMiddleware activates
