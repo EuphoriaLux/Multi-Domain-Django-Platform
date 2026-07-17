@@ -34,8 +34,9 @@ public class MainActivity extends AppCompatActivity {
     private static final int FILE_CHOOSER_REQUEST = 1001;
     private static final String BASE_URL = BuildConfig.BASE_URL;
     private static final String START_URL = BASE_URL + "/en/dashboard/?source=android_app";
+    private static final String AUTH_SCHEME = BuildConfig.AUTH_SCHEME;
     private static final String LOGIN_HANDOFF_URL =
-            BASE_URL + "/api/mobile/android/auth/handoff/?redirect_uri=crushlu%3A%2F%2Fauth";
+            BASE_URL + "/api/mobile/android/auth/handoff/?redirect_uri=" + Uri.encode(AUTH_SCHEME + "://auth");
 
     private WebView webView;
     private ProgressBar progressBar;
@@ -172,7 +173,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void handleUri(Uri uri) {
-        if ("crushlu".equals(uri.getScheme())) {
+        if (AUTH_SCHEME.equals(uri.getScheme())) {
             String completeUrl = uri.getQueryParameter("complete_url");
             if (completeUrl != null && !completeUrl.isEmpty()) {
                 loadInternal(completeUrl);
@@ -287,7 +288,7 @@ public class MainActivity extends AppCompatActivity {
 
         private boolean handleNavigation(Uri uri) {
             String scheme = uri.getScheme();
-            if ("crushlu".equals(scheme)) {
+            if (AUTH_SCHEME.equals(scheme)) {
                 handleUri(uri);
                 return true;
             }

@@ -6,6 +6,11 @@ val uploadStoreFile = providers.gradleProperty("CRUSH_UPLOAD_STORE_FILE")
 val env = providers.gradleProperty("CRUSH_ENV").getOrElse("production")
 val baseUrl = if (env == "staging") "https://test.crush.lu" else "https://crush.lu"
 
+val isStaging = (env == "staging")
+val appName = if (isStaging) "Crush (Staging)" else "Crush.lu"
+val authScheme = if (isStaging) "crushlustaging" else "crushlu"
+val hostName = if (isStaging) "test.crush.lu" else "crush.lu"
+
 android {
     namespace = "lu.crush.app"
     compileSdk = 35
@@ -16,11 +21,19 @@ android {
 
     defaultConfig {
         applicationId = "lu.crush.app"
+        if (isStaging) {
+            applicationIdSuffix = ".staging"
+        }
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.2"
         buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
+        buildConfigField("String", "AUTH_SCHEME", "\"$authScheme\"")
+
+        manifestPlaceholders["appName"] = appName
+        manifestPlaceholders["appHost"] = hostName
+        manifestPlaceholders["authScheme"] = authScheme
     }
 
     signingConfigs {
