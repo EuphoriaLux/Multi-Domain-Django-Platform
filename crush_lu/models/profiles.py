@@ -380,8 +380,14 @@ class CrushCoach(models.Model):
         )
 
     def get_premium_members_count(self):
-        """Number of members permanently assigned to this coach."""
-        return self.assigned_members.count()
+        """Number of ACTIVE paid/comped premium members with this coach.
+
+        Counts ``PremiumMembership(status='active')`` rows, NOT
+        ``assigned_members`` — coach assignment also happens without payment
+        (0150 backfill, attendance auto-assign), and counting those would
+        wrongly exhaust ``max_premium_members`` capacity.
+        """
+        return self.premium_memberships.filter(status="active").count()
 
     def can_accept_premium(self):
         """Whether this coach is available to be chosen by a new premium member."""
@@ -911,6 +917,19 @@ class CrushProfile(models.Model):
         """
         native, oidc_token = self.luxid_account_querysets(self.user_id)
         return native.exists() or oidc_token.exists()
+
+    @property
+    def has_active_premium(self) -> bool:
+        """True when the user holds an ACTIVE ``PremiumMembership``.
+
+        This — not ``assigned_coach`` — is the Premium entitlement. A coach can
+        be assigned without payment (the 0150 backfill, the attendance
+        auto-assign signal), so ``assigned_coach`` only expresses the service
+        relationship; every Premium/receiver gate must key off this property.
+        """
+        return PremiumMembership.objects.filter(
+            user_id=self.user_id, status="active"
+        ).exists()
 
     def save(self, *args, **kwargs):
         """

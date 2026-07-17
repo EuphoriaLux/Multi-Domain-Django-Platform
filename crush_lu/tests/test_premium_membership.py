@@ -35,12 +35,13 @@ class SiteTestMixin:
 @override_settings(**CRUSH_LU_URL_SETTINGS, PREMIUM_REDIRECTS_TO_BETA=False)
 class PremiumMembershipTests(SiteTestMixin, TestCase):
     def setUp(self):
-        from crush_lu.models import CrushCoach, CrushProfile
+        from crush_lu.models import CrushCoach, CrushProfile, PremiumMembership
         from crush_lu.models.profiles import UserDataConsent
 
         self.client = Client()
         self.CrushCoach = CrushCoach
         self.CrushProfile = CrushProfile
+        self.PremiumMembership = PremiumMembership
 
         self.member = User.objects.create_user(
             username="m@example.com", email="m@example.com", password="pass12345"
@@ -69,7 +70,7 @@ class PremiumMembershipTests(SiteTestMixin, TestCase):
         self._make_coach("notpremium", accepting_premium=False)
         self._make_coach("away", is_away=True)
         full = self._make_coach("full", max_premium_members=1)
-        # Fill the "full" coach to capacity.
+        # Fill the "full" coach to capacity with an ACTIVE membership.
         other = User.objects.create_user(
             username="taken@example.com", email="taken@example.com", password="x"
         )
@@ -77,6 +78,20 @@ class PremiumMembershipTests(SiteTestMixin, TestCase):
         p.assigned_coach = full
         p.assigned_coach_at = timezone.now()
         p.save()
+        self.PremiumMembership.objects.create(
+            user=other, coach=full, status="active", payment_confirmed=True
+        )
+        # A bare coach assignment (backfill / attendance auto-assign) must NOT
+        # consume premium capacity — only active memberships do.
+        freeloader = User.objects.create_user(
+            username="freeload@example.com",
+            email="freeload@example.com",
+            password="x",
+        )
+        fp = self.CrushProfile.objects.create(user=freeloader, gender="M")
+        fp.assigned_coach = available
+        fp.assigned_coach_at = timezone.now()
+        fp.save()
 
         self.client.force_login(self.member)
         resp = self.client.get(reverse("crush_lu:premium_choose_coach"))
@@ -112,6 +127,9 @@ class PremiumMembershipTests(SiteTestMixin, TestCase):
         p.assigned_coach = coach
         p.assigned_coach_at = timezone.now()
         p.save()
+        self.PremiumMembership.objects.create(
+            user=other, coach=coach, status="active", payment_confirmed=True
+        )
 
         self.client.force_login(self.member)
         resp = self.client.post(
@@ -142,7 +160,8 @@ class PremiumMembershipTests(SiteTestMixin, TestCase):
         from crush_lu.models import PremiumMembership
 
         coach = self._make_coach("solo", max_premium_members=1)
-        # Fill the only seat.
+        # Fill the only seat with an ACTIVE membership (bare assigned_coach no
+        # longer counts against capacity).
         other = User.objects.create_user(
             username="t3@example.com", email="t3@example.com", password="x"
         )
@@ -150,6 +169,9 @@ class PremiumMembershipTests(SiteTestMixin, TestCase):
         p.assigned_coach = coach
         p.assigned_coach_at = timezone.now()
         p.save()
+        self.PremiumMembership.objects.create(
+            user=other, coach=coach, status="active", payment_confirmed=True
+        )
 
         membership = PremiumMembership.objects.create(
             user=self.member, coach=coach, status="pending"
@@ -164,10 +186,25 @@ class PremiumMembershipTests(SiteTestMixin, TestCase):
         self.profile.assigned_coach = coach
         self.profile.assigned_coach_at = timezone.now()
         self.profile.save()
+        self.PremiumMembership.objects.create(
+            user=self.member, coach=coach, status="active", payment_confirmed=True
+        )
 
         self.client.force_login(self.member)
         resp = self.client.get(reverse("crush_lu:premium_choose_coach"))
         self.assertEqual(resp.status_code, 302)
+
+    def test_coach_without_membership_can_still_buy_premium(self):
+        """A coach assigned without payment (0150 backfill, attendance
+        auto-assign) must NOT lock the member out of the directory."""
+        coach = self._make_coach("gift")
+        self.profile.assigned_coach = coach
+        self.profile.assigned_coach_at = timezone.now()
+        self.profile.save()
+
+        self.client.force_login(self.member)
+        resp = self.client.get(reverse("crush_lu:premium_choose_coach"))
+        self.assertEqual(resp.status_code, 200)
 
     @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
     def test_premium_seeker_redirected_to_beta(self):

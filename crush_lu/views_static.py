@@ -50,7 +50,11 @@ def membership_concept_preview(request):
 
     # Community + premium unlocks
     n_community = verified.filter(_has_attended=True).count()
-    n_premium = verified.filter(assigned_coach__isnull=False).count()
+    n_premium = (
+        verified.filter(user__premium_memberships__status="active")
+        .distinct()
+        .count()
+    )
 
     def pct(n):
         return round(n / total_active * 100, 1) if total_active else 0
@@ -199,7 +203,7 @@ def crush_connect_teaser(request):
                 onboarded = bool(membership and membership.is_onboarded)
                 if (
                     onboarded
-                    and profile.assigned_coach_id
+                    and profile.has_active_premium
                     and receiver_access_open(request.user)
                 ):
                     # Onboarded Premium receiver → their Drop (grandfathered;
@@ -244,7 +248,7 @@ def crush_connect_teaser(request):
 
         _profile = getattr(request.user, "crushprofile", None)
         context["profile_approved"] = bool(_profile and _profile.is_approved)
-        context["is_premium"] = bool(_profile and _profile.assigned_coach_id)
+        context["is_premium"] = bool(_profile and _profile.has_active_premium)
         context["has_luxid_connected"] = bool(
             _profile and _profile.has_luxid_connected
         )

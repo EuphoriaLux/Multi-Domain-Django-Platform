@@ -372,9 +372,11 @@ def dashboard(request):
             user=request.user, status="attended"
         ).exists()
 
-        # Premium = personal coach assigned. Premium unlocks RECEIVING
-        # Crush Connect Drops; LuxID unlocks APPEARING in the catalogue.
-        is_premium = bool(profile.assigned_coach_id)
+        # Premium = active PremiumMembership (paid or comped). Premium unlocks
+        # RECEIVING Crush Connect Drops; LuxID unlocks APPEARING in the
+        # catalogue. A coach assigned without a membership (backfill,
+        # attendance auto-assign) is a service relationship, not Premium.
+        is_premium = profile.has_active_premium
 
         # LuxID upgrade prompt: verified members without LuxID can link it
         # to enter the Crush Connect catalogue (asymmetric model).

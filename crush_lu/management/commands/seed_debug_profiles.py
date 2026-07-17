@@ -39,7 +39,7 @@ from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
-from crush_lu.models import CrushProfile, ProfileSubmission
+from crush_lu.models import CrushProfile, PremiumMembership, ProfileSubmission
 from crush_lu.models.crush_connect import (
     ConnectInterest,
     CrushConnectMembership,
@@ -355,6 +355,15 @@ class Command(BaseCommand):
                 review_call_completed=True,
                 review_call_date=now,
                 reviewed_at=now,
+            )
+            # The receiver gate keys off an ACTIVE PremiumMembership, not
+            # assigned_coach — give receiver/sender seeds the real entitlement.
+            PremiumMembership.objects.create(
+                user=profile.user,
+                coach=profile.assigned_coach,
+                status="active",
+                payment_confirmed=True,
+                payment_date=now,
             )
 
     def _wire_connect_membership(self, user, stage, prompt, now):

@@ -141,11 +141,17 @@ class EditProfileConnectCardTests(TestCase):
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class DashboardVerifierDedupeTests(TestCase):
     def setUp(self):
+        from crush_lu.models import PremiumMembership
+
         self.user = _make_member("dash@example.com")
         self.coach = _make_coach("coach_a", "+352111111")
         profile = self.user.crushprofile
-        profile.assigned_coach = self.coach  # premium
+        profile.assigned_coach = self.coach
         profile.save()
+        # Premium = active membership, not the coach assignment alone.
+        PremiumMembership.objects.create(
+            user=self.user, coach=self.coach, status="active", payment_confirmed=True
+        )
         self.client.login(username="dash@example.com", password="testpass123")
 
     def _get(self):
