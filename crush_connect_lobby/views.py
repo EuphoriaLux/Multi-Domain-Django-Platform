@@ -136,9 +136,15 @@ def api_lobby_state(request, event_id):
             event=event, sender=user, mutual_revealed_at__isnull=False
         ).select_related("recipient")
         for ms in mutual_signals:
+            handle = services.generate_opaque_handle(ms.recipient, event)
+            photo_url = reverse(
+                "crush_connect_lobby:serve_participant_photo",
+                kwargs={"event_id": event.id, "handle": handle}
+            )
             live_mutuals.append({
                 "first_name": ms.recipient.first_name,
-                "handle": services.generate_opaque_handle(ms.recipient, event),
+                "handle": handle,
+                "photo_url": photo_url,
             })
 
     return JsonResponse({

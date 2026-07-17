@@ -162,7 +162,12 @@ def list_participants(user, event):
 
         handle = generate_opaque_handle(other_user, event)
         first_name = other_user.first_name if is_revealed else None
-        photo_url = f"/api/crush-connect/lobby/{event.id}/photo/{handle}/"
+        
+        from django.urls import reverse
+        photo_url = reverse(
+            "crush_connect_lobby:serve_participant_photo",
+            kwargs={"event_id": event.id, "handle": handle}
+        )
 
         roster.append({
             "handle": handle,

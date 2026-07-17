@@ -92,11 +92,11 @@
     <!-- CONFIRMATION MODAL -->
     <div x-show="showConfirmModal" class="fixed inset-0 z-50 overflow-y-auto" style="display: none;" x-cloak>
         <!-- Backdrop -->
-        <div class="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity" @click="closeConfirmModal()"></div>
+        <div class="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity" @click="closeConfirmModal"></div>
 
         <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
             <div class="relative transform overflow-hidden rounded-2xl bg-white dark:bg-zinc-900 text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-md border border-zinc-100 dark:border-zinc-800 p-6"
-                 @click.away="closeConfirmModal()">
+                 @click.away="closeConfirmModal">
                 
                 <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-2">
                     <span x-show="isLive">{% trans "Send Meet Signal?" %}</span>
@@ -116,10 +116,10 @@
                     <div x-show="hasErrorMsg" class="mb-4 p-3 bg-red-50 dark:bg-red-950/20 text-xs text-red-600 dark:text-red-400 rounded-lg" x-text="errorMsg"></div>
 
                     <div class="flex justify-end space-x-3">
-                        <button type="button" @click="closeConfirmModal()" class="py-2.5 px-4 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium rounded-xl text-sm transition duration-150">
+                        <button type="button" @click="closeConfirmModal" class="py-2.5 px-4 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium rounded-xl text-sm transition duration-150">
                             {% trans "Cancel" %}
                         </button>
-                        <button type="button" @click="submitAction()" class="py-2.5 px-4 bg-violet-600 hover:bg-violet-700 text-white font-medium rounded-xl text-sm transition duration-150 shadow-md">
+                        <button type="button" @click="submitAction" class="py-2.5 px-4 bg-violet-600 hover:bg-violet-700 text-white font-medium rounded-xl text-sm transition duration-150 shadow-md">
                             {% trans "Confirm" %}
                         </button>
                     </div>
@@ -284,7 +284,7 @@ document.addEventListener('alpine:init', () => {
             banner.style.display = 'block';
             let html = '';
             this.liveMutuals.forEach(mut => {
-                const photo = mut.photo_url || '/static/images/avatar-placeholder.png';
+                const photo = mut.photo_url || '/static/crush_lu/favicon.svg';
                 html += '<div class="flex items-center space-x-3 p-3 bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-violet-100/40 dark:border-violet-900/10">' +
                         '<img src="' + photo + '" class="w-10 h-10 rounded-full object-cover border-2 border-violet-500" alt="">' +
                         '<div>' +
