@@ -1,0 +1,136 @@
+{% extends "crush_lu/base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Who did you meet?" %} - {{ event.title }}{% endblock %}
+{% block mobile_page_title %}{% trans "Event recap" %}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen pt-4 pb-24 lg:pb-16">
+    <div class="mx-auto max-w-lg px-4"
+         id="event-recap-root"
+         x-data="eventRecap"
+         data-state-url="{% url 'crush_lu:event_lobby_state_api' event.id %}"
+         data-confirm-url="{% url 'crush_lu:event_lobby_confirm_api' event.id %}"
+         data-people-url="{% url 'crush_lu:event_lobby_people' %}"
+         data-phase="{{ state.phase }}"
+         data-seconds-to-close="{{ state.seconds_to_recap_close }}"
+         data-incoming-confirmations="{{ state.incoming_confirmations }}"
+         data-msg-confirmed="{% trans 'Confirmed. They only find out if they confirm you too.' %}"
+         data-msg-duplicate="{% trans 'You already confirmed you met this person.' %}"
+         data-msg-already-met="{% trans 'You have already met this person.' %}"
+         data-msg-encounter="{% trans '{name} was added to People I have Met.' %}"
+         data-msg-closed="{% trans 'The recap window has closed.' %}"
+         data-msg-met-label="{% trans 'You have already met' %}">
+
+        {# Header — title, recap countdown, incoming confirmation counter (§7.7) #}
+        <div class="rounded-2xl bg-gradient-to-br from-crush-purple to-crush-pink p-5 mb-4">
+            <p class="text-xs font-bold uppercase tracking-[0.14em] text-white/90 mb-1">{% trans "Event recap" %}</p>
+            <h1 class="font-display text-2xl font-semibold tracking-tight text-white mb-2">{% trans "Who did you meet?" %}</h1>
+            <p class="text-sm text-white/90 mb-3">{{ event.title }}</p>
+            <span class="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-sm font-semibold text-white" x-show="notClosed">
+                {% include "shared/icons/clock.html" with class="w-4 h-4" %}
+                <span x-text="countdownDisplay">--</span> {% trans "left to confirm" %}
+            </span>
+            <p class="text-sm font-medium text-white mt-3 mb-0" x-show="hasIncoming" x-cloak>
+                🤝 <span x-text="incomingConfirmations">{{ state.incoming_confirmations }}</span>
+                {% trans "people from the event believe you met." %}
+            </p>
+            <p class="text-xs leading-relaxed text-white/80 mt-3 mb-0">
+                {% trans "Mark everyone you actually met. It stays anonymous — a name is revealed and added to People I've Met only when you both confirm." %}
+            </p>
+        </div>
+
+        <div aria-live="polite">
+            <p class="rounded-xl bg-crush-purple/10 text-crush-purple text-sm font-medium px-4 py-2.5 mb-3"
+               x-show="hasBanner" x-cloak x-text="banner"></p>
+        </div>
+
+        {# Permanent-encounter reveal (§7.7 step 6) #}
+        <div aria-live="assertive">
+            <div class="rounded-2xl p-0.5 bg-gradient-to-r from-crush-purple to-crush-pink mb-3" x-show="hasReveal" x-cloak>
+                <div class="flex items-start gap-3 rounded-[14px] bg-white dark:bg-slate-800 p-4">
+                    <span class="text-2xl" aria-hidden="true">🤝</span>
+                    <div class="flex-1">
+                        <p class="font-semibold text-gray-900 dark:text-white mb-1" x-text="reveal"></p>
+                        <a href="{% url 'crush_lu:event_lobby_people' %}" class="text-sm font-semibold text-crush-purple">{% trans "See People I've Met" %}</a>
+                    </div>
+                    <button type="button" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                            x-on:click="dismissReveal" aria-label="{% trans 'Dismiss' %}">
+                        {% include "shared/icons/x-mark.html" with class="w-5 h-5" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        {# Recap photo grid (§7.7): live mutuals first w/ name, others photo-only. #}
+        <div x-show="notClosed">
+            <div id="recap-grid" role="list" class="grid grid-cols-3 gap-2.5">
+                {% for entry in roster %}
+                <button type="button"
+                        data-handle="{{ entry.handle }}"
+                        data-photo-url="{{ entry.photo_url }}"
+                        {% if entry.first_name %}data-first-name="{{ entry.first_name }}"{% endif %}
+                        {% if entry.already_met %}data-already-met="true"{% endif %}
+                        aria-label="{% if entry.first_name %}{{ entry.first_name }}{% else %}{% trans 'Confirm you met this participant' %}{% endif %}"
+                        class="recap-tile relative aspect-square overflow-hidden rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 shadow-crush-sm focus:outline-none focus:ring-2 focus:ring-crush-purple transition-transform active:scale-[0.97]">
+                    <img src="{{ entry.photo_url }}" alt="" loading="lazy" class="w-full h-full object-cover">
+                    {% if entry.already_met %}
+                    <span class="absolute inset-x-0 bottom-0 bg-black/60 px-2 py-1 text-left text-xs font-medium text-white">{% trans "You've already met" %}</span>
+                    {% elif entry.is_live_mutual %}
+                    <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-crush-purple/90 to-transparent px-2 pb-1.5 pt-6 text-left text-xs font-semibold text-white">{{ entry.first_name }}</span>
+                    {% endif %}
+                    {% if entry.confirmed and not entry.already_met %}
+                    <span class="absolute top-1.5 right-1.5 w-3 h-3 rounded-full bg-crush-pink ring-2 ring-white dark:ring-slate-800" aria-hidden="true"></span>
+                    {% endif %}
+                </button>
+                {% empty %}
+                <p class="col-span-3 text-center text-sm text-gray-500 dark:text-gray-400 py-10">
+                    {% trans "No one else joined this lobby." %}
+                </p>
+                {% endfor %}
+            </div>
+            {% if roster %}
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-3">
+                <span class="inline-block w-2.5 h-2.5 rounded-full bg-crush-purple/40 mr-1 align-middle" aria-hidden="true"></span>
+                {% trans "Tiles with a name are people you both wanted to meet at the event." %}
+            </p>
+            {% endif %}
+        </div>
+
+        <div class="rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-6 text-center"
+             x-show="closed" x-cloak>
+            <p class="text-3xl mb-2" aria-hidden="true">✅</p>
+            <p class="font-semibold text-gray-900 dark:text-white mb-1">{% trans "The recap window has closed." %}</p>
+            <a href="{% url 'crush_lu:event_lobby_people' %}" class="text-sm font-semibold text-crush-purple">{% trans "See People I've Met" %}</a>
+        </div>
+
+        {# Irreversible confirmation dialog (§7.7 step 3). #}
+        <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+             x-show="confirmOpen" x-cloak role="dialog" aria-modal="true" aria-labelledby="recap-confirm-title">
+            <div class="absolute inset-0 bg-black/50" x-on:click="closeConfirm" aria-hidden="true"></div>
+            <div class="relative w-full sm:max-w-sm bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl p-5 shadow-xl">
+                <img x-bind:src="confirmPhotoUrl" alt="" class="w-20 h-20 rounded-2xl object-cover mx-auto mb-3">
+                <h2 id="recap-confirm-title" class="font-display text-lg font-semibold text-center text-gray-900 dark:text-white mb-1">
+                    {% trans "Did you meet in person?" %}
+                </h2>
+                <p class="text-sm text-center text-gray-600 dark:text-gray-300 mb-4">
+                    {% trans "Are you sure? This cannot be undone. You'll only be added to each other's People I've Met if you both confirm." %}
+                </p>
+                <div class="flex gap-2">
+                    <button type="button" class="btn-crush-outline flex-1" x-on:click="closeConfirm">
+                        {% trans "Cancel" %}
+                    </button>
+                    <button type="button" class="btn-crush-primary flex-1" x-on:click="confirmMeeting" x-bind:disabled="sending">
+                        {% trans "Yes, we met" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'crush_lu/js/event-recap.js' %}"></script>
+{% endblock %}

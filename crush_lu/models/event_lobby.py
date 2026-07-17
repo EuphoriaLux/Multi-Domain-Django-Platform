@@ -17,10 +17,18 @@ participation's opaque, event-scoped ``handle`` on every client-visible
 surface (roster JSON, signal POSTs, photo URLs). Durable user ids and first
 names never leave the server before an authorized mutual reveal.
 
-# PROTOTYPE-STUB: the recap-phase models (`EventMeetingConfirmation`,
-# `ConfirmedEncounter`, `ConfirmedEncounterRemovalRequest`, §9.3–§9.5) are
-# outside this prototype slice; the live surfaces treat "already met" as
-# always-false until they exist.
+Recap phase (§9.3–§9.4):
+
+- ``EventMeetingConfirmation``: one immutable, anonymous, directional
+  "Yes, we met" during the 48-hour recap window. Unlimited per user.
+- ``ConfirmedEncounter``: one durable unordered pair for "People I've Met",
+  created only from reciprocal confirmations for the same event and never
+  reordered or updated by later shared events.
+
+# PROTOTYPE-STUB: `ConfirmedEncounterRemovalRequest` (§9.5) and the
+# Coach/Support removal-review queue are still outside the prototype;
+# `ConfirmedEncounter.status` already models the hidden/removed states the
+# workflow will drive.
 """
 
 import uuid
@@ -157,3 +165,110 @@ class EventMeetSignal(models.Model):
     @property
     def is_mutual(self) -> bool:
         return self.mutual_revealed_at is not None
+
+
+class EventMeetingConfirmation(models.Model):
+    """One immutable directional post-event "Yes, we met" assertion (§9.3).
+
+    Unlimited during the 48-hour recap window, anonymous until reciprocal,
+    and irrevocable — rows are only ever created. The recipient never learns
+    who confirmed them unless they independently confirm the same person.
+    """
+
+    event = models.ForeignKey(
+        MeetupEvent, on_delete=models.CASCADE, related_name="lobby_meeting_confirmations"
+    )
+    confirmer = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="lobby_confirmations_made"
+    )
+    other_user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="lobby_confirmations_received"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = _("Event Meeting Confirmation")
+        verbose_name_plural = _("Event Meeting Confirmations")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event", "confirmer", "other_user"],
+                name="eventlobby_confirmation_unique",
+            ),
+            models.CheckConstraint(
+                condition=~Q(confirmer=models.F("other_user")),
+                name="eventlobby_confirmation_no_self",
+            ),
+        ]
+        indexes = [
+            # Serves the recap's exact anonymous incoming counter.
+            models.Index(
+                fields=["event", "other_user"], name="eventlobby_confirm_other_idx"
+            ),
+        ]
+
+    def __str__(self):
+        return f"confirm:{self.event_id} {self.confirmer_id} → {self.other_user_id}"
+
+
+class ConfirmedEncounter(models.Model):
+    """One durable unordered pair for "People I've Met" (§9.4).
+
+    Canonical ordering (``user_low.pk < user_high.pk``) makes the pair unique
+    regardless of who confirmed first. ``created_at`` is set once and NEVER
+    touched by later shared events (§7.8 — repeated meetings don't reorder).
+    ``created_from_event`` is internal audit provenance only and must never be
+    rendered to members (§13).
+    """
+
+    STATUS_CHOICES = [
+        ("active", _("Active")),
+        ("removal_pending", _("Removal requested — hidden")),
+        ("removed", _("Removed")),
+    ]
+
+    user_low = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="encounters_as_low"
+    )
+    user_high = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="encounters_as_high"
+    )
+    created_from_event = models.ForeignKey(
+        MeetupEvent,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="encounters_created",
+        help_text=_("Internal audit provenance — never rendered in the collection"),
+    )
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default="active", db_index=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    hidden_at = models.DateTimeField(null=True, blank=True)
+    removed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = _("Confirmed Encounter")
+        verbose_name_plural = _("Confirmed Encounters")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user_low", "user_high"], name="eventlobby_encounter_unique"
+            ),
+            models.CheckConstraint(
+                condition=Q(user_low__lt=models.F("user_high")),
+                name="eventlobby_encounter_canonical_order",
+            ),
+        ]
+
+    def __str__(self):
+        return f"encounter:{self.user_low_id}+{self.user_high_id} ({self.status})"
+
+    @staticmethod
+    def canonical_pair(user_a, user_b):
+        """(low, high) ordering for the unordered pair."""
+        return (user_a, user_b) if user_a.pk < user_b.pk else (user_b, user_a)
+
+    def counterpart_of(self, user):
+        return self.user_high if self.user_low_id == user.pk else self.user_low

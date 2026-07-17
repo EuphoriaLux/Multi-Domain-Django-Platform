@@ -51,9 +51,11 @@ document.addEventListener("alpine:init", function () {
                     duplicate: root.dataset.msgDuplicate || "You already sent this person a signal.",
                     quota: root.dataset.msgQuota || "You've used all three signals for this event.",
                     mutual: root.dataset.msgMutual || "You and {name} would like to meet. Say hello now.",
+                    alreadyMet: root.dataset.msgAlreadyMet || "You've already met this person.",
                     ended: root.dataset.msgEnded || "The live lobby has ended.",
                     tileLabel: root.dataset.msgTileLabel || "Select participant photo",
                     sentBadge: root.dataset.msgSentBadge || "Signal sent",
+                    metBadge: root.dataset.msgMetBadge || "You've already met",
                 };
 
                 if (this.phase === "live") {
@@ -161,6 +163,8 @@ document.addEventListener("alpine:init", function () {
                             self.showBanner(self.msgs.duplicate);
                         } else if (data.result === "quota_exhausted") {
                             self.showBanner(self.msgs.quota);
+                        } else if (data.result === "already_met") {
+                            self.showBanner(self.msgs.alreadyMet);
                         } else if (data.result === "phase_closed") {
                             self.markEnded();
                         } else if (data.result === "mutual") {
@@ -225,7 +229,11 @@ document.addEventListener("alpine:init", function () {
                 img.loading = "lazy";
                 img.className = "w-full h-full object-cover";
                 tile.appendChild(img);
-                if (entry.is_mutual) {
+                if (entry.already_met) {
+                    tile.disabled = true;
+                    tile.appendChild(this.buildTileBadge(this.msgs.metBadge, false));
+                    tile.setAttribute("aria-label", entry.first_name || this.msgs.tileLabel);
+                } else if (entry.is_mutual) {
                     tile.disabled = true;
                     tile.appendChild(this.buildTileBadge(entry.first_name || "", true));
                     tile.setAttribute("aria-label", entry.first_name || this.msgs.tileLabel);

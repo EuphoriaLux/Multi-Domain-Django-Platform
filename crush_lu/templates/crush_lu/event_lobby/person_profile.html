@@ -1,0 +1,67 @@
+{% extends "crush_lu/base.html" %}
+{% load i18n crush_media %}
+
+{% block title %}{{ person.first_name }} - {% trans "Crush Connect" %}{% endblock %}
+{% block mobile_page_title %}{{ person.first_name }}{% endblock %}
+
+{% comment %}
+The full current Crush Connect profile reached from a People I've Met entry
+(§7.8): current photo + first name + Connect profile fields only. No chat,
+contact request, Spark, or Coach action. Reached only via an active permanent
+encounter (authorized in the view).
+{% endcomment %}
+
+{% block content %}
+<div class="min-h-screen pt-4 pb-24 lg:pb-16">
+    <div class="mx-auto max-w-lg px-4">
+        <div class="flex items-center gap-3 mb-4">
+            <a href="{% url 'crush_lu:event_lobby_people' %}" class="text-gray-500 dark:text-gray-400" aria-label="{% trans 'Back' %}">
+                {% include "shared/icons/chevron-left.html" with class="w-6 h-6" %}
+            </a>
+            <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "People I've Met" %}</span>
+        </div>
+
+        <div class="rounded-2xl overflow-hidden ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm mb-4">
+            {% profile_photo profile 'photo_1' css_class='w-full aspect-square object-cover' alt_text=person.first_name %}
+            <div class="p-5">
+                <h1 class="font-display text-2xl font-semibold text-gray-900 dark:text-white mb-1">{{ person.first_name }}</h1>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-0">{% trans "You met at a Crush.lu event." %}</p>
+            </div>
+        </div>
+
+        {% if membership %}
+        {% if membership.story_answer %}
+        <div class="rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-5 mb-4">
+            {% if membership.story_prompt %}<p class="text-xs uppercase tracking-wide text-gray-400 mb-1">{{ membership.story_prompt.text }}</p>{% endif %}
+            <p class="text-gray-800 dark:text-gray-100 mb-0">{{ membership.story_answer }}</p>
+        </div>
+        {% endif %}
+
+        <dl class="rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm divide-y divide-gray-100 dark:divide-slate-700 mb-4">
+            {% if membership.get_relationship_goal_display %}
+            <div class="flex justify-between px-5 py-3">
+                <dt class="text-sm text-gray-500 dark:text-gray-400">{% trans "Looking for" %}</dt>
+                <dd class="text-sm font-medium text-gray-900 dark:text-white mb-0 text-right">{{ membership.get_relationship_goal_display }}</dd>
+            </div>
+            {% endif %}
+            {% if membership.languages_display %}
+            <div class="flex justify-between px-5 py-3">
+                <dt class="text-sm text-gray-500 dark:text-gray-400">{% trans "Languages" %}</dt>
+                <dd class="text-sm font-medium text-gray-900 dark:text-white mb-0 text-right">{{ membership.languages_display|join:", " }}</dd>
+            </div>
+            {% endif %}
+            {% for item in membership.life_situation_display %}
+            <div class="flex justify-between px-5 py-3">
+                <dt class="text-sm text-gray-500 dark:text-gray-400">{% trans "About" %}</dt>
+                <dd class="text-sm font-medium text-gray-900 dark:text-white mb-0 text-right">{{ item }}</dd>
+            </div>
+            {% endfor %}
+        </dl>
+        {% endif %}
+
+        <p class="text-xs text-center text-gray-400 dark:text-gray-500">
+            {% trans "A permanent record of a real-world meeting. Say hi next time you see them." %}
+        </p>
+    </div>
+</div>
+{% endblock %}
