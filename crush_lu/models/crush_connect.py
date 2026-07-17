@@ -411,6 +411,10 @@ class CrushConnectMembership(models.Model):
         default=False,
         help_text=_("Member agreed their clear photo is shown to the people matched to them each day"),
     )
+    lobby_consent_given = models.BooleanField(
+        default=False,
+        help_text=_("Acknowledged clear-photo sharing consent for the Event Lobby"),
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
