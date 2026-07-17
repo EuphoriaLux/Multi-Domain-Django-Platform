@@ -32,7 +32,11 @@ def backfill_tester_memberships(apps, schema_editor):
             coach_id=profile.assigned_coach_id,
             status="active",
             payment_confirmed=entry.payment_confirmed,
-            payment_date=entry.selected_at,
+            # Use the waitlist's actual payment timestamp when available so
+            # weekly KPI windowing (services/weekly_kpis.py keys on
+            # payment_date) reports these testers in the correct week. Falls
+            # back to selected_at for unpaid/unstamped testers.
+            payment_date=entry.payment_date or entry.selected_at,
         )
 
 
