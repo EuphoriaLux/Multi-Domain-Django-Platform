@@ -15,8 +15,16 @@ invariants — anonymity before mutual reveal, the server-enforced irrevocable
 never depend on the lobby. The recap/People-I've-Met surfaces are mostly
 conventional CRUD once these primitives are proven.
 
-**Deliberately stubbed** (marked `# PROTOTYPE-STUB:` in code): the 48-hour
-recap grid, meeting confirmations, ConfirmedEncounter/"People I've Met",
-coach-reviewed removal, versioned lobby photo-consent (reuses
-`photo_share_consent`), "You've already met" tiles, persisted recap/reminder
-notifications, 30-day retention cleanup, and analytics.
+**Phase C added (recap + People I've Met):** the 48-hour recap grid, unlimited
+irreversible meeting confirmations (§7.7, §9.3), reciprocal-confirmation →
+`ConfirmedEncounter` (§9.4), the permanent "People I've Met" collection +
+full-profile view (§7.8), live-mutual highlighting, and the "You've already
+met" non-actionable tiles are now implemented with models, endpoints, UI, and
+tests.
+
+**Still deliberately stubbed** (marked `# PROTOTYPE-STUB:` in code):
+coach-reviewed encounter removal (`ConfirmedEncounterRemovalRequest` §9.5),
+versioned lobby photo-consent (reuses `photo_share_consent`), persisted
+recap/24h-reminder in-app notifications (§12), the 30-day retention cleanup
+task (§13), and analytics (§15). Recap realtime rides the polling fallback
+(the member WebSocket closes at event end per §7.6).
