@@ -96,10 +96,9 @@ def ensure_participation(event, user, source=EventLobbyParticipation.SOURCE_CHEC
     if not is_live(event, now):
         raise LobbyAccessError("not_available")
 
-    # PROTOTYPE-STUB: production check-in and onboarding completion should call
-    # this service after commit. The prototype invokes it on authenticated lobby
-    # entry and from the seed command, preserving idempotency without touching
-    # the existing check-in response path.
+    # PROTOTYPE-STUB: onboarding completion should call this service for any
+    # attended event that is still live. QR check-in is integrated after commit;
+    # authenticated lobby entry remains an idempotent fallback.
     with transaction.atomic():
         registration = (
             EventRegistration.objects.select_for_update()
@@ -118,6 +117,37 @@ def ensure_participation(event, user, source=EventLobbyParticipation.SOURCE_CHEC
             },
         )
         return participation
+
+
+def evaluate_participation_after_checkin(event, user):
+    """Enroll an eligible checked-in member without affecting check-in."""
+
+    if _active_member_reason(user) is not None or not is_live(event):
+        return None
+    return ensure_participation(
+        event,
+        user,
+        source=EventLobbyParticipation.SOURCE_CHECKIN,
+    )
+
+
+def lobby_entry_url(event, user):
+    """Return the lobby URL only when it is safe to advertise to the member."""
+
+    if _active_member_reason(user, require_lobby_consent=False) is not None:
+        return None
+    if not is_live(event):
+        return None
+    if not EventRegistration.objects.filter(
+        event=event,
+        user=user,
+        status="attended",
+    ).exists():
+        return None
+    return reverse(
+        "crush_lu:event_lobby:lobby",
+        kwargs={"event_id": event.pk},
+    )
 
 
 def _viewer_participation(event, user):

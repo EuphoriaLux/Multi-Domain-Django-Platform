@@ -9,7 +9,7 @@ from datetime import timedelta
 import json
 import logging
 
-logger = logging.getLogger(__name__)
+from crush_event_lobby.services import lobby_entry_url
 
 from .models import (
     CrushProfile,
@@ -26,6 +26,8 @@ from .email_helpers import (
     send_event_waitlist_notification,
     send_event_cancellation_confirmation,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _promote_from_waitlist(event, cancelled_user=None):
@@ -611,6 +613,11 @@ def event_detail(request, event_id):
         "event_coaches": event_coaches,
         "event_jsonld": event_jsonld,
         "breadcrumb_jsonld": breadcrumb_jsonld,
+        "event_lobby_url": (
+            lobby_entry_url(event, request.user)
+            if registration and registration.status == "attended"
+            else None
+        ),
     }
     return render(request, "crush_lu/event_detail.html", context)
 

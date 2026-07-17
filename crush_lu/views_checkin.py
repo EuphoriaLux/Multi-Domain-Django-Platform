@@ -26,6 +26,36 @@ from .models import EventRegistration
 logger = logging.getLogger(__name__)
 
 
+def _schedule_event_lobby_enrollment(registration_id):
+    """Run the optional lobby side effect only after attendance commits."""
+
+    if not getattr(settings, "CRUSH_EVENT_LOBBY_ENABLED", False):
+        return
+
+    def enroll():
+        try:
+            from crush_event_lobby.services import (
+                evaluate_participation_after_checkin,
+            )
+
+            registration = EventRegistration.objects.select_related(
+                "event", "user"
+            ).get(pk=registration_id)
+            evaluate_participation_after_checkin(
+                registration.event,
+                registration.user,
+            )
+        except Exception:
+            # Attendance is authoritative. Enrollment is retried by a duplicate
+            # scan or when the member opens the lobby.
+            logger.exception(
+                "Event Lobby enrollment failed after check-in for registration %s",
+                registration_id,
+            )
+
+    transaction.on_commit(enroll)
+
+
 @csrf_exempt
 @require_POST
 def event_checkin_api(request, registration_id, token):
@@ -90,6 +120,7 @@ def event_checkin_api(request, registration_id, token):
 
     # Check if already attended
     if registration.status == "attended":
+        _schedule_event_lobby_enrollment(registration.id)
         display_name = _get_display_name(registration)
         response_data = {
             "success": True,
@@ -146,6 +177,7 @@ def event_checkin_api(request, registration_id, token):
             .get(id=registration_id)
         )
         if registration.status == "attended":
+            _schedule_event_lobby_enrollment(registration.id)
             display_name = _get_display_name(registration)
             response_data = {
                 "success": True,
@@ -167,6 +199,7 @@ def event_checkin_api(request, registration_id, token):
         registration.status = "attended"
         registration.checked_in_at = now
         registration.save(update_fields=["status", "checked_in_at", "updated_at"])
+        _schedule_event_lobby_enrollment(registration.id)
 
         # Quiz table assignment (if this is a quiz night event)
         try:

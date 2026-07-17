@@ -4,6 +4,7 @@ import pytest
 from allauth.socialaccount.models import SocialAccount
 from django.contrib.auth import get_user_model
 from django.test import Client
+from django.core.signing import Signer
 from django.urls import reverse
 from django.utils import timezone
 
@@ -16,6 +17,7 @@ from crush_event_lobby.services import (
     LobbyAccessError,
     ensure_participation,
     list_live_participants,
+    lobby_entry_url,
     lobby_state,
     send_meet_signal,
 )
@@ -112,6 +114,156 @@ def error_code(callable_):
     with pytest.raises(LobbyAccessError) as exc_info:
         callable_()
     return exc_info.value.code
+
+
+def checkin_url(registration):
+    token = Signer().sign(f"{registration.pk}:{registration.event_id}")
+    return f"/api/events/checkin/{registration.pk}/{token}/"
+
+
+def test_real_qr_checkin_enrolls_eligible_member(
+    client,
+    django_capture_on_commit_callbacks,
+):
+    event = make_event()
+    member = make_member("checkin-member")
+    registration = EventRegistration.objects.create(
+        user=member,
+        event=event,
+        status="confirmed",
+    )
+
+    with django_capture_on_commit_callbacks(execute=True):
+        response = client.post(checkin_url(registration))
+
+    assert response.status_code == 200
+    registration.refresh_from_db()
+    assert registration.status == "attended"
+    participation = EventLobbyParticipation.objects.get(
+        event=event,
+        user=member,
+    )
+    assert participation.event_registration == registration
+    assert participation.eligibility_source == EventLobbyParticipation.SOURCE_CHECKIN
+
+
+def test_qr_checkin_retry_does_not_duplicate_lobby_participation(
+    client,
+    django_capture_on_commit_callbacks,
+):
+    event = make_event()
+    member = make_member("checkin-retry")
+    registration = EventRegistration.objects.create(
+        user=member,
+        event=event,
+        status="confirmed",
+    )
+    url = checkin_url(registration)
+
+    with django_capture_on_commit_callbacks(execute=True):
+        assert client.post(url).status_code == 200
+    with django_capture_on_commit_callbacks(execute=True):
+        response = client.post(url)
+
+    assert response.status_code == 200
+    assert response.json()["already_checked_in"] is True
+    assert EventLobbyParticipation.objects.filter(event=event, user=member).count() == 1
+
+
+def test_lobby_failure_never_rolls_back_checkin(
+    client,
+    django_capture_on_commit_callbacks,
+    monkeypatch,
+):
+    event = make_event()
+    member = make_member("checkin-failure")
+    registration = EventRegistration.objects.create(
+        user=member,
+        event=event,
+        status="confirmed",
+    )
+
+    def fail(*_args, **_kwargs):
+        raise RuntimeError("simulated lobby failure")
+
+    monkeypatch.setattr(
+        "crush_event_lobby.services.evaluate_participation_after_checkin",
+        fail,
+    )
+    with django_capture_on_commit_callbacks(execute=True):
+        response = client.post(checkin_url(registration))
+
+    assert response.status_code == 200
+    assert response.json()["success"] is True
+    registration.refresh_from_db()
+    assert registration.status == "attended"
+
+
+def test_non_connect_guest_checks_in_without_lobby_participation(
+    client,
+    django_capture_on_commit_callbacks,
+):
+    event = make_event()
+    guest = User.objects.create_user(username="ordinary-guest")
+    registration = EventRegistration.objects.create(
+        user=guest,
+        event=event,
+        status="confirmed",
+    )
+
+    with django_capture_on_commit_callbacks(execute=True):
+        response = client.post(checkin_url(registration))
+
+    assert response.status_code == 200
+    assert not EventLobbyParticipation.objects.filter(event=event, user=guest).exists()
+
+
+def test_checked_in_member_sees_lobby_entry_on_ticket_and_event_detail(client):
+    event = make_event()
+    member = make_member("lobby-entry")
+    EventRegistration.objects.create(
+        user=member,
+        event=event,
+        status="attended",
+        checked_in_at=timezone.now(),
+    )
+    expected_url = reverse(
+        "crush_lu:event_lobby:lobby",
+        kwargs={"event_id": event.pk},
+    )
+    assert lobby_entry_url(event, member) == expected_url
+    client.force_login(member)
+
+    ticket = client.get(reverse("crush_lu:event_ticket", args=[event.pk]))
+    detail = client.get(reverse("crush_lu:event_detail", args=[event.pk]))
+
+    assert ticket.status_code == 200
+    assert detail.status_code == 200
+    assert expected_url in ticket.content.decode()
+    assert expected_url in detail.content.decode()
+    assert "Enter live lobby" in ticket.content.decode()
+    assert "Enter live lobby" in detail.content.decode()
+
+
+def test_lobby_entry_is_hidden_from_non_connect_guest(client):
+    event = make_event()
+    guest = User.objects.create_user(username="hidden-lobby-guest")
+    UserDataConsent.objects.filter(user=guest).update(crushlu_consent_given=True)
+    EventRegistration.objects.create(
+        user=guest,
+        event=event,
+        status="attended",
+        checked_in_at=timezone.now(),
+    )
+    client.force_login(guest)
+
+    ticket = client.get(reverse("crush_lu:event_ticket", args=[event.pk]))
+    detail = client.get(reverse("crush_lu:event_detail", args=[event.pk]))
+
+    assert ticket.status_code == 200
+    assert detail.status_code == 200
+    assert "Enter live lobby" not in ticket.content.decode()
+    assert "Enter live lobby" not in detail.content.decode()
 
 
 def test_mutual_signal_flow_is_anonymous_until_reciprocal():

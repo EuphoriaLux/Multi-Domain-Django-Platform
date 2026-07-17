@@ -12,7 +12,8 @@ from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from django.core.signing import Signer
 from django.shortcuts import get_object_or_404, render
-from django.utils import timezone
+
+from crush_event_lobby.services import lobby_entry_url
 
 from .decorators import crush_login_required
 from .models import EventRegistration, MeetupEvent
@@ -67,7 +68,9 @@ def event_ticket(request, event_id):
     )
 
     # Check if already checked in
-    already_checked_in = registration.status == "attended" or registration.checked_in_at is not None
+    already_checked_in = (
+        registration.status == "attended" or registration.checked_in_at is not None
+    )
 
     # Get display name (privacy-aware)
     try:
@@ -117,6 +120,9 @@ def event_ticket(request, event_id):
         "wallet_enabled": wallet_enabled,
         "apple_wallet_enabled": apple_wallet_enabled,
         "apple_wallet_url": apple_wallet_url,
+        "event_lobby_url": (
+            lobby_entry_url(event, request.user) if already_checked_in else None
+        ),
     }
 
     return render(request, "crush_lu/event_ticket.html", context)
