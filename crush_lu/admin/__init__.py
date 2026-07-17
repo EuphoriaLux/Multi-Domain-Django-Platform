@@ -197,6 +197,8 @@ from .matching import TraitAdmin, MatchScoreAdmin
 
 from .moderation import UserReportAdmin, UserBlockAdmin
 
+from .event_lobby import EventLobbyParticipationAdmin, EventMeetSignalAdmin
+
 from .metrics import WeeklyMetricsSnapshotAdmin
 
 from .changelog import PatchReleaseAdmin, PatchNoteAdmin, PatchNoteInline
@@ -314,6 +316,8 @@ from crush_lu.models import (
     WeeklyMetricsSnapshot,
     UserReport,
     UserBlock,
+    EventLobbyParticipation,
+    EventMeetSignal,
 )
 
 
@@ -443,6 +447,10 @@ crush_admin_site.register(ConnectQuestionAnswer, ConnectQuestionAnswerAdmin)
 # Trust & Safety (peer reporting + blocking)
 crush_admin_site.register(UserReport, UserReportAdmin)
 crush_admin_site.register(UserBlock, UserBlockAdmin)
+
+# Event Lobby (read-only oversight)
+crush_admin_site.register(EventLobbyParticipation, EventLobbyParticipationAdmin)
+crush_admin_site.register(EventMeetSignal, EventMeetSignalAdmin)
 
 # Matching System
 crush_admin_site.register(Trait, TraitAdmin)
