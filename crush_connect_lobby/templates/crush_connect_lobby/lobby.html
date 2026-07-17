@@ -2,8 +2,202 @@
 {% load i18n %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto my-8 px-4 sm:px-6"
-     x-data="{
+<div class="max-w-4xl mx-auto my-8 px-4 sm:px-6" x-data="lobbyComponent">
+    
+    <!-- HEADER SURFACE -->
+    <div class="bg-gradient-to-r from-violet-600 to-fuchsia-600 dark:from-violet-950/40 dark:to-fuchsia-950/40 p-6 sm:p-8 rounded-2xl shadow-lg mb-8 text-white relative overflow-hidden">
+        <!-- Background light swirls -->
+        <div class="absolute -right-16 -top-16 w-48 h-48 bg-white/10 rounded-full blur-2xl"></div>
+        <div class="absolute -left-16 -bottom-16 w-48 h-48 bg-white/10 rounded-full blur-2xl"></div>
+
+        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+                <span class="text-xs uppercase tracking-wider font-bold text-white/80 px-2.5 py-1 bg-white/15 rounded-full inline-block mb-3">
+                    <span x-show="isLive">⚡ {% trans "Live Lobby" %}</span>
+                    <span x-show="isRecap">⏳ {% trans "48-Hour Recap" %}</span>
+                </span>
+                <h1 class="text-3xl font-extrabold tracking-tight">{{ event.title }}</h1>
+                <p class="text-white/80 text-sm mt-1">
+                    <span x-show="isLive">{% trans "Express interest in the room before the event ends." %}</span>
+                    <span x-show="isRecap">{% trans "Confirm who you met. Mutual confirmations build your permanent list." %}</span>
+                </p>
+            </div>
+            
+            <div class="flex items-center space-x-6">
+                <!-- COUNTDOWN TIMER -->
+                <div class="bg-white/15 backdrop-blur-md rounded-xl p-3 text-center min-w-[120px] border border-white/10">
+                    <span class="text-[10px] uppercase font-bold text-white/70 block">{% trans "Time Remaining" %}</span>
+                    <span class="text-xl font-mono font-bold tracking-wider" x-text="countdown">00:00:00</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ANONYMOUS COUNTERS & STATS -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+        <!-- Live phase details -->
+        <template x-if="isLive">
+            <div class="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-4 rounded-xl flex items-center justify-between shadow-sm">
+                <div>
+                    <h3 class="text-xs font-bold uppercase text-zinc-400 dark:text-zinc-500">{% trans "Your Remaining Signals" %}</h3>
+                    <p class="text-2xl font-black text-zinc-800 dark:text-zinc-100 mt-1" x-text="signalsLeftText"></p>
+                </div>
+                <div class="flex space-x-1.5">
+                    <template x-for="i in [1, 2, 3]">
+                        <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center font-bold text-xs"
+                             :class="isSignalConsumed(i) ? 'bg-violet-600 border-violet-600 text-white' : 'border-zinc-200 dark:border-zinc-700 text-zinc-300 dark:text-zinc-600'"
+                             x-text="i"></div>
+                    </template>
+                </div>
+            </div>
+        </template>
+        
+        <template x-if="isLive">
+            <div class="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-4 rounded-xl flex items-center justify-between shadow-sm">
+                <div>
+                    <h3 class="text-xs font-bold uppercase text-zinc-400 dark:text-zinc-500">{% trans "People Who Want to Meet You" %}</h3>
+                    <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{% trans "These are completely anonymous count updates." %}</p>
+                </div>
+                <div class="bg-fuchsia-50 dark:bg-fuchsia-950/20 text-fuchsia-600 dark:text-fuchsia-400 font-extrabold text-3xl px-4 py-2 rounded-xl border border-fuchsia-100 dark:border-fuchsia-900/30">
+                    <span x-text="incomingSignalsCount">0</span>
+                </div>
+            </div>
+        </template>
+
+        <!-- Recap phase details -->
+        <template x-if="isRecap">
+            <div class="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-4 rounded-xl flex items-center justify-between shadow-sm col-span-2">
+                <div>
+                    <h3 class="text-xs font-bold uppercase text-zinc-400 dark:text-zinc-500">{% trans "Meeting Confirmations" %}</h3>
+                    <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                        <span x-text="incomingConfirmationsCount">0</span> {% trans "people believe you met. Select them below to mutually confirm." %}
+                    </p>
+                </div>
+                <div class="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 font-extrabold text-3xl px-4 py-2 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
+                    <span x-text="incomingConfirmationsCount">0</span>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- MUTUAL REVEALS (SAY HELLO NOW) -->
+    <div x-show="hasLiveMutuals" class="mb-8 p-5 bg-gradient-to-r from-violet-50 to-fuchsia-50 dark:from-violet-950/20 dark:to-fuchsia-950/20 rounded-2xl border border-violet-100 dark:border-violet-900/20 shadow-inner">
+        <h3 class="font-bold text-violet-900 dark:text-violet-300 text-sm mb-3">💬 {% trans "Say Hello Now!" %}</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <template x-for="mut in liveMutuals">
+                <div class="flex items-center space-x-3 p-3 bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-violet-100/40 dark:border-violet-900/10">
+                    <img :src="mut.photo_url || '/static/images/avatar-placeholder.png'" class="w-10 h-10 rounded-full object-cover border-2 border-violet-500" alt="">
+                    <div>
+                        <p class="text-sm font-bold text-zinc-800 dark:text-zinc-100">
+                            {% trans "You matched with" %} <span x-text="mut.first_name" class="text-violet-600 dark:text-violet-400 font-black"></span>!
+                        </p>
+                        <p class="text-xs text-zinc-400 dark:text-zinc-500">{% trans "Go say hello in person!" %}</p>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- PHOTO GRID -->
+    <div>
+        <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-4">{% trans "Lobby Roster" %}</h2>
+        
+        <div x-show="hasNoParticipants" class="text-center py-12 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl">
+            <p class="text-zinc-400 dark:text-zinc-500">{% trans "No other eligible participants checked in yet." %}</p>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+            <template x-for="part in participants" :key="part.handle">
+                <button @click="openConfirm(part)" 
+                        class="group block bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition text-left relative"
+                        :disabled="isParticipantDisabled(part)"
+                        :aria-label="getParticipantAriaLabel(part)">
+                    
+                    <!-- Avatar Area -->
+                    <div class="aspect-square relative overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+                        <img :src="part.photo_url" class="w-full h-full object-cover transition duration-200 group-hover:scale-105" alt="">
+                        
+                        <!-- Overlay Badges -->
+                        <div class="absolute top-2 right-2 flex flex-col space-y-1">
+                            <span x-show="partAlreadyMet(part)" class="text-[9px] uppercase tracking-wider font-bold bg-zinc-800/80 backdrop-blur-sm text-zinc-100 px-2 py-0.5 rounded-full">
+                                ✓ {% trans "Already Met" %}
+                            </span>
+                            <span x-show="partHasSentSignal(part)" class="text-[9px] uppercase tracking-wider font-bold bg-violet-600/90 text-white px-2 py-0.5 rounded-full">
+                                ✓ {% trans "Sent" %}
+                            </span>
+                            <span x-show="partHasConfirmed(part)" class="text-[9px] uppercase tracking-wider font-bold bg-emerald-600/90 text-white px-2 py-0.5 rounded-full">
+                                ✓ {% trans "Confirmed" %}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Label / State -->
+                    <div class="p-4 bg-zinc-50/50 dark:bg-zinc-900/50">
+                        <p class="font-bold text-zinc-800 dark:text-zinc-100 text-sm">
+                            <span x-show="partIsRevealed(part)" x-text="partFirstName(part)"></span>
+                            <span x-show="partNotRevealed(part)" class="text-zinc-400 dark:text-zinc-600 italic">{% trans "Anonymous" %}</span>
+                        </p>
+                        <p class="text-[10px] text-zinc-400 mt-0.5">
+                            <span x-show="partIsLiveMutual(part)">⚡ {% trans "Live match" %}</span>
+                            <span x-show="partRevealedNotMutual(part)">{% trans "Revealed" %}</span>
+                            <span x-show="partNotRevealed(part)">{% trans "Tap to select" %}</span>
+                        </p>
+                    </div>
+                </button>
+            </template>
+        </div>
+    </div>
+
+    <!-- CONCISE PRIVACY EXPLANATION -->
+    <div class="mt-12 p-4 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl text-center border border-zinc-100 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-500 leading-relaxed">
+        <strong>{% trans "Privacy Notice:" %}</strong> {% trans "Lobby names are encrypted. A single directional action exposes nothing. Mutual live matches reveal first names during the event, but ONLY post-event reciprocal meeting confirmations add a user permanently to your list." %}
+    </div>
+
+    <!-- CONFIRMATION MODAL -->
+    <div x-show="showConfirmModal" class="fixed inset-0 z-50 overflow-y-auto" style="display: none;" x-cloak>
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity" @click="closeConfirmModal()"></div>
+
+        <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+            <div class="relative transform overflow-hidden rounded-2xl bg-white dark:bg-zinc-900 text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-md border border-zinc-100 dark:border-zinc-800 p-6"
+                 @click.away="closeConfirmModal()">
+                
+                <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-2">
+                    <span x-show="isLive">{% trans "Send Meet Signal?" %}</span>
+                    <span x-show="isRecap">{% trans "Confirm You Met?" %}</span>
+                </h3>
+                
+                <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-5">
+                    <span x-show="isLive">
+                        {% trans "Are you sure? This consumes 1 of your 3 signals for this event and is completely anonymous unless they also signal interest." %}
+                    </span>
+                    <span x-show="isRecap">
+                        {% trans "Confirm that you actually met and had a conversation with this person. This is anonymous and cannot be undone." %}
+                    </span>
+                </p>
+
+                <div x-show="hasNoSuccessMsg">
+                    <div x-show="hasErrorMsg" class="mb-4 p-3 bg-red-50 dark:bg-red-950/20 text-xs text-red-600 dark:text-red-400 rounded-lg" x-text="errorMsg"></div>
+
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" @click="closeConfirmModal()" class="py-2.5 px-4 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium rounded-xl text-sm transition duration-150">
+                            {% trans "Cancel" %}
+                        </button>
+                        <button type="button" @click="submitAction()" class="py-2.5 px-4 bg-violet-600 hover:bg-violet-700 text-white font-medium rounded-xl text-sm transition duration-150 shadow-md">
+                            {% trans "Confirm" %}
+                        </button>
+                    </div>
+                </div>
+
+                <div x-show="hasSuccessMsg" class="p-6 text-center text-sm font-semibold text-emerald-600 dark:text-emerald-400" x-text="successMsg"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script nonce="{{ csp_nonce }}">
+document.addEventListener('alpine:init', () => {
+    Alpine.data('lobbyComponent', () => ({
         phase: '{{ phase }}',
         countdown: '00:00:00',
         countdownSeconds: 0,
@@ -16,7 +210,7 @@
         selectedParticipant: null,
         errorMsg: '',
         successMsg: '',
-        
+
         init() {
             this.fetchState();
             this.fetchParticipants();
@@ -37,7 +231,7 @@
                 }
             }, 1000);
         },
-        
+
         fetchState() {
             fetch('{% url "crush_connect_lobby:api_lobby_state" event_id=event.id %}')
                 .then(res => res.json())
@@ -52,7 +246,7 @@
                     this.formatCountdown();
                 });
         },
-        
+
         fetchParticipants() {
             fetch('{% url "crush_connect_lobby:api_list_participants" event_id=event.id %}')
                 .then(res => res.json())
@@ -62,7 +256,7 @@
                     }
                 });
         },
-        
+
         formatCountdown() {
             let secs = this.countdownSeconds;
             let h = Math.floor(secs / 3600);
@@ -70,7 +264,7 @@
             let s = secs % 60;
             this.countdown = [h, m, s].map(v => v.toString().padStart(2, '0')).join(':');
         },
-        
+
         openConfirm(part) {
             if (part.already_met) return;
             if (this.phase === 'live' && part.has_sent_signal) return;
@@ -81,7 +275,11 @@
             this.successMsg = '';
             this.showConfirmModal = true;
         },
-        
+
+        closeConfirmModal() {
+            this.showConfirmModal = false;
+        },
+
         submitAction() {
             if (!this.selectedParticipant) return;
             
@@ -106,7 +304,7 @@
                     this.errorMsg = data.error;
                 } else {
                     if (data.status === 'mutual' || data.status === 'encounter_created') {
-                        this.successMsg = `{% trans "It's a Match! You can now see" %} ${data.first_name}'s {% trans "name." %}`;
+                        this.successMsg = "{% trans "It's a Match! You can now see" %} " + data.first_name + " {% trans "name." %}";
                     } else {
                         this.successMsg = '{% trans "Success! Action saved." %}';
                     }
@@ -121,197 +319,39 @@
             .catch(() => {
                 this.errorMsg = '{% trans "Server error, please try again." %}';
             });
-        }
-     }">
-    
-    <!-- HEADER SURFACE -->
-    <div class="bg-gradient-to-r from-violet-600 to-fuchsia-600 dark:from-violet-950/40 dark:to-fuchsia-950/40 p-6 sm:p-8 rounded-2xl shadow-lg mb-8 text-white relative overflow-hidden">
-        <!-- Background light swirls -->
-        <div class="absolute -right-16 -top-16 w-48 h-48 bg-white/10 rounded-full blur-2xl"></div>
-        <div class="absolute -left-16 -bottom-16 w-48 h-48 bg-white/10 rounded-full blur-2xl"></div>
+        },
 
-        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div>
-                <span class="text-xs uppercase tracking-wider font-bold text-white/80 px-2.5 py-1 bg-white/15 rounded-full inline-block mb-3">
-                    <span x-show="phase === 'live'">⚡ {% trans "Live Lobby" %}</span>
-                    <span x-show="phase === 'recap'">⏳ {% trans "48-Hour Recap" %}</span>
-                </span>
-                <h1 class="text-3xl font-extrabold tracking-tight">{{ event.title }}</h1>
-                <p class="text-white/80 text-sm mt-1">
-                    <span x-show="phase === 'live'">{% trans "Express interest in the room before the event ends." %}</span>
-                    <span x-show="phase === 'recap'">{% trans "Confirm who you met. Mutual confirmations build your permanent list." %}</span>
-                </p>
-            </div>
-            
-            <div class="flex items-center space-x-6">
-                <!-- COUNTDOWN TIMER -->
-                <div class="bg-white/15 backdrop-blur-md rounded-xl p-3 text-center min-w-[120px] border border-white/10">
-                    <span class="text-[10px] uppercase font-bold text-white/70 block">{% trans "Time Remaining" %}</span>
-                    <span class="text-xl font-mono font-bold tracking-wider" x-text="countdown">00:00:00</span>
-                </div>
-            </div>
-        </div>
-    </div>
+        // Getters & helpers for CSP compatibility
+        get isLive() { return this.phase === 'live'; },
+        get isRecap() { return this.phase === 'recap'; },
+        get signalsLeftText() { return this.signalsLeft + ' of 3'; },
+        get hasLiveMutuals() { return this.liveMutuals.length > 0; },
+        get hasNoParticipants() { return this.participants.length === 0; },
+        get hasNoSuccessMsg() { return !this.successMsg; },
+        get hasSuccessMsg() { return !!this.successMsg; },
+        get hasErrorMsg() { return !!this.errorMsg; },
 
-    <!-- ANONYMOUS COUNTERS & STATS -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-        <!-- Live phase details -->
-        <template x-if="phase === 'live'">
-            <div class="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-4 rounded-xl flex items-center justify-between shadow-sm">
-                <div>
-                    <h3 class="text-xs font-bold uppercase text-zinc-400 dark:text-zinc-500">{% trans "Your Remaining Signals" %}</h3>
-                    <p class="text-2xl font-black text-zinc-800 dark:text-zinc-100 mt-1" x-text="signalsLeft + ' of 3'"></p>
-                </div>
-                <div class="flex space-x-1.5">
-                    <template x-for="i in [1, 2, 3]">
-                        <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center font-bold text-xs"
-                             :class="i <= (3 - signalsLeft) ? 'bg-violet-600 border-violet-600 text-white' : 'border-zinc-200 dark:border-zinc-700 text-zinc-300 dark:text-zinc-600'"
-                             x-text="i"></div>
-                    </template>
-                </div>
-            </div>
-        </template>
-        
-        <template x-if="phase === 'live'">
-            <div class="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-4 rounded-xl flex items-center justify-between shadow-sm">
-                <div>
-                    <h3 class="text-xs font-bold uppercase text-zinc-400 dark:text-zinc-500">{% trans "People Who Want to Meet You" %}</h3>
-                    <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{% trans "These are completely anonymous count updates." %}</p>
-                </div>
-                <div class="bg-fuchsia-50 dark:bg-fuchsia-950/20 text-fuchsia-600 dark:text-fuchsia-400 font-extrabold text-3xl px-4 py-2 rounded-xl border border-fuchsia-100 dark:border-fuchsia-900/30">
-                    <span x-text="incomingSignalsCount">0</span>
-                </div>
-            </div>
-        </template>
+        isSignalConsumed(i) {
+            return i <= (3 - this.signalsLeft);
+        },
 
-        <!-- Recap phase details -->
-        <template x-if="phase === 'recap'">
-            <div class="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-4 rounded-xl flex items-center justify-between shadow-sm col-span-2">
-                <div>
-                    <h3 class="text-xs font-bold uppercase text-zinc-400 dark:text-zinc-500">{% trans "Meeting Confirmations" %}</h3>
-                    <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-                        <span x-text="incomingConfirmationsCount">0</span> {% trans "people believe you met. Select them below to mutually confirm." %}
-                    </p>
-                </div>
-                <div class="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 font-extrabold text-3xl px-4 py-2 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
-                    <span x-text="incomingConfirmationsCount">0</span>
-                </div>
-            </div>
-        </template>
-    </div>
+        isParticipantDisabled(part) {
+            return part.already_met || (this.phase === 'live' && part.has_sent_signal) || (this.phase === 'recap' && part.has_confirmed_meeting);
+        },
 
-    <!-- MUTUAL REVEALS (SAY HELLO NOW) -->
-    <div x-show="liveMutuals.length > 0" class="mb-8 p-5 bg-gradient-to-r from-violet-50 to-fuchsia-50 dark:from-violet-950/20 dark:to-fuchsia-950/20 rounded-2xl border border-violet-100 dark:border-violet-900/20 shadow-inner">
-        <h3 class="font-bold text-violet-900 dark:text-violet-300 text-sm mb-3">💬 {% trans "Say Hello Now!" %}</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <template x-for="mut in liveMutuals">
-                <div class="flex items-center space-x-3 p-3 bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-violet-100/40 dark:border-violet-900/10">
-                    <img :src="mut.photo_url || '/static/images/avatar-placeholder.png'" class="w-10 h-10 rounded-full object-cover border-2 border-violet-500" alt="">
-                    <div>
-                        <p class="text-sm font-bold text-zinc-800 dark:text-zinc-100">
-                            {% trans "You matched with" %} <span x-text="mut.first_name" class="text-violet-600 dark:text-violet-400 font-black"></span>!
-                        </p>
-                        <p class="text-xs text-zinc-400 dark:text-zinc-500">{% trans "Go say hello in person!" %}</p>
-                    </div>
-                </div>
-            </template>
-        </div>
-    </div>
+        getParticipantAriaLabel(part) {
+            return part.is_revealed ? part.first_name : 'Select participant photo';
+        },
 
-    <!-- PHOTO GRID -->
-    <div>
-        <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-4">{% trans "Lobby Roster" %}</h2>
-        
-        <div x-show="participants.length === 0" class="text-center py-12 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl">
-            <p class="text-zinc-400 dark:text-zinc-500">{% trans "No other eligible participants checked in yet." %}</p>
-        </div>
-
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
-            <template x-for="part in participants" :key="part.handle">
-                <button @click="openConfirm(part)" 
-                        class="group block bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition text-left relative"
-                        :disabled="part.already_met || (phase === 'live' && part.has_sent_signal) || (phase === 'recap' && part.has_confirmed_meeting)"
-                        :aria-label="part.is_revealed ? part.first_name : 'Select participant photo'">
-                    
-                    <!-- Avatar Area -->
-                    <div class="aspect-square relative overflow-hidden bg-zinc-100 dark:bg-zinc-800">
-                        <img :src="part.photo_url" class="w-full h-full object-cover transition duration-200 group-hover:scale-105" alt="">
-                        
-                        <!-- Overlay Badges -->
-                        <div class="absolute top-2 right-2 flex flex-col space-y-1">
-                            <span x-show="part.already_met" class="text-[9px] uppercase tracking-wider font-bold bg-zinc-800/80 backdrop-blur-sm text-zinc-100 px-2 py-0.5 rounded-full">
-                                ✓ {% trans "Already Met" %}
-                            </span>
-                            <span x-show="phase === 'live' && part.has_sent_signal" class="text-[9px] uppercase tracking-wider font-bold bg-violet-600/90 text-white px-2 py-0.5 rounded-full">
-                                ✓ {% trans "Sent" %}
-                            </span>
-                            <span x-show="phase === 'recap' && part.has_confirmed_meeting && !part.already_met" class="text-[9px] uppercase tracking-wider font-bold bg-emerald-600/90 text-white px-2 py-0.5 rounded-full">
-                                ✓ {% trans "Confirmed" %}
-                            </span>
-                        </div>
-                    </div>
-
-                    <!-- Label / State -->
-                    <div class="p-4 bg-zinc-50/50 dark:bg-zinc-900/50">
-                        <p class="font-bold text-zinc-800 dark:text-zinc-100 text-sm">
-                            <span x-show="part.is_revealed" x-text="part.first_name"></span>
-                            <span x-show="!part.is_revealed" class="text-zinc-400 dark:text-zinc-600 italic">{% trans "Anonymous" %}</span>
-                        </p>
-                        <p class="text-[10px] text-zinc-400 mt-0.5">
-                            <span x-show="part.is_live_mutual">⚡ {% trans "Live match" %}</span>
-                            <span x-show="!part.is_live_mutual &amp;&amp; part.is_revealed">{% trans "Revealed" %}</span>
-                            <span x-show="!part.is_revealed">{% trans "Tap to select" %}</span>
-                        </p>
-                    </div>
-                </button>
-            </template>
-        </div>
-    </div>
-
-    <!-- CONCISE PRIVACY EXPLANATION -->
-    <div class="mt-12 p-4 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl text-center border border-zinc-100 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-500 leading-relaxed">
-        <strong>{% trans "Privacy Notice:" %}</strong> {% trans "Lobby names are encrypted. A single directional action exposes nothing. Mutual live matches reveal first names during the event, but ONLY post-event reciprocal meeting confirmations add a user permanently to your list." %}
-    </div>
-
-    <!-- CONFIRMATION MODAL -->
-    <div x-show="showConfirmModal" class="fixed inset-0 z-50 overflow-y-auto" style="display: none;" x-cloak>
-        <!-- Backdrop -->
-        <div class="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity" @click="showConfirmModal = false"></div>
-
-        <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-            <div class="relative transform overflow-hidden rounded-2xl bg-white dark:bg-zinc-900 text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-md border border-zinc-100 dark:border-zinc-800 p-6"
-                 @click.away="showConfirmModal = false">
-                
-                <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-2">
-                    <span x-show="phase === 'live'">{% trans "Send Meet Signal?" %}</span>
-                    <span x-show="phase === 'recap'">{% trans "Confirm You Met?" %}</span>
-                </h3>
-                
-                <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-5">
-                    <span x-show="phase === 'live'">
-                        {% trans "Are you sure? This consumes 1 of your 3 signals for this event and is completely anonymous unless they also signal interest." %}
-                    </span>
-                    <span x-show="phase === 'recap'">
-                        {% trans "Confirm that you actually met and had a conversation with this person. This is anonymous and cannot be undone." %}
-                    </span>
-                </p>
-
-                <div x-show="!successMsg">
-                    <div x-show="errorMsg" class="mb-4 p-3 bg-red-50 dark:bg-red-950/20 text-xs text-red-600 dark:text-red-400 rounded-lg" x-text="errorMsg"></div>
-
-                    <div class="flex justify-end space-x-3">
-                        <button type="button" @click="showConfirmModal = false" class="py-2.5 px-4 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium rounded-xl text-sm transition duration-150">
-                            {% trans "Cancel" %}
-                        </button>
-                        <button type="button" @click="submitAction()" class="py-2.5 px-4 bg-violet-600 hover:bg-violet-700 text-white font-medium rounded-xl text-sm transition duration-150 shadow-md">
-                            {% trans "Confirm" %}
-                        </button>
-                    </div>
-                </div>
-
-                <div x-show="successMsg" class="p-6 text-center text-sm font-semibold text-emerald-600 dark:text-emerald-400" x-text="successMsg"></div>
-            </div>
-        </div>
-    </div>
-</div>
+        partAlreadyMet(part) { return part.already_met; },
+        partHasSentSignal(part) { return this.phase === 'live' && part.has_sent_signal; },
+        partHasConfirmed(part) { return this.phase === 'recap' && part.has_confirmed_meeting && !part.already_met; },
+        partIsRevealed(part) { return part.is_revealed; },
+        partFirstName(part) { return part.first_name; },
+        partNotRevealed(part) { return !part.is_revealed; },
+        partIsLiveMutual(part) { return part.is_live_mutual; },
+        partRevealedNotMutual(part) { return !part.is_live_mutual && part.is_revealed; }
+    }));
+});
+</script>
 {% endblock %}

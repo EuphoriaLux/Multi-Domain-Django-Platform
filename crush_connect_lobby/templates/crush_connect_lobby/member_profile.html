@@ -3,7 +3,7 @@
 
 {% block content %}
 <div class="max-w-xl mx-auto my-8 px-6 py-8 bg-white dark:bg-zinc-900 shadow-xl rounded-2xl border border-zinc-100 dark:border-zinc-800"
-     x-data="{ showRemovalModal: false, reason: '', details: '', errorMsg: '', successMsg: '' }">
+     x-data="memberProfileComponent">
     
     <div class="flex items-center space-x-6 mb-8 border-b border-zinc-100 dark:border-zinc-800 pb-6">
         {% if profile.photo_1 %}
@@ -86,8 +86,8 @@
                 {% trans "Back" %}
             </a>
             
-            <button @click="showRemovalModal = true" class="py-2.5 px-5 bg-red-50 dark:bg-red-950/20 hover:bg-red-100 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400 font-semibold rounded-xl transition duration-150">
-                {% trans "Request Removal" %}
+            <button @click="openRemovalModal()" class="py-2.5 px-5 bg-red-50 dark:bg-red-950/20 hover:bg-red-100 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400 font-semibold rounded-xl transition duration-150">
+                {% trans "Request Encounter Removal" %}
             </button>
         </div>
     </div>
@@ -95,11 +95,11 @@
     <!-- REMOVAL MODAL -->
     <div x-show="showRemovalModal" class="fixed inset-0 z-50 overflow-y-auto" style="display: none;" x-cloak>
         <!-- Backdrop -->
-        <div class="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity" @click="showRemovalModal = false"></div>
+        <div class="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity" @click="closeRemovalModal()"></div>
 
         <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
             <div class="relative transform overflow-hidden rounded-2xl bg-white dark:bg-zinc-900 text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-md border border-zinc-100 dark:border-zinc-800 px-6 py-6"
-                 @click.away="showRemovalModal = false">
+                 @click.away="closeRemovalModal()">
                 <h3 class="text-xl font-bold text-zinc-900 dark:text-zinc-50 mb-3">{% trans "Request Encounter Removal" %}</h3>
                 <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-5">
                     {% blocktrans %}
@@ -107,7 +107,7 @@
                     {% endblocktrans %}
                 </p>
 
-                <div class="space-y-4" x-show="!successMsg">
+                <div class="space-y-4" x-show="hasNoSuccessMsg">
                     <div>
                         <label class="block text-xs font-bold uppercase text-zinc-400 dark:text-zinc-500 mb-1.5">{% trans "Reason" %}</label>
                         <select x-model="reason" class="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-4 py-2.5 text-sm text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-violet-500">
@@ -124,45 +124,80 @@
                         <textarea x-model="details" rows="3" class="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-4 py-2.5 text-sm text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-violet-500" placeholder="{% trans "Enter details here..." %}"></textarea>
                     </div>
 
-                    <div x-show="errorMsg" class="p-3 bg-red-50 dark:bg-red-950/20 text-xs text-red-600 dark:text-red-400 rounded-lg" x-text="errorMsg"></div>
+                    <div x-show="hasErrorMsg" class="p-3 bg-red-50 dark:bg-red-950/20 text-xs text-red-600 dark:text-red-400 rounded-lg" x-text="errorMsg"></div>
 
                     <div class="flex justify-end space-x-3 pt-3">
-                        <button type="button" @click="showRemovalModal = false" class="py-2 px-4 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium rounded-xl text-sm transition duration-150">
+                        <button type="button" @click="closeRemovalModal()" class="py-2 px-4 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-medium rounded-xl text-sm transition duration-150">
                             {% trans "Cancel" %}
                         </button>
                         <button type="button" 
-                                @click="
-                                    if(!reason) { errorMsg = '{% trans "Please select a reason" %}'; return; }
-                                    errorMsg = '';
-                                    fetch('{% url "crush_connect_lobby:api_request_removal" encounter_id=encounter.id %}', {
-                                        method: 'POST',
-                                        headers: {
-                                            'Content-Type': 'application/json',
-                                            'X-CSRFToken': '{{ csrf_token }}'
-                                        },
-                                        body: JSON.stringify({ reason: reason, details: details })
-                                    })
-                                    .then(res => res.json())
-                                    .then(data => {
-                                        if(data.error) {
-                                            errorMsg = data.error;
-                                        } else {
-                                            successMsg = '{% trans "Encounter hidden. Redirecting..." %}';
-                                            setTimeout(() => {
-                                                window.location.href = '{% url "crush_connect_lobby:people_ive_met" %}';
-                                            }, 2000);
-                                        }
-                                    })
-                                "
+                                @click="submitRequest()"
                                 class="py-2 px-4 bg-red-600 hover:bg-red-700 text-white font-medium rounded-xl text-sm transition duration-150 shadow-md">
                             {% trans "Submit Request" %}
                         </button>
                     </div>
                 </div>
 
-                <div x-show="successMsg" class="p-6 text-center text-sm font-semibold text-emerald-600 dark:text-emerald-400" x-text="successMsg"></div>
+                <div x-show="hasSuccessMsg" class="p-6 text-center text-sm font-semibold text-emerald-600 dark:text-emerald-400" x-text="successMsg"></div>
             </div>
         </div>
     </div>
 </div>
+
+<script nonce="{{ csp_nonce }}">
+document.addEventListener('alpine:init', () => {
+    Alpine.data('memberProfileComponent', () => ({
+        showRemovalModal: false,
+        reason: '',
+        details: '',
+        errorMsg: '',
+        successMsg: '',
+
+        get hasNoSuccessMsg() { return !this.successMsg; },
+        get hasSuccessMsg() { return !!this.successMsg; },
+        get hasErrorMsg() { return !!this.errorMsg; },
+
+        openRemovalModal() {
+            this.showRemovalModal = true;
+            this.errorMsg = '';
+            this.successMsg = '';
+        },
+
+        closeRemovalModal() {
+            this.showRemovalModal = false;
+        },
+
+        submitRequest() {
+            if (!this.reason) {
+                this.errorMsg = "{% trans "Please select a reason" %}";
+                return;
+            }
+            this.errorMsg = '';
+            
+            fetch('{% url "crush_connect_lobby:api_request_removal" encounter_id=encounter.id %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({ reason: this.reason, details: this.details })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    this.errorMsg = data.error;
+                } else {
+                    this.successMsg = "{% trans "Encounter hidden. Redirecting..." %}";
+                    setTimeout(() => {
+                        window.location.href = "{% url "crush_connect_lobby:people_ive_met" %}";
+                    }, 2000);
+                }
+            })
+            .catch(() => {
+                this.errorMsg = "{% trans "Server error, please try again." %}";
+            });
+        }
+    }));
+});
+</script>
 {% endblock %}
