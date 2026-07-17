@@ -111,6 +111,7 @@ from . import views_quiz_config
 from . import views_crush_cache
 from . import views_changelog
 from . import views_premium
+from . import views_event_lobby
 
 app_name = 'crush_lu'
 
@@ -394,6 +395,14 @@ urlpatterns = [
     # Live Quiz (WebSocket-based)
     path('events/<int:event_id>/quiz/', views_quiz.quiz_live_view, name='quiz_live'),
     path('events/<int:event_id>/quiz/coach/', views_quiz.quiz_coach_view, name='quiz_coach'),
+
+    # Crush Connect Event Lobby — live "I'd like to meet you" photo grid
+    # (spec 2026-07-17). APIs are called from event-lobby.js via {% url %}
+    # data attributes, so they can live inside the i18n-prefixed namespace.
+    path('events/<int:event_id>/lobby/', views_event_lobby.event_lobby, name='event_lobby'),
+    path('events/<int:event_id>/lobby/api/state/', views_event_lobby.lobby_state_api, name='event_lobby_state_api'),
+    path('events/<int:event_id>/lobby/api/signal/', views_event_lobby.lobby_signal_api, name='event_lobby_signal_api'),
+    path('events/<int:event_id>/lobby/photo/<str:handle>/', views_event_lobby.lobby_photo, name='event_lobby_photo'),
 
     # Crush Cache — GPS + QR scavenger hunt
     path('events/<int:event_id>/cache/', views_crush_cache.cache_lobby, name='cache_lobby'),
