@@ -7,6 +7,9 @@
 @source "../../crush_lu/templates/**/*.html";
 @source "../../crush_lu/**/*.py";
 @source "../../crush_lu/static/crush_lu/js/**/*.js";
+@source "../../crush_connect_lobby/templates/**/*.html";
+@source "../../crush_connect_lobby/**/*.py";
+@source "../../crush_connect_lobby/static/crush_connect_lobby/js/**/*.js";
 
 /* Tailwind v4 plugins */
 @plugin "@tailwindcss/forms";
