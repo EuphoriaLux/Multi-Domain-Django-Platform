@@ -47,8 +47,7 @@
     </a>
     {% endif %}
 
-    {# Live Event Lobby card — only while the member is an eligible participant
-       of a currently-live lobby (spec §2 Navigation / §7.1). #}
+    {# Live Event Lobby card — participants of a currently-live lobby only (spec §2/§7.1). #}
     {% if active_lobby %}
     <a href="{% url 'crush_lu:event_lobby' active_lobby.event_id %}"
        class="block rounded-2xl p-0.5 bg-gradient-to-r from-crush-purple to-crush-pink shadow-crush-purple mb-4 no-underline transition-all hover:-translate-y-0.5 active:scale-[0.98]">

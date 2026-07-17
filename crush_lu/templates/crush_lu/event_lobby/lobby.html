@@ -88,8 +88,7 @@
             </div>
         </div>
 
-        {# Live photo grid (§7.2): photo-only tiles, opaque handles, no names
-           anywhere in the markup before a mutual reveal (§13). #}
+        {# Live photo grid (§7.2): photo-only tiles, opaque handles — no names in markup before a mutual reveal (§13). #}
         <div x-show="notEnded">
             <div id="lobby-grid" role="list" class="grid grid-cols-3 gap-2.5">
                 {% for entry in roster %}
