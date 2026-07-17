@@ -683,7 +683,10 @@ class TestLobbyPage:
         # §13: no first name in HTML, alt text, or data attributes pre-reveal.
         assert "Ben" not in html
 
-    def test_after_end_renders_phase_notice_not_roster(self, client):
+    def test_after_end_renders_recap_grid_not_live_grid(self, client):
+        """After the exact end the page flips from the live grid to the recap
+        grid (§7.6/§7.7). Recap tiles are still photo-only for non-mutuals, so
+        no first name leaks in the markup."""
         event = _make_event()
         alice = _make_member("alice")
         ben = _make_member("ben", gender="M")
@@ -694,8 +697,9 @@ class TestLobbyPage:
         response = client.get(_lobby_url(event))
         assert response.status_code == 200
         html = response.content.decode()
-        assert "lobby-grid" not in html
-        assert _handle_of(ben, event) not in html
+        assert "lobby-grid" not in html  # the live grid is gone
+        assert "recap-grid" in html  # replaced by the recap grid
+        assert "Ben" not in html  # non-mutual → photo only, no name (§13)
 
 
 class TestStateApi:
