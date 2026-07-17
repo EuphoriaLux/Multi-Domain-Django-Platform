@@ -22,6 +22,8 @@ User = get_user_model()
 
 
 class LobbyTestCase(TestCase):
+    urls = "azureproject.urls_crush"
+
     def setUp(self):
         # Ensure global launch flag is True for tests
         self.old_launched = getattr(settings, "CRUSH_CONNECT_LAUNCHED", False)
