@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto my-8 px-4 sm:px-6">
+    <div class="flex items-center justify-between mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-zinc-900 dark:text-zinc-50">{% trans "People I've Met" %}</h1>
+            <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{% trans "A chronological list of your mutually confirmed event encounters." %}</p>
+        </div>
+    </div>
+
+    {% if encounters %}
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-6">
+        {% for enc in encounters %}
+        <a href="{% url 'crush_connect_lobby:view_member_profile' member_id=enc.user_id %}" 
+           class="group block bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition duration-150 relative">
+            <div class="aspect-square relative overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+                {% if enc.photo_url %}
+                <img src="{{ enc.photo_url }}" class="w-full h-full object-cover group-hover:scale-105 transition duration-200" alt="{{ enc.first_name }}">
+                {% else %}
+                <div class="w-full h-full flex items-center justify-center text-zinc-400 font-bold text-4xl">
+                    {{ enc.first_name|slice:":1" }}
+                </div>
+                {% endif %}
+            </div>
+            <div class="p-4">
+                <h3 class="font-bold text-zinc-900 dark:text-zinc-50 text-base group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
+                    {{ enc.first_name }}
+                </h3>
+                <p class="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">
+                    {% trans "Met" %} {{ enc.created_at|date:"M Y" }}
+                </p>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-16 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl px-6">
+        <div class="w-16 h-16 bg-zinc-50 dark:bg-zinc-800/30 rounded-full flex items-center justify-center text-zinc-400 dark:text-zinc-500 mx-auto mb-4">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+            </svg>
+        </div>
+        <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-50 mb-1">{% trans "No encounters yet" %}</h3>
+        <p class="text-sm text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto">
+            {% trans "Attended events and confirm who you met during the 48-hour recap window to build your collection." %}
+        </p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

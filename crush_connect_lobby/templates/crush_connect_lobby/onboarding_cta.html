@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="max-w-md mx-auto my-12 px-6 py-8 bg-white dark:bg-zinc-900 shadow-xl rounded-2xl border border-zinc-100 dark:border-zinc-800 text-center">
+    <div class="mb-6 flex justify-center">
+        <div class="w-16 h-16 bg-violet-100 dark:bg-violet-900/30 rounded-full flex items-center justify-center text-violet-600 dark:text-violet-400">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+            </svg>
+        </div>
+    </div>
+    
+    <h1 class="text-2xl font-bold mb-3 text-zinc-900 dark:text-zinc-50">{% trans "Join the Event Lobby!" %}</h1>
+    <p class="text-zinc-600 dark:text-zinc-400 mb-6 text-sm leading-relaxed">
+        {% blocktrans %}
+        You are checked in for <strong>{{ event.title }}</strong>! Complete your Crush Connect profile onboarding to join the lobby, see who is here, and make connections.
+        {% endblocktrans %}
+    </p>
+
+    <a href="{% url 'crush_lu:crush_connect_onboarding' %}" class="block w-full py-3 px-4 bg-violet-600 hover:bg-violet-700 text-white font-medium rounded-xl transition duration-150 shadow-md mb-3">
+        {% trans "Complete Onboarding" %}
+    </a>
+    
+    <p class="text-xs text-zinc-400 dark:text-zinc-500">
+        {% trans "Onboarding takes less than 3 minutes and opens up matchmaking options." %}
+    </p>
+</div>
+{% endblock %}

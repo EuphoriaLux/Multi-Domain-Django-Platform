@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="max-w-md mx-auto my-12 px-6 py-8 bg-white dark:bg-zinc-900 shadow-xl rounded-2xl border border-zinc-100 dark:border-zinc-800 text-center">
+    <div class="mb-6 flex justify-center">
+        <div class="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center text-red-600 dark:text-red-400">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+        </div>
+    </div>
+    
+    <h1 class="text-2xl font-bold mb-3 text-zinc-900 dark:text-zinc-50">{% trans "Access Denied" %}</h1>
+    <p class="text-zinc-600 dark:text-zinc-400 mb-6 text-sm leading-relaxed">
+        {{ reason }}
+    </p>
+
+    <a href="{% url 'crush_lu:dashboard' %}" class="block w-full py-3 px-4 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-medium rounded-xl transition duration-150">
+        {% trans "Return to Dashboard" %}
+    </a>
+</div>
+{% endblock %}
