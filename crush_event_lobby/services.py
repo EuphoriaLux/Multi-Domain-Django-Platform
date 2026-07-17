@@ -5,7 +5,9 @@ import logging
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext as _
@@ -27,6 +29,7 @@ SIGNAL_LIMIT = 3
 RECAP_DURATION = timedelta(hours=48)
 RECAP_REMINDER_AFTER = timedelta(hours=24)
 logger = logging.getLogger(__name__)
+User = get_user_model()
 
 
 class LobbyAccessError(Exception):
@@ -741,7 +744,10 @@ def _notify_confirmed_encounter(encounter, user_a, user_b):
                 "title": _("%(name)s was added to People I've Met")
                 % {"name": other.first_name or _("Someone you met")},
                 "body": _("You both confirmed that you met at the event."),
-                "link_url": reverse("crush_lu:crush_connect_hub"),
+                "link_url": reverse(
+                    "crush_lu:event_lobby:people_met_profile",
+                    kwargs={"handle": encounter.opaque_handle},
+                ),
             },
         )
 
@@ -788,3 +794,122 @@ def confirm_event_meeting(event, confirmer, other_handle):
             mutual=True,
             first_name=other.first_name,
         )
+
+
+def _people_met_target(viewer, encounter_handle):
+    """Return the other member only for a currently visible active encounter."""
+
+    if _active_member_reason(viewer) is not None:
+        raise LobbyAccessError("not_available")
+    try:
+        encounter = ConfirmedEncounter.objects.select_related(
+            "user_low",
+            "user_high",
+            "user_low__crushprofile",
+            "user_high__crushprofile",
+            "user_low__crush_connect_membership",
+            "user_high__crush_connect_membership",
+            "user_low__event_lobby_consent",
+            "user_high__event_lobby_consent",
+        ).get(
+            opaque_handle=encounter_handle,
+            status=ConfirmedEncounter.STATUS_ACTIVE,
+        )
+    except ConfirmedEncounter.DoesNotExist:
+        raise LobbyAccessError("not_available") from None
+    if encounter.user_low_id == viewer.pk:
+        other = encounter.user_high
+    elif encounter.user_high_id == viewer.pk:
+        other = encounter.user_low
+    else:
+        raise LobbyAccessError("not_available")
+    if is_blocked_pair(viewer, other) or _active_member_reason(other) is not None:
+        raise LobbyAccessError("not_available")
+    return encounter, other
+
+
+def list_people_met(viewer):
+    """Return the permanent collection with identity shaped to first name only."""
+
+    if _active_member_reason(viewer) is not None:
+        raise LobbyAccessError("not_available")
+    hidden_ids = blocked_user_ids(viewer)
+    encounters = ConfirmedEncounter.objects.filter(
+        Q(user_low=viewer) | Q(user_high=viewer),
+        status=ConfirmedEncounter.STATUS_ACTIVE,
+    ).select_related(
+        "user_low",
+        "user_high",
+        "user_low__crushprofile",
+        "user_high__crushprofile",
+        "user_low__crush_connect_membership",
+        "user_high__crush_connect_membership",
+        "user_low__event_lobby_consent",
+        "user_high__event_lobby_consent",
+    )
+    payload = []
+    for encounter in encounters:
+        other = (
+            encounter.user_high
+            if encounter.user_low_id == viewer.pk
+            else encounter.user_low
+        )
+        if other.pk in hidden_ids or _active_member_reason(other) is not None:
+            continue
+        payload.append(
+            {
+                "handle": str(encounter.opaque_handle),
+                "first_name": other.first_name,
+                "photo_url": reverse(
+                    "crush_lu:event_lobby:people_met_photo",
+                    kwargs={"handle": encounter.opaque_handle, "slot": 1},
+                ),
+                "profile_url": reverse(
+                    "crush_lu:event_lobby:people_met_profile",
+                    kwargs={"handle": encounter.opaque_handle},
+                ),
+            }
+        )
+    return payload
+
+
+def people_met_profile(viewer, encounter_handle):
+    """Load the other member's current Connect profile after pair authorization."""
+
+    encounter, other = _people_met_target(viewer, encounter_handle)
+    target = (
+        User.objects.filter(pk=other.pk)
+        .select_related("crushprofile", "crush_connect_membership")
+        .prefetch_related(
+            "crush_connect_membership__interests",
+            "crush_connect_membership__qualities",
+            "crush_connect_membership__defects",
+            "crush_connect_membership__sought_qualities",
+            "crush_connect_membership__gate_questions__question",
+        )
+        .get()
+    )
+    return {
+        "encounter_handle": str(encounter.opaque_handle),
+        "member": target,
+        "profile": target.crushprofile,
+        "membership": target.crush_connect_membership,
+        "photo_urls": [
+            reverse(
+                "crush_lu:event_lobby:people_met_photo",
+                kwargs={"handle": encounter.opaque_handle, "slot": slot},
+            )
+            for slot in (1, 2, 3)
+            if getattr(target.crushprofile, f"photo_{slot}")
+        ],
+    }
+
+
+def get_people_met_photo(viewer, encounter_handle, slot):
+    if slot not in {1, 2, 3}:
+        raise LobbyAccessError("not_available")
+    _encounter, other = _people_met_target(viewer, encounter_handle)
+    photo = getattr(other.crushprofile, f"photo_{slot}")
+    if not photo:
+        raise LobbyAccessError("not_available")
+    return photo

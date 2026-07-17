@@ -6,6 +6,17 @@ app_name = "crush_event_lobby"
 
 urlpatterns = [
     path("consent/", views.consent, name="consent"),
+    path("people-met/", views.people_met, name="people_met"),
+    path(
+        "people-met/<uuid:handle>/",
+        views.people_met_member,
+        name="people_met_profile",
+    ),
+    path(
+        "people-met/<uuid:handle>/photo/<int:slot>/",
+        views.people_met_photo,
+        name="people_met_photo",
+    ),
     path("<int:event_id>/", views.lobby, name="lobby"),
     path("<int:event_id>/recap/", views.recap, name="recap"),
     path("<int:event_id>/state/", views.state_api, name="state"),

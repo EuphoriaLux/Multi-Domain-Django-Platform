@@ -27,11 +27,14 @@ from crush_event_lobby.services import (
     event_phase,
     evaluate_participations_after_onboarding,
     ensure_participation,
+    get_people_met_photo,
     list_live_participants,
+    list_people_met,
     list_recap_participants,
     lobby_entry_url,
     lobby_state,
     materialize_recap_notifications,
+    people_met_profile,
     recap_state,
     send_meet_signal,
 )
@@ -142,6 +145,15 @@ def move_event_to_recap(event, *, hours_since_end=1):
     )
     event.save(update_fields=["date_time"])
     return event
+
+
+def make_encounter(user_a, user_b, event):
+    low, high = sorted((user_a, user_b), key=lambda user: user.pk)
+    return ConfirmedEncounter.objects.create(
+        user_low=low,
+        user_high=high,
+        created_from_event=event,
+    )
 
 
 def test_real_qr_checkin_enrolls_eligible_member(
@@ -856,3 +868,176 @@ def test_blocked_confirmation_is_removed_from_recap_and_anonymous_count():
 
     assert list_recap_participants(event, viewer) == []
     assert recap_state(event, viewer)["incoming_confirmation_count"] == 0
+
+
+def test_people_met_collection_is_newest_first_and_identity_shaped(client):
+    event = make_event(title="Never expose this event")
+    viewer = make_member("people-viewer")
+    older = make_member("people-older")
+    newer = make_member("people-newer")
+    older.last_name = "HiddenSurname"
+    older.save(update_fields=["last_name"])
+    old_encounter = make_encounter(viewer, older, event)
+    new_encounter = make_encounter(viewer, newer, event)
+
+    payload = list_people_met(viewer)
+
+    assert [item["first_name"] for item in payload] == [
+        "People-Newer",
+        "People-Older",
+    ]
+    assert payload[0]["handle"] == str(new_encounter.opaque_handle)
+    assert f"/{newer.pk}/" not in payload[0]["profile_url"]
+    assert "event" not in payload[0]
+    assert "created_at" not in payload[0]
+
+    client.force_login(viewer)
+    response = client.get(reverse("crush_lu:event_lobby:people_met"))
+    body = response.content.decode()
+    assert response.status_code == 200
+    assert "People-Newer" in body
+    assert "People-Older" in body
+    assert "HiddenSurname" not in body
+    assert event.title not in body
+    assert str(old_encounter.opaque_handle) in body
+
+
+def test_people_met_profile_shows_current_connect_data_without_private_identity(client):
+    event = make_event(title="Private origin event")
+    viewer = make_member("profile-viewer")
+    target = make_member("profile-target")
+    target.last_name = "NeverRendered"
+    target.save(update_fields=["last_name"])
+    profile = target.crushprofile
+    profile.bio = "Current profile biography"
+    profile.save(update_fields=["bio"])
+    membership = target.crush_connect_membership
+    membership.relationship_goal = "serious"
+    membership.languages = ["en", "fr"]
+    membership.save(update_fields=["relationship_goal", "languages"])
+    encounter = make_encounter(viewer, target, event)
+    client.force_login(viewer)
+
+    response = client.get(
+        reverse(
+            "crush_lu:event_lobby:people_met_profile",
+            kwargs={"handle": encounter.opaque_handle},
+        )
+    )
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert "Profile-Target" in body
+    assert "Current profile biography" in body
+    assert "Looking for something serious" in body
+    assert "English" in body
+    assert "Français" in body
+    assert "NeverRendered" not in body
+    assert target.email not in body
+    assert event.title not in body
+    assert "Send a Curiosity Spark" not in body
+
+
+def test_people_met_profile_is_pair_authorized_and_uses_opaque_handle(client):
+    event = make_event()
+    viewer = make_member("authorized-viewer")
+    target = make_member("authorized-target")
+    outsider = make_member("authorized-outsider")
+    encounter = make_encounter(viewer, target, event)
+    profile_url = reverse(
+        "crush_lu:event_lobby:people_met_profile",
+        kwargs={"handle": encounter.opaque_handle},
+    )
+
+    client.force_login(outsider)
+    denied = client.get(profile_url)
+    assert denied.status_code == 404
+    assert "Authorized-Target" not in denied.content.decode()
+    assert (
+        error_code(lambda: get_people_met_photo(outsider, encounter.opaque_handle, 1))
+        == "not_available"
+    )
+
+    client.force_login(viewer)
+    allowed = client.get(profile_url)
+    assert allowed.status_code == 200
+    assert f"/{target.pk}/" not in profile_url
+    assert get_people_met_photo(viewer, encounter.opaque_handle, 1).name.endswith(
+        "lobby.gif"
+    )
+
+
+def test_people_met_hides_blocked_inactive_excluded_and_nonactive_encounters():
+    event = make_event()
+    viewer = make_member("visibility-viewer")
+    blocked = make_member("visibility-blocked")
+    inactive = make_member("visibility-inactive")
+    excluded = make_member("visibility-excluded")
+    pending = make_member("visibility-pending")
+    active = make_member("visibility-active")
+    blocked_encounter = make_encounter(viewer, blocked, event)
+    inactive_encounter = make_encounter(viewer, inactive, event)
+    excluded_encounter = make_encounter(viewer, excluded, event)
+    pending_encounter = make_encounter(viewer, pending, event)
+    active_encounter = make_encounter(viewer, active, event)
+
+    UserBlock.objects.create(blocker=viewer, blocked=blocked)
+    inactive.crushprofile.is_active = False
+    inactive.crushprofile.save(update_fields=["is_active"])
+    excluded.crush_connect_membership.excluded_by_coach = True
+    excluded.crush_connect_membership.save(update_fields=["excluded_by_coach"])
+    pending_encounter.status = ConfirmedEncounter.STATUS_REMOVAL_PENDING
+    pending_encounter.save(update_fields=["status"])
+
+    payload = list_people_met(viewer)
+    assert [item["first_name"] for item in payload] == ["Visibility-Active"]
+    assert payload[0]["handle"] == str(active_encounter.opaque_handle)
+
+    for encounter in (
+        blocked_encounter,
+        inactive_encounter,
+        excluded_encounter,
+        pending_encounter,
+    ):
+        assert (
+            error_code(
+                lambda encounter=encounter: people_met_profile(
+                    viewer, encounter.opaque_handle
+                )
+            )
+            == "not_available"
+        )
+
+
+def test_people_met_ordinary_reactivation_restores_but_removed_never_returns():
+    event = make_event()
+    viewer = make_member("restore-viewer")
+    target = make_member("restore-target")
+    encounter = make_encounter(viewer, target, event)
+    target.crushprofile.is_active = False
+    target.crushprofile.save(update_fields=["is_active"])
+    assert list_people_met(viewer) == []
+
+    target.crushprofile.is_active = True
+    target.crushprofile.save(update_fields=["is_active"])
+    assert [item["first_name"] for item in list_people_met(viewer)] == [
+        "Restore-Target"
+    ]
+
+    encounter.status = ConfirmedEncounter.STATUS_REMOVED
+    encounter.removed_at = timezone.now()
+    encounter.save(update_fields=["status", "removed_at"])
+    assert list_people_met(viewer) == []
+
+
+def test_people_met_is_a_permanent_hub_entry_even_when_empty(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
+    viewer = make_member("empty-collection")
+    client.force_login(viewer)
+
+    response = client.get(reverse("crush_lu:crush_connect_hub"))
+
+    assert response.status_code == 200
+    assert "People I've Met" in response.content.decode()
+    assert reverse("crush_lu:event_lobby:people_met") in response.content.decode()

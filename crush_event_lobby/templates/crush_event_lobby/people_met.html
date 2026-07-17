@@ -1,0 +1,44 @@
+{% extends "crush_lu/crush_connect/_base_connect.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "People I've Met" %}{% endblock %}
+{% block mobile_page_title %}{% trans "People I've Met" %}{% endblock %}
+
+{% block connect_content %}
+<main class="max-w-3xl mx-auto px-4 py-6 pb-24 lg:pb-10">
+    <header class="mb-5">
+        <p class="text-xs font-bold uppercase tracking-[0.14em] text-crush-purple mb-2">{% trans "Crush Connect" %}</p>
+        <h1 class="font-display text-3xl font-semibold text-gray-900 dark:text-white mb-2">{% trans "People I've Met" %}</h1>
+        <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">
+            {% trans "A private collection of people you both confirmed meeting in person." %}
+        </p>
+    </header>
+
+    {% if encounters %}
+    <section class="grid grid-cols-2 sm:grid-cols-3 gap-3" aria-label="{% trans 'People you have met' %}">
+        {% for encounter in encounters %}
+        <a href="{{ encounter.profile_url }}"
+           class="overflow-hidden rounded-2xl bg-white dark:bg-slate-800 ring-1 ring-gray-200 dark:ring-slate-700 shadow-crush-sm no-underline hover:ring-crush-purple/40 hover:-translate-y-0.5 active:scale-[0.98] transition-all"
+           aria-label="{% blocktrans with name=encounter.first_name %}View {{ name }}'s profile{% endblocktrans %}">
+            <img src="{{ encounter.photo_url }}"
+                 alt="{% blocktrans with name=encounter.first_name %}Photo of {{ name }}{% endblocktrans %}"
+                 class="aspect-square w-full object-cover">
+            <div class="p-3">
+                <p class="font-semibold text-gray-900 dark:text-white mb-0">{{ encounter.first_name }}</p>
+            </div>
+        </a>
+        {% endfor %}
+    </section>
+    {% else %}
+    <section class="rounded-2xl bg-white dark:bg-slate-800 ring-1 ring-gray-200 dark:ring-slate-700 p-8 text-center shadow-crush-sm">
+        <div class="w-14 h-14 rounded-2xl bg-crush-purple/10 flex items-center justify-center mx-auto mb-4">
+            {% include "shared/icons/users.html" with class="w-7 h-7 text-crush-purple" %}
+        </div>
+        <h2 class="card-title mb-2">{% trans "Your collection starts in person" %}</h2>
+        <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">
+            {% trans "After an event, you both need to confirm that you met before someone appears here." %}
+        </p>
+    </section>
+    {% endif %}
+</main>
+{% endblock %}

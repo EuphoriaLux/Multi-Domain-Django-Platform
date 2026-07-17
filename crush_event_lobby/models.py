@@ -191,6 +191,7 @@ class ConfirmedEncounter(models.Model):
         on_delete=models.CASCADE,
         related_name="confirmed_encounters_as_high",
     )
+    opaque_handle = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     created_from_event = models.ForeignKey(
         "crush_lu.MeetupEvent",
         on_delete=models.PROTECT,

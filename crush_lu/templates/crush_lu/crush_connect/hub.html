@@ -50,6 +50,18 @@
     </a>
     {% endif %}
 
+    <a href="{% url 'crush_lu:event_lobby:people_met' %}"
+       class="flex items-center gap-3 rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 mb-4 no-underline hover:ring-crush-purple/40 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
+        <div class="w-11 h-11 rounded-xl bg-crush-purple/10 flex items-center justify-center shrink-0">
+            {% include "shared/icons/users.html" with class="w-5 h-5 text-crush-purple" %}
+        </div>
+        <div class="flex-1 min-w-0">
+            <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "People I've Met" %}</p>
+            <p class="text-xs md:text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "People you both confirmed meeting at Crush events." %}</p>
+        </div>
+        {% include "shared/icons/chevron-right.html" with class="w-5 h-5 text-gray-400 shrink-0" %}
+    </a>
+
     {# Coach's pick takes the hero slot for receivers when one is open. #}
     {% if coach_pick %}
     <a href="{% url 'crush_lu:crush_connect_home' %}"

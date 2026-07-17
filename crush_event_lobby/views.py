@@ -18,10 +18,13 @@ from .services import (
     event_phase,
     get_authorized_photo,
     get_confirmation_target,
+    get_people_met_photo,
     get_recap_confirmation_target,
     list_live_participants,
+    list_people_met,
     list_recap_participants,
     lobby_state,
+    people_met_profile,
     recap_state,
     send_meet_signal,
 )
@@ -256,3 +259,46 @@ def meeting_confirmation(request, event_id, handle):
     else:
         messages.info(request, "You already confirmed meeting this person.")
     return redirect("crush_lu:event_lobby:recap", event_id=event.pk)
+
+
+@login_required
+@never_cache
+@require_GET
+def people_met(request):
+    try:
+        encounters = list_people_met(request.user)
+    except LobbyAccessError as error:
+        return _handle_page_error(request, error)
+    return _private(
+        render(
+            request,
+            "crush_event_lobby/people_met.html",
+            {"encounters": encounters},
+        )
+    )
+
+
+@login_required
+@never_cache
+@require_GET
+def people_met_member(request, handle):
+    try:
+        context = people_met_profile(request.user, handle)
+    except LobbyAccessError as error:
+        return _handle_page_error(request, error)
+    return _private(
+        render(request, "crush_event_lobby/people_met_profile.html", context)
+    )
+
+
+@login_required
+@never_cache
+@require_GET
+def people_met_photo(request, handle, slot):
+    try:
+        photo = get_people_met_photo(request.user, handle, slot)
+        photo.open("rb")
+    except (LobbyAccessError, FileNotFoundError, OSError):
+        raise Http404("Photo not available") from None
+    content_type = mimetypes.guess_type(photo.name)[0] or "application/octet-stream"
+    return _private(FileResponse(photo, content_type=content_type))
