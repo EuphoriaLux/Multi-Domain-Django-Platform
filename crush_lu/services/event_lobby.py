@@ -256,8 +256,17 @@ def get_roster(viewer, event) -> list[dict]:
     mutual flag — plus the first name for authorized mutual pairs. No name,
     user id, or profile field for anyone else (§13).
     """
+    from crush_lu.models import EventMeetSignal
+
     blocked = blocked_user_ids(viewer)
     mutual_ids = _mutual_user_ids(viewer, event)
+    # The viewer's own outgoing signals — own data, shown back to them so a
+    # signalled tile renders as "sent" (never exposed to anyone else).
+    signalled_ids = set(
+        EventMeetSignal.objects.filter(event=event, sender=viewer).values_list(
+            "recipient_id", flat=True
+        )
+    )
     roster = []
     qs = eligible_participations(event).exclude(user=viewer).order_by("-joined_at")
     for participation in qs:
@@ -270,6 +279,7 @@ def get_roster(viewer, event) -> list[dict]:
             "handle": participation.handle,
             "photo_url": _photo_url(event, participation.handle),
             "is_mutual": participation.user_id in mutual_ids,
+            "signalled": participation.user_id in signalled_ids,
         }
         if entry["is_mutual"]:
             entry["first_name"] = participation.user.first_name
