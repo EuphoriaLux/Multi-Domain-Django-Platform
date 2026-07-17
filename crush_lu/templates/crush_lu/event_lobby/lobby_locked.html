@@ -1,0 +1,36 @@
+{% extends "crush_lu/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Event Lobby" %} - {{ event.title }}{% endblock %}
+{% block mobile_page_title %}{% trans "Event Lobby" %}{% endblock %}
+
+{% comment %}
+Checked-in guest who does not (yet) pass the Crush Connect lobby gate (§5.3):
+show only the onboarding CTA. Never the roster, a participant count, a teaser
+count, or any hint of who is inside (§13).
+{% endcomment %}
+
+{% block content %}
+<div class="min-h-screen pt-4 pb-24 lg:pb-16">
+    <div class="mx-auto max-w-lg px-4">
+        <div class="rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-6 text-center">
+            <p class="text-3xl mb-3" aria-hidden="true">🔒</p>
+            <h1 class="font-display text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                {% trans "Finish Crush Connect to join the Event Lobby" %}
+            </h1>
+            <p class="text-sm leading-relaxed text-gray-600 dark:text-gray-300 mb-5">
+                {% trans "The Event Lobby is where checked-in Crush Connect members can quietly signal who they'd like to meet tonight. Complete your Crush Connect profile before the event ends and you'll join instantly." %}
+            </p>
+            {% if gate_reason == "not_onboarded" or gate_reason == "no_membership" %}
+            <a href="{% url 'crush_lu:crush_connect_onboarding' %}" class="btn-crush-primary inline-flex">
+                {% trans "Finish Crush Connect" %}
+            </a>
+            {% else %}
+            <a href="{% url 'crush_lu:crush_connect_teaser' %}" class="btn-crush-primary inline-flex">
+                {% trans "About Crush Connect" %}
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

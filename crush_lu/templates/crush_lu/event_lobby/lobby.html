@@ -1,0 +1,161 @@
+{% extends "crush_lu/base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Event Lobby" %} - {{ event.title }}{% endblock %}
+{% block mobile_page_title %}{% trans "Event Lobby" %}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen pt-4 pb-24 lg:pb-16">
+    <div class="mx-auto max-w-lg px-4"
+         id="event-lobby-root"
+         x-data="eventLobby"
+         data-state-url="{% url 'crush_lu:event_lobby_state_api' event.id %}"
+         data-signal-url="{% url 'crush_lu:event_lobby_signal_api' event.id %}"
+         data-ws-path="{{ ws_path }}"
+         data-phase="{{ state.phase }}"
+         data-seconds-to-end="{{ state.seconds_to_end }}"
+         data-signals-remaining="{{ state.signals_remaining }}"
+         data-signals-total="{{ state.signals_total }}"
+         data-incoming-count="{{ state.incoming_count }}"
+         data-msg-arrived="{% trans 'Someone new arrived.' %}"
+         data-msg-joined="{% trans 'Someone new joined the Event Lobby.' %}"
+         data-msg-sent="{% trans 'Signal sent. They only find out if it becomes mutual.' %}"
+         data-msg-duplicate="{% trans 'You already sent this person a signal.' %}"
+         data-msg-quota="{% trans 'You have used all three signals for this event.' %}"
+         data-msg-mutual="{% trans 'You and {name} would like to meet. Say hello now.' %}"
+         data-msg-ended="{% trans 'The live lobby has ended.' %}"
+         data-msg-tile-label="{% trans 'Select participant photo' %}"
+         data-msg-sent-badge="{% trans 'Signal sent' %}">
+
+        {# Header — title, countdown, quota, incoming counter (§7.2) #}
+        <div class="rounded-2xl bg-gradient-to-br from-crush-purple to-crush-pink p-5 mb-4">
+            <p class="text-xs font-bold uppercase tracking-[0.14em] text-white/90 mb-1">{% trans "Event Lobby" %}</p>
+            <h1 class="font-display text-2xl font-semibold tracking-tight text-white mb-3">{{ event.title }}</h1>
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-sm font-semibold text-white"
+                      x-show="notEnded">
+                    {% include "shared/icons/clock.html" with class="w-4 h-4" %}
+                    <span x-text="countdownDisplay">--:--</span>
+                </span>
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-sm font-semibold text-white">
+                    {% include "shared/icons/heart.html" with class="w-4 h-4" %}
+                    <span><span x-text="signalsDisplay">{{ state.signals_remaining }} / {{ state.signals_total }}</span> {% trans "signals left" %}</span>
+                </span>
+            </div>
+            {# Exact anonymous incoming counter (§7.4) — count only, never identity. #}
+            <p class="text-sm font-medium text-white mt-3 mb-0" x-show="hasIncoming" x-cloak>
+                💌 <span x-text="incomingCount">{{ state.incoming_count }}</span>
+                {% trans "people here would like to meet you." %}
+            </p>
+            <p class="text-xs leading-relaxed text-white/80 mt-3 mb-0">
+                {% trans "Only checked-in Crush Connect members see this grid. Signals are anonymous and cannot be undone — names are revealed only when you both choose each other." %}
+            </p>
+        </div>
+
+        {# Ephemeral banner region (§7.5) — polite, coalesced client-side. #}
+        <div aria-live="polite">
+            <p class="rounded-xl bg-crush-purple/10 text-crush-purple text-sm font-medium px-4 py-2.5 mb-3"
+               x-show="hasBanner" x-cloak x-text="banner"></p>
+        </div>
+
+        {# Mutual reveal announcement (§7.4/§14) — assertive live region. #}
+        <div aria-live="assertive">
+            <div class="rounded-2xl p-0.5 bg-gradient-to-r from-crush-purple to-crush-pink mb-3"
+                 x-show="hasReveal" x-cloak>
+                <div class="flex items-start gap-3 rounded-[14px] bg-white dark:bg-slate-800 p-4">
+                    <span class="text-2xl" aria-hidden="true">🎉</span>
+                    <p class="flex-1 font-semibold text-gray-900 dark:text-white mb-0" x-text="reveal"></p>
+                    <button type="button" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                            x-on:click="dismissReveal" aria-label="{% trans 'Dismiss' %}">
+                        {% include "shared/icons/x-mark.html" with class="w-5 h-5" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        {# "Say hello" area (§7.4) — retrievable until event end. #}
+        <div id="lobby-mutuals" class="{% if not mutuals %}hidden{% endif %} mb-4">
+            <h2 class="font-display text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                {% trans "Say hello now" %}
+            </h2>
+            <div id="lobby-mutuals-list" class="space-y-2">
+                {% for mutual in mutuals %}
+                <div class="flex items-center gap-3 rounded-2xl ring-1 ring-crush-purple/30 bg-white dark:bg-slate-800 p-3 shadow-crush-sm">
+                    <img src="{{ mutual.photo_url }}" alt="" class="w-12 h-12 rounded-xl object-cover">
+                    <p class="font-semibold text-gray-900 dark:text-white mb-0">{{ mutual.first_name }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        {# Live photo grid (§7.2): photo-only tiles, opaque handles, no names
+           anywhere in the markup before a mutual reveal (§13). #}
+        <div x-show="notEnded">
+            <div id="lobby-grid" role="list" class="grid grid-cols-3 gap-2.5">
+                {% for entry in roster %}
+                <button type="button"
+                        data-handle="{{ entry.handle }}"
+                        data-photo-url="{{ entry.photo_url }}"
+                        {% if entry.is_mutual or entry.signalled %}disabled{% endif %}
+                        aria-label="{% if entry.is_mutual %}{{ entry.first_name }}{% else %}{% trans 'Select participant photo' %}{% endif %}"
+                        class="lobby-tile relative aspect-square overflow-hidden rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 shadow-crush-sm focus:outline-none focus:ring-2 focus:ring-crush-purple transition-transform active:scale-[0.97]">
+                    <img src="{{ entry.photo_url }}" alt="" loading="lazy" class="w-full h-full object-cover">
+                    {% if entry.is_mutual %}
+                    <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-crush-purple/90 to-transparent px-2 pb-1.5 pt-6 text-left text-xs font-semibold text-white">{{ entry.first_name }}</span>
+                    {% elif entry.signalled %}
+                    <span class="absolute inset-x-0 bottom-0 bg-black/50 px-2 py-1 text-left text-xs font-medium text-white">{% trans "Signal sent" %}</span>
+                    {% endif %}
+                </button>
+                {% empty %}
+                <p class="col-span-3 text-center text-sm text-gray-500 dark:text-gray-400 py-10">
+                    {% trans "You're the first one here — new arrivals appear automatically." %}
+                </p>
+                {% endfor %}
+            </div>
+        </div>
+
+        {# Ended state (§7.6): server already rejects writes; this is UI only. #}
+        <div class="rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-6 text-center"
+             x-show="ended" x-cloak>
+            <p class="text-3xl mb-2" aria-hidden="true">🌙</p>
+            <p class="font-semibold text-gray-900 dark:text-white mb-1">{% trans "The live lobby has ended." %}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">
+                {% trans "Who did you meet? The recap opens right after the event." %}
+            </p>
+        </div>
+
+        {# Irreversible confirmation dialog (§7.3/§14). #}
+        <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+             x-show="confirmOpen" x-cloak
+             role="dialog" aria-modal="true" aria-labelledby="lobby-confirm-title">
+            <div class="absolute inset-0 bg-black/50" x-on:click="closeConfirm" aria-hidden="true"></div>
+            <div class="relative w-full sm:max-w-sm bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl p-5 shadow-xl">
+                <img x-bind:src="confirmPhotoUrl" alt="" class="w-20 h-20 rounded-2xl object-cover mx-auto mb-3">
+                <h2 id="lobby-confirm-title" class="font-display text-lg font-semibold text-center text-gray-900 dark:text-white mb-1">
+                    {% trans "Send a meet signal?" %}
+                </h2>
+                <p class="text-sm text-center text-gray-600 dark:text-gray-300 mb-1">
+                    {% trans "It stays anonymous unless they pick you too. This cannot be undone." %}
+                </p>
+                <p class="text-xs text-center text-gray-500 dark:text-gray-400 mb-4">
+                    <span x-text="signalsRemaining">{{ state.signals_remaining }}</span> {% trans "of 3 signals left for this event" %}
+                </p>
+                <div class="flex gap-2">
+                    <button type="button" class="btn-crush-outline flex-1" x-on:click="closeConfirm">
+                        {% trans "Cancel" %}
+                    </button>
+                    <button type="button" class="btn-crush-primary flex-1" x-on:click="confirmSignal"
+                            x-bind:disabled="sending">
+                        {% trans "Yes, I'd like to meet them" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'crush_lu/js/event-lobby.js' %}"></script>
+{% endblock %}
