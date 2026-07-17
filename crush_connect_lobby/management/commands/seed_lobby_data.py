@@ -82,9 +82,12 @@ class Command(BaseCommand):
                 "verification_method": "luxid",
             }
         )
+        ghost_profile.verification_status = "verified"
+        ghost_profile.is_approved = True
         if not ghost_profile.photo_1:
             dummy_pixel = b"\x47\x49\x46\x38\x39\x61\x01\x00\x01\x00\x80\x00\x00\xff\x00\x00\x00\x00\x00\x21\xf9\x04\x01\x00\x00\x00\x00\x2c\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02\x44\x01\x00\x3b"
-            ghost_profile.photo_1.save("verifyghost_photo.gif", ContentFile(dummy_pixel), save=True)
+            ghost_profile.photo_1.save("verifyghost_photo.gif", ContentFile(dummy_pixel), save=False)
+        ghost_profile.save()
 
         # LuxID
         SocialAccount.objects.get_or_create(user=ghost_user, provider="luxid", defaults={"uid": "verifyghost_uid"})
@@ -101,8 +104,9 @@ class Command(BaseCommand):
                 "lifestyle_social": "flexible",
             }
         )
-        # Ensure updated consent is set
+        ghost_membership.onboarded_at = timezone.now()
         ghost_membership.lobby_consent_given = True
+        ghost_membership.photo_share_consent = True
         ghost_membership.save()
 
         # Registration & Check-in
@@ -113,6 +117,10 @@ class Command(BaseCommand):
         )
         ghost_reg.status = "attended"
         ghost_reg.save()
+
+        # Clean old lobby participation/signals for a fresh run
+        EventLobbyParticipation.objects.filter(event=event).delete()
+        EventMeetSignal.objects.filter(event=event).delete()
 
         # Join Event Lobby
         evaluate_and_join_lobby(ghost_user, event, source="checkin")
@@ -135,6 +143,7 @@ class Command(BaseCommand):
 
             u_consent, _ = UserDataConsent.objects.get_or_create(user=u)
             u_consent.crushlu_consent_given = True
+            u_consent.crushlu_banned = False
             u_consent.save()
 
             u_profile, _ = CrushProfile.objects.get_or_create(
@@ -148,9 +157,12 @@ class Command(BaseCommand):
                     "verification_method": "luxid",
                 }
             )
+            u_profile.verification_status = "verified"
+            u_profile.is_approved = True
             if not u_profile.photo_1:
                 dummy_pixel = b"\x47\x49\x46\x38\x39\x61\x01\x00\x01\x00\x80\x00\x00\xff\x00\x00\x00\x00\x00\x21\xf9\x04\x01\x00\x00\x00\x00\x2c\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02\x44\x01\x00\x3b"
-                u_profile.photo_1.save(f"{username}_photo.gif", ContentFile(dummy_pixel), save=True)
+                u_profile.photo_1.save(f"{username}_photo.gif", ContentFile(dummy_pixel), save=False)
+            u_profile.save()
 
             SocialAccount.objects.get_or_create(user=u, provider="luxid", defaults={"uid": f"{username}_uid"})
 
@@ -164,7 +176,10 @@ class Command(BaseCommand):
                     "lifestyle_energy": "adventurer",
                 }
             )
+            u_membership.onboarded_at = timezone.now()
             u_membership.lobby_consent_given = True
+            u_membership.photo_share_consent = True
+            u_membership.excluded_by_coach = False
             u_membership.save()
 
             u_reg, _ = EventRegistration.objects.get_or_create(
