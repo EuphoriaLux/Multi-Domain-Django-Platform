@@ -1,0 +1,38 @@
+{% extends "crush_lu/crush_connect/_base_connect.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Confirm meet signal" %}{% endblock %}
+{% block mobile_page_title %}{% trans "Confirm signal" %}{% endblock %}
+
+{% block connect_content %}
+<main class="max-w-md mx-auto px-4 py-8 pb-24 lg:pb-10">
+    <div class="rounded-2xl overflow-hidden bg-white dark:bg-slate-800 ring-1 ring-gray-200 dark:ring-slate-700 shadow-crush-sm">
+        <img src="{{ target.photo_url }}"
+             alt="{% if target.mutual %}{% blocktrans with name=target.first_name %}Photo of {{ name }}{% endblocktrans %}{% else %}{% trans 'Participant photo' %}{% endif %}"
+             class="aspect-square w-full object-cover">
+        <div class="p-5">
+            {% if target.mutual %}
+                <h1 class="mb-2">{{ target.first_name }}</h1>
+                <p class="text-crush-pink-dark dark:text-crush-pink font-semibold">{% trans "You both want to meet. Say hello now." %}</p>
+                <a class="btn-crush-solid btn-block" href="{% url 'crush_lu:event_lobby:lobby' event_id=event.pk %}">{% trans "Back to lobby" %}</a>
+            {% elif target.signal_sent %}
+                <h1 class="mb-2">{% trans "Signal already sent" %}</h1>
+                <p class="text-gray-600 dark:text-gray-300">{% trans "Your choice stays anonymous unless this person chooses you too." %}</p>
+                <a class="btn-crush-outline btn-block" href="{% url 'crush_lu:event_lobby:lobby' event_id=event.pk %}">{% trans "Back to lobby" %}</a>
+            {% else %}
+                <h1 class="mb-2">{% trans "Would you like to meet?" %}</h1>
+                <p class="text-gray-600 dark:text-gray-300 mb-3">{% trans "This sends one anonymous signal. It cannot be undone, transferred, or regenerated." %}</p>
+                <p class="text-sm font-semibold text-gray-900 dark:text-white mb-5">
+                    {% blocktrans with remaining=state.signals_remaining %}You have {{ remaining }} of 3 signals left before this choice.{% endblocktrans %}
+                </p>
+                <form method="post" action="{% url 'crush_lu:event_lobby:signal' event_id=event.pk handle=target.handle %}" class="space-y-3">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-crush-solid btn-block">{% trans "Confirm — send signal" %}</button>
+                    <a class="btn-crush-outline btn-block" href="{% url 'crush_lu:event_lobby:lobby' event_id=event.pk %}">{% trans "Cancel" %}</a>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+</main>
+{% endblock %}
+

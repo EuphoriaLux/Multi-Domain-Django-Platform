@@ -1,0 +1,69 @@
+{% extends "crush_lu/crush_connect/_base_connect.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Event Lobby" %} — {{ event.title }}{% endblock %}
+{% block mobile_page_title %}{% trans "Event Lobby" %}{% endblock %}
+
+{% block connect_content %}
+<main class="max-w-3xl mx-auto px-4 py-6 pb-24 lg:pb-10">
+    <header class="rounded-2xl bg-gradient-to-br from-crush-purple to-crush-pink p-5 text-white shadow-crush-sm mb-5">
+        <p class="text-xs font-bold uppercase tracking-[0.14em] text-white/80 mb-2">{% trans "Live Event Lobby" %}</p>
+        <h1 class="font-display text-3xl font-semibold text-white mb-2">{{ event.title }}</h1>
+        <p class="text-sm text-white/90 mb-4">
+            {% blocktrans with end=event.date_time|date:"H:i" %}Live until the event's scheduled end.{% endblocktrans %}
+        </p>
+        <div class="grid grid-cols-2 gap-3" aria-label="{% trans 'Lobby status' %}">
+            <div class="rounded-xl bg-white/15 p-3">
+                <p class="text-2xl font-bold mb-0">{{ state.signals_remaining }} / 3</p>
+                <p class="text-xs text-white/85 mb-0">{% trans "signals left" %}</p>
+            </div>
+            <div class="rounded-xl bg-white/15 p-3">
+                <p class="text-2xl font-bold mb-0">{{ state.incoming_signal_count }}</p>
+                <p class="text-xs text-white/85 mb-0">{% trans "people would like to meet you" %}</p>
+            </div>
+        </div>
+    </header>
+
+    <section class="rounded-2xl bg-white dark:bg-slate-800 ring-1 ring-gray-200 dark:ring-slate-700 p-4 mb-5">
+        <h2 class="card-title mb-1">{% trans "Private by design" %}</h2>
+        <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">
+            {% trans "Photos stay anonymous. A first name appears only when you both choose each other. Each signal is private and cannot be undone." %}
+        </p>
+    </section>
+
+    {% if participants %}
+    <section aria-labelledby="participants-heading">
+        <h2 id="participants-heading" class="mb-3">{% trans "People here now" %}</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {% for participant in participants %}
+            <article class="overflow-hidden rounded-2xl bg-white dark:bg-slate-800 ring-1 {% if participant.mutual %}ring-crush-pink{% else %}ring-gray-200 dark:ring-slate-700{% endif %} shadow-crush-sm">
+                <img src="{{ participant.photo_url }}"
+                     alt="{% if participant.mutual %}{% blocktrans with name=participant.first_name %}Photo of {{ name }}{% endblocktrans %}{% else %}{% trans 'Participant photo' %}{% endif %}"
+                     class="aspect-square w-full object-cover">
+                <div class="p-3">
+                    {% if participant.mutual %}
+                        <p class="font-semibold text-gray-900 dark:text-white mb-1">{{ participant.first_name }}</p>
+                        <p class="text-sm font-medium text-crush-pink-dark dark:text-crush-pink mb-0">{% trans "Say hello now" %}</p>
+                    {% elif participant.signal_sent %}
+                        <p class="text-sm font-medium text-gray-600 dark:text-gray-300 mb-0">{% trans "Signal sent" %}</p>
+                    {% elif state.signals_remaining %}
+                        <a class="btn-crush-solid btn-sm btn-block"
+                           href="{% url 'crush_lu:event_lobby:confirm_signal' event_id=event.pk handle=participant.handle %}"
+                           aria-label="{% trans 'Select participant photo' %}">{% trans "I'd like to meet" %}</a>
+                    {% else %}
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-0">{% trans "No signals left" %}</p>
+                    {% endif %}
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+    </section>
+    {% else %}
+    <section class="rounded-2xl bg-white dark:bg-slate-800 ring-1 ring-gray-200 dark:ring-slate-700 p-8 text-center">
+        <h2 class="card-title mb-2">{% trans "You're in the lobby" %}</h2>
+        <p class="text-gray-600 dark:text-gray-300 mb-0">{% trans "Other eligible checked-in members will appear here." %}</p>
+    </section>
+    {% endif %}
+</main>
+{% endblock %}
+

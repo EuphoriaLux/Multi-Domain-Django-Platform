@@ -1,0 +1,28 @@
+{% extends "crush_lu/crush_connect/_base_connect.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Event Lobby photo consent" %}{% endblock %}
+{% block mobile_page_title %}{% trans "Event Lobby" %}{% endblock %}
+
+{% block connect_content %}
+<main class="max-w-lg mx-auto px-4 py-8 pb-24 lg:pb-10">
+    <section class="rounded-2xl bg-white dark:bg-slate-800 ring-1 ring-gray-200 dark:ring-slate-700 shadow-crush-sm p-6">
+        <p class="text-xs font-bold uppercase tracking-[0.14em] text-crush-purple mb-2">{% trans "One-time consent" %}</p>
+        <h1 class="mb-3">{% trans "Join private Event Lobbies" %}</h1>
+        <p class="text-gray-600 dark:text-gray-300">
+            {% trans "When you are checked in at a Crush.lu event, your current clear primary photo may be shown to other checked-in, active, LuxID-backed Crush Connect members at that same event." %}
+        </p>
+        <ul class="list-disc pl-5 space-y-2 text-sm text-gray-600 dark:text-gray-300 mb-6">
+            <li>{% trans "Your name and profile details stay hidden unless a meet signal is mutual." %}</li>
+            <li>{% trans "Members outside that event cannot access the lobby photo." %}</li>
+            <li>{% trans "Blocking makes both members immediately invisible to each other." %}</li>
+        </ul>
+        <form method="post">
+            {% csrf_token %}
+            {% if event_id %}<input type="hidden" name="event" value="{{ event_id }}">{% endif %}
+            <button type="submit" class="btn-crush-solid btn-block">{% trans "I understand and agree" %}</button>
+        </form>
+    </section>
+</main>
+{% endblock %}
+

@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import include, path
 from django.views.decorators.cache import never_cache
 from django.views.generic import RedirectView
 from django.shortcuts import render, redirect
@@ -132,6 +132,10 @@ def _spark_to_crush_connect(request, *args, **kwargs):
 
 
 urlpatterns = [
+    path(
+        'crush-connect/event-lobby/',
+        include('crush_event_lobby.urls', namespace='event_lobby'),
+    ),
     # Secure media serving
     path('media/profile/<int:user_id>/<str:photo_field>/', views_media.serve_profile_photo, name='serve_profile_photo'),
     path('media/coach/<int:coach_id>/', views_media.serve_coach_photo, name='serve_coach_photo'),
