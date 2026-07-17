@@ -1,0 +1,42 @@
+{% extends "crush_lu/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Encounter removal reviews" %}{% endblock %}
+
+{% block content %}
+<main class="max-w-4xl mx-auto px-4 py-8">
+    <header class="mb-6">
+        <p class="text-xs font-bold uppercase tracking-[0.14em] text-crush-purple mb-2">{% trans "Private moderation" %}</p>
+        <h1>{% trans "People I've Met removal reviews" %}</h1>
+        <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Reasons and notes are visible only to the assigned coach and authorized Support staff." %}</p>
+    </header>
+    <div class="space-y-4">
+        {% for item in review_items %}
+        <article class="rounded-2xl bg-white dark:bg-slate-800 ring-1 ring-gray-200 dark:ring-slate-700 p-5 shadow-crush-sm">
+            <div class="flex flex-wrap justify-between gap-3 mb-4">
+                <div>
+                    <h2 class="card-title mb-1">{{ item.request.requested_by.first_name|default:item.request.requested_by.username }}</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{{ item.request.requested_at }}</p>
+                </div>
+                <span class="badge badge-warning">{{ item.request.get_status_display }}</span>
+            </div>
+            <dl class="grid gap-3 text-sm mb-5">
+                <div><dt class="font-semibold">{% trans "Reason" %}</dt><dd>{{ item.request.get_reason_display }}</dd></div>
+                <div><dt class="font-semibold">{% trans "Private details" %}</dt><dd>{{ item.request.details|default:"—" }}</dd></div>
+            </dl>
+            <form method="post" action="{% url 'crush_lu:event_lobby:review_removal' request_id=item.request.pk %}" class="space-y-4">
+                {% csrf_token %}
+                {% include "crush_lu/components/form_field.html" with field=item.form.decision %}
+                {% include "crush_lu/components/form_field.html" with field=item.form.resolution_notes %}
+                <button type="submit" class="btn-crush-solid">{% trans "Record decision" %}</button>
+            </form>
+        </article>
+        {% empty %}
+        <section class="rounded-2xl bg-white dark:bg-slate-800 ring-1 ring-gray-200 dark:ring-slate-700 p-8 text-center shadow-crush-sm">
+            <h2 class="card-title mb-1">{% trans "No requests need review" %}</h2>
+            <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "The private queue is clear." %}</p>
+        </section>
+        {% endfor %}
+    </div>
+</main>
+{% endblock %}

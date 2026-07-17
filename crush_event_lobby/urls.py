@@ -8,6 +8,21 @@ urlpatterns = [
     path("consent/", views.consent, name="consent"),
     path("people-met/", views.people_met, name="people_met"),
     path(
+        "people-met/removal-reviews/",
+        views.removal_reviews,
+        name="removal_reviews",
+    ),
+    path(
+        "people-met/removal-reviews/<int:request_id>/",
+        views.review_removal,
+        name="review_removal",
+    ),
+    path(
+        "people-met/<uuid:handle>/request-removal/",
+        views.request_people_met_removal,
+        name="request_people_met_removal",
+    ),
+    path(
         "people-met/<uuid:handle>/",
         views.people_met_member,
         name="people_met_profile",

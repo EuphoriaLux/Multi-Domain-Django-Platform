@@ -1,0 +1,26 @@
+{% extends "crush_lu/crush_connect/_base_connect.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Request removal" %} — {% trans "People I've Met" %}{% endblock %}
+{% block mobile_page_title %}{% trans "Request removal" %}{% endblock %}
+
+{% block connect_content %}
+<main class="max-w-xl mx-auto px-4 py-6 pb-24 lg:pb-10">
+    <a href="{% url 'crush_lu:event_lobby:people_met_profile' handle=encounter_handle %}" class="text-sm font-medium text-crush-purple no-underline">&larr; {{ member.first_name }}</a>
+    <section class="mt-4 rounded-2xl bg-white dark:bg-slate-800 ring-1 ring-gray-200 dark:ring-slate-700 p-5 sm:p-6 shadow-crush-sm">
+        <h1 class="font-display text-3xl font-semibold text-gray-900 dark:text-white mb-2">{% trans "Request removal" %}</h1>
+        <p class="text-sm text-gray-600 dark:text-gray-300">
+            {% blocktrans with name=member.first_name %}{{ name }} will be hidden from both collections immediately. They will not be notified or shown your reason.{% endblocktrans %}
+        </p>
+        <form method="post" class="space-y-5 mt-5">
+            {% csrf_token %}
+            {% include "crush_lu/components/form_field.html" with field=form.reason %}
+            {% include "crush_lu/components/form_field.html" with field=form.details %}
+            <div class="rounded-xl bg-amber-50 dark:bg-amber-950/30 p-3 text-xs text-amber-900 dark:text-amber-200">
+                {% trans "Blocking and reporting remain available separately for immediate safety action." %}
+            </div>
+            <button type="submit" class="btn-danger btn-block">{% trans "Hide and request removal" %}</button>
+        </form>
+    </section>
+</main>
+{% endblock %}

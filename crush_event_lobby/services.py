@@ -17,6 +17,7 @@ from crush_lu.services.blocking import blocked_user_ids, is_blocked_pair
 
 from .models import (
     ConfirmedEncounter,
+    ConfirmedEncounterRemovalRequest,
     EventLobbyConsent,
     EventLobbyParticipation,
     EventMeetingConfirmation,
@@ -913,3 +914,158 @@ def get_people_met_photo(viewer, encounter_handle, slot):
     if not photo:
         raise LobbyAccessError("not_available")
     return photo
+
+
+def submit_encounter_removal_request(viewer, encounter_handle, reason, details=""):
+    """Hide an encounter for both members and create its private review audit."""
+
+    valid_reasons = {
+        choice[0] for choice in ConfirmedEncounterRemovalRequest.REASON_CHOICES
+    }
+    details = (details or "").strip()
+    if reason not in valid_reasons or len(details) > 500:
+        raise LobbyAccessError("invalid_request")
+
+    with transaction.atomic():
+        try:
+            encounter = ConfirmedEncounter.objects.select_for_update().get(
+                opaque_handle=encounter_handle,
+                status=ConfirmedEncounter.STATUS_ACTIVE,
+            )
+        except ConfirmedEncounter.DoesNotExist:
+            raise LobbyAccessError("not_available") from None
+        if viewer.pk not in {encounter.user_low_id, encounter.user_high_id}:
+            raise LobbyAccessError("not_available")
+
+        removal_request = ConfirmedEncounterRemovalRequest.objects.create(
+            encounter=encounter,
+            requested_by=viewer,
+            reason=reason,
+            details=details,
+        )
+        encounter.status = ConfirmedEncounter.STATUS_REMOVAL_PENDING
+        encounter.hidden_at = timezone.now()
+        encounter.save(update_fields=["status", "hidden_at"])
+
+        assigned_coach = viewer.crushprofile.assigned_coach
+        if assigned_coach is not None and assigned_coach.is_active:
+            reviewer_users = [assigned_coach.user]
+        else:
+            reviewer_users = list(
+                User.objects.filter(
+                    is_active=True,
+                    is_staff=True,
+                    crushcoach__isnull=True,
+                )
+            )
+        review_url = reverse("crush_lu:event_lobby:removal_reviews")
+        transaction.on_commit(
+            lambda users=reviewer_users, request_id=removal_request.pk: [
+                Notification.objects.create(
+                    user=user,
+                    notification_type="event_lobby_removal_review",
+                    title=_("People I've Met removal needs review"),
+                    body=_("A private encounter removal request is ready."),
+                    link_url=review_url,
+                    metadata={"removal_request_id": request_id},
+                )
+                for user in users
+            ]
+        )
+        return removal_request
+
+
+def _reviewer_coach(actor):
+    coach = getattr(actor, "crushcoach", None)
+    if coach is not None and coach.is_active:
+        return coach
+    return None
+
+
+def reviewable_removal_requests(actor):
+    """Return private requests visible to Support or the requester's coach."""
+
+    requests = ConfirmedEncounterRemovalRequest.objects.select_related(
+        "encounter", "requested_by", "requested_by__crushprofile"
+    )
+    coach_account = getattr(actor, "crushcoach", None)
+    if coach_account is not None:
+        if actor.is_active and coach_account.is_active:
+            return requests.filter(
+                requested_by__crushprofile__assigned_coach=coach_account
+            )
+        return requests.none()
+    if actor.is_active and actor.is_staff:
+        return requests
+    return requests.none()
+
+
+def review_encounter_removal_request(actor, request_id, decision, notes):
+    """Record a moderation outcome; visibility changes only on explicit restore."""
+
+    valid_decisions = {"approve", "keep_hidden", "restore"}
+    notes = (notes or "").strip()
+    if decision not in valid_decisions or not notes or len(notes) > 1000:
+        raise LobbyAccessError("invalid_request")
+
+    with transaction.atomic():
+        try:
+            removal_request = (
+                reviewable_removal_requests(actor)
+                .select_for_update()
+                .select_related("encounter")
+                .get(
+                    pk=request_id,
+                    status=ConfirmedEncounterRemovalRequest.STATUS_PENDING,
+                )
+            )
+        except ConfirmedEncounterRemovalRequest.DoesNotExist:
+            raise LobbyAccessError("not_available") from None
+        encounter = ConfirmedEncounter.objects.select_for_update().get(
+            pk=removal_request.encounter_id
+        )
+        now = timezone.now()
+        if decision == "approve":
+            removal_request.status = ConfirmedEncounterRemovalRequest.STATUS_APPROVED
+            encounter.status = ConfirmedEncounter.STATUS_REMOVED
+            encounter.removed_at = now
+            encounter.save(update_fields=["status", "removed_at"])
+            body = _("Your request was approved and the encounter was removed.")
+        elif decision == "keep_hidden":
+            removal_request.status = ConfirmedEncounterRemovalRequest.STATUS_KEPT_HIDDEN
+            # Deliberately preserve removal_pending: a resolution never re-exposes.
+            body = _("Your request was reviewed. The encounter remains hidden.")
+        else:
+            removal_request.status = ConfirmedEncounterRemovalRequest.STATUS_RESTORED
+            encounter.status = ConfirmedEncounter.STATUS_ACTIVE
+            encounter.hidden_at = None
+            encounter.removed_at = None
+            encounter.save(update_fields=["status", "hidden_at", "removed_at"])
+            body = _("Your request was reviewed and visibility was restored.")
+
+        coach = _reviewer_coach(actor)
+        assigned_coach_id = removal_request.requested_by.crushprofile.assigned_coach_id
+        if coach is not None and coach.pk == assigned_coach_id:
+            removal_request.reviewed_by_coach = coach
+        else:
+            removal_request.reviewed_by_staff = actor
+        removal_request.reviewed_at = now
+        removal_request.resolution_notes = notes
+        removal_request.save(
+            update_fields=[
+                "status",
+                "reviewed_at",
+                "reviewed_by_coach",
+                "reviewed_by_staff",
+                "resolution_notes",
+            ]
+        )
+        Notification.objects.create(
+            user=removal_request.requested_by,
+            notification_type="event_lobby_removal_status",
+            title=_("Your private removal request was reviewed"),
+            body=body,
+            link_url=reverse("crush_lu:event_lobby:people_met"),
+            metadata={"removal_request_id": removal_request.pk},
+        )
+        return removal_request

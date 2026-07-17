@@ -14,6 +14,7 @@ from django.utils import timezone
 
 from crush_event_lobby.models import (
     ConfirmedEncounter,
+    ConfirmedEncounterRemovalRequest,
     EventLobbyConsent,
     EventLobbyParticipation,
     EventMeetingConfirmation,
@@ -36,9 +37,12 @@ from crush_event_lobby.services import (
     materialize_recap_notifications,
     people_met_profile,
     recap_state,
+    review_encounter_removal_request,
     send_meet_signal,
+    submit_encounter_removal_request,
 )
 from crush_lu.models import (
+    CrushCoach,
     CrushConnectMembership,
     CrushProfile,
     EventRegistration,
@@ -154,6 +158,19 @@ def make_encounter(user_a, user_b, event):
         user_high=high,
         created_from_event=event,
     )
+
+
+def make_coach(username):
+    user = User.objects.create_user(
+        username=username,
+        email=f"{username}@example.com",
+        password="testpass123",
+        first_name=username.title(),
+    )
+    UserDataConsent.objects.update_or_create(
+        user=user, defaults={"crushlu_consent_given": True}
+    )
+    return CrushCoach.objects.create(user=user, is_active=True)
 
 
 def test_real_qr_checkin_enrolls_eligible_member(
@@ -936,6 +953,14 @@ def test_people_met_profile_shows_current_connect_data_without_private_identity(
     assert target.email not in body
     assert event.title not in body
     assert "Send a Curiosity Spark" not in body
+    assert "Request removal" in body
+    assert (
+        reverse(
+            "crush_lu:event_lobby:request_people_met_removal",
+            kwargs={"handle": encounter.opaque_handle},
+        )
+        in body
+    )
 
 
 def test_people_met_profile_is_pair_authorized_and_uses_opaque_handle(client):
@@ -1041,3 +1066,199 @@ def test_people_met_is_a_permanent_hub_entry_even_when_empty(client, settings):
     assert response.status_code == 200
     assert "People I've Met" in response.content.decode()
     assert reverse("crush_lu:event_lobby:people_met") in response.content.decode()
+
+
+def test_removal_request_immediately_hides_both_sides_and_is_private(
+    django_capture_on_commit_callbacks,
+):
+    event = make_event()
+    requester = make_member("removal-requester")
+    other = make_member("removal-other")
+    coach = make_coach("removal-coach")
+    requester.crushprofile.assigned_coach = coach
+    requester.crushprofile.save(update_fields=["assigned_coach"])
+    encounter = make_encounter(requester, other, event)
+
+    with django_capture_on_commit_callbacks(execute=True):
+        removal = submit_encounter_removal_request(
+            requester,
+            encounter.opaque_handle,
+            ConfirmedEncounterRemovalRequest.REASON_PRIVACY,
+            "Private review detail",
+        )
+
+    encounter.refresh_from_db()
+    assert encounter.status == ConfirmedEncounter.STATUS_REMOVAL_PENDING
+    assert encounter.hidden_at is not None
+    assert list_people_met(requester) == []
+    assert list_people_met(other) == []
+    assert removal.requested_by == requester
+    assert removal.details == "Private review detail"
+    review_notifications = Notification.objects.filter(
+        notification_type="event_lobby_removal_review"
+    )
+    assert list(review_notifications.values_list("user_id", flat=True)) == [
+        coach.user_id
+    ]
+    assert not Notification.objects.filter(user=other).exists()
+
+
+def test_assigned_coach_can_approve_removal_and_only_requester_gets_status():
+    event = make_event()
+    requester = make_member("approve-requester")
+    other = make_member("approve-other")
+    coach = make_coach("approve-coach")
+    requester.crushprofile.assigned_coach = coach
+    requester.crushprofile.save(update_fields=["assigned_coach"])
+    encounter = make_encounter(requester, other, event)
+    removal = submit_encounter_removal_request(
+        requester,
+        encounter.opaque_handle,
+        ConfirmedEncounterRemovalRequest.REASON_SAFETY,
+    )
+    Notification.objects.all().delete()
+
+    reviewed = review_encounter_removal_request(
+        coach.user,
+        removal.pk,
+        "approve",
+        "Approved under removal policy.",
+    )
+
+    encounter.refresh_from_db()
+    assert reviewed.status == ConfirmedEncounterRemovalRequest.STATUS_APPROVED
+    assert reviewed.reviewed_by_coach == coach
+    assert reviewed.reviewed_at is not None
+    assert encounter.status == ConfirmedEncounter.STATUS_REMOVED
+    assert encounter.removed_at is not None
+    assert Notification.objects.filter(
+        user=requester, notification_type="event_lobby_removal_status"
+    ).exists()
+    assert not Notification.objects.filter(user=other).exists()
+
+
+def test_unassigned_coach_cannot_read_or_review_private_removal(client):
+    event = make_event()
+    requester = make_member("private-requester")
+    other = make_member("private-other")
+    assigned = make_coach("private-assigned")
+    outsider = make_coach("private-outsider")
+    requester.crushprofile.assigned_coach = assigned
+    requester.crushprofile.save(update_fields=["assigned_coach"])
+    encounter = make_encounter(requester, other, event)
+    removal = submit_encounter_removal_request(
+        requester,
+        encounter.opaque_handle,
+        ConfirmedEncounterRemovalRequest.REASON_OTHER,
+        "Never show this to the other person",
+    )
+
+    assert (
+        error_code(
+            lambda: review_encounter_removal_request(
+                outsider.user, removal.pk, "approve", "Not authorized."
+            )
+        )
+        == "not_available"
+    )
+    client.force_login(outsider.user)
+    response = client.get(reverse("crush_lu:event_lobby:removal_reviews"))
+    assert response.status_code == 200
+    assert "Never show this to the other person" not in response.content.decode()
+
+    outsider.is_active = False
+    outsider.save(update_fields=["is_active"])
+    client.force_login(outsider.user)
+    assert (
+        client.get(reverse("crush_lu:event_lobby:removal_reviews")).status_code == 404
+    )
+
+
+def test_resolution_keeps_hidden_and_staff_restore_is_explicit():
+    event = make_event()
+    staff = User.objects.create_user(
+        username="support-reviewer",
+        email="support@example.com",
+        password="testpass123",
+        is_staff=True,
+    )
+    requester = make_member("resolve-requester")
+    other = make_member("resolve-other")
+    encounter = make_encounter(requester, other, event)
+    removal = submit_encounter_removal_request(
+        requester,
+        encounter.opaque_handle,
+        ConfirmedEncounterRemovalRequest.REASON_NO_LONGER_VISIBLE,
+    )
+
+    kept_hidden = review_encounter_removal_request(
+        staff, removal.pk, "keep_hidden", "Resolved; preserve privacy hold."
+    )
+    encounter.refresh_from_db()
+    assert kept_hidden.status == ConfirmedEncounterRemovalRequest.STATUS_KEPT_HIDDEN
+    assert kept_hidden.reviewed_by_staff == staff
+    assert encounter.status == ConfirmedEncounter.STATUS_REMOVAL_PENDING
+    assert list_people_met(requester) == []
+    assert list_people_met(other) == []
+
+    second_requester = make_member("restore-requester")
+    second_other = make_member("restore-other")
+    second_encounter = make_encounter(second_requester, second_other, event)
+    second_removal = submit_encounter_removal_request(
+        second_requester,
+        second_encounter.opaque_handle,
+        ConfirmedEncounterRemovalRequest.REASON_MISTAKEN_IDENTITY,
+    )
+    restored = review_encounter_removal_request(
+        staff, second_removal.pk, "restore", "Identity confirmed; restore explicitly."
+    )
+    second_encounter.refresh_from_db()
+    assert restored.status == ConfirmedEncounterRemovalRequest.STATUS_RESTORED
+    assert second_encounter.status == ConfirmedEncounter.STATUS_ACTIVE
+    assert second_encounter.hidden_at is None
+    assert [item["first_name"] for item in list_people_met(second_requester)] == [
+        "Restore-Other"
+    ]
+
+
+def test_removal_request_and_review_posts_require_csrf():
+    event = make_event()
+    requester = make_member("removal-csrf-requester")
+    other = make_member("removal-csrf-other")
+    staff = User.objects.create_user(
+        username="removal-csrf-staff",
+        email="removal-csrf-staff@example.com",
+        password="testpass123",
+        is_staff=True,
+    )
+    UserDataConsent.objects.update_or_create(
+        user=staff, defaults={"crushlu_consent_given": True}
+    )
+    encounter = make_encounter(requester, other, event)
+    csrf_client = Client(enforce_csrf_checks=True)
+    csrf_client.force_login(requester)
+
+    request_response = csrf_client.post(
+        reverse(
+            "crush_lu:event_lobby:request_people_met_removal",
+            kwargs={"handle": encounter.opaque_handle},
+        ),
+        {"reason": "privacy", "details": "Private"},
+    )
+    assert request_response.status_code == 403
+    assert not ConfirmedEncounterRemovalRequest.objects.exists()
+
+    removal = submit_encounter_removal_request(
+        requester, encounter.opaque_handle, "privacy", "Private"
+    )
+    csrf_client.force_login(staff)
+    review_response = csrf_client.post(
+        reverse(
+            "crush_lu:event_lobby:review_removal",
+            kwargs={"request_id": removal.pk},
+        ),
+        {"decision": "approve", "resolution_notes": "Approved"},
+    )
+    assert review_response.status_code == 403
+    removal.refresh_from_db()
+    assert removal.status == ConfirmedEncounterRemovalRequest.STATUS_PENDING

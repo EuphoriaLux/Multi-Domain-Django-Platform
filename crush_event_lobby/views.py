@@ -11,6 +11,7 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 
 from crush_lu.models import MeetupEvent
 
+from .forms import EncounterRemovalRequestForm, EncounterRemovalReviewForm
 from .services import (
     LobbyAccessError,
     acknowledge_consent,
@@ -26,7 +27,10 @@ from .services import (
     lobby_state,
     people_met_profile,
     recap_state,
+    review_encounter_removal_request,
+    reviewable_removal_requests,
     send_meet_signal,
+    submit_encounter_removal_request,
 )
 
 
@@ -289,6 +293,84 @@ def people_met_member(request, handle):
     return _private(
         render(request, "crush_event_lobby/people_met_profile.html", context)
     )
+
+
+@login_required
+@never_cache
+@require_http_methods(["GET", "POST"])
+def request_people_met_removal(request, handle):
+    try:
+        context = people_met_profile(request.user, handle)
+    except LobbyAccessError as error:
+        return _handle_page_error(request, error)
+    form = EncounterRemovalRequestForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            submit_encounter_removal_request(
+                request.user,
+                handle,
+                form.cleaned_data["reason"],
+                form.cleaned_data["details"],
+            )
+        except LobbyAccessError as error:
+            return _handle_page_error(request, error)
+        messages.success(
+            request,
+            "The encounter is now hidden for both people and your private request was sent for review.",
+        )
+        return redirect("crush_lu:event_lobby:people_met")
+    context["form"] = form
+    return _private(render(request, "crush_event_lobby/request_removal.html", context))
+
+
+def _is_removal_reviewer(user):
+    coach = getattr(user, "crushcoach", None)
+    if coach is not None:
+        return user.is_active and coach.is_active
+    return user.is_active and user.is_staff
+
+
+@login_required
+@never_cache
+@require_GET
+def removal_reviews(request):
+    if not _is_removal_reviewer(request.user):
+        raise Http404("Review queue is not available")
+    pending = reviewable_removal_requests(request.user).filter(status="pending")
+    review_items = [
+        {"request": removal_request, "form": EncounterRemovalReviewForm()}
+        for removal_request in pending
+    ]
+    return _private(
+        render(
+            request,
+            "crush_event_lobby/removal_reviews.html",
+            {"review_items": review_items},
+        )
+    )
+
+
+@login_required
+@never_cache
+@require_POST
+def review_removal(request, request_id):
+    if not _is_removal_reviewer(request.user):
+        raise Http404("Review queue is not available")
+    form = EncounterRemovalReviewForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "Choose an outcome and add private resolution notes.")
+        return redirect("crush_lu:event_lobby:removal_reviews")
+    try:
+        review_encounter_removal_request(
+            request.user,
+            request_id,
+            form.cleaned_data["decision"],
+            form.cleaned_data["resolution_notes"],
+        )
+    except LobbyAccessError as error:
+        return _handle_page_error(request, error)
+    messages.success(request, "The private removal decision was recorded.")
+    return redirect("crush_lu:event_lobby:removal_reviews")
 
 
 @login_required

@@ -106,5 +106,10 @@
             {% endif %}
         </div>
     </article>
+    <section class="mt-5 rounded-2xl bg-white dark:bg-slate-800 ring-1 ring-gray-200 dark:ring-slate-700 p-4 shadow-crush-sm">
+        <h2 class="card-title mb-1">{% trans "Privacy and safety" %}</h2>
+        <p class="text-xs text-gray-600 dark:text-gray-300 mb-3">{% trans "You can privately ask your coach or Support to remove this person from both collections." %}</p>
+        <a href="{% url 'crush_lu:event_lobby:request_people_met_removal' handle=encounter_handle %}" class="btn-danger btn-sm no-underline">{% trans "Request removal" %}</a>
+    </section>
 </main>
 {% endblock %}
