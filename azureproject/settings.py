@@ -488,6 +488,12 @@ PREMIUM_REDIRECTS_TO_BETA = _env_bool("PREMIUM_REDIRECTS_TO_BETA", default=True)
 # all cache routes 404 and the event page hides the hunt button.
 CRUSH_CACHE_ENABLED = _env_bool("CRUSH_CACHE_ENABLED", default=False)
 
+# Crush Connect Event Lobby (Crush.lu) — the live "I'd like to meet you" photo
+# grid for checked-in Connect members (spec 2026-07-17). Global rollout flag
+# (§17 Phase A): it controls launch and never becomes a per-event switch. The
+# lobby additionally requires the Connect launch phase (candidate_access_open).
+CRUSH_EVENT_LOBBY_ENABLED = _env_bool("CRUSH_EVENT_LOBBY_ENABLED", default=False)
+
 # Event Check-In Configuration
 EVENT_CHECKIN_WINDOW_HOURS = int(os.getenv("EVENT_CHECKIN_WINDOW_HOURS", "12"))
 
