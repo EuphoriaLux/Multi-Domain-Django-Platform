@@ -35,117 +35,53 @@
 
     <!-- ANONYMOUS COUNTERS & STATS -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-        <!-- Live phase details -->
-        <template x-if="isLive">
-            <div class="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-4 rounded-xl flex items-center justify-between shadow-sm">
-                <div>
-                    <h3 class="text-xs font-bold uppercase text-zinc-400 dark:text-zinc-500">{% trans "Your Remaining Signals" %}</h3>
-                    <p class="text-2xl font-black text-zinc-800 dark:text-zinc-100 mt-1" x-text="signalsLeftText"></p>
-                </div>
-                <div class="flex space-x-1.5">
-                    <template x-for="i in [1, 2, 3]">
-                        <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center font-bold text-xs"
-                             :class="isSignalConsumed(i) ? 'bg-violet-600 border-violet-600 text-white' : 'border-zinc-200 dark:border-zinc-700 text-zinc-300 dark:text-zinc-600'"
-                             x-text="i"></div>
-                    </template>
-                </div>
+        <!-- Live phase remaining signals indicator -->
+        <div x-show="isLive" class="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-4 rounded-xl flex items-center justify-between shadow-sm">
+            <div>
+                <h3 class="text-xs font-bold uppercase text-zinc-400 dark:text-zinc-500">{% trans "Your Remaining Signals" %}</h3>
+                <p class="text-2xl font-black text-zinc-800 dark:text-zinc-100 mt-1" x-text="signalsLeftText"></p>
             </div>
-        </template>
+            <!-- Signals checklist container (rendered imperatively via JS to bypass CSP template eval) -->
+            <div id="signals-indicators" class="flex space-x-1.5"></div>
+        </div>
         
-        <template x-if="isLive">
-            <div class="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-4 rounded-xl flex items-center justify-between shadow-sm">
-                <div>
-                    <h3 class="text-xs font-bold uppercase text-zinc-400 dark:text-zinc-500">{% trans "People Who Want to Meet You" %}</h3>
-                    <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{% trans "These are completely anonymous count updates." %}</p>
-                </div>
-                <div class="bg-fuchsia-50 dark:bg-fuchsia-950/20 text-fuchsia-600 dark:text-fuchsia-400 font-extrabold text-3xl px-4 py-2 rounded-xl border border-fuchsia-100 dark:border-fuchsia-900/30">
-                    <span x-text="incomingSignalsCount">0</span>
-                </div>
+        <!-- Live phase incoming signal counts -->
+        <div x-show="isLive" class="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-4 rounded-xl flex items-center justify-between shadow-sm">
+            <div>
+                <h3 class="text-xs font-bold uppercase text-zinc-400 dark:text-zinc-500">{% trans "People Who Want to Meet You" %}</h3>
+                <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">{% trans "These are completely anonymous count updates." %}</p>
             </div>
-        </template>
+            <div class="bg-fuchsia-50 dark:bg-fuchsia-950/20 text-fuchsia-600 dark:text-fuchsia-400 font-extrabold text-3xl px-4 py-2 rounded-xl border border-fuchsia-100 dark:border-fuchsia-900/30">
+                <span x-text="incomingSignalsCount">0</span>
+            </div>
+        </div>
 
-        <!-- Recap phase details -->
-        <template x-if="isRecap">
-            <div class="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-4 rounded-xl flex items-center justify-between shadow-sm col-span-2">
-                <div>
-                    <h3 class="text-xs font-bold uppercase text-zinc-400 dark:text-zinc-500">{% trans "Meeting Confirmations" %}</h3>
-                    <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-                        <span x-text="incomingConfirmationsCount">0</span> {% trans "people believe you met. Select them below to mutually confirm." %}
-                    </p>
-                </div>
-                <div class="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 font-extrabold text-3xl px-4 py-2 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
-                    <span x-text="incomingConfirmationsCount">0</span>
-                </div>
+        <!-- Recap phase incoming confirmations -->
+        <div x-show="isRecap" class="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-4 rounded-xl flex items-center justify-between shadow-sm col-span-2">
+            <div>
+                <h3 class="text-xs font-bold uppercase text-zinc-400 dark:text-zinc-500">{% trans "Meeting Confirmations" %}</h3>
+                <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                    <span x-text="incomingConfirmationsCount">0</span> {% trans "people believe you met. Select them below to mutually confirm." %}
+                </p>
             </div>
-        </template>
+            <div class="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 font-extrabold text-3xl px-4 py-2 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
+                <span x-text="incomingConfirmationsCount">0</span>
+            </div>
+        </div>
     </div>
 
-    <!-- MUTUAL REVEALS (SAY HELLO NOW) -->
-    <div x-show="hasLiveMutuals" class="mb-8 p-5 bg-gradient-to-r from-violet-50 to-fuchsia-50 dark:from-violet-950/20 dark:to-fuchsia-950/20 rounded-2xl border border-violet-100 dark:border-violet-900/20 shadow-inner">
+    <!-- MUTUAL REVEALS BANNER (rendered imperatively via JS to bypass CSP template eval) -->
+    <div id="live-mutuals-banner" style="display: none;" class="mb-8 p-5 bg-gradient-to-r from-violet-50 to-fuchsia-50 dark:from-violet-950/20 dark:to-fuchsia-950/20 rounded-2xl border border-violet-100 dark:border-violet-900/20 shadow-inner">
         <h3 class="font-bold text-violet-900 dark:text-violet-300 text-sm mb-3">💬 {% trans "Say Hello Now!" %}</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <template x-for="mut in liveMutuals">
-                <div class="flex items-center space-x-3 p-3 bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-violet-100/40 dark:border-violet-900/10">
-                    <img :src="mut.photo_url || '/static/images/avatar-placeholder.png'" class="w-10 h-10 rounded-full object-cover border-2 border-violet-500" alt="">
-                    <div>
-                        <p class="text-sm font-bold text-zinc-800 dark:text-zinc-100">
-                            {% trans "You matched with" %} <span x-text="mut.first_name" class="text-violet-600 dark:text-violet-400 font-black"></span>!
-                        </p>
-                        <p class="text-xs text-zinc-400 dark:text-zinc-500">{% trans "Go say hello in person!" %}</p>
-                    </div>
-                </div>
-            </template>
-        </div>
+        <div id="live-mutuals-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
     </div>
 
     <!-- PHOTO GRID -->
     <div>
         <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-4">{% trans "Lobby Roster" %}</h2>
         
-        <div x-show="hasNoParticipants" class="text-center py-12 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl">
-            <p class="text-zinc-400 dark:text-zinc-500">{% trans "No other eligible participants checked in yet." %}</p>
-        </div>
-
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
-            <template x-for="part in participants" :key="part.handle">
-                <button @click="openConfirm(part)" 
-                        class="group block bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition text-left relative"
-                        :disabled="isParticipantDisabled(part)"
-                        :aria-label="getParticipantAriaLabel(part)">
-                    
-                    <!-- Avatar Area -->
-                    <div class="aspect-square relative overflow-hidden bg-zinc-100 dark:bg-zinc-800">
-                        <img :src="part.photo_url" class="w-full h-full object-cover transition duration-200 group-hover:scale-105" alt="">
-                        
-                        <!-- Overlay Badges -->
-                        <div class="absolute top-2 right-2 flex flex-col space-y-1">
-                            <span x-show="partAlreadyMet(part)" class="text-[9px] uppercase tracking-wider font-bold bg-zinc-800/80 backdrop-blur-sm text-zinc-100 px-2 py-0.5 rounded-full">
-                                ✓ {% trans "Already Met" %}
-                            </span>
-                            <span x-show="partHasSentSignal(part)" class="text-[9px] uppercase tracking-wider font-bold bg-violet-600/90 text-white px-2 py-0.5 rounded-full">
-                                ✓ {% trans "Sent" %}
-                            </span>
-                            <span x-show="partHasConfirmed(part)" class="text-[9px] uppercase tracking-wider font-bold bg-emerald-600/90 text-white px-2 py-0.5 rounded-full">
-                                ✓ {% trans "Confirmed" %}
-                            </span>
-                        </div>
-                    </div>
-
-                    <!-- Label / State -->
-                    <div class="p-4 bg-zinc-50/50 dark:bg-zinc-900/50">
-                        <p class="font-bold text-zinc-800 dark:text-zinc-100 text-sm">
-                            <span x-show="partIsRevealed(part)" x-text="partFirstName(part)"></span>
-                            <span x-show="partNotRevealed(part)" class="text-zinc-400 dark:text-zinc-600 italic">{% trans "Anonymous" %}</span>
-                        </p>
-                        <p class="text-[10px] text-zinc-400 mt-0.5">
-                            <span x-show="partIsLiveMutual(part)">⚡ {% trans "Live match" %}</span>
-                            <span x-show="partRevealedNotMutual(part)">{% trans "Revealed" %}</span>
-                            <span x-show="partNotRevealed(part)">{% trans "Tap to select" %}</span>
-                        </p>
-                    </div>
-                </button>
-            </template>
-        </div>
+        <!-- Grid container (rendered imperatively via JS to bypass CSP template eval over list items) -->
+        <div id="participants-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6"></div>
     </div>
 
     <!-- CONCISE PRIVACY EXPLANATION -->
@@ -244,6 +180,8 @@ document.addEventListener('alpine:init', () => {
                     this.incomingConfirmationsCount = data.incoming_confirmations_count;
                     this.liveMutuals = data.live_mutuals;
                     this.formatCountdown();
+                    this.renderSignalsIndicators();
+                    this.renderLiveMutuals();
                 });
         },
 
@@ -253,6 +191,7 @@ document.addEventListener('alpine:init', () => {
                 .then(data => {
                     if (data.participants) {
                         this.participants = data.participants;
+                        this.renderParticipants();
                     }
                 });
         },
@@ -321,6 +260,108 @@ document.addEventListener('alpine:init', () => {
             });
         },
 
+        renderSignalsIndicators() {
+            const container = document.getElementById('signals-indicators');
+            if (!container) return;
+            let html = '';
+            for (let i = 1; i <= 3; i++) {
+                const isConsumed = i <= (3 - this.signalsLeft);
+                const activeClass = 'bg-violet-600 border-violet-600 text-white';
+                const inactiveClass = 'border-zinc-200 dark:border-zinc-700 text-zinc-300 dark:text-zinc-600';
+                html += '<div class="w-6 h-6 rounded-full border-2 flex items-center justify-center font-bold text-xs ' + (isConsumed ? activeClass : inactiveClass) + '">' + i + '</div>';
+            }
+            container.innerHTML = html;
+        },
+
+        renderLiveMutuals() {
+            const banner = document.getElementById('live-mutuals-banner');
+            const list = document.getElementById('live-mutuals-list');
+            if (!banner || !list) return;
+            if (this.liveMutuals.length === 0) {
+                banner.style.display = 'none';
+                return;
+            }
+            banner.style.display = 'block';
+            let html = '';
+            this.liveMutuals.forEach(mut => {
+                const photo = mut.photo_url || '/static/images/avatar-placeholder.png';
+                html += '<div class="flex items-center space-x-3 p-3 bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-violet-100/40 dark:border-violet-900/10">' +
+                        '<img src="' + photo + '" class="w-10 h-10 rounded-full object-cover border-2 border-violet-500" alt="">' +
+                        '<div>' +
+                            '<p class="text-sm font-bold text-zinc-800 dark:text-zinc-100">' +
+                                '{% trans "Matched with" %} <span class="text-violet-600 dark:text-violet-400 font-black">' + mut.first_name + '</span>!' +
+                            '</p>' +
+                            '<p class="text-xs text-zinc-400 dark:text-zinc-500">{% trans "Go say hello in person!" %}</p>' +
+                        '</div>' +
+                      '</div>';
+            });
+            list.innerHTML = html;
+        },
+
+        renderParticipants() {
+            const grid = document.getElementById('participants-grid');
+            if (!grid) return;
+            if (this.participants.length === 0) {
+                grid.innerHTML = '<div class="col-span-full text-center py-12 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl">' +
+                                 '<p class="text-zinc-400 dark:text-zinc-500">{% trans "No other eligible participants checked in yet." %}</p>' +
+                                 '</div>';
+                return;
+            }
+            let html = '';
+            this.participants.forEach(part => {
+                const alreadyMet = part.already_met;
+                const hasSentSignal = part.has_sent_signal;
+                const hasConfirmed = part.has_confirmed_meeting;
+                const isDisabled = alreadyMet || (this.phase === 'live' && hasSentSignal) || (this.phase === 'recap' && hasConfirmed);
+                
+                let badgesHtml = '';
+                if (alreadyMet) {
+                    badgesHtml += '<span class="text-[9px] uppercase tracking-wider font-bold bg-zinc-800/80 backdrop-blur-sm text-zinc-100 px-2 py-0.5 rounded-full">✓ {% trans "Already Met" %}</span>';
+                }
+                if (this.phase === 'live' && hasSentSignal) {
+                    badgesHtml += '<span class="text-[9px] uppercase tracking-wider font-bold bg-violet-600/90 text-white px-2 py-0.5 rounded-full">✓ {% trans "Sent" %}</span>';
+                }
+                if (this.phase === 'recap' && hasConfirmed && !alreadyMet) {
+                    badgesHtml += '<span class="text-[9px] uppercase tracking-wider font-bold bg-emerald-600/90 text-white px-2 py-0.5 rounded-full">✓ {% trans "Confirmed" %}</span>';
+                }
+
+                const displayName = part.is_revealed ? part.first_name : '{% trans "Anonymous" %}';
+                const nameClass = part.is_revealed ? 'font-bold text-zinc-800 dark:text-zinc-100 text-sm' : 'text-zinc-400 dark:text-zinc-600 italic';
+                
+                let statusText = '{% trans "Tap to select" %}';
+                if (part.is_live_mutual) {
+                    statusText = '⚡ {% trans "Live match" %}';
+                } else if (part.is_revealed) {
+                    statusText = '{% trans "Revealed" %}';
+                }
+
+                html += '<button data-handle="' + part.handle + '" class="participant-tile group block bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition text-left relative" ' + (isDisabled ? 'disabled' : '') + '>' +
+                            '<div class="aspect-square relative overflow-hidden bg-zinc-100 dark:bg-zinc-800">' +
+                                '<img src="' + part.photo_url + '" class="w-full h-full object-cover transition duration-200 group-hover:scale-105" alt="">' +
+                                '<div class="absolute top-2 right-2 flex flex-col space-y-1">' +
+                                    badgesHtml +
+                                '</div>' +
+                            '</div>' +
+                            '<div class="p-4 bg-zinc-50/50 dark:bg-zinc-900/50">' +
+                                '<p class="' + nameClass + '">' + displayName + '</p>' +
+                                '<p class="text-[10px] text-zinc-400 mt-0.5">' + statusText + '</p>' +
+                            '</div>' +
+                        '</button>';
+            });
+            grid.innerHTML = html;
+
+            // Wire up event listeners
+            grid.querySelectorAll('.participant-tile').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const handle = btn.getAttribute('data-handle');
+                    const part = this.participants.find(p => p.handle === handle);
+                    if (part) {
+                        this.openConfirm(part);
+                    }
+                });
+            });
+        },
+
         // Getters & helpers for CSP compatibility
         get isLive() { return this.phase === 'live'; },
         get isRecap() { return this.phase === 'recap'; },
@@ -329,28 +370,7 @@ document.addEventListener('alpine:init', () => {
         get hasNoParticipants() { return this.participants.length === 0; },
         get hasNoSuccessMsg() { return !this.successMsg; },
         get hasSuccessMsg() { return !!this.successMsg; },
-        get hasErrorMsg() { return !!this.errorMsg; },
-
-        isSignalConsumed(i) {
-            return i <= (3 - this.signalsLeft);
-        },
-
-        isParticipantDisabled(part) {
-            return part.already_met || (this.phase === 'live' && part.has_sent_signal) || (this.phase === 'recap' && part.has_confirmed_meeting);
-        },
-
-        getParticipantAriaLabel(part) {
-            return part.is_revealed ? part.first_name : 'Select participant photo';
-        },
-
-        partAlreadyMet(part) { return part.already_met; },
-        partHasSentSignal(part) { return this.phase === 'live' && part.has_sent_signal; },
-        partHasConfirmed(part) { return this.phase === 'recap' && part.has_confirmed_meeting && !part.already_met; },
-        partIsRevealed(part) { return part.is_revealed; },
-        partFirstName(part) { return part.first_name; },
-        partNotRevealed(part) { return !part.is_revealed; },
-        partIsLiveMutual(part) { return part.is_live_mutual; },
-        partRevealedNotMutual(part) { return !part.is_live_mutual && part.is_revealed; }
+        get hasErrorMsg() { return !!this.errorMsg; }
     }));
 });
 </script>
