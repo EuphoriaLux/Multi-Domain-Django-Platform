@@ -10,6 +10,7 @@ from django.views.decorators.cache import never_cache
 
 from crush_lu.decorators import crush_login_required
 from crush_lu.models import MeetupEvent, EventRegistration, CrushConnectMembership
+from crush_lu.models.moderation import UserBlock
 from crush_connect_lobby.models import EventLobbyParticipation, ConfirmedEncounter, EventMeetSignal, EventMeetingConfirmation
 from crush_connect_lobby import services
 
