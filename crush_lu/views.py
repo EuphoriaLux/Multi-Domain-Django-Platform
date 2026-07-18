@@ -411,6 +411,28 @@ def dashboard(request):
         if verifier and coach and verifier.get("coach_id") == coach.id:
             verifier = None
 
+        # Event Lobby CTA per registration card. The gate checks cost queries,
+        # so only evaluate attended registrations still in a live/recap phase
+        # (at most one or two rows); every other card renders no lobby CTA.
+        from .services.event_lobby import (
+            PHASE_CLOSED,
+            event_lobby_phase,
+            lobby_cta,
+        )
+
+        _now = timezone.now()
+        for _reg in registrations:
+            if (
+                _reg.status == "attended"
+                and _reg.event
+                and event_lobby_phase(_reg.event, _now) != PHASE_CLOSED
+            ):
+                _reg.lobby_cta = lobby_cta(
+                    request.user, _reg.event, registration=_reg, now=_now
+                )
+            else:
+                _reg.lobby_cta = None
+
         # Next upcoming published event (drives "attend to unlock" CTA)
         next_event = (
             MeetupEvent.objects.filter(

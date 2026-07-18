@@ -179,6 +179,26 @@ are created. A stale browser session must not preserve roster access.
 - Finishing onboarding after the exact event end does not retroactively grant
   access to that event's recap.
 
+**Amendment 2026-07-18 (funnel unification decisions):**
+
+1. *Static feature marketing is allowed.* The feature's **existence** is
+   public marketing: an identical, state-free promo block ("Crush Connect
+   members get the live Event Lobby at every event") may render on any event
+   page for any viewer. What stays undisclosable is unchanged: participation,
+   rosters, participant counts, phase-specific activity, and any per-event or
+   per-user lobby state. "They cannot infer whether a lobby exists" is
+   therefore narrowed to: they cannot infer anything about a *specific*
+   event's lobby beyond the platform-wide feature's existence. Per-user CTAs
+   (enter / recap / finish-onboarding) remain gated exactly as before and are
+   computed solely by `services.event_lobby.lobby_cta()`.
+2. *The named attendees page opens at the scheduled event end.* During the
+   live phase, `event_attendees` and the connection-request endpoints
+   redirect away, so the lobby's pre-mutual anonymity (§13) cannot be
+   undercut by a parallel named list of the same checked-in crowd. The
+   post-event connection window is computed from the scheduled end and
+   defaults to 48h — the same span as the recap, so both surfaces close
+   together.
+
 ## 6. Time and state model
 
 ```mermaid

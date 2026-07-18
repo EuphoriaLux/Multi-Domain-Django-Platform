@@ -612,6 +612,82 @@ def get_active_live_lobby(user, now=None):
     return None
 
 
+# lobby_cta() return values — what a surface outside the lobby may show.
+CTA_ENTER_LIVE = "enter_live"
+CTA_ENTER_RECAP = "enter_recap"
+CTA_FINISH_CONNECT = "finish_connect"
+CTA_PROMO_ONLY = "promo_only"
+
+
+def lobby_cta(user, event, registration=None, now=None):
+    """Which Event Lobby call-to-action (if any) a surface outside the lobby
+    may show this viewer for this event. Single gating source for every entry
+    point (event detail, ticket, my events, dashboard, attendees page) so
+    per-user disclosure can never drift between templates.
+
+    Returns:
+
+    - ``None`` — feature disabled: never advertise anything, anywhere.
+    - ``"promo_only"`` — the viewer gets only the static, state-free feature
+      promo (identical on every event). Per §5.3 as amended 2026-07-18 the
+      feature's *existence* is public marketing; participation, roster, and
+      per-event state are not, so this value carries no event-specific signal.
+    - ``"finish_connect"`` — checked-in guest who may learn the lobby exists
+      (§5.3: approved + LuxID) while the lobby is live: show the onboarding
+      CTA ("finish before the event ends and join instantly").
+    - ``"enter_live"`` — eligible member with an attended registration while
+      the lobby is live.
+    - ``"enter_recap"`` — frozen participant while the 48-hour recap is open.
+
+    ``registration`` may be passed when the caller already fetched the
+    viewer's registration (any status; only ``attended`` counts).
+    """
+    if not lobby_feature_enabled():
+        return None
+    if not getattr(user, "is_authenticated", False):
+        return CTA_PROMO_ONLY
+
+    phase = event_lobby_phase(event, now)
+    if phase == PHASE_CLOSED:
+        return CTA_PROMO_ONLY
+
+    if registration is None:
+        from crush_lu.models import EventRegistration
+
+        registration = EventRegistration.objects.filter(
+            event=event, user=user, status="attended"
+        ).first()
+    if registration is None or registration.status != "attended":
+        # Not checked in: nothing personal may show, whatever their membership.
+        return CTA_PROMO_ONLY
+
+    ok, reason = participant_gate(user)
+    if ok:
+        if phase == PHASE_LIVE:
+            # The lobby view itself creates/self-heals participation on entry.
+            return CTA_ENTER_LIVE
+        # Recap membership is frozen at the scheduled end (§5.3) — only a
+        # member who joined during the live phase has a recap to open.
+        if viewer_participation(user, event) is not None:
+            return CTA_ENTER_RECAP
+        return CTA_PROMO_ONLY
+
+    # Gate failed. Only the §5.3 "LuxID-capable guest" who genuinely hasn't
+    # onboarded may see the onboarding CTA, and only while finishing it would
+    # still grant access (never during recap — late onboarding can't join).
+    # Every other denial (coach exclusion, lost verification, revoked photo
+    # consent, …) renders as if the member had no personal state at all —
+    # mirrors lobby_locked.html's gate_reason handling and the dashboard's
+    # excluded-member rule.
+    if (
+        phase == PHASE_LIVE
+        and reason in (GATE_NO_MEMBERSHIP, GATE_NOT_ONBOARDED)
+        and may_learn_lobby_exists(user)
+    ):
+        return CTA_FINISH_CONNECT
+    return CTA_PROMO_ONLY
+
+
 # ---------------------------------------------------------------------------
 # Recap phase — meeting confirmations & permanent encounters (§7.7, §9.3–9.4)
 # ---------------------------------------------------------------------------
@@ -930,9 +1006,7 @@ def notify_encounter_created(recipient, counterpart) -> None:
     try:
         with translation.override(lang):
             title = str(_("People I've Met"))
-            body = str(
-                _("%(name)s was added to People I've Met.") % {"name": name}
-            )
+            body = str(_("%(name)s was added to People I've Met.") % {"name": name})
         Notification.objects.create(
             user=recipient,
             notification_type="event_lobby_encounter",

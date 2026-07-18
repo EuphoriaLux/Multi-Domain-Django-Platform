@@ -199,6 +199,7 @@
                     <div class="mt-3 flex flex-wrap gap-2">
                         <a href="{% url 'crush_lu:event_detail' registration.event.id %}" class="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium border border-purple-300 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-lg transition-colors">{% trans "View" %}</a>
                         {% if registration.status == 'attended' %}
+                            {% include "crush_lu/components/event_lobby_cta.html" with cta=registration.lobby_cta event=registration.event %}
                             <a href="{% url 'crush_lu:event_attendees' registration.event.id %}" class="btn-crush-solid inline-flex items-center justify-center gap-2 text-sm px-3 py-2">
                                 {% include "shared/icons/users.html" with class="w-4 h-4" %} {% trans "Connect" %}
                             </a>

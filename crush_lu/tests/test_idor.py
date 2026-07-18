@@ -171,12 +171,14 @@ class TestEventAttendeeIDOR(SiteTestMixin, TestCase):
     """Test that only event attendees can view other attendees."""
 
     def setUp(self):
+        # Past event: the attendees page only opens once the event has ended
+        # (live-overlap gate, decision 2026-07-18).
         self.event = MeetupEvent.objects.create(
             title='Test Event', description='Test',
             event_type='mixer',
-            date_time=timezone.now() + timedelta(days=7),
+            date_time=timezone.now() - timedelta(days=1),
             location='Luxembourg', address='123 Test St',
-            max_participants=20, registration_deadline=timezone.now() + timedelta(days=5),
+            max_participants=20, registration_deadline=timezone.now() - timedelta(days=2),
             is_published=True
         )
         self.attendee = User.objects.create_user(

@@ -11,6 +11,7 @@ management command — same date-window filters, ``Count``/``Avg``/``Exists``
 aggregations — but framed as *new-in-the-week* counts plus a few cumulative
 totals, which is what week-over-week tracking needs.
 """
+
 from __future__ import annotations
 
 from datetime import date, timedelta
@@ -186,15 +187,19 @@ def compute_weekly_snapshot(week_start: date) -> dict:
         MeetupEvent.objects.filter(is_published=True, is_cancelled=False),
         "date_time",
     )
-    fill_data = events_held_qs.filter(max_participants__gt=0).annotate(
-        confirmed_count=Count(
-            "eventregistration",
-            filter=Q(eventregistration__status__in=["confirmed", "attended"]),
+    fill_data = (
+        events_held_qs.filter(max_participants__gt=0)
+        .annotate(
+            confirmed_count=Count(
+                "eventregistration",
+                filter=Q(eventregistration__status__in=["confirmed", "attended"]),
+            )
         )
-    ).annotate(
-        fill_pct=ExpressionWrapper(
-            F("confirmed_count") * 100.0 / F("max_participants"),
-            output_field=FloatField(),
+        .annotate(
+            fill_pct=ExpressionWrapper(
+                F("confirmed_count") * 100.0 / F("max_participants"),
+                output_field=FloatField(),
+            )
         )
     )
     avg_fill = fill_data.aggregate(avg=Avg("fill_pct"))["avg"]
@@ -224,11 +229,45 @@ def compute_weekly_snapshot(week_start: date) -> dict:
         ).count(),
     }
 
+    # ── Event Lobby funnel (unification decisions 2026-07-18) ────────
+    # How the lobby feeds Crush Connect: participants per week, members who
+    # completed onboarding DURING a live event (the lobby's direct conversion
+    # moment), then signals → mutual reveals → confirmed encounters.
+    from crush_lu.models.event_lobby import (
+        ConfirmedEncounter,
+        EventLobbyParticipation,
+        EventMeetSignal,
+    )
+
+    event_lobby = {
+        "lobby_participants": in_week(
+            EventLobbyParticipation.objects.all(), "joined_at"
+        ).count(),
+        "onboarded_at_event": in_week(
+            EventLobbyParticipation.objects.filter(
+                eligibility_source="onboarding_completed"
+            ),
+            "joined_at",
+        ).count(),
+        "meet_signals": in_week(EventMeetSignal.objects.all(), "created_at").count(),
+        "mutual_reveals": in_week(
+            EventMeetSignal.objects.filter(mutual_revealed_at__isnull=False),
+            "mutual_revealed_at",
+        ).count(),
+        "encounters_confirmed": in_week(
+            ConfirmedEncounter.objects.all(), "created_at"
+        ).count(),
+        "people_ive_met_total": ConfirmedEncounter.objects.filter(
+            status="active", created_at__date__lte=week_end
+        ).count(),
+    }
+
     return {
         "acquisition": acquisition,
         "engagement": engagement,
         "revenue": revenue,
         "matching_events": matching_events,
+        "event_lobby": event_lobby,
     }
 
 
@@ -264,7 +303,9 @@ def compute_deltas(current: dict, previous: dict | None) -> dict:
             deltas[key] = compute_deltas(value, (previous or {}).get(key))
         elif isinstance(value, (int, float)):
             prev = (previous or {}).get(key) if previous else None
-            deltas[key] = round(value - prev, 1) if isinstance(prev, (int, float)) else None
+            deltas[key] = (
+                round(value - prev, 1) if isinstance(prev, (int, float)) else None
+            )
         else:
             deltas[key] = None
     return deltas
@@ -288,6 +329,8 @@ def snapshot_with_deltas(week_start: date) -> dict:
         "week_start": current.week_start,
         "week_end": current.week_end,
         "metrics": current.metrics,
-        "deltas": compute_deltas(current.metrics, previous.metrics if previous else None),
+        "deltas": compute_deltas(
+            current.metrics, previous.metrics if previous else None
+        ),
         "previous_week_start": previous.week_start if previous else None,
     }

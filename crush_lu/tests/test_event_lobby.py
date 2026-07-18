@@ -1305,3 +1305,114 @@ class TestSeedCommandGuard:
         monkeypatch.setenv("WEBSITE_HOSTNAME", "crush-lu-app.azurewebsites.net")
         with pytest.raises(CommandError, match="refuses to run"):
             call_command("seed_event_lobby_demo")
+
+
+# ---------------------------------------------------------------------------
+# lobby_cta() — per-user entry-point disclosure (§5.3 as amended 2026-07-18)
+# ---------------------------------------------------------------------------
+
+
+class TestLobbyCta:
+    """The single gating decision for every surface outside the lobby (event
+    detail, ticket, my events, dashboard, attendees page). Disclosure rules:
+    feature off → None (never advertise); anything but a real personal state →
+    the static, state-free promo."""
+
+    def test_feature_disabled_returns_none(self, settings):
+        settings.CRUSH_EVENT_LOBBY_ENABLED = False
+        member = _make_member("cta_off")
+        event = _make_event()
+        _attend(member, event)
+        assert lobby.lobby_cta(member, event) is None
+
+    def test_anonymous_viewer_gets_promo_only(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        event = _make_event()
+        assert lobby.lobby_cta(AnonymousUser(), event) == lobby.CTA_PROMO_ONLY
+
+    def test_member_without_attendance_gets_promo_only(self):
+        member = _make_member("cta_noatt")
+        event = _make_event()
+        assert lobby.lobby_cta(member, event) == lobby.CTA_PROMO_ONLY
+
+    def test_confirmed_but_not_checked_in_gets_promo_only(self):
+        member = _make_member("cta_conf")
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event, user=member, status="confirmed"
+        )
+        assert (
+            lobby.lobby_cta(member, event, registration=registration)
+            == lobby.CTA_PROMO_ONLY
+        )
+
+    def test_eligible_attended_member_live_gets_enter_live(self):
+        member = _make_member("cta_live")
+        event = _make_event()
+        _attend(member, event)
+        assert lobby.lobby_cta(member, event) == lobby.CTA_ENTER_LIVE
+
+    def test_participant_in_recap_gets_enter_recap(self):
+        member = _make_member("cta_recap")
+        event = _make_event()
+        _join(member, event)
+        _end_event(event)
+        assert lobby.lobby_cta(member, event) == lobby.CTA_ENTER_RECAP
+
+    def test_member_who_never_joined_gets_promo_only_in_recap(self):
+        """Attended but no participation row (e.g. checked in, feature hook
+        missed, event already over): recap membership is frozen — no CTA."""
+        member = _make_member("cta_late")
+        event = _make_event()
+        _attend(member, event)
+        _end_event(event)
+        assert lobby.lobby_cta(member, event) == lobby.CTA_PROMO_ONLY
+
+    def test_closed_phase_gets_promo_only(self):
+        member = _make_member("cta_closed")
+        event = _make_event()
+        _join(member, event)
+        _end_event(event, hours_ago=49)
+        assert lobby.lobby_cta(member, event) == lobby.CTA_PROMO_ONLY
+
+    def test_luxid_guest_without_membership_gets_finish_connect_live(self):
+        guest = _make_member("cta_guest", membership=False)
+        event = _make_event()
+        _attend(guest, event)
+        assert lobby.lobby_cta(guest, event) == lobby.CTA_FINISH_CONNECT
+
+    def test_member_not_onboarded_gets_finish_connect_live(self):
+        guest = _make_member("cta_started", onboarded=False)
+        event = _make_event()
+        _attend(guest, event)
+        assert lobby.lobby_cta(guest, event) == lobby.CTA_FINISH_CONNECT
+
+    def test_luxid_guest_gets_promo_only_in_recap(self):
+        """Late onboarding can never join (§5.3), so the onboarding CTA must
+        not render once the live phase is over."""
+        guest = _make_member("cta_guest_recap", membership=False)
+        event = _make_event()
+        _attend(guest, event)
+        _end_event(event)
+        assert lobby.lobby_cta(guest, event) == lobby.CTA_PROMO_ONLY
+
+    def test_plain_guest_without_luxid_gets_promo_only(self):
+        guest = _make_member("cta_plain", membership=False, luxid=False)
+        event = _make_event()
+        _attend(guest, event)
+        assert lobby.lobby_cta(guest, event) == lobby.CTA_PROMO_ONLY
+
+    def test_excluded_member_gets_promo_only_never_finish_connect(self):
+        """Coach exclusion (the panic button) must render as if the member had
+        no lobby state at all — an onboarding CTA would be wrong and taunting."""
+        member = _make_member("cta_excluded", excluded=True)
+        event = _make_event()
+        _attend(member, event)
+        assert lobby.lobby_cta(member, event) == lobby.CTA_PROMO_ONLY
+
+    def test_consent_revoked_member_gets_promo_only(self):
+        member = _make_member("cta_consent", photo_consent=False)
+        event = _make_event()
+        _attend(member, event)
+        assert lobby.lobby_cta(member, event) == lobby.CTA_PROMO_ONLY

@@ -57,6 +57,7 @@
                 </div>
 
                 <div class="mt-auto flex flex-wrap gap-2">
+                    {% include "crush_lu/components/event_lobby_cta.html" with cta=entry.lobby_cta event=entry.event %}
                     <a href="{% url 'crush_lu:event_detail' entry.event.id %}" class="btn-crush-solid flex-1 text-center py-2">{% trans "Details" %}</a>
                     {% if not entry.is_pending_payment %}
                     <a href="{% url 'crush_lu:event_ticket' entry.event.id %}" class="inline-flex items-center justify-center gap-1 px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors" aria-label="{% trans 'Ticket' %}">
@@ -128,6 +129,7 @@
                 {% endif %}
 
                 <div class="mt-auto flex flex-wrap gap-2">
+                    {% include "crush_lu/components/event_lobby_cta.html" with cta=entry.lobby_cta event=entry.event %}
                     {% if entry.attended %}
                     <a href="{% url 'crush_lu:event_attendees' entry.event.id %}" class="btn-crush-solid flex-1 text-center py-2">{% trans "My connections" %}</a>
                     {% endif %}
