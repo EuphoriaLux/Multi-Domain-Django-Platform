@@ -21,6 +21,9 @@ from django.utils import timezone
 
 from crush_lu.models import (
     ConfirmedEncounter,
+    ConfirmedEncounterRemovalRequest,
+    CrushCoach,
+    EventLobbyParticipation,
     EventMeetingConfirmation,
     EventMeetSignal,
     UserBlock,
@@ -92,13 +95,23 @@ class TestConfirmations:
         # chloe uninvolved.
         assert lobby.get_people_ive_met(chloe) == []
 
+    def test_confirmation_serializes_on_the_shared_participation_pair(self, mocker):
+        event, (alice, ben), h = self._recap_with("alice", "ben")
+        lock = mocker.spy(EventLobbyParticipation.objects, "select_for_update")
+
+        assert lobby.confirm_meeting(alice, event, h["ben"])["result"] == "confirmed"
+
+        lock.assert_called_once_with()
+
     def test_confirmations_are_unlimited(self):
         event, members, h = self._recap_with("alice", "b", "c", "d", "e")
         alice = members[0]
         for name in ("b", "c", "d", "e"):
             assert lobby.confirm_meeting(alice, event, h[name])["result"] == "confirmed"
         assert (
-            EventMeetingConfirmation.objects.filter(event=event, confirmer=alice).count()
+            EventMeetingConfirmation.objects.filter(
+                event=event, confirmer=alice
+            ).count()
             == 4
         )
 
@@ -107,7 +120,9 @@ class TestConfirmations:
         assert lobby.confirm_meeting(alice, event, h["ben"])["result"] == "confirmed"
         assert lobby.confirm_meeting(alice, event, h["ben"])["result"] == "duplicate"
         assert (
-            EventMeetingConfirmation.objects.filter(event=event, confirmer=alice).count()
+            EventMeetingConfirmation.objects.filter(
+                event=event, confirmer=alice
+            ).count()
             == 1
         )
 
@@ -137,6 +152,21 @@ class TestConfirmations:
         again = lobby.confirm_meeting(alice, event, h["ben"])
         assert again["result"] == "already_met"
         assert ConfirmedEncounter.objects.count() == 1
+
+    @pytest.mark.parametrize("status", ["removal_pending", "removed"])
+    def test_reciprocal_confirmation_never_announces_hidden_encounter(self, status):
+        event, (alice, ben), h = self._recap_with("alice", "ben")
+        encounter = _make_encounter(alice, ben, event)
+        encounter.status = status
+        encounter.save(update_fields=["status"])
+
+        assert lobby.confirm_meeting(alice, event, h["ben"])["result"] == "confirmed"
+        result = lobby.confirm_meeting(ben, event, h["alice"])
+
+        assert result == {"result": "encounter_hidden"}
+        encounter.refresh_from_db()
+        assert encounter.status == status
+        assert lobby.get_people_ive_met(alice) == []
 
     def test_blocked_or_unknown_handle_indistinguishable(self):
         event, (alice, ben), h = self._recap_with("alice", "ben")
@@ -287,7 +317,7 @@ class TestPeopleIveMet:
         ben = _make_member("ben", gender="M")
         chloe = _make_member("chloe")
         enc_ben = _make_encounter(alice, ben)
-        enc_chloe = _make_encounter(alice, chloe)
+        _make_encounter(alice, chloe)
         # Make ben's the older encounter.
         ConfirmedEncounter.objects.filter(pk=enc_ben.pk).update(
             created_at=timezone.now() - timedelta(days=2)
@@ -346,6 +376,92 @@ class TestPeopleIveMet:
         again, created = lobby._create_or_get_encounter(alice, ben, None)
         assert created is False
         assert again.status == "removed"
+
+
+# ---------------------------------------------------------------------------
+# Private encounter-removal review workflow (§9.5)
+# ---------------------------------------------------------------------------
+
+
+class TestEncounterRemovalReview:
+    def test_submitted_handle_selects_the_exact_encounter(self):
+        alice = _make_member("alice")
+        ben = _make_member("ben", gender="M")
+        chloe = _make_member("chloe")
+        ben_encounter = _make_encounter(alice, ben)
+        chloe_encounter = _make_encounter(alice, chloe)
+
+        removal = lobby.submit_encounter_removal_request(
+            alice,
+            str(chloe.pk),
+            ConfirmedEncounterRemovalRequest.REASON_PRIVACY,
+        )
+
+        assert removal.encounter_id == chloe_encounter.pk
+        ben_encounter.refresh_from_db()
+        chloe_encounter.refresh_from_db()
+        assert ben_encounter.status == "active"
+        assert chloe_encounter.status == "removal_pending"
+
+    def test_wrong_or_stale_handle_never_hides_another_encounter(self):
+        alice = _make_member("alice")
+        ben = _make_member("ben", gender="M")
+        stranger = _make_member("stranger", gender="M")
+        encounter = _make_encounter(alice, ben)
+
+        with pytest.raises(lobby.LobbyAccessError) as exc_info:
+            lobby.submit_encounter_removal_request(
+                alice,
+                str(stranger.pk),
+                ConfirmedEncounterRemovalRequest.REASON_PRIVACY,
+            )
+
+        assert exc_info.value.code == "not_available"
+        encounter.refresh_from_db()
+        assert encounter.status == "active"
+        assert ConfirmedEncounterRemovalRequest.objects.count() == 0
+
+    def test_active_coach_cannot_see_or_review_the_global_queue(self):
+        alice = _make_member("alice")
+        ben = _make_member("ben", gender="M")
+        _make_encounter(alice, ben)
+        removal = lobby.submit_encounter_removal_request(
+            alice,
+            str(ben.pk),
+            ConfirmedEncounterRemovalRequest.REASON_SAFETY,
+        )
+        coach_user = _make_member("coach")
+        CrushCoach.objects.create(user=coach_user, is_active=True)
+
+        assert not lobby.reviewable_removal_requests(coach_user).exists()
+        with pytest.raises(lobby.LobbyAccessError) as exc_info:
+            lobby.review_encounter_removal_request(
+                coach_user, removal.pk, "approve", "Reviewed outside scope"
+            )
+        assert exc_info.value.code == "not_available"
+
+    def test_staff_can_review_and_is_recorded_as_staff(self):
+        alice = _make_member("alice")
+        ben = _make_member("ben", gender="M")
+        encounter = _make_encounter(alice, ben)
+        removal = lobby.submit_encounter_removal_request(
+            alice,
+            str(ben.pk),
+            ConfirmedEncounterRemovalRequest.REASON_PRIVACY,
+        )
+        staff = _make_member("support")
+        staff.is_staff = True
+        staff.save(update_fields=["is_staff"])
+
+        reviewed = lobby.review_encounter_removal_request(
+            staff, removal.pk, "restore", "Confirmed restoration with requester"
+        )
+
+        encounter.refresh_from_db()
+        assert reviewed.status == "restored"
+        assert reviewed.reviewed_by_staff_id == staff.pk
+        assert reviewed.reviewed_by_coach_id is None
+        assert encounter.status == "active"
 
 
 # ---------------------------------------------------------------------------
@@ -492,9 +608,7 @@ class TestPeopleIveMetPages:
         assert ok.status_code == 200
         assert "Ben" in ok.content.decode()
         # No encounter with the stranger → 404 (not an unguessable id, §13).
-        denied = client.get(
-            reverse("crush_lu:event_lobby_person", args=[stranger.pk])
-        )
+        denied = client.get(reverse("crush_lu:event_lobby_person", args=[stranger.pk]))
         assert denied.status_code == 404
 
     def test_person_profile_denied_after_block(self, client):

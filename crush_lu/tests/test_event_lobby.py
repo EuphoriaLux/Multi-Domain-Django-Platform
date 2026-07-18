@@ -103,9 +103,9 @@ def _make_member(
             excluded_by_coach=excluded,
             photo_share_consent=photo_consent,
         )
-    return User.objects.select_related(
-        "crushprofile", "crush_connect_membership"
-    ).get(pk=user.pk)
+    return User.objects.select_related("crushprofile", "crush_connect_membership").get(
+        pk=user.pk
+    )
 
 
 def _make_event(starts_in_minutes=-30, duration=120, published=True, cancelled=False):
@@ -321,7 +321,8 @@ class TestCheckinNeverDependsOnLobby:
     def _checkin(self, client, registration):
         token = Signer().sign(f"{registration.pk}:{registration.event_id}")
         url = reverse(
-            "event_checkin_api", kwargs={"registration_id": registration.pk, "token": token}
+            "event_checkin_api",
+            kwargs={"registration_id": registration.pk, "token": token},
         )
         return client.post(url)
 
@@ -458,6 +459,46 @@ class TestRoster:
         ).get(pk=ben.pk)
         assert lobby.viewer_participation(ben, event) is None
 
+    def test_inactive_profile_loses_access_and_disappears(self):
+        event = _make_event()
+        alice = _make_member("alice")
+        ben = _make_member("ben", gender="M")
+        _join(alice, event)
+        _join(ben, event)
+
+        profile = ben.crushprofile
+        profile.is_active = False
+        profile.save(update_fields=["is_active"])
+        ben = User.objects.select_related(
+            "crushprofile", "crush_connect_membership"
+        ).get(pk=ben.pk)
+
+        assert lobby.participant_gate(ben)[0] is False
+        assert lobby.viewer_participation(ben, event) is None
+        assert lobby.get_roster(alice, event) == []
+
+    def test_corrected_attendance_revokes_api_authorization_and_roster(self):
+        event = _make_event()
+        alice = _make_member("alice")
+        ben = _make_member("ben", gender="M")
+        _join(alice, event)
+        _join(ben, event)
+        ben_handle = _handle_of(ben, event)
+
+        EventRegistration.objects.filter(event=event, user=alice).update(
+            status="confirmed"
+        )
+        assert lobby.viewer_participation(alice, event) is None
+        assert (
+            lobby.send_meet_signal(alice, event, ben_handle)["result"]
+            == "not_participant"
+        )
+
+        EventRegistration.objects.filter(event=event, user=ben).update(
+            status="confirmed"
+        )
+        assert lobby.get_roster(alice, event) == []
+
 
 # ---------------------------------------------------------------------------
 # Meet signals: quota, idempotency, mutual reveal (§7.3–7.4, §9.2)
@@ -512,7 +553,9 @@ class TestMeetSignals:
         event, (alice, b, c, d, e) = self._lobby_with("alice", "b", "c", "d", "e")
         for target in (b, c, d):
             assert (
-                lobby.send_meet_signal(alice, event, _handle_of(target, event))["result"]
+                lobby.send_meet_signal(alice, event, _handle_of(target, event))[
+                    "result"
+                ]
                 == "sent"
             )
         fourth = lobby.send_meet_signal(alice, event, _handle_of(e, event))
@@ -520,10 +563,9 @@ class TestMeetSignals:
         assert EventMeetSignal.objects.filter(event=event, sender=alice).count() == 3
         # Incoming signals are unlimited: everyone can still signal alice.
         for sender in (b, c, d, e):
-            assert (
-                lobby.send_meet_signal(sender, event, _handle_of(alice, event))["result"]
-                in ("sent", "mutual")
-            )
+            assert lobby.send_meet_signal(sender, event, _handle_of(alice, event))[
+                "result"
+            ] in ("sent", "mutual")
         assert lobby.signals_remaining(alice, event) == 0
 
     def test_duplicate_signal_idempotent_consumes_nothing(self):
@@ -605,9 +647,7 @@ class TestMeetSignals:
         EventMeetSignal.objects.create(event=event, sender=alice, recipient=ben)
         with pytest.raises(IntegrityError):
             with transaction.atomic():
-                EventMeetSignal.objects.create(
-                    event=event, sender=alice, recipient=ben
-                )
+                EventMeetSignal.objects.create(event=event, sender=alice, recipient=ben)
         with pytest.raises(IntegrityError):
             with transaction.atomic():
                 EventMeetSignal.objects.create(
@@ -655,7 +695,6 @@ class TestLobbyPage:
     def test_checked_in_not_onboarded_sees_cta_never_roster(self, client):
         """§5.3: onboarding CTA instead of the lobby; no roster, no counts."""
         event = _make_event()
-        member = _make_member("alice")
         ben = _make_member("ben", gender="M")
         _join(ben, event)
         guest = _make_member("guest", onboarded=False)
@@ -708,6 +747,19 @@ class TestStateApi:
         outsider = _make_member("outsider")
         _login(client, outsider)
         response = client.get(_state_url(event))
+        assert response.status_code == 403
+
+    def test_corrected_attendance_is_forbidden(self, client):
+        event = _make_event()
+        alice = _make_member("alice")
+        _join(alice, event)
+        _login(client, alice)
+        EventRegistration.objects.filter(event=event, user=alice).update(
+            status="confirmed"
+        )
+
+        response = client.get(_state_url(event))
+
         assert response.status_code == 403
 
     def test_state_payload_has_no_pre_mutual_identity(self, client):
@@ -848,9 +900,7 @@ class TestLobbyPhoto:
         profile.photo_1.save("lobby.jpg", ContentFile(b"jpegbytes"), save=True)
         return profile
 
-    def test_participant_fetches_photo_by_handle(
-        self, client, settings, tmp_path
-    ):
+    def test_participant_fetches_photo_by_handle(self, client, settings, tmp_path):
         event = _make_event()
         alice = _make_member("alice")
         ben = _make_member("ben", gender="M")
@@ -871,6 +921,21 @@ class TestLobbyPhoto:
         outsider = _make_member("outsider")
         _login(client, outsider)
         response = client.get(self._photo_url(event, _handle_of(ben, event)))
+        assert response.status_code == 404
+
+    def test_corrected_attendance_viewer_denied(self, client):
+        event = _make_event()
+        alice = _make_member("alice")
+        ben = _make_member("ben", gender="M")
+        _join(alice, event)
+        _join(ben, event)
+        _login(client, alice)
+        EventRegistration.objects.filter(event=event, user=alice).update(
+            status="confirmed"
+        )
+
+        response = client.get(self._photo_url(event, _handle_of(ben, event)))
+
         assert response.status_code == 404
 
     def test_handle_not_replayable_on_other_event(self, client, settings, tmp_path):
@@ -969,6 +1034,16 @@ class TestEventLobbyConsumer:
         membership = alice.crush_connect_membership
         membership.excluded_by_coach = True
         membership.save(update_fields=["excluded_by_coach"])
+        assert self._can_join(event, alice) is False
+
+    def test_corrected_attendance_rejected(self):
+        event = _make_event()
+        alice = _make_member("alice")
+        _join(alice, event)
+        EventRegistration.objects.filter(event=event, user=alice).update(
+            status="confirmed"
+        )
+
         assert self._can_join(event, alice) is False
 
     def test_rejected_after_event_end(self):

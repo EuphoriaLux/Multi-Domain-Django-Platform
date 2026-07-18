@@ -49,6 +49,14 @@ GATE_NO_PHOTO_CONSENT = "no_photo_consent"
 GATE_NO_PHOTO = "no_photo"
 
 
+class LobbyAccessError(Exception):
+    """Private service-layer denial with a stable, non-identifying code."""
+
+    def __init__(self, code):
+        self.code = code
+        super().__init__(code)
+
+
 def lobby_feature_enabled() -> bool:
     """§17 Phase A: one global rollout flag (never a per-event switch), on top
     of the Crush Connect launch-phase policy (§5.1 item 10)."""
@@ -97,7 +105,11 @@ def participant_gate(user) -> tuple[bool, str]:
         return False, GATE_EXCLUDED
 
     profile = getattr(user, "crushprofile", None)
-    if profile is None or profile.verification_status != "verified":
+    if (
+        profile is None
+        or not profile.is_active
+        or profile.verification_status != "verified"
+    ):
         return False, GATE_NOT_VERIFIED
     if not profile.has_luxid_connected:
         return False, GATE_NO_LUXID
@@ -199,9 +211,11 @@ def eligible_participations(event):
     return (
         EventLobbyParticipation.objects.filter(
             event=event,
+            event_registration__status="attended",
             user__crush_connect_membership__onboarded_at__isnull=False,
             user__crush_connect_membership__excluded_by_coach=False,
             user__crush_connect_membership__photo_share_consent=True,
+            user__crushprofile__is_active=True,
             user__crushprofile__verification_status="verified",
         )
         .exclude(user__crushprofile__photo_1="")
@@ -225,7 +239,11 @@ def viewer_participation(user, event):
     ok, _reason = participant_gate(user)
     if not ok:
         return None
-    return EventLobbyParticipation.objects.filter(event=event, user=user).first()
+    return EventLobbyParticipation.objects.filter(
+        event=event,
+        user=user,
+        event_registration__status="attended",
+    ).first()
 
 
 def _mutual_user_ids(user, event) -> set[int]:
@@ -297,8 +315,7 @@ def get_mutuals(viewer, event) -> list[dict]:
 
     blocked = blocked_user_ids(viewer)
     participations_by_user = {
-        p.user_id: p
-        for p in eligible_participations(event).exclude(user=viewer)
+        p.user_id: p for p in eligible_participations(event).exclude(user=viewer)
     }
     mutuals = []
     signal_qs = (
@@ -410,8 +427,7 @@ def send_meet_signal(sender, event, target_handle, now=None) -> dict:
     if event_lobby_phase(event, now) != PHASE_LIVE:
         return {"result": "phase_closed"}
 
-    ok, _reason = participant_gate(sender)
-    if not ok:
+    if viewer_participation(sender, event) is None:
         return {"result": "not_participant"}
 
     # Resolve the opaque handle within THIS event only — handles cannot be
@@ -434,8 +450,13 @@ def send_meet_signal(sender, event, target_handle, now=None) -> dict:
         # sender's lock alone serialises the three-signal quota across tabs.
         locked = list(
             EventLobbyParticipation.objects.select_for_update()
-            .filter(event=event, user__in=[sender.pk, recipient.pk])
-            .order_by("pk")
+            .select_related("event_registration")
+            .filter(
+                event=event,
+                user_id__in=[sender.pk, recipient.pk],
+                event_registration__status="attended",
+            )
+            .order_by("user_id")
         )
         locked_user_ids = {p.user_id for p in locked}
         if sender.pk not in locked_user_ids:
@@ -532,6 +553,7 @@ def get_active_live_lobby(user, now=None):
     candidates = (
         EventLobbyParticipation.objects.filter(
             user=user,
+            event_registration__status="attended",
             event__is_published=True,
             event__is_cancelled=False,
             # Generous DB cutoff; exact end derived below (end_time is a property).
@@ -555,10 +577,13 @@ def _is_active_connect_member(user) -> bool:
     """Lighter check than ``participant_gate`` — onboarded + not excluded.
     Connect deactivation/exclusion hides the collection and recap access."""
     membership = getattr(user, "crush_connect_membership", None)
+    profile = getattr(user, "crushprofile", None)
     return (
         membership is not None
         and membership.onboarded_at is not None
         and not membership.excluded_by_coach
+        and profile is not None
+        and profile.is_active
     )
 
 
@@ -571,6 +596,7 @@ def _can_appear_in_collection(user) -> bool:
     profile = getattr(user, "crushprofile", None)
     return bool(
         profile is not None
+        and profile.is_active
         and profile.verification_status == "verified"
         and profile.photo_1
     )
@@ -692,6 +718,8 @@ def confirm_meeting(confirmer, event, target_handle, now=None) -> dict:
     - ``confirmed``         — one-sided confirmation created, still anonymous
     - ``encounter``         — reverse confirmation existed; permanent encounter
                               created/returned and the first name revealed
+    - ``encounter_hidden``  — reverse confirmation existed, but a prior removal
+                              keeps the encounter hidden and sends no reveal
     - ``already_met``       — pair already has an active permanent encounter
                               (non-actionable, consumes nothing)
     - ``duplicate``         — confirmer already confirmed this person
@@ -716,12 +744,7 @@ def confirm_meeting(confirmer, event, target_handle, now=None) -> dict:
         return {"result": "feature_disabled"}
     if event_lobby_phase(event, now) != PHASE_RECAP:
         return {"result": "phase_closed"}
-    ok, _reason = participant_gate(confirmer)
-    if not ok:
-        return {"result": "not_participant"}
-    if not EventLobbyParticipation.objects.filter(
-        event=event, user=confirmer
-    ).exists():
+    if viewer_participation(confirmer, event) is None:
         return {"result": "not_participant"}
 
     target = (
@@ -735,11 +758,31 @@ def confirm_meeting(confirmer, event, target_handle, now=None) -> dict:
     other = target.user
 
     with transaction.atomic():
+        # Lock the same canonical pair of participation rows before either
+        # directional confirmation is inserted. Concurrent A→B and B→A
+        # requests therefore serialize, and the second transaction always
+        # observes the first confirmation before checking for reciprocity.
+        low, high = ConfirmedEncounter.canonical_pair(confirmer, other)
+        locked = list(
+            EventLobbyParticipation.objects.select_for_update()
+            .select_related("event_registration")
+            .filter(
+                event=event,
+                user_id__in=[low.pk, high.pk],
+                event_registration__status="attended",
+            )
+            .order_by("user_id")
+        )
+        locked_user_ids = {participation.user_id for participation in locked}
+        if confirmer.pk not in locked_user_ids:
+            return {"result": "not_participant"}
+        if other.pk not in locked_user_ids:
+            return {"result": "unknown_participant"}
+
         # §6: re-derive the phase inside the write transaction.
         if event_lobby_phase(event, timezone.now()) != PHASE_RECAP:
             return {"result": "phase_closed"}
 
-        low, high = ConfirmedEncounter.canonical_pair(confirmer, other)
         existing = (
             ConfirmedEncounter.objects.select_for_update()
             .filter(user_low=low, user_high=high)
@@ -764,6 +807,15 @@ def confirm_meeting(confirmer, event, target_handle, now=None) -> dict:
         ).exists()
         if reverse_exists:
             encounter, _enc_created = _create_or_get_encounter(confirmer, other, event)
+            if encounter.status != "active":
+                logger.info(
+                    "Lobby reciprocal confirmation kept hidden for event %s "
+                    "(encounter %s, status %s)",
+                    event.pk,
+                    encounter.pk,
+                    encounter.status,
+                )
+                return {"result": "encounter_hidden"}
             logger.info(
                 "Lobby permanent encounter for event %s (pair %s+%s)",
                 event.pk,
@@ -867,6 +919,7 @@ def encounter_counterpart(viewer, user_id):
 # REMOVAL REVIEW WORKFLOW — ported from PR #633 (Codex)
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def submit_encounter_removal_request(user, encounter_handle, reason, details=""):
     """Submit a private removal request for a confirmed encounter.
 
@@ -878,27 +931,38 @@ def submit_encounter_removal_request(user, encounter_handle, reason, details="")
     if not _is_active_connect_member(user):
         raise LobbyAccessError("not_available")
 
-    # Find the encounter by handle (opaque identifier)
-    try:
-        encounter = ConfirmedEncounter.objects.get(
-            Q(user_low=user) | Q(user_high=user),
-            status="active",
-        )
-    except ConfirmedEncounter.DoesNotExist:
-        raise LobbyAccessError("not_available") from None
-
-    # Verify the user belongs to this encounter
-    if user.pk not in {encounter.user_low_id, encounter.user_high_id}:
-        raise LobbyAccessError("not_available")
-
     # Validate reason
     valid_reasons = dict(ConfirmedEncounterRemovalRequest.REASON_CHOICES)
     if reason not in valid_reasons:
         raise LobbyAccessError("invalid_reason")
 
+    # People-I've-Met addresses the counterpart with this member-visible
+    # handle. Resolve the exact canonical pair; never fall back to "the user's
+    # only encounter", which can hide the wrong person or raise when several
+    # encounters exist.
+    try:
+        counterpart_id = int(encounter_handle)
+    except (TypeError, ValueError):
+        raise LobbyAccessError("not_available") from None
+    if counterpart_id <= 0 or counterpart_id == user.pk:
+        raise LobbyAccessError("not_available")
+
     details = (details or "").strip()[:500]
 
     with transaction.atomic():
+        try:
+            encounter = (
+                ConfirmedEncounter.objects.select_for_update()
+                .filter(
+                    Q(user_low=user, user_high_id=counterpart_id)
+                    | Q(user_high=user, user_low_id=counterpart_id),
+                    status="active",
+                )
+                .get()
+            )
+        except ConfirmedEncounter.DoesNotExist:
+            raise LobbyAccessError("not_available") from None
+
         # Create the removal request
         removal_request = ConfirmedEncounterRemovalRequest.objects.create(
             encounter=encounter,
@@ -925,23 +989,26 @@ def submit_encounter_removal_request(user, encounter_handle, reason, details="")
 def reviewable_removal_requests(user):
     """Return removal requests that the given user can review.
 
-    Coaches see requests for their assigned events; staff see all.
+    Staff see all. Coaches remain denied until requests can be scoped to an
+    assigned member or event; exposing the global queue would disclose private
+    safety details and allow cross-scope moderation.
     """
     from crush_lu.models import ConfirmedEncounterRemovalRequest
 
     if not user.is_authenticated:
         return ConfirmedEncounterRemovalRequest.objects.none()
 
-    # Staff can see all
+    # Coach accounts receive ``is_staff`` for their dedicated admin surfaces,
+    # so plain staff status is not enough to authorize this private global
+    # queue. Superusers retain emergency access; ordinary coach accounts stay
+    # denied until member/event scoping exists.
+    coach = getattr(user, "crushcoach", None)
+    if coach and not user.is_superuser:
+        return ConfirmedEncounterRemovalRequest.objects.none()
+
+    # Support/admin staff can see all.
     if user.is_staff:
         return ConfirmedEncounterRemovalRequest.objects.all()
-
-    # Coaches see requests from events they coach
-    coach = getattr(user, "crushcoach", None)
-    if coach and coach.is_active:
-        # For now, coaches see all pending requests
-        # TODO: Filter by coach's assigned events when that mapping exists
-        return ConfirmedEncounterRemovalRequest.objects.filter(status="pending")
 
     return ConfirmedEncounterRemovalRequest.objects.none()
 
@@ -976,12 +1043,8 @@ def review_encounter_removal_request(actor, request_id, decision, notes):
         encounter = removal_request.encounter
         now = timezone.now()
 
-        # Determine reviewer (coach or staff)
-        coach = getattr(actor, "crushcoach", None)
-        if coach and coach.is_active:
-            removal_request.reviewed_by_coach = coach
-        else:
-            removal_request.reviewed_by_staff = actor
+        # The queue is staff-only until coach scope can be enforced.
+        removal_request.reviewed_by_staff = actor
 
         removal_request.reviewed_at = now
         removal_request.resolution_notes = notes
@@ -1016,7 +1079,6 @@ def get_people_met_profile(user, handle):
 
     Used by the removal request flow to show who is being reported.
     """
-    from crush_lu.models import ConfirmedEncounter
     from crush_lu.views_media import get_profile_photo_url
 
     if not _is_active_connect_member(user):
