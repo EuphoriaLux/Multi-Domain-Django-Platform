@@ -143,7 +143,7 @@ class NotificationService:
 
         # --- Push channel (independent) ---
         try:
-            from .models import IOSAppDevice, PushSubscription
+            from .models import IOSAppDevice, AndroidAppDevice, PushSubscription
             push_filter = {f'notify_{preference_key}': True}
             push_subscriptions = PushSubscription.objects.filter(
                 user=user,
@@ -155,7 +155,12 @@ class NotificationService:
                 enabled=True,
                 **push_filter,
             )
-            if push_subscriptions.exists() or ios_devices.exists():
+            android_devices = AndroidAppDevice.objects.filter(
+                user=user,
+                enabled=True,
+                **push_filter,
+            )
+            if push_subscriptions.exists() or ios_devices.exists() or android_devices.exists():
                 result.push_attempted = True
 
             if push_subscriptions.exists():
@@ -178,6 +183,18 @@ class NotificationService:
                 except Exception as e:
                     logger.error(f"Error sending iOS push to {user.username}: {e}")
                     result.errors.append(f"iOS push error: {e}")
+                    result.push_failed_count += 1
+
+            if android_devices.exists():
+                try:
+                    android_result = NotificationService._send_android_push(
+                        user, notification_type, context, request
+                    )
+                    result.push_success_count += android_result.get('success', 0)
+                    result.push_failed_count += android_result.get('failed', 0)
+                except Exception as e:
+                    logger.error(f"Error sending Android push to {user.username}: {e}")
+                    result.errors.append(f"Android push error: {e}")
                     result.push_failed_count += 1
         except Exception as e:
             logger.error(f"Error checking push subscriptions: {e}")
@@ -453,6 +470,31 @@ class NotificationService:
             return {'success': 0, 'failed': 0, 'total': 0}
 
         return ios_push.send_native_push_notification(
+            user=user,
+            title=payload.get("title", ""),
+            body=payload.get("body", ""),
+            url=payload.get("link_url", "/en/dashboard/"),
+            tag=notification_type.value,
+            preference_key=notification_type.preference_key,
+        ) or {'success': 0, 'failed': 0, 'total': 0}
+
+    @staticmethod
+    def _send_android_push(
+        user,
+        notification_type: NotificationType,
+        context: dict,
+        request: Optional[HttpRequest],
+    ) -> dict:
+        """Send a native FCM notification using the in-app payload renderer."""
+        from . import android_push
+
+        payload = NotificationService._render_inapp_payload(
+            user, notification_type, context, request
+        )
+        if not payload:
+            return {'success': 0, 'failed': 0, 'total': 0}
+
+        return android_push.send_native_android_push_notification(
             user=user,
             title=payload.get("title", ""),
             body=payload.get("body", ""),

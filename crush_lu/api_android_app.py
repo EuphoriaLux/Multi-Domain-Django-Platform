@@ -1,3 +1,5 @@
+import json
+import logging
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from django.conf import settings
@@ -5,9 +7,29 @@ from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from .models import IOSNativeAuthCode
+from .decorators import ratelimit
+from .models import IOSNativeAuthCode, AndroidAppDevice
+
+logger = logging.getLogger(__name__)
+
+PREFERENCE_MAP = {
+    "newMessages": "notify_new_messages",
+    "eventReminders": "notify_event_reminders",
+    "newConnections": "notify_new_connections",
+    "profileUpdates": "notify_profile_updates",
+}
+
+
+def _json_body(request):
+    if not request.body:
+        return {}
+    try:
+        return json.loads(request.body.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return None
 
 
 class AndroidAppRedirect(HttpResponseRedirect):
@@ -100,3 +122,128 @@ def android_auth_complete(request, code):
     login(request, user, backend="django.contrib.auth.backends.ModelBackend")
     request.session["crush_android_app"] = True
     return redirect("/en/dashboard/?source=android_app")
+
+
+@login_required
+@require_http_methods(["GET"])
+def list_android_devices(request):
+    devices = AndroidAppDevice.objects.filter(user=request.user).order_by("-last_seen_at")
+    return JsonResponse(
+        {
+            "success": True,
+            "devices": [
+                {
+                    "id": device.id,
+                    "deviceId": device.device_id,
+                    "appVersion": device.app_version,
+                    "appBuild": device.app_build,
+                    "deviceName": device.device_name,
+                    "systemVersion": device.system_version,
+                    "enabled": device.enabled,
+                    "preferences": {
+                        "newMessages": device.notify_new_messages,
+                        "eventReminders": device.notify_event_reminders,
+                        "newConnections": device.notify_new_connections,
+                        "profileUpdates": device.notify_profile_updates,
+                    },
+                    "lastSeenAt": device.last_seen_at.isoformat(),
+                }
+                for device in devices
+            ],
+        }
+    )
+
+
+@login_required
+@ratelimit(key="user", rate="30/m", method="POST")
+@csrf_exempt
+@require_http_methods(["POST"])
+def register_android_device(request):
+    data = _json_body(request)
+    if data is None:
+        return JsonResponse({"success": False, "error": "Invalid JSON"}, status=400)
+
+    registration_token = str(data.get("registrationToken", "")).strip()
+    if not registration_token or len(registration_token) > 255 or any(c.isspace() for c in registration_token):
+        return JsonResponse(
+            {"success": False, "error": "Invalid registrationToken"},
+            status=400,
+        )
+
+    device, created = AndroidAppDevice.objects.update_or_create(
+        registration_token=registration_token,
+        defaults={
+            "user": request.user,
+            "device_id": str(data.get("deviceId", ""))[:128],
+            "package_name": str(
+                data.get("packageName", getattr(settings, "ANDROID_APP_PACKAGE", "lu.crush.app"))
+            )[:128],
+            "app_version": str(data.get("appVersion", ""))[:32],
+            "app_build": str(data.get("appBuild", ""))[:32],
+            "device_name": str(data.get("deviceName", ""))[:100],
+            "system_version": str(data.get("systemVersion", ""))[:50],
+            "user_agent": request.META.get("HTTP_USER_AGENT", "")[:1000],
+            "enabled": True,
+            "failure_count": 0,
+        },
+    )
+
+    return JsonResponse(
+        {
+            "success": True,
+            "message": "Android device registration created" if created else "Android device registration updated",
+            "deviceId": device.id,
+        }
+    )
+
+
+@login_required
+@ratelimit(key="user", rate="30/m", method="POST")
+@csrf_exempt
+@require_http_methods(["POST", "DELETE"])
+def unregister_android_device(request):
+    data = _json_body(request) if request.body else {}
+    if data is None:
+        return JsonResponse({"success": False, "error": "Invalid JSON"}, status=400)
+
+    devices = AndroidAppDevice.objects.filter(user=request.user)
+    if data.get("registrationToken"):
+        devices = devices.filter(registration_token=str(data["registrationToken"]).strip())
+    elif data.get("deviceId"):
+        devices = devices.filter(device_id=str(data["deviceId"])[:128])
+    else:
+        return JsonResponse(
+            {"success": False, "error": "registrationToken or deviceId required"},
+            status=400,
+        )
+
+    count = devices.update(enabled=False)
+    return JsonResponse({"success": True, "disabled": count})
+
+
+@login_required
+@ratelimit(key="user", rate="30/m", method="POST")
+@csrf_exempt
+@require_http_methods(["POST"])
+def update_android_device_preferences(request):
+    data = _json_body(request)
+    if data is None:
+        return JsonResponse({"success": False, "error": "Invalid JSON"}, status=400)
+
+    preferences = data.get("preferences", data)
+    updates = {
+        model_field: bool(preferences[key])
+        for key, model_field in PREFERENCE_MAP.items()
+        if key in preferences
+    }
+    if not updates:
+        return JsonResponse({"success": False, "error": "No preferences provided"}, status=400)
+
+    devices = AndroidAppDevice.objects.filter(user=request.user)
+    if data.get("registrationToken"):
+        devices = devices.filter(registration_token=str(data["registrationToken"]).strip())
+    elif data.get("deviceId"):
+        devices = devices.filter(device_id=str(data["deviceId"])[:128])
+
+    count = devices.update(**updates)
+    return JsonResponse({"success": True, "updated": count})

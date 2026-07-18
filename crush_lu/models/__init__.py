@@ -22,3 +22,4 @@ from .notifications import *
 from .metrics import *
 from .moderation import *
 from .ios_app import *
+from .android_app import *

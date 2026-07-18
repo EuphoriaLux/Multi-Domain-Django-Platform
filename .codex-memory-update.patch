@@ -1,0 +1,73 @@
+diff --git a/memories/crush-android-play-release.md b/memories/crush-android-play-release.md
+new file mode 100644
+--- /dev/null
++++ b/memories/crush-android-play-release.md
+@@ -0,0 +1,34 @@
++---
++name: crush-android-play-release
++description: Crush.lu Android Play Console release status: v1.0.1 is live to internal testers; Luxembourg open test remains in review
++type: project
++source: codex
++updated: 2026-07-16
++tags: [crush, android, release, roadmap]
++---
++
++Play Console was checked directly on 2026-07-16. Crush.lu package
++`lu.crush.app`, version `1.0.1` (version code `2`), is **available to
++internal testers** at full rollout. The active bundle was uploaded on
++2026-07-06 at 16:14; version `1.0.0` / code `1` is inactive.
++
++The broader **open testing** release is configured for Luxembourg and has
++been **In review** since submission on 2026-07-06 at 18:30. That submission
++also includes production country coverage, the Alpha closed-test setup,
++store listing, app-content declarations, and store settings. Production is
++still inactive; its release remains a draft. Installed audience and install
++base were both 0% when checked. Until review completes, internal testers see
++the temporary name `lu.crush.app (unreviewed)`.
++
++The Alpha closed-test track has Luxembourg selected and an email-list tester
++group named `CrushCoachs`, but the track is inactive. The Play Console account
++reports all apps successfully registered for Android developer verification.
++
++**Why:** Android is one of Tom's active Crush.lu launch tracks, and agents
++must distinguish the successful internal test deployment from the still-
++pending open-test/store review and the inactive production release.
++**How to apply:** treat internal testing as ready for device testing; next
++check the review result, enroll real testers and collect install/auth/upload
++results before preparing production. Keep Android release docs aligned with
++the actual `1.0.1` / code `2`. Related: [[crush-current-focus]],
++[[crush-android-signing]].
+diff --git a/memories/crush-current-focus.md b/memories/crush-current-focus.md
+--- a/memories/crush-current-focus.md
++++ b/memories/crush-current-focus.md
+@@ -3,7 +3,7 @@
+ description: Tom's active priorities for Crush.lu as of 2026-07-05
+ type: project
+ source: claude
+-updated: 2026-07-07
++updated: 2026-07-16
+ tags: [crush, roadmap]
+ ---
+ 
+@@ -11,6 +11,9 @@ As of 2026-07-05, Tom has two active tracks for Crush.lu:
+ 
+-1. **Mobile app-store release** — iOS is ahead; Android CI + signing were
+-   completed 2026-07-06 (PR #596, see [[crush-android-signing]]); a Google
+-   Play child-safety-standards compliance page was added in July 2026.
++1. **Mobile app-store release** — Android CI + signing were completed
++   2026-07-06 (PR #596, see [[crush-android-signing]]). Android v1.0.1/code 2
++   is available to internal testers; the Luxembourg open-test/store
++   submission has remained in Play review since 2026-07-06 (see
++   [[crush-android-play-release]]). A Google Play child-safety-standards
++   compliance page was added in July 2026.
+ 2. **Crush Connect launch** — blocked on access-wiring, weekly-match logic,
+    and payments.
+diff --git a/INDEX.md b/INDEX.md
+--- a/INDEX.md
++++ b/INDEX.md
+@@ -10,4 +10,5 @@
+ ## Crush.lu — product & roadmap
+ 
+ - [Crush.lu current focus](memories/crush-current-focus.md) — two active tracks as of 2026-07-05: mobile app-store release & Crush Connect launch; weekly KPI emails
++- [Crush Android Play release](memories/crush-android-play-release.md) — v1.0.1/code 2 is available internally; Luxembourg open test remains in review; production inactive
+ - [Crush Connect verification](memories/crush-connect-verification.md) — asymmetric receiver vs. candidate rules, LuxID gate, and coach exclusion settings
