@@ -1247,7 +1247,7 @@ class JourneyGiftForm(forms.ModelForm):
             ext = '.' + audio.name.split('.')[-1].lower() if '.' in audio.name else ''
             content_type = getattr(audio, 'content_type', '')
 
-            if ext not in allowed_extensions and content_type not in allowed_content_types:
+            if ext not in allowed_extensions or content_type not in allowed_content_types:
                 raise forms.ValidationError(
                     _("Invalid audio format. Please use MP3, WAV, or M4A files.")
                 )
@@ -1267,7 +1267,7 @@ class JourneyGiftForm(forms.ModelForm):
             ext = '.' + video.name.split('.')[-1].lower() if '.' in video.name else ''
             content_type = getattr(video, 'content_type', '')
 
-            if ext not in allowed_extensions and content_type not in allowed_content_types:
+            if ext not in allowed_extensions or content_type not in allowed_content_types:
                 raise forms.ValidationError(
                     _("Invalid video format. Please use MP4 or MOV files.")
                 )

@@ -352,7 +352,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Accepted risk, tracked in #542. The only mobile-compatible fix is flipping this
 # to False and accepting the interstitial; revisit that trade-off, or a POST-form
 # rebuild of the login flow, if the residual risk is deemed unacceptable.
-SOCIALACCOUNT_LOGIN_ON_GET = True
+SOCIALACCOUNT_LOGIN_ON_GET = False  # Login-CSRF fix (finding S2, issue #542)
 SOCIALACCOUNT_STORE_TOKENS = True
 SOCIALACCOUNT_AUTO_SIGNUP = True
 

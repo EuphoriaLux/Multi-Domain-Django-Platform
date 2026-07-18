@@ -234,6 +234,11 @@ class ConnectIdealMatchForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         _require(self, "preferred_age_min", "preferred_age_max")
+        # Server-side clamp (finding M4 — widget attrs are client-only).
+        for field_name in ("preferred_age_min", "preferred_age_max"):
+            if field_name in self.fields:
+                self.fields[field_name].min_value = 18
+                self.fields[field_name].max_value = 99
 
     def clean_sought_qualities(self):
         return _validate_trait_count(

@@ -106,8 +106,13 @@ def _verify_callback_signature(signed_message):
             inner_message = json.loads(message_data['signedMessage'])
             return inner_message
 
-        # Direct payload format (for testing/development)
-        if 'classId' in message_data or 'objectId' in message_data:
+        # Direct payload format (testing only — reject in production).
+        # TODO: implement full Tink signature verification (finding M12).
+        # Until then, reject unsigned payloads when DEBUG is False.
+        from django.conf import settings
+        if getattr(settings, 'DEBUG', False) and (
+            'classId' in message_data or 'objectId' in message_data
+        ):
             return message_data
 
         logger.warning("Unknown callback message format")

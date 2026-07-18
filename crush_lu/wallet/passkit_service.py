@@ -1,3 +1,4 @@
+import secrets
 import importlib
 import json
 import logging
@@ -79,7 +80,7 @@ def _is_authorized(request, expected_token):
     if not auth_header.startswith("ApplePass "):
         return False
     token = auth_header.split(" ", 1)[1].strip()
-    return token and token == expected_token
+    return bool(token) and secrets.compare_digest(token, expected_token)
 
 
 def _require_authorization(request, pass_type_identifier, serial_number):
