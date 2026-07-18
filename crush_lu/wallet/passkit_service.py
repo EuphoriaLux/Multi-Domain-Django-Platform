@@ -80,7 +80,15 @@ def _is_authorized(request, expected_token):
     if not auth_header.startswith("ApplePass "):
         return False
     token = auth_header.split(" ", 1)[1].strip()
-    return bool(token) and secrets.compare_digest(token, expected_token)
+    # compare_digest raises TypeError on non-ASCII — catch it so malformed
+    # auth headers get a clean 401 instead of a 500 (Codex P2).
+    try:
+        return bool(token) and secrets.compare_digest(
+            token.encode("ascii", "ignore"),
+            expected_token.encode("ascii", "ignore"),
+        )
+    except (TypeError, AttributeError):
+        return False
 
 
 def _require_authorization(request, pass_type_identifier, serial_number):

@@ -1237,7 +1237,7 @@ class JourneyGiftForm(forms.ModelForm):
             if audio.size > 10 * 1024 * 1024:
                 raise forms.ValidationError(_("Audio file size must be less than 10 MB."))
 
-            # Validate file type by extension and content type
+            # Validate file type by extension, content type, AND magic bytes
             allowed_extensions = ['.mp3', '.wav', '.m4a', '.aac']
             allowed_content_types = [
                 'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav',
@@ -1247,7 +1247,16 @@ class JourneyGiftForm(forms.ModelForm):
             ext = '.' + audio.name.split('.')[-1].lower() if '.' in audio.name else ''
             content_type = getattr(audio, 'content_type', '')
 
-            if ext not in allowed_extensions or content_type not in allowed_content_types:
+            # Server-side MIME sniff (Codex P2: filename + content-type are
+            # client-controlled; verify actual file contents).
+            import magic
+            file_header = audio.read(2048)
+            audio.seek(0)
+            sniffed_mime = magic.from_buffer(file_header, mime=True)
+
+            if (ext not in allowed_extensions
+                or content_type not in allowed_content_types
+                or sniffed_mime not in allowed_content_types):
                 raise forms.ValidationError(
                     _("Invalid audio format. Please use MP3, WAV, or M4A files.")
                 )
@@ -1260,14 +1269,22 @@ class JourneyGiftForm(forms.ModelForm):
             if video.size > 50 * 1024 * 1024:
                 raise forms.ValidationError(_("Video file size must be less than 50 MB."))
 
-            # Validate file type by extension and content type
+            # Validate file type by extension, content type, AND magic bytes
             allowed_extensions = ['.mp4', '.mov', '.m4v']
             allowed_content_types = ['video/mp4', 'video/quicktime', 'video/x-m4v']
 
             ext = '.' + video.name.split('.')[-1].lower() if '.' in video.name else ''
             content_type = getattr(video, 'content_type', '')
 
-            if ext not in allowed_extensions or content_type not in allowed_content_types:
+            # Server-side MIME sniff (Codex P2).
+            import magic
+            file_header = video.read(2048)
+            video.seek(0)
+            sniffed_mime = magic.from_buffer(file_header, mime=True)
+
+            if (ext not in allowed_extensions
+                or content_type not in allowed_content_types
+                or sniffed_mime not in allowed_content_types):
                 raise forms.ValidationError(
                     _("Invalid video format. Please use MP4 or MOV files.")
                 )
