@@ -22,12 +22,13 @@ Remember the flags: CRUSH_EVENT_LOBBY_ENABLED=true and CRUSH_CONNECT_LAUNCHED
 """
 
 import io
+import os
 from datetime import date, timedelta
 
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 DEMO_PREFIX = "lobby_"
@@ -65,6 +66,17 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        # Dev-only guard: this command creates verified, Connect-onboarded
+        # accounts with a shared default password. WEBSITE_HOSTNAME is set on
+        # every Azure App Service slot (it is how manage.py selects production
+        # settings), so refuse to run there — including Kudu SSH shells.
+        if os.environ.get("WEBSITE_HOSTNAME"):
+            raise CommandError(
+                "seed_event_lobby_demo is a local-dev tool and refuses to run "
+                "on Azure (WEBSITE_HOSTNAME is set): it would create demo "
+                "accounts with a publicly documented password."
+            )
+
         from crush_lu.models import (
             CrushConnectMembership,
             CrushProfile,

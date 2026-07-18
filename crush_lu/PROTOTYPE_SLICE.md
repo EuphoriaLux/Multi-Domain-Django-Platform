@@ -1,4 +1,9 @@
-# Prototype slice — Crush Connect Event Lobby (agent: claude-q4b3)
+# Crush Connect Event Lobby — integrated implementation notes
+
+> Originally the claude-q4b3 bake-off prototype; now the integrated feature
+> branch (PR #637) combining the best of the three agent entries: this base,
+> the codex removal-review workflow, and a token-compliant rebuild of the
+> gemini visual design.
 
 Spec: docs/superpowers/specs/2026-07-17-crush-connect-event-lobby-design.md
 
@@ -22,9 +27,15 @@ full-profile view (§7.8), live-mutual highlighting, and the "You've already
 met" non-actionable tiles are now implemented with models, endpoints, UI, and
 tests.
 
+**Removal review added (§9.5, ported from PR #633):** members privately
+request removal of a confirmed encounter (immediate two-sided hiding); a
+staff-only queue resolves it to approved / kept hidden / restored. The queue
+stays staff-only until requests can be scoped to an assigned coach.
+
 **Still deliberately stubbed** (marked `# PROTOTYPE-STUB:` in code):
-coach-reviewed encounter removal (`ConfirmedEncounterRemovalRequest` §9.5),
 versioned lobby photo-consent (reuses `photo_share_consent`), persisted
 recap/24h-reminder in-app notifications (§12), the 30-day retention cleanup
-task (§13), and analytics (§15). Recap realtime rides the polling fallback
+task (§13), WebSocket force-disconnect on mid-session eligibility loss
+(§11.1 — HTTP re-authorizes every fetch meanwhile), the coach-scoped review
+queue (§9.5), and analytics (§15). Recap realtime rides the polling fallback
 (the member WebSocket closes at event end per §7.6).

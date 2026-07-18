@@ -282,9 +282,12 @@ def lobby_state_api(request, event_id):
             "mutuals": [],
         }
     else:
+        # §13/§18: once the recap closes (or the event is cancelled) the
+        # feature stops answering — expired quotas and anonymous counters
+        # must not stay visible to ex-participants.
         payload = {
             "ok": True,
-            "state": lobby_state(request.user, event, now),
+            "state": {"phase": phase},
             "roster": [],
             "mutuals": [],
         }

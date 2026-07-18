@@ -5,10 +5,9 @@
 {% block mobile_page_title %}{% trans "Event Lobby" %}{% endblock %}
 
 {% comment %}
-PROTOTYPE-STUB: after the live phase the spec continues with the 48-hour
-"Who was there" recap grid, meeting confirmations, and People I've Met
-(§7.7–§7.8). Those surfaces are outside this prototype slice, so recap and
-closed both render this phase notice instead.
+Shown when the lobby is closed, or during the 48-hour recap to a member who
+never joined before the exact event end (§5.3 — recap access requires a
+frozen live participation; participants get recap.html instead).
 {% endcomment %}
 
 {% block content %}
@@ -19,15 +18,9 @@ closed both render this phase notice instead.
             <h1 class="font-display text-xl font-semibold text-gray-900 dark:text-white mb-2">
                 {% trans "The live lobby has ended" %}
             </h1>
-            {% if phase == "recap" %}
-            <p class="text-sm leading-relaxed text-gray-600 dark:text-gray-300 mb-0">
-                {% trans "Who did you meet? The 48-hour recap is coming to this page soon." %}
-            </p>
-            {% else %}
             <p class="text-sm leading-relaxed text-gray-600 dark:text-gray-300 mb-0">
                 {% trans "This event's lobby is closed." %}
             </p>
-            {% endif %}
         </div>
     </div>
 </div>

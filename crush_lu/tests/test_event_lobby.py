@@ -837,6 +837,28 @@ class TestStateApi:
         assert "seconds_to_end" not in payload["state"]
         assert len(payload["roster"]) == 1
 
+    def test_closed_phase_returns_phase_only(self, client):
+        """§13/§18: once the recap closes the API answers with the phase and
+        nothing else — expired quotas and the anonymous incoming counter must
+        not stay visible to ex-participants."""
+        event = _make_event()
+        alice = _make_member("alice")
+        ben = _make_member("ben", gender="M")
+        _join(alice, event)
+        _join(ben, event)
+        # Give alice a non-zero incoming counter while the lobby is live so
+        # the closed-phase payload provably drops it.
+        lobby.send_meet_signal(ben, event, _handle_of(alice, event))
+        _end_event(event, hours_ago=49)
+        _login(client, alice)
+        response = client.get(_state_url(event))
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["ok"] is True
+        assert payload["state"] == {"phase": "closed"}
+        assert payload["roster"] == []
+        assert payload["mutuals"] == []
+
 
 class TestSignalApi:
     def _post(self, client, event, body):
@@ -1139,3 +1161,21 @@ class TestEventLobbyConsumer:
         _join(alice, event)
         settings.CRUSH_EVENT_LOBBY_ENABLED = False
         assert self._can_join(event, alice) is False
+
+
+# ---------------------------------------------------------------------------
+# seed_event_lobby_demo guard
+# ---------------------------------------------------------------------------
+
+
+class TestSeedCommandGuard:
+    def test_refuses_to_run_on_azure(self, monkeypatch):
+        """The demo seeder creates verified accounts with a shared default
+        password — it must refuse to run anywhere WEBSITE_HOSTNAME is set
+        (every Azure App Service slot, including Kudu SSH shells)."""
+        from django.core.management import call_command
+        from django.core.management.base import CommandError
+
+        monkeypatch.setenv("WEBSITE_HOSTNAME", "crush-lu-app.azurewebsites.net")
+        with pytest.raises(CommandError, match="refuses to run"):
+            call_command("seed_event_lobby_demo")

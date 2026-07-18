@@ -25,10 +25,12 @@ Recap phase (§9.3–§9.4):
   created only from reciprocal confirmations for the same event and never
   reordered or updated by later shared events.
 
-# PROTOTYPE-STUB: `ConfirmedEncounterRemovalRequest` (§9.5) and the
-# Coach/Support removal-review queue are still outside the prototype;
-# `ConfirmedEncounter.status` already models the hidden/removed states the
-# workflow will drive.
+Removal review (§9.5): ``ConfirmedEncounterRemovalRequest`` (ported from the
+codex bake-off entry) records a member's private removal request. Submitting
+immediately hides the encounter for both parties (``removal_pending``); a
+staff reviewer resolves it to approved (permanently ``removed``), kept
+hidden, or restored. The queue is deliberately staff-only until requests can
+be scoped to an assigned coach — see ``services.event_lobby``.
 """
 
 import uuid
