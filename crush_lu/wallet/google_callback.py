@@ -101,17 +101,21 @@ def _verify_callback_signature(signed_message):
 
         # Check for required fields in Google's signed message format
         # The actual payload is in 'signedMessage' which contains the callback data.
-        # Codex P2: without signature verification the envelope is trivially forgeable —
-        # any POST with {"signedMessage": "..."} bypasses auth. Reject in production
+        # Codex P2: without real signature verification the envelope is trivially
+        # forgeable — any POST with {"signedMessage": "...", "signature": "x",
+        # "intermediateSigningKey": "y"} bypasses auth. Reject in production
         # until full Tink signature verification is implemented.
         from django.conf import settings
         if 'signedMessage' in message_data:
             if not getattr(settings, 'DEBUG', False):
-                # Production: require signature + intermediateSigningKey
-                if not message_data.get('signature') or not message_data.get('intermediateSigningKey'):
-                    logger.warning("Google Wallet callback missing signature — rejected")
-                    return None
-            # TODO: verify signature against Google's keys via Tink (finding M12)
+                # Production: reject all envelope callbacks until Tink verification
+                # is implemented. Presence of signature fields is not proof of
+                # authenticity — an attacker can supply any non-empty values.
+                logger.warning(
+                    "Google Wallet signed callback rejected — Tink verification not yet implemented"
+                )
+                return None
+            # DEBUG only: parse envelope for local testing
             inner_message = json.loads(message_data['signedMessage'])
             return inner_message
 

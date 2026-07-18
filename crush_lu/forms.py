@@ -1249,10 +1249,19 @@ class JourneyGiftForm(forms.ModelForm):
 
             # Server-side MIME sniff (Codex P2: filename + content-type are
             # client-controlled; verify actual file contents).
-            import magic
-            file_header = audio.read(2048)
-            audio.seek(0)
-            sniffed_mime = magic.from_buffer(file_header, mime=True)
+            # Handle missing libmagic gracefully — fall back to extension+content-type
+            # validation only rather than 500 on upload.
+            try:
+                import magic
+                file_header = audio.read(2048)
+                audio.seek(0)
+                sniffed_mime = magic.from_buffer(file_header, mime=True)
+            except ImportError:
+                # libmagic not installed — fall back to extension+content-type only
+                sniffed_mime = content_type
+            except Exception:
+                # magic detection failed — fall back to content-type
+                sniffed_mime = content_type
 
             if (ext not in allowed_extensions
                 or content_type not in allowed_content_types
@@ -1277,10 +1286,19 @@ class JourneyGiftForm(forms.ModelForm):
             content_type = getattr(video, 'content_type', '')
 
             # Server-side MIME sniff (Codex P2).
-            import magic
-            file_header = video.read(2048)
-            video.seek(0)
-            sniffed_mime = magic.from_buffer(file_header, mime=True)
+            # Handle missing libmagic gracefully — fall back to extension+content-type
+            # validation only rather than 500 on upload.
+            try:
+                import magic
+                file_header = video.read(2048)
+                video.seek(0)
+                sniffed_mime = magic.from_buffer(file_header, mime=True)
+            except ImportError:
+                # libmagic not installed — fall back to extension+content-type only
+                sniffed_mime = content_type
+            except Exception:
+                # magic detection failed — fall back to content-type
+                sniffed_mime = content_type
 
             if (ext not in allowed_extensions
                 or content_type not in allowed_content_types
