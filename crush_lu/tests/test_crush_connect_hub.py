@@ -11,7 +11,7 @@ from django.urls import reverse
 
 pytestmark = pytest.mark.urls("azureproject.urls_crush")
 
-from crush_lu.models import CrushConnectMembership, CuriositySpark  # noqa: E402
+from crush_lu.models import CuriositySpark  # noqa: E402
 from crush_lu.tests.test_crush_connect import (  # noqa: E402
     _login_eligible,
     _make_user,
@@ -104,6 +104,21 @@ def test_onboarded_candidate_sees_catalogue_card(client, settings):
     assert resp.context["is_receiver"] is False
     # Candidate hero links to the catalogue status, not Today's Drop.
     assert reverse("crush_lu:crush_connect_catalogue_status") in resp.content.decode()
+
+
+@pytest.mark.django_db
+def test_people_ive_met_link_hidden_when_event_lobby_rollout_is_off(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    settings.CRUSH_EVENT_LOBBY_ENABLED = False
+    me = _make_user(username="me", onboarded=True, premium=True)
+    _login_eligible(client, me)
+
+    resp = client.get(HUB_URL)
+
+    assert resp.status_code == 200
+    assert resp.context["event_lobby_enabled"] is False
+    assert resp.context["people_ive_met_count"] == 0
+    assert reverse("crush_lu:event_lobby_people") not in resp.content.decode()
 
 
 @pytest.mark.django_db

@@ -128,6 +128,7 @@
         </a>
 
         {# People I've Met — permanent hub section (§7.8). #}
+        {% if event_lobby_enabled %}
         <a href="{% url 'crush_lu:event_lobby_people' %}"
            class="col-span-2 flex items-center gap-3 rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
             <div class="relative w-11 h-11 rounded-xl bg-crush-purple/10 flex items-center justify-center shrink-0">
@@ -140,6 +141,7 @@
             </div>
             {% include "shared/icons/chevron-right.html" with class="w-5 h-5 text-gray-400 shrink-0" %}
         </a>
+        {% endif %}
 
         {# Coach curation hub. #}
         {% if is_coach %}

@@ -392,22 +392,38 @@ def crush_connect_onboarding_step(request, step: int):
                 # onboarding before the scheduled event end joins the lobby
                 # immediately (spec §5.3/§10.2). Best-effort — never let the
                 # lobby break onboarding completion.
+                joined_participations = []
                 try:
                     from crush_lu.services.event_lobby import (
                         handle_onboarding_completed,
                     )
-                    from crush_lu.views_event_lobby import (
-                        broadcast_participant_joined,
-                    )
 
-                    for participation in handle_onboarding_completed(request.user):
-                        broadcast_participant_joined(
-                            participation.event_id, onboarded=True
-                        )
+                    joined_participations = handle_onboarding_completed(request.user)
                 except Exception:
                     logger.exception(
                         "Event lobby onboarding-join failed for user %s",
                         request.user.pk,
+                    )
+                for participation in joined_participations:
+                    try:
+                        from crush_lu.views_event_lobby import (
+                            broadcast_participant_joined,
+                        )
+
+                        broadcast_participant_joined(
+                            participation.event_id, onboarded=True
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Event lobby onboarding broadcast failed for user %s "
+                            "and event %s",
+                            request.user.pk,
+                            participation.event_id,
+                        )
+                if joined_participations:
+                    return redirect(
+                        "crush_lu:event_lobby",
+                        event_id=joined_participations[0].event_id,
                     )
                 return redirect(done_url)
 
@@ -748,9 +764,11 @@ def crush_connect_hub(request):
     from crush_lu.services.event_lobby import (
         get_active_live_lobby,
         get_people_ive_met,
+        lobby_feature_enabled,
     )
 
-    people_ive_met_count = len(get_people_ive_met(user))
+    event_lobby_enabled = lobby_feature_enabled()
+    people_ive_met_count = len(get_people_ive_met(user)) if event_lobby_enabled else 0
 
     context = {
         "membership": membership,
@@ -760,7 +778,8 @@ def crush_connect_hub(request):
         "pending_sparks_count": pending_sparks_count,
         "coach_pick": coach_pick,
         "next_drop_at": _next_drop_at(),
-        "active_lobby": get_active_live_lobby(user),
+        "active_lobby": get_active_live_lobby(user) if event_lobby_enabled else None,
+        "event_lobby_enabled": event_lobby_enabled,
         "people_ive_met_count": people_ive_met_count,
     }
     return render(request, "crush_lu/crush_connect/hub.html", context)
