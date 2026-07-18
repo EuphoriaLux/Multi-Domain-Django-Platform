@@ -276,7 +276,7 @@ def get_roster(viewer, event) -> list[dict]:
     """
     from crush_lu.models import EventMeetSignal
 
-    blocked = blocked_user_ids(viewer)
+    unavailable = blocked_user_ids(viewer) | hidden_encounter_user_ids(viewer)
     mutual_ids = _mutual_user_ids(viewer, event)
     # §7.3 step 2 / §2: pairs already in People I've Met stay visible but are
     # non-actionable ("You've already met") and can never consume a signal.
@@ -291,7 +291,7 @@ def get_roster(viewer, event) -> list[dict]:
     roster = []
     qs = eligible_participations(event).exclude(user=viewer).order_by("-joined_at")
     for participation in qs:
-        if participation.user_id in blocked:
+        if participation.user_id in unavailable:
             continue
         entry = {
             "handle": participation.handle,
@@ -313,7 +313,7 @@ def get_mutuals(viewer, event) -> list[dict]:
     for this event, newest first, excluding blocked pairs."""
     from crush_lu.models import EventMeetSignal
 
-    blocked = blocked_user_ids(viewer)
+    unavailable = blocked_user_ids(viewer) | hidden_encounter_user_ids(viewer)
     participations_by_user = {
         p.user_id: p for p in eligible_participations(event).exclude(user=viewer)
     }
@@ -326,7 +326,7 @@ def get_mutuals(viewer, event) -> list[dict]:
         .order_by("-mutual_revealed_at")
     )
     for signal in signal_qs:
-        if signal.recipient_id in blocked:
+        if signal.recipient_id in unavailable:
             continue
         participation = participations_by_user.get(signal.recipient_id)
         if participation is None:
@@ -357,7 +357,7 @@ def incoming_signal_count(user, event) -> int:
     anonymous — they surface as reveals instead."""
     from crush_lu.models import EventMeetSignal
 
-    blocked = blocked_user_ids(user)
+    unavailable = blocked_user_ids(user) | hidden_encounter_user_ids(user)
     eligible_sender_ids = eligible_participations(event).values("user_id")
     qs = EventMeetSignal.objects.filter(
         event=event,
@@ -365,8 +365,8 @@ def incoming_signal_count(user, event) -> int:
         mutual_revealed_at__isnull=True,
         sender_id__in=eligible_sender_ids,
     )
-    if blocked:
-        qs = qs.exclude(sender_id__in=blocked)
+    if unavailable:
+        qs = qs.exclude(sender_id__in=unavailable)
     return qs.count()
 
 
@@ -439,7 +439,11 @@ def send_meet_signal(sender, event, target_handle, now=None) -> dict:
         .exclude(user=sender)
         .first()
     )
-    if target is None or is_blocked_pair(sender, target.user):
+    if (
+        target is None
+        or is_blocked_pair(sender, target.user)
+        or target.user_id in hidden_encounter_user_ids(sender)
+    ):
         return {"result": "unknown_participant"}
     recipient = target.user
 
@@ -539,7 +543,7 @@ def send_meet_signal(sender, event, target_handle, now=None) -> dict:
 
 
 def get_active_live_lobby(user, now=None):
-    """The user's participation in a currently-live lobby, for the hub card.
+    """The user's participation in a live or recap lobby, for the hub card.
 
     The attended registration is authoritative.  Re-evaluating it here makes
     the hub entry point self-healing when the check-in hook failed or the
@@ -566,14 +570,26 @@ def get_active_live_lobby(user, now=None):
         .order_by("-event__date_time")
     )
     for registration in candidates:
-        if event_lobby_phase(registration.event, now) != PHASE_LIVE:
+        phase = event_lobby_phase(registration.event, now)
+        if phase not in (PHASE_LIVE, PHASE_RECAP):
             continue
-        participation, _created = evaluate_participation(
-            registration,
-            source="checkin",
-            now=now,
-        )
+        if phase == PHASE_LIVE:
+            participation, _created = evaluate_participation(
+                registration,
+                source="checkin",
+                now=now,
+            )
+        else:
+            # Recap membership is frozen at the scheduled end. Never create a
+            # late participation, but keep the existing participant's route
+            # back to the 48-hour confirmation grid visible from the hub.
+            participation = (
+                registration.lobby_participation
+                if hasattr(registration, "lobby_participation")
+                else None
+            )
         if participation is not None:
+            participation.lobby_phase = phase
             return participation
     return None
 
@@ -625,6 +641,25 @@ def _encounter_user_ids(viewer) -> set[int]:
     return ids
 
 
+def hidden_encounter_user_ids(viewer) -> set[int]:
+    """Counterparts hidden by a pending or approved removal request.
+
+    These pairs stay mutually invisible in later lobbies as well as People
+    I've Met. Treating their handles like unknown participants prevents stale
+    URLs or handles from revealing whether a safety removal exists.
+    """
+    from crush_lu.models import ConfirmedEncounter
+
+    ids = set()
+    pairs = ConfirmedEncounter.objects.filter(
+        Q(user_low=viewer) | Q(user_high=viewer),
+        status__in=("removal_pending", "removed"),
+    ).values_list("user_low_id", "user_high_id")
+    for low_id, high_id in pairs:
+        ids.add(high_id if low_id == viewer.pk else low_id)
+    return ids
+
+
 def incoming_confirmation_count(user, event) -> int:
     """The recap's exact anonymous counter (§7.7): incoming "we met"
     confirmations from still-eligible, non-blocked senders the viewer has NOT
@@ -632,7 +667,7 @@ def incoming_confirmation_count(user, event) -> int:
     encounter, so it leaves the anonymous count — mirrors the live counter)."""
     from crush_lu.models import EventMeetingConfirmation
 
-    blocked = blocked_user_ids(user)
+    unavailable = blocked_user_ids(user) | hidden_encounter_user_ids(user)
     eligible_sender_ids = eligible_participations(event).values("user_id")
     reciprocated = EventMeetingConfirmation.objects.filter(
         event=event, confirmer=user
@@ -640,8 +675,8 @@ def incoming_confirmation_count(user, event) -> int:
     qs = EventMeetingConfirmation.objects.filter(
         event=event, other_user=user, confirmer_id__in=eligible_sender_ids
     ).exclude(confirmer_id__in=reciprocated)
-    if blocked:
-        qs = qs.exclude(confirmer_id__in=blocked)
+    if unavailable:
+        qs = qs.exclude(confirmer_id__in=unavailable)
     return qs.count()
 
 
@@ -653,7 +688,7 @@ def get_recap_roster(viewer, event) -> list[dict]:
     met" tiles."""
     from crush_lu.models import EventMeetingConfirmation
 
-    blocked = blocked_user_ids(viewer)
+    unavailable = blocked_user_ids(viewer) | hidden_encounter_user_ids(viewer)
     live_mutual_ids = _mutual_user_ids(viewer, event)
     encounter_ids = _encounter_user_ids(viewer)
     confirmed_ids = set(
@@ -664,7 +699,7 @@ def get_recap_roster(viewer, event) -> list[dict]:
     entries = []
     qs = eligible_participations(event).exclude(user=viewer).order_by("-joined_at")
     for participation in qs:
-        if participation.user_id in blocked:
+        if participation.user_id in unavailable:
             continue
         is_live_mutual = participation.user_id in live_mutual_ids
         already_met = participation.user_id in encounter_ids
@@ -763,7 +798,11 @@ def confirm_meeting(confirmer, event, target_handle, now=None) -> dict:
         .exclude(user=confirmer)
         .first()
     )
-    if target is None or is_blocked_pair(confirmer, target.user):
+    if (
+        target is None
+        or is_blocked_pair(confirmer, target.user)
+        or target.user_id in hidden_encounter_user_ids(confirmer)
+    ):
         return {"result": "unknown_participant"}
     other = target.user
 

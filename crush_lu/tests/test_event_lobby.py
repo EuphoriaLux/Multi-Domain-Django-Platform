@@ -25,6 +25,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from crush_lu.models import (
+    ConfirmedEncounter,
     CrushConnectMembership,
     CrushProfile,
     EventLobbyParticipation,
@@ -977,6 +978,29 @@ class TestLobbyPhoto:
         response = client.get(self._photo_url(event, _handle_of(ben, event)))
         assert response.status_code == 404
 
+    @pytest.mark.parametrize("status", ["removal_pending", "removed"])
+    def test_hidden_encounter_pair_photo_denied(
+        self, client, settings, tmp_path, status
+    ):
+        event = _make_event()
+        alice = _make_member("alice")
+        ben = _make_member("ben", gender="M")
+        low, high = ConfirmedEncounter.canonical_pair(alice, ben)
+        ConfirmedEncounter.objects.create(
+            user_low=low,
+            user_high=high,
+            status=status,
+        )
+        self._give_real_photo(ben, settings, tmp_path)
+        _join(alice, event)
+        _join(ben, event)
+        handle = _handle_of(ben, event)
+        _login(client, alice)
+
+        response = client.get(self._photo_url(event, handle))
+
+        assert response.status_code == 404
+
     def test_closed_phase_denies_photos(self, client, settings, tmp_path):
         event = _make_event()
         alice = _make_member("alice")
@@ -1016,11 +1040,27 @@ class TestHubCard:
         assert response.context["active_lobby"] == participation
         assert "Event Lobby is live" in response.content.decode()
 
-    def test_no_card_without_live_participation(self, client):
+    def test_recap_card_keeps_confirmation_grid_reachable(self, client):
+        event = _make_event()
+        alice = _make_member("alice")
+        participation = _join(alice, event)
+        _end_event(event)
+        _login(client, alice)
+
+        response = client.get(reverse("crush_lu:crush_connect_hub"))
+
+        assert response.status_code == 200
+        assert response.context["active_lobby"] == participation
+        assert response.context["active_lobby"].lobby_phase == "recap"
+        html = response.content.decode()
+        assert "Event recap is ready" in html
+        assert reverse("crush_lu:event_lobby", args=[event.pk]) in html
+
+    def test_no_card_after_recap_closes(self, client):
         event = _make_event()
         alice = _make_member("alice")
         _join(alice, event)
-        _end_event(event)
+        _end_event(event, hours_ago=49)
         _login(client, alice)
         response = client.get(reverse("crush_lu:crush_connect_hub"))
         assert response.status_code == 200

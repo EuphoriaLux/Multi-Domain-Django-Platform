@@ -154,16 +154,18 @@ class TestConfirmations:
         assert ConfirmedEncounter.objects.count() == 1
 
     @pytest.mark.parametrize("status", ["removal_pending", "removed"])
-    def test_reciprocal_confirmation_never_announces_hidden_encounter(self, status):
+    def test_hidden_encounter_cannot_be_reconfirmed_or_announced(self, status):
         event, (alice, ben), h = self._recap_with("alice", "ben")
         encounter = _make_encounter(alice, ben, event)
         encounter.status = status
         encounter.save(update_fields=["status"])
 
-        assert lobby.confirm_meeting(alice, event, h["ben"])["result"] == "confirmed"
-        result = lobby.confirm_meeting(ben, event, h["alice"])
+        first = lobby.confirm_meeting(alice, event, h["ben"])
+        second = lobby.confirm_meeting(ben, event, h["alice"])
 
-        assert result == {"result": "encounter_hidden"}
+        assert first == {"result": "unknown_participant"}
+        assert second == {"result": "unknown_participant"}
+        assert EventMeetingConfirmation.objects.count() == 0
         encounter.refresh_from_db()
         assert encounter.status == status
         assert lobby.get_people_ive_met(alice) == []
@@ -464,6 +466,64 @@ class TestEncounterRemovalReview:
         assert encounter.status == "active"
 
 
+class TestEventLobbyAdmin:
+    def test_confirmed_encounter_is_fully_read_only(self):
+        from django.contrib.admin.sites import AdminSite
+        from django.test import RequestFactory
+
+        from crush_lu.admin.event_lobby import ConfirmedEncounterAdmin
+
+        staff = _make_member("support")
+        staff.is_staff = True
+        staff.save(update_fields=["is_staff"])
+        request = RequestFactory().get("/")
+        request.user = staff
+        model_admin = ConfirmedEncounterAdmin(ConfirmedEncounter, AdminSite())
+
+        assert "status" in model_admin.get_readonly_fields(request)
+        assert model_admin.has_change_permission(request) is False
+
+    def test_removal_request_queue_is_registered_and_action_is_audited(self, mocker):
+        from django.contrib.admin.sites import AdminSite
+        from django.test import RequestFactory
+
+        from crush_lu.admin import crush_admin_site
+        from crush_lu.admin.event_lobby import ConfirmedEncounterRemovalRequestAdmin
+
+        alice = _make_member("alice")
+        ben = _make_member("ben", gender="M")
+        encounter = _make_encounter(alice, ben)
+        removal = lobby.submit_encounter_removal_request(
+            alice,
+            str(ben.pk),
+            ConfirmedEncounterRemovalRequest.REASON_SAFETY,
+        )
+        staff = _make_member("support")
+        staff.is_staff = True
+        staff.save(update_fields=["is_staff"])
+        request = RequestFactory().post("/")
+        request.user = staff
+        model_admin = ConfirmedEncounterRemovalRequestAdmin(
+            ConfirmedEncounterRemovalRequest,
+            AdminSite(),
+        )
+        mocker.patch.object(model_admin, "message_user")
+
+        assert isinstance(
+            crush_admin_site._registry[ConfirmedEncounterRemovalRequest],
+            ConfirmedEncounterRemovalRequestAdmin,
+        )
+        queryset = model_admin.get_queryset(request).filter(pk=removal.pk)
+        model_admin.approve_removals(request, queryset)
+
+        removal.refresh_from_db()
+        encounter.refresh_from_db()
+        assert removal.status == "approved"
+        assert removal.reviewed_by_staff_id == staff.pk
+        assert "via Crush admin" in removal.resolution_notes
+        assert encounter.status == "removed"
+
+
 # ---------------------------------------------------------------------------
 # HTTP surface (§11, §13)
 # ---------------------------------------------------------------------------
@@ -644,3 +704,28 @@ class TestAlreadyMetInLiveGrid:
         assert result["result"] == "already_met"
         assert result["signals_remaining"] == 3
         assert EventMeetSignal.objects.count() == 0
+
+    @pytest.mark.parametrize("status", ["removal_pending", "removed"])
+    def test_hidden_encounter_pair_stays_invisible_in_later_event(self, status):
+        alice = _make_member("alice")
+        ben = _make_member("ben", gender="M")
+        encounter = _make_encounter(alice, ben)
+        encounter.status = status
+        encounter.hidden_at = timezone.now()
+        encounter.save(update_fields=["status", "hidden_at"])
+        event = _recap_event()
+        _join(alice, event)
+        _join(ben, event)
+        ben_handle = _handle_of(ben, event)
+
+        assert lobby.get_roster(alice, event) == []
+        assert lobby.get_roster(ben, event) == []
+        assert lobby.send_meet_signal(alice, event, ben_handle) == {
+            "result": "unknown_participant"
+        }
+
+        _to_recap(event)
+        assert lobby.get_recap_roster(alice, event) == []
+        assert lobby.confirm_meeting(alice, event, ben_handle) == {
+            "result": "unknown_participant"
+        }

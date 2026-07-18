@@ -38,6 +38,7 @@ from .services.event_lobby import (
     get_recap_roster,
     get_roster,
     handle_checkin,
+    hidden_encounter_user_ids,
     incoming_confirmation_count,
     incoming_signal_count,
     lobby_feature_enabled,
@@ -61,9 +62,7 @@ def _group_send(group, msg_type, data):
     if not channel_layer:
         return
     try:
-        async_to_sync(channel_layer.group_send)(
-            group, {"type": msg_type, "data": data}
-        )
+        async_to_sync(channel_layer.group_send)(group, {"type": msg_type, "data": data})
     except Exception:
         logger.exception("Failed to broadcast %s to %s", msg_type, group)
 
@@ -382,8 +381,9 @@ def lobby_photo(request, event_id, handle):
         raise Http404("Photo not found")
     from .services.blocking import is_blocked_pair
 
-    if target.user_id != request.user.pk and is_blocked_pair(
-        request.user, target.user
+    if target.user_id != request.user.pk and (
+        is_blocked_pair(request.user, target.user)
+        or target.user_id in hidden_encounter_user_ids(request.user)
     ):
         # Indistinguishable from an unknown handle — blocks aren't probeable.
         raise Http404("Photo not found")

@@ -203,6 +203,7 @@ from .moderation import UserReportAdmin, UserBlockAdmin
 
 from .event_lobby import (
     ConfirmedEncounterAdmin,
+    ConfirmedEncounterRemovalRequestAdmin,
     EventLobbyParticipationAdmin,
     EventMeetingConfirmationAdmin,
     EventMeetSignalAdmin,
@@ -330,6 +331,7 @@ from crush_lu.models import (
     EventMeetSignal,
     EventMeetingConfirmation,
     ConfirmedEncounter,
+    ConfirmedEncounterRemovalRequest,
 )
 
 
@@ -466,6 +468,10 @@ crush_admin_site.register(EventLobbyParticipation, EventLobbyParticipationAdmin)
 crush_admin_site.register(EventMeetSignal, EventMeetSignalAdmin)
 crush_admin_site.register(EventMeetingConfirmation, EventMeetingConfirmationAdmin)
 crush_admin_site.register(ConfirmedEncounter, ConfirmedEncounterAdmin)
+crush_admin_site.register(
+    ConfirmedEncounterRemovalRequest,
+    ConfirmedEncounterRemovalRequestAdmin,
+)
 
 # Matching System
 crush_admin_site.register(Trait, TraitAdmin)
