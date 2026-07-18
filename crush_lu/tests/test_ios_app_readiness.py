@@ -152,6 +152,27 @@ def test_ios_device_registration_preferences_and_unregister(client, user):
 
 
 @pytest.mark.django_db
+def test_ios_device_endpoints_enforce_csrf(client, user):
+    """IOS device endpoints must reject POSTs without a valid CSRF token
+    (security finding S4 / Issue 2 — @csrf_exempt was removed)."""
+    client.force_login(user)
+
+    payload = json.dumps({"deviceToken": "abc"})
+    for url in [
+        "/api/mobile/ios/devices/register/",
+        "/api/mobile/ios/devices/unregister/",
+        "/api/mobile/ios/devices/preferences/",
+    ]:
+        response = client.post(
+            url,
+            data=payload,
+            content_type="application/json",
+            enforce_csrf_checks=True,  # CSRF enforcement is off by default in tests
+        )
+        assert response.status_code == 403, f"{url} should require CSRF token"
+
+
+@pytest.mark.django_db
 def test_notification_service_fans_out_to_ios_push(user):
     IOSAppDevice.objects.create(
         user=user,
