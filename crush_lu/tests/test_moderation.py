@@ -390,6 +390,37 @@ def test_respond_connection_refused_after_block(client):
 
 
 @pytest.mark.django_db
+def test_respond_connection_rejects_get(client):
+    """GET requests to respond_connection must be rejected (finding M14:
+    state-changing actions must not be triggerable via link-luring)."""
+    from datetime import timedelta
+    from django.utils import timezone
+    from crush_lu.models import EventConnection, EventRegistration, MeetupEvent
+
+    me = _make_user(username="me")
+    requester = _make_user(username="requester")
+    event = MeetupEvent.objects.create(
+        title="Past", description="x", event_type="mixer",
+        date_time=timezone.now() - timedelta(days=2), location="Luxembourg",
+        address="1 St", max_participants=20,
+        registration_deadline=timezone.now() - timedelta(days=4), is_published=True,
+    )
+    for u in (me, requester):
+        EventRegistration.objects.create(event=event, user=u, status="attended")
+    conn = EventConnection.objects.create(
+        event=event, requester=requester, recipient=me, status="pending"
+    )
+
+    _grant_consent(me)
+    client.force_login(me)
+    resp = client.get(f"/en/connections/{conn.id}/accept/")
+    # 405 Method Not Allowed - GET is no longer accepted
+    assert resp.status_code == 405
+    conn.refresh_from_db()
+    assert conn.status == "pending"  # unchanged
+
+
+@pytest.mark.django_db
 def test_event_attendees_hint_excludes_blocked_requester(client):
     """A blocked requester's pending request must not surface via the hint/count."""
     from datetime import timedelta

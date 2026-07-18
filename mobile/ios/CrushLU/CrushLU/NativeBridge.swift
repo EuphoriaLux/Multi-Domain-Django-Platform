@@ -83,15 +83,21 @@ enum NativeBridge {
             .replacingOccurrences(of: "'", with: "\\'")
 
         let script = """
-        fetch('/api/mobile/ios/devices/register/', {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Crush-Client': 'ios-app'
-          },
-          body: '\(escaped)'
-        }).catch(function () {});
+        (function() {
+          var input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+          var cookieToken = document.cookie.split('; ').find(function(r) { return r.startsWith('csrftoken='); });
+          var csrfToken = input ? input.value : (cookieToken ? cookieToken.split('=')[1] : null);
+          fetch('/api/mobile/ios/devices/register/', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Crush-Client': 'ios-app',
+              'X-CSRFToken': csrfToken || ''
+            },
+            body: '\(escaped)'
+          }).catch(function () {});
+        })();
         """
         webView.evaluateJavaScript(script)
     }

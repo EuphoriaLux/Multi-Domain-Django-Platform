@@ -152,6 +152,30 @@ def test_ios_device_registration_preferences_and_unregister(client, user):
 
 
 @pytest.mark.django_db
+def test_ios_device_endpoints_no_csrf_exempt(client, user):
+    """IOS device endpoints must not be marked @csrf_exempt (security finding
+    S4 / Issue 2). Verify by checking the view is not wrapped with
+    csrf_exempt — if it were, enforce_csrf_checks would be ignored entirely."""
+    from crush_lu import api_ios_app
+    from django.views.decorators.csrf import csrf_exempt as _csrf_exempt
+
+    for view_fn in [
+        api_ios_app.register_ios_device,
+        api_ios_app.unregister_ios_device,
+        api_ios_app.update_ios_device_preferences,
+    ]:
+        # Walk wrapper chain to find csrf_exempt if present
+        wrapped = view_fn
+        while hasattr(wrapped, "__wrapped__"):
+            if getattr(wrapped, "__name__", "") == "csrf_exempt" or                getattr(wrapped, "_csrf_exempt", False):
+                assert False, f"{view_fn.__name__} is still csrf_exempt-wrapped"
+            wrapped = wrapped.__wrapped__
+        # Verify the view still has CsrfViewMiddleware processing
+        assert not getattr(view_fn, "csrf_exempt", False), \
+            f"{view_fn.__name__} must not have csrf_exempt flag"
+
+
+@pytest.mark.django_db
 def test_notification_service_fans_out_to_ios_push(user):
     IOSAppDevice.objects.create(
         user=user,
