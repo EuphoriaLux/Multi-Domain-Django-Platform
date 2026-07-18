@@ -5,10 +5,15 @@ Native iOS shell for the Crush.lu App Store build.
 - App name: Crush.lu
 - Bundle ID: lu.crush.app
 - Team ID: C5XDPB2G33
-- Version: 1.0.0
-- Build: 1
+- Version: 1.0.2
+- Build: 2
 - Device family: iPhone only for v1
 - Minimum iOS: 16.0
+
+## Environments
+
+- Release builds (TestFlight and App Store) target `https://crush.lu` (production).
+- Debug builds (local Xcode runs) target `https://test.crush.lu` (staging).
 
 ## Build Locally
 
@@ -22,9 +27,9 @@ xcodegen generate
 open CrushLU.xcodeproj
 ```
 
-Archive from Xcode after selecting the Apple Developer team. Switch
-`aps-environment` in `CrushLU/CrushLU.entitlements` from `development` to
-`production` before the App Store archive.
+Archive from Xcode after selecting the Apple Developer team. The
+`aps-environment` entitlement is set to `production` for App Store builds; for
+local development-signed builds Xcode manages the push environment.
 
 ## Backend Contract
 
@@ -38,7 +43,7 @@ The shell expects the Django backend to expose:
 - `/api/mobile/ios/devices/unregister/`
 - `/api/mobile/ios/devices/preferences/`
 
-The app injects the `CrushLUApp/1.0.0` user-agent suffix and sends
+The app injects the `CrushLUApp/1.0.2` user-agent suffix and sends
 `X-Crush-Client: ios-app` on initial web requests.
 
 ## Review Notes
