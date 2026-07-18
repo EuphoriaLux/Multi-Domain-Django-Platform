@@ -387,6 +387,86 @@ class TestCheckinNeverDependsOnLobby:
         assert registration.status == "attended"
 
 
+class TestManualMarkAttended:
+    """§10.1: the host's manual mark-attended backstop (api_quiz.mark_attended,
+    used for unreadable QR / no-phone cases) mirrors the QR path's lobby side
+    effect, so a Connect member checked in by hand still gets their recap
+    participation frozen (Codex review on PR #637)."""
+
+    def _quiz_for(self, event, host):
+        from crush_lu.models import QuizEvent
+
+        return QuizEvent.objects.create(event=event, status="draft", created_by=host)
+
+    def _mark(self, client, quiz, registration):
+        url = reverse("api_quiz_mark_attended", kwargs={"quiz_id": quiz.pk})
+        return client.post(
+            url,
+            data=json.dumps({"registration_id": registration.pk}),
+            content_type="application/json",
+        )
+
+    def test_manual_mark_attended_creates_participation(self, client, mocker):
+        broadcast = mocker.patch(
+            "crush_lu.views_event_lobby.broadcast_participant_joined"
+        )
+        event = _make_event(starts_in_minutes=30)
+        host = User.objects.create_user(
+            username="quizhost", email="quizhost@example.com", password="x"
+        )
+        quiz = self._quiz_for(event, host)
+        member = _make_member("alice")
+        registration = EventRegistration.objects.create(
+            event=event, user=member, status="confirmed"
+        )
+        _login(client, host)
+        response = self._mark(client, quiz, registration)
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+        participation = EventLobbyParticipation.objects.get()
+        assert participation.user_id == member.pk
+        assert participation.eligibility_source == "checkin"
+        broadcast.assert_called_once_with(event.pk)
+
+    def test_manual_mark_attended_non_connect_no_participation(self, client):
+        event = _make_event(starts_in_minutes=30)
+        host = User.objects.create_user(
+            username="quizhost", email="quizhost@example.com", password="x"
+        )
+        quiz = self._quiz_for(event, host)
+        guest = _make_member("guest", membership=False)
+        registration = EventRegistration.objects.create(
+            event=event, user=guest, status="confirmed"
+        )
+        _login(client, host)
+        response = self._mark(client, quiz, registration)
+        assert response.status_code == 200
+        registration.refresh_from_db()
+        assert registration.status == "attended"
+        assert EventLobbyParticipation.objects.count() == 0
+
+    def test_lobby_failure_never_fails_manual_mark_attended(self, client, mocker):
+        mocker.patch(
+            "crush_lu.services.event_lobby.handle_checkin",
+            side_effect=RuntimeError("lobby exploded"),
+        )
+        event = _make_event(starts_in_minutes=30)
+        host = User.objects.create_user(
+            username="quizhost", email="quizhost@example.com", password="x"
+        )
+        quiz = self._quiz_for(event, host)
+        member = _make_member("alice")
+        registration = EventRegistration.objects.create(
+            event=event, user=member, status="confirmed"
+        )
+        _login(client, host)
+        response = self._mark(client, quiz, registration)
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+        registration.refresh_from_db()
+        assert registration.status == "attended"
+
+
 # ---------------------------------------------------------------------------
 # Roster shaping & read-time eligibility (§5.2, §7.2, §13)
 # ---------------------------------------------------------------------------
@@ -960,6 +1040,23 @@ class TestLobbyPhoto:
         assert response.status_code == 200
         assert response["Content-Type"] == "image/jpeg"
         assert response["Cache-Control"] == "private, max-age=300"
+
+    def test_photo_is_proxied_never_a_sas_redirect(self, client, settings, tmp_path):
+        """§13 revocation: even with Azure storage configured the endpoint
+        must stream the image itself — a 302 to a SAS URL would keep working
+        after a block/exclusion until the token expires (Codex review)."""
+        event = _make_event()
+        alice = _make_member("alice")
+        ben = _make_member("ben", gender="M")
+        self._give_real_photo(ben, settings, tmp_path)
+        _join(alice, event)
+        _join(ben, event)
+        _login(client, alice)
+        settings.AZURE_ACCOUNT_NAME = "teststorageaccount"
+        response = client.get(self._photo_url(event, _handle_of(ben, event)))
+        assert response.status_code == 200  # not a 302 redirect
+        assert response["Content-Type"] == "image/jpeg"
+        assert response.content == b"jpegbytes"
 
     def test_non_participant_viewer_denied(self, client, settings, tmp_path):
         event = _make_event()

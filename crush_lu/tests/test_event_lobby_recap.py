@@ -698,6 +698,22 @@ class TestPeopleIveMetPages:
         denied = client.get(reverse("crush_lu:event_lobby_person", args=[stranger.pk]))
         assert denied.status_code == 404
 
+    def test_person_profile_uses_pair_authorized_photo_route(self, client):
+        """§13: the profile page must embed the encounter-authorized photo
+        proxy, never the generic ``serve_profile_photo`` URL — a copied
+        generic URL would outlive blocks/removals (Codex review, PR #637)."""
+        alice = _make_member("alice")
+        ben = _make_member("ben", gender="M")
+        _make_encounter(alice, ben)
+        _login(client, alice)
+        html = client.get(
+            reverse("crush_lu:event_lobby_person", args=[ben.pk])
+        ).content.decode()
+        assert (
+            reverse("crush_lu:event_lobby_person_photo", args=[ben.pk]) in html
+        )
+        assert "/media/profile/" not in html
+
     def test_person_profile_denied_after_block(self, client):
         alice = _make_member("alice")
         ben = _make_member("ben", gender="M")

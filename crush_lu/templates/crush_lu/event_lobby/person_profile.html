@@ -1,5 +1,5 @@
 {% extends "crush_lu/base.html" %}
-{% load i18n crush_media %}
+{% load i18n %}
 
 {% block title %}{{ person.first_name }} - {% trans "Crush Connect" %}{% endblock %}
 {% block mobile_page_title %}{{ person.first_name }}{% endblock %}
@@ -22,7 +22,8 @@ encounter (authorized in the view).
         </div>
 
         <div class="rounded-2xl overflow-hidden ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm mb-4">
-            {% profile_photo profile 'photo_1' css_class='w-full aspect-square object-cover' alt_text=person.first_name %}
+            {# Pair-authorized photo route (§13): rechecks encounter/blocks/removals per request — a copied URL dies with the pair. #}
+            <img src="{% url 'crush_lu:event_lobby_person_photo' person.pk %}" alt="{{ person.first_name }}" class="w-full aspect-square object-cover">
             <div class="p-5">
                 <h1 class="font-display text-2xl font-semibold text-gray-900 dark:text-white mb-1">{{ person.first_name }}</h1>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mb-0">{% trans "You met at a Crush.lu event." %}</p>

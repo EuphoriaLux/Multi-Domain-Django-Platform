@@ -15,11 +15,9 @@ refetch hints, never the source of truth (§11.1).
 import json
 import logging
 import mimetypes
-import os
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
-from django.conf import settings
 from django.contrib import messages
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -478,32 +476,24 @@ def lobby_photo(request, event_id, handle):
     if not photo:
         raise Http404("Photo not found")
 
-    # Azure blob storage: redirect to a time-limited SAS URL (mirrors
-    # views_media.serve_profile_photo).
-    if getattr(settings, "AZURE_ACCOUNT_NAME", None):
-        from .storage import CrushProfilePhotoStorage
-
-        storage = CrushProfilePhotoStorage()
-        secure_url = storage.url(photo.name, expire=1800)
-        return redirect(secure_url)
-
-    # Local filesystem (dev): stream the file.
-    photo_path = photo.path
-    if not os.path.exists(photo_path):
-        raise Http404("Photo file not found")
+    # Proxy the image through this authorized view instead of redirecting to
+    # a reusable storage URL: an Azure SAS link would keep working for its
+    # whole lifetime after a block/exclusion/removal or an attendance
+    # correction, defeating immediate revocation (§13). Mirrors
+    # ``event_lobby_person_photo``; works for both local and blob storage.
     try:
-        with open(photo_path, "rb") as f:
-            content_type = "image/jpeg"
-            if photo_path.lower().endswith(".png"):
-                content_type = "image/png"
-            elif photo_path.lower().endswith(".webp"):
-                content_type = "image/webp"
-            response = HttpResponse(f.read(), content_type=content_type)
-            response["Content-Disposition"] = "inline"
-            # §13: keep lobby photos out of shared caches; short private
-            # cache is the practical trade-off for a photo grid.
-            response["Cache-Control"] = "private, max-age=300"
-            return response
-    except OSError:
-        logger.error("Error serving lobby photo %s", photo_path)
-        raise Http404("Error loading photo")
+        photo.open("rb")
+        content = photo.read()
+    except Exception:
+        logger.exception("Error serving lobby photo for event %s", event.pk)
+        raise Http404("Photo not found") from None
+    finally:
+        photo.close()
+
+    content_type = mimetypes.guess_type(photo.name)[0] or "application/octet-stream"
+    response = HttpResponse(content, content_type=content_type)
+    response["Content-Disposition"] = "inline"
+    # §13: private browser micro-cache only — every new request re-authorizes,
+    # and no shareable URL ever leaves the server.
+    response["Cache-Control"] = "private, max-age=300"
+    return response
