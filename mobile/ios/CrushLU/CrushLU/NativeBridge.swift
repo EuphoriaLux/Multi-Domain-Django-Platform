@@ -62,10 +62,16 @@ enum NativeBridge {
             UserDefaults.standard.set(deviceId, forKey: deviceIdKey)
         }
 
+        #if DEBUG
+        let apnsEnvironment = "sandbox"
+        #else
+        let apnsEnvironment = "production"
+        #endif
+
         let payload: [String: Any] = [
             "deviceToken": token,
             "deviceId": deviceId ?? "",
-            "environment": "sandbox",
+            "environment": apnsEnvironment,
             "bundleId": "lu.crush.app",
             "appVersion": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0",
             "appBuild": Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1",

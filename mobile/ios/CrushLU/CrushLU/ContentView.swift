@@ -7,10 +7,6 @@ final class AppState: ObservableObject {
         #if DEBUG
         return URL(string: "https://test.crush.lu")!
         #else
-        if let receiptURL = Bundle.main.appStoreReceiptURL,
-           receiptURL.lastPathComponent == "sandboxReceipt" {
-            return URL(string: "https://test.crush.lu")!
-        }
         return URL(string: "https://crush.lu")!
         #endif
     }
