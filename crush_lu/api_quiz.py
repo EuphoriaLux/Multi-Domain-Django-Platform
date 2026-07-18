@@ -541,6 +541,27 @@ def mark_attended(request, quiz_id):
                     registration.id,
                 )
 
+    # Crush Connect Event Lobby: manual mark-attended mirrors the QR path's
+    # lobby side effect too, so a Connect member checked in by the host still
+    # gets their participation frozen for the 48-hour recap (spec §10.1).
+    # Best-effort after the attendance commit — a lobby failure must never
+    # break the host's manual check-in (§19).
+    try:
+        from crush_lu.services.event_lobby import (
+            handle_checkin as lobby_handle_checkin,
+        )
+
+        _lobby_participation, lobby_created = lobby_handle_checkin(registration)
+        if lobby_created:
+            from crush_lu.views_event_lobby import broadcast_participant_joined
+
+            broadcast_participant_joined(registration.event_id)
+    except Exception:
+        logger.exception(
+            "Event lobby participation evaluation failed for registration %s",
+            registration.id,
+        )
+
     response = {
         "success": True,
         "registration_id": registration.id,

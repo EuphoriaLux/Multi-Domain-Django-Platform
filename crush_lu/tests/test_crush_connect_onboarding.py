@@ -558,6 +558,35 @@ def test_candidate_completion_redirects_to_catalogue_with_email(
     assert len(mailoutbox) == 1
 
 
+@pytest.mark.django_db
+def test_checked_in_candidate_completion_redirects_to_joined_live_lobby(
+    client, settings
+):
+    from django.urls import reverse
+
+    from crush_lu.models import EventLobbyParticipation
+    from crush_lu.tests.test_event_lobby import (
+        _attend,
+        _make_event as _make_live_event,
+        _make_member,
+    )
+
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
+    settings.CRUSH_EVENT_LOBBY_ENABLED = True
+    me = _make_member("me", onboarded=False)
+    event = _make_live_event()
+    registration = _attend(me, event)
+    _login_eligible(client, me)
+
+    resp = _complete_steps(client, 1, 7)
+
+    assert resp.status_code in (301, 302)
+    assert resp.url == reverse("crush_lu:event_lobby", args=[event.pk])
+    participation = EventLobbyParticipation.objects.get(event_registration=registration)
+    assert participation.eligibility_source == "onboarding_completed"
+
+
 # ---------------------------------------------------------------------------
 # Gate (ported)
 # ---------------------------------------------------------------------------

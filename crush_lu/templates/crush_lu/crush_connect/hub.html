@@ -47,6 +47,30 @@
     </a>
     {% endif %}
 
+    {# Event Lobby card — live lobby or the participant's 48-hour recap (§2/§7). #}
+    {% if active_lobby %}
+    <a href="{% url 'crush_lu:event_lobby' active_lobby.event_id %}"
+       class="block rounded-2xl p-0.5 bg-gradient-to-r from-crush-purple to-crush-pink shadow-crush-purple mb-4 no-underline transition-all hover:-translate-y-0.5 active:scale-[0.98]">
+        <div class="flex items-center gap-3 rounded-[14px] bg-white dark:bg-slate-800 p-4">
+            <div class="w-11 h-11 rounded-xl bg-crush-pink/15 flex items-center justify-center shrink-0">
+                {% include "shared/icons/users.html" with class="w-5 h-5 text-crush-pink" %}
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="font-semibold text-gray-900 dark:text-white mb-0.5">
+                    {% if active_lobby.lobby_phase == "recap" %}
+                    {% trans "Event recap is ready" %}
+                    {% else %}
+                    <span class="inline-block w-2 h-2 rounded-full bg-crush-pink animate-pulse mr-1" aria-hidden="true"></span>
+                    {% trans "Event Lobby is live" %}
+                    {% endif %}
+                </p>
+                <p class="text-xs md:text-sm text-gray-600 dark:text-gray-300 mb-0 truncate">{{ active_lobby.event.title }}</p>
+            </div>
+            {% include "shared/icons/arrow-right.html" with class="w-5 h-5 text-crush-pink shrink-0" %}
+        </div>
+    </a>
+    {% endif %}
+
     <div class="grid grid-cols-2 gap-3">
 
         {# Primary: Today's Drop (receivers) or Catalogue status (candidates) — full width. #}
@@ -102,6 +126,22 @@
             <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "Edit profile" %}</p>
             <p class="text-xs md:text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Your 3 questions, preferences & photos." %}</p>
         </a>
+
+        {# People I've Met — permanent hub section (§7.8). #}
+        {% if event_lobby_enabled %}
+        <a href="{% url 'crush_lu:event_lobby_people' %}"
+           class="col-span-2 flex items-center gap-3 rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 no-underline hover:ring-crush-purple/40 hover:-translate-y-0.5 active:scale-[0.98] transition-all">
+            <div class="relative w-11 h-11 rounded-xl bg-crush-purple/10 flex items-center justify-center shrink-0">
+                {% include "shared/icons/heart.html" with class="w-5 h-5 text-crush-purple" %}
+                {% if people_ive_met_count %}<span class="absolute -top-1.5 -right-1.5 badge badge-primary ring-2 ring-white dark:ring-slate-800">{{ people_ive_met_count }}</span>{% endif %}
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "People I've Met" %}</p>
+                <p class="text-xs md:text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Real-world encounters you both confirmed." %}</p>
+            </div>
+            {% include "shared/icons/chevron-right.html" with class="w-5 h-5 text-gray-400 shrink-0" %}
+        </a>
+        {% endif %}
 
         {# Coach curation hub. #}
         {% if is_coach %}

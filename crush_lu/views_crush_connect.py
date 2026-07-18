@@ -8,6 +8,7 @@ The full user-facing surface (Today's Drop, Pending Sparks, journey reveal)
 will continue to grow in this module across M5–M7.
 """
 
+import logging
 from datetime import timedelta
 
 from django.conf import settings
@@ -35,6 +36,8 @@ from crush_lu.onboarding_connect import (
     step_for_key,
 )
 from crush_lu.services import get_or_create_daily_drop
+
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
@@ -385,6 +388,43 @@ def crush_connect_onboarding_step(request, step: int):
                 # Member is now in the pool — score them against other members so
                 # their first Drop (and theirs in others') reflects their traits.
                 _recompute_member_match_scores(request.user)
+                # Crush Connect Event Lobby: a checked-in guest who completes
+                # onboarding before the scheduled event end joins the lobby
+                # immediately (spec §5.3/§10.2). Best-effort — never let the
+                # lobby break onboarding completion.
+                joined_participations = []
+                try:
+                    from crush_lu.services.event_lobby import (
+                        handle_onboarding_completed,
+                    )
+
+                    joined_participations = handle_onboarding_completed(request.user)
+                except Exception:
+                    logger.exception(
+                        "Event lobby onboarding-join failed for user %s",
+                        request.user.pk,
+                    )
+                for participation in joined_participations:
+                    try:
+                        from crush_lu.views_event_lobby import (
+                            broadcast_participant_joined,
+                        )
+
+                        broadcast_participant_joined(
+                            participation.event_id, onboarded=True
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Event lobby onboarding broadcast failed for user %s "
+                            "and event %s",
+                            request.user.pk,
+                            participation.event_id,
+                        )
+                if joined_participations:
+                    return redirect(
+                        "crush_lu:event_lobby",
+                        event_id=joined_participations[0].event_id,
+                    )
                 return redirect(done_url)
 
             obj.onboarding_step = new_pointer
@@ -718,6 +758,18 @@ def crush_connect_hub(request):
     # Coach pick replaces the Drop for receivers; surface it on the hub too.
     coach_pick = get_active_coach_pick(user) if is_receiver else None
 
+    # Event Lobby hub card (spec §2 Navigation): shown only while the member
+    # is an eligible participant of a currently-live event lobby. People I've
+    # Met is a permanent hub section (§7.8).
+    from crush_lu.services.event_lobby import (
+        get_active_live_lobby,
+        get_people_ive_met,
+        lobby_feature_enabled,
+    )
+
+    event_lobby_enabled = lobby_feature_enabled()
+    people_ive_met_count = len(get_people_ive_met(user)) if event_lobby_enabled else 0
+
     context = {
         "membership": membership,
         "track": "receiver" if is_receiver else "candidate",
@@ -726,6 +778,9 @@ def crush_connect_hub(request):
         "pending_sparks_count": pending_sparks_count,
         "coach_pick": coach_pick,
         "next_drop_at": _next_drop_at(),
+        "active_lobby": get_active_live_lobby(user) if event_lobby_enabled else None,
+        "event_lobby_enabled": event_lobby_enabled,
+        "people_ive_met_count": people_ive_met_count,
     }
     return render(request, "crush_lu/crush_connect/hub.html", context)
 
