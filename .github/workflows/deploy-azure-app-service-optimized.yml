@@ -158,16 +158,27 @@ jobs:
         # A zip deploy + restart returns while the OLD container still
         # answers (healthz/readyz pass on it too), so poll until /readyz/
         # reports this run's commit before judging the deployment.
+        #
+        # `-f` matters: the commit stamp comes from build_info.json, a FILE in
+        # the deploy package. App Service serves /home/site/wwwroot from shared
+        # storage, so the still-running old gunicorn reports the new SHA the
+        # moment the files land — while `migrate` only runs later, in
+        # startup.sh, when the container actually restarts. Without -f this
+        # loop accepts a 503 body, matches the SHA, and hands a
+        # mid-migration container to the smoke test ("N unapplied
+        # migration(s)"). Failing on non-2xx makes the gate wait for the new
+        # build AND a genuinely ready one; the 60x10s budget already covers
+        # the startup migration window.
         run: |
           echo "Waiting for staging to serve ${GITHUB_SHA}..."
           for i in $(seq 1 60); do
-            if curl -s --max-time 10 https://test.crush.lu/readyz/ | grep -q "${GITHUB_SHA}"; then
-              echo "✅ staging serves ${GITHUB_SHA}"
+            if curl -sf --max-time 10 https://test.crush.lu/readyz/ | grep -q "${GITHUB_SHA}"; then
+              echo "✅ staging serves ${GITHUB_SHA} and reports ready"
               exit 0
             fi
             sleep 10
           done
-          echo "❌ staging never reported ${GITHUB_SHA} within 10 minutes"
+          echo "❌ staging never served ${GITHUB_SHA} in a ready state within 10 minutes"
           exit 1
 
       - name: Smoke Test
