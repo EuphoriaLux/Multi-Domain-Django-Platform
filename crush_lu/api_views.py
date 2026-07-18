@@ -23,14 +23,14 @@ def _require_attended_registration(request, event):
             {'success': False, 'error': _('You are not registered for this event')},
             status=403,
         )
-    if reg.status == 'confirmed':
-        return None, JsonResponse(
-            {'success': False, 'error': _('You must check in at the event before you can vote')},
-            status=403,
-        )
     if reg.status != 'attended':
+        if reg.status == 'confirmed':
+            return None, JsonResponse(
+                {'success': False, 'error': _('You must check in at the event before you can vote')},
+                status=403,
+            )
         return None, JsonResponse(
-            {'success': False, 'error': _('Only confirmed attendees can access voting')},
+            {'success': False, 'error': _('You must be checked in as attended to access voting')},
             status=403,
         )
     return reg, None
