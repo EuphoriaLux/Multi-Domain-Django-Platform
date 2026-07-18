@@ -59,6 +59,43 @@ encounter (authorized in the view).
         </dl>
         {% endif %}
 
+        <details class="rounded-2xl ring-1 ring-red-200 dark:ring-red-900/60 bg-white dark:bg-slate-800 shadow-crush-sm mb-4">
+            <summary class="cursor-pointer px-5 py-4 text-sm font-semibold text-red-700 dark:text-red-300">
+                {% trans "Hide or remove this person" %}
+            </summary>
+            <div class="border-t border-red-100 dark:border-red-900/40 px-5 py-4">
+                <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                    {% trans "They will disappear from People I've Met immediately. Your reason and details are private and reviewed only by Support." %}
+                </p>
+                <form method="post" action="{% url 'crush_lu:event_lobby_remove_person' person.id %}" class="space-y-4">
+                    {% csrf_token %}
+                    <div>
+                        <label for="removal-reason" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                            {% trans "Reason" %}
+                        </label>
+                        <select id="removal-reason" name="reason" required
+                                class="w-full rounded-xl border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white focus:border-crush-purple focus:ring-crush-purple">
+                            <option value="">{% trans "Select a reason" %}</option>
+                            {% for value, label in removal_reasons %}
+                            <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label for="removal-details" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                            {% trans "Private details (optional)" %}
+                        </label>
+                        <textarea id="removal-details" name="details" rows="3" maxlength="500"
+                                  class="w-full rounded-xl border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white focus:border-crush-purple focus:ring-crush-purple"
+                                  placeholder="{% trans 'Tell Support anything they should know.' %}"></textarea>
+                    </div>
+                    <button type="submit" class="btn-danger btn-block">
+                        {% trans "Hide person and request review" %}
+                    </button>
+                </form>
+            </div>
+        </details>
+
         <p class="text-xs text-center text-gray-400 dark:text-gray-500">
             {% trans "A permanent record of a real-world meeting. Say hi next time you see them." %}
         </p>

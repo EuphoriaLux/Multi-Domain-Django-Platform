@@ -638,6 +638,20 @@ class TestRecapPage:
         assert "Finish Crush Connect" in response.content.decode()
         assert "recap-grid" not in response.content.decode()
 
+    def test_recap_component_loads_before_alpine(self, client):
+        event = _recap_event()
+        alice = _make_member("alice")
+        _join(alice, event)
+        _to_recap(event)
+        _login(client, alice)
+
+        html = client.get(
+            reverse("crush_lu:event_lobby", args=[event.pk])
+        ).content.decode()
+
+        assert html.index("event-recap.js") < html.index("js/alpine-components.js")
+        assert html.index("js/alpine-components.js") < html.index("@alpinejs/csp")
+
 
 class TestPeopleIveMetPages:
     def test_collection_lists_encounters(self, client):
@@ -679,6 +693,52 @@ class TestPeopleIveMetPages:
         _login(client, alice)
         response = client.get(reverse("crush_lu:event_lobby_person", args=[ben.pk]))
         assert response.status_code == 404
+
+    def test_collection_and_profile_are_gated_by_rollout(self, client, settings):
+        alice = _make_member("alice")
+        ben = _make_member("ben", gender="M")
+        _make_encounter(alice, ben)
+        _login(client, alice)
+        settings.CRUSH_EVENT_LOBBY_ENABLED = False
+
+        collection = client.get(reverse("crush_lu:event_lobby_people"))
+        profile = client.get(reverse("crush_lu:event_lobby_person", args=[ben.pk]))
+
+        assert collection.status_code == 404
+        assert profile.status_code == 404
+
+    def test_profile_exposes_private_removal_request_flow(self, client):
+        alice = _make_member("alice")
+        ben = _make_member("ben", gender="M")
+        encounter = _make_encounter(alice, ben)
+        _login(client, alice)
+        profile_url = reverse("crush_lu:event_lobby_person", args=[ben.pk])
+
+        profile = client.get(profile_url)
+
+        assert profile.status_code == 200
+        html = profile.content.decode()
+        assert "Hide person and request review" in html
+        assert ConfirmedEncounterRemovalRequest.REASON_SAFETY in html
+
+        response = client.post(
+            reverse("crush_lu:event_lobby_remove_person", args=[ben.pk]),
+            {
+                "reason": ConfirmedEncounterRemovalRequest.REASON_SAFETY,
+                "details": "Please keep this private.",
+            },
+            follow=True,
+        )
+
+        assert response.status_code == 200
+        assert response.redirect_chain[-1][0] == reverse("crush_lu:event_lobby_people")
+        assert "Support will review your private request" in response.content.decode()
+        removal = ConfirmedEncounterRemovalRequest.objects.get(encounter=encounter)
+        assert removal.requested_by_id == alice.pk
+        assert removal.reason == ConfirmedEncounterRemovalRequest.REASON_SAFETY
+        assert removal.details == "Please keep this private."
+        encounter.refresh_from_db()
+        assert encounter.status == "removal_pending"
 
 
 # ---------------------------------------------------------------------------

@@ -19,14 +19,22 @@ import os
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.conf import settings
+from django.contrib import messages
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from django.views.decorators.http import require_GET, require_POST
 
 from .decorators import crush_login_required, ratelimit
-from .models import EventLobbyParticipation, EventRegistration, MeetupEvent
+from .models import (
+    ConfirmedEncounterRemovalRequest,
+    EventLobbyParticipation,
+    EventRegistration,
+    MeetupEvent,
+)
 from .services.event_lobby import (
+    LobbyAccessError,
     PHASE_LIVE,
     PHASE_RECAP,
     confirm_meeting,
@@ -46,6 +54,7 @@ from .services.event_lobby import (
     participant_gate,
     recap_state,
     send_meet_signal,
+    submit_encounter_removal_request,
     viewer_participation,
 )
 
@@ -174,6 +183,8 @@ def people_ive_met(request):
     """The permanent "People I've Met" collection (§7.8). One flat
     chronological list; current photo + first name only. Non-participants of
     the feature (or deactivated members) simply see an empty collection."""
+    if not lobby_feature_enabled():
+        raise Http404("Not found")
     entries = get_people_ive_met(request.user)
     response = render(
         request,
@@ -189,6 +200,8 @@ def event_lobby_person(request, user_id):
     """The full current Crush Connect profile reached from a People I've Met
     entry (§7.8). Authorized by an active permanent encounter — never an
     unguessable id (§13). Opens no chat, contact request, or Spark."""
+    if not lobby_feature_enabled():
+        raise Http404("Not found")
     other = encounter_counterpart(request.user, user_id)
     if other is None:
         raise Http404("Not found")
@@ -196,10 +209,43 @@ def event_lobby_person(request, user_id):
     response = render(
         request,
         "crush_lu/event_lobby/person_profile.html",
-        {"person": other, "profile": other.crushprofile, "membership": membership},
+        {
+            "person": other,
+            "profile": other.crushprofile,
+            "membership": membership,
+            "removal_reasons": ConfirmedEncounterRemovalRequest.REASON_CHOICES,
+        },
     )
     response["Cache-Control"] = "private, no-store"
     return response
+
+
+@crush_login_required
+@ratelimit(key="user", rate="10/h", method="POST")
+@require_POST
+def event_lobby_remove_person(request, user_id):
+    """Immediately hide an encounter and open its private Support review."""
+    if not lobby_feature_enabled():
+        raise Http404("Not found")
+
+    try:
+        submit_encounter_removal_request(
+            request.user,
+            str(user_id),
+            request.POST.get("reason", ""),
+            request.POST.get("details", ""),
+        )
+    except LobbyAccessError as exc:
+        if exc.code == "invalid_reason":
+            messages.error(request, _("Please select a valid reason."))
+            return redirect("crush_lu:event_lobby_person", user_id=user_id)
+        raise Http404("Not found") from None
+
+    messages.success(
+        request,
+        _("This person is now hidden. Support will review your private request."),
+    )
+    return redirect("crush_lu:event_lobby_people")
 
 
 # ---------------------------------------------------------------------------

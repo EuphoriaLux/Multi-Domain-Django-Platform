@@ -737,6 +737,17 @@ class TestLobbyPage:
         assert 'x-show="firstSignalUsed"' in html
         assert 'x-show="thirdSignalAvailable"' in html
 
+    def test_live_component_loads_before_alpine(self, client):
+        event = _make_event()
+        alice = _make_member("alice")
+        _join(alice, event)
+        _login(client, alice)
+
+        html = client.get(_lobby_url(event)).content.decode()
+
+        assert html.index("event-lobby.js") < html.index("js/alpine-components.js")
+        assert html.index("js/alpine-components.js") < html.index("@alpinejs/csp")
+
     def test_after_end_renders_recap_grid_not_live_grid(self, client):
         """After the exact end the page flips from the live grid to the recap
         grid (§7.6/§7.7). Recap tiles are still photo-only for non-mutuals, so
