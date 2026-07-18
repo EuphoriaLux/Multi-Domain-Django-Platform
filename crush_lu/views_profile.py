@@ -523,13 +523,27 @@ def save_profile_step3(request):
     try:
         profile = CrushProfile.objects.get(user=request.user)
 
-        # Handle photos if uploaded (for backward compatibility with form submission)
-        if request.FILES.get("photo_1"):
-            profile.photo_1 = request.FILES["photo_1"]
-        if request.FILES.get("photo_2"):
-            profile.photo_2 = request.FILES["photo_2"]
-        if request.FILES.get("photo_3"):
-            profile.photo_3 = request.FILES["photo_3"]
+        # Handle photos if uploaded (for backward compatibility with form submission).
+        # Route through process_uploaded_image to enforce size limits, EXIF
+        # stripping, and decompression-bomb protection (finding H1 — this path
+        # previously saved raw request.FILES with zero validation).
+        from .utils.image_processing import process_uploaded_image
+        from django.core.exceptions import ValidationError as VE
+
+        for slot_num in (1, 2, 3):
+            photo_key = f"photo_{slot_num}"
+            uploaded = request.FILES.get(photo_key)
+            if not uploaded:
+                continue
+            try:
+                processed = process_uploaded_image(uploaded, filename=uploaded.name)
+                setattr(profile, photo_key, processed)
+            except (VE, Exception) as exc:
+                logger.warning("Photo validation failed in save_profile_step3 for %s: %s", photo_key, exc)
+                return JsonResponse(
+                    {"success": False, "error": "Invalid photo. Please upload a JPEG or PNG under 10MB."},
+                    status=400,
+                )
 
         # Privacy settings
         profile.show_full_name = request.POST.get("show_full_name") == "on"

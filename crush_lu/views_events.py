@@ -158,7 +158,8 @@ def event_list(request):
     # timedelta * F() which is not supported on SQLite.
     generous_cutoff = now - timedelta(hours=24)
     upcoming_events = list(
-        MeetupEvent.objects.filter(
+        MeetupEvent.objects.with_registration_counts()
+        .filter(
             is_published=True, is_cancelled=False, date_time__gte=generous_cutoff
         )
         .prefetch_related("coaches__user")
@@ -167,7 +168,8 @@ def event_list(request):
     upcoming_events = [e for e in upcoming_events if e.end_time >= now]
 
     past_events = list(
-        MeetupEvent.objects.filter(
+        MeetupEvent.objects.with_registration_counts()
+        .filter(
             is_published=True, is_cancelled=False, date_time__lt=now
         ).order_by("-date_time")[:50]
     )

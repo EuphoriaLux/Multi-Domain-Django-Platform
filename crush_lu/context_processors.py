@@ -140,13 +140,14 @@ def crush_user_context(request):
             )
             if nav_visible:
                 from .models import CuriositySpark
-                from .services.blocking import blocked_user_ids
 
+                # Reuse the already-computed blocked_ids (finding H4 — this was
+                # a duplicate blocked_user_ids query on every authenticated page).
                 connect_pending_sparks_count = (
                     CuriositySpark.objects.filter(
                         recipient=request.user, status="pending"
                     )
-                    .exclude(sender_id__in=blocked_user_ids(request.user))
+                    .exclude(sender_id__in=blocked_ids)
                     .count()
                 )
         except Exception:
