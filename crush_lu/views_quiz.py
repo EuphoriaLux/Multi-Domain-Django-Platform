@@ -1,3 +1,4 @@
+import secrets
 import json
 import os
 
@@ -286,7 +287,13 @@ def quiz_table_display(request, event_id):
 
     pin_required = bool(quiz.display_token)
     # If PIN provided in query string, validate for initial page load
-    if pin_required and request.GET.get("token") == quiz.display_token:
+    display_token = quiz.display_token or ""
+    req_token = request.GET.get("token", "")
+    try:
+        _token_ok = pin_required and secrets.compare_digest(str(req_token), str(display_token))
+    except (TypeError, UnicodeEncodeError):
+        _token_ok = False
+    if _token_ok:
         pin_required = False
 
     confirmed_count = EventRegistration.objects.filter(
@@ -328,7 +335,12 @@ def quiz_display_verify_pin(request, event_id):
         return JsonResponse({"valid": False})
 
     pin = str(data.get("pin", ""))
-    valid = pin == quiz.display_token
+    # compare_digest raises TypeError on non-ASCII — normalize to str and
+    # return False for any malformed input instead of 500ing (Codex P2).
+    try:
+        valid = secrets.compare_digest(str(pin), str(quiz.display_token))
+    except (TypeError, UnicodeEncodeError):
+        valid = False
     return JsonResponse({"valid": valid})
 
 

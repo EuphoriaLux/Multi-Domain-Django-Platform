@@ -234,6 +234,22 @@ class ConnectIdealMatchForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         _require(self, "preferred_age_min", "preferred_age_max")
+        # Server-side clamp (finding M4 — widget attrs are client-only).
+        # Reconstruct the fields with min_value/max_value so Django's built-in
+        # validators are wired at construction time (Codex P2: setting min_value
+        # after the fact on the model-generated field doesn't add validators).
+        from django import forms as django_forms
+        for field_name in ("preferred_age_min", "preferred_age_max"):
+            if field_name in self.fields:
+                old_field = self.fields[field_name]
+                self.fields[field_name] = django_forms.IntegerField(
+                    min_value=18,
+                    max_value=99,
+                    label=old_field.label,
+                    required=old_field.required,
+                    initial=old_field.initial,
+                    widget=old_field.widget,
+                )
 
     def clean_sought_qualities(self):
         return _validate_trait_count(

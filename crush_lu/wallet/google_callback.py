@@ -100,14 +100,32 @@ def _verify_callback_signature(signed_message):
             message_data = signed_message
 
         # Check for required fields in Google's signed message format
-        # The actual payload is in 'signedMessage' which contains the callback data
+        # The actual payload is in 'signedMessage' which contains the callback data.
+        # Codex P2: without real signature verification the envelope is trivially
+        # forgeable — any POST with {"signedMessage": "...", "signature": "x",
+        # "intermediateSigningKey": "y"} bypasses auth. Reject in production
+        # until full Tink signature verification is implemented.
+        from django.conf import settings
         if 'signedMessage' in message_data:
-            # This is the full signed envelope
+            if not getattr(settings, 'DEBUG', False):
+                # Production: reject all envelope callbacks until Tink verification
+                # is implemented. Presence of signature fields is not proof of
+                # authenticity — an attacker can supply any non-empty values.
+                logger.warning(
+                    "Google Wallet signed callback rejected — Tink verification not yet implemented"
+                )
+                return None
+            # DEBUG only: parse envelope for local testing
             inner_message = json.loads(message_data['signedMessage'])
             return inner_message
 
-        # Direct payload format (for testing/development)
-        if 'classId' in message_data or 'objectId' in message_data:
+        # Direct payload format (testing only — reject in production).
+        # TODO: implement full Tink signature verification (finding M12).
+        # Until then, reject unsigned payloads when DEBUG is False.
+        from django.conf import settings
+        if getattr(settings, 'DEBUG', False) and (
+            'classId' in message_data or 'objectId' in message_data
+        ):
             return message_data
 
         logger.warning("Unknown callback message format")
