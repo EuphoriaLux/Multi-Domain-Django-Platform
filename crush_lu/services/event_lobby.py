@@ -861,3 +861,181 @@ def encounter_counterpart(viewer, user_id):
         user_low=low, user_high=high, status="active"
     ).exists()
     return other if has_active else None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# REMOVAL REVIEW WORKFLOW — ported from PR #633 (Codex)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def submit_encounter_removal_request(user, encounter_handle, reason, details=""):
+    """Submit a private removal request for a confirmed encounter.
+
+    Immediately hides the encounter for both parties (two-sided hiding)
+    and queues it for coach/Support review.
+    """
+    from crush_lu.models import ConfirmedEncounter, ConfirmedEncounterRemovalRequest
+
+    if not _is_active_connect_member(user):
+        raise LobbyAccessError("not_available")
+
+    # Find the encounter by handle (opaque identifier)
+    try:
+        encounter = ConfirmedEncounter.objects.get(
+            Q(user_low=user) | Q(user_high=user),
+            status="active",
+        )
+    except ConfirmedEncounter.DoesNotExist:
+        raise LobbyAccessError("not_available") from None
+
+    # Verify the user belongs to this encounter
+    if user.pk not in {encounter.user_low_id, encounter.user_high_id}:
+        raise LobbyAccessError("not_available")
+
+    # Validate reason
+    valid_reasons = dict(ConfirmedEncounterRemovalRequest.REASON_CHOICES)
+    if reason not in valid_reasons:
+        raise LobbyAccessError("invalid_reason")
+
+    details = (details or "").strip()[:500]
+
+    with transaction.atomic():
+        # Create the removal request
+        removal_request = ConfirmedEncounterRemovalRequest.objects.create(
+            encounter=encounter,
+            requested_by=user,
+            reason=reason,
+            details=details,
+        )
+
+        # Immediately hide the encounter for both parties
+        encounter.status = "removal_pending"
+        encounter.hidden_at = timezone.now()
+        encounter.save(update_fields=["status", "hidden_at"])
+
+    logger.info(
+        "Encounter removal requested: encounter=%s user=%s reason=%s",
+        encounter.pk,
+        user.pk,
+        reason,
+    )
+
+    return removal_request
+
+
+def reviewable_removal_requests(user):
+    """Return removal requests that the given user can review.
+
+    Coaches see requests for their assigned events; staff see all.
+    """
+    from crush_lu.models import ConfirmedEncounterRemovalRequest
+
+    if not user.is_authenticated:
+        return ConfirmedEncounterRemovalRequest.objects.none()
+
+    # Staff can see all
+    if user.is_staff:
+        return ConfirmedEncounterRemovalRequest.objects.all()
+
+    # Coaches see requests from events they coach
+    coach = getattr(user, "crushcoach", None)
+    if coach and coach.is_active:
+        # For now, coaches see all pending requests
+        # TODO: Filter by coach's assigned events when that mapping exists
+        return ConfirmedEncounterRemovalRequest.objects.filter(status="pending")
+
+    return ConfirmedEncounterRemovalRequest.objects.none()
+
+
+def review_encounter_removal_request(actor, request_id, decision, notes):
+    """Record a moderation outcome for a removal request.
+
+    Decisions:
+    - approve: encounter permanently removed
+    - keep_hidden: encounter stays hidden (removal_pending)
+    - restore: encounter visibility restored to active
+    """
+    from crush_lu.models import ConfirmedEncounterRemovalRequest
+
+    valid_decisions = {"approve", "keep_hidden", "restore"}
+    notes = (notes or "").strip()
+
+    if decision not in valid_decisions or not notes or len(notes) > 1000:
+        raise LobbyAccessError("invalid_request")
+
+    with transaction.atomic():
+        try:
+            removal_request = (
+                reviewable_removal_requests(actor)
+                .select_for_update()
+                .select_related("encounter")
+                .get(pk=request_id, status="pending")
+            )
+        except ConfirmedEncounterRemovalRequest.DoesNotExist:
+            raise LobbyAccessError("not_available") from None
+
+        encounter = removal_request.encounter
+        now = timezone.now()
+
+        # Determine reviewer (coach or staff)
+        coach = getattr(actor, "crushcoach", None)
+        if coach and coach.is_active:
+            removal_request.reviewed_by_coach = coach
+        else:
+            removal_request.reviewed_by_staff = actor
+
+        removal_request.reviewed_at = now
+        removal_request.resolution_notes = notes
+
+        if decision == "approve":
+            removal_request.status = "approved"
+            encounter.status = "removed"
+            encounter.removed_at = now
+        elif decision == "keep_hidden":
+            removal_request.status = "kept_hidden"
+            # Encounter stays in removal_pending state
+        elif decision == "restore":
+            removal_request.status = "restored"
+            encounter.status = "active"
+            encounter.hidden_at = None
+
+        removal_request.save()
+        encounter.save()
+
+    logger.info(
+        "Encounter removal reviewed: request=%s decision=%s actor=%s",
+        request_id,
+        decision,
+        actor.pk,
+    )
+
+    return removal_request
+
+
+def get_people_met_profile(user, handle):
+    """Get full profile for a People I've Met entry by handle.
+
+    Used by the removal request flow to show who is being reported.
+    """
+    from crush_lu.models import ConfirmedEncounter
+    from crush_lu.views_media import get_profile_photo_url
+
+    if not _is_active_connect_member(user):
+        raise LobbyAccessError("not_available")
+
+    # Find encounter by user (handle is the other user's opaque id)
+    # For now, we look up by user_id since handles are per-event
+    try:
+        other_user_id = int(handle)
+    except (ValueError, TypeError):
+        raise LobbyAccessError("not_available") from None
+
+    other = encounter_counterpart(user, other_user_id)
+    if other is None:
+        raise LobbyAccessError("not_available")
+
+    return {
+        "user_id": other.pk,
+        "first_name": other.first_name,
+        "photo_url": get_profile_photo_url(other.crushprofile, "photo_1"),
+        "handle": handle,
+    }

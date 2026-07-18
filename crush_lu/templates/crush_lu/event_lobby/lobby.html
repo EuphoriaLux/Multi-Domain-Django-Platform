@@ -29,45 +29,103 @@
          data-msg-sent-badge="{% trans 'Signal sent' %}"
          data-msg-met-badge="{% trans 'You have already met' %}">
 
-        {# Header — title, countdown, quota, incoming counter (§7.2) #}
-        <div class="rounded-2xl bg-gradient-to-br from-crush-purple to-crush-pink p-5 mb-4">
-            <p class="text-xs font-bold uppercase tracking-[0.14em] text-white/90 mb-1">{% trans "Event Lobby" %}</p>
-            <h1 class="font-display text-2xl font-semibold tracking-tight text-white mb-3">{{ event.title }}</h1>
-            <div class="flex flex-wrap items-center gap-2">
-                <span class="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-sm font-semibold text-white"
-                      x-show="notEnded">
-                    {% include "shared/icons/clock.html" with class="w-4 h-4" %}
-                    <span x-text="countdownDisplay">--:--</span>
-                </span>
-                <span class="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-sm font-semibold text-white">
-                    {% include "shared/icons/heart.html" with class="w-4 h-4" %}
-                    <span><span x-text="signalsDisplay">{{ state.signals_remaining }} / {{ state.signals_total }}</span> {% trans "signals left" %}</span>
-                </span>
+        {# ═══════════════════════════════════════════════════════════════
+           ENHANCED HEADER — Gemini-inspired glassmorphism design
+           with animated background swirls + Claude's data structure
+           ═══════════════════════════════════════════════════════════════ #}
+        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-600 via-crush-purple to-fuchsia-600 dark:from-violet-950/60 dark:via-crush-purple/40 dark:to-fuchsia-950/60 p-5 sm:p-6 mb-4 shadow-lg shadow-crush-purple/20">
+            {# Animated background swirls (Gemini design element) #}
+            <div class="absolute -right-16 -top-16 w-48 h-48 bg-white/10 rounded-full blur-2xl animate-pulse"></div>
+            <div class="absolute -left-16 -bottom-16 w-48 h-48 bg-fuchsia-300/20 rounded-full blur-2xl animate-pulse" style="animation-delay: 1s;"></div>
+            <div class="absolute right-1/4 top-1/3 w-24 h-24 bg-white/5 rounded-full blur-xl"></div>
+
+            <div class="relative z-10">
+                <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                    <div class="flex-1">
+                        <p class="text-xs font-bold uppercase tracking-[0.14em] text-white/80 mb-1">
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/15 rounded-full backdrop-blur-sm">
+                                <span class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+                                {% trans "Live Event Lobby" %}
+                            </span>
+                        </p>
+                        <h1 class="font-display text-2xl sm:text-3xl font-bold tracking-tight text-white mb-2 mt-2">{{ event.title }}</h1>
+                        <p class="text-sm text-white/80">
+                            {% trans "Express interest in the room before the event ends." %}
+                        </p>
+                    </div>
+
+                    {# Countdown timer — Gemini's fancy monospace design #}
+                    <div class="bg-white/15 backdrop-blur-md rounded-xl p-3 text-center min-w-[120px] border border-white/10 shadow-inner"
+                         x-show="notEnded">
+                        <span class="text-[10px] uppercase font-bold text-white/70 block mb-1">{% trans "Time Remaining" %}</span>
+                        <span class="text-xl font-mono font-bold tracking-wider text-white" x-text="countdownDisplay">--:--</span>
+                    </div>
+                </div>
+
+                {# Stats row — Gemini-inspired color-coded cards #}
+                <div class="grid grid-cols-2 gap-3 mt-4">
+                    {# Signals remaining — fuchsia/violet theme #}
+                    <div class="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/10">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-2xl font-black text-white mb-0">
+                                    <span x-text="signalsDisplay">{{ state.signals_remaining }}</span>
+                                </p>
+                                <p class="text-xs text-white/70 mb-0">{% trans "signals left" %}</p>
+                            </div>
+                            {# Signal indicator dots (Gemini design) #}
+                            <div class="flex space-x-1.5">
+                                <template x-for="i in 3" :key="i">
+                                    <span class="w-3 h-3 rounded-full transition-all duration-300"
+                                          :class="i <= ({{ state.signals_total }} - {{ state.signals_remaining }}) ? 'bg-fuchsia-400 shadow-sm shadow-fuchsia-400/50' : 'bg-white/20'">
+                                    </span>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Incoming signals — emerald theme (Gemini design) #}
+                    <div class="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/10"
+                         x-show="hasIncoming" x-cloak>
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-2xl font-black text-emerald-300 mb-0">
+                                    <span x-text="incomingCount">{{ state.incoming_count }}</span>
+                                </p>
+                                <p class="text-xs text-white/70 mb-0">{% trans "want to meet you" %}</p>
+                            </div>
+                            <div class="bg-emerald-400/20 text-emerald-300 font-extrabold text-2xl px-3 py-1 rounded-lg border border-emerald-400/30">
+                                💌
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {# Privacy notice #}
+                <p class="text-xs leading-relaxed text-white/70 mt-4 mb-0">
+                    {% trans "Only checked-in Crush Connect members see this grid. Signals are anonymous and cannot be undone — names are revealed only when you both choose each other." %}
+                </p>
             </div>
-            {# Exact anonymous incoming counter (§7.4) — count only, never identity. #}
-            <p class="text-sm font-medium text-white mt-3 mb-0" x-show="hasIncoming" x-cloak>
-                💌 <span x-text="incomingCount">{{ state.incoming_count }}</span>
-                {% trans "people here would like to meet you." %}
-            </p>
-            <p class="text-xs leading-relaxed text-white/80 mt-3 mb-0">
-                {% trans "Only checked-in Crush Connect members see this grid. Signals are anonymous and cannot be undone — names are revealed only when you both choose each other." %}
-            </p>
         </div>
 
-        {# Ephemeral banner region (§7.5) — polite, coalesced client-side. #}
+        {# ═══════════════════════════════════════════════════════════════
+           EPHEMERAL BANNER — Polite notifications
+           ═══════════════════════════════════════════════════════════════ #}
         <div aria-live="polite">
-            <p class="rounded-xl bg-crush-purple/10 text-crush-purple text-sm font-medium px-4 py-2.5 mb-3"
+            <p class="rounded-xl bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 dark:from-violet-500/20 dark:to-fuchsia-500/20 text-violet-700 dark:text-violet-300 text-sm font-medium px-4 py-2.5 mb-3 border border-violet-200/50 dark:border-violet-700/50"
                x-show="hasBanner" x-cloak x-text="banner"></p>
         </div>
 
-        {# Mutual reveal announcement (§7.4/§14) — assertive live region. #}
+        {# ═══════════════════════════════════════════════════════════════
+           MUTUAL REVEAL — Assertive announcement with gradient border
+           ═══════════════════════════════════════════════════════════════ #}
         <div aria-live="assertive">
-            <div class="rounded-2xl p-0.5 bg-gradient-to-r from-crush-purple to-crush-pink mb-3"
+            <div class="rounded-2xl p-0.5 bg-gradient-to-r from-violet-500 via-crush-purple to-fuchsia-500 mb-3 shadow-lg shadow-fuchsia-500/25"
                  x-show="hasReveal" x-cloak>
                 <div class="flex items-start gap-3 rounded-[14px] bg-white dark:bg-slate-800 p-4">
-                    <span class="text-2xl" aria-hidden="true">🎉</span>
+                    <span class="text-2xl animate-bounce" aria-hidden="true">🎉</span>
                     <p class="flex-1 font-semibold text-gray-900 dark:text-white mb-0" x-text="reveal"></p>
-                    <button type="button" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                    <button type="button" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
                             x-on:click="dismissReveal" aria-label="{% trans 'Dismiss' %}">
                         {% include "shared/icons/x-mark.html" with class="w-5 h-5" %}
                     </button>
@@ -75,85 +133,150 @@
             </div>
         </div>
 
-        {# "Say hello" area (§7.4) — retrievable until event end. #}
+        {# ═══════════════════════════════════════════════════════════════
+           "SAY HELLO NOW" SECTION — Gemini's gradient banner design
+           ═══════════════════════════════════════════════════════════════ #}
         <div id="lobby-mutuals" class="{% if not mutuals %}hidden{% endif %} mb-4">
-            <h2 class="font-display text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                {% trans "Say hello now" %}
-            </h2>
-            <div id="lobby-mutuals-list" class="space-y-2">
-                {% for mutual in mutuals %}
-                <div class="flex items-center gap-3 rounded-2xl ring-1 ring-crush-purple/30 bg-white dark:bg-slate-800 p-3 shadow-crush-sm">
-                    <img src="{{ mutual.photo_url }}" alt="" class="w-12 h-12 rounded-xl object-cover">
-                    <p class="font-semibold text-gray-900 dark:text-white mb-0">{{ mutual.first_name }}</p>
+            <div class="rounded-2xl bg-gradient-to-r from-violet-50 to-fuchsia-50 dark:from-violet-950/30 dark:to-fuchsia-950/30 p-4 border border-violet-200/50 dark:border-violet-800/50 shadow-inner">
+                <h2 class="font-display text-lg font-semibold text-violet-900 dark:text-violet-300 mb-3 flex items-center gap-2">
+                    <span class="text-xl">💬</span>
+                    {% trans "Say Hello Now!" %}
+                </h2>
+                <div id="lobby-mutuals-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {% for mutual in mutuals %}
+                    <div class="flex items-center gap-3 rounded-xl bg-white dark:bg-slate-800 p-3 shadow-sm border border-violet-100 dark:border-violet-900/30 hover:shadow-md transition-shadow">
+                        <img src="{{ mutual.photo_url }}" alt="" class="w-14 h-14 rounded-xl object-cover ring-2 ring-violet-200 dark:ring-violet-800">
+                        <div class="flex-1">
+                            <p class="font-semibold text-gray-900 dark:text-white mb-0">{{ mutual.first_name }}</p>
+                            <p class="text-xs text-violet-600 dark:text-violet-400 font-medium">{% trans "Ready to say hello" %}</p>
+                        </div>
+                        <span class="text-2xl">👋</span>
+                    </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
             </div>
         </div>
 
-        {# Live photo grid (§7.2): photo-only tiles, opaque handles — no names in markup before a mutual reveal (§13). #}
+        {# ═══════════════════════════════════════════════════════════════
+           LIVE PHOTO GRID — Enhanced with Gemini's visual polish
+           ═══════════════════════════════════════════════════════════════ #}
         <div x-show="notEnded">
-            <div id="lobby-grid" role="list" class="grid grid-cols-3 gap-2.5">
+            <h2 class="font-display text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                {% trans "People here now" %}
+            </h2>
+            <div id="lobby-grid" role="list" class="grid grid-cols-3 gap-3">
                 {% for entry in roster %}
                 <button type="button"
                         data-handle="{{ entry.handle }}"
                         data-photo-url="{{ entry.photo_url }}"
                         {% if entry.is_mutual or entry.signalled or entry.already_met %}disabled{% endif %}
                         aria-label="{% if entry.is_mutual or entry.already_met %}{{ entry.first_name }}{% else %}{% trans 'Select participant photo' %}{% endif %}"
-                        class="lobby-tile relative aspect-square overflow-hidden rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 shadow-crush-sm focus:outline-none focus:ring-2 focus:ring-crush-purple transition-transform active:scale-[0.97]">
-                    <img src="{{ entry.photo_url }}" alt="" loading="lazy" class="w-full h-full object-cover">
+                        class="lobby-tile group relative aspect-square overflow-hidden rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 shadow-crush-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all duration-200 hover:shadow-lg hover:shadow-violet-500/20 hover:scale-[1.02] active:scale-[0.98] {% if entry.is_mutual %}ring-2 ring-fuchsia-400 shadow-fuchsia-500/25{% endif %}">
+                    <img src="{{ entry.photo_url }}" alt="" loading="lazy" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">
+
+                    {# Overlay gradient #}
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+
                     {% if entry.already_met %}
-                    <span class="absolute inset-x-0 bottom-0 bg-black/60 px-2 py-1 text-left text-xs font-medium text-white">{% trans "You've already met" %}</span>
+                    <span class="absolute inset-x-0 bottom-0 bg-black/70 backdrop-blur-sm px-2 py-1.5 text-left text-xs font-medium text-white">
+                        {% trans "You've already met" %}
+                    </span>
                     {% elif entry.is_mutual %}
-                    <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-crush-purple/90 to-transparent px-2 pb-1.5 pt-6 text-left text-xs font-semibold text-white">{{ entry.first_name }}</span>
+                    <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-fuchsia-600/90 to-transparent px-2 pb-2 pt-8 text-left">
+                        <span class="block text-xs font-bold text-white">{{ entry.first_name }}</span>
+                        <span class="block text-[10px] text-fuchsia-200">{% trans "Say hello now" %}</span>
+                    </span>
                     {% elif entry.signalled %}
-                    <span class="absolute inset-x-0 bottom-0 bg-black/50 px-2 py-1 text-left text-xs font-medium text-white">{% trans "Signal sent" %}</span>
+                    <span class="absolute inset-x-0 bottom-0 bg-black/60 backdrop-blur-sm px-2 py-1.5 text-left text-xs font-medium text-white">
+                        {% trans "Signal sent" %}
+                    </span>
+                    {% else %}
+                    {# Hover indicator for available tiles #}
+                    <span class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <span class="bg-white/90 dark:bg-slate-800/90 text-violet-600 dark:text-violet-400 text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
+                            {% trans "I'd like to meet" %}
+                        </span>
+                    </span>
                     {% endif %}
                 </button>
                 {% empty %}
-                <p class="col-span-3 text-center text-sm text-gray-500 dark:text-gray-400 py-10">
-                    {% trans "You're the first one here — new arrivals appear automatically." %}
-                </p>
+                <div class="col-span-3 text-center py-12">
+                    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-violet-100 to-fuchsia-100 dark:from-violet-900/30 dark:to-fuchsia-900/30 flex items-center justify-center">
+                        <span class="text-2xl">✨</span>
+                    </div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                        {% trans "You're the first one here — new arrivals appear automatically." %}
+                    </p>
+                </div>
                 {% endfor %}
             </div>
         </div>
 
-        {# Ended state (§7.6): server already rejects writes; this is UI only. #}
-        <div class="rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-6 text-center"
+        {# ═══════════════════════════════════════════════════════════════
+           ENDED STATE — Elegant transition to recap
+           ═══════════════════════════════════════════════════════════════ #}
+        <div class="rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 ring-1 ring-gray-200 dark:ring-slate-700 shadow-crush-sm p-8 text-center"
              x-show="ended" x-cloak>
-            <p class="text-3xl mb-2" aria-hidden="true">🌙</p>
-            <p class="font-semibold text-gray-900 dark:text-white mb-2">{% trans "The live lobby has ended." %}</p>
-            <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">
+            <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-violet-100 to-fuchsia-100 dark:from-violet-900/30 dark:to-fuchsia-900/30 flex items-center justify-center">
+                <span class="text-4xl" aria-hidden="true">🌙</span>
+            </div>
+            <p class="font-display text-xl font-semibold text-gray-900 dark:text-white mb-2">{% trans "The live lobby has ended." %}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-300 mb-6 max-w-sm mx-auto">
                 {% trans "Who did you meet? You have 48 hours to confirm." %}
             </p>
-            <a href="{% url 'crush_lu:event_lobby' event.id %}" class="btn-crush-primary inline-flex">
+            <a href="{% url 'crush_lu:event_lobby' event.id %}" class="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-semibold px-6 py-3 rounded-xl shadow-lg shadow-violet-500/30 hover:shadow-xl hover:shadow-violet-500/40 transition-all hover:scale-[1.02] active:scale-[0.98]">
                 {% trans "Open the recap" %}
+                <span aria-hidden="true">→</span>
             </a>
         </div>
 
-        {# Irreversible confirmation dialog (§7.3/§14). #}
+        {# ═══════════════════════════════════════════════════════════════
+           CONFIRMATION DIALOG — Enhanced with Gemini's styling
+           ═══════════════════════════════════════════════════════════════ #}
         <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
              x-show="confirmOpen" x-cloak
              role="dialog" aria-modal="true" aria-labelledby="lobby-confirm-title">
-            <div class="absolute inset-0 bg-black/50" x-on:click="closeConfirm" aria-hidden="true"></div>
-            <div class="relative w-full sm:max-w-sm bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl p-5 shadow-xl">
-                <img x-bind:src="confirmPhotoUrl" alt="" class="w-20 h-20 rounded-2xl object-cover mx-auto mb-3">
-                <h2 id="lobby-confirm-title" class="font-display text-lg font-semibold text-center text-gray-900 dark:text-white mb-1">
-                    {% trans "Send a meet signal?" %}
-                </h2>
-                <p class="text-sm text-center text-gray-600 dark:text-gray-300 mb-1">
-                    {% trans "It stays anonymous unless they pick you too. This cannot be undone." %}
-                </p>
-                <p class="text-xs text-center text-gray-500 dark:text-gray-400 mb-4">
-                    <span x-text="signalsRemaining">{{ state.signals_remaining }}</span> {% trans "of 3 signals left for this event" %}
-                </p>
-                <div class="flex gap-2">
-                    <button type="button" class="btn-crush-outline flex-1" x-on:click="closeConfirm">
-                        {% trans "Cancel" %}
-                    </button>
-                    <button type="button" class="btn-crush-primary flex-1" x-on:click="confirmSignal"
-                            x-bind:disabled="sending">
-                        {% trans "Yes, I'd like to meet them" %}
-                    </button>
+            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" x-on:click="closeConfirm" aria-hidden="true"></div>
+            <div class="relative w-full sm:max-w-sm bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl p-6 shadow-2xl border border-gray-200 dark:border-slate-700">
+                {# Decorative gradient top border #}
+                <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-violet-500 via-crush-purple to-fuchsia-500 rounded-t-2xl"></div>
+
+                <div class="pt-2">
+                    <img x-bind:src="confirmPhotoUrl" alt="" class="w-24 h-24 rounded-2xl object-cover mx-auto mb-4 ring-4 ring-violet-100 dark:ring-violet-900/50 shadow-lg">
+                    <h2 id="lobby-confirm-title" class="font-display text-xl font-bold text-center text-gray-900 dark:text-white mb-2">
+                        {% trans "Send a meet signal?" %}
+                    </h2>
+                    <p class="text-sm text-center text-gray-600 dark:text-gray-300 mb-1">
+                        {% trans "It stays anonymous unless they pick you too. This cannot be undone." %}
+                    </p>
+                    <div class="flex items-center justify-center gap-1.5 mb-6">
+                        <span class="text-xs text-gray-500 dark:text-gray-400">{% trans "Signals remaining:" %}</span>
+                        <div class="flex space-x-1">
+                            <template x-for="i in 3" :key="i">
+                                <span class="w-2.5 h-2.5 rounded-full"
+                                      :class="i <= signalsRemaining ? 'bg-fuchsia-500' : 'bg-gray-200 dark:bg-slate-600'">
+                                </span>
+                            </template>
+                        </div>
+                    </div>
+                    <div class="flex gap-3">
+                        <button type="button" class="flex-1 px-4 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 rounded-xl transition-colors"
+                                x-on:click="closeConfirm">
+                            {% trans "Cancel" %}
+                        </button>
+                        <button type="button" class="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 rounded-xl shadow-lg shadow-violet-500/30 transition-all hover:shadow-xl hover:shadow-violet-500/40 disabled:opacity-50 disabled:cursor-not-allowed"
+                                x-on:click="confirmSignal"
+                                x-bind:disabled="sending">
+                            <span x-show="!sending">{% trans "Yes, I'd like to meet them" %}</span>
+                            <span x-show="sending" class="flex items-center justify-center gap-2">
+                                <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                {% trans "Sending..." %}
+                            </span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

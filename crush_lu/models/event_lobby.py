@@ -272,3 +272,94 @@ class ConfirmedEncounter(models.Model):
 
     def counterpart_of(self, user):
         return self.user_high if self.user_low_id == user.pk else self.user_low
+
+
+class ConfirmedEncounterRemovalRequest(models.Model):
+    """Private moderation audit for hiding or removing a confirmed encounter.
+
+    Ported from PR #633 (Codex) — full removal-review workflow.
+    """
+
+    REASON_SAFETY = "safety"
+    REASON_PRIVACY = "privacy"
+    REASON_MISTAKEN_IDENTITY = "mistaken_identity"
+    REASON_NO_LONGER_VISIBLE = "no_longer_visible"
+    REASON_OTHER = "other"
+    REASON_CHOICES = [
+        (REASON_SAFETY, _("I feel unsafe or uncomfortable")),
+        (REASON_PRIVACY, _("Privacy concern")),
+        (REASON_MISTAKEN_IDENTITY, _("We did not actually meet")),
+        (REASON_NO_LONGER_VISIBLE, _("I no longer want this person visible")),
+        (REASON_OTHER, _("Another reason")),
+    ]
+
+    STATUS_PENDING = "pending"
+    STATUS_APPROVED = "approved"
+    STATUS_KEPT_HIDDEN = "kept_hidden"
+    STATUS_RESTORED = "restored"
+    STATUS_CHOICES = [
+        (STATUS_PENDING, _("Pending review")),
+        (STATUS_APPROVED, _("Removal approved")),
+        (STATUS_KEPT_HIDDEN, _("Resolved and kept hidden")),
+        (STATUS_RESTORED, _("Visibility explicitly restored")),
+    ]
+
+    encounter = models.ForeignKey(
+        ConfirmedEncounter,
+        on_delete=models.CASCADE,
+        related_name="removal_requests",
+    )
+    requested_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name="confirmed_encounter_removal_requests",
+    )
+    reason = models.CharField(max_length=32, choices=REASON_CHOICES)
+    details = models.TextField(blank=True, max_length=500)
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+    )
+    requested_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by_coach = models.ForeignKey(
+        "crush_lu.CrushCoach",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="reviewed_encounter_removals",
+    )
+    reviewed_by_staff = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="staff_reviewed_encounter_removals",
+    )
+    resolution_notes = models.TextField(blank=True, max_length=1000)
+
+    class Meta:
+        ordering = ["-requested_at"]
+        verbose_name = _("Encounter Removal Request")
+        verbose_name_plural = _("Encounter Removal Requests")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["encounter"],
+                condition=Q(status="pending"),
+                name="eventlobby_one_pending_removal",
+            ),
+        ]
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.encounter_id and self.requested_by_id not in {
+            self.encounter.user_low_id,
+            self.encounter.user_high_id,
+        }:
+            raise ValidationError(_("Requester must belong to the encounter."))
+        if self.reviewed_by_coach_id and self.reviewed_by_staff_id:
+            raise ValidationError(_("A review has one acting reviewer."))
+
+    def __str__(self):
+        return f"removal:{self.encounter_id} by {self.requested_by_id} ({self.status})"
