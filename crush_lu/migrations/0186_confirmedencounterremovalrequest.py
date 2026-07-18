@@ -100,8 +100,8 @@ class Migration(migrations.Migration):
                 "ordering": ["-requested_at"],
                 "constraints": [
                     models.UniqueConstraint(
-                        models.Q(status="pending"),
                         fields=["encounter"],
+                        condition=models.Q(status="pending"),
                         name="eventlobby_one_pending_removal",
                     ),
                 ],
