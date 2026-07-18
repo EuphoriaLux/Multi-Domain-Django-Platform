@@ -29,10 +29,10 @@
          data-msg-sent-badge="{% trans 'Signal sent' %}"
          data-msg-met-badge="{% trans 'You have already met' %}">
 
-        {# ═══════════════════════════════════════════════════════════════
+        {% comment %}═══════════════════════════════════════════════════════════════
            ENHANCED HEADER — Gemini-inspired glassmorphism design
            with animated background swirls + Claude's data structure
-           ═══════════════════════════════════════════════════════════════ #}
+           ═══════════════════════════════════════════════════════════════{% endcomment %}
         <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-600 via-crush-purple to-fuchsia-600 dark:from-violet-950/60 dark:via-crush-purple/40 dark:to-fuchsia-950/60 p-5 sm:p-6 mb-4 shadow-lg shadow-crush-purple/20">
             {# Animated background swirls (Gemini design element) #}
             <div class="absolute -right-16 -top-16 w-48 h-48 bg-white/10 rounded-full blur-2xl animate-pulse"></div>
@@ -108,17 +108,17 @@
             </div>
         </div>
 
-        {# ═══════════════════════════════════════════════════════════════
+        {% comment %}═══════════════════════════════════════════════════════════════
            EPHEMERAL BANNER — Polite notifications
-           ═══════════════════════════════════════════════════════════════ #}
+           ═══════════════════════════════════════════════════════════════{% endcomment %}
         <div aria-live="polite">
             <p class="rounded-xl bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 dark:from-violet-500/20 dark:to-fuchsia-500/20 text-violet-700 dark:text-violet-300 text-sm font-medium px-4 py-2.5 mb-3 border border-violet-200/50 dark:border-violet-700/50"
                x-show="hasBanner" x-cloak x-text="banner"></p>
         </div>
 
-        {# ═══════════════════════════════════════════════════════════════
+        {% comment %}═══════════════════════════════════════════════════════════════
            MUTUAL REVEAL — Assertive announcement with gradient border
-           ═══════════════════════════════════════════════════════════════ #}
+           ═══════════════════════════════════════════════════════════════{% endcomment %}
         <div aria-live="assertive">
             <div class="rounded-2xl p-0.5 bg-gradient-to-r from-violet-500 via-crush-purple to-fuchsia-500 mb-3 shadow-lg shadow-fuchsia-500/25"
                  x-show="hasReveal" x-cloak>
@@ -133,9 +133,9 @@
             </div>
         </div>
 
-        {# ═══════════════════════════════════════════════════════════════
+        {% comment %}═══════════════════════════════════════════════════════════════
            "SAY HELLO NOW" SECTION — Gemini's gradient banner design
-           ═══════════════════════════════════════════════════════════════ #}
+           ═══════════════════════════════════════════════════════════════{% endcomment %}
         <div id="lobby-mutuals" class="{% if not mutuals %}hidden{% endif %} mb-4">
             <div class="rounded-2xl bg-gradient-to-r from-violet-50 to-fuchsia-50 dark:from-violet-950/30 dark:to-fuchsia-950/30 p-4 border border-violet-200/50 dark:border-violet-800/50 shadow-inner">
                 <h2 class="font-display text-lg font-semibold text-violet-900 dark:text-violet-300 mb-3 flex items-center gap-2">
@@ -157,9 +157,9 @@
             </div>
         </div>
 
-        {# ═══════════════════════════════════════════════════════════════
+        {% comment %}═══════════════════════════════════════════════════════════════
            LIVE PHOTO GRID — Enhanced with Gemini's visual polish
-           ═══════════════════════════════════════════════════════════════ #}
+           ═══════════════════════════════════════════════════════════════{% endcomment %}
         <div x-show="notEnded">
             <h2 class="font-display text-lg font-semibold text-gray-900 dark:text-white mb-3">
                 {% trans "People here now" %}
@@ -212,9 +212,9 @@
             </div>
         </div>
 
-        {# ═══════════════════════════════════════════════════════════════
+        {% comment %}═══════════════════════════════════════════════════════════════
            ENDED STATE — Elegant transition to recap
-           ═══════════════════════════════════════════════════════════════ #}
+           ═══════════════════════════════════════════════════════════════{% endcomment %}
         <div class="rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 ring-1 ring-gray-200 dark:ring-slate-700 shadow-crush-sm p-8 text-center"
              x-show="ended" x-cloak>
             <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-violet-100 to-fuchsia-100 dark:from-violet-900/30 dark:to-fuchsia-900/30 flex items-center justify-center">
@@ -230,9 +230,9 @@
             </a>
         </div>
 
-        {# ═══════════════════════════════════════════════════════════════
+        {% comment %}═══════════════════════════════════════════════════════════════
            CONFIRMATION DIALOG — Enhanced with Gemini's styling
-           ═══════════════════════════════════════════════════════════════ #}
+           ═══════════════════════════════════════════════════════════════{% endcomment %}
         <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
              x-show="confirmOpen" x-cloak
              role="dialog" aria-modal="true" aria-labelledby="lobby-confirm-title">
