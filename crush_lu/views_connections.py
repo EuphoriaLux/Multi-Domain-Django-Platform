@@ -622,9 +622,10 @@ def connection_actions(request, event_id, user_id):
 
 @crush_login_required
 @ratelimit(key='user', rate='10/h', method='POST')
-@require_http_methods(["GET", "POST"])
+@require_http_methods(["POST"])
 def respond_connection(request, connection_id, action):
-    """Accept or decline a connection request"""
+    """Accept or decline a connection request (POST-only to prevent
+    GET-based state changes via link-luring — finding M14)."""
     connection = get_object_or_404(
         EventConnection, id=connection_id, recipient=request.user
     )

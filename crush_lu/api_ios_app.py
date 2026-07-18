@@ -170,7 +170,6 @@ def list_ios_devices(request):
 
 @login_required
 @ratelimit(key="user", rate="30/m", method="POST")
-@csrf_exempt
 @require_http_methods(["POST"])
 def register_ios_device(request):
     data = _json_body(request)
@@ -220,7 +219,6 @@ def register_ios_device(request):
 
 @login_required
 @ratelimit(key="user", rate="30/m", method="POST")
-@csrf_exempt
 @require_http_methods(["POST", "DELETE"])
 def unregister_ios_device(request):
     data = _json_body(request) if request.body else {}
@@ -244,7 +242,6 @@ def unregister_ios_device(request):
 
 @login_required
 @ratelimit(key="user", rate="30/m", method="POST")
-@csrf_exempt
 @require_http_methods(["POST"])
 def update_ios_device_preferences(request):
     data = _json_body(request)
