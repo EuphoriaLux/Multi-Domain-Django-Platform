@@ -166,12 +166,6 @@ def apply_referral_reward(attribution, reward_type="signup"):
     Returns:
         Tuple of (points_awarded, new_total_points) or (0, 0) if not applicable
     """
-    if attribution.reward_applied:
-        logger.debug(
-            "Reward already applied for attribution %s", attribution.id
-        )
-        return 0, attribution.referrer.referral_points
-
     if attribution.status != ReferralAttribution.Status.CONVERTED:
         logger.debug(
             "Attribution %s not converted yet, skipping reward", attribution.id
@@ -188,6 +182,22 @@ def apply_referral_reward(attribution, reward_type="signup"):
         return 0, 0
 
     with transaction.atomic():
+        # Re-fetch with a row lock to close the double-award race (finding H2).
+        # Multiple callers (coach approval, event check-in, login signals) can
+        # pass the outer status check concurrently; the lock + re-check ensures
+        # only one of them awards the points.
+        attribution = (
+            ReferralAttribution.objects
+            .select_for_update()
+            .get(pk=attribution.pk)
+        )
+        if attribution.reward_applied:
+            logger.debug(
+                "Reward already applied for attribution %s (locked re-check)",
+                attribution.id,
+            )
+            return 0, attribution.referrer.referral_points
+
         # Update attribution
         attribution.reward_applied = True
         attribution.reward_applied_at = timezone.now()
