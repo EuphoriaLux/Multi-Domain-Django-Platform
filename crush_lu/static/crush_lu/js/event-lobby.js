@@ -127,6 +127,13 @@ document.addEventListener("alpine:init", function () {
                 return !this.ended;
             },
 
+            // CSP-build note: x-show takes property paths only, so the
+            // send-button's idle label binds this getter rather than
+            // "!sending" (which Alpine's CSP build cannot evaluate).
+            get notSending() {
+                return !this.sending;
+            },
+
             // --- Grid interaction ------------------------------------------
 
             bindGrid: function () {

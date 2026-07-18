@@ -26,6 +26,7 @@ from django.db import transaction
 from django.db.models import Exists, OuterRef, Q
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.translation import gettext as _
 
 from .blocking import blocked_user_ids, is_blocked_pair
 
@@ -124,6 +125,23 @@ def participant_gate(user) -> tuple[bool, str]:
     if not profile.photo_1:
         return False, GATE_NO_PHOTO
     return True, GATE_OK
+
+
+def may_learn_lobby_exists(user) -> bool:
+    """§5.3: who is allowed to see the "Finish Crush Connect" CTA at all.
+
+    Non-Connect guests "cannot infer whether a lobby exists"; only a
+    checked-in guest who already passes the Connect *pre-onboarding* gate
+    (approved profile + LuxID — the same condition
+    ``views_crush_connect._user_passes_pre_onboarding_gate`` uses) is the
+    "LuxID-capable guest who is not onboarded" the spec says may see the
+    onboarding CTA. For everyone else the response must stay
+    indistinguishable from "this event has no lobby".
+    """
+    profile = getattr(user, "crushprofile", None)
+    if profile is None:
+        return False
+    return bool(profile.is_approved and profile.has_luxid_connected)
 
 
 def evaluate_participation(registration, source="checkin", now=None):
@@ -864,6 +882,10 @@ def confirm_meeting(confirmer, event, target_handle, now=None) -> dict:
                 low.pk,
                 high.pk,
             )
+            # §12: the FIRST confirmer gets a persisted in-app notification —
+            # they are not necessarily on the page (and the recap has no live
+            # socket, §7.6), so a realtime hint alone would never reach them.
+            notify_encounter_created(other, confirmer)
             return {
                 "result": "encounter",
                 "handle": target.handle,
@@ -877,6 +899,52 @@ def confirm_meeting(confirmer, event, target_handle, now=None) -> dict:
         confirmation.pk,
     )
     return {"result": "confirmed", "recipient_user_id": other.pk}
+
+
+def notify_encounter_created(recipient, counterpart) -> None:
+    """Persist the "{first_name} was added to People I've Met." bell row (§12).
+
+    In-app ONLY: written straight to ``Notification`` (the
+    ``notify_report_filed`` precedent) so MVP emits no push, email, APNS, or
+    SMS (§19). Best-effort — a notification failure must never roll back the
+    encounter.
+    """
+    from django.urls import NoReverseMatch
+    from django.utils import translation
+
+    from crush_lu.models import Notification
+
+    try:
+        from crush_lu.email_helpers import get_user_preferred_language
+
+        lang = get_user_preferred_language(user=recipient, default="en")
+    except Exception:
+        lang = "en"
+
+    try:
+        link_url = reverse("crush_lu:event_lobby_people")
+    except NoReverseMatch:
+        link_url = ""
+
+    name = counterpart.first_name or ""
+    try:
+        with translation.override(lang):
+            title = str(_("People I've Met"))
+            body = str(
+                _("%(name)s was added to People I've Met.") % {"name": name}
+            )
+        Notification.objects.create(
+            user=recipient,
+            notification_type="event_lobby_encounter",
+            title=title[:200],
+            body=body,
+            link_url=link_url,
+            metadata={},
+        )
+    except Exception:
+        logger.exception(
+            "Failed writing encounter notification for user %s", recipient.pk
+        )
 
 
 # ---------------------------------------------------------------------------

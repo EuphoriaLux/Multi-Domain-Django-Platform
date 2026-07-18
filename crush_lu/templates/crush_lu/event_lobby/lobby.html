@@ -281,7 +281,8 @@
                         <button type="button" class="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 rounded-xl shadow-lg shadow-violet-500/30 transition-all hover:shadow-xl hover:shadow-violet-500/40 disabled:opacity-50 disabled:cursor-not-allowed"
                                 x-on:click="confirmSignal"
                                 x-bind:disabled="sending">
-                            <span x-show="!sending">{% trans "Yes, I'd like to meet them" %}</span>
+                            {# CSP Alpine build forbids inline negation — bind the named getter. #}
+                            <span x-show="notSending">{% trans "Yes, I'd like to meet them" %}</span>
                             <span x-show="sending" class="flex items-center justify-center gap-2">
                                 <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>

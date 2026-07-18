@@ -50,6 +50,7 @@ from .services.event_lobby import (
     incoming_signal_count,
     lobby_feature_enabled,
     lobby_state,
+    may_learn_lobby_exists,
     participant_gate,
     recap_state,
     send_meet_signal,
@@ -122,6 +123,11 @@ def event_lobby(request, event_id):
 
     ok, gate_reason = participant_gate(request.user)
     if not ok:
+        # §5.3: only a LuxID-capable, approved guest may even learn a lobby
+        # exists. A plain non-Connect attendee gets the same 404 as someone
+        # who never checked in — the CTA must not advertise the feature.
+        if not may_learn_lobby_exists(request.user):
+            raise Http404("Event lobby not available")
         return render(
             request,
             "crush_lu/event_lobby/lobby_locked.html",

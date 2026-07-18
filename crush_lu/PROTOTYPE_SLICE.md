@@ -32,10 +32,19 @@ request removal of a confirmed encounter (immediate two-sided hiding); a
 staff-only queue resolves it to approved / kept hidden / restored. The queue
 stays staff-only until requests can be scoped to an assigned coach.
 
+**Retention cleanup added (§13):** `manage.py cleanup_event_lobby` hard-deletes
+signal / confirmation / participation rows 30 days after an event's recap
+closes. Permanent encounters are never touched — they keep only their
+`created_from_event` provenance. Idempotent, `--dry-run` supported.
+
+**Confirmed-encounter notification added (§12):** the first confirmer gets a
+persisted in-app bell row ("{name} was added to People I've Met."), written
+directly to `Notification` so MVP still emits no push/email/APNS/SMS (§19).
+
 **Still deliberately stubbed** (marked `# PROTOTYPE-STUB:` in code):
-versioned lobby photo-consent (reuses `photo_share_consent`), persisted
-recap/24h-reminder in-app notifications (§12), the 30-day retention cleanup
-task (§13), WebSocket force-disconnect on mid-session eligibility loss
+versioned lobby photo-consent (reuses `photo_share_consent`), the remaining
+§12 notifications (recap-opens + 24h reminder), WebSocket force-disconnect
+on mid-session eligibility loss
 (§11.1 — HTTP re-authorizes every fetch meanwhile), the coach-scoped review
 queue (§9.5), and analytics (§15). Recap realtime rides the polling fallback
 (the member WebSocket closes at event end per §7.6).

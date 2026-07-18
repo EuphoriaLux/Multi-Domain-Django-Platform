@@ -788,6 +788,35 @@ class TestLobbyPage:
         assert "lobby-grid" not in html
         assert _handle_of(ben, event) not in html
 
+    @pytest.mark.parametrize(
+        "knobs",
+        [{"membership": False, "luxid": False}, {"luxid": False}, {"verified": False}],
+        ids=["non_connect", "no_luxid", "not_approved"],
+    )
+    def test_non_connect_guest_cannot_learn_lobby_exists(self, client, knobs):
+        """§5.3: only a LuxID-capable, approved guest may see the onboarding
+        CTA. Everyone else gets a response indistinguishable from "no lobby"
+        — the CTA must never advertise the feature (Codex review, PR #637)."""
+        event = _make_event()
+        ben = _make_member("ben", gender="M")
+        _join(ben, event)
+        guest = _make_member("guest", onboarded=False, **knobs)
+        _attend(guest, event)
+        _login(client, guest)
+        response = client.get(_lobby_url(event))
+        assert response.status_code == 404
+
+    def test_lobby_page_has_no_csp_unsafe_alpine_expressions(self, client):
+        """The repo's Alpine CSP build cannot evaluate inline negation — every
+        boolean must bind a named getter (Codex review, PR #637)."""
+        event = _make_event()
+        alice = _make_member("alice")
+        _join(alice, event)
+        _login(client, alice)
+        html = client.get(_lobby_url(event)).content.decode()
+        for attr in ('x-show="!', 'x-if="!', 'x-bind:disabled="!'):
+            assert attr not in html
+
     def test_participant_sees_photo_grid_without_pre_mutual_names(self, client):
         event = _make_event()
         alice = _make_member("alice")

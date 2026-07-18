@@ -871,3 +871,136 @@ class TestAlreadyMetInLiveGrid:
         assert lobby.confirm_meeting(alice, event, ben_handle) == {
             "result": "unknown_participant"
         }
+
+
+# ---------------------------------------------------------------------------
+# Persisted encounter notification (§12) & retention cleanup (§13)
+# ---------------------------------------------------------------------------
+
+
+class TestEncounterNotification:
+    """§12: the first confirmer is not necessarily on the page (and the recap
+    has no live socket, §7.6), so the reveal must be a persisted in-app row
+    rather than a realtime-only hint (Codex review, PR #637)."""
+
+    def _recap_pair(self):
+        event = _recap_event()
+        alice = _make_member("alice")
+        ben = _make_member("ben", gender="M")
+        _join(alice, event)
+        _join(ben, event)
+        handles = {"alice": _handle_of(alice, event), "ben": _handle_of(ben, event)}
+        _to_recap(event)
+        return event, alice, ben, handles
+
+    def test_first_confirmer_gets_persisted_notification(self):
+        from crush_lu.models import Notification
+
+        event, alice, ben, h = self._recap_pair()
+        lobby.confirm_meeting(alice, event, h["ben"])  # first, one-sided
+        assert Notification.objects.count() == 0  # still anonymous
+
+        lobby.confirm_meeting(ben, event, h["alice"])  # reciprocates
+
+        note = Notification.objects.get(user=alice)
+        assert note.notification_type == "event_lobby_encounter"
+        assert "Ben" in note.body
+        assert note.link_url == reverse("crush_lu:event_lobby_people")
+        assert note.is_unread
+
+    def test_no_notification_for_one_sided_confirmation(self):
+        from crush_lu.models import Notification
+
+        event, alice, ben, h = self._recap_pair()
+        lobby.confirm_meeting(alice, event, h["ben"])
+        assert Notification.objects.count() == 0
+
+    def test_mvp_emits_no_push_or_email(self, mailbox):
+        """§19: MVP emits no push, email, APNS, or SMS — the row is written
+        directly, never through NotificationService's multi-channel dispatch."""
+        from crush_lu.models import Notification
+
+        event, alice, ben, h = self._recap_pair()
+        lobby.confirm_meeting(alice, event, h["ben"])
+        lobby.confirm_meeting(ben, event, h["alice"])
+
+        assert Notification.objects.filter(user=alice).count() == 1
+        assert mailbox == []
+
+    def test_notification_failure_never_breaks_the_encounter(self, mocker):
+        """The bell write is best-effort: if it fails, the permanent encounter
+        must still be created and the confirmation still succeed."""
+        from crush_lu.models import Notification
+
+        mocker.patch.object(
+            Notification.objects,
+            "create",
+            side_effect=RuntimeError("bell exploded"),
+        )
+        event, alice, ben, h = self._recap_pair()
+        lobby.confirm_meeting(alice, event, h["ben"])
+        result = lobby.confirm_meeting(ben, event, h["alice"])
+
+        assert result["result"] == "encounter"
+        assert ConfirmedEncounter.objects.count() == 1
+        assert [p["first_name"] for p in lobby.get_people_ive_met(alice)] == ["Ben"]
+
+
+class TestRetentionCleanup:
+    """§13: expired signals/confirmations/participations are hard-deleted 30
+    days after recap close; permanent encounters are never touched."""
+
+    def _expired_event_with_rows(self, days_past=31):
+        event = _recap_event()
+        alice = _make_member("alice")
+        ben = _make_member("ben", gender="M")
+        _join(alice, event)
+        _join(ben, event)
+        h = {"alice": _handle_of(alice, event), "ben": _handle_of(ben, event)}
+        lobby.send_meet_signal(alice, event, h["ben"])
+        _to_recap(event)
+        lobby.confirm_meeting(alice, event, h["ben"])
+        lobby.confirm_meeting(ben, event, h["alice"])  # → permanent encounter
+        # Rewind past recap close + retention window.
+        _end_event(event, hours_ago=48 + days_past * 24)
+        return event, alice, ben
+
+    def _run(self, **kwargs):
+        from django.core.management import call_command
+
+        call_command("cleanup_event_lobby", **kwargs)
+
+    def test_deletes_expired_rows_but_keeps_encounters(self):
+        event, alice, ben = self._expired_event_with_rows()
+        assert EventMeetSignal.objects.exists()
+        assert EventMeetingConfirmation.objects.exists()
+        assert EventLobbyParticipation.objects.exists()
+
+        self._run()
+
+        assert not EventMeetSignal.objects.exists()
+        assert not EventMeetingConfirmation.objects.exists()
+        assert not EventLobbyParticipation.objects.exists()
+        # The permanent collection survives with its provenance intact (§13).
+        encounter = ConfirmedEncounter.objects.get()
+        assert encounter.status == "active"
+        assert encounter.created_from_event_id == event.pk
+        assert [p["first_name"] for p in lobby.get_people_ive_met(alice)] == ["Ben"]
+
+    def test_keeps_rows_inside_retention_window(self):
+        self._expired_event_with_rows(days_past=5)
+        self._run()
+        assert EventMeetSignal.objects.exists()
+        assert EventLobbyParticipation.objects.exists()
+
+    def test_dry_run_changes_nothing(self):
+        self._expired_event_with_rows()
+        self._run(dry_run=True)
+        assert EventMeetSignal.objects.exists()
+        assert EventLobbyParticipation.objects.exists()
+
+    def test_is_idempotent(self):
+        self._expired_event_with_rows()
+        self._run()
+        self._run()  # second pass finds nothing left
+        assert ConfirmedEncounter.objects.count() == 1
