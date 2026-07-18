@@ -135,6 +135,10 @@ from .ios_app import (
     IOSNativeAuthCodeAdmin,
 )
 
+from .android_app import (
+    AndroidAppDeviceAdmin,
+)
+
 from .preferences import (
     UserActivityAdmin,
     EmailPreferenceAdmin,
@@ -272,6 +276,7 @@ from crush_lu.models import (
     CoachPushSubscription,
     IOSAppDevice,
     IOSNativeAuthCode,
+    AndroidAppDevice,
     UserActivity,
     EmailPreference,
     ProfileReminder,
@@ -395,6 +400,7 @@ crush_admin_site.register(PushSubscription, PushSubscriptionAdmin)
 crush_admin_site.register(CoachPushSubscription, CoachPushSubscriptionAdmin)
 crush_admin_site.register(IOSAppDevice, IOSAppDeviceAdmin)
 crush_admin_site.register(IOSNativeAuthCode, IOSNativeAuthCodeAdmin)
+crush_admin_site.register(AndroidAppDevice, AndroidAppDeviceAdmin)
 
 # User Activity and Preferences
 crush_admin_site.register(UserActivity, UserActivityAdmin)

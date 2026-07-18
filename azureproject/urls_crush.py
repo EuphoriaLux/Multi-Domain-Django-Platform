@@ -156,6 +156,10 @@ urlpatterns = [
     path('api/mobile/android/config/', api_android_app.android_app_config, name='api_android_app_config'),
     path('api/mobile/android/auth/handoff/', api_android_app.android_auth_handoff, name='api_android_auth_handoff'),
     path('api/mobile/android/auth/complete/<str:code>/', api_android_app.android_auth_complete, name='api_android_auth_complete'),
+    path('api/mobile/android/devices/', api_android_app.list_android_devices, name='api_android_devices'),
+    path('api/mobile/android/devices/register/', api_android_app.register_android_device, name='api_android_device_register'),
+    path('api/mobile/android/devices/unregister/', api_android_app.unregister_android_device, name='api_android_device_unregister'),
+    path('api/mobile/android/devices/preferences/', api_android_app.update_android_device_preferences, name='api_android_device_preferences'),
 
     # Coach Push Notifications API (called from alpine-components.js)
     path('api/coach/push/vapid-public-key/', api_coach_push.get_vapid_public_key, name='api_coach_vapid_public_key'),

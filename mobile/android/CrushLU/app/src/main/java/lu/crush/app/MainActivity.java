@@ -29,6 +29,8 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import android.content.SharedPreferences;
+import android.os.Build;
 
 public class MainActivity extends AppCompatActivity {
     private static final int FILE_CHOOSER_REQUEST = 1001;
@@ -80,7 +82,15 @@ public class MainActivity extends AppCompatActivity {
         if (launchUri != null) {
             handleUri(launchUri);
         } else {
-            loadInternal(START_URL);
+            String targetUrl = getIntent().getStringExtra("target_url");
+            if (targetUrl != null && !targetUrl.isEmpty()) {
+                if (targetUrl.startsWith("/")) {
+                    targetUrl = BASE_URL + targetUrl;
+                }
+                loadInternal(targetUrl);
+            } else {
+                loadInternal(START_URL);
+            }
         }
     }
 
@@ -91,6 +101,14 @@ public class MainActivity extends AppCompatActivity {
         Uri uri = intent.getData();
         if (uri != null) {
             handleUri(uri);
+        } else {
+            String targetUrl = intent.getStringExtra("target_url");
+            if (targetUrl != null && !targetUrl.isEmpty()) {
+                if (targetUrl.startsWith("/")) {
+                    targetUrl = BASE_URL + targetUrl;
+                }
+                loadInternal(targetUrl);
+            }
         }
     }
 
@@ -274,6 +292,7 @@ public class MainActivity extends AppCompatActivity {
             swipeRefresh.setRefreshing(false);
             fixWebHeaderStyle();
             CookieManager.getInstance().flush();
+            registerFcmTokenIfAuthenticated();
         }
 
         @Override
@@ -307,5 +326,73 @@ public class MainActivity extends AppCompatActivity {
             openExternal(uri);
             return true;
         }
+    }
+
+    private void registerFcmTokenIfAuthenticated() {
+        final SharedPreferences prefs = getSharedPreferences("CrushPreferences", MODE_PRIVATE);
+        final String token = prefs.getString("fcm_token", "");
+        if (token.isEmpty()) {
+            com.google.firebase.messaging.FirebaseMessaging.getInstance().getToken()
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful() && task.getResult() != null) {
+                        String fcmToken = task.getResult();
+                        prefs.edit().putString("fcm_token", fcmToken).apply();
+                        injectTokenRegistrationScript(fcmToken);
+                    }
+                });
+        } else {
+            injectTokenRegistrationScript(token);
+        }
+    }
+
+    private void injectTokenRegistrationScript(String token) {
+        String deviceId = android.provider.Settings.Secure.getString(getContentResolver(), android.provider.Settings.Secure.ANDROID_ID);
+        String deviceName = Build.MANUFACTURER + " " + Build.MODEL;
+        String systemVersion = "Android " + Build.VERSION.RELEASE;
+        String appVersion = BuildConfig.VERSION_NAME;
+        String appBuild = String.valueOf(BuildConfig.VERSION_CODE);
+
+        String js = String.format(
+            "(function() { " +
+            "  var cookies = document.cookie; " +
+            "  var token = '%s'; " +
+            "  if (window.FCM_TOKEN_REGISTERED === token) return; " +
+            "  var csrfToken = ''; " +
+            "  var parts = cookies.split('; '); " +
+            "  for (var i = 0; i < parts.length; i++) { " +
+            "    if (parts[i].indexOf('csrftoken=') === 0) { " +
+            "      csrfToken = parts[i].substring(10); " +
+            "      break; " +
+            "    } " +
+            "  } " +
+            "  var data = { " +
+            "    registrationToken: token, " +
+            "    deviceId: '%s', " +
+            "    deviceName: '%s', " +
+            "    appVersion: '%s', " +
+            "    appBuild: '%s', " +
+            "    systemVersion: '%s' " +
+            "  }; " +
+            "  fetch('/api/mobile/android/devices/register/', { " +
+            "    method: 'POST', " +
+            "    headers: { " +
+            "      'Content-Type': 'application/json', " +
+            "      'X-CSRFToken': csrfToken " +
+            "    }, " +
+            "    body: JSON.stringify(data) " +
+            "  }) " +
+            "  .then(function(res) { return res.json(); }) " +
+            "  .then(function(res) { " +
+            "    if (res.success) { " +
+            "      window.FCM_TOKEN_REGISTERED = token; " +
+            "      console.log('FCM token registered'); " +
+            "    } " +
+            "  }) " +
+            "  .catch(function(err) { console.error('FCM registration error', err); }); " +
+            "})();",
+            token, deviceId, deviceName, appVersion, appBuild, systemVersion
+        );
+
+        webView.evaluateJavascript(js, null);
     }
 }
