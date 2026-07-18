@@ -158,12 +158,36 @@ document.addEventListener("alpine:init", function () {
             refetch: function () {
                 var self = this;
                 fetch(this.stateUrl, { headers: { "Accept": "application/json" } })
-                    .then(function (r) { return r.ok ? r.json() : null; })
+                    .then(function (r) { return self.readStateResponse(r); })
                     .then(function (data) {
                         if (!data || !data.ok) return;
                         self.applyState(data);
                     })
                     .catch(function () {});
+            },
+
+            readStateResponse: function (response) {
+                if (response.ok) return response.json();
+                if ([401, 403, 404].indexOf(response.status) !== -1) {
+                    this.revokeAccess();
+                }
+                return null;
+            },
+
+            revokeAccess: function () {
+                // The recap gate is live policy, not a one-time page-load
+                // decision. Remove photos and revealed names as soon as the
+                // authoritative endpoint withdraws access.
+                this.secondsToClose = 0;
+                this.incomingConfirmations = 0;
+                this.sending = false;
+                this.closeConfirm();
+                this.confirmPhotoUrl = "";
+                this.confirmName = "";
+                this.banner = "";
+                this.reveal = "";
+                this.renderRoster([]);
+                this.markClosed();
             },
 
             applyState: function (data) {

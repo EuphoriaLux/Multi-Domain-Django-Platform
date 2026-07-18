@@ -209,12 +209,38 @@ document.addEventListener("alpine:init", function () {
             refetch: function () {
                 var self = this;
                 fetch(this.stateUrl, { headers: { "Accept": "application/json" } })
-                    .then(function (r) { return r.ok ? r.json() : null; })
+                    .then(function (r) { return self.readStateResponse(r); })
                     .then(function (data) {
                         if (!data || !data.ok) return;
                         self.applyState(data);
                     })
                     .catch(function () {});
+            },
+
+            readStateResponse: function (response) {
+                if (response.ok) return response.json();
+                if ([401, 403, 404].indexOf(response.status) !== -1) {
+                    this.revokeAccess();
+                }
+                return null;
+            },
+
+            revokeAccess: function () {
+                // Eligibility is evaluated on every state request. Purge all
+                // identity-bearing DOM and component state immediately when
+                // the server withdraws access; a stale open page must not
+                // retain roster photos or mutual names.
+                this.secondsToEnd = 0;
+                this.signalsRemaining = 0;
+                this.incomingCount = 0;
+                this.sending = false;
+                this.closeConfirm();
+                this.confirmPhotoUrl = "";
+                this.banner = "";
+                this.reveal = "";
+                this.renderRoster([]);
+                this.renderMutuals([]);
+                this.markEnded();
             },
 
             applyState: function (data) {
@@ -370,7 +396,7 @@ document.addEventListener("alpine:init", function () {
                         // Identity never travels over the socket — fetch the
                         // authoritative state and announce the newest reveal.
                         fetch(self.stateUrl, { headers: { "Accept": "application/json" } })
-                            .then(function (r) { return r.ok ? r.json() : null; })
+                            .then(function (r) { return self.readStateResponse(r); })
                             .then(function (data) {
                                 if (!data || !data.ok) return;
                                 self.applyState(data);

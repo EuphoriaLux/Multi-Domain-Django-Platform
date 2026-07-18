@@ -600,32 +600,25 @@ def get_active_live_lobby(user, now=None):
 
 
 def _is_active_connect_member(user) -> bool:
-    """Lighter check than ``participant_gate`` — onboarded + not excluded.
-    Connect deactivation/exclusion hides the collection and recap access."""
-    membership = getattr(user, "crush_connect_membership", None)
-    profile = getattr(user, "crushprofile", None)
-    return (
-        membership is not None
-        and membership.onboarded_at is not None
-        and not membership.excluded_by_coach
-        and profile is not None
-        and profile.is_active
-    )
+    """Apply the current lobby-capable Connect policy to durable surfaces.
+
+    People I've Met and encounter profiles must close when any current gate
+    is lost, including verification, LuxID, or photo-sharing consent.
+    """
+    allowed, _reason = participant_gate(user)
+    return allowed
 
 
 def _can_appear_in_collection(user) -> bool:
     """A counterpart is renderable in People I've Met only while they remain an
     active Connect member with a usable current photo (§7.8: entries disappear
     while either side is inactive/excluded)."""
-    if not _is_active_connect_member(user):
-        return False
-    profile = getattr(user, "crushprofile", None)
-    return bool(
-        profile is not None
-        and profile.is_active
-        and profile.verification_status == "verified"
-        and profile.photo_1
-    )
+    return _is_active_connect_member(user)
+
+
+def _encounter_photo_url(user_id: int) -> str:
+    """Pair-authorized photo URL for the People I've Met surface."""
+    return reverse("crush_lu:event_lobby_person_photo", kwargs={"user_id": user_id})
 
 
 def _encounter_user_ids(viewer) -> set[int]:
@@ -899,7 +892,6 @@ def get_people_ive_met(user) -> list[dict]:
     inactive/excluded or the pair is blocked; the viewer must be an active
     Connect member (deactivation hides the whole collection)."""
     from crush_lu.models import ConfirmedEncounter
-    from crush_lu.views_media import get_profile_photo_url
 
     if not user.is_authenticated or not _is_active_connect_member(user):
         return []
@@ -928,7 +920,7 @@ def get_people_ive_met(user) -> list[dict]:
             {
                 "user_id": other.pk,
                 "first_name": other.first_name,
-                "photo_url": get_profile_photo_url(other.crushprofile, "photo_1"),
+                "photo_url": _encounter_photo_url(other.pk),
                 "profile_url": reverse(
                     "crush_lu:event_lobby_person", kwargs={"user_id": other.pk}
                 ),
@@ -1128,8 +1120,6 @@ def get_people_met_profile(user, handle):
 
     Used by the removal request flow to show who is being reported.
     """
-    from crush_lu.views_media import get_profile_photo_url
-
     if not _is_active_connect_member(user):
         raise LobbyAccessError("not_available")
 
@@ -1147,6 +1137,6 @@ def get_people_met_profile(user, handle):
     return {
         "user_id": other.pk,
         "first_name": other.first_name,
-        "photo_url": get_profile_photo_url(other.crushprofile, "photo_1"),
+        "photo_url": _encounter_photo_url(other.pk),
         "handle": handle,
     }

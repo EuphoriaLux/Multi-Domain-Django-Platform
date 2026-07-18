@@ -407,6 +407,7 @@ urlpatterns = [
     # People I've Met — permanent collection + full-profile view (§7.8)
     path('crush-connect/people-ive-met/', views_event_lobby.people_ive_met, name='event_lobby_people'),
     path('crush-connect/people-ive-met/<int:user_id>/remove/', views_event_lobby.event_lobby_remove_person, name='event_lobby_remove_person'),
+    path('crush-connect/people-ive-met/<int:user_id>/photo/', views_event_lobby.event_lobby_person_photo, name='event_lobby_person_photo'),
     path('crush-connect/people-ive-met/<int:user_id>/', views_event_lobby.event_lobby_person, name='event_lobby_person'),
 
     # Crush Cache — GPS + QR scavenger hunt

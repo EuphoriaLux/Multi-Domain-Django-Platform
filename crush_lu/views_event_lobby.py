@@ -14,6 +14,7 @@ refetch hints, never the source of truth (§11.1).
 
 import json
 import logging
+import mimetypes
 import os
 
 from asgiref.sync import async_to_sync
@@ -216,6 +217,42 @@ def event_lobby_person(request, user_id):
             "removal_reasons": ConfirmedEncounterRemovalRequest.REASON_CHOICES,
         },
     )
+    response["Cache-Control"] = "private, no-store"
+    return response
+
+
+@crush_login_required
+@ratelimit(key="user", rate="200/m", method="GET")
+@require_GET
+def event_lobby_person_photo(request, user_id):
+    """Serve a People I've Met photo through current pair authorization.
+
+    Unlike the generic profile-photo route, this endpoint rechecks the active
+    encounter, blocks/removals, and both members' current Connect eligibility
+    on every request. The image is proxied instead of redirected to a durable
+    storage URL and is never cacheable after a safety state change.
+    """
+    if not lobby_feature_enabled():
+        raise Http404("Photo not found")
+    other = encounter_counterpart(request.user, user_id)
+    if other is None:
+        raise Http404("Photo not found")
+
+    photo = other.crushprofile.photo_1
+    if not photo:
+        raise Http404("Photo not found")
+    try:
+        photo.open("rb")
+        content = photo.read()
+    except Exception:
+        logger.exception("Error serving encounter-authorized profile photo")
+        raise Http404("Photo not found") from None
+    finally:
+        photo.close()
+
+    content_type = mimetypes.guess_type(photo.name)[0] or "application/octet-stream"
+    response = HttpResponse(content, content_type=content_type)
+    response["Content-Disposition"] = "inline"
     response["Cache-Control"] = "private, no-store"
     return response
 

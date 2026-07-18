@@ -16,6 +16,8 @@ import json
 from datetime import timedelta
 
 import pytest
+from allauth.socialaccount.models import SocialAccount
+from django.core.files.base import ContentFile
 from django.urls import reverse
 from django.utils import timezone
 
@@ -313,6 +315,9 @@ class TestPeopleIveMet:
             "profile_url",
             "created_at",
         }
+        assert entry["photo_url"] == reverse(
+            "crush_lu:event_lobby_person_photo", args=[ben.pk]
+        )
 
     def test_newest_first_and_repeated_events_do_not_reorder(self):
         alice = _make_member("alice")
@@ -654,6 +659,14 @@ class TestRecapPage:
 
 
 class TestPeopleIveMetPages:
+    def _photo_url(self, user):
+        return reverse("crush_lu:event_lobby_person_photo", args=[user.pk])
+
+    def _give_real_photo(self, user, settings, tmp_path):
+        settings.MEDIA_ROOT = str(tmp_path)
+        profile = user.crushprofile
+        profile.photo_1.save("encounter.jpg", ContentFile(b"jpegbytes"), save=True)
+
     def test_collection_lists_encounters(self, client):
         alice = _make_member("alice")
         ben = _make_member("ben", gender="M")
@@ -693,6 +706,58 @@ class TestPeopleIveMetPages:
         _login(client, alice)
         response = client.get(reverse("crush_lu:event_lobby_person", args=[ben.pk]))
         assert response.status_code == 404
+
+    @pytest.mark.parametrize("lost_gate", ["verification", "luxid", "consent"])
+    def test_collection_and_profile_require_current_viewer_gate(
+        self, client, lost_gate
+    ):
+        alice = _make_member("alice")
+        ben = _make_member("ben", gender="M")
+        _make_encounter(alice, ben)
+
+        if lost_gate == "verification":
+            type(alice.crushprofile).objects.filter(pk=alice.crushprofile.pk).update(
+                is_approved=False,
+                verification_status="rejected",
+            )
+        elif lost_gate == "luxid":
+            SocialAccount.objects.filter(user=alice, provider="luxid").delete()
+        else:
+            alice.crush_connect_membership.photo_share_consent = False
+            alice.crush_connect_membership.save(update_fields=["photo_share_consent"])
+
+        alice = (
+            type(alice)
+            .objects.select_related("crushprofile", "crush_connect_membership")
+            .get(pk=alice.pk)
+        )
+        _login(client, alice)
+
+        collection = client.get(reverse("crush_lu:event_lobby_people"))
+        profile = client.get(reverse("crush_lu:event_lobby_person", args=[ben.pk]))
+
+        assert collection.status_code == 200
+        assert "Ben" not in collection.content.decode()
+        assert profile.status_code == 404
+
+    def test_pair_authorized_photo_is_revoked_after_block(
+        self, client, settings, tmp_path
+    ):
+        alice = _make_member("alice")
+        ben = _make_member("ben", gender="M")
+        self._give_real_photo(ben, settings, tmp_path)
+        _make_encounter(alice, ben)
+        _login(client, alice)
+        photo_url = self._photo_url(ben)
+
+        allowed = client.get(photo_url)
+        assert allowed.status_code == 200
+        assert allowed.content == b"jpegbytes"
+        assert allowed["Cache-Control"] == "private, no-store"
+
+        UserBlock.objects.create(blocker=ben, blocked=alice)
+
+        assert client.get(photo_url).status_code == 404
 
     def test_collection_and_profile_are_gated_by_rollout(self, client, settings):
         alice = _make_member("alice")
@@ -739,6 +804,7 @@ class TestPeopleIveMetPages:
         assert removal.details == "Please keep this private."
         encounter.refresh_from_db()
         assert encounter.status == "removal_pending"
+        assert client.get(self._photo_url(ben)).status_code == 404
 
 
 # ---------------------------------------------------------------------------
