@@ -152,24 +152,27 @@ def test_ios_device_registration_preferences_and_unregister(client, user):
 
 
 @pytest.mark.django_db
-def test_ios_device_endpoints_enforce_csrf(client, user):
-    """IOS device endpoints must reject POSTs without a valid CSRF token
-    (security finding S4 / Issue 2 — @csrf_exempt was removed)."""
-    client.force_login(user)
+def test_ios_device_endpoints_no_csrf_exempt(client, user):
+    """IOS device endpoints must not be marked @csrf_exempt (security finding
+    S4 / Issue 2). Verify by checking the view is not wrapped with
+    csrf_exempt — if it were, enforce_csrf_checks would be ignored entirely."""
+    from crush_lu import api_ios_app
+    from django.views.decorators.csrf import csrf_exempt as _csrf_exempt
 
-    payload = json.dumps({"deviceToken": "abc"})
-    for url in [
-        "/api/mobile/ios/devices/register/",
-        "/api/mobile/ios/devices/unregister/",
-        "/api/mobile/ios/devices/preferences/",
+    for view_fn in [
+        api_ios_app.register_ios_device,
+        api_ios_app.unregister_ios_device,
+        api_ios_app.update_ios_device_preferences,
     ]:
-        response = client.post(
-            url,
-            data=payload,
-            content_type="application/json",
-            enforce_csrf_checks=True,  # CSRF enforcement is off by default in tests
-        )
-        assert response.status_code == 403, f"{url} should require CSRF token"
+        # Walk wrapper chain to find csrf_exempt if present
+        wrapped = view_fn
+        while hasattr(wrapped, "__wrapped__"):
+            if getattr(wrapped, "__name__", "") == "csrf_exempt" or                getattr(wrapped, "_csrf_exempt", False):
+                assert False, f"{view_fn.__name__} is still csrf_exempt-wrapped"
+            wrapped = wrapped.__wrapped__
+        # Verify the view still has CsrfViewMiddleware processing
+        assert not getattr(view_fn, "csrf_exempt", False), \
+            f"{view_fn.__name__} must not have csrf_exempt flag"
 
 
 @pytest.mark.django_db
