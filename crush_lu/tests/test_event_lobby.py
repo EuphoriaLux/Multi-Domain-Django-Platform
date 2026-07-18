@@ -722,6 +722,20 @@ class TestLobbyPage:
         # §13: no first name in HTML, alt text, or data attributes pre-reveal.
         assert "Ben" not in html
 
+    def test_live_template_uses_csp_safe_static_signal_dots(self, client):
+        event = _make_event()
+        alice = _make_member("alice")
+        _join(alice, event)
+        _login(client, alice)
+
+        response = client.get(_lobby_url(event))
+
+        assert response.status_code == 200
+        html = response.content.decode()
+        assert "x-for" not in html
+        assert 'x-show="firstSignalUsed"' in html
+        assert 'x-show="thirdSignalAvailable"' in html
+
     def test_after_end_renders_recap_grid_not_live_grid(self, client):
         """After the exact end the page flips from the live grid to the recap
         grid (§7.6/§7.7). Recap tiles are still photo-only for non-mutuals, so
@@ -985,6 +999,21 @@ class TestHubCard:
         response = client.get(reverse("crush_lu:crush_connect_hub"))
         assert response.status_code == 200
         assert response.context["active_lobby"].event_id == event.pk
+        assert "Event Lobby is live" in response.content.decode()
+
+    def test_live_lobby_card_repairs_missing_participation(self, client):
+        event = _make_event()
+        alice = _make_member("alice")
+        registration = _attend(alice, event)
+        _login(client, alice)
+
+        response = client.get(reverse("crush_lu:crush_connect_hub"))
+
+        assert response.status_code == 200
+        participation = EventLobbyParticipation.objects.get(
+            event_registration=registration
+        )
+        assert response.context["active_lobby"] == participation
         assert "Event Lobby is live" in response.content.decode()
 
     def test_no_card_without_live_participation(self, client):

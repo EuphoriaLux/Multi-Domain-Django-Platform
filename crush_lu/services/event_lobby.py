@@ -539,10 +539,13 @@ def send_meet_signal(sender, event, target_handle, now=None) -> dict:
 
 
 def get_active_live_lobby(user, now=None):
-    """The user's participation in a currently-live lobby, for the hub card
-    (§2 Navigation / §10.4). None when the feature is off, no lobby is live,
-    or the member no longer passes the gate."""
-    from crush_lu.models import EventLobbyParticipation
+    """The user's participation in a currently-live lobby, for the hub card.
+
+    The attended registration is authoritative.  Re-evaluating it here makes
+    the hub entry point self-healing when the check-in hook failed or the
+    feature was enabled after the attendee had already checked in (§10.4).
+    """
+    from crush_lu.models import EventRegistration
 
     now = now or timezone.now()
     if not lobby_feature_enabled():
@@ -551,19 +554,26 @@ def get_active_live_lobby(user, now=None):
     if not ok:
         return None
     candidates = (
-        EventLobbyParticipation.objects.filter(
+        EventRegistration.objects.filter(
             user=user,
-            event_registration__status="attended",
+            status="attended",
             event__is_published=True,
             event__is_cancelled=False,
             # Generous DB cutoff; exact end derived below (end_time is a property).
             event__date_time__gte=now - timedelta(days=7),
         )
         .select_related("event")
-        .order_by("-joined_at")
+        .order_by("-event__date_time")
     )
-    for participation in candidates:
-        if event_lobby_phase(participation.event, now) == PHASE_LIVE:
+    for registration in candidates:
+        if event_lobby_phase(registration.event, now) != PHASE_LIVE:
+            continue
+        participation, _created = evaluate_participation(
+            registration,
+            source="checkin",
+            now=now,
+        )
+        if participation is not None:
             return participation
     return None
 

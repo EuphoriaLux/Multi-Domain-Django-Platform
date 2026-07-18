@@ -93,6 +93,32 @@ document.addEventListener("alpine:init", function () {
                 return this.signalsRemaining + " / " + this.signalsTotal;
             },
 
+            // Named getters keep the three static signal indicators compatible
+            // with Alpine's CSP build (no x-for or inline ternary expressions).
+            get firstSignalUsed() {
+                return this.signalsTotal - this.signalsRemaining >= 1;
+            },
+
+            get secondSignalUsed() {
+                return this.signalsTotal - this.signalsRemaining >= 2;
+            },
+
+            get thirdSignalUsed() {
+                return this.signalsTotal - this.signalsRemaining >= 3;
+            },
+
+            get firstSignalAvailable() {
+                return this.signalsRemaining >= 1;
+            },
+
+            get secondSignalAvailable() {
+                return this.signalsRemaining >= 2;
+            },
+
+            get thirdSignalAvailable() {
+                return this.signalsRemaining >= 3;
+            },
+
             get hasIncoming() {
                 return this.incomingCount > 0;
             },
