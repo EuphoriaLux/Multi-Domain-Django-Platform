@@ -274,9 +274,7 @@ if (workbox) {
     // This Workbox route is a backup that ensures no caching if something slips through.
 
     workbox.routing.registerRoute(
-        ({ url }) =>
-            url.pathname.startsWith("/accounts/") ||
-            url.pathname.startsWith("/api/mobile/"),
+        ({ url }) => url.pathname.startsWith("/accounts/"),
         new workbox.strategies.NetworkOnly(),
     );
 
@@ -343,8 +341,23 @@ if (workbox) {
     );
 
     // Strategy 3: Network Only for API calls (never cache)
+    //
+    // EXCEPT native-app handoff NAVIGATIONS. /api/mobile/<platform>/auth/handoff/
+    // answers with a 302 to crushlu://auth?code=..., and a service worker's
+    // fetch() cannot follow a redirect to a non-HTTP scheme - it fails with a
+    // network error. Claiming that navigation means the browser never navigates
+    // to crushlu://, so ASWebAuthenticationSession never sees its callback and
+    // the native auth sheet hangs on an already-successful login. Leaving it
+    // unclaimed hands the redirect back to the browser, which can follow it.
+    // Non-navigation /api/mobile/ calls (device registration etc.) are still
+    // claimed by the hard-bypass listener above, so they remain uncached.
     workbox.routing.registerRoute(
-        ({ url }) => url.pathname.startsWith("/api/"),
+        ({ url, request }) =>
+            url.pathname.startsWith("/api/") &&
+            !(
+                request.mode === "navigate" &&
+                url.pathname.startsWith("/api/mobile/")
+            ),
         new workbox.strategies.NetworkOnly(),
     );
 

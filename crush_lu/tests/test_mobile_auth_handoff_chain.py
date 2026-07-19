@@ -397,39 +397,60 @@ def test_handoff_rejects_unknown_redirect_uri_before_login(crush_client):
     assert SESSION_KEY not in crush_client.session
 
 
-# --- The service worker must not intercept the handoff (2026-07-19).
-# --- Its 302 to crushlu:// cannot be followed by a SW fetch(), so if the SW
-# --- claims that navigation the auth sheet hangs after a successful login.
+# --- The service worker must not CLAIM the handoff navigation (2026-07-19).
+# --- Its 302 to crushlu:// cannot be followed by a service worker's fetch(), so
+# --- if any Workbox route claims it the browser never navigates to crushlu://,
+# --- ASWebAuthenticationSession never fires, and the auth sheet hangs on a
+# --- login that actually succeeded.
+# ---
+# --- These run the real routing table through a Node probe rather than
+# --- grepping the source: an earlier source-string version of this test passed
+# --- while the service worker was still broken, because the offending route was
+# --- a different one than the patch had excluded.
 
 
-def _service_worker_source():
+def _run_sw_route_probe():
+    import json
+    import shutil
+    import subprocess
     from pathlib import Path
 
     import crush_lu
 
-    path = Path(crush_lu.__file__).parent / "static" / "crush_lu" / "sw-workbox.js"
-    return path.read_text(encoding="utf-8")
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node is not available to run the service-worker probe")
+
+    tests_dir = Path(crush_lu.__file__).parent / "tests"
+    probe = tests_dir / "sw_route_probe.js"
+    sw = Path(crush_lu.__file__).parent / "static" / "crush_lu" / "sw-workbox.js"
+
+    result = subprocess.run(
+        [node, str(probe), str(sw)],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    return {r["name"]: r for r in json.loads(result.stdout)["results"]}
 
 
-def test_service_worker_hard_bypasses_native_app_endpoints():
-    source = _service_worker_source()
-
-    # The pre-Workbox hard bypass must list /api/mobile/.
-    bypass_block = source.split("const isAuthUrl")[1].split(";")[0]
-    assert '"/api/mobile/"' in bypass_block, (
-        "/api/mobile/ missing from the service worker's hard-bypass list — the "
-        "auth handoff's crushlu:// redirect would be swallowed by the SW"
+@pytest.mark.parametrize(
+    "probe_name", ["ios_handoff_navigation", "android_handoff_navigation"]
+)
+def test_service_worker_leaves_handoff_navigation_to_the_browser(probe_name):
+    probe = _run_sw_route_probe()[probe_name]
+    assert not probe["claimed"], (
+        f"the service worker claims {probe['url']} "
+        f"(route={probe['matchedRoute']}, early={probe['claimedByEarlyListener']}). "
+        "Its 302 to crushlu:// cannot be followed by a SW fetch(), so the native "
+        "auth sheet will hang after a successful login."
     )
 
 
-def test_service_worker_navigation_route_excludes_native_app_endpoints():
-    source = _service_worker_source()
-
-    # The NetworkFirst navigation route must not claim /api/mobile/ navigations.
-    nav_route = source.split('cacheName: "crush-pages"')[0].split(
-        'request.mode === "navigate"'
-    )[-1]
-    assert '!url.pathname.startsWith("/api/mobile/")' in nav_route, (
-        "the NetworkFirst navigation route no longer excludes /api/mobile/ — it "
-        "would claim the handoff navigation and break the native auth sheet"
-    )
+def test_service_worker_still_claims_ordinary_navigations():
+    """Guards the probe itself: if this stops passing, the harness has gone
+    blind and the assertions above would pass vacuously."""
+    results = _run_sw_route_probe()
+    assert results["ordinary_page_navigation"]["claimed"]
+    assert results["device_register_xhr"]["claimed"]
