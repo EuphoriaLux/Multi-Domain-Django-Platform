@@ -100,6 +100,12 @@ struct ContentView: View {
             CrushWebView(appState: appState)
                 .id(appState.reloadToken)
 
+            // No native tab bar: crush.lu renders its own bottom navigation and
+            // that one is strictly richer — it is role-aware (coaches get a Coach
+            // tab) and carries the live badge counts. Duplicating it natively
+            // showed the user two nav bars at once, the native one being a
+            // subset. Android's shell has never had one. See PR notes.
+
             if appState.showPushPrompt {
                 PushPermissionPrompt {
                     AppDelegate.requestPushAuthorization { granted in
@@ -107,9 +113,6 @@ struct ContentView: View {
                     }
                 }
             }
-
-            Divider()
-            BottomNavigation(appState: appState)
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .onReceive(NotificationCenter.default.publisher(for: .didReceiveNotificationURL)) { notification in
@@ -158,33 +161,3 @@ private struct PushPermissionPrompt: View {
     }
 }
 
-private struct BottomNavigation: View {
-    @ObservedObject var appState: AppState
-
-    var body: some View {
-        HStack(spacing: 0) {
-            ForEach(AppDestination.allCases) { destination in
-                Button {
-                    appState.go(to: destination)
-                } label: {
-                    VStack(spacing: 4) {
-                        Image(systemName: destination.symbolName)
-                            .font(.system(size: 20, weight: .semibold))
-                        Text(destination.title)
-                            .font(.caption2.weight(.semibold))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                    .foregroundStyle(
-                        appState.selectedDestination == destination
-                        ? Color(red: 0.43, green: 0.18, blue: 0.73)
-                        : Color.secondary
-                    )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(destination.title)
-            }
-        }
-        .background(Color(uiColor: .systemBackground))
-    }
-}
