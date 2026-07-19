@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 from .models import SpecialUserExperience
 from .decorators import crush_login_required
 
-
 # ============================================================================
 # Special User Experience View
 # ============================================================================
@@ -322,29 +321,50 @@ def apple_app_site_association_view(request):
     Serve apple-app-site-association for Universal Links and web credentials.
 
     Apple requires this file without a .json extension and without redirects.
+
+    Auth paths MUST stay excluded. Inside ASWebAuthenticationSession, a
+    navigation to a URL this file claims is handed to the app as a universal
+    link instead of being loaded: iOS calls the app's
+    `application(_:continue:)` and the session's completion handler is never
+    invoked, so the sheet never dismisses. The OAuth callback therefore never
+    reaches the server at all and the native sign-in hangs on an otherwise
+    successful login. (Observed 2026-07-19 on 1.0.2 with LuxID and Microsoft:
+    zero `/accounts/<provider>/login/callback/` requests server-side.)
+
+    Excluding them makes the redirect load normally in the sheet, so the chain
+    can reach `crushlu://` and complete. See Apple's forums, e.g.
+    https://developer.apple.com/forums/thread/671458 — universal links do not
+    work for OAuth redirects, only for user taps.
     """
     from django.conf import settings
     from django.http import JsonResponse
 
     app_id = f"{settings.IOS_APP_TEAM_ID}.{settings.IOS_APP_BUNDLE_ID}"
+
+    # Auth surfaces that must never be captured as universal links.
+    # allauth mounts OUTSIDE i18n_patterns, so /accounts/* is unprefixed — but
+    # crush_lu.urls is included INSIDE i18n_patterns with
+    # prefix_default_language=True, so its real routes are /en/oauth/landing/,
+    # /fr/oauth/landing/, … A bare "NOT /oauth/*" would miss every one of them
+    # and the catch-all would claim them again. Generated from settings.LANGUAGES
+    # so adding a language cannot silently reopen the hole.
+    auth_globs = ["/accounts/*", "/oauth/*", "/login*", "/signup*", "/logout*"]
+    language_codes = [code for code, _name in getattr(settings, "LANGUAGES", [])]
+
+    excluded = ["/admin/*", "/crush-admin/*", "/api/*"]
+    for glob in auth_globs:
+        excluded.append(glob)
+        excluded.extend(f"/{code}{glob}" for code in language_codes)
+    excluded += ["/static/*", "/media/*", "/sw-workbox.js", "/manifest.json"]
+
+    # Order matters: the first matching pattern wins, so every NOT rule has to
+    # precede the catch-all "*".
+    paths = [f"NOT {path}" for path in excluded] + ["*"]
+
     association = {
         "applinks": {
             "apps": [],
-            "details": [
-                {
-                    "appID": app_id,
-                    "paths": [
-                        "NOT /admin/*",
-                        "NOT /crush-admin/*",
-                        "NOT /api/*",
-                        "NOT /static/*",
-                        "NOT /media/*",
-                        "NOT /sw-workbox.js",
-                        "NOT /manifest.json",
-                        "*",
-                    ],
-                }
-            ],
+            "details": [{"appID": app_id, "paths": paths}],
         },
         "webcredentials": {"apps": [app_id]},
     }

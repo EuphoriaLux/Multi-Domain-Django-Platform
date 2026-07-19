@@ -1,6 +1,7 @@
 // Crush.lu Service Worker with Workbox
 // Production-ready PWA implementation using local Workbox library
-// Version: v29 - Add pushsubscriptionchange handler for automatic subscription refresh
+// Version: v30 - Bypass /api/mobile/ so the native auth handoff's crushlu:// redirect
+//                is followed by the browser, not by the SW's fetch() (which cannot)
 
 // ============================================================================
 // CRITICAL: OAuth Callback Bypass - MUST BE BEFORE WORKBOX
@@ -47,7 +48,14 @@ self.addEventListener("fetch", (event) => {
         url.pathname.includes("/login") || // Login page (incl. /fr/login/, /de/login/)
         url.pathname.includes("/logout") || // Logout page (incl. language prefixes)
         url.pathname.includes("/signup") || // Signup page (incl. language prefixes)
+        url.pathname.startsWith("/api/mobile/") || // Native app endpoints - see below
         url.pathname.includes("/api/csrf-token"); // CSRF token refresh endpoint
+    // /api/mobile/ MUST bypass: the iOS/Android auth handoff answers with a 302 to
+    // crushlu://auth?code=..., and a service worker's fetch() cannot follow a
+    // redirect to a non-HTTP scheme - it fails with a network error. If the SW
+    // claims that navigation, the browser never navigates to crushlu://, so
+    // ASWebAuthenticationSession never sees its callback and the auth sheet hangs
+    // on a cached page after a successful login (2026-07-19).
     if (isAuthUrl) {
         // Navigation requests (page loads): let the browser handle them completely.
         // Safari/WebKit may not process Set-Cookie headers (including CSRF cookies)
@@ -333,8 +341,23 @@ if (workbox) {
     );
 
     // Strategy 3: Network Only for API calls (never cache)
+    //
+    // EXCEPT native-app handoff NAVIGATIONS. /api/mobile/<platform>/auth/handoff/
+    // answers with a 302 to crushlu://auth?code=..., and a service worker's
+    // fetch() cannot follow a redirect to a non-HTTP scheme - it fails with a
+    // network error. Claiming that navigation means the browser never navigates
+    // to crushlu://, so ASWebAuthenticationSession never sees its callback and
+    // the native auth sheet hangs on an already-successful login. Leaving it
+    // unclaimed hands the redirect back to the browser, which can follow it.
+    // Non-navigation /api/mobile/ calls (device registration etc.) are still
+    // claimed by the hard-bypass listener above, so they remain uncached.
     workbox.routing.registerRoute(
-        ({ url }) => url.pathname.startsWith("/api/"),
+        ({ url, request }) =>
+            url.pathname.startsWith("/api/") &&
+            !(
+                request.mode === "navigate" &&
+                url.pathname.startsWith("/api/mobile/")
+            ),
         new workbox.strategies.NetworkOnly(),
     );
 
@@ -346,7 +369,8 @@ if (workbox) {
             !url.pathname.startsWith("/accounts/") &&
             !url.pathname.startsWith("/oauth/") &&
             !url.pathname.startsWith("/login") &&
-            !url.pathname.startsWith("/logout"),
+            !url.pathname.startsWith("/logout") &&
+            !url.pathname.startsWith("/api/mobile/"),
         new workbox.strategies.NetworkFirst({
             cacheName: "crush-pages",
             plugins: [
