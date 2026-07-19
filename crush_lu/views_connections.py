@@ -88,6 +88,19 @@ def event_attendees(request, event_id):
         )
         return redirect("crush_lu:event_detail", event_id=event_id)
 
+    # Upper bound too: once the window closes the named roster disappears with
+    # it (spec §5.3 amendment — both post-event surfaces close together).
+    # Members keep their existing connections on my_connections.
+    if not event.connection_window_active:
+        messages.info(
+            request,
+            _(
+                "The connection window for this event has closed. "
+                "Your connections are always available here."
+            ),
+        )
+        return redirect("crush_lu:my_connections")
+
     # Get other attendees (status='attended'), hiding anyone in a block pair
     # with the viewer (symmetric — see services.blocking).
     from .services.blocking import blocked_user_ids

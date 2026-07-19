@@ -250,8 +250,13 @@ def compute_weekly_snapshot(week_start: date) -> dict:
             "joined_at",
         ).count(),
         "meet_signals": in_week(EventMeetSignal.objects.all(), "created_at").count(),
+        # A reveal stamps BOTH directional rows of the pair; counting only the
+        # canonical direction (sender < recipient) reports each pair once.
         "mutual_reveals": in_week(
-            EventMeetSignal.objects.filter(mutual_revealed_at__isnull=False),
+            EventMeetSignal.objects.filter(
+                mutual_revealed_at__isnull=False,
+                sender_id__lt=F("recipient_id"),
+            ),
             "mutual_revealed_at",
         ).count(),
         "encounters_confirmed": in_week(

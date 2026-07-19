@@ -214,6 +214,19 @@ class TestRecapEmailBranching:
         assert "Finish Crush Connect" not in html
         assert f"/events/{event.pk}/lobby/" not in html
 
+    def test_recap_sends_from_crush_domain(self):
+        """Codex P2 (2026-07-19): request-less batch sends must not fall back
+        to the PowerUp sender config."""
+        from azureproject.email_utils import get_domain_email_config
+
+        guest = _make_member("mail_f", membership=False, luxid=False)
+        event = _make_event()
+        registration = _attend(guest, event)
+        _end_event(event)
+        self._send(registration)
+        expected = get_domain_email_config(domain="crush.lu")["DEFAULT_FROM_EMAIL"]
+        assert mail.outbox[0].from_email == expected
+
     def test_feature_off_gets_neither(self, settings):
         settings.CRUSH_EVENT_LOBBY_ENABLED = False
         member = _make_member("mail_e")
@@ -286,3 +299,51 @@ class TestEntryPointRendering:
         )
         assert response.status_code == 200
         assert f"/events/{event.pk}/lobby/".encode() in response.content
+
+
+class TestAttendeesPageClosesWithWindow:
+    """Codex P1 (2026-07-19): the named roster must disappear once the
+    connection window closes — both post-event surfaces close together."""
+
+    def test_attendees_page_redirects_after_window(self, client):
+        member = _make_member("close_a")
+        other = _make_member("close_a2")
+        event = _make_event()
+        _attend(member, event)
+        _attend(other, event)
+        _end_event(event, hours_ago=49)  # 48h window from end has closed
+        _login(client, member)
+        response = client.get(_attendees_url(event))
+        assert response.status_code == 302
+        assert response.url == reverse("crush_lu:my_connections")
+
+
+class TestWeeklyKpiMutualReveals:
+    """Codex P2 (2026-07-19): a reveal stamps both directional signal rows —
+    the KPI must count each pair once."""
+
+    def test_mutual_reveal_counted_once_per_pair(self):
+        from datetime import timedelta as td
+
+        from django.utils import timezone
+
+        from crush_lu.models import EventMeetSignal
+        from crush_lu.services.weekly_kpis import compute_weekly_snapshot
+
+        a = _make_member("kpi_a")
+        b = _make_member("kpi_b")
+        event = _make_event()
+        _join(a, event)
+        _join(b, event)
+        now = timezone.now()
+        EventMeetSignal.objects.create(
+            event=event, sender=a, recipient=b, mutual_revealed_at=now
+        )
+        EventMeetSignal.objects.create(
+            event=event, sender=b, recipient=a, mutual_revealed_at=now
+        )
+        today = timezone.localdate()
+        week_start = today - td(days=today.weekday())
+        snapshot = compute_weekly_snapshot(week_start)
+        assert snapshot["event_lobby"]["meet_signals"] == 2
+        assert snapshot["event_lobby"]["mutual_reveals"] == 1

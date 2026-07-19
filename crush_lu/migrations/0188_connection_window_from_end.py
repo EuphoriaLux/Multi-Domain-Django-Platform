@@ -22,10 +22,10 @@ def bump_default_window(apps, schema_editor):
 
 
 def restore_default_window(apps, schema_editor):
-    MeetupEvent = apps.get_model("crush_lu", "MeetupEvent")
-    MeetupEvent.objects.filter(connection_window_hours=48).update(
-        connection_window_hours=24
-    )
+    """Deliberate no-op: rows bumped 24→48 by the forward step are
+    indistinguishable from events that deliberately carried a 48h window
+    before this migration, so a blanket 48→24 rewrite would corrupt those
+    overrides. Rolling back only restores the field default for future rows."""
 
 
 class Migration(migrations.Migration):

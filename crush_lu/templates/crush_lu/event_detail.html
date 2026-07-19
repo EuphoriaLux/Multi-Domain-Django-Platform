@@ -375,7 +375,8 @@
                         {% trans "Join the Hunt" %}
                     </a>
                     {% endif %}
-                    {% if is_past %}
+                    {# connections_open bounds both sides: opens at the scheduled end, closes with the 48h window (spec §5.3 amendment) #}
+                    {% if event.connections_open %}
                     <a href="{% url 'crush_lu:event_attendees' event.id %}" class="flex items-center justify-center gap-2 w-full py-3 sm:py-4 px-4 bg-gradient-to-r from-crush-purple to-crush-pink text-white font-semibold rounded-lg transition-all hover:shadow-lg text-sm sm:text-base">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>

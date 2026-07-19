@@ -1005,6 +1005,10 @@ def send_event_recap(registration, request=None):
         html_message=html_message,
         recipient_list=[user.email],
         request=request,
+        # Batch sends (send_event_recaps) have no request: without an explicit
+        # domain the config falls back to the PowerUp sender — recaps must
+        # always leave from the Crush brand.
+        domain="crush.lu",
         fail_silently=False,
     )
 
