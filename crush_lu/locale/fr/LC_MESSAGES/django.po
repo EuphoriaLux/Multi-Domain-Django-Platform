@@ -35853,3 +35853,21 @@ msgstr ""
 " connexion (par défaut : 48 — la même durée que le récap de l'Event Lobby, "
 "pour que les deux ferment ensemble). Une fois la fenêtre fermée, les "
 "participants sont redirigés vers le teaser Crush Connect."
+
+#: templates/socialaccount/login_crush.html
+msgid "Sign in with %(provider)s"
+msgstr "Se connecter avec %(provider)s"
+
+#: templates/socialaccount/login_crush.html
+msgid "You'll be taken to %(provider)s to continue securely."
+msgstr ""
+"Vous allez être redirigé vers %(provider)s pour continuer en toute sécurité."
+
+#: templates/socialaccount/login_crush.html
+msgid "Connect %(provider)s"
+msgstr "Connecter %(provider)s"
+
+#: templates/socialaccount/login_crush.html
+msgid "You'll be taken to %(provider)s to connect your account."
+msgstr ""
+"Vous allez être redirigé vers %(provider)s pour connecter votre compte."
