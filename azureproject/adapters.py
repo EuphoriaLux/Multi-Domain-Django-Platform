@@ -558,18 +558,27 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
 
         The iOS/Android shells open an in-app browser sheet at
         /api/mobile/<platform>/auth/handoff/, which stashes a session flag
-        before bouncing to the login page. The normal return trip relies on
-        the ?next= chain, but that chain breaks whenever the user leaves the
-        happy path inside the sheet (signup page, language switch, browsing) —
-        the user then ends up logged in on the website while the app never
-        receives its crushlu:// callback. The flag survives all of that, so it
-        deliberately overrides both ?next= and the domain redirect logic.
-        """
-        from crush_lu.mobile_auth import peek_mobile_handoff_url
+        before bouncing to the login page. The normal return trip relies on the
+        ?next= chain, which breaks whenever the user leaves the happy path
+        inside the sheet (signup detour, language switch) — the user then ends
+        up logged in on the website while the app waits forever for its
+        crushlu:// callback.
 
-        handoff_url = peek_mobile_handoff_url(request)
-        if handoff_url:
-            kwargs["redirect_url"] = handoff_url
+        The flag only FILLS IN a missing redirect; an explicit ?next= always
+        wins. On iOS the sheet shares Safari's cookie jar, so a cancelled sheet
+        leaves a flag behind that an ordinary website login would otherwise
+        pick up: deferring to ?next= keeps such a login on the destination the
+        user actually asked for, and consuming the flag limits a stale one to a
+        single login. Provider logins started inside the sheet do not depend on
+        this path at all — crush_lu.oauth_statekit pins the handoff into the
+        (database-backed) OAuth state, which arrives here as redirect_url.
+        """
+        if not kwargs.get("redirect_url"):
+            from crush_lu.mobile_auth import consume_mobile_handoff_url
+
+            handoff_url = consume_mobile_handoff_url(request)
+            if handoff_url:
+                kwargs["redirect_url"] = handoff_url
         return super().post_login(request, user, **kwargs)
 
     def _get_crush_redirect_url(self, request):

@@ -28,6 +28,7 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
+from django.test import Client
 
 from allauth.account.models import EmailAddress
 from allauth.socialaccount.models import SocialAccount, SocialApp
@@ -214,6 +215,99 @@ def test_stale_handoff_flag_is_ignored(crush_client, google_user):
     assert "/oauth/landing/" in response.headers["Location"]
 
 
+# --- Codex review: the handoff must survive a session it cannot rely on, and
+# --- must not capture logins that were never part of the auth sheet.
+
+
+def test_handoff_is_pinned_into_the_oauth_state(crush_client, google_user):
+    """A provider login started in the sheet without ?next= pins the handoff
+    into the (database-backed) OAuth state, so it survives paths where the
+    session does not."""
+    import json
+
+    from crush_lu.models import OAuthState
+
+    crush_client.get(HANDOFF_PATH, {"redirect_uri": "crushlu://auth"})
+    state_id = _start_provider_login(crush_client, "/accounts/google/login/")
+
+    state_data = json.loads(OAuthState.objects.get(state_id=state_id).state_data)
+    assert state_data.get("next", "").startswith(HANDOFF_PATH), state_data
+
+
+def test_handoff_resumes_when_session_is_lost_entirely(crush_client, google_user):
+    """The replayed-callback path: OAuthCallbackProtectionMiddleware sends the
+    user to /oauth/landing/?state=..., which logs them in from the database
+    against a brand-new session carrying no handoff flag. The handoff must
+    still be recovered — from the OAuth state."""
+    from crush_lu.models import OAuthState
+
+    crush_client.get(HANDOFF_PATH, {"redirect_uri": "crushlu://auth"})
+    state_id = _start_provider_login(crush_client, "/accounts/google/login/")
+    _finish_provider_login(crush_client, state_id)
+
+    # Simulate the duplicate callback arriving with no usable session at all.
+    OAuthState.objects.filter(state_id=state_id).update(
+        auth_completed=True, auth_user_id=google_user.id
+    )
+    fresh = Client()
+    fresh.defaults["HTTP_HOST"] = "crush.lu"
+    assert SESSION_KEY not in fresh.session
+
+    # /en/... directly: LocaleMiddleware would otherwise spend a redirect
+    # adding the language prefix before the view ever runs.
+    response = fresh.get("/en/oauth/landing/", {"state": state_id})
+
+    assert response.status_code == 302, response.status_code
+    assert response.headers["Location"].startswith(HANDOFF_PATH), response.headers[
+        "Location"
+    ]
+
+
+def test_abandoned_flag_does_not_hijack_a_login_with_an_explicit_next(
+    crush_client, google_user
+):
+    """A cancelled auth sheet leaves its flag in Safari's shared cookie jar.
+    A later ordinary login that asked for a destination must keep it."""
+    crush_client.get(HANDOFF_PATH, {"redirect_uri": "crushlu://auth"})  # abandoned
+    assert SESSION_KEY in crush_client.session
+
+    response = crush_client.post(
+        "/accounts/login/",
+        {
+            "login": GOOGLE_EMAIL,
+            "password": "test-pass-123",
+            "next": "/en/events/",
+        },
+    )
+
+    assert response.status_code == 302, response.status_code
+    assert response.headers["Location"] == "/en/events/", response.headers["Location"]
+
+
+def test_abandoned_flag_is_consumed_after_one_login(crush_client, google_user):
+    """A stale flag may affect at most one login, not every login for its
+    whole lifetime."""
+    crush_client.get(HANDOFF_PATH, {"redirect_uri": "crushlu://auth"})  # abandoned
+
+    # First login (no explicit next) is captured by the flag...
+    response = crush_client.post(
+        "/accounts/login/", {"login": GOOGLE_EMAIL, "password": "test-pass-123"}
+    )
+    assert response.status_code == 302
+    assert response.headers["Location"].startswith(HANDOFF_PATH)
+    assert SESSION_KEY not in crush_client.session, "flag should be consumed"
+
+    # ...and the next one is not.
+    crush_client.logout()
+    response = crush_client.post(
+        "/accounts/login/", {"login": GOOGLE_EMAIL, "password": "test-pass-123"}
+    )
+    assert response.status_code == 302
+    assert not response.headers["Location"].startswith(HANDOFF_PATH), response.headers[
+        "Location"
+    ]
+
+
 def test_interstitial_is_styled_and_preserves_next(crush_client, google_user):
     """The confirmation page shown on GET (SOCIALACCOUNT_LOGIN_ON_GET=False)
     must be the Crush-branded template, not allauth's bare default, and its
@@ -252,6 +346,7 @@ def test_interstitial_is_styled_and_preserves_next(crush_client, google_user):
         # Other platforms render the standalone page: their URLconfs do not
         # expose the Crush URLs that crush_lu/base.html reverses.
         ("entreprinder.lu", False),
+        ("delegations.lu", False),
         ("power-up.lu", False),
         ("vinsdelux.com", False),
         ("portal.localhost:8000", False),
@@ -266,6 +361,7 @@ def test_interstitial_template_routes_by_host(
         "test.crush.lu",
         "crush.localhost",
         "entreprinder.lu",
+        "delegations.lu",
         "power-up.lu",
         "vinsdelux.com",
         "portal.localhost",

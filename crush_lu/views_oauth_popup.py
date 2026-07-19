@@ -13,6 +13,7 @@ Solution: Return 200 OK with a JavaScript-delayed redirect (400ms) to allow
 Chrome to commit cookies before navigating.
 """
 
+import json
 import logging
 from django.shortcuts import render, redirect
 from django.views.decorators.http import require_http_methods
@@ -272,14 +273,36 @@ def oauth_landing(request):
     # Clear OAuth provider flag
     request.session.pop("oauth_provider", None)
 
-    # Native-app auth sheet: if this browser session belongs to an iOS/Android
-    # handoff flow, resume it instead of landing on the website. This covers
-    # the database-recovery login above, which bypasses allauth's post_login
-    # (where the flag is normally honoured).
+    # Native-app auth sheet: resume the handoff instead of landing on the
+    # website. This view bypasses allauth's post_login (where the handoff is
+    # normally honoured), so it has to make the decision itself — including for
+    # the database-recovery login above, whose session is brand new and
+    # therefore carries no handoff flag. Prefer the OAuth state (survives the
+    # cross-browser/replay paths) and fall back to the session flag.
     if request.user.is_authenticated:
-        from .mobile_auth import peek_mobile_handoff_url
+        from .mobile_auth import is_mobile_handoff_path, peek_mobile_handoff_url
 
-        _handoff_url = peek_mobile_handoff_url(request)
+        _handoff_url = None
+        if state_id:
+            try:
+                from crush_lu.models import OAuthState
+
+                _row = OAuthState.objects.filter(state_id=state_id).first()
+                if _row:
+                    _next = (json.loads(_row.state_data) or {}).get("next")
+                    if is_mobile_handoff_path(_next):
+                        _handoff_url = _next
+                        logger.info(
+                            "[OAUTH-LANDING] Recovered native-app handoff from OAuth state"
+                        )
+            except Exception as e:
+                logger.error(
+                    f"[OAUTH-LANDING] Error reading handoff from OAuth state: {e}"
+                )
+
+        if not _handoff_url:
+            _handoff_url = peek_mobile_handoff_url(request)
+
         if _handoff_url:
             logger.info("[OAUTH-LANDING] Resuming native-app auth handoff")
             return redirect(_handoff_url)
