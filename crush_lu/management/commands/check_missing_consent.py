@@ -3,9 +3,7 @@ Management command to check users with missing Crush.lu consent.
 This identifies users who signed up before the consent system was implemented.
 """
 from django.core.management.base import BaseCommand
-from django.contrib.auth.models import User
-from django.utils import timezone
-from crush_lu.models.profiles import UserDataConsent, CrushProfile
+from crush_lu.models.profiles import UserDataConsent
 
 
 class Command(BaseCommand):

@@ -192,19 +192,19 @@ class OAuthState(models.Model):
 
                 # Check if expired
                 if timezone.now() > state.expires_at:
-                    logger.warning(f"[OAUTH-DB] get_and_consume_state: State EXPIRED, deleting")
+                    logger.warning("[OAUTH-DB] get_and_consume_state: State EXPIRED, deleting")
                     state.delete()  # Clean up expired state
                     return None
 
                 # Check if already used
                 if state.used:
-                    logger.warning(f"[OAUTH-DB] get_and_consume_state: State ALREADY USED")
+                    logger.warning("[OAUTH-DB] get_and_consume_state: State ALREADY USED")
                     return None
 
                 # Mark as used (consume)
                 state.used = True
                 state.save(update_fields=['used'])
-                logger.warning(f"[OAUTH-DB] get_and_consume_state: SUCCESS - marked as used")
+                logger.warning("[OAUTH-DB] get_and_consume_state: SUCCESS - marked as used")
 
                 return json.loads(state.state_data)
 

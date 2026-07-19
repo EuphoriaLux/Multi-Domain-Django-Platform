@@ -12,10 +12,7 @@ from crush_lu.notification_service import (
     NotificationType,
     NotificationResult,
     notify_profile_approved,
-    notify_profile_revision,
     notify_new_message,
-    notify_new_connection,
-    notify_connection_accepted,
 )
 from crush_lu.models import PushSubscription, EmailPreference, CrushProfile
 

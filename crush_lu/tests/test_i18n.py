@@ -10,12 +10,10 @@ Tests for the multi-language URL routing upgrade:
 - Language switcher functionality
 """
 
-import pytest
 from datetime import date, timedelta
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from django.test import TestCase, Client, RequestFactory, override_settings
-from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.template import Context, Template
 from django.utils import timezone

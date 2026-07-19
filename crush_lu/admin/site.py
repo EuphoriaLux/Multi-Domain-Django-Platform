@@ -69,12 +69,12 @@ class CrushLuAdminSite(admin.AdminSite):
         """
         Override index to add custom dashboard link and analytics.
         """
-        from django.db.models import Count, Q
+        from django.db.models import Count
         from django.utils import timezone
         from datetime import timedelta
         from ..models import (
             CrushProfile, ProfileSubmission, MeetupEvent,
-            EventConnection, EventRegistration
+            EventConnection
         )
 
         extra_context = extra_context or {}

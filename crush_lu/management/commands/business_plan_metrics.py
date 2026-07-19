@@ -256,21 +256,21 @@ class Command(BaseCommand):
         if not output_json:
             self.stdout.write(self.style.SUCCESS("\n=== 3. PROFILE COMPLETION ==="))
             self.stdout.write(f"\nTotal profiles: {total_profiles}")
-            self.stdout.write(f"\n  Completion funnel:")
+            self.stdout.write("\n  Completion funnel:")
             funnel_order = ["not_started", "step1", "step2", "step3", "step4", "submitted"]
             for step in funnel_order:
                 c = status_counts.get(step, 0)
                 pct = f"{c / total_profiles * 100:.1f}%" if total_profiles else "0%"
                 self.stdout.write(f"    {step:<15} {c:>5}  ({pct})")
 
-            self.stdout.write(f"\n  Profile fields filled:")
+            self.stdout.write("\n  Profile fields filled:")
             self.stdout.write(f"    Has photo:       {has_photo:>5}  ({has_photo / total_profiles * 100:.1f}%)" if total_profiles else "")
             self.stdout.write(f"    Has bio:         {has_bio:>5}  ({has_bio / total_profiles * 100:.1f}%)" if total_profiles else "")
             self.stdout.write(f"    Has preferences: {has_prefs:>5}  ({has_prefs / total_profiles * 100:.1f}%)" if total_profiles else "")
             self.stdout.write(f"    COMPLETE*:       {complete_count:>5}  ({complete_count / total_profiles * 100:.1f}%)" if total_profiles else "")
-            self.stdout.write(f"    * Complete = submitted + photo + bio")
+            self.stdout.write("    * Complete = submitted + photo + bio")
 
-            self.stdout.write(f"\n  Review pipeline (ProfileSubmission):")
+            self.stdout.write("\n  Review pipeline (ProfileSubmission):")
             for status in ["pending", "approved", "rejected", "revision", "recontact_coach"]:
                 c = submission_counts.get(status, 0)
                 self.stdout.write(f"    {status:<18} {c:>5}")
@@ -366,7 +366,7 @@ class Command(BaseCommand):
             self.stdout.write(f"  Conversion rate:        {conv_rate}")
 
             if top_referrers:
-                self.stdout.write(f"\n  Top referrers (by conversions):")
+                self.stdout.write("\n  Top referrers (by conversions):")
                 for ref in top_referrers:
                     self.stdout.write(
                         f"    {ref['referrer__user__email']:<35} {ref['conversions']:>3} conversions"
@@ -427,7 +427,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS("\n=== 6. EVENT ACTIVITY ==="))
             self.stdout.write(f"  Events published:      {total_events}  (cancelled: {cancelled_events})")
             if by_type:
-                self.stdout.write(f"  By type:")
+                self.stdout.write("  By type:")
                 for etype, cnt in sorted(by_type.items(), key=lambda x: -x[1]):
                     self.stdout.write(f"    {etype:<20} {cnt:>5}")
             self.stdout.write(f"\n  Total registrations:   {total_registrations}")
@@ -567,11 +567,11 @@ class Command(BaseCommand):
             self.stdout.write(f"  Users sent reminders:  {reminders_sent}")
             self.stdout.write(f"\n  PWA Installations:     {total_pwa_installs}")
             if pwa_by_os:
-                self.stdout.write(f"    By OS:")
+                self.stdout.write("    By OS:")
                 for row in pwa_by_os:
                     self.stdout.write(f"      {row['os_type']:<15} {row['c']:>5}")
             if pwa_by_form:
-                self.stdout.write(f"    By form factor:")
+                self.stdout.write("    By form factor:")
                 for row in pwa_by_form:
                     self.stdout.write(f"      {row['form_factor']:<15} {row['c']:>5}")
 
@@ -623,7 +623,7 @@ class Command(BaseCommand):
         if not output_json:
             self.stdout.write(self.style.SUCCESS("\n=== 10. COACH OPERATIONS ==="))
             self.stdout.write(f"  Active coaches:        {active_coaches} / {total_coaches}")
-            self.stdout.write(f"\n  Reviews (in period):")
+            self.stdout.write("\n  Reviews (in period):")
             self.stdout.write(f"    Submitted:           {total_submitted:>5}")
             self.stdout.write(f"    Reviewed:            {total_reviewed:>5}")
             self.stdout.write(f"    Avg review time:     {_fmt_timedelta(avg_review_td)}")
@@ -709,11 +709,11 @@ class Command(BaseCommand):
             self.stdout.write(f"  Avg points (completed):{avg_points:.0f}")
             self.stdout.write(f"  Avg time (completed):  {avg_time_str}")
             if final_yes or final_thinking:
-                self.stdout.write(f"\n  Final response:")
+                self.stdout.write("\n  Final response:")
                 self.stdout.write(f"    Yes, let's go:       {final_yes:>5}")
                 self.stdout.write(f"    Need to think:       {final_thinking:>5}")
             if chapter_funnel:
-                self.stdout.write(f"\n  Chapter completion funnel:")
+                self.stdout.write("\n  Chapter completion funnel:")
                 for ch in chapter_funnel:
                     self.stdout.write(f"    Ch {ch['chapter__chapter_number']:>2}:  {ch['c']:>5} completed")
 

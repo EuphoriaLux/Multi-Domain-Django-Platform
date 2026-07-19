@@ -4,7 +4,6 @@ Crush Connect waitlist API endpoints.
 Language-neutral endpoints for AJAX join/status operations.
 """
 
-import json
 import logging
 
 from django.contrib.auth.decorators import login_required

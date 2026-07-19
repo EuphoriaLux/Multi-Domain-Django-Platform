@@ -15,7 +15,7 @@ from django.utils.html import strip_tags
 
 from azureproject.email_utils import send_domain_email
 from .email_helpers import can_send_email, get_social_links
-from .models.newsletter import Newsletter, NewsletterRecipient
+from .models.newsletter import NewsletterRecipient
 from .utils.i18n import build_absolute_url, get_user_preferred_language
 
 logger = logging.getLogger(__name__)

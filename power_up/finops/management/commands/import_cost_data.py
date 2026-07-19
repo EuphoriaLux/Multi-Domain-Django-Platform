@@ -141,7 +141,7 @@ class Command(BaseCommand):
                     continue
 
             self.stdout.write(self.style.SUCCESS(
-                f'\n[OK] Import completed!'
+                '\n[OK] Import completed!'
             ))
             self.stdout.write(f'  Total records imported: {total_records_imported}')
             self.stdout.write(f'  Total duplicates skipped: {total_duplicates_skipped}')
@@ -198,7 +198,6 @@ class Command(BaseCommand):
         # Check if we already have exports for this billing period (update detection)
         # IMPORTANT: Multi-part exports (part_0, part_1, etc.) are ADDITIVE, not replacements
         # Only consider it an update if the export GUID changed (not just part number)
-        import re
         current_export_guid = self._extract_export_guid(blob_path)
 
         existing_exports = CostExport.objects.filter(
@@ -222,7 +221,7 @@ class Command(BaseCommand):
         if is_update or force_reimport:
             # This is an update or forced re-import - handle old data
             if exports_to_supersede:
-                self.stdout.write(f'  -> Detected update for existing period (different export GUID), handling old data...')
+                self.stdout.write('  -> Detected update for existing period (different export GUID), handling old data...')
                 for old_export in exports_to_supersede:
                     old_record_count = old_export.records.count()
                     # Delete old cost records
@@ -340,9 +339,9 @@ class Command(BaseCommand):
                                     ignore_conflicts=True  # Skip duplicates at DB level
                                 )
                                 records_imported += len(cost_records)
-                            except Exception as e:
+                            except Exception:
                                 # If bulk_create fails, try individual inserts (slower but more resilient)
-                                self.stdout.write(f'  Warning: Bulk insert failed, trying individual inserts...')
+                                self.stdout.write('  Warning: Bulk insert failed, trying individual inserts...')
                                 for record_obj in cost_records:
                                     try:
                                         record_obj.save()

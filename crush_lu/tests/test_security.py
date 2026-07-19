@@ -8,12 +8,10 @@ Tests for:
 - Permissions-Policy headers
 - PII masking in logs
 """
-import pytest
-from django.test import Client, TestCase, override_settings
+from django.test import Client, TestCase
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.core.cache import cache
-from unittest.mock import patch, MagicMock
 
 User = get_user_model()
 

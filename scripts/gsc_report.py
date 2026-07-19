@@ -262,7 +262,7 @@ def main():
 
     if data.get("summary"):
         s = data["summary"]
-        print(f"\n--- Summary ---")
+        print("\n--- Summary ---")
         print(f"  Total Clicks:      {s['total_clicks']}")
         print(f"  Total Impressions: {s['total_impressions']}")
         print(f"  Avg CTR:           {s['avg_ctr']}")

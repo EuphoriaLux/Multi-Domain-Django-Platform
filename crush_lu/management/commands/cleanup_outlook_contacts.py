@@ -24,7 +24,6 @@ Usage:
 import re
 import logging
 from django.core.management.base import BaseCommand, CommandError
-from django.db import transaction
 from crush_lu.services.graph_contacts import GraphContactsService, is_sync_enabled
 from crush_lu.models import CrushProfile
 from crush_lu.signals import is_test_user
@@ -205,7 +204,7 @@ class Command(BaseCommand):
 
         # Show sample of what will be deleted
         if delete_count > 0:
-            self.stdout.write(self.style.WARNING(f"\nSample of contacts to delete (showing up to 10):"))
+            self.stdout.write(self.style.WARNING("\nSample of contacts to delete (showing up to 10):"))
             for item in stats['to_delete'][:10]:
                 reason_label = {
                     'test_user': 'TEST USER',

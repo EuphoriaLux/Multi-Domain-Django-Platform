@@ -107,8 +107,8 @@ class Command(BaseCommand):
                 updated_count += 1
                 self.stdout.write(f'  [UPDATED] {obj.display_name}')
 
-        self.stdout.write(self.style.SUCCESS(f'\n' + '='*60))
-        self.stdout.write(self.style.SUCCESS(f'[OK] Global options populated!'))
+        self.stdout.write(self.style.SUCCESS('\n' + '='*60))
+        self.stdout.write(self.style.SUCCESS('[OK] Global options populated!'))
         self.stdout.write(self.style.SUCCESS('='*60))
         self.stdout.write(f'\n  Created: {created_count}')
         self.stdout.write(f'  Updated: {updated_count}')

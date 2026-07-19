@@ -9,7 +9,7 @@ Comprehensive tests for coach functionality including:
 
 Run with: pytest crush_lu/tests/test_coach.py -v
 """
-from datetime import date, timedelta
+from datetime import date
 from django.test import TestCase, Client, override_settings
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site

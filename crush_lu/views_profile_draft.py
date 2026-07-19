@@ -79,7 +79,7 @@ def save_draft(request):
         # Initialize draft_data if needed
         if not profile.draft_data:
             profile.draft_data = {}
-            logger.debug(f"[DRAFT SAVE] Initialized empty draft_data")
+            logger.debug("[DRAFT SAVE] Initialized empty draft_data")
 
         # Merge step data into draft
         step_key = f'step{step}'
@@ -179,7 +179,7 @@ def get_draft(request):
             'show_full_name', 'show_exact_age'
         ]
 
-        logger.debug(f"[DRAFT GET] Building merged data from profile fields...")
+        logger.debug("[DRAFT GET] Building merged data from profile fields...")
         for field in profile_fields:
             value = getattr(profile, field, None)
             if value is not None:
@@ -207,7 +207,7 @@ def get_draft(request):
             for step_key, step_data in (profile.draft_data or {}).items()
         }
         if sanitized_draft:
-            logger.info(f"[DRAFT GET] Applying draft data overrides...")
+            logger.info("[DRAFT GET] Applying draft data overrides...")
             for step_key, step_data in sanitized_draft.items():
                 if isinstance(step_data, dict):
                     logger.debug(f"[DRAFT GET] Merging {step_key}: {step_data}")

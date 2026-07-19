@@ -185,7 +185,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f'\nCreating "The Wonderland of You" journey for {first_name} {last_name}...'
         ))
-        self.stdout.write(f'Populating all languages: EN, DE, FR\n')
+        self.stdout.write('Populating all languages: EN, DE, FR\n')
 
         # 1. Create or update Special User Experience (with all language fields)
         # Using update_or_create ensures translated fields are properly populated
@@ -243,9 +243,9 @@ class Command(BaseCommand):
         )
 
         if created:
-            self.stdout.write(f'[OK] Created Journey Configuration')
+            self.stdout.write('[OK] Created Journey Configuration')
         else:
-            self.stdout.write(f'[OK] Updated existing Journey Configuration')
+            self.stdout.write('[OK] Updated existing Journey Configuration')
 
         # 3. Create all 6 chapters with all language content
         self.create_all_chapters(journey, date_met, location_met, first_name, media_options)
@@ -256,10 +256,10 @@ class Command(BaseCommand):
             self.stdout.write(f'\nMedia files provided: {uploaded_count}')
 
         self.stdout.write(self.style.SUCCESS(
-            f'\nJourney creation complete!\n'
-            f'Languages populated: EN, DE, FR\n'
-            f'Total: 6 chapters with challenges and rewards\n'
-            f'Ready to use - language switches automatically based on URL!\n'
+            '\nJourney creation complete!\n'
+            'Languages populated: EN, DE, FR\n'
+            'Total: 6 chapters with challenges and rewards\n'
+            'Ready to use - language switches automatically based on URL!\n'
         ))
 
     def create_all_chapters(self, journey, date_met, location_met, first_name, media_options=None):
@@ -287,7 +287,7 @@ class Command(BaseCommand):
 
     def create_chapter_1(self, journey, date_met, chapter1_image=None):
         """Chapter 1: Down the Rabbit Hole - Mystery & Curiosity"""
-        self.stdout.write(f'Creating Chapter 1: Down the Rabbit Hole...')
+        self.stdout.write('Creating Chapter 1: Down the Rabbit Hole...')
 
         # Get content for all languages
         content_en = self.get_chapter_content('en', 1)
@@ -451,7 +451,7 @@ class Command(BaseCommand):
 
     def create_chapter_2(self, journey, first_name):
         """Chapter 2: Garden of Rare Flowers - Appreciation & Uniqueness"""
-        self.stdout.write(f'Creating Chapter 2: Garden of Rare Flowers...')
+        self.stdout.write('Creating Chapter 2: Garden of Rare Flowers...')
 
         content_en = self.get_chapter_content('en', 2)
         content_de = self.get_chapter_content('de', 2)
@@ -528,7 +528,7 @@ class Command(BaseCommand):
 
     def create_chapter_3(self, journey, location_met, chapter3_image=None):
         """Chapter 3: Gallery of Moments - Shared Memories"""
-        self.stdout.write(f'Creating Chapter 3: Gallery of Moments...')
+        self.stdout.write('Creating Chapter 3: Gallery of Moments...')
 
         content_en = self.get_chapter_content('en', 3)
         content_de = self.get_chapter_content('de', 3)
@@ -630,7 +630,7 @@ class Command(BaseCommand):
 
     def create_chapter_4(self, journey, chapter4_audio=None):
         """Chapter 4: Carnival of Courage - Vulnerability & Truth"""
-        self.stdout.write(f'Creating Chapter 4: Carnival of Courage...')
+        self.stdout.write('Creating Chapter 4: Carnival of Courage...')
 
         content_en = self.get_chapter_content('en', 4)
         content_de = self.get_chapter_content('de', 4)
@@ -731,7 +731,7 @@ class Command(BaseCommand):
 
     def create_chapter_5(self, journey, first_name, chapter5_image=None):
         """Chapter 5: Starlit Observatory - Dreams & Future"""
-        self.stdout.write(f'Creating Chapter 5: Starlit Observatory...')
+        self.stdout.write('Creating Chapter 5: Starlit Observatory...')
 
         content_en = self.get_chapter_content('en', 5)
         content_de = self.get_chapter_content('de', 5)
@@ -821,7 +821,7 @@ class Command(BaseCommand):
 
     def create_chapter_6(self, journey, first_name):
         """Chapter 6: Door to Tomorrow - The Reveal & Next Step"""
-        self.stdout.write(f'Creating Chapter 6: Door to Tomorrow...')
+        self.stdout.write('Creating Chapter 6: Door to Tomorrow...')
 
         content_en = self.get_chapter_content('en', 6)
         content_de = self.get_chapter_content('de', 6)

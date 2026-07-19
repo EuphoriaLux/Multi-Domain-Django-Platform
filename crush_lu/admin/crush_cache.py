@@ -16,13 +16,8 @@ from azureproject.admin_translation_mixin import AutoTranslateMixin
 
 from crush_lu.models.crush_cache import (
     CacheChallenge,
-    CacheChallengeAttempt,
-    CacheHunt,
     CacheStation,
-    CacheStationAttempt,
-    CacheTeam,
     CacheTeamMember,
-    CacheTeamProgress,
 )
 
 

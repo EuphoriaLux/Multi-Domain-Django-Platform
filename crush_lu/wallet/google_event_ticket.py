@@ -13,7 +13,6 @@ import secrets
 import time
 
 from django.conf import settings
-from django.core.signing import Signer
 
 from .google_wallet import _base64url_encode, _load_private_key, _require_setting
 from cryptography.hazmat.primitives import hashes

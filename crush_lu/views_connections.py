@@ -17,7 +17,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from datetime import timedelta
 
 from django.utils import timezone
 
@@ -28,7 +27,6 @@ from .models import (
     EventConnection,
     ConnectionMessage,
 )
-from .models.crush_spark import CrushSpark
 from .decorators import crush_login_required, ratelimit
 from .notification_service import (
     notify_new_message,

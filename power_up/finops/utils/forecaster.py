@@ -7,7 +7,6 @@ Predicts future costs using linear regression with weekly seasonality adjustment
 from decimal import Decimal
 from datetime import timedelta
 from django.utils import timezone
-from django.db.models import Sum
 from power_up.finops.models import CostAggregation, CostForecast
 
 

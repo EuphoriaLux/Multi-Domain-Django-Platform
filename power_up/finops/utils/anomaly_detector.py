@@ -6,7 +6,7 @@ Detects unusual cost patterns using statistical methods and rule-based threshold
 
 from decimal import Decimal
 from datetime import timedelta
-from django.db.models import Avg, StdDev, Sum
+from django.db.models import Avg, StdDev
 from django.utils import timezone
 from power_up.finops.models import CostAggregation, CostAnomaly
 

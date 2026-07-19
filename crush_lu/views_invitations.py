@@ -11,11 +11,10 @@ logger = logging.getLogger(__name__)
 
 from .models import (
     CrushProfile,
-    CrushCoach,
     MeetupEvent,
     EventInvitation,
 )
-from .decorators import crush_login_required, coach_required, ratelimit
+from .decorators import coach_required, ratelimit
 
 
 def invitation_landing(request, code):
@@ -82,7 +81,6 @@ def invitation_accept(request, code):
 
                 # Create user account with random password
                 username = f"guest_{invitation.guest_email.split('@')[0]}_{uuid.uuid4().hex[:6]}"
-                from django.contrib.auth.hashers import make_password
                 import secrets
                 import string
 

@@ -14,7 +14,6 @@ import requests
 import json
 from decimal import Decimal
 from datetime import datetime
-import os
 
 
 class Command(BaseCommand):
@@ -77,7 +76,7 @@ class Command(BaseCommand):
                 metadata = self.get_reservation_metadata(reservation_id)
 
                 if not metadata:
-                    self.stdout.write(self.style.ERROR(f'   [ERROR] Failed to fetch metadata'))
+                    self.stdout.write(self.style.ERROR('   [ERROR] Failed to fetch metadata'))
                     error_count += 1
                     continue
 
@@ -90,7 +89,7 @@ class Command(BaseCommand):
                 )
 
                 if not pricing:
-                    self.stdout.write(self.style.WARNING(f'   [WARN] No pricing found in Retail Prices API'))
+                    self.stdout.write(self.style.WARNING('   [WARN] No pricing found in Retail Prices API'))
                     error_count += 1
                     continue
 
@@ -129,10 +128,10 @@ class Command(BaseCommand):
                             }
                         }
                     )
-                    self.stdout.write(self.style.SUCCESS(f'   [OK] Saved to database'))
+                    self.stdout.write(self.style.SUCCESS('   [OK] Saved to database'))
                     synced_count += 1
                 else:
-                    self.stdout.write(f'   [DRY RUN] Would save to database')
+                    self.stdout.write('   [DRY RUN] Would save to database')
                     synced_count += 1
 
             except Exception as e:
@@ -141,7 +140,7 @@ class Command(BaseCommand):
                 continue
 
         # Summary
-        self.stdout.write(f'\n[OK] Sync completed!')
+        self.stdout.write('\n[OK] Sync completed!')
         self.stdout.write(f'   Synced: {synced_count}')
         self.stdout.write(f'   Skipped: {skipped_count}')
         self.stdout.write(f'   Errors: {error_count}')
@@ -208,7 +207,7 @@ class Command(BaseCommand):
             access_token = self.get_azure_access_token()
 
             if not access_token:
-                self.stdout.write(self.style.WARNING(f'   [WARN] Failed to get Azure access token'))
+                self.stdout.write(self.style.WARNING('   [WARN] Failed to get Azure access token'))
                 return None
 
             # Call Azure Management API
@@ -379,7 +378,7 @@ class Command(BaseCommand):
                         'sku_name': item.get('skuName', 'N/A')
                     }
 
-            self.stdout.write(self.style.WARNING(f'   [WARN] No matching reservation found'))
+            self.stdout.write(self.style.WARNING('   [WARN] No matching reservation found'))
             return None
 
         except Exception as e:

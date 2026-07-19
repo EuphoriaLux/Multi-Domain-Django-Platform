@@ -106,7 +106,7 @@ class TailwindMigrationTests(TestCase):
 
         self.assertEqual(
             violations, [],
-            f"Bootstrap data attributes found - replace with Alpine.js:\n" +
+            "Bootstrap data attributes found - replace with Alpine.js:\n" +
             "\n".join(violations)
         )
 
@@ -131,7 +131,7 @@ class TailwindMigrationTests(TestCase):
 
         self.assertEqual(
             violations, [],
-            f"Bootstrap component classes found:\n" + "\n".join(violations)
+            "Bootstrap component classes found:\n" + "\n".join(violations)
         )
 
     def test_alpine_js_loaded_in_base(self):
@@ -364,7 +364,7 @@ class GridMigrationTests(TestCase):
 
         self.assertEqual(
             violations, [],
-            f"Bootstrap grid classes found in migrated templates:\n" +
+            "Bootstrap grid classes found in migrated templates:\n" +
             "\n".join(violations)
         )
 
@@ -442,7 +442,7 @@ class InlineStyleExtractionTests(TestCase):
 
         self.assertEqual(
             violations, [],
-            f"Inline styles found in migrated templates:\n" +
+            "Inline styles found in migrated templates:\n" +
             "\n".join(violations)
         )
 

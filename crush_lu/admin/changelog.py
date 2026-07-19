@@ -1,6 +1,5 @@
 """Admin configuration for the changelog / patch notes system."""
 
-from django.contrib import admin
 from django.db.models import Count
 from modeltranslation.admin import TranslationAdmin, TranslationStackedInline
 
@@ -85,7 +84,7 @@ class PatchNoteAdmin(AutoTranslateMixin, TranslationAdmin):
 
 
 # Wire inline: import the model only here to sidestep load-order issues.
-from crush_lu.models import PatchNote, PatchRelease  # noqa: E402
+from crush_lu.models import PatchNote  # noqa: E402
 
 PatchNoteInline.model = PatchNote
 PatchReleaseAdmin.inlines = [PatchNoteInline]

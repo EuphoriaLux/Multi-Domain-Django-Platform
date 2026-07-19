@@ -19,7 +19,6 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.test import TestCase
-from django.utils import timezone
 
 from crush_lu.models import CrushProfile, EmailPreference
 from crush_lu.models.newsletter import Newsletter, NewsletterRecipient

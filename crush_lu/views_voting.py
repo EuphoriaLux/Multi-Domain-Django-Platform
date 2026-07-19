@@ -12,11 +12,9 @@ logger = logging.getLogger(__name__)
 from django.db.models import Count
 
 from .models import (
-    CrushCoach,
     EventInvitation,
     MeetupEvent,
     EventRegistration,
-    EventActivityOption,
     EventActivityVote,
     EventVotingSession,
     PresentationQueue,
@@ -323,7 +321,6 @@ def event_voting_results(request, event_id):
 
     # Get vote counts for each GlobalActivityOption
     from .models import GlobalActivityOption
-    from django.db.models import Count
 
     # Get all active global options with their vote counts for THIS event
     activity_options_with_votes = []

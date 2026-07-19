@@ -10,7 +10,6 @@ handling unique constraints and bidirectional relationships.
 
 import logging
 from django.db import transaction
-from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +30,6 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
     from allauth.account.models import EmailAddress
     from allauth.socialaccount.models import SocialAccount
     from crush_lu.models import (
-        CrushProfile,
         EventRegistration,
         EventConnection,
         ConnectionMessage,

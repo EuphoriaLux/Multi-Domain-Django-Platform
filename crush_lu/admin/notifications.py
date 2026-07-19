@@ -10,7 +10,6 @@ Includes:
 from django.contrib import admin
 from django.contrib import messages as django_messages
 
-from crush_lu.models import PushSubscription, CoachPushSubscription, Notification
 
 
 class PushSubscriptionAdmin(admin.ModelAdmin):

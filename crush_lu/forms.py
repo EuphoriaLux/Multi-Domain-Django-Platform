@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.contrib.auth.password_validation import validate_password
 from django.utils.translation import gettext_lazy as _
 from allauth.account.forms import SignupForm
-from .models import CrushProfile, CrushCoach, ProfileSubmission, CoachSession, EventRegistration, JourneyGift, EventInvitation, CallAttempt, EventFeedback
+from .models import CrushProfile, CrushCoach, ProfileSubmission, CoachSession, EventRegistration, JourneyGift, CallAttempt, EventFeedback
 from PIL import Image
 import os
 

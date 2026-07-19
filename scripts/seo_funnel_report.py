@@ -344,7 +344,7 @@ def main():
 
     query_pairs = {}
     if args.queries:
-        print(f"Fetching GSC query x page pairs...")
+        print("Fetching GSC query x page pairs...")
         qp_rows = fetch_gsc_query_page(start_str, end_str)
         print(f"  {len(qp_rows)} query/page rows")
         query_pairs = top_queries_per_page(qp_rows, args.collapse_language)

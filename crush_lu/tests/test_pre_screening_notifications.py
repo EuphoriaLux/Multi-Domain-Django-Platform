@@ -12,7 +12,7 @@ from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from crush_lu.models import CrushCoach, CrushProfile, ProfileSubmission
+from crush_lu.models import CrushProfile, ProfileSubmission
 from crush_lu.models.profiles import UserDataConsent
 from crush_lu.pre_screening_notifications import (
     candidates_for_invite,

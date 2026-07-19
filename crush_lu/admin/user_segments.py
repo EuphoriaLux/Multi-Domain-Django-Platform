@@ -14,10 +14,9 @@ Provides admin dashboard for viewing and managing user segments:
 Access: Superadmins only (due to bulk email capability)
 """
 
-from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import render, redirect
-from django.db.models import Count, Q, F, Exists, OuterRef, Case, When, Value, CharField
+from django.db.models import Count, Q
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.contrib import messages
@@ -28,15 +27,8 @@ import csv
 from crush_lu.models import (
     CrushProfile,
     ProfileSubmission,
-    MeetupEvent,
-    EventRegistration,
-    EventConnection,
-    ConnectionMessage,
     UserActivity,
     EmailPreference,
-    PushSubscription,
-    ProfileReminder,
-    PWADeviceInstallation,
 )
 
 

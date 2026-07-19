@@ -10,11 +10,9 @@ Tests error scenarios for:
 import json
 import pytest
 from datetime import date, timedelta
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from django.contrib.auth import get_user_model
-from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.utils import timezone
 
 from crush_lu.models import (
     JourneyGift,
@@ -22,8 +20,6 @@ from crush_lu.models import (
     JourneyChapter,
     JourneyChallenge,
     JourneyReward,
-    JourneyProgress,
-    ChapterProgress,
     SpecialUserExperience,
 )
 from crush_lu.utils.journey_validation import (

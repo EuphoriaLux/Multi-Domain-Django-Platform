@@ -17,13 +17,12 @@ Documentation:
 https://developers.google.com/wallet/generic/use-cases/use-callbacks-for-saves-and-deletions
 """
 
-import hashlib
 import json
 import logging
 from functools import lru_cache
 
 from django.conf import settings
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 

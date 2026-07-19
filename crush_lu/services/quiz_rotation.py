@@ -969,7 +969,6 @@ def manual_assign_table(quiz, user, table_number):
         already seated, or quiz in a non-assignable status.
     """
     from django.db import transaction
-    from django.db.models import Count
 
     from crush_lu.models.quiz import (
         QuizEvent,

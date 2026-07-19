@@ -145,7 +145,7 @@ class Command(BaseCommand):
             if not registrations.exists():
                 if verbosity >= 1:
                     self.stdout.write(
-                        self.style.WARNING(f'  No confirmed registrations')
+                        self.style.WARNING('  No confirmed registrations')
                     )
                 continue
 

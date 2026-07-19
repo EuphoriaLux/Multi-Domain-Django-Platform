@@ -26,7 +26,6 @@ from crush_lu.models.events import MeetupEvent
 from crush_lu.models.newsletter import Newsletter, NewsletterRecipient
 from crush_lu.newsletter_service import (
     get_newsletter_recipients,
-    render_event_announcement,
     send_newsletter,
     NEWSLETTER_TEMPLATE_MAP,
 )

@@ -11,7 +11,7 @@ Usage:
 
 from django.core.management.base import BaseCommand
 from crush_lu.models import (
-    JourneyConfiguration, JourneyChapter, JourneyChallenge, JourneyReward
+    JourneyConfiguration
 )
 from crush_lu.journey_translations import JOURNEY_CONTENT
 

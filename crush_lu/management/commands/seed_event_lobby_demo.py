@@ -79,7 +79,6 @@ class Command(BaseCommand):
 
         from crush_lu.models import (
             CrushConnectMembership,
-            CrushProfile,
             EventRegistration,
             MeetupEvent,
         )

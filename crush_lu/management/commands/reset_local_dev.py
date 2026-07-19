@@ -18,7 +18,6 @@ Usage:
 from django.core.management.base import BaseCommand, CommandError
 from django.core.management import call_command
 from django.conf import settings
-from django.contrib.auth.models import User
 from django.db import connection
 
 
@@ -190,7 +189,7 @@ class Command(BaseCommand):
                         cursor.execute(f'DELETE FROM "{table_name}"')  # nosec B608
                     deleted_counts[model_label] = count
                 tables_cleared.append(table_name)
-            except Exception as e:
+            except Exception:
                 # Some models may fail due to FK constraints, that's ok
                 pass
 

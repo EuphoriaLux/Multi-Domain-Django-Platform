@@ -23,7 +23,7 @@ Usage:
 
 import random
 import requests
-from datetime import date, timedelta
+from datetime import date
 
 from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
@@ -383,7 +383,7 @@ class Command(BaseCommand):
         for u in premium_users:
             self.stdout.write(f"  {u.email:<38}  pass: {password}")
 
-        self.stdout.write(f"\nCatalogue candidates (appear in drops)  LuxID: simulated")
+        self.stdout.write("\nCatalogue candidates (appear in drops)  LuxID: simulated")
         for u in candidate_users:
             self.stdout.write(f"  {u.email:<38}  pass: {password}")
 

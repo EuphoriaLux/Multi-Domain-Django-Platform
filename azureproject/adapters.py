@@ -7,9 +7,6 @@ Routes authentication to appropriate handlers based on request domain.
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.core.exceptions import ImmediateHttpResponse
-from django.conf import settings
-from django.urls import reverse
-from django.shortcuts import render
 from django.http import HttpResponseForbidden
 import os
 import logging

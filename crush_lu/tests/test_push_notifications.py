@@ -7,9 +7,8 @@ Tests for push_notifications.py which handles:
 - Notification-specific functions (event reminders, connections, messages, etc.)
 """
 import pytest
-from unittest.mock import patch, MagicMock, PropertyMock
+from unittest.mock import patch, MagicMock
 from datetime import date, timedelta
-from contextlib import contextmanager
 
 from django.contrib.auth.models import User
 from django.utils import timezone, translation

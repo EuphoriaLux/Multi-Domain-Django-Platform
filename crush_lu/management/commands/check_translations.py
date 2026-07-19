@@ -97,13 +97,13 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.ERROR(f"  Untranslated: {len(untranslated)}")
             if untranslated
-            else f"  Untranslated: 0"
+            else "  Untranslated: 0"
         )
         if not options["no_fuzzy"]:
             self.stdout.write(
                 self.style.WARNING(f"  Fuzzy: {len(fuzzy)}")
                 if fuzzy
-                else f"  Fuzzy: 0"
+                else "  Fuzzy: 0"
             )
         translated = total - len(untranslated) - (len(fuzzy) if not options["no_fuzzy"] else 0)
         pct = (translated / total * 100) if total else 100

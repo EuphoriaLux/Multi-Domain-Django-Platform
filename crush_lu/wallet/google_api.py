@@ -12,7 +12,7 @@ import uuid
 
 import httpx
 from django.conf import settings
-from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 
 from .google_wallet import _load_private_key, _base64url_encode

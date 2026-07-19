@@ -5,7 +5,7 @@ Tests the complete gift workflow from creation to claiming and journey access.
 Run with: pytest crush_lu/tests/test_journey_gift_e2e.py -v -m playwright
 """
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page
 
 
 @pytest.fixture(autouse=True)
@@ -262,7 +262,6 @@ class TestGiftClaimNewUser:
 
     def test_claim_after_signup_creates_journey(self, page: Page, live_server_url, pending_gift, db):
         """After signup, claiming a gift should create the journey."""
-        from crush_lu.models import JourneyGift, JourneyConfiguration
         import uuid
 
         # Navigate to gift landing

@@ -1,6 +1,5 @@
 from django.contrib import admin
 
-from ..models import AndroidAppDevice
 
 
 class AndroidAppDeviceAdmin(admin.ModelAdmin):

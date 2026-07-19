@@ -1,11 +1,8 @@
 from django.urls import path
-from django.views.decorators.cache import never_cache
 from django.views.generic import RedirectView
-from django.shortcuts import render, redirect
-from django.contrib import messages
+from django.shortcuts import redirect
 from django.http import HttpResponse
 from allauth.account.views import LoginView, LogoutView
-from allauth.account.forms import LoginForm
 from . import views
 from . import views_pre_screening
 from . import views_crush_connect
@@ -95,12 +92,8 @@ class UnifiedAuthView(LoginView):
 from . import views_profile
 from . import views_media
 from . import views_oauth_popup
-from . import views_phone_verification
-from . import api_views
 from . import views_journey
 from . import api_journey
-from . import api_push
-from . import api_coach_push
 from . import views_advent
 from . import views_journey_gift
 from . import views_crush_spark
