@@ -108,9 +108,11 @@ def _start_provider_login(client, url):
     if response.status_code == 200:  # SOCIALACCOUNT_LOGIN_ON_GET = False
         response = client.post(url)
     assert response.status_code == 302, response.status_code
-    location = response.headers["Location"]
-    assert "accounts.google.com" in location
-    return parse_qs(urlparse(location).query)["state"][0]
+    # Compare the parsed host exactly — a substring check would also accept
+    # lookalike hosts (and CodeQL flags it as incomplete URL sanitization).
+    parsed = urlparse(response.headers["Location"])
+    assert parsed.netloc == "accounts.google.com", parsed.netloc
+    return parse_qs(parsed.query)["state"][0]
 
 
 def _finish_provider_login(client, state_id):
@@ -235,6 +237,52 @@ def test_interstitial_is_styled_and_preserves_next(crush_client, google_user):
 
     state_data = json.loads(OAuthState.objects.get(state_id=state_id).state_data)
     assert state_data.get("next", "").startswith(HANDOFF_PATH)
+
+
+@pytest.mark.parametrize(
+    "host,expect_crush",
+    [
+        ("crush.lu", True),
+        ("www.crush.lu", True),
+        ("test.crush.lu", True),
+        # get_host() keeps the dev port, so these must not be matched with ==
+        ("localhost:8000", True),
+        ("crush.localhost:8000", True),
+        ("127.0.0.1:8000", True),
+        # Other platforms render the standalone page: their URLconfs do not
+        # expose the Crush URLs that crush_lu/base.html reverses.
+        ("entreprinder.lu", False),
+        ("power-up.lu", False),
+        ("vinsdelux.com", False),
+        ("portal.localhost:8000", False),
+    ],
+)
+def test_interstitial_template_routes_by_host(
+    client, settings, google_user, host, expect_crush
+):
+    settings.ALLOWED_HOSTS = list(settings.ALLOWED_HOSTS) + [
+        "crush.lu",
+        "www.crush.lu",
+        "test.crush.lu",
+        "crush.localhost",
+        "entreprinder.lu",
+        "power-up.lu",
+        "vinsdelux.com",
+        "portal.localhost",
+    ]
+    client.defaults["HTTP_HOST"] = host
+
+    response = client.get("/accounts/google/login/")
+
+    assert response.status_code == 200, response.status_code
+    html = response.content.decode()
+    is_crush = "btn-crush-solid" in html
+    assert is_crush is expect_crush, (
+        f"{host} rendered the {'Crush' if is_crush else 'neutral'} page, "
+        f"expected {'Crush' if expect_crush else 'neutral'}"
+    )
+    # Either way it must be a real confirmation page that can POST onward.
+    assert "csrfmiddlewaretoken" in html
 
 
 def test_android_handoff_stashes_flag_and_redirects_to_login(crush_client):

@@ -2,7 +2,10 @@
 {# Rendered on GET /accounts/<provider>/login/ since SOCIALACCOUNT_LOGIN_ON_GET = False #}
 {# (login-CSRF fix, issue #542). The form must POST back to the CURRENT URL (no #}
 {# action attribute) so the ?next= chain — e.g. the iOS/Android auth handoff — survives. #}
-{% if 'crush.lu' in request.get_host or request.get_host == 'localhost' or request.get_host == 'crush.localhost' or '127.0.0.1' in request.get_host %}
+{# Host matching must tolerate the dev port: get_host() returns "localhost:8000", #}
+{# so an == comparison would send local dev to the neutral page. slice:":9" keeps #}
+{# bare localhost matching while letting portal./api.localhost fall through. #}
+{% if 'crush.lu' in request.get_host or 'crush.localhost' in request.get_host or request.get_host|slice:":9" == 'localhost' or '127.0.0.1' in request.get_host %}
 {% include "socialaccount/login_crush.html" %}
 {% else %}
 {# Non-Crush hosts share a standalone page: their URLconfs do not expose Crush URLs. #}
