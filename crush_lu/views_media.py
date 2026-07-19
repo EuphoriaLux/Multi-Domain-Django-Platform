@@ -13,6 +13,7 @@ import os
 import logging
 
 from .models import CrushProfile, CrushCoach
+from .oauth_statekit import get_client_ip
 
 logger = logging.getLogger(__name__)
 
@@ -79,21 +80,48 @@ def serve_profile_photo(request, user_id, photo_field):
     is_coach = CrushCoach.objects.filter(user=request.user, is_active=True).exists()
     max_requests = 300 if is_coach else 200
     period_seconds = 60  # 1 minute window
-    cache_key = f"ratelimit:serve_profile_photo:user_{request.user.id}"
+
+    # Per-user cap (primary). A single account cannot exceed max_requests/min.
+    user_key = f"ratelimit:serve_profile_photo:user_{request.user.id}"
+    # Per-IP cap (secondary, anti-abuse). Caps aggregate traffic from one IP
+    # across multiple accounts — closes the "botnet of N accounts each get the
+    # full quota" hole. Photos are PII under GDPR, so the IP ceiling is set
+    # well above any single legitimate user's budget (200/min) but below
+    # N * max_requests for attacker N.
+    ip_addr = get_client_ip(request) or "unknown"
+    ip_max_requests = 600 if is_coach else 400
+    ip_key = f"ratelimit:serve_profile_photo:ip_{ip_addr}"
+
     try:
-        current = cache.get(cache_key, 0)
+        user_current = cache.get(user_key, 0)
+        ip_current = cache.get(ip_key, 0)
     except Exception:
-        current = 0
-    if current >= max_requests:
+        user_current = 0
+        ip_current = 0
+
+    if user_current >= max_requests or ip_current >= ip_max_requests:
+        logger.warning(
+            "serve_profile_photo rate-limited: user=%s ip=%s "
+            "user_count=%s ip_count=%s",
+            request.user.id, ip_addr, user_current, ip_current,
+        )
         return HttpResponse("Rate limit exceeded. Please try again later.", status=429)
+
     try:
-        if current == 0:
-            cache.set(cache_key, 1, period_seconds)
+        if user_current == 0:
+            cache.set(user_key, 1, period_seconds)
         else:
             try:
-                cache.incr(cache_key)
+                cache.incr(user_key)
             except ValueError:
-                cache.set(cache_key, 1, period_seconds)
+                cache.set(user_key, 1, period_seconds)
+        if ip_current == 0:
+            cache.set(ip_key, 1, period_seconds)
+        else:
+            try:
+                cache.incr(ip_key)
+            except ValueError:
+                cache.set(ip_key, 1, period_seconds)
     except Exception:
         pass
 
