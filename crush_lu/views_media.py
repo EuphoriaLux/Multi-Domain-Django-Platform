@@ -13,6 +13,7 @@ import os
 import logging
 
 from .models import CrushProfile, CrushCoach
+from .oauth_statekit import get_client_ip
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,31 @@ def can_view_profile_photo(viewer, profile_owner):
     return True
 
 
+def _increment_rate_limit_counter(key, period_seconds):
+    """Atomically increment a cache rate-limit counter.
+
+    Uses cache.add() for the first request in a window and cache.incr() for
+    subsequent requests, so concurrent workers cannot all read the same value
+    and pass before their increments land. Returns the new counter value, or
+    None if the cache backend is unavailable (rate limiting is fail-open, as
+    before).
+    """
+    try:
+        if cache.add(key, 1, period_seconds):
+            return 1
+        return cache.incr(key)
+    except ValueError:
+        # Key expired between add() and incr(); retry once.
+        try:
+            if cache.add(key, 1, period_seconds):
+                return 1
+            return cache.incr(key)
+        except Exception:
+            return None
+    except Exception:
+        return None
+
+
 @login_required
 def serve_profile_photo(request, user_id, photo_field):
     """
@@ -79,23 +105,35 @@ def serve_profile_photo(request, user_id, photo_field):
     is_coach = CrushCoach.objects.filter(user=request.user, is_active=True).exists()
     max_requests = 300 if is_coach else 200
     period_seconds = 60  # 1 minute window
-    cache_key = f"ratelimit:serve_profile_photo:user_{request.user.id}"
-    try:
-        current = cache.get(cache_key, 0)
-    except Exception:
-        current = 0
-    if current >= max_requests:
+
+    # Per-user cap (primary). A single account cannot exceed max_requests/min.
+    user_key = f"ratelimit:serve_profile_photo:user_{request.user.id}"
+    # Per-IP cap (secondary, anti-abuse). Caps aggregate traffic from one IP
+    # across multiple accounts — closes the "botnet of N accounts each get the
+    # full quota" hole. Photos are PII under GDPR, so the IP ceiling is set
+    # well above any single legitimate user's budget (200/min) but below
+    # N * max_requests for attacker N.
+    ip_addr = get_client_ip(request) or "unknown"
+    ip_max_requests = 600 if is_coach else 400
+    ip_key = f"ratelimit:serve_profile_photo:ip_{ip_addr}"
+
+    user_current = _increment_rate_limit_counter(user_key, period_seconds)
+    if user_current is not None and user_current > max_requests:
+        logger.warning(
+            "serve_profile_photo user rate-limited: user=%s ip=%s "
+            "user_count=%s max=%s",
+            request.user.id, ip_addr, user_current, max_requests,
+        )
         return HttpResponse("Rate limit exceeded. Please try again later.", status=429)
-    try:
-        if current == 0:
-            cache.set(cache_key, 1, period_seconds)
-        else:
-            try:
-                cache.incr(cache_key)
-            except ValueError:
-                cache.set(cache_key, 1, period_seconds)
-    except Exception:
-        pass
+
+    ip_current = _increment_rate_limit_counter(ip_key, period_seconds)
+    if ip_current is not None and ip_current > ip_max_requests:
+        logger.warning(
+            "serve_profile_photo IP rate-limited: user=%s ip=%s "
+            "ip_count=%s max=%s",
+            request.user.id, ip_addr, ip_current, ip_max_requests,
+        )
+        return HttpResponse("Rate limit exceeded. Please try again later.", status=429)
 
     # Validate photo_field
     if photo_field not in ["photo_1", "photo_2", "photo_3"]:
