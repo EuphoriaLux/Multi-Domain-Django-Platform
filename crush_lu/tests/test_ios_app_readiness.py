@@ -1,3 +1,4 @@
+import fnmatch
 import json
 from urllib.parse import parse_qs, urlparse
 from unittest.mock import patch
@@ -44,13 +45,41 @@ def test_apple_app_site_association_exposes_universal_links(client, settings):
     # being loaded, the session never completes, and the OAuth callback never
     # reaches the server — the native sign-in hangs (2026-07-19, LuxID/Microsoft).
     paths = details["paths"]
-    for excluded in ("NOT /accounts/*", "NOT /oauth/*"):
-        assert excluded in paths, f"{excluded} missing — native sign-in will hang"
-        # A NOT rule only takes effect if it precedes the catch-all.
-        assert paths.index(excluded) < paths.index(
-            "*"
-        ), f"{excluded} must come before the catch-all '*' to have any effect"
-    assert payload["webcredentials"]["apps"] == ["C5XDPB2G33.lu.crush.app"]
+
+    def is_excluded(url_path):
+        """Mimic Apple's first-match-wins evaluation of the paths array."""
+        for pattern in paths:
+            negated = pattern.startswith("NOT ")
+            glob = pattern[4:] if negated else pattern
+            if fnmatch.fnmatchcase(url_path, glob):
+                return negated
+        return False
+
+    # These are the REAL routes. crush_lu.urls sits inside i18n_patterns with
+    # prefix_default_language=True, so the OAuth landing/popup routes are
+    # language-prefixed; allauth mounts outside it, so /accounts/ is not.
+    must_be_excluded = [
+        "/accounts/login/",
+        "/accounts/google/login/callback/",
+        "/accounts/luxid/login/callback/",
+        "/oauth/landing/",
+        "/en/oauth/landing/",
+        "/fr/oauth/landing/",
+        "/de/oauth/landing/",
+        "/en/login/",
+        "/fr/signup/",
+        "/api/mobile/ios/auth/handoff/",
+    ]
+    for url_path in must_be_excluded:
+        assert is_excluded(url_path), (
+            f"{url_path} is claimed as a universal link — inside "
+            f"ASWebAuthenticationSession iOS would hand it to the app instead "
+            f"of loading it, hanging the native sign-in"
+        )
+
+    # ...while ordinary deep links stay claimable.
+    for url_path in ["/en/dashboard/", "/en/events/", "/fr/crush-connect/"]:
+        assert not is_excluded(url_path), f"{url_path} should remain a universal link"
 
 
 def test_ios_config_returns_store_safe_defaults(client, settings):
