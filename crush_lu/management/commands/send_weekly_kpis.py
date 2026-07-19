@@ -13,6 +13,7 @@ Recipients come from ``settings.WEEKLY_KPI_RECIPIENTS`` (env-driven). With no
 recipients configured the command still computes and persists the snapshot, and
 just warns that nothing was emailed.
 """
+
 import json
 from datetime import datetime, timedelta
 
@@ -27,7 +28,6 @@ from crush_lu.services.weekly_kpis import (
     snapshot_with_deltas,
     upsert_snapshot,
 )
-
 
 # Ordered (section title, [(metric_key, label)]) so the email reads as a funnel.
 # Keys ending in "_pct" render as percentages with "pts" deltas.
@@ -81,6 +81,17 @@ EMAIL_SECTIONS = [
             ("referrals_converted", "Referrals converted"),
         ],
     ),
+    (
+        "Event Lobby funnel",
+        [
+            ("lobby_participants", "Lobby participants"),
+            ("onboarded_at_event", "Onboarded during an event ★"),
+            ("meet_signals", "Meet signals sent"),
+            ("mutual_reveals", "Mutual reveals"),
+            ("encounters_confirmed", "Encounters confirmed"),
+            ("people_ive_met_total", "People I've Met pairs (total)"),
+        ],
+    ),
 ]
 
 # Map section title → the metrics dict key it draws from.
@@ -89,6 +100,7 @@ _SECTION_KEYS = {
     "Engagement & retention": "engagement",
     "Revenue & premium": "revenue",
     "Matching & events": "matching_events",
+    "Event Lobby funnel": "event_lobby",
 }
 
 
@@ -213,7 +225,9 @@ class Command(BaseCommand):
 
         self._send_email(recipients, payload)
         self.stdout.write(
-            self.style.SUCCESS(f"Weekly KPI email sent to {len(recipients)} recipient(s).")
+            self.style.SUCCESS(
+                f"Weekly KPI email sent to {len(recipients)} recipient(s)."
+            )
         )
 
     def _send_email(self, recipients, payload):
@@ -226,9 +240,7 @@ class Command(BaseCommand):
         }
         html_message = render_to_string("crush_lu/email/weekly_kpis.html", context)
         plain_message = strip_tags(html_message)
-        subject = (
-            f"Crush.lu weekly KPIs — week of {payload['week_start']:%d %b %Y}"
-        )
+        subject = f"Crush.lu weekly KPIs — week of {payload['week_start']:%d %b %Y}"
         send_domain_email(
             subject=subject,
             message=plain_message,

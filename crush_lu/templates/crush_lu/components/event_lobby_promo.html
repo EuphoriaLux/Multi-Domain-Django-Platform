@@ -1,0 +1,24 @@
+{% load i18n %}
+{% comment %}
+Static Event Lobby feature promo — §5.3 as amended 2026-07-18: the feature's
+EXISTENCE is public marketing, so this block is identical on every event and
+carries no per-event or per-user state (no roster, no counts, no phase).
+Callers render it when lobby_cta() returned "promo_only" and a personal CTA
+(event_lobby_cta.html) otherwise — never both.
+{% endcomment %}
+<div class="rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4">
+    <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-xl bg-crush-purple/10 flex items-center justify-center shrink-0">
+            {% include "shared/icons/users.html" with class="w-5 h-5 text-crush-purple" %}
+        </div>
+        <div class="flex-1 min-w-0">
+            <p class="font-semibold text-gray-900 dark:text-white mb-0.5">{% trans "The Event Lobby" %}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-300 mb-2">
+                {% trans "Crush Connect members get a live, members-only lobby at every event — quietly signal who you'd like to meet, and keep the people you both confirm afterwards." %}
+            </p>
+            <a href="{% url 'crush_lu:crush_connect_teaser' %}" class="text-sm font-semibold text-crush-purple hover:text-crush-purple-dark transition-colors">
+                {% trans "About Crush Connect" %} →
+            </a>
+        </div>
+    </div>
+</div>

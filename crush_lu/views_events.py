@@ -159,9 +159,7 @@ def event_list(request):
     generous_cutoff = now - timedelta(hours=24)
     upcoming_events = list(
         MeetupEvent.objects.with_registration_counts()
-        .filter(
-            is_published=True, is_cancelled=False, date_time__gte=generous_cutoff
-        )
+        .filter(is_published=True, is_cancelled=False, date_time__gte=generous_cutoff)
         .prefetch_related("coaches__user")
         .order_by("date_time")
     )
@@ -169,9 +167,8 @@ def event_list(request):
 
     past_events = list(
         MeetupEvent.objects.with_registration_counts()
-        .filter(
-            is_published=True, is_cancelled=False, date_time__lt=now
-        ).order_by("-date_time")[:50]
+        .filter(is_published=True, is_cancelled=False, date_time__lt=now)
+        .order_by("-date_time")[:50]
     )
     past_events = [e for e in past_events if e.end_time < now][:10]
 
@@ -383,12 +380,29 @@ def my_events(request):
             if conn.is_mutual_annotated:
                 mutual_counts[conn.event_id] = mutual_counts.get(conn.event_id, 0) + 1
 
+    # Event Lobby CTA per card. participant_gate/may_learn cost queries, so
+    # only evaluate for attended registrations still in a live/recap phase
+    # (at most one or two per user) — everything else renders no lobby CTA.
+    from .services.event_lobby import (
+        PHASE_CLOSED,
+        event_lobby_phase,
+        lobby_cta,
+    )
+
+    def _card_lobby_cta(reg):
+        if reg.status != "attended":
+            return None
+        if event_lobby_phase(reg.event, now) == PHASE_CLOSED:
+            return None
+        return lobby_cta(request.user, reg.event, registration=reg, now=now)
+
     upcoming_with_meta = [
         {
             "registration": reg,
             "event": reg.event,
             "is_waitlist": reg.status == "waitlist",
             "is_pending_payment": reg.status == "pending",
+            "lobby_cta": _card_lobby_cta(reg),
         }
         for reg in upcoming
     ]
@@ -400,6 +414,7 @@ def my_events(request):
             "attended": reg.status == "attended",
             "no_show": reg.status == "no_show",
             "mutual_matches": mutual_counts.get(reg.event_id, 0),
+            "lobby_cta": _card_lobby_cta(reg),
         }
         for reg in past
     ]
@@ -600,6 +615,13 @@ def event_detail(request, event_id):
         and not event_full_for_user
     )
 
+    # Event Lobby entry point: one per-user CTA state (or None while the
+    # feature is disabled) — see services.event_lobby.lobby_cta for the
+    # disclosure rules (§5.3 as amended 2026-07-18).
+    from .services.event_lobby import lobby_cta
+
+    event_lobby_cta = lobby_cta(request.user, event, registration=registration)
+
     context = {
         "event": event,
         "is_past": is_past,
@@ -613,6 +635,7 @@ def event_detail(request, event_id):
         "event_coaches": event_coaches,
         "event_jsonld": event_jsonld,
         "breadcrumb_jsonld": breadcrumb_jsonld,
+        "event_lobby_cta": event_lobby_cta,
     }
     return render(request, "crush_lu/event_detail.html", context)
 
