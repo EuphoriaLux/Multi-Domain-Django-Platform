@@ -114,6 +114,24 @@ def patch_allauth_statekit():
             request.session['oauth_popup_mode'] = True
             logger.debug("[OAUTH] Popup mode detected and stored in session")
 
+        # Native-app auth sheet: if this provider login starts inside an
+        # iOS/Android handoff flow that has lost its ?next= (signup detour,
+        # language switch), pin the handoff into the OAuth state itself. The
+        # state is database-backed, so unlike the session flag it survives the
+        # cross-browser and replayed-callback paths below - and it is bound to
+        # this one OAuth flow rather than to the whole browser session.
+        try:
+            if not state.get('next'):
+                from crush_lu.mobile_auth import peek_mobile_handoff_url
+
+                handoff_url = peek_mobile_handoff_url(request)
+                if handoff_url:
+                    state['next'] = handoff_url
+                    logger.info("[OAUTH] Pinned native-app handoff into OAuth state")
+        except Exception as e:
+            # Never block the login over this - the session flag still applies.
+            logger.error(f"[OAUTH] Failed to pin native-app handoff: {e}")
+
         # First, use original session-based storage (for compatibility)
         try:
             state_id = _original_stash_state(request, state, state_id)

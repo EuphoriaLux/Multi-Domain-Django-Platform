@@ -35726,3 +35726,19 @@ msgstr ""
 "schließen (Standard: 48 – dieselbe Spanne wie der Event-Lobby-Rückblick, "
 "sodass beide gleichzeitig schließen). Nach Ablauf des Zeitfensters werden "
 "Teilnehmer zum Crush-Connect-Teaser weitergeleitet."
+
+#: templates/socialaccount/login_crush.html
+msgid "Sign in with %(provider)s"
+msgstr "Mit %(provider)s anmelden"
+
+#: templates/socialaccount/login_crush.html
+msgid "You'll be taken to %(provider)s to continue securely."
+msgstr "Du wirst zu %(provider)s weitergeleitet, um dich sicher anzumelden."
+
+#: templates/socialaccount/login_crush.html
+msgid "Connect %(provider)s"
+msgstr "%(provider)s verbinden"
+
+#: templates/socialaccount/login_crush.html
+msgid "You'll be taken to %(provider)s to connect your account."
+msgstr "Du wirst zu %(provider)s weitergeleitet, um dein Konto zu verbinden."
