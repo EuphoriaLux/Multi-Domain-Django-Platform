@@ -35620,3 +35620,19 @@ msgstr "Station {order}"
 #: crush_lu/templates/crush_lu/event_detail.html:374
 msgid "Join the Hunt"
 msgstr "Mach mit bei der Jagd"
+
+#: templates/socialaccount/login_crush.html
+msgid "Sign in with %(provider)s"
+msgstr "Mit %(provider)s anmelden"
+
+#: templates/socialaccount/login_crush.html
+msgid "You'll be taken to %(provider)s to continue securely."
+msgstr "Du wirst zu %(provider)s weitergeleitet, um dich sicher anzumelden."
+
+#: templates/socialaccount/login_crush.html
+msgid "Connect %(provider)s"
+msgstr "%(provider)s verbinden"
+
+#: templates/socialaccount/login_crush.html
+msgid "You'll be taken to %(provider)s to connect your account."
+msgstr "Du wirst zu %(provider)s weitergeleitet, um dein Konto zu verbinden."

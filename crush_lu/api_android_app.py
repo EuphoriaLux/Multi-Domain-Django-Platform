@@ -5,12 +5,14 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 from django.conf import settings
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import redirect_to_login
 from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from .decorators import ratelimit
+from .mobile_auth import clear_mobile_handoff, stash_mobile_handoff
 from .models import IOSNativeAuthCode, AndroidAppDevice
 
 logger = logging.getLogger(__name__)
@@ -83,7 +85,6 @@ def android_app_config(request):
     )
 
 
-@login_required
 @require_http_methods(["GET"])
 def android_auth_handoff(request):
     """Issue a one-time code that the Android shell can redeem in WebView."""
@@ -94,6 +95,13 @@ def android_auth_handoff(request):
             status=400,
         )
 
+    if not request.user.is_authenticated:
+        # Stash a session flag so any login completed inside the auth sheet
+        # routes back here even if the ?next= chain gets lost on the way.
+        stash_mobile_handoff(request, "android", redirect_uri)
+        return redirect_to_login(request.get_full_path())
+
+    clear_mobile_handoff(request)
     code = IOSNativeAuthCode.issue(request.user, redirect_uri, request=request)
     complete_url = request.build_absolute_uri(
         f"/api/mobile/android/auth/complete/{code}/"
@@ -127,7 +135,9 @@ def android_auth_complete(request, code):
 @login_required
 @require_http_methods(["GET"])
 def list_android_devices(request):
-    devices = AndroidAppDevice.objects.filter(user=request.user).order_by("-last_seen_at")
+    devices = AndroidAppDevice.objects.filter(user=request.user).order_by(
+        "-last_seen_at"
+    )
     return JsonResponse(
         {
             "success": True,
@@ -164,7 +174,11 @@ def register_android_device(request):
         return JsonResponse({"success": False, "error": "Invalid JSON"}, status=400)
 
     registration_token = str(data.get("registrationToken", "")).strip()
-    if not registration_token or len(registration_token) > 255 or any(c.isspace() for c in registration_token):
+    if (
+        not registration_token
+        or len(registration_token) > 255
+        or any(c.isspace() for c in registration_token)
+    ):
         return JsonResponse(
             {"success": False, "error": "Invalid registrationToken"},
             status=400,
@@ -176,7 +190,10 @@ def register_android_device(request):
             "user": request.user,
             "device_id": str(data.get("deviceId", ""))[:128],
             "package_name": str(
-                data.get("packageName", getattr(settings, "ANDROID_APP_PACKAGE", "lu.crush.app"))
+                data.get(
+                    "packageName",
+                    getattr(settings, "ANDROID_APP_PACKAGE", "lu.crush.app"),
+                )
             )[:128],
             "app_version": str(data.get("appVersion", ""))[:32],
             "app_build": str(data.get("appBuild", ""))[:32],
@@ -191,7 +208,11 @@ def register_android_device(request):
     return JsonResponse(
         {
             "success": True,
-            "message": "Android device registration created" if created else "Android device registration updated",
+            "message": (
+                "Android device registration created"
+                if created
+                else "Android device registration updated"
+            ),
             "deviceId": device.id,
         }
     )
@@ -208,7 +229,9 @@ def unregister_android_device(request):
 
     devices = AndroidAppDevice.objects.filter(user=request.user)
     if data.get("registrationToken"):
-        devices = devices.filter(registration_token=str(data["registrationToken"]).strip())
+        devices = devices.filter(
+            registration_token=str(data["registrationToken"]).strip()
+        )
     elif data.get("deviceId"):
         devices = devices.filter(device_id=str(data["deviceId"])[:128])
     else:
@@ -237,11 +260,15 @@ def update_android_device_preferences(request):
         if key in preferences
     }
     if not updates:
-        return JsonResponse({"success": False, "error": "No preferences provided"}, status=400)
+        return JsonResponse(
+            {"success": False, "error": "No preferences provided"}, status=400
+        )
 
     devices = AndroidAppDevice.objects.filter(user=request.user)
     if data.get("registrationToken"):
-        devices = devices.filter(registration_token=str(data["registrationToken"]).strip())
+        devices = devices.filter(
+            registration_token=str(data["registrationToken"]).strip()
+        )
     elif data.get("deviceId"):
         devices = devices.filter(device_id=str(data["deviceId"])[:128])
 
