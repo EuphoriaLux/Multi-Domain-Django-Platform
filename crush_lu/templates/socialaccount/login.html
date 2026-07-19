@@ -2,9 +2,9 @@
 {# Rendered on GET /accounts/<provider>/login/ since SOCIALACCOUNT_LOGIN_ON_GET = False #}
 {# (login-CSRF fix, issue #542). The form must POST back to the CURRENT URL (no #}
 {# action attribute) so the ?next= chain — e.g. the iOS/Android auth handoff — survives. #}
-{% if 'entreprinder' in request.get_host %}
-{% include "socialaccount/login_neutral.html" %}
-{% else %}
-{# Default to Crush template — crush_lu/base.html has no cross-app dependencies. #}
+{% if 'crush.lu' in request.get_host or request.get_host == 'localhost' or request.get_host == 'crush.localhost' or '127.0.0.1' in request.get_host %}
 {% include "socialaccount/login_crush.html" %}
+{% else %}
+{# Non-Crush hosts share a standalone page: their URLconfs do not expose Crush URLs. #}
+{% include "socialaccount/login_neutral.html" %}
 {% endif %}
