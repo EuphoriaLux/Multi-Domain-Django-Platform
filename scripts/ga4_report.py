@@ -299,7 +299,7 @@ def main():
 
     if data.get("summary"):
         s = data["summary"]
-        print(f"\n--- Summary ---")
+        print("\n--- Summary ---")
         print(f"  Total Users:      {s.get('totalUsers', 'N/A')}")
         print(f"  Sessions:         {s.get('sessions', 'N/A')}")
         print(f"  New Users:        {s.get('newUsers', 'N/A')}")

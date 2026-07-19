@@ -24,9 +24,8 @@ from modeltranslation.admin import TranslationAdmin, TranslationTabularInline, T
 from azureproject.admin_translation_mixin import AutoTranslateMixin
 
 from crush_lu.models import (
-    JourneyConfiguration, JourneyChapter, JourneyChallenge,
-    JourneyReward, JourneyProgress, ChapterProgress, ChallengeAttempt, RewardProgress,
-    JourneyGift,
+    JourneyChapter, JourneyChallenge,
+    JourneyReward, ChapterProgress, ChallengeAttempt, JourneyGift,
 )
 
 

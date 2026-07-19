@@ -143,7 +143,6 @@ class CoachActionQueueTests(_SiteSetup, TestCase):
         self.client.login(username="coachy", password="pass1234!")
 
     def test_blocks_non_coach(self):
-        from crush_lu.models import CrushCoach
 
         non = _make_user("noncoach")
         c = Client()

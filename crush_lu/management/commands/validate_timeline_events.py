@@ -5,7 +5,6 @@ Usage:
     python manage.py validate_timeline_events
     python manage.py validate_timeline_events --fix-legacy  # Attempt to migrate legacy formats
 """
-import json
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from crush_lu.models import JourneyChallenge

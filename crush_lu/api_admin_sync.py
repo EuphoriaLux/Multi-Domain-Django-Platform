@@ -5,7 +5,6 @@ Called by Azure Function on scheduled basis
 Secured with Bearer token authentication
 """
 
-import json
 import logging
 import threading
 from django.conf import settings

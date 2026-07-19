@@ -13,12 +13,10 @@ from django.utils.translation import gettext_lazy as _
 from .models import (
     EventConnection,
     CrushProfile,
-    CrushCoach,
     SpecialUserExperience,
     JourneyProgress,
     ProfileSubmission,
     EventRegistration,
-    MeetupEvent,
     CrushSpark,
 )
 

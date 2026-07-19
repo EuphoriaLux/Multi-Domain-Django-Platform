@@ -20,10 +20,8 @@ that bundles membership traits with profile identity.
 """
 
 import logging
-from datetime import date
 from types import SimpleNamespace
 
-from django.db import models, transaction
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 

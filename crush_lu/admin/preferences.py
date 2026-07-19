@@ -12,7 +12,6 @@ from django.contrib import messages as django_messages
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
-from crush_lu.models import UserActivity, EmailPreference, ProfileReminder
 
 
 class UserActivityAdmin(admin.ModelAdmin):

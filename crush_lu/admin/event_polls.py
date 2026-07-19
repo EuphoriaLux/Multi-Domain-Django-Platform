@@ -8,7 +8,7 @@ from modeltranslation.admin import TranslationAdmin, TranslationTabularInline
 
 from azureproject.admin_translation_mixin import AutoTranslateMixin
 
-from crush_lu.models.event_polls import EventPoll, EventPollOption, EventPollVote
+from crush_lu.models.event_polls import EventPollOption
 
 
 class EventPollOptionInline(TranslationTabularInline):

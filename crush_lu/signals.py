@@ -21,7 +21,6 @@ from allauth.socialaccount.models import SocialAccount
 from allauth.socialaccount.signals import (
     pre_social_login,
     social_account_added,
-    social_account_updated,
 )
 from django.contrib import messages
 from django.utils.translation import gettext_lazy as _
@@ -32,7 +31,6 @@ from .utils.image_processing import process_uploaded_image
 
 from .models import (
     MeetupEvent,
-    EventActivityOption,
     GlobalActivityOption,
     EventVotingSession,
     CrushProfile,
@@ -682,7 +680,7 @@ def _get_facebook_photo_url(extra_data, access_token=None):
     if facebook_id:
         photo_url = get_high_res_facebook_photo_url(facebook_id, access_token)
         if photo_url:
-            logger.info(f"Got high-res Facebook photo URL")
+            logger.info("Got high-res Facebook photo URL")
             return photo_url
 
     # Fallback to standard picture from extra_data
@@ -692,7 +690,7 @@ def _get_facebook_photo_url(extra_data, access_token=None):
         else:
             photo_url = extra_data["picture"]
         if photo_url:
-            logger.info(f"Using fallback Facebook photo URL")
+            logger.info("Using fallback Facebook photo URL")
 
     return photo_url
 
@@ -716,7 +714,7 @@ def update_facebook_profile_on_login(sender, request, sociallogin, **kwargs):
 
     # Only process for crush.lu domain
     if not _is_crush_domain(request):
-        logger.info(f"Skipping Facebook login processing for non-Crush domain")
+        logger.info("Skipping Facebook login processing for non-Crush domain")
         return
 
     # Set flag to indicate this is a crush.lu Facebook login
@@ -728,7 +726,6 @@ def update_facebook_profile_on_login(sender, request, sociallogin, **kwargs):
 
     # Track Crush.lu consent for OAuth signups (implicit consent via OAuth)
     if not sociallogin.is_existing:
-        from crush_lu.models.profiles import UserDataConsent
         from crush_lu.oauth_statekit import get_client_ip
 
         _thread_local.oauth_consent_data = {
@@ -736,7 +733,7 @@ def update_facebook_profile_on_login(sender, request, sociallogin, **kwargs):
             "crushlu_consent_ip": get_client_ip(request),
         }
 
-    logger.info(f"pre_social_login signal received for Facebook provider on crush.lu")
+    logger.info("pre_social_login signal received for Facebook provider on crush.lu")
 
     try:
         extra_data = sociallogin.account.extra_data
@@ -809,8 +806,8 @@ def detect_apple_relay_email(sender, request, sociallogin, **kwargs):
     if email.endswith("@privaterelay.appleid.com") and not sociallogin.is_existing:
         request.session["apple_relay_needs_linking"] = True
         logger.info(
-            f"[APPLE-RELAY] New signup with Hide My Email detected, "
-            f"setting linking prompt flag"
+            "[APPLE-RELAY] New signup with Hide My Email detected, "
+            "setting linking prompt flag"
         )
 
 
@@ -873,7 +870,7 @@ def create_crush_profile_from_facebook(sender, instance, created, **kwargs):
         # The view will detect empty profiles and start at step 1
 
         profile.save()
-        logger.info(f"Updated CrushProfile from Facebook data in post_save")
+        logger.info("Updated CrushProfile from Facebook data in post_save")
 
         # Persist social photo to cache for token-expiry fallback
         try:
@@ -1070,12 +1067,12 @@ def get_high_res_google_photo_url(extra_data):
     if "=s" in picture_url:
         # Replace size parameter with 720
         high_res_url = re.sub(r"=s\d+(-c)?", "=s720-c", picture_url)
-        logger.info(f"Enhanced Google photo URL to high-res")
+        logger.info("Enhanced Google photo URL to high-res")
         return high_res_url
     elif "?sz=" in picture_url:
         # Alternative size parameter format
         high_res_url = re.sub(r"\?sz=\d+", "?sz=720", picture_url)
-        logger.info(f"Enhanced Google photo URL to high-res (sz format)")
+        logger.info("Enhanced Google photo URL to high-res (sz format)")
         return high_res_url
 
     # Return original URL if no size parameter found
@@ -1151,7 +1148,7 @@ def update_google_profile_on_login(sender, request, sociallogin, **kwargs):
 
     # Only process for crush.lu domain
     if not _is_crush_domain(request):
-        logger.info(f"Skipping Google login processing for non-Crush domain")
+        logger.info("Skipping Google login processing for non-Crush domain")
         return
 
     # Set flag to indicate this is a crush.lu Google login
@@ -1163,7 +1160,6 @@ def update_google_profile_on_login(sender, request, sociallogin, **kwargs):
 
     # Track Crush.lu consent for OAuth signups (implicit consent via OAuth)
     if not sociallogin.is_existing:
-        from crush_lu.models.profiles import UserDataConsent
         from crush_lu.oauth_statekit import get_client_ip
 
         _thread_local.oauth_consent_data = {
@@ -1171,7 +1167,7 @@ def update_google_profile_on_login(sender, request, sociallogin, **kwargs):
             "crushlu_consent_ip": get_client_ip(request),
         }
 
-    logger.info(f"pre_social_login signal received for Google provider on crush.lu")
+    logger.info("pre_social_login signal received for Google provider on crush.lu")
 
     try:
         extra_data = sociallogin.account.extra_data
@@ -1269,7 +1265,7 @@ def create_crush_profile_from_google(sender, instance, created, **kwargs):
                     )
 
         profile.save()
-        logger.info(f"Updated CrushProfile from Google data in post_save")
+        logger.info("Updated CrushProfile from Google data in post_save")
 
         # Persist social photo to cache for consistency
         try:
@@ -1348,7 +1344,7 @@ def update_microsoft_profile_on_login(sender, request, sociallogin, **kwargs):
 
     # Only process for crush.lu domain
     if not _is_crush_domain(request):
-        logger.info(f"Skipping Microsoft login processing for non-Crush domain")
+        logger.info("Skipping Microsoft login processing for non-Crush domain")
         return
 
     # Set flag to indicate this is a crush.lu Microsoft login
@@ -1360,7 +1356,6 @@ def update_microsoft_profile_on_login(sender, request, sociallogin, **kwargs):
 
     # Track Crush.lu consent for OAuth signups (implicit consent via OAuth)
     if not sociallogin.is_existing:
-        from crush_lu.models.profiles import UserDataConsent
         from crush_lu.oauth_statekit import get_client_ip
 
         _thread_local.oauth_consent_data = {
@@ -1368,7 +1363,7 @@ def update_microsoft_profile_on_login(sender, request, sociallogin, **kwargs):
             "crushlu_consent_ip": get_client_ip(request),
         }
 
-    logger.info(f"pre_social_login signal received for Microsoft provider on crush.lu")
+    logger.info("pre_social_login signal received for Microsoft provider on crush.lu")
 
     try:
         extra_data = sociallogin.account.extra_data
@@ -1449,7 +1444,7 @@ def create_crush_profile_from_microsoft(sender, instance, created, **kwargs):
             )
 
         profile.save()
-        logger.info(f"Updated CrushProfile from Microsoft data in post_save")
+        logger.info("Updated CrushProfile from Microsoft data in post_save")
 
         # Persist social photo to cache for token-expiry fallback
         try:
@@ -1637,7 +1632,6 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
 
     # Track implicit consent for new OAuth signups
     if not sociallogin.is_existing:
-        from crush_lu.models.profiles import UserDataConsent
         from crush_lu.oauth_statekit import get_client_ip
 
         _thread_local.oauth_consent_data = {

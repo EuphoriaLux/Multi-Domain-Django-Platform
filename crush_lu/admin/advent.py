@@ -18,7 +18,7 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from crush_lu.models import (
-    AdventCalendar, AdventDoor, AdventDoorContent, AdventProgress, QRCodeToken,
+    AdventDoor, AdventDoorContent, QRCodeToken,
 )
 
 

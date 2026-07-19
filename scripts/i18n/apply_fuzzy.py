@@ -2,7 +2,8 @@
 
 Surgical edit: replaces only msgstr + removes fuzzy marker for target entries.
 """
-import sys, re
+import sys
+import re
 from pathlib import Path
 sys.stdout.reconfigure(encoding='utf-8')
 

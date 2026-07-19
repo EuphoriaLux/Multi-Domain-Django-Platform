@@ -1,10 +1,8 @@
 """In-app notification (bell) views and API endpoints."""
-import json
 import logging
 
 from django.http import JsonResponse, HttpResponseNotAllowed
 from django.shortcuts import redirect, render
-from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 

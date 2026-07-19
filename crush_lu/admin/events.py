@@ -21,10 +21,8 @@ from modeltranslation.admin import TranslationAdmin
 from azureproject.admin_translation_mixin import AutoTranslateMixin
 
 from crush_lu.models import (
-    MeetupEvent,
     EventRegistration,
     EventInvitation,
-    EventFeedback,
     EventVotingSession,
     PresentationQueue,
 )

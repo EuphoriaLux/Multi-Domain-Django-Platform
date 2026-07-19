@@ -26,7 +26,7 @@ Usage:
 from django.core.management.base import BaseCommand, CommandError
 
 from crush_lu.models.newsletter import Newsletter
-from crush_lu.newsletter_service import get_newsletter_recipients, send_newsletter
+from crush_lu.newsletter_service import send_newsletter
 
 
 class Command(BaseCommand):

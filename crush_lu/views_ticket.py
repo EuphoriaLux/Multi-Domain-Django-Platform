@@ -12,7 +12,6 @@ from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from django.core.signing import Signer
 from django.shortcuts import get_object_or_404, render
-from django.utils import timezone
 
 from .decorators import crush_login_required
 from .models import EventRegistration, MeetupEvent

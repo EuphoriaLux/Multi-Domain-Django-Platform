@@ -4,8 +4,7 @@ This should be run once after deploying the two-tier consent system.
 """
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
-from django.utils import timezone
-from crush_lu.models.profiles import UserDataConsent, CrushProfile
+from crush_lu.models.profiles import UserDataConsent
 
 
 class Command(BaseCommand):

@@ -8,7 +8,7 @@ Each QR code encodes a unique URL that triggers the QR scan endpoint.
 import uuid
 import io
 import base64
-from typing import Optional, List, Tuple
+from typing import Optional, List
 from pathlib import Path
 
 # QR code generation imports
@@ -221,7 +221,7 @@ def generate_tokens_for_user(user, calendar, save: bool = True) -> List:
     Returns:
         List of QRCodeToken instances
     """
-    from .models import QRCodeToken, AdventDoor
+    from .models import QRCodeToken
 
     tokens = []
     doors = calendar.doors.all().order_by("door_number")

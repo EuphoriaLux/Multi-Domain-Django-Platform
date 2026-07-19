@@ -27,7 +27,6 @@ from crush_lu.models import (
     CrushCoach,
     CrushProfile,
     ProfileSubmission,
-    CoachSession,
     EventRegistration,
     EventConnection,
     SpecialUserExperience,
@@ -36,7 +35,6 @@ from crush_lu.models import (
     ReferralCode,
     ReferralAttribution,
     UserDataConsent,
-    PremiumMembership,
 )
 from crush_lu.notification_service import (
     notify_profile_approved,
@@ -828,7 +826,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
                 "crush_admin:crush_lu_meetupevent_change", args=[reg.event.pk]
             )
 
-            html += f"<tr>"
+            html += "<tr>"
             html += f'<td style="padding: 8px; border: 1px solid #ddd;"><a href="{event_url}">{reg.event.title}</a></td>'
             html += f'<td style="padding: 8px; border: 1px solid #ddd;"><span style="color: {status_color}; font-weight: bold;">{reg.get_status_display()}</span></td>'
             html += f'<td style="padding: 8px; border: 1px solid #ddd;">{reg.registered_at.strftime("%Y-%m-%d")}</td>'
@@ -882,7 +880,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
                     "crush_admin:crush_lu_eventconnection_change", args=[conn.pk]
                 )
 
-                html += f"<tr>"
+                html += "<tr>"
                 html += f'<td style="padding: 6px; border: 1px solid #ddd;">{conn.recipient.get_full_name() or conn.recipient.username}</td>'
                 html += f'<td style="padding: 6px; border: 1px solid #ddd;">{conn.event.title}</td>'
                 html += f'<td style="padding: 6px; border: 1px solid #ddd;"><a href="{conn_url}" style="color: {status_color};">{conn.get_status_display()}</a></td>'
@@ -908,7 +906,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
                     "crush_admin:crush_lu_eventconnection_change", args=[conn.pk]
                 )
 
-                html += f"<tr>"
+                html += "<tr>"
                 html += f'<td style="padding: 6px; border: 1px solid #ddd;">{conn.requester.get_full_name() or conn.requester.username}</td>'
                 html += f'<td style="padding: 6px; border: 1px solid #ddd;">{conn.event.title}</td>'
                 html += f'<td style="padding: 6px; border: 1px solid #ddd;"><a href="{conn_url}" style="color: {status_color};">{conn.get_status_display()}</a></td>'
@@ -1139,8 +1137,8 @@ class CrushProfileAdmin(admin.ModelAdmin):
                 user=user, journey=journey
             ).first()
 
-            html += f'<div style="border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin-bottom: 10px; background: white;">'
-            html += f'<div style="display: flex; justify-content: space-between; align-items: center;">'
+            html += '<div style="border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin-bottom: 10px; background: white;">'
+            html += '<div style="display: flex; justify-content: space-between; align-items: center;">'
             html += f'<strong><a href="{journey_url}" style="color: #9B59B6;">{journey.journey_name}</a></strong>'
 
             if progress:
@@ -1448,7 +1446,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
                     synced += 1
                 else:
                     errors += 1
-            except Exception as e:
+            except Exception:
                 errors += 1
 
         if synced > 0:
@@ -1531,9 +1529,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
     @admin.action(description=_("Send bulk email to selected users"))
     def send_bulk_email(self, request, queryset):
         """Redirect to bulk email composition form with selected user IDs"""
-        from django.http import HttpResponseRedirect
         from django.contrib import messages
-        import urllib.parse
 
         # Get all user emails from selected profiles
         emails = list(queryset.values_list("user__email", flat=True))
@@ -1818,7 +1814,7 @@ class ProfileSubmissionAdmin(admin.ModelAdmin):
         html += f'<p style="margin: 5px 0;"><strong>Phone:</strong> {profile.phone_number or "N/A"} ({phone_status})</p>'
 
         if profile.bio:
-            html += f'<p style="margin: 10px 0 5px 0;"><strong>Bio:</strong></p>'
+            html += '<p style="margin: 10px 0 5px 0;"><strong>Bio:</strong></p>'
             html += f'<p style="margin: 0; padding: 10px; background: white; border-radius: 4px;">{profile.bio[:500]}{"..." if len(profile.bio) > 500 else ""}</p>'
 
         if profile.interests:

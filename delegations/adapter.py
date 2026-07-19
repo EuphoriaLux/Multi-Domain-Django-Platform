@@ -3,8 +3,6 @@ Allauth adapters for Delegations.lu.
 
 Customizes Microsoft authentication behavior for delegations.lu domain.
 """
-from django.shortcuts import redirect
-from django.contrib import messages
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.account.adapter import DefaultAccountAdapter
 import logging

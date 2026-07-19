@@ -10,7 +10,6 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils import timezone
 
-from crush_lu.models import PasskitDeviceRegistration
 
 
 class PasskitDeviceRegistrationAdmin(admin.ModelAdmin):

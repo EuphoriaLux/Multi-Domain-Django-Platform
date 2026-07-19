@@ -157,7 +157,6 @@ def test_ios_device_endpoints_no_csrf_exempt(client, user):
     S4 / Issue 2). Verify by checking the view is not wrapped with
     csrf_exempt — if it were, enforce_csrf_checks would be ignored entirely."""
     from crush_lu import api_ios_app
-    from django.views.decorators.csrf import csrf_exempt as _csrf_exempt
 
     for view_fn in [
         api_ios_app.register_ios_device,

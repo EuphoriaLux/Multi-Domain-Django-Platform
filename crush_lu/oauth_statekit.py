@@ -17,7 +17,6 @@ How it works:
 """
 import json
 import logging
-import traceback
 from typing import Any, Dict, Optional
 
 from django.utils import timezone
@@ -214,7 +213,7 @@ def patch_allauth_statekit():
             if recent_state:
                 state = OAuthState.get_and_consume_state(recent_state.state_id)
                 if state:
-                    logger.info(f"OAuth last state retrieved from database")
+                    logger.info("OAuth last state retrieved from database")
                     return state
         except Exception as e:
             logger.error(f"Failed to retrieve last OAuth state from database: {e}")

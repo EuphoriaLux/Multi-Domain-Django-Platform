@@ -7,8 +7,6 @@ import os
 import sys
 import gzip
 import csv
-import io
-from datetime import datetime
 from pathlib import Path
 
 # Add project root to Python path
@@ -21,7 +19,6 @@ import django
 django.setup()
 
 from azure.storage.blob import BlobServiceClient
-from django.conf import settings
 
 
 def get_billing_period_from_file(file_path):
@@ -120,13 +117,13 @@ def upload_cost_exports():
 
     print(f"\n[OK] Successfully uploaded {uploaded_count}/{len(files_to_upload)} files")
     print(f"\nContainer: {container_name}")
-    print(f"\nFiles organized by billing period:")
-    print(f"  October 2025: partnerled/PartnerLed-power_up/20251001-20251031/...")
-    print(f"  November 2025: partnerled/PartnerLed-power_up/20251101-20251130/...")
-    print(f"  December 2025: partnerled/PartnerLed-power_up/20251201-20251231/...")
-    print(f"  January 2026: partnerled/PartnerLed-power_up/20260101-20260131/...")
-    print(f"\nNext step: Run import command:")
-    print(f"  python manage.py import_cost_data --force")
+    print("\nFiles organized by billing period:")
+    print("  October 2025: partnerled/PartnerLed-power_up/20251001-20251031/...")
+    print("  November 2025: partnerled/PartnerLed-power_up/20251101-20251130/...")
+    print("  December 2025: partnerled/PartnerLed-power_up/20251201-20251231/...")
+    print("  January 2026: partnerled/PartnerLed-power_up/20260101-20260131/...")
+    print("\nNext step: Run import command:")
+    print("  python manage.py import_cost_data --force")
 
 
 if __name__ == "__main__":

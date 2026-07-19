@@ -6,7 +6,6 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
-from crush_lu.models import PWADeviceInstallation
 
 
 class PWADeviceInstallationAdmin(admin.ModelAdmin):

@@ -43,13 +43,13 @@ def update_linkedin_photo_on_login(sender, request, sociallogin, **kwargs):
 
     # Check if this is an entreprinder.lu domain login
     if not _is_entreprinder_domain(request):
-        logger.info(f"Skipping LinkedIn processing for non-Entreprinder domain")
+        logger.info("Skipping LinkedIn processing for non-Entreprinder domain")
         return
 
     # Set flag to indicate this is an entreprinder.lu login
     _thread_local.is_entreprinder_login = True
 
-    logger.info(f"pre_social_login signal received for LinkedIn on entreprinder.lu")
+    logger.info("pre_social_login signal received for LinkedIn on entreprinder.lu")
 
     try:
         # Log the full extra_data for debugging
@@ -83,7 +83,7 @@ def update_linkedin_photo_on_account_update(sender, request, sociallogin, **kwar
     if not _is_entreprinder_domain(request):
         return
 
-    logger.info(f"social_account_updated signal received for LinkedIn on entreprinder.lu")
+    logger.info("social_account_updated signal received for LinkedIn on entreprinder.lu")
 
     try:
         extra_data = sociallogin.account.extra_data

@@ -10,20 +10,18 @@ API views: poll spark status.
 import logging
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from django.views.decorators.http import require_http_methods, require_POST
+from django.views.decorators.http import require_http_methods
 
 from .decorators import crush_login_required, coach_required
 from .forms_crush_spark import CoachSparkAssignForm, SparkJourneyForm, SparkRequestForm
 from .models import (
     CrushCoach,
-    CrushProfile,
     EventRegistration,
     MeetupEvent,
 )

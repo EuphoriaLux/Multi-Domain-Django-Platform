@@ -63,5 +63,5 @@ class Command(BaseCommand):
         completed = CostExport.objects.filter(import_status='completed').count()
         total = CostExport.objects.count()
 
-        self.stdout.write(self.style.SUCCESS(f'\n✓ Daily sync completed'))
+        self.stdout.write(self.style.SUCCESS('\n✓ Daily sync completed'))
         self.stdout.write(f'Total exports: {total} ({completed} completed)')

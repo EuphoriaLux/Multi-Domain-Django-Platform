@@ -97,7 +97,7 @@ def test_finops_dashboard_manually():
                     else:
                         print(f"   ✗ {name}: Not visible")
                         all_present = False
-                except Exception as e:
+                except Exception:
                     print(f"   ✗ {name}: Not found")
                     all_present = False
 

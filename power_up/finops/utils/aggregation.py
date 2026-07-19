@@ -1,7 +1,7 @@
 """
 Cost aggregation logic for pre-computing dashboard queries
 """
-from django.db import models, transaction
+from django.db import transaction
 from django.db.models import Sum, Count, Q
 from django.utils import timezone
 from datetime import datetime, timedelta

@@ -15,7 +15,7 @@ from uuid import UUID
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.http import Http404
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _

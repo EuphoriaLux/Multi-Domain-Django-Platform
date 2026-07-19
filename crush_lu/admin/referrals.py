@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
 
-from crush_lu.models import ReferralCode, ReferralAttribution
+from crush_lu.models import ReferralAttribution
 
 
 class ReferralCodeAdmin(admin.ModelAdmin):

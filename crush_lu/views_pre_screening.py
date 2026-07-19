@@ -25,7 +25,6 @@ from .pre_screening_schema import (
     PRE_SCREENING_SCHEMA,
     compute_readiness_score,
     get_section,
-    iter_questions,
     merge_readonly_from_profile,
     validate_pre_screening_responses,
 )

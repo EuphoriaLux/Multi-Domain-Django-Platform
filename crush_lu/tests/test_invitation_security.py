@@ -8,18 +8,15 @@ This test suite validates that the invitation acceptance flow:
 - Prevents minors from accessing the platform
 """
 import pytest
-import uuid
 from datetime import timedelta
 from django.utils import timezone
 from django.contrib.auth.models import User
 from django.urls import reverse
-from django.test import Client
 
 from crush_lu.models import (
     EventInvitation,
     MeetupEvent,
     CrushProfile,
-    CrushCoach,
 )
 from crush_lu.models.profiles import UserDataConsent
 from crush_lu.forms import InvitationAcceptanceForm

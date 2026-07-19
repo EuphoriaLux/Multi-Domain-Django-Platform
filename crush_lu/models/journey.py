@@ -1,10 +1,8 @@
 import os
 import uuid
 
-from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import User
-from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from .profiles import SpecialUserExperience, get_crush_photo_storage
 

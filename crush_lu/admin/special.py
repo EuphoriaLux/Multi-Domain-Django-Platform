@@ -49,10 +49,6 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
     def generate_journey_view(self, request, object_id):
         """Custom view to handle journey generation form (Wonderland or Advent Calendar)"""
         from django.shortcuts import render, get_object_or_404
-        from django.http import HttpResponseRedirect
-        from django.urls import reverse
-        from datetime import date
-        from django.utils import timezone
 
         special_exp = get_object_or_404(SpecialUserExperience, pk=object_id)
 
@@ -126,10 +122,10 @@ class SpecialUserExperienceAdmin(admin.ModelAdmin):
                 location_first_met=location_met,
                 certificate_enabled=True,
                 final_message=(
-                    f"You've completed every challenge and discovered every secret. "
-                    f"But there's one thing I haven't said clearly enough: "
-                    f"You're extraordinary, and I'd be honored if you'd let me prove it to you, "
-                    f"one real moment at a time."
+                    "You've completed every challenge and discovered every secret. "
+                    "But there's one thing I haven't said clearly enough: "
+                    "You're extraordinary, and I'd be honored if you'd let me prove it to you, "
+                    "one real moment at a time."
                 ),
             )
 

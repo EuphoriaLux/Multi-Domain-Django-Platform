@@ -28,7 +28,6 @@ from .models import (
     EventConnection,
     JourneyProgress,
     SpecialUserExperience,
-    CoachSession,
     EmailPreference,
     PWADeviceInstallation,
     OAuthState,
@@ -1570,7 +1569,6 @@ def email_template_preview(request):
         - gift_id: (optional) Gift ID for journey templates
     """
     from django.template.loader import render_to_string
-    from django.utils.html import strip_tags
     from .admin.email_templates_config import get_template_by_key
 
     if not _has_email_template_access(request.user):
@@ -1741,7 +1739,6 @@ def email_template_create_draft(request):
     """
     from django.http import JsonResponse
     from django.template.loader import render_to_string
-    from django.conf import settings
     from .admin.email_templates_config import get_template_by_key
 
     if request.method != "POST":
@@ -1953,7 +1950,7 @@ def _build_template_context(request, template_meta, user_id):
         ValueError: If required context cannot be built
     """
     from django.contrib.auth.models import User
-    from .email_helpers import get_email_context_with_unsubscribe, get_user_language_url
+    from .email_helpers import get_user_language_url
 
     context = {}
     base_url = request.build_absolute_uri("/").rstrip("/")

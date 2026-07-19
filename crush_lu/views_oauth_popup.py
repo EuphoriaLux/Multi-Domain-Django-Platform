@@ -15,7 +15,7 @@ Chrome to commit cookies before navigating.
 
 
 import logging
-from django.shortcuts import render, redirect
+from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.cache import never_cache
 from django.http import JsonResponse

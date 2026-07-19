@@ -1,5 +1,4 @@
 from datetime import timedelta
-from unittest.mock import patch
 import json
 
 from allauth.account.models import EmailAddress

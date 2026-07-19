@@ -8,15 +8,10 @@ from django.utils.translation import gettext as _
 
 from .forms import TicketCommentForm, TicketCreateForm, TicketUpdateForm
 from .models import (
-    AccountManager,
     AuthorizedContact,
     ContactTenantPermission,
     Contract,
     CustomerGroup,
-    Entity,
-    GroupAccountManager,
-    Plan,
-    Tenant,
     Ticket,
     TicketComment,
     TicketUsagePeriod,

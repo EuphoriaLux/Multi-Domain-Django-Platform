@@ -6,7 +6,6 @@ Tests signal handlers for:
 - Coach staff status management
 - Event registration capacity enforcement
 """
-import pytest
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -14,7 +13,6 @@ from datetime import timedelta
 
 from crush_lu.models import (
     MeetupEvent,
-    EventActivityOption,
     EventRegistration,
     CrushCoach,
 )
