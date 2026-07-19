@@ -6,4 +6,4 @@ class EntreprinderConfig(AppConfig):
     name = 'entreprinder'
     
     def ready(self):
-        pass  # Make sure signals are connected
+        import entreprinder.signals  # Make sure signals are connected
