@@ -12,6 +12,14 @@ on:
       - 'requirements.txt'
       - 'package.json'
       - '.github/workflows/test-and-validate.yml'
+      # `validate` and `test` are REQUIRED status checks on main. When a path
+      # filter excludes a change these checks never report at all, which branch
+      # protection reads as "missing" rather than "skipped" — so the PR can
+      # never be merged. Native-shell PRs (Swift/Kotlin/project.yml only) hit
+      # exactly that, so mobile/ is listed here even though the Django suite
+      # does not exercise it. Anything added to the required-checks list must
+      # likewise be reachable from every path that can appear in a PR.
+      - 'mobile/**'
   workflow_dispatch:
 
 # Cancel any in-progress or queued run for the same branch when a new one starts.
