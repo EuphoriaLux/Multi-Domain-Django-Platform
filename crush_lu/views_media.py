@@ -58,6 +58,31 @@ def can_view_profile_photo(viewer, profile_owner):
     return True
 
 
+def _increment_rate_limit_counter(key, period_seconds):
+    """Atomically increment a cache rate-limit counter.
+
+    Uses cache.add() for the first request in a window and cache.incr() for
+    subsequent requests, so concurrent workers cannot all read the same value
+    and pass before their increments land. Returns the new counter value, or
+    None if the cache backend is unavailable (rate limiting is fail-open, as
+    before).
+    """
+    try:
+        if cache.add(key, 1, period_seconds):
+            return 1
+        return cache.incr(key)
+    except ValueError:
+        # Key expired between add() and incr(); retry once.
+        try:
+            if cache.add(key, 1, period_seconds):
+                return 1
+            return cache.incr(key)
+        except Exception:
+            return None
+    except Exception:
+        return None
+
+
 @login_required
 def serve_profile_photo(request, user_id, photo_field):
     """
@@ -92,38 +117,23 @@ def serve_profile_photo(request, user_id, photo_field):
     ip_max_requests = 600 if is_coach else 400
     ip_key = f"ratelimit:serve_profile_photo:ip_{ip_addr}"
 
-    try:
-        user_current = cache.get(user_key, 0)
-        ip_current = cache.get(ip_key, 0)
-    except Exception:
-        user_current = 0
-        ip_current = 0
-
-    if user_current >= max_requests or ip_current >= ip_max_requests:
+    user_current = _increment_rate_limit_counter(user_key, period_seconds)
+    if user_current is not None and user_current > max_requests:
         logger.warning(
-            "serve_profile_photo rate-limited: user=%s ip=%s "
-            "user_count=%s ip_count=%s",
-            request.user.id, ip_addr, user_current, ip_current,
+            "serve_profile_photo user rate-limited: user=%s ip=%s "
+            "user_count=%s max=%s",
+            request.user.id, ip_addr, user_current, max_requests,
         )
         return HttpResponse("Rate limit exceeded. Please try again later.", status=429)
 
-    try:
-        if user_current == 0:
-            cache.set(user_key, 1, period_seconds)
-        else:
-            try:
-                cache.incr(user_key)
-            except ValueError:
-                cache.set(user_key, 1, period_seconds)
-        if ip_current == 0:
-            cache.set(ip_key, 1, period_seconds)
-        else:
-            try:
-                cache.incr(ip_key)
-            except ValueError:
-                cache.set(ip_key, 1, period_seconds)
-    except Exception:
-        pass
+    ip_current = _increment_rate_limit_counter(ip_key, period_seconds)
+    if ip_current is not None and ip_current > ip_max_requests:
+        logger.warning(
+            "serve_profile_photo IP rate-limited: user=%s ip=%s "
+            "ip_count=%s max=%s",
+            request.user.id, ip_addr, ip_current, ip_max_requests,
+        )
+        return HttpResponse("Rate limit exceeded. Please try again later.", status=429)
 
     # Validate photo_field
     if photo_field not in ["photo_1", "photo_2", "photo_3"]:

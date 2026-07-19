@@ -14,6 +14,7 @@ from django.core.cache import cache
 from django.test import RequestFactory, TestCase, override_settings
 
 from crush_lu.models import CrushProfile
+from crush_lu.oauth_statekit import get_client_ip
 from crush_lu.views_media import serve_profile_photo
 
 
@@ -77,6 +78,27 @@ class ServeProfilePhotoRateLimitTests(TestCase):
                     status_code = 200
 
                 return _Ok()
+
+    def test_get_client_ip_keeps_plain_ipv6_distinct(self):
+        """Plain IPv6 clients must not be collapsed into one shared IP budget."""
+        req1 = self.factory.get("/", REMOTE_ADDR="2001:db8:1::1")
+        req2 = self.factory.get("/", REMOTE_ADDR="2001:db8:1::2")
+
+        self.assertEqual(get_client_ip(req1), "2001:db8:1::1")
+        self.assertEqual(get_client_ip(req2), "2001:db8:1::2")
+        self.assertNotEqual(get_client_ip(req1), get_client_ip(req2))
+
+    def test_get_client_ip_strips_only_real_ports(self):
+        """IPv4:port and [IPv6]:port are stripped; plain IPv6 is preserved."""
+        cases = {
+            "203.0.113.10:1234": "203.0.113.10",
+            "[2001:db8:1::1]:443": "2001:db8:1::1",
+            "2001:0db8:0001:0000:0000:0000:0000:0001": "2001:db8:1::1",
+        }
+        for raw, expected in cases.items():
+            with self.subTest(raw=raw):
+                req = self.factory.get("/", REMOTE_ADDR=raw)
+                self.assertEqual(get_client_ip(req), expected)
 
     def test_per_user_cap_returns_429_after_200(self):
         """A single user exceeding 200 req/min is rate-limited."""
