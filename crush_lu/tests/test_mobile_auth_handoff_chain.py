@@ -395,3 +395,41 @@ def test_handoff_rejects_unknown_redirect_uri_before_login(crush_client):
     response = crush_client.get(HANDOFF_PATH, {"redirect_uri": "https://evil.example"})
     assert response.status_code == 400
     assert SESSION_KEY not in crush_client.session
+
+
+# --- The service worker must not intercept the handoff (2026-07-19).
+# --- Its 302 to crushlu:// cannot be followed by a SW fetch(), so if the SW
+# --- claims that navigation the auth sheet hangs after a successful login.
+
+
+def _service_worker_source():
+    from pathlib import Path
+
+    import crush_lu
+
+    path = Path(crush_lu.__file__).parent / "static" / "crush_lu" / "sw-workbox.js"
+    return path.read_text(encoding="utf-8")
+
+
+def test_service_worker_hard_bypasses_native_app_endpoints():
+    source = _service_worker_source()
+
+    # The pre-Workbox hard bypass must list /api/mobile/.
+    bypass_block = source.split("const isAuthUrl")[1].split(";")[0]
+    assert '"/api/mobile/"' in bypass_block, (
+        "/api/mobile/ missing from the service worker's hard-bypass list — the "
+        "auth handoff's crushlu:// redirect would be swallowed by the SW"
+    )
+
+
+def test_service_worker_navigation_route_excludes_native_app_endpoints():
+    source = _service_worker_source()
+
+    # The NetworkFirst navigation route must not claim /api/mobile/ navigations.
+    nav_route = source.split('cacheName: "crush-pages"')[0].split(
+        'request.mode === "navigate"'
+    )[-1]
+    assert '!url.pathname.startsWith("/api/mobile/")' in nav_route, (
+        "the NetworkFirst navigation route no longer excludes /api/mobile/ — it "
+        "would claim the handoff navigation and break the native auth sheet"
+    )
