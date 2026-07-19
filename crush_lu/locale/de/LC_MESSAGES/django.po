@@ -35621,6 +35621,112 @@ msgstr "Station {order}"
 msgid "Join the Hunt"
 msgstr "Mach mit bei der Jagd"
 
+msgid "Event Lobby is live"
+msgstr "Die Event Lobby ist live"
+
+msgid "Event Lobby"
+msgstr "Event Lobby"
+
+msgid "Confirm who you met"
+msgstr "Bestätige, wen du getroffen hast"
+
+msgid "Finish Crush Connect to join the Event Lobby"
+msgstr "Schließe Crush Connect ab, um der Event Lobby beizutreten"
+
+msgid "Finish Crush Connect"
+msgstr "Crush Connect abschließen"
+
+msgid "The Event Lobby"
+msgstr "Die Event Lobby"
+
+msgid ""
+"Crush Connect members get a live, members-only lobby at every event — "
+"quietly signal who you'd like to meet, and keep the people you both confirm "
+"afterwards."
+msgstr ""
+"Crush Connect Mitglieder bekommen bei jedem Event eine Live-Lobby nur für "
+"Mitglieder – signalisiere diskret, wen du kennenlernen möchtest, und behalte"
+" danach die Personen, die ihr beide bestätigt habt."
+
+msgid "About Crush Connect"
+msgstr "Über Crush Connect"
+
+msgid "Did you meet someone at this event?"
+msgstr "Hast du bei diesem Event jemanden getroffen?"
+
+msgid ""
+"The Event Recap stays open for 48 hours — confirm the people you actually "
+"met and keep them in People I've Met."
+msgstr ""
+"Der Event-Rückblick bleibt 48 Stunden geöffnet – bestätige die Personen, die"
+" du wirklich getroffen hast, und behalte sie in „Meine Begegnungen“."
+
+msgid "People I've Met"
+msgstr "Meine Begegnungen"
+
+msgid "Real-world encounters you both confirmed."
+msgstr "Echte Begegnungen, die ihr beide bestätigt habt."
+
+msgid ""
+"Keep meeting people year-round with Crush Connect — including the live Event"
+" Lobby at every event."
+msgstr ""
+"Lerne mit Crush Connect das ganze Jahr über neue Leute kennen – inklusive "
+"der Live Event Lobby bei jedem Event."
+
+msgid ""
+"Connections open once the event ends. During the event, the Event Lobby is "
+"where Crush Connect members quietly signal who they'd like to meet."
+msgstr ""
+"Verbindungsanfragen sind ab Ende des Events möglich. Während des Events "
+"zeigen Crush Connect Mitglieder in der Event Lobby diskret, wen sie gerne "
+"treffen möchten."
+
+msgid "Connections open once the event ends."
+msgstr "Verbindungsanfragen sind ab Ende des Events möglich."
+
+msgid "Did you meet someone?"
+msgstr "Hast du jemanden getroffen?"
+
+msgid ""
+"The Event Recap is open for 48 hours after the event — confirm the people "
+"you actually met to keep them in your People I've Met."
+msgstr ""
+"Der Event-Rückblick ist nach dem Event 48 Stunden geöffnet – bestätige die "
+"Personen, die du wirklich getroffen hast, um sie in „Meine Begegnungen“ zu "
+"behalten."
+
+msgid ""
+"Connection requests close 48 hours after the event ends, so it's worth "
+"taking a minute to respond now."
+msgstr ""
+"Verbindungsanfragen schließen 48 Stunden nach Ende des Events – nimm dir "
+"also am besten jetzt kurz Zeit zu antworten."
+
+msgid ""
+"Crush Connect members get the live Event Lobby at every event — quietly "
+"signal who you'd like to meet, and keep the people you both confirm."
+msgstr ""
+"Crush Connect Mitglieder bekommen bei jedem Event die Live Event Lobby – "
+"signalisiere diskret, wen du kennenlernen möchtest, und behalte die "
+"Personen, die ihr beide bestätigt habt."
+
+msgid "Finish Crush Connect before your next event and you'll join instantly."
+msgstr ""
+"Schließe Crush Connect vor deinem nächsten Event ab und du bist sofort "
+"dabei."
+
+msgid ""
+"Hours after the event's scheduled end until post-event connection requests "
+"close (default: 48 — the same span as the Event Lobby recap, so both close "
+"together). After the window closes, attendees are redirected to the Crush "
+"Connect teaser."
+msgstr ""
+"Stunden nach dem geplanten Ende der Veranstaltung, bis Verbindungsanfragen "
+"schließen (Standard: 48 – dieselbe Spanne wie der Event-Lobby-Rückblick, "
+"sodass beide gleichzeitig schließen). Nach Ablauf des Zeitfensters werden "
+"Teilnehmer zum Crush-Connect-Teaser weitergeleitet."
+
 #: templates/socialaccount/login_crush.html
 msgid "Sign in with %(provider)s"
 msgstr "Mit %(provider)s anmelden"

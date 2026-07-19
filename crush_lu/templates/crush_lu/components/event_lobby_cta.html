@@ -1,0 +1,35 @@
+{% load i18n %}
+{% comment %}
+Event Lobby entry-point button. Renders exactly one CTA (or nothing) from the
+per-user state computed by services.event_lobby.lobby_cta():
+
+  cta    (required) — "enter_live" | "enter_recap" | "finish_connect".
+                      Any other value (None, "promo_only") renders nothing;
+                      the static feature promo is a separate component
+                      (event_lobby_promo.html).
+  event  (required) — the MeetupEvent (drives the lobby URL).
+  block  (optional) — truthy: full-width hero style for event detail / ticket
+                      pages; omitted: compact list-card button.
+
+Disclosure rules (§5.3 as amended 2026-07-18) live entirely in the service —
+callers pass the computed state through and never re-derive eligibility.
+{% endcomment %}
+{% if cta == "enter_live" %}
+    <a href="{% url 'crush_lu:event_lobby' event.id %}"
+       class="{% if block %}flex items-center justify-center gap-2 w-full py-3 sm:py-4 px-4 bg-gradient-to-r from-crush-purple to-crush-pink text-white font-semibold rounded-lg transition-all hover:shadow-lg text-sm sm:text-base{% else %}btn-crush-solid inline-flex items-center justify-center gap-2 text-sm px-3 py-2{% endif %}">
+        <span class="inline-block w-2 h-2 rounded-full {% if block %}bg-white{% else %}bg-crush-pink{% endif %} animate-pulse" aria-hidden="true"></span>
+        {% if block %}{% trans "Event Lobby is live" %}{% else %}{% trans "Event Lobby" %}{% endif %}
+    </a>
+{% elif cta == "enter_recap" %}
+    <a href="{% url 'crush_lu:event_lobby' event.id %}"
+       class="{% if block %}flex items-center justify-center gap-2 w-full py-3 sm:py-4 px-4 bg-gradient-to-r from-crush-purple to-crush-pink text-white font-semibold rounded-lg transition-all hover:shadow-lg text-sm sm:text-base{% else %}btn-crush-solid inline-flex items-center justify-center gap-2 text-sm px-3 py-2{% endif %}">
+        {% include "shared/icons/heart.html" with class="w-4 h-4" %}
+        {% trans "Confirm who you met" %}
+    </a>
+{% elif cta == "finish_connect" %}
+    <a href="{% url 'crush_lu:crush_connect_onboarding' %}"
+       class="{% if block %}flex items-center justify-center gap-2 w-full py-3 sm:py-4 px-4 bg-gradient-to-r from-crush-purple to-crush-pink text-white font-semibold rounded-lg transition-all hover:shadow-lg text-sm sm:text-base{% else %}btn-crush-solid inline-flex items-center justify-center gap-2 text-sm px-3 py-2{% endif %}">
+        {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
+        {% if block %}{% trans "Finish Crush Connect to join the Event Lobby" %}{% else %}{% trans "Finish Crush Connect" %}{% endif %}
+    </a>
+{% endif %}

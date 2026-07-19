@@ -10,6 +10,16 @@
 
 <p>{% blocktrans with title=event.title %}Quick recap from <strong>{{ title }}</strong>:{% endblocktrans %}</p>
 
+{% if lobby_recap_url %}
+<div class="info-box">
+    <p style="margin: 0 0 10px 0;">
+        <strong>{% trans "Did you meet someone?" %}</strong>
+        {% trans "The Event Recap is open for 48 hours after the event — confirm the people you actually met to keep them in your People I've Met." %}
+    </p>
+    <a href="{{ lobby_recap_url }}" class="button">{% trans "Confirm who you met" %}</a>
+</div>
+{% endif %}
+
 <div class="info-box">
     <ul style="margin: 10px 0; padding-left: 20px;">
         {% if mutual_match_count %}
@@ -31,11 +41,21 @@
 </div>
 
 {% if has_action %}
-<p><strong>{% trans "Don't lose the moment." %}</strong> {% blocktrans %}Connection requests close 7 days after the event, so it's worth taking a minute to respond now.{% endblocktrans %}</p>
+<p><strong>{% trans "Don't lose the moment." %}</strong> {% blocktrans %}Connection requests close 48 hours after the event ends, so it's worth taking a minute to respond now.{% endblocktrans %}</p>
 
 <a href="{{ attendees_url }}" class="button">{% trans "See attendees & finish your picks" %}</a>
 {% else %}
 <a href="{{ events_url }}" class="button">{% trans "Browse upcoming events" %}</a>
+{% endif %}
+
+{% if connect_nudge_url %}
+<div class="info-box">
+    <p style="margin: 0 0 10px 0;">
+        {% trans "Crush Connect members get the live Event Lobby at every event — quietly signal who you'd like to meet, and keep the people you both confirm." %}
+        <strong>{% trans "Finish Crush Connect before your next event and you'll join instantly." %}</strong>
+    </p>
+    <a href="{{ connect_nudge_url }}" class="button">{% trans "Finish Crush Connect" %}</a>
+</div>
 {% endif %}
 
 <p>

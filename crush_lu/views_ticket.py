@@ -67,7 +67,9 @@ def event_ticket(request, event_id):
     )
 
     # Check if already checked in
-    already_checked_in = registration.status == "attended" or registration.checked_in_at is not None
+    already_checked_in = (
+        registration.status == "attended" or registration.checked_in_at is not None
+    )
 
     # Get display name (privacy-aware)
     try:
@@ -88,6 +90,15 @@ def event_ticket(request, event_id):
         if apple_wallet_enabled
         else ""
     )
+
+    # Event Lobby CTA — the ticket is what a checked-in guest is holding at
+    # the venue, so it's the natural moment to route them into the lobby (or
+    # its onboarding CTA). Disclosure rules live in services.event_lobby.
+    lobby_cta_state = None
+    if registration.status == "attended":
+        from .services.event_lobby import lobby_cta
+
+        lobby_cta_state = lobby_cta(request.user, event, registration=registration)
 
     # Quiz table assignment (show table number after check-in)
     table_number = None
@@ -117,6 +128,7 @@ def event_ticket(request, event_id):
         "wallet_enabled": wallet_enabled,
         "apple_wallet_enabled": apple_wallet_enabled,
         "apple_wallet_url": apple_wallet_url,
+        "lobby_cta": lobby_cta_state,
     }
 
     return render(request, "crush_lu/event_ticket.html", context)

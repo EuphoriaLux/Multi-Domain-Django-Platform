@@ -250,11 +250,12 @@ class MeetupEvent(models.Model):
         help_text=_("Maximum number of Crush Sparks a user can send per event"),
     )
     connection_window_hours = models.PositiveIntegerField(
-        default=24,
+        default=48,
         help_text=_(
-            "Hours after event start until post-event connection requests "
-            "close (default: 24 = 1 day). After the window closes, attendees "
-            "are redirected to the Crush Connect teaser."
+            "Hours after the event's scheduled end until post-event "
+            "connection requests close (default: 48 — the same span as the "
+            "Event Lobby recap, so both close together). After the window "
+            "closes, attendees are redirected to the Crush Connect teaser."
         ),
     )
 
@@ -456,18 +457,30 @@ class MeetupEvent(models.Model):
     def connection_window_deadline(self):
         """When the post-event connection-request window closes.
 
-        Computed from ``date_time`` (event start) + ``connection_window_hours``
-        (default 24h = 1 day). After this point, the "Request Connection"
-        button on the attendees list is replaced by a "Try Crush Connect"
-        link, and any direct POST to the connection-request endpoints
-        redirects to the Crush Connect teaser.
+        Computed from ``end_time`` (scheduled end) + ``connection_window_hours``
+        (default 48h — deliberately the same span as the Event Lobby recap, so
+        both post-event surfaces close together). After this point, the
+        "Request Connection" button on the attendees list is replaced by a
+        "Try Crush Connect" link, and any direct POST to the
+        connection-request endpoints redirects to the Crush Connect teaser.
         """
-        return self.date_time + timedelta(hours=self.connection_window_hours)
+        return self.end_time + timedelta(hours=self.connection_window_hours)
 
     @property
     def connection_window_active(self):
         """True while users may still send post-event connection requests."""
         return timezone.now() <= self.connection_window_deadline
+
+    @property
+    def connections_open(self):
+        """True while the attendees page and connection requests are available.
+
+        Opens at the scheduled end — live-time socializing belongs to the
+        (anonymous) Event Lobby, so the named attendees list must not be
+        browsable mid-event (decision 2026-07-18) — and closes with
+        ``connection_window_deadline``.
+        """
+        return self.end_time <= timezone.now() <= self.connection_window_deadline
 
     @property
     def quiz_join_available(self):

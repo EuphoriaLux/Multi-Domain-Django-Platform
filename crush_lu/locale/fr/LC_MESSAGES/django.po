@@ -35747,6 +35747,113 @@ msgstr "station {order}"
 msgid "Join the Hunt"
 msgstr "Rejoindre la chasse"
 
+msgid "Event Lobby is live"
+msgstr "L'Event Lobby est en direct"
+
+msgid "Event Lobby"
+msgstr "Event Lobby"
+
+msgid "Confirm who you met"
+msgstr "Confirmez qui vous avez rencontré"
+
+msgid "Finish Crush Connect to join the Event Lobby"
+msgstr "Terminez Crush Connect pour rejoindre l'Event Lobby"
+
+msgid "Finish Crush Connect"
+msgstr "Terminer Crush Connect"
+
+msgid "The Event Lobby"
+msgstr "L'Event Lobby"
+
+msgid ""
+"Crush Connect members get a live, members-only lobby at every event — "
+"quietly signal who you'd like to meet, and keep the people you both confirm "
+"afterwards."
+msgstr ""
+"Les membres Crush Connect profitent d'un lobby en direct réservé aux membres"
+" à chaque événement — signalez discrètement qui vous aimeriez rencontrer, et"
+" gardez ensuite les personnes que vous avez confirmées tous les deux."
+
+msgid "About Crush Connect"
+msgstr "À propos de Crush Connect"
+
+msgid "Did you meet someone at this event?"
+msgstr "Avez-vous rencontré quelqu'un lors de cet événement ?"
+
+msgid ""
+"The Event Recap stays open for 48 hours — confirm the people you actually "
+"met and keep them in People I've Met."
+msgstr ""
+"Le récap de l'événement reste ouvert pendant 48 heures — confirmez les "
+"personnes que vous avez réellement rencontrées et gardez-les dans « Mes "
+"rencontres »."
+
+msgid "People I've Met"
+msgstr "Mes rencontres"
+
+msgid "Real-world encounters you both confirmed."
+msgstr "Des rencontres réelles que vous avez confirmées tous les deux."
+
+msgid ""
+"Keep meeting people year-round with Crush Connect — including the live Event"
+" Lobby at every event."
+msgstr ""
+"Continuez à rencontrer du monde toute l'année avec Crush Connect — y compris"
+" l'Event Lobby en direct à chaque événement."
+
+msgid ""
+"Connections open once the event ends. During the event, the Event Lobby is "
+"where Crush Connect members quietly signal who they'd like to meet."
+msgstr ""
+"Les demandes de connexion ouvrent à la fin de l'événement. Pendant "
+"l'événement, les membres Crush Connect utilisent l'Event Lobby pour signaler"
+" discrètement qui ils aimeraient rencontrer."
+
+msgid "Connections open once the event ends."
+msgstr "Les demandes de connexion ouvrent à la fin de l'événement."
+
+msgid "Did you meet someone?"
+msgstr "Vous avez rencontré quelqu'un ?"
+
+msgid ""
+"The Event Recap is open for 48 hours after the event — confirm the people "
+"you actually met to keep them in your People I've Met."
+msgstr ""
+"Le récap de l'événement est ouvert pendant 48 heures après l'événement — "
+"confirmez les personnes que vous avez réellement rencontrées pour les garder"
+" dans « Mes rencontres »."
+
+msgid ""
+"Connection requests close 48 hours after the event ends, so it's worth "
+"taking a minute to respond now."
+msgstr ""
+"Les demandes de connexion ferment 48 heures après la fin de l'événement — "
+"cela vaut la peine de prendre une minute pour répondre maintenant."
+
+msgid ""
+"Crush Connect members get the live Event Lobby at every event — quietly "
+"signal who you'd like to meet, and keep the people you both confirm."
+msgstr ""
+"Les membres Crush Connect profitent de l'Event Lobby en direct à chaque "
+"événement — signalez discrètement qui vous aimeriez rencontrer, et gardez "
+"les personnes que vous confirmez tous les deux."
+
+msgid "Finish Crush Connect before your next event and you'll join instantly."
+msgstr ""
+"Terminez Crush Connect avant votre prochain événement et vous y accéderez "
+"instantanément."
+
+msgid ""
+"Hours after the event's scheduled end until post-event connection requests "
+"close (default: 48 — the same span as the Event Lobby recap, so both close "
+"together). After the window closes, attendees are redirected to the Crush "
+"Connect teaser."
+msgstr ""
+"Heures après la fin prévue de l'événement avant la fermeture des demandes de"
+" connexion (par défaut : 48 — la même durée que le récap de l'Event Lobby, "
+"pour que les deux ferment ensemble). Une fois la fenêtre fermée, les "
+"participants sont redirigés vers le teaser Crush Connect."
+
 #: templates/socialaccount/login_crush.html
 msgid "Sign in with %(provider)s"
 msgstr "Se connecter avec %(provider)s"

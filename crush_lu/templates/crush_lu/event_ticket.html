@@ -78,6 +78,11 @@
                         </div>
                         {% endif %}
                     </div>
+                    {% if lobby_cta and lobby_cta != "promo_only" %}
+                    <div class="mb-4">
+                        {% include "crush_lu/components/event_lobby_cta.html" with cta=lobby_cta event=event block=True %}
+                    </div>
+                    {% endif %}
                 {% endif %}
 
                 <div id="qr-code-container" class="inline-block bg-white p-4 rounded-lg">

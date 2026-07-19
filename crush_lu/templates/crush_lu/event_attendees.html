@@ -145,6 +145,32 @@
         </p>
     </div>
 
+    {# Event Lobby cross-link: recap participants confirm real-world meetings there; everyone else sees the static feature promo (§5.3 as amended 2026-07-18). #}
+    {% if event_lobby_cta == "enter_recap" or event_lobby_cta == "enter_live" %}
+    <div class="rounded-xl p-[2px] bg-gradient-to-r from-crush-purple to-crush-pink mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-[10px] p-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
+            <div class="flex items-start gap-3 mb-3 sm:mb-0">
+                <div class="shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center text-white">
+                    {% include "shared/icons/users.html" with class="w-5 h-5" %}
+                </div>
+                <div class="min-w-0">
+                    <h5 class="font-semibold mb-1 dark:text-white">{% trans "Did you meet someone at this event?" %}</h5>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-0">
+                        {% trans "The Event Recap stays open for 48 hours — confirm the people you actually met and keep them in People I've Met." %}
+                    </p>
+                </div>
+            </div>
+            <div class="shrink-0">
+                {% include "crush_lu/components/event_lobby_cta.html" with cta=event_lobby_cta event=event %}
+            </div>
+        </div>
+    </div>
+    {% elif event_lobby_cta == "promo_only" %}
+    <div class="mb-6">
+        {% include "crush_lu/components/event_lobby_promo.html" %}
+    </div>
+    {% endif %}
+
     <!-- Instructions -->
     <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-lg p-4 mb-6">
         <h5 class="font-semibold mb-2 flex items-center gap-2">
