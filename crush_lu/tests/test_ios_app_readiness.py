@@ -38,6 +38,18 @@ def test_apple_app_site_association_exposes_universal_links(client, settings):
     assert details["appID"] == "C5XDPB2G33.lu.crush.app"
     assert "NOT /api/*" in details["paths"]
     assert "*" in details["paths"]
+
+    # Auth paths must NOT be claimed as universal links. Inside
+    # ASWebAuthenticationSession a claimed URL is handed to the app instead of
+    # being loaded, the session never completes, and the OAuth callback never
+    # reaches the server — the native sign-in hangs (2026-07-19, LuxID/Microsoft).
+    paths = details["paths"]
+    for excluded in ("NOT /accounts/*", "NOT /oauth/*"):
+        assert excluded in paths, f"{excluded} missing — native sign-in will hang"
+        # A NOT rule only takes effect if it precedes the catch-all.
+        assert paths.index(excluded) < paths.index(
+            "*"
+        ), f"{excluded} must come before the catch-all '*' to have any effect"
     assert payload["webcredentials"]["apps"] == ["C5XDPB2G33.lu.crush.app"]
 
 
@@ -73,7 +85,9 @@ def test_ios_auth_handoff_and_completion_are_one_time(client, user, settings):
     assert redirect_uri.scheme == "crushlu"
     query = parse_qs(redirect_uri.query)
     assert query["code"][0]
-    assert query["complete_url"][0].endswith(f"/api/mobile/ios/auth/complete/{query['code'][0]}/")
+    assert query["complete_url"][0].endswith(
+        f"/api/mobile/ios/auth/complete/{query['code'][0]}/"
+    )
     assert IOSNativeAuthCode.objects.count() == 1
 
     client.logout()
@@ -167,12 +181,15 @@ def test_ios_device_endpoints_no_csrf_exempt(client, user):
         # Walk wrapper chain to find csrf_exempt if present
         wrapped = view_fn
         while hasattr(wrapped, "__wrapped__"):
-            if getattr(wrapped, "__name__", "") == "csrf_exempt" or                getattr(wrapped, "_csrf_exempt", False):
+            if getattr(wrapped, "__name__", "") == "csrf_exempt" or getattr(
+                wrapped, "_csrf_exempt", False
+            ):
                 assert False, f"{view_fn.__name__} is still csrf_exempt-wrapped"
             wrapped = wrapped.__wrapped__
         # Verify the view still has CsrfViewMiddleware processing
-        assert not getattr(view_fn, "csrf_exempt", False), \
-            f"{view_fn.__name__} must not have csrf_exempt flag"
+        assert not getattr(
+            view_fn, "csrf_exempt", False
+        ), f"{view_fn.__name__} must not have csrf_exempt flag"
 
 
 @pytest.mark.django_db

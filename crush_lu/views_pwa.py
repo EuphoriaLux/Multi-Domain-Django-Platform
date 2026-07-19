@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 from .models import SpecialUserExperience
 from .decorators import crush_login_required
 
-
 # ============================================================================
 # Special User Experience View
 # ============================================================================
@@ -322,6 +321,20 @@ def apple_app_site_association_view(request):
     Serve apple-app-site-association for Universal Links and web credentials.
 
     Apple requires this file without a .json extension and without redirects.
+
+    Auth paths MUST stay excluded. Inside ASWebAuthenticationSession, a
+    navigation to a URL this file claims is handed to the app as a universal
+    link instead of being loaded: iOS calls the app's
+    `application(_:continue:)` and the session's completion handler is never
+    invoked, so the sheet never dismisses. The OAuth callback therefore never
+    reaches the server at all and the native sign-in hangs on an otherwise
+    successful login. (Observed 2026-07-19 on 1.0.2 with LuxID and Microsoft:
+    zero `/accounts/<provider>/login/callback/` requests server-side.)
+
+    Excluding them makes the redirect load normally in the sheet, so the chain
+    can reach `crushlu://` and complete. See Apple's forums, e.g.
+    https://developer.apple.com/forums/thread/671458 — universal links do not
+    work for OAuth redirects, only for user taps.
     """
     from django.conf import settings
     from django.http import JsonResponse
@@ -333,10 +346,17 @@ def apple_app_site_association_view(request):
             "details": [
                 {
                     "appID": app_id,
+                    # Order matters: the first matching pattern wins, so every
+                    # NOT rule has to precede the catch-all "*".
                     "paths": [
                         "NOT /admin/*",
                         "NOT /crush-admin/*",
                         "NOT /api/*",
+                        # Auth surfaces: allauth's provider redirects and
+                        # callbacks live under /accounts/, the OAuth landing
+                        # and popup callbacks under /oauth/.
+                        "NOT /accounts/*",
+                        "NOT /oauth/*",
                         "NOT /static/*",
                         "NOT /media/*",
                         "NOT /sw-workbox.js",
