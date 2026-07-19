@@ -117,7 +117,7 @@ jobs:
         # main must always clear. F401/F841 (unused imports/vars) are tracked
         # separately in a follow-up cleanup PR — see .hermes/audit/T2_codequality_findings.md.
         run: |
-          ruff check . --select=E9,F63,F7,F82 --show-source --statistics
+          ruff check . --select=E9,F63,F7,F82 --statistics
 
       - name: Lint with Ruff (full report — non-blocking)
         # Full ruff run for visibility. Still surfaces F401/F841/F403 debt but
