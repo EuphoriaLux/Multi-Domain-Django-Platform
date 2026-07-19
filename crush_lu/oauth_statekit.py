@@ -15,6 +15,7 @@ How it works:
 3. If session lookup fails, we fall back to database lookup
 4. This allows OAuth to work even when sessions don't persist across browser contexts
 """
+import ipaddress
 import json
 import logging
 from typing import Any, Dict, Optional
@@ -48,12 +49,26 @@ def get_client_ip(request) -> Optional[str]:
     else:
         ip = request.META.get('REMOTE_ADDR')
 
-    # Remove port if present (e.g., "185.40.60.86:13580" -> "185.40.60.86")
-    if ip and ':' in ip and not ip.startswith('['):
-        # IPv4 with port - split on last colon
-        ip = ip.rsplit(':', 1)[0]
+    if not ip:
+        return ip
 
-    return ip
+    # Bracketed IPv6, optionally with port:
+    # "[2001:db8:1::1]:443" -> "2001:db8:1::1"
+    if ip.startswith('['):
+        host, _, _rest = ip[1:].partition(']')
+        ip = host
+    # IPv4 with port: "203.0.113.10:1234" -> "203.0.113.10".
+    # Plain IPv6 contains multiple colons and must not be split.
+    elif ip.count(':') == 1:
+        host, port = ip.rsplit(':', 1)
+        if port.isdigit():
+            ip = host
+
+    # Normalize valid IPs so equivalent IPv6 spellings share one rate-limit key.
+    try:
+        return str(ipaddress.ip_address(ip))
+    except ValueError:
+        return ip
 
 
 def patch_allauth_statekit():
