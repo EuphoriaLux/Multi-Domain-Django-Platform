@@ -135,6 +135,10 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
             crush_connect_membership__photo_share_consent=True,
             last_login__gte=inactivity_cutoff,
         )
+        # "Read-the-Photo" needs a photo: photo_1 is optional for event
+        # verification, so a member can be verified yet photoless — or clear
+        # their photo after onboarding. They must not be surfaced in Drops.
+        .exclude(Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True))
         .annotate(
             _has_connection=Exists(existing_connection_subq),
             _has_block=block_exists_subquery(user),
@@ -472,8 +476,12 @@ def active_week_questions(today: date | None = None):
 def is_catalogue_eligible(user) -> bool:
     """
     Whether ``user`` currently qualifies for the candidate catalogue:
-    verified profile + LuxID linked + onboarded (not coach-excluded) +
-    active within CONNECT_INACTIVITY_WINDOW_DAYS (same gate as Drops).
+    verified profile WITH a photo + LuxID linked + onboarded (not
+    coach-excluded) + active within CONNECT_INACTIVITY_WINDOW_DAYS (same
+    gate as Drops). The photo arm matters since fast-track event
+    verification made photo_1 optional: photoless members must not be
+    readable, and a member who clears their photo after onboarding drops
+    out at the next action point.
 
     Drop snapshots and pending Sparks are immutable records — eligibility
     lost AFTER they were created (rejection, LuxID unlink, exclusion,
@@ -488,6 +496,7 @@ def is_catalogue_eligible(user) -> bool:
     return bool(
         profile is not None
         and profile.verification_status == "verified"
+        and profile.photo_1
         and profile.has_luxid_connected
         and membership is not None
         and membership.is_onboarded
@@ -500,8 +509,10 @@ def is_catalogue_eligible(user) -> bool:
 def is_sender_eligible(user) -> bool:
     """
     Whether ``user`` currently qualifies to SEND Sparks (the receiver track):
-    approved profile + active PremiumMembership + onboarded (not excluded) +
-    has given photo-share consent.
+    approved profile WITH a photo + active PremiumMembership + onboarded
+    (not excluded) + has given photo-share consent. The photo arm mirrors
+    catalogue eligibility: answering back exposes the sender's clear photo,
+    so a photoless sender has nothing to show on that surface.
 
     Consent matters on the SEND side too now: reading a candidate exposes the
     sender's clear photo to that candidate on the answer-back surface, so a
@@ -518,6 +529,7 @@ def is_sender_eligible(user) -> bool:
     return bool(
         profile is not None
         and profile.is_approved
+        and profile.photo_1
         and profile.has_active_premium
         and membership is not None
         and membership.is_onboarded

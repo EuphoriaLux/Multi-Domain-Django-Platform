@@ -3609,10 +3609,11 @@ document.addEventListener("alpine:init", function () {
                 return Object.keys(this.fieldErrors).length > 0;
             },
             get canContinueStep1() {
+                // Location is deliberately absent: optional since fast-track
+                // event verification (must match save-step1 API + model).
                 return (
                     this.phoneVerified &&
                     this.gender !== "" &&
-                    this.location !== "" &&
                     !this.isSaving
                 );
             },
@@ -3620,7 +3621,6 @@ document.addEventListener("alpine:init", function () {
                 return (
                     !this.phoneVerified ||
                     this.gender === "" ||
-                    this.location === "" ||
                     this.isSaving
                 );
             },

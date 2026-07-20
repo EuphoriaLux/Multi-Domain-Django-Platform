@@ -39,8 +39,12 @@ android {
 
     defaultConfig {
         applicationId = "lu.crush.app"
+        // Non-production variants get their own application id so they can be
+        // installed alongside (not over) the store-signed production app.
         if (isStaging) {
             applicationIdSuffix = ".staging"
+        } else if (isLocal) {
+            applicationIdSuffix = ".local"
         }
         minSdk = 26
         targetSdk = 35

@@ -104,6 +104,23 @@ class StepSavesImmediatelyTests(_SiteMixin, TestCase):
         # Draft scratch space for step1 is cleared once it is officially saved.
         self.assertNotIn("step1", profile.draft_data or {})
 
+    def test_step1_saves_without_location(self):
+        """Location is optional since fast-track event verification — an
+        omitted location must not 400 (model, API and form all agree)."""
+        resp = _post_json(
+            self.client,
+            "/api/profile/save-step1/",
+            {
+                "phone_number": "+352621000000",
+                "date_of_birth": "1993-03-15",
+                "gender": "F",
+            },
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()["success"])
+        profile = CrushProfile.objects.get(user=self.user)
+        self.assertEqual(profile.location, "")
+
     def test_step2_persists_bio_and_interests(self):
         # Step 2 is gated on a verified phone.
         CrushProfile.objects.create(

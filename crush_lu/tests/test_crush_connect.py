@@ -246,6 +246,25 @@ def test_pool_excludes_unapproved_targets():
 
 
 @pytest.mark.django_db
+def test_pool_and_catalogue_exclude_photoless_targets():
+    # Fast-track event verification made photo_1 optional, but "Read-the-Photo"
+    # cannot surface a member who has no photo — and clearing the photo AFTER
+    # onboarding must drop them out at the next action point too (the view
+    # gates alone can be bypassed via direct catalogue/notification URLs).
+    from crush_lu.services.crush_connect import is_catalogue_eligible
+
+    me = _make_user(username="me", preferred_genders=["F", "M"])
+    photoless = _make_user(username="photoless")
+    assert photoless in get_eligible_pool(me)
+    assert is_catalogue_eligible(photoless)
+
+    photoless.crushprofile.photo_1 = ""
+    photoless.crushprofile.save(update_fields=["photo_1"])
+    assert photoless not in get_eligible_pool(me)
+    assert not is_catalogue_eligible(photoless)
+
+
+@pytest.mark.django_db
 def test_pool_includes_non_premium_luxid_targets():
     # Asymmetric catalogue: candidates don't need premium — LuxID + opt-in is
     # the ticket into the pool. Only RECEIVING drops requires premium.

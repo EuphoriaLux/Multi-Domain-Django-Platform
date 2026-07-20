@@ -160,7 +160,11 @@ class Command(BaseCommand):
         parser.add_argument(
             "--skip-photos",
             action="store_true",
-            help="Skip randomuser.me photo download (faster)",
+            help=(
+                "Skip randomuser.me photo download (faster). WARNING: Connect "
+                "eligibility requires photo_1 — photoless seeds are invisible "
+                "in Drops and the catalogue."
+            ),
         )
         parser.add_argument(
             "--no-prefill-drops",

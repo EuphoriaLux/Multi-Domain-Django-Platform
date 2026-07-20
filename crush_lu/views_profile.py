@@ -149,11 +149,10 @@ def save_profile_step1(request):
             if gender not in valid_genders:
                 errors["gender"] = _("Invalid gender selection")
 
-        # Validate location
+        # Location is optional (fast-track event verification) — validate the
+        # choice only when one was provided.
         location = data.get("location", "").strip()
-        if not location:
-            errors["location"] = _("Please select your location")
-        else:
+        if location:
             valid_locations = [
                 choice[0] for choice in CrushProfileForm.LOCATION_CHOICES if choice[0]
             ]
