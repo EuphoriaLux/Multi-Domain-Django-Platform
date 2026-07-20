@@ -923,6 +923,30 @@ def test_home_renders_drop_with_cards(client, settings):
 
 
 @pytest.mark.django_db
+def test_home_hides_recipient_who_cleared_photo_after_snapshot(client, settings):
+    """The pool filter only protects NEW snapshots — a member who clears
+    their photo after being pinned into a ConnectDailyDrop must vanish from
+    the rendered Drop too (the snapshot stays intact for audit)."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])
+    _mark_attended(me)
+    _seed_pool_for(me, n=3)
+    _login_eligible(client, me)
+
+    # Pin today's Drop, then clear one recipient's photo.
+    client.get(CONNECT_HOME_URL)
+    drop = ConnectDailyDrop.objects.filter(user=me).latest("drop_date")
+    cleared = drop.recipients.first()
+    cleared.crushprofile.photo_1 = ""
+    cleared.crushprofile.save(update_fields=["photo_1"])
+
+    body = client.get(CONNECT_HOME_URL).content.decode()
+    assert cleared.first_name not in body
+    # The persisted snapshot is untouched — only the render filters it out.
+    assert drop.recipients.filter(pk=cleared.pk).exists()
+
+
+@pytest.mark.django_db
 def test_home_renders_empty_state_when_no_pool(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(username="me", preferred_genders=["F"])

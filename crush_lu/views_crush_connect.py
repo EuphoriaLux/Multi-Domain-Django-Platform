@@ -13,6 +13,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib import messages
+from django.db.models import Q
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
 from django.http import Http404
@@ -843,6 +844,7 @@ def crush_connect_home(request):
     #   - block pairs (member blocked them, or they blocked the member)
     #   - coach-excluded members (the panic button promises "drops out now")
     #   - members who lost verified status (e.g. rejected after surfacing)
+    #   - members who cleared their photo (nothing left to "read")
     from crush_lu.services.blocking import blocked_user_ids
 
     drop = None
@@ -857,6 +859,9 @@ def crush_connect_home(request):
             # consent existed, or a member who later revoked it, must not have
             # their clear photo shown. The snapshot is left intact for audit.
             .filter(crush_connect_membership__photo_share_consent=True)
+            # Same for the photo itself: clearing photo_1 after being
+            # snapshotted must hide the card (mirrors get_eligible_pool).
+            .exclude(Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True))
             .select_related("crushprofile", "crush_connect_membership")
             .prefetch_related("crush_connect_membership__gate_questions__question")
             .all()
