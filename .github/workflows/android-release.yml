@@ -15,6 +15,16 @@ on:
     tags:
       - 'v*'
 
+concurrency:
+  # Run releases one at a time. Combined with the execution-time versionCode
+  # (computed in the job below, not at dispatch), this makes Play uploads
+  # monotonic no matter which run acquires the group first: the run that
+  # executes first necessarily computes the lower code and uploads first.
+  # cancel-in-progress: false lets an in-flight release finish rather than
+  # being aborted mid-upload.
+  group: android-release
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -26,14 +36,15 @@ jobs:
 
       - name: Compute versionCode
         id: versioncode
-        env:
-          RUN_NUMBER: ${{ github.run_number }}
-          RUN_ATTEMPT: ${{ github.run_attempt }}
-        # Unique + always-increasing per release run: differs across separate
-        # workflow_dispatch runs / tags (run_number) AND across job re-runs of
-        # the same run (run_attempt), so re-releasing the same commit never
-        # reuses a code. Stays well above the manual codes 1-4.
-        run: echo "value=$(( 10000 + RUN_NUMBER * 100 + RUN_ATTEMPT ))" >> "$GITHUB_OUTPUT"
+        # Seconds since 2024-01-01, assigned NOW (at job run time), not at
+        # dispatch. Because the concurrency group above runs releases one at a
+        # time, the run that executes first computes a strictly-lower value and
+        # uploads first, so Play always sees increasing codes regardless of the
+        # order runs were triggered or which one GitHub schedules first.
+        # Seconds granularity can't collide across serialized jobs (they're
+        # minutes apart), is always > the manual codes 1-4, and fits a signed
+        # 32-bit versionCode until ~2092.
+        run: echo "value=$(( $(date +%s) - 1704067200 ))" >> "$GITHUB_OUTPUT"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
