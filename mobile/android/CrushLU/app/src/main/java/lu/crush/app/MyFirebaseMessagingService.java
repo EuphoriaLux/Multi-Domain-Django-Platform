@@ -60,16 +60,21 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
 
     private void sendNotification(String title, String messageBody, Map<String, String> data) {
         Intent intent = new Intent(this, MainActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
         // Pass payload URL data to MainActivity so it can navigate on click
         if (data != null && data.containsKey("url")) {
             intent.putExtra("target_url", data.get("url"));
         }
 
+        // Unique per notification: a fixed id would make every push overwrite
+        // the previous one, and a fixed PendingIntent requestCode would reuse
+        // the first notification's target_url extra for all later ones.
+        int notificationId = (int) (System.currentTimeMillis() & 0x7FFFFFFF);
+
         PendingIntent pendingIntent = PendingIntent.getActivity(
-                this, 0, intent,
-                PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE
+                this, notificationId, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
         NotificationManager notificationManager =
@@ -80,7 +85,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             NotificationChannel channel = new NotificationChannel(
                     CHANNEL_ID,
                     "Crush Notifications",
-                    NotificationManager.IMPORTANCE_DEFAULT
+                    NotificationManager.IMPORTANCE_HIGH
             );
             channel.setDescription("Crush push notification updates");
             notificationManager.createNotificationChannel(channel);
@@ -94,6 +99,6 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                         .setAutoCancel(true)
                         .setContentIntent(pendingIntent);
 
-        notificationManager.notify(0, notificationBuilder.build());
+        notificationManager.notify(notificationId, notificationBuilder.build());
     }
 }

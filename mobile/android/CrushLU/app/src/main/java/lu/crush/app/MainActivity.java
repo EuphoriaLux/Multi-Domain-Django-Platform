@@ -2,6 +2,7 @@ package lu.crush.app;
 
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
@@ -12,6 +13,7 @@ import android.view.View;
 import android.webkit.CookieManager;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -28,6 +30,7 @@ import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -36,6 +39,7 @@ import android.os.Build;
 
 public class MainActivity extends AppCompatActivity {
     private static final int FILE_CHOOSER_REQUEST = 1001;
+    private static final int NOTIFICATION_PERMISSION_REQUEST = 1002;
     private static final String BASE_URL = BuildConfig.BASE_URL;
     private static final String START_URL = BASE_URL + "/en/dashboard/?source=android_app";
     private static final String AUTH_SCHEME = BuildConfig.AUTH_SCHEME;
@@ -88,6 +92,7 @@ public class MainActivity extends AppCompatActivity {
         configureWebView();
         configureSwipeRefresh();
         configureBackNavigation();
+        maybeRequestNotificationPermission();
 
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
@@ -96,15 +101,8 @@ public class MainActivity extends AppCompatActivity {
         if (launchUri != null) {
             handleUri(launchUri);
         } else {
-            String targetUrl = getIntent().getStringExtra("target_url");
-            if (targetUrl != null && !targetUrl.isEmpty()) {
-                if (targetUrl.startsWith("/")) {
-                    targetUrl = BASE_URL + targetUrl;
-                }
-                loadInternal(targetUrl);
-            } else {
-                loadInternal(START_URL);
-            }
+            String targetUrl = pendingTargetUrl(getIntent());
+            loadInternal(targetUrl != null ? targetUrl : START_URL);
         }
     }
 
@@ -116,13 +114,33 @@ public class MainActivity extends AppCompatActivity {
         if (uri != null) {
             handleUri(uri);
         } else {
-            String targetUrl = intent.getStringExtra("target_url");
-            if (targetUrl != null && !targetUrl.isEmpty()) {
-                if (targetUrl.startsWith("/")) {
-                    targetUrl = BASE_URL + targetUrl;
-                }
+            String targetUrl = pendingTargetUrl(intent);
+            if (targetUrl != null) {
                 loadInternal(targetUrl);
             }
+        }
+    }
+
+    private String pendingTargetUrl(Intent intent) {
+        String targetUrl = intent.getStringExtra("target_url");
+        if (targetUrl == null || targetUrl.isEmpty()) {
+            // Background FCM notifications are rendered by the system; tapping
+            // them delivers the data payload's raw "url" key as an extra.
+            targetUrl = intent.getStringExtra("url");
+        }
+        if (targetUrl == null || targetUrl.isEmpty()) {
+            return null;
+        }
+        return targetUrl.startsWith("/") ? BASE_URL + targetUrl : targetUrl;
+    }
+
+    private void maybeRequestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                        != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(
+                    new String[]{android.Manifest.permission.POST_NOTIFICATIONS},
+                    NOTIFICATION_PERMISSION_REQUEST);
         }
     }
 
@@ -271,9 +289,25 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void openExternal(Uri uri) {
-        Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+        Intent intent;
+        if ("intent".equals(uri.getScheme())) {
+            try {
+                intent = Intent.parseUri(uri.toString(), Intent.URI_INTENT_SCHEME);
+                // A web page must not be able to target internal components.
+                intent.setComponent(null);
+                intent.setSelector(null);
+            } catch (URISyntaxException exception) {
+                return;
+            }
+        } else {
+            intent = new Intent(Intent.ACTION_VIEW, uri);
+        }
         intent.addCategory(Intent.CATEGORY_BROWSABLE);
-        startActivity(intent);
+        try {
+            startActivity(intent);
+        } catch (ActivityNotFoundException exception) {
+            // No installed app handles this link; dropping it beats crashing.
+        }
     }
 
     private void showOffline() {
@@ -327,8 +361,10 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @Override
-        public boolean shouldOverrideUrlLoading(WebView view, String url) {
-            return handleNavigation(Uri.parse(url));
+        public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+            if (request.isForMainFrame()) {
+                showOffline();
+            }
         }
 
         private boolean handleNavigation(Uri uri) {
