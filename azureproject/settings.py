@@ -418,6 +418,13 @@ ANDROID_AUTH_REDIRECT_URIS = [
     for uri in os.getenv("ANDROID_AUTH_REDIRECT_URIS", "crushlu://auth").split(",")
     if uri.strip()
 ]
+# The CRUSH_ENV=local Android flavor calls back on its own scheme so the
+# emulator build can be installed alongside the production app. Auto-allow it
+# off-Azure only (WEBSITE_HOSTNAME is how manage.py detects Azure) — on
+# production/staging the env allowlist above stays authoritative.
+if not os.getenv("WEBSITE_HOSTNAME"):
+    if "crushlulocal://auth" not in ANDROID_AUTH_REDIRECT_URIS:
+        ANDROID_AUTH_REDIRECT_URIS.append("crushlulocal://auth")
 ANDROID_APP_SHA256_CERT_FINGERPRINTS = [
     fingerprint.strip()
     for fingerprint in os.getenv("ANDROID_APP_SHA256_CERT_FINGERPRINTS", "").split(",")

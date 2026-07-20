@@ -67,6 +67,28 @@ def test_android_auth_handoff_and_completion_are_one_time(client, user, settings
     assert replay_response.status_code == 400
 
 
+def test_android_auth_handoff_accepts_local_flavor_scheme(client, user, settings):
+    """The CRUSH_ENV=local flavor calls back on crushlulocal://auth. Local dev
+    settings auto-allow that URI (WEBSITE_HOSTNAME unset), and the redirect
+    class must emit the scheme — a missing allowed_schemes entry raises
+    DisallowedRedirect even when the URI allowlist is extended."""
+    from django.conf import settings as live_settings
+
+    # Import-time default: local dev auto-allows the local flavor's URI.
+    assert "crushlulocal://auth" in live_settings.ANDROID_AUTH_REDIRECT_URIS
+
+    client.force_login(user)
+    response = client.get(
+        "/api/mobile/android/auth/handoff/",
+        {"redirect_uri": "crushlulocal://auth"},
+    )
+
+    assert response.status_code == 302
+    redirect_uri = urlparse(response.headers["Location"])
+    assert redirect_uri.scheme == "crushlulocal"
+    assert parse_qs(redirect_uri.query)["code"][0]
+
+
 def test_assetlinks_includes_android_app_when_fingerprint_configured(client, settings):
     settings.ANDROID_APP_PACKAGE = "lu.crush.app"
     settings.ANDROID_APP_SHA256_CERT_FINGERPRINTS = [
