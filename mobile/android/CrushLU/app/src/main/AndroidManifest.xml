@@ -58,6 +58,6 @@
              with IMPORTANCE_HIGH so backgrounded pushes get a heads-up banner. -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="crush_notifications" />
+            android:value="crush_notifications_v2" />
     </application>
 </manifest>

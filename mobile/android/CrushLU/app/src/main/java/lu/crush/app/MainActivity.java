@@ -15,6 +15,7 @@ import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -369,6 +370,17 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
             if (request.isForMainFrame()) {
+                showOffline();
+            }
+        }
+
+        @Override
+        public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse errorResponse) {
+            // onReceivedError only fires for network-level failures; a main-document
+            // 5xx (origin/proxy outage) surfaces here instead. Show the offline view
+            // rather than leaving the raw server error page in the WebView. 4xx pages
+            // (e.g. a 404) carry real content, so they are left to render normally.
+            if (request.isForMainFrame() && errorResponse.getStatusCode() >= 500) {
                 showOffline();
             }
         }

@@ -20,7 +20,12 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     private static final String PREFS_NAME = "CrushPreferences";
     private static final String KEY_FCM_TOKEN = "fcm_token";
     private static final String KEY_TOKEN_SYNCED = "fcm_token_synced";
-    private static final String CHANNEL_ID = "crush_notifications";
+    // Bumped from the original "crush_notifications": that channel shipped in
+    // build 3 at IMPORTANCE_DEFAULT, and a channel's importance is immutable once
+    // created. A fresh id is the only way to give upgrading users the heads-up
+    // (IMPORTANCE_HIGH) channel; the old one is deleted in ensureNotificationChannel.
+    private static final String CHANNEL_ID = "crush_notifications_v2";
+    private static final String LEGACY_CHANNEL_ID = "crush_notifications";
 
     @Override
     public void onNewToken(@NonNull String token) {
@@ -114,6 +119,9 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         if (notificationManager == null) {
             return;
         }
+        // Remove the superseded IMPORTANCE_DEFAULT channel so upgrading users
+        // land on the high-importance one below (no-op on fresh installs).
+        notificationManager.deleteNotificationChannel(LEGACY_CHANNEL_ID);
         NotificationChannel channel = new NotificationChannel(
                 CHANNEL_ID,
                 "Crush Notifications",
