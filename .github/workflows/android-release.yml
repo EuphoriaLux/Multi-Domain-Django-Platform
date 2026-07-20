@@ -23,6 +23,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          # Full history so the commit count can drive versionCode.
+          fetch-depth: 0
+
+      - name: Compute versionCode from commit count
+        id: versioncode
+        run: echo "value=$(git rev-list --count HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -52,7 +59,7 @@ jobs:
         working-directory: mobile/android/CrushLU
         run: |
           chmod +x ./gradlew
-          ./gradlew bundleRelease -PCRUSH_ENV=$CRUSH_ENV
+          ./gradlew bundleRelease -PCRUSH_ENV=$CRUSH_ENV -PCRUSH_VERSION_CODE=${{ steps.versioncode.outputs.value }}
 
       - name: Upload Release Artifact
         uses: actions/upload-artifact@v4
@@ -72,3 +79,5 @@ jobs:
           releaseFiles: mobile/android/CrushLU/app/build/outputs/bundle/release/app-release.aab
           tracks: internal
           status: completed
+          # Release notes shipped from the repo (edit before each release).
+          whatsNewDirectory: mobile/android/CrushLU/distribution/whatsnew
