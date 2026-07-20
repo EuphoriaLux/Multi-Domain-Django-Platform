@@ -93,6 +93,10 @@ public class MainActivity extends AppCompatActivity {
         configureSwipeRefresh();
         configureBackNavigation();
         maybeRequestNotificationPermission();
+        // Create the high-importance channel up front so background pushes,
+        // which the system renders via the default_notification_channel_id
+        // manifest meta-data, get a heads-up banner instead of a fallback channel.
+        MyFirebaseMessagingService.ensureNotificationChannel(this);
 
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
@@ -305,8 +309,10 @@ public class MainActivity extends AppCompatActivity {
         intent.addCategory(Intent.CATEGORY_BROWSABLE);
         try {
             startActivity(intent);
-        } catch (ActivityNotFoundException exception) {
-            // No installed app handles this link; dropping it beats crashing.
+        } catch (ActivityNotFoundException | SecurityException exception) {
+            // No installed app handles this link, or a parsed intent: URI asked
+            // for something this app isn't permitted to launch (e.g. an
+            // ACTION_CALL that needs CALL_PHONE). Dropping it beats crashing.
         }
     }
 

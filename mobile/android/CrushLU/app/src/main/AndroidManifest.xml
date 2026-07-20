@@ -52,5 +52,12 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <!-- Channel the system uses for background (notification-payload) pushes.
+             Must match CHANNEL_ID in MyFirebaseMessagingService, which creates it
+             with IMPORTANCE_HIGH so backgrounded pushes get a heads-up banner. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="crush_notifications" />
     </application>
 </manifest>
