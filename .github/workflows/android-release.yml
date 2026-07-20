@@ -23,13 +23,17 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          # Full history so the commit count can drive versionCode.
-          fetch-depth: 0
 
-      - name: Compute versionCode from commit count
+      - name: Compute versionCode
         id: versioncode
-        run: echo "value=$(git rev-list --count HEAD)" >> "$GITHUB_OUTPUT"
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        # Unique + always-increasing per release run: differs across separate
+        # workflow_dispatch runs / tags (run_number) AND across job re-runs of
+        # the same run (run_attempt), so re-releasing the same commit never
+        # reuses a code. Stays well above the manual codes 1-4.
+        run: echo "value=$(( 10000 + RUN_NUMBER * 100 + RUN_ATTEMPT ))" >> "$GITHUB_OUTPUT"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
