@@ -146,8 +146,9 @@
         .loading-content{text-align:center;color:#fff}
         .loading-ghost{margin:0 auto 1rem;display:flex;justify-content:center}
         .hidden{display:none}
-        .lg\:hidden{display:none}
-        @media(max-width:1023px){.lg\:hidden{display:block}}
+        /* Unlayered shim beats Tailwind's @layer rules, so only mirror lg:hidden's
+           desktop half — forcing display:block on mobile would stomp flex/grid layouts */
+        @media(min-width:1024px){.lg\:hidden{display:none}}
         .flex{display:flex}.items-center{align-items:center}.justify-between{justify-content:space-between}
         .py-3{padding-top:.75rem;padding-bottom:.75rem}
         .text-white{color:#fff}
@@ -1409,6 +1410,10 @@
     {% block social_js %}{% endblock %}
 
     {% block extra_js %}{% endblock %}
+
+    {% if user.is_authenticated %}
+        {% include "crush_lu/partials/mobile_drawer.html" %}
+    {% endif %}
 
     {% include "includes/cookie_banner.html" %}
 </body>

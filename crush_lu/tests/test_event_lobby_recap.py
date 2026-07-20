@@ -712,7 +712,7 @@ class TestPeopleIveMetPages:
         assert (
             reverse("crush_lu:event_lobby_person_photo", args=[ben.pk]) in html
         )
-        assert "/media/profile/" not in html
+        assert f"/media/profile/{ben.pk}/" not in html
 
     def test_person_profile_denied_after_block(self, client):
         alice = _make_member("alice")

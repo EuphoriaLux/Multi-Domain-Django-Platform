@@ -12,6 +12,23 @@
  */
 
 document.addEventListener("alpine:init", function () {
+    // Global drawer store for mobile side menu
+    Alpine.store("drawer", {
+        open: false,
+        toggle() {
+            this.open = !this.open;
+            if (this.open) {
+                document.body.style.overflow = "hidden";
+            } else {
+                document.body.style.overflow = "";
+            }
+        },
+        close() {
+            this.open = false;
+            document.body.style.overflow = "";
+        }
+    });
+
     // =========================================================================
     // SHARED INTERACTIVITY MIXINS (Phase 5 — see crush_lu/STYLE.md §7)
     //

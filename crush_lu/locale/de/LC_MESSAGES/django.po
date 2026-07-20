@@ -35726,3 +35726,9 @@ msgstr ""
 "schließen (Standard: 48 – dieselbe Spanne wie der Event-Lobby-Rückblick, "
 "sodass beide gleichzeitig schließen). Nach Ablauf des Zeitfensters werden "
 "Teilnehmer zum Crush-Connect-Teaser weitergeleitet."
+
+msgid "Delete profile, data management"
+msgstr "Profil löschen, Datenverwaltung"
+
+msgid "Sign out of your account on this device"
+msgstr "Melde dich auf diesem Gerät von deinem Konto ab"

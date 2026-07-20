@@ -35853,3 +35853,9 @@ msgstr ""
 " connexion (par défaut : 48 — la même durée que le récap de l'Event Lobby, "
 "pour que les deux ferment ensemble). Une fois la fenêtre fermée, les "
 "participants sont redirigés vers le teaser Crush Connect."
+
+msgid "Delete profile, data management"
+msgstr "Supprimer le profil, gestion des données"
+
+msgid "Sign out of your account on this device"
+msgstr "Déconnectez-vous de votre compte sur cet appareil"

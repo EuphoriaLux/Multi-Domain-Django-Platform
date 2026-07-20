@@ -117,6 +117,7 @@ def _make_user(
         location="Luxembourg City",
         is_approved=is_approved,
         is_active=True,
+        photo_1="users/1/photos/test.jpg",
         preferred_genders=preferred_genders if preferred_genders is not None else [],
         preferred_age_min=preferred_age_min,
         preferred_age_max=preferred_age_max,

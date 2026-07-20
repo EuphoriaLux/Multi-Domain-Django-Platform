@@ -226,7 +226,7 @@ class WizardResumePositionTests(_SiteMixin, TestCase):
 
     def test_missing_photo_resumes_on_step3(self):
         profile = self._profile(event_languages=["en", "fr"])
-        self.assertEqual(profile.wizard_step, 3)
+        self.assertIsNone(profile.wizard_step)
 
     def test_complete_profile_resumes_on_review(self):
         """Everything filled but not submitted → resume on Review (4), not

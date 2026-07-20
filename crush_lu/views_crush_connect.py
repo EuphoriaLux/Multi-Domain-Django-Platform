@@ -247,6 +247,16 @@ def _onboarding_gate(request):
     if not user.is_staff and not _user_passes_pre_onboarding_gate(user):
         return redirect("crush_lu:crush_connect_teaser"), existing, done_url
 
+    # Check for photo_1 (which is optional for events but required for Connect)
+    profile = getattr(user, "crushprofile", None)
+    if not user.is_staff and profile and not profile.photo_1:
+        from django.contrib import messages
+        messages.warning(
+            request,
+            _("Please upload a profile photo to join Crush Connect.")
+        )
+        return redirect("crush_lu:edit_profile"), existing, done_url
+
     membership, _created = CrushConnectMembership.objects.get_or_create(user=user)
     return None, membership, done_url
 
@@ -737,6 +747,16 @@ def crush_connect_hub(request):
     quick links and status badges. Shared landing for both onboarded tracks;
     the dedicated nav menu and the mobile bottom-nav 'Connect' tab point here.
     """
+    user = request.user
+    profile = getattr(user, "crushprofile", None)
+    if not user.is_staff and profile and not profile.photo_1:
+        from django.contrib import messages
+        messages.warning(
+            request,
+            _("Please upload a profile photo to use Crush Connect.")
+        )
+        return redirect("crush_lu:edit_profile")
+
     from crush_lu.models import CuriositySpark
     from crush_lu.services.blocking import blocked_user_ids
     from crush_lu.services.crush_connect import get_active_coach_pick
@@ -795,6 +815,15 @@ def crush_connect_home(request):
     eligible pool yielded zero candidates for the day.
     """
     user = request.user
+    profile = getattr(user, "crushprofile", None)
+    if not user.is_staff and profile and not profile.photo_1:
+        from django.contrib import messages
+        messages.warning(
+            request,
+            _("Please upload a profile photo to use Crush Connect.")
+        )
+        return redirect("crush_lu:edit_profile")
+
     blocker = _connect_access_blocker(user)
     if blocker is not None:
         return blocker

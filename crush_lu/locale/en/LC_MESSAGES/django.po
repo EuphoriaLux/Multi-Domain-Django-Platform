@@ -2,7 +2,7 @@
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 msgid ""
 msgstr ""
@@ -345,12 +345,9 @@ msgstr ""
 #: .\crush_lu\admin\events.py:633
 msgid ""
 "Profile requirement level for registration:\n"
-"• Approved profile required (recommended): Only users with coach-approved "
-"profiles can register\n"
-"• Unverified profile only: Only users with a profile NOT yet verified by a "
-"coach can register\n"
-"• Profile must exist: Any user with a Crush profile can register (pending or "
-"incomplete OK)\n"
+"• Approved profile required (recommended): Only users with coach-approved profiles can register\n"
+"• Unverified profile only: Only users with a profile NOT yet verified by a coach can register\n"
+"• Profile must exist: Any user with a Crush profile can register (pending or incomplete OK)\n"
 "• No profile required: Any authenticated user can register"
 msgstr ""
 
@@ -360,8 +357,7 @@ msgid ""
 "• Recommended size: 1200×630 pixels (1.9:1 aspect ratio)\n"
 "• Format: JPG or PNG\n"
 "• File size: Under 500KB for best performance\n"
-"• This size works great for social media sharing (Open Graph) and displays "
-"perfectly on all devices\n"
+"• This size works great for social media sharing (Open Graph) and displays perfectly on all devices\n"
 "• The image will be cropped to fit: centered on mobile, full width on desktop"
 msgstr ""
 
@@ -430,7 +426,8 @@ msgstr ""
 
 #: .\crush_lu\admin\events.py:978
 msgid ""
-"No pending invitations to approve. Only accepted invitations can be approved."
+"No pending invitations to approve. Only accepted invitations can be "
+"approved."
 msgstr ""
 
 #: .\crush_lu\admin\events.py:982
@@ -2099,8 +2096,8 @@ msgstr ""
 
 #: .\crush_lu\forms.py:1215
 msgid ""
-"This image will be revealed as a puzzle in Chapter 1. Recommended: 800x800px "
-"square image."
+"This image will be revealed as a puzzle in Chapter 1. Recommended: 800x800px"
+" square image."
 msgstr ""
 
 #: .\crush_lu\forms.py:1224
@@ -2852,7 +2849,8 @@ msgid "Controls what level of profile is needed to register for this event"
 msgstr ""
 
 #: .\crush_lu\models\events.py:157
-msgid "Does this event include food/drinks? (Shows dietary restrictions field)"
+msgid ""
+"Does this event include food/drinks? (Shows dietary restrictions field)"
 msgstr ""
 
 #: .\crush_lu\models\events.py:161
@@ -2868,7 +2866,8 @@ msgid "Google Wallet EventTicketClass ID for this event"
 msgstr ""
 
 #: .\crush_lu\models\events.py:184
-msgid "Enable 3-phase interactive system (voting, presentations, speed dating)"
+msgid ""
+"Enable 3-phase interactive system (voting, presentations, speed dating)"
 msgstr ""
 
 #: .\crush_lu\models\events.py:193
@@ -2912,8 +2911,8 @@ msgstr ""
 
 #: .\crush_lu\models\events.py:251
 msgid ""
-"Maximum cross-gender connection requests per user per event (0 = unlimited). "
-"Same-gender connections are always unlimited."
+"Maximum cross-gender connection requests per user per event (0 = unlimited)."
+" Same-gender connections are always unlimited."
 msgstr ""
 
 #: .\crush_lu\models\events.py:326
@@ -2941,8 +2940,8 @@ msgstr ""
 #: .\crush_lu\models\events.py:361
 #, python-format
 msgid ""
-"Sum of gender caps (%(gender_total)d) must not exceed total max participants "
-"(%(max)d)."
+"Sum of gender caps (%(gender_total)d) must not exceed total max participants"
+" (%(max)d)."
 msgstr ""
 
 #: .\crush_lu\models\events.py:448 .\crush_lu\models\newsletter.py:76
@@ -3346,9 +3345,7 @@ msgid "The question/prompt/instructions"
 msgstr ""
 
 #: .\crush_lu\models\journey.py:257
-msgid ""
-"JSON data for options, choices, etc. ({\"A\": \"option1\", \"B\": "
-"\"option2\"})"
+msgid "JSON data for options, choices, etc. ({\"A\": \"option1\", \"B\": \"option2\"})"
 msgstr ""
 
 #: .\crush_lu\models\journey.py:263
@@ -3550,7 +3547,8 @@ msgid "Video message file for Chapter 4 (MP4, MOV - max 50MB)"
 msgstr ""
 
 #: .\crush_lu\models\journey_gift.py:289
-msgid "Background music for Chapter 5 Future Letter (MP3, WAV, M4A - max 10MB)"
+msgid ""
+"Background music for Chapter 5 Future Letter (MP3, WAV, M4A - max 10MB)"
 msgstr ""
 
 #: .\crush_lu\models\journey_gift.py:300
@@ -3840,7 +3838,8 @@ msgid "Last name to match (case-insensitive)"
 msgstr ""
 
 #: .\crush_lu\models\profiles.py:116
-msgid "Direct link to user (bypasses name matching). Used for gifted journeys."
+msgid ""
+"Direct link to user (bypasses name matching). Used for gifted journeys."
 msgstr ""
 
 #: .\crush_lu\models\profiles.py:120
@@ -5469,8 +5468,8 @@ msgstr ""
 
 #: .\crush_lu\pre_screening_schema.py:152
 msgid ""
-"Our Crush Coaches review every profile and help introduce people. How do you "
-"feel about that?"
+"Our Crush Coaches review every profile and help introduce people. How do you"
+" feel about that?"
 msgstr ""
 
 #: .\crush_lu\pre_screening_schema.py:156
@@ -5544,8 +5543,8 @@ msgstr ""
 
 #: .\crush_lu\pre_screening_schema.py:217
 msgid ""
-"I understand events are the core of Crush.lu and I intend to attend at least "
-"one."
+"I understand events are the core of Crush.lu and I intend to attend at least"
+" one."
 msgstr ""
 
 #: .\crush_lu\pre_screening_schema.py:225
@@ -5706,8 +5705,8 @@ msgstr ""
 
 #: .\crush_lu\templates\account\account_inactive.html:23
 msgid ""
-"Your account has been deactivated due to a serious violation of our Terms of "
-"Service."
+"Your account has been deactivated due to a serious violation of our Terms of"
+" Service."
 msgstr ""
 
 #: .\crush_lu\templates\account\account_inactive.html:29
@@ -5753,7 +5752,8 @@ msgstr ""
 
 #: .\crush_lu\templates\account\email\password_reset_key_message.html:24
 msgid ""
-"If the button above doesn't work, copy and paste this link into your browser:"
+"If the button above doesn't work, copy and paste this link into your "
+"browser:"
 msgstr ""
 
 #: .\crush_lu\templates\account\email\password_reset_key_message.html:30
@@ -5774,16 +5774,13 @@ msgstr ""
 msgid ""
 "Hello,\n"
 "\n"
-"We received a request to reset the password for your Crush.lu account "
-"(%(email)s).\n"
+"We received a request to reset the password for your Crush.lu account (%(email)s).\n"
 "\n"
 "To choose a new password, click the link below:\n"
 "\n"
 "%(password_reset_url)s\n"
 "\n"
-"This link will expire in a few hours for security reasons. If you didn't "
-"request a password reset, you can safely ignore this email - your password "
-"will not be changed.\n"
+"This link will expire in a few hours for security reasons. If you didn't request a password reset, you can safely ignore this email - your password will not be changed.\n"
 "\n"
 "Thanks,\n"
 "The Crush.lu team\n"
@@ -8563,7 +8560,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\_pre_screening_display.html:120
 msgid ""
-"You can send a quick SMS reminder asking them to fill it out before you call."
+"You can send a quick SMS reminder asking them to fill it out before you "
+"call."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\_pre_screening_display.html:129
@@ -8784,9 +8782,7 @@ msgstr ""
 #, python-format
 msgid ""
 "\n"
-"                                \"Hello %(name)s, this is [your name] from "
-"Crush.lu. I'm your onboarding coach. Do you have 5-10 minutes for a quick "
-"call to discuss your profile and answer any questions?\"\n"
+"                                \"Hello %(name)s, this is [your name] from Crush.lu. I'm your onboarding coach. Do you have 5-10 minutes for a quick call to discuss your profile and answer any questions?\"\n"
 "                                "
 msgstr ""
 
@@ -8867,8 +8863,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\_screening_call_section.html:373
 msgid ""
-"This open question helps gauge their mindset and expectations about romantic "
-"connections."
+"This open question helps gauge their mindset and expectations about romantic"
+" connections."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\_screening_call_section.html:382
@@ -8901,8 +8897,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\_screening_call_section.html:448
 msgid ""
-"Please complete all required steps (Introduction and Residence Check) before "
-"submitting."
+"Please complete all required steps (Introduction and Residence Check) before"
+" submitting."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\_screening_call_section.html:459
@@ -9130,8 +9126,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\about.html:43
 msgid ""
-"Learn about Crush.lu, Luxembourg's privacy-first dating platform. Founded by "
-"Tom Sawyer and Wesley Hourdequin, bringing authentic connections through "
+"Learn about Crush.lu, Luxembourg's privacy-first dating platform. Founded by"
+" Tom Sawyer and Wesley Hourdequin, bringing authentic connections through "
 "coach-curated profiles and real-world events."
 msgstr ""
 
@@ -9159,8 +9155,8 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\about.html:133
 #, python-format
 msgid ""
-"100%% made in Luxembourg. Built by people who believe dating should be about "
-"real connections, not endless swiping."
+"100%% made in Luxembourg. Built by people who believe dating should be about"
+" real connections, not endless swiping."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\about.html:138
@@ -9169,17 +9165,17 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\about.html:146
 msgid ""
-"We're bringing back authentic connections in Luxembourg's dating scene. In a "
-"world of endless swiping and superficial matches, Crush.lu takes a different "
-"approach. We believe that real relationships start with real conversations, "
-"face-to-face."
+"We're bringing back authentic connections in Luxembourg's dating scene. In a"
+" world of endless swiping and superficial matches, Crush.lu takes a "
+"different approach. We believe that real relationships start with real "
+"conversations, face-to-face."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\about.html:149
 msgid ""
-"Every profile is personally verified. Every event is thoughtfully organized. "
-"Every connection is meaningful. That's not an algorithm's promise - it's our "
-"commitment."
+"Every profile is personally verified. Every event is thoughtfully organized."
+" Every connection is meaningful. That's not an algorithm's promise - it's "
+"our commitment."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\about.html:154
@@ -9211,14 +9207,15 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\about.html:177
 msgid ""
-"Luxembourg is small enough that everyone knows everyone, but big enough that "
-"you can still miss the right person. We bridge that gap."
+"Luxembourg is small enough that everyone knows everyone, but big enough that"
+" you can still miss the right person. We bridge that gap."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\about.html:187
 msgid ""
-"The heart of the Crush Coach concept. Wesley personally reviews profiles and "
-"organizes events, ensuring every member gets an authentic, human experience."
+"The heart of the Crush Coach concept. Wesley personally reviews profiles and"
+" organizes events, ensuring every member gets an authentic, human "
+"experience."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\about.html:190
@@ -9241,8 +9238,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\about.html:210
 msgid ""
-"Unlike dating apps that put everything on physical appearance, Crush.lu aims "
-"to go beyond looks by also considering the personality of users."
+"Unlike dating apps that put everything on physical appearance, Crush.lu aims"
+" to go beyond looks by also considering the personality of users."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\about.html:213
@@ -9257,8 +9254,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\about.html:223
 msgid ""
-"The idea of the two friends is to bet everything on authenticity and events, "
-"rather than on algorithms and mindless swiping."
+"The idea of the two friends is to bet everything on authenticity and events,"
+" rather than on algorithms and mindless swiping."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\about.html:233
@@ -9267,8 +9264,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\about.html:234
 msgid ""
-"New Luxembourg platform offers vetting and real-life events as online dating "
-"alternative"
+"New Luxembourg platform offers vetting and real-life events as online dating"
+" alternative"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\about.html:236
@@ -9845,8 +9842,8 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\account_settings.html:518
 #: .\crush_lu\templates\crush_lu\partials\edit_account_notifications.html:210
 msgid ""
-"Configure which notifications you receive on your devices. Changes are saved "
-"automatically."
+"Configure which notifications you receive on your devices. Changes are saved"
+" automatically."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\account_settings.html:553
@@ -9932,8 +9929,8 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\account_settings.html:769
 #: .\crush_lu\templates\crush_lu\partials\edit_account_notifications.html:427
 msgid ""
-"Configure which coach notifications you receive on your devices. Changes are "
-"saved automatically."
+"Configure which coach notifications you receive on your devices. Changes are"
+" saved automatically."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\account_settings.html:817
@@ -10024,8 +10021,8 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\account_settings.html:913
 #: .\crush_lu\templates\crush_lu\partials\edit_account_danger.html:35
 msgid ""
-"Permanently delete your dating profile and photos. Your PowerUp account will "
-"remain active."
+"Permanently delete your dating profile and photos. Your PowerUp account will"
+" remain active."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\account_settings.html:914
@@ -10308,8 +10305,8 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\apple_link_prompt.html:41
 msgid ""
 "If you choose to link an existing account, you will be logged out and asked "
-"to log in with your original method (email, Google, Facebook, or Microsoft). "
-"You can then connect Apple in your Account Settings."
+"to log in with your original method (email, Google, Facebook, or Microsoft)."
+" You can then connect Apple in your Account Settings."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\auth.html:6
@@ -10978,8 +10975,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\coach_connection_review.html:222
 msgid ""
-"Approve this connection? Both users will be able to consent to share contact "
-"information."
+"Approve this connection? Both users will be able to consent to share contact"
+" information."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\coach_connection_review.html:225
@@ -11026,7 +11023,8 @@ msgid "Connection Management"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\coach_connections.html:18
-msgid "Review, facilitate, and approve post-event connections between members."
+msgid ""
+"Review, facilitate, and approve post-event connections between members."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\coach_connections.html:62
@@ -11254,8 +11252,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\coach_edit_challenge.html:106
 msgid ""
-"This challenge validates answers against the correct answer below. Users can "
-"get hints and earn points based on correctness."
+"This challenge validates answers against the correct answer below. Users can"
+" get hints and earn points based on correctness."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\coach_edit_challenge.html:116
@@ -11385,8 +11383,8 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\coach_edit_journey.html:15
 #, python-format
 msgid ""
-"For: <strong>%(first_name)s %(last_name)s</strong> | %(chapters)s Chapters | "
-"~%(minutes)s minutes"
+"For: <strong>%(first_name)s %(last_name)s</strong> | %(chapters)s Chapters |"
+" ~%(minutes)s minutes"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\coach_edit_journey.html:24
@@ -11453,8 +11451,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\coach_edit_profile.html:18
 msgid ""
-"Update your coaching bio and specializations that users see when assigned to "
-"you."
+"Update your coaching bio and specializations that users see when assigned to"
+" you."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\coach_edit_profile.html:33
@@ -11831,8 +11829,8 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\coach_invitation_dashboard.html:158
 #, python-format
 msgid ""
-"Are you sure you want to reject <strong>%(first_name)s %(last_name)s</"
-"strong>?"
+"Are you sure you want to reject <strong>%(first_name)s "
+"%(last_name)s</strong>?"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\coach_invitation_dashboard.html:160
@@ -12386,8 +12384,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\coach_presentation_control.html:124
 msgid ""
-"The presentation queue will be created once voting ends. Waiting for Phase 1 "
-"to complete..."
+"The presentation queue will be created once voting ends. Waiting for Phase 1"
+" to complete..."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\coach_presentation_control.html:126
@@ -13830,8 +13828,8 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\partials\edit_about.html:352
 #: .\crush_lu\templates\crush_lu\partials\edit_profile_form.html:371
 msgid ""
-"You will only be able to sign up for events in your selected languages. Open "
-"Format events are available to everyone regardless of language selection."
+"You will only be able to sign up for events in your selected languages. Open"
+" Format events are available to everyone regardless of language selection."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\create_profile.html:1039
@@ -13899,8 +13897,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\create_profile.html:1128
 msgid ""
-"Your phone number will only be used by your coach for screening. It won't be "
-"shared with other members without your consent."
+"Your phone number will only be used by your coach for screening. It won't be"
+" shared with other members without your consent."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\create_profile.html:1153
@@ -14077,8 +14075,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\crush_coach.html:118
 msgid ""
-"Work from anywhere, on your own schedule. Most tasks take just a few minutes "
-"review a profile over coffee, answer a question between meetings."
+"Work from anywhere, on your own schedule. Most tasks take just a few minutes"
+" review a profile over coffee, answer a question between meetings."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\crush_coach.html:122
@@ -14087,8 +14085,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\crush_coach.html:123
 msgid ""
-"Develop your listening, coaching, and communication skills. Get early access "
-"to new features and be part of shaping the platform."
+"Develop your listening, coaching, and communication skills. Get early access"
+" to new features and be part of shaping the platform."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\crush_coach.html:131
@@ -14096,7 +14094,8 @@ msgid "What You'll Do"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\crush_coach.html:132
-msgid "A mix of tasks that keep things interesting — no two days are the same."
+msgid ""
+"A mix of tasks that keep things interesting — no two days are the same."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\crush_coach.html:138
@@ -14210,8 +14209,8 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\crush_coach.html:215
 msgid ""
 "No hiding behind emails. Pick up the phone, call us, and convince us why "
-"you'd make an amazing coach. If you can charm us, imagine what you'll do for "
-"our members."
+"you'd make an amazing coach. If you can charm us, imagine what you'll do for"
+" our members."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\crush_coach.html:224
@@ -14234,8 +14233,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\crush_connect.html:9
 msgid ""
-"Crush Connect: online discovery for event-verified Crush.lu members. Privacy-"
-"first, coach-curated connections. Join the waitlist today."
+"Crush Connect: online discovery for event-verified Crush.lu members. "
+"Privacy-first, coach-curated connections. Join the waitlist today."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\crush_connect.html:10
@@ -14396,8 +14395,8 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\crush_preferences.html:28
 #: .\crush_lu\templates\crush_lu\partials\edit_preferences.html:40
 msgid ""
-"These are soft preferences to help us personalise your experience — not hard "
-"filters."
+"These are soft preferences to help us personalise your experience — not hard"
+" filters."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\crush_preferences.html:33
@@ -14768,7 +14767,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\data_deletion.html:26
 msgid ""
-"When you request account deletion, the following data is permanently removed:"
+"When you request account deletion, the following data is permanently "
+"removed:"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\data_deletion.html:29
@@ -14834,8 +14834,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\data_deletion.html:40
 msgid ""
-"For legal, safety, and operational reasons, we may retain certain anonymized "
-"or aggregated data:"
+"For legal, safety, and operational reasons, we may retain certain anonymized"
+" or aggregated data:"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\data_deletion.html:43
@@ -15266,7 +15266,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\data_deletion_status.html:57
 msgid ""
-"Some anonymized data may be retained for legal compliance as described in our"
+"Some anonymized data may be retained for legal compliance as described in "
+"our"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\data_deletion_status.html:63
@@ -15361,7 +15362,8 @@ msgid "Warning: Permanent Deletion"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\delete_crushlu_profile_confirm.html:15
-msgid "You are about to permanently delete your Crush.lu profile. This action:"
+msgid ""
+"You are about to permanently delete your Crush.lu profile. This action:"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\delete_crushlu_profile_confirm.html:18
@@ -15401,8 +15403,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\delete_crushlu_profile_confirm.html:56
 msgid ""
-"Are you absolutely sure? This cannot be undone and you cannot rejoin Crush."
-"lu."
+"Are you absolutely sure? This cannot be undone and you cannot rejoin "
+"Crush.lu."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\delete_crushlu_profile_confirm.html:58
@@ -15859,7 +15861,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\emails\event_cancellation.html:22
 msgid ""
-"If you paid a registration fee, it will be refunded within 5-7 business days."
+"If you paid a registration fee, it will be refunded within 5-7 business "
+"days."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\emails\event_cancellation.html:24
@@ -16099,7 +16102,8 @@ msgid "Hi %(first_name)s,"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\emails\existing_user_invitation.html:110
-msgid "Great news! You've been invited to a special private event on Crush.lu:"
+msgid ""
+"Great news! You've been invited to a special private event on Crush.lu:"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\emails\existing_user_invitation.html:113
@@ -16163,8 +16167,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\emails\external_guest_invitation.html:113
 msgid ""
-"You've received a special invitation to join an exclusive event on Crush.lu, "
-"Luxembourg's privacy-first dating platform:"
+"You've received a special invitation to join an exclusive event on Crush.lu,"
+" Luxembourg's privacy-first dating platform:"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\emails\external_guest_invitation.html:116
@@ -16453,7 +16457,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\emails\new_message.html:22
 msgid ""
-"Don't keep them waiting - head over to Crush.lu to continue the conversation!"
+"Don't keep them waiting - head over to Crush.lu to continue the "
+"conversation!"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\emails\new_message.html:26
@@ -16462,7 +16467,8 @@ msgid "Cheers,"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\emails\new_message.html:32
-msgid "You're receiving this because you have a new message from a connection."
+msgid ""
+"You're receiving this because you have a new message from a connection."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\emails\patch_notes.html:4
@@ -16558,8 +16564,8 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\emails\pre_screening_invite.html:34
 #: .\crush_lu\templates\crush_lu\emails\pre_screening_invite.txt:16
 msgid ""
-"It's entirely optional — if you'd rather just wait for the call, that's fine "
-"too."
+"It's entirely optional — if you'd rather just wait for the call, that's fine"
+" too."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\emails\pre_screening_invite.txt:9
@@ -16695,8 +16701,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\emails\profile_incomplete_24h.html:39
 msgid ""
-"You're almost there! Just add some photos and your profile will be ready for "
-"review."
+"You're almost there! Just add some photos and your profile will be ready for"
+" review."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\emails\profile_incomplete_24h.html:42
@@ -16859,8 +16865,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:60
 msgid ""
-"After you submit, your coach will review your profile and you'll be ready to "
-"join events!"
+"After you submit, your coach will review your profile and you'll be ready to"
+" join events!"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\emails\profile_incomplete_72h.html:66
@@ -16903,8 +16909,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\emails\profile_incomplete_final.html:19
 msgid ""
-"You've already started your profile - you're more than halfway there! Just a "
-"few more details and you'll be ready to meet amazing people."
+"You've already started your profile - you're more than halfway there! Just a"
+" few more details and you'll be ready to meet amazing people."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\emails\profile_incomplete_final.html:22
@@ -17031,7 +17037,8 @@ msgid "What you can do:"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\emails\profile_rejected.html:22
-msgid "If you believe this was an error, please contact us at support@crush.lu"
+msgid ""
+"If you believe this was an error, please contact us at support@crush.lu"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\emails\profile_rejected.html:23
@@ -17057,8 +17064,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\emails\profile_revision_request.html:11
 msgid ""
-"Thanks for your interest in Crush.lu! Our team has reviewed your profile and "
-"we'd love to see a few updates before approval."
+"Thanks for your interest in Crush.lu! Our team has reviewed your profile and"
+" we'd love to see a few updates before approval."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\emails\profile_revision_request.html:18
@@ -17243,7 +17250,8 @@ msgid "Welcome to Crush.lu"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\emails\welcome.html:81
-msgid "Congratulations on taking the first step toward meaningful connections!"
+msgid ""
+"Congratulations on taking the first step toward meaningful connections!"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\emails\welcome.html:83
@@ -17411,8 +17419,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\event_activity_vote.html:88
 msgid ""
-"After presentations, you'll do speed dating with matched pairs. Choose a fun "
-"twist!"
+"After presentations, you'll do speed dating with matched pairs. Choose a fun"
+" twist!"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\event_activity_vote.html:113
@@ -17446,14 +17454,14 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\event_attendees.html:143
 msgid ""
 "Select people you'd like to stay in touch with. If they also select you "
-"(mutual interest!), a Crush Coach will help facilitate your introduction and "
-"guide you through sharing contact information."
+"(mutual interest!), a Crush Coach will help facilitate your introduction and"
+" guide you through sharing contact information."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\event_attendees.html:147
 msgid ""
-"You can also send a Crush Spark - an anonymous admirer journey reviewed by a "
-"coach before delivery."
+"You can also send a Crush Spark - an anonymous admirer journey reviewed by a"
+" coach before delivery."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\event_attendees.html:158
@@ -17495,7 +17503,8 @@ msgid "No other attendees yet"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\event_attendees.html:329
-msgid "Check back after the event when other attendees are marked as attended."
+msgid ""
+"Check back after the event when other attendees are marked as attended."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\event_cancel.html:10
@@ -17599,7 +17608,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\event_detail.html:315
 msgid ""
-"15 minutes after the event starts, you'll vote on which activity format to do"
+"15 minutes after the event starts, you'll vote on which activity format to "
+"do"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\event_detail.html:316
@@ -17774,13 +17784,11 @@ msgstr ""
 #, python-format
 msgid ""
 "\n"
-"        <strong>Coach Notice:</strong> There is %(counter)s unpublished "
-"event that won't show here.\n"
+"        <strong>Coach Notice:</strong> There is %(counter)s unpublished event that won't show here.\n"
 "        "
 msgid_plural ""
 "\n"
-"        <strong>Coach Notice:</strong> There are %(counter)s unpublished "
-"events that won't show here.\n"
+"        <strong>Coach Notice:</strong> There are %(counter)s unpublished events that won't show here.\n"
 "        "
 msgstr[0] ""
 msgstr[1] ""
@@ -17954,7 +17962,8 @@ msgid "Event is Full"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\event_register.html:63
-msgid "You will be added to the waitlist. We'll notify you if a spot opens up."
+msgid ""
+"You will be added to the waitlist. We'll notify you if a spot opens up."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\event_register.html:93
@@ -18026,8 +18035,8 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:35
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:38
 msgid ""
-"You need to check in at the event before you can cast your vote. Please find "
-"your coach to get checked in!"
+"You need to check in at the event before you can cast your vote. Please find"
+" your coach to get checked in!"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:36
@@ -18160,8 +18169,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:170
 msgid ""
-"Vote on <strong>TWO categories</strong>: Presentation Style and Speed Dating "
-"Twist"
+"Vote on <strong>TWO categories</strong>: Presentation Style and Speed Dating"
+" Twist"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\event_voting_lobby.html:171
@@ -18328,8 +18337,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\gdpr_data_management.html:68
 msgid ""
-"Removes your dating profile, photos, and event history. Your PowerUp account "
-"remains active for other platforms."
+"Removes your dating profile, photos, and event history. Your PowerUp account"
+" remains active for other platforms."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\gdpr_data_management.html:72
@@ -18361,7 +18370,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\gdpr_data_management.html:102
 msgid ""
-"This will delete ALL your data across ALL platforms. Are you absolutely sure?"
+"This will delete ALL your data across ALL platforms. Are you absolutely "
+"sure?"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\gdpr_data_management.html:110
@@ -18392,15 +18402,15 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\home.html:8
 msgid ""
-"Luxembourg's dating platform for real connections. Join speed dating events, "
-"social mixers, and singles meetups. Coach-reviewed profiles, no endless "
+"Luxembourg's dating platform for real connections. Join speed dating events,"
+" social mixers, and singles meetups. Coach-reviewed profiles, no endless "
 "swiping."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\home.html:11
 msgid ""
-"Luxembourg's dating platform for real connections. Join speed dating events, "
-"social mixers, and singles meetups."
+"Luxembourg's dating platform for real connections. Join speed dating events,"
+" social mixers, and singles meetups."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\home.html:13
@@ -18551,8 +18561,8 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\how_it_works.html:7
 msgid ""
 "Discover how Crush.lu helps you meet singles in Luxembourg. Create your "
-"profile, get coach approval, join events, and make authentic connections. No "
-"endless swiping!"
+"profile, get coach approval, join events, and make authentic connections. No"
+" endless swiping!"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\how_it_works.html:9
@@ -18609,8 +18619,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\how_it_works.html:93
 msgid ""
-"Your journey to meaningful connections starts here. No endless swiping, just "
-"real events with real people."
+"Your journey to meaningful connections starts here. No endless swiping, just"
+" real events with real people."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\how_it_works.html:100
@@ -19065,8 +19075,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\invitation_pending_approval.html:118
 msgid ""
-"Your invitation has been accepted and your guest account is ready. Our Crush "
-"Coach is reviewing your attendance request."
+"Your invitation has been accepted and your guest account is ready. Our Crush"
+" Coach is reviewing your attendance request."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\invitation_pending_approval.html:124
@@ -19192,7 +19202,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\journey\certificate.html:96
 #, python-format
-msgid "Time invested in this journey: <strong>%(hours)sh %(minutes)sm</strong>"
+msgid ""
+"Time invested in this journey: <strong>%(hours)sh %(minutes)sm</strong>"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\journey\certificate.html:103
@@ -19303,8 +19314,8 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\journey\challenges\open_text.html:53
 #, python-format
 msgid ""
-"You've already shared your response and earned <strong>%(points)s points</"
-"strong>."
+"You've already shared your response and earned <strong>%(points)s "
+"points</strong>."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\journey\challenges\open_text.html:60
@@ -19582,8 +19593,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\journey\gift_claim.html:25
 msgid ""
-"Ready to begin your adventure? Once you claim this gift, your personalized 6-"
-"chapter Wonderland journey will be created."
+"Ready to begin your adventure? Once you claim this gift, your personalized "
+"6-chapter Wonderland journey will be created."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\journey\gift_claim.html:36
@@ -19602,8 +19613,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\journey\gift_claimed.html:13
 msgid ""
-"This journey gift has already been claimed by someone. Each gift can only be "
-"used once."
+"This journey gift has already been claimed by someone. Each gift can only be"
+" used once."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\journey\gift_claimed.html:18
@@ -19645,8 +19656,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\journey\gift_create.html:100
 msgid ""
-"Add photos and voice/video messages to make the journey extra special. These "
-"will be revealed as rewards when your recipient completes challenges!"
+"Add photos and voice/video messages to make the journey extra special. These"
+" will be revealed as rewards when your recipient completes challenges!"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\journey\gift_create.html:108
@@ -19715,8 +19726,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\journey\gift_expired.html:13
 msgid ""
-"Sorry, this journey gift is no longer available. The gift has expired before "
-"it could be claimed."
+"Sorry, this journey gift is no longer available. The gift has expired before"
+" it could be claimed."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\journey\gift_landing.html:4
@@ -20051,8 +20062,8 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\journey\partials\already_completed.html:14
 #, python-format
 msgid ""
-"You already completed this challenge and earned <strong>%(points)s points</"
-"strong>."
+"You already completed this challenge and earned <strong>%(points)s "
+"points</strong>."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\journey\partials\challenge_header.html:9
@@ -20305,8 +20316,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\membership.html:9
 msgid ""
-"Crush.lu Membership: Install our app to unlock your digital membership card. "
-"Earn points by inviting friends and climb the tiers from Basic to Gold."
+"Crush.lu Membership: Install our app to unlock your digital membership card."
+" Earn points by inviting friends and climb the tiers from Basic to Gold."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\membership.html:10
@@ -20434,8 +20445,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\my_presentation_scores.html:26
 msgid ""
-"These scores are completely private and only visible to you. No one else can "
-"see how you were rated or by whom. Ratings were submitted anonymously."
+"These scores are completely private and only visible to you. No one else can"
+" see how you were rated or by whom. Ratings were submitted anonymously."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\my_presentation_scores.html:39
@@ -20764,7 +20775,8 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\partials\edit_about.html:102
 #: .\crush_lu\templates\crush_lu\partials\edit_profile_form.html:104
 msgid ""
-"Select up to 5 traits in each category to improve your compatibility matches."
+"Select up to 5 traits in each category to improve your compatibility "
+"matches."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\partials\edit_about.html:116
@@ -21101,14 +21113,15 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\pre_screening.html:5
 msgid ""
-"Answer a few quick questions so your Crush Coach can prepare for your review "
-"call."
+"Answer a few quick questions so your Crush Coach can prepare for your review"
+" call."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\pre_screening.html:19
 msgid ""
-"A few quick questions about you and what you're looking for. Your Coach will "
-"see your answers before the call so you don't have to cover the basics twice."
+"A few quick questions about you and what you're looking for. Your Coach will"
+" see your answers before the call so you don't have to cover the basics "
+"twice."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\pre_screening.html:39
@@ -21327,8 +21340,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:55
 msgid ""
-"This policy covers all personal data processed through the Crush.lu website, "
-"Progressive Web App (PWA), and associated services."
+"This policy covers all personal data processed through the Crush.lu website,"
+" Progressive Web App (PWA), and associated services."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:58
@@ -21495,7 +21508,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:101
 msgid ""
-"if you save a partially completed profile, we temporarily store your progress"
+"if you save a partially completed profile, we temporarily store your "
+"progress"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:104
@@ -21542,8 +21556,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:113
 msgid ""
-"Pre-screening questionnaire responses: your self-reported answers to a short "
-"optional questionnaire that prepares your Coach for the review call "
+"Pre-screening questionnaire responses: your self-reported answers to a short"
+" optional questionnaire that prepares your Coach for the review call "
 "(logistics, expectations, own-words text answers, and explicit consents). A "
 "rule-based Readiness Score and attention flags are computed from these "
 "answers to help your Coach prioritise — they are advisory only and never "
@@ -21586,7 +21600,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:125
 msgid ""
-"Event invitations: guest email, name, invitation status, coach approval notes"
+"Event invitations: guest email, name, invitation status, coach approval "
+"notes"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:126
@@ -21658,8 +21673,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:145
 msgid ""
-"Personal message revealed only when the recipient completes Chapter 6 of the "
-"journey"
+"Personal message revealed only when the recipient completes Chapter 6 of the"
+" journey"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:146
@@ -21711,7 +21726,8 @@ msgid "Completion status and final response"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:159
-msgid "Advent Calendar progress: doors opened, QR code scans, visit timestamps"
+msgid ""
+"Advent Calendar progress: doors opened, QR code scans, visit timestamps"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:162
@@ -21833,8 +21849,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:194
 msgid ""
-"Two-tier consent: separate records for PowerUp Account and Crush.lu Profile, "
-"each with IP address, timestamp, and terms version accepted"
+"Two-tier consent: separate records for PowerUp Account and Crush.lu Profile,"
+" each with IP address, timestamp, and terms version accepted"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:195
@@ -21853,8 +21869,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:201
 msgid ""
-"The following table describes how we use your data and our legal basis under "
-"Article 6 GDPR:"
+"The following table describes how we use your data and our legal basis under"
+" Article 6 GDPR:"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:207
@@ -22022,9 +22038,9 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:290
 msgid ""
 "Our speed dating pairing algorithm uses registration data (gender, age) to "
-"create round pairings and identify top matches based on mutual ratings. This "
-"processing does not produce legal effects or similarly significant effects — "
-"it only determines conversation pairings within an event you have already "
+"create round pairings and identify top matches based on mutual ratings. This"
+" processing does not produce legal effects or similarly significant effects "
+"— it only determines conversation pairings within an event you have already "
 "chosen to attend."
 msgstr ""
 
@@ -22225,8 +22241,8 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:387
 msgid ""
 "We may disclose your personal data if required by law, court order, or "
-"regulatory request, or to protect the rights, property, or safety of Crush."
-"lu, our users, or others."
+"regulatory request, or to protect the rights, property, or safety of "
+"Crush.lu, our users, or others."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:391
@@ -22382,7 +22398,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:473
 msgid ""
-"Under GDPR and Luxembourg data protection law, you have the following rights:"
+"Under GDPR and Luxembourg data protection law, you have the following "
+"rights:"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:475
@@ -22391,8 +22408,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:475
 msgid ""
-"Request a copy of your personal data. You can export your data directly from "
-"your account settings."
+"Request a copy of your personal data. You can export your data directly from"
+" your account settings."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:476
@@ -22410,8 +22427,8 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:477
 msgid ""
 "Request deletion of your data. You can delete your Crush.lu Profile only "
-"(keeping your PowerUp Account) or delete everything. Use the Data Management "
-"page in your account settings."
+"(keeping your PowerUp Account) or delete everything. Use the Data Management"
+" page in your account settings."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:478
@@ -22428,8 +22445,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:479
 msgid ""
-"Receive your data in a structured, machine-readable JSON format via the data "
-"export feature in your account settings."
+"Receive your data in a structured, machine-readable JSON format via the data"
+" export feature in your account settings."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:480
@@ -22458,8 +22475,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:487
 msgid ""
-"If you believe your rights have been violated, you have the right to lodge a "
-"complaint with the CNPD:"
+"If you believe your rights have been violated, you have the right to lodge a"
+" complaint with the CNPD:"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:490
@@ -22540,8 +22557,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:546
 msgid ""
-"Crush.lu is strictly intended for users aged 18 and over. We verify your age "
-"through your date of birth at registration. We do not knowingly collect "
+"Crush.lu is strictly intended for users aged 18 and over. We verify your age"
+" through your date of birth at registration. We do not knowingly collect "
 "personal data from anyone under 18."
 msgstr ""
 
@@ -22592,8 +22609,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:568
 msgid ""
-"Access is granted via time-limited Shared Access Signature (SAS) tokens that "
-"expire after 30 minutes"
+"Access is granted via time-limited Shared Access Signature (SAS) tokens that"
+" expire after 30 minutes"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:569
@@ -22642,8 +22659,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:585
 msgid ""
-"Your continued use of Crush.lu after re-consenting constitutes acceptance of "
-"the updated policy."
+"Your continued use of Crush.lu after re-consenting constitutes acceptance of"
+" the updated policy."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\privacy_policy.html:589
@@ -22823,7 +22840,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\profile_submitted.html:361
 msgid ""
-"Answer a few quick questions (3 min) so the call is about you, not paperwork."
+"Answer a few quick questions (3 min) so the call is about you, not "
+"paperwork."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\profile_submitted.html:384
@@ -22840,8 +22858,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\profile_submitted.html:405
 msgid ""
-"Let your coach know anything relevant - availability for the screening call, "
-"special circumstances, or questions."
+"Let your coach know anything relevant - availability for the screening call,"
+" special circumstances, or questions."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\profile_submitted.html:412
@@ -23334,8 +23352,8 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\set_password.html:34
 #, python-format
 msgid ""
-"Setting a password lets you also log in with your email (<strong>%(email)s</"
-"strong>) directly, giving you a backup login method."
+"Setting a password lets you also log in with your email "
+"(<strong>%(email)s</strong>) directly, giving you a backup login method."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\signup.html:6
@@ -23443,8 +23461,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\spark_create_journey.html:144
 msgid ""
-"Once you submit, the journey will be created and delivered anonymously. Your "
-"identity will only be revealed when the recipient completes Chapter 6."
+"Once you submit, the journey will be created and delivered anonymously. Your"
+" identity will only be revealed when the recipient completes Chapter 6."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\spark_create_journey.html:149
@@ -23711,9 +23729,9 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:47
 msgid ""
-"By creating an account, accessing, or using Crush.lu (\"the Platform\"), you "
-"agree to be bound by these Terms of Service (\"Terms\"). If you do not agree "
-"to these Terms, you may not use the Platform."
+"By creating an account, accessing, or using Crush.lu (\"the Platform\"), you"
+" agree to be bound by these Terms of Service (\"Terms\"). If you do not "
+"agree to these Terms, you may not use the Platform."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:50
@@ -23731,8 +23749,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:57
 msgid ""
-"Each consent is recorded with your IP address, timestamp, and the version of "
-"these Terms you accepted. This version is 2.0."
+"Each consent is recorded with your IP address, timestamp, and the version of"
+" these Terms you accepted. This version is 2.0."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:61
@@ -23745,7 +23763,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:63
 msgid ""
-"The Crush.lu website, Progressive Web App (PWA), and all associated services."
+"The Crush.lu website, Progressive Web App (PWA), and all associated "
+"services."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:64
@@ -23788,8 +23807,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:69
 msgid ""
-"An anonymous admirer feature where a user creates a personalised journey for "
-"someone they liked at an Event."
+"An anonymous admirer feature where a user creates a personalised journey for"
+" someone they liked at an Event."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:70
@@ -23908,9 +23927,9 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:109
 msgid ""
-"To complete your Crush.lu Profile, you must verify your phone number via SMS "
-"one-time password (OTP). This verification is processed through Firebase and "
-"is required to prevent duplicate accounts and enhance trust."
+"To complete your Crush.lu Profile, you must verify your phone number via SMS"
+" one-time password (OTP). This verification is processed through Firebase "
+"and is required to prevent duplicate accounts and enhance trust."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:112
@@ -23936,7 +23955,8 @@ msgid "Require a screening call before profile activation"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:118
-msgid "Require you to recontact your assigned Coach for additional information"
+msgid ""
+"Require you to recontact your assigned Coach for additional information"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:122
@@ -23961,8 +23981,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:127
 msgid ""
-"Discriminate based on race, ethnicity, religion, gender, sexual orientation, "
-"or disability"
+"Discriminate based on race, ethnicity, religion, gender, sexual orientation,"
+" or disability"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:128
@@ -23997,7 +24017,8 @@ msgid "Maintain multiple accounts or create a new account after being banned"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:135
-msgid "Use the Platform for commercial purposes without our written permission"
+msgid ""
+"Use the Platform for commercial purposes without our written permission"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:136
@@ -24044,7 +24065,8 @@ msgid "Accurately represent you (recent photos, taken within the last year)"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:150
-msgid "Feature you as the primary subject (no group photos as your main photo)"
+msgid ""
+"Feature you as the primary subject (no group photos as your main photo)"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:151
@@ -24100,15 +24122,15 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:166
 msgid ""
 "You retain ownership of all Content you post on the Platform. By posting "
-"Content, you grant Crush.lu a worldwide, non-exclusive, royalty-free licence "
-"to use, display, and distribute your Content solely for the purpose of "
+"Content, you grant Crush.lu a worldwide, non-exclusive, royalty-free licence"
+" to use, display, and distribute your Content solely for the purpose of "
 "operating and providing the Platform's services."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:169
 msgid ""
-"This licence terminates when you delete your Content or your account, except "
-"where your Content has been shared with other users through legitimate "
+"This licence terminates when you delete your Content or your account, except"
+" where your Content has been shared with other users through legitimate "
 "Platform features (e.g., delivered Crush Sparks or messages in active "
 "connections)."
 msgstr ""
@@ -24127,8 +24149,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:178
 msgid ""
-"Events may have capacity limits, gender-specific caps, age requirements, and "
-"language requirements"
+"Events may have capacity limits, gender-specific caps, age requirements, and"
+" language requirements"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:179
@@ -24236,9 +24258,9 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:213
 msgid ""
-"Private events require an invitation code. Invitation codes are personal and "
-"may not be shared unless explicitly permitted. Invitations may be subject to "
-"Coach approval."
+"Private events require an invitation code. Invitation codes are personal and"
+" may not be shared unless explicitly permitted. Invitations may be subject "
+"to Coach approval."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:217
@@ -24319,7 +24341,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:247
 msgid ""
-"You may send a Crush Spark only to someone who attended the same event as you"
+"You may send a Crush Spark only to someone who attended the same event as "
+"you"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:248
@@ -24361,13 +24384,14 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:260
 msgid ""
-"Challenge submissions (text, photos, video, audio) may be reviewed by Coaches"
+"Challenge submissions (text, photos, video, audio) may be reviewed by "
+"Coaches"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:261
 msgid ""
-"Points earned and digital rewards within journeys have no monetary value and "
-"cannot be exchanged for cash or goods"
+"Points earned and digital rewards within journeys have no monetary value and"
+" cannot be exchanged for cash or goods"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:262
@@ -24400,7 +24424,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:271
 msgid ""
-"Wallet passes are subject to Apple's and Google's respective terms of service"
+"Wallet passes are subject to Apple's and Google's respective terms of "
+"service"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:272
@@ -24430,13 +24455,14 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:281
 msgid ""
-"Approved users receive a unique referral code that can be shared with friends"
+"Approved users receive a unique referral code that can be shared with "
+"friends"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:282
 msgid ""
-"Successful referrals (when a referred user creates an approved profile) earn "
-"referral points"
+"Successful referrals (when a referred user creates an approved profile) earn"
+" referral points"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:283
@@ -24455,8 +24481,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:286
 msgid ""
-"We reserve the right to modify, suspend, or terminate the referral programme "
-"at any time with notice to participants"
+"We reserve the right to modify, suspend, or terminate the referral programme"
+" at any time with notice to participants"
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:290
@@ -24643,10 +24669,10 @@ msgstr ""
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:358
 msgid ""
 "You agree to indemnify and hold harmless Crush.lu, its officers, employees, "
-"coaches, and agents from any claims, damages, losses, or expenses (including "
-"reasonable legal fees) arising from: (a) your violation of these Terms, (b) "
-"your Content, (c) your interactions with other users, or (d) your violation "
-"of any applicable law."
+"coaches, and agents from any claims, damages, losses, or expenses (including"
+" reasonable legal fees) arising from: (a) your violation of these Terms, (b)"
+" your Content, (c) your interactions with other users, or (d) your violation"
+" of any applicable law."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:361
@@ -24731,9 +24757,9 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:389
 msgid ""
-"You may appeal a suspension or ban within 30 days by contacting legal@crush."
-"lu. Appeals will be reviewed and you will receive a response within 14 "
-"business days."
+"You may appeal a suspension or ban within 30 days by contacting "
+"legal@crush.lu. Appeals will be reviewed and you will receive a response "
+"within 14 business days."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:392
@@ -24826,8 +24852,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:432
 msgid ""
-"If an event is cancelled due to force majeure, all registered attendees will "
-"receive a full refund of any fees paid, regardless of the cancellation "
+"If an event is cancelled due to force majeure, all registered attendees will"
+" receive a full refund of any fees paid, regardless of the cancellation "
 "policy."
 msgstr ""
 
@@ -24841,8 +24867,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:438
 msgid ""
-"If any provision of these Terms is found to be invalid or unenforceable, the "
-"remaining provisions shall remain in full force and effect."
+"If any provision of these Terms is found to be invalid or unenforceable, the"
+" remaining provisions shall remain in full force and effect."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:439
@@ -24905,8 +24931,8 @@ msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:453
 msgid ""
-"Your continued use of Crush.lu after re-consenting constitutes acceptance of "
-"the updated Terms."
+"Your continued use of Crush.lu after re-consenting constitutes acceptance of"
+" the updated Terms."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\terms_of_service.html:456
@@ -25019,8 +25045,8 @@ msgstr ""
 msgid ""
 "During presentations, you anonymously rate each person 1-5 stars. These "
 "ratings are used to create better speed dating pairings - people who rated "
-"each other highly are more likely to be matched! Your individual ratings are "
-"always private."
+"each other highly are more likely to be matched! Your individual ratings are"
+" always private."
 msgstr ""
 
 #: .\crush_lu\templates\crush_lu\voting_demo.html:122
@@ -25880,7 +25906,8 @@ msgid "SMS attempt logged."
 msgstr ""
 
 #: .\crush_lu\views_coach.py:929
-msgid "This profile has already been reviewed. No further changes are allowed."
+msgid ""
+"This profile has already been reviewed. No further changes are allowed."
 msgstr ""
 
 #: .\crush_lu\views_coach.py:947
@@ -26090,7 +26117,8 @@ msgid ""
 msgstr ""
 
 #: .\crush_lu\views_crush_spark.py:94
-msgid "Your Crush Spark has been submitted! A coach will identify your person."
+msgid ""
+"Your Crush Spark has been submitted! A coach will identify your person."
 msgstr ""
 
 #: .\crush_lu\views_crush_spark.py:148
@@ -26156,8 +26184,8 @@ msgstr ""
 
 #: .\crush_lu\views_events.py:645
 msgid ""
-"Please complete your profile before registering for events. This is required "
-"for all users, even with invitations."
+"Please complete your profile before registering for events. This is required"
+" for all users, even with invitations."
 msgstr ""
 
 #: .\crush_lu\views_events.py:661
@@ -26183,15 +26211,15 @@ msgstr ""
 
 #: .\crush_lu\views_events.py:738
 msgid ""
-"This event has age restrictions. Please complete your profile with your date "
-"of birth to verify your age."
+"This event has age restrictions. Please complete your profile with your date"
+" of birth to verify your age."
 msgstr ""
 
 #: .\crush_lu\views_events.py:747
 #, python-format
 msgid ""
-"This event is restricted to ages %(min)d–%(max)d. Your profile does not meet "
-"these age requirements."
+"This event is restricted to ages %(min)d–%(max)d. Your profile does not meet"
+" these age requirements."
 msgstr ""
 
 #: .\crush_lu\views_events.py:766
@@ -26267,7 +26295,8 @@ msgstr ""
 #: .\crush_lu\views_invitations.py:230
 #, python-format
 msgid ""
-"Invitation created for %(email)s, but email could not be sent. Code: %(code)s"
+"Invitation created for %(email)s, but email could not be sent. Code: "
+"%(code)s"
 msgstr ""
 
 #: .\crush_lu\views_invitations.py:262 .\crush_lu\views_invitations.py:291
@@ -26598,4 +26627,10 @@ msgstr ""
 
 #: .\crush_lu\views_voting.py:710
 msgid "Scores will be available after all presentations are completed."
+msgstr ""
+
+msgid "Delete profile, data management"
+msgstr ""
+
+msgid "Sign out of your account on this device"
 msgstr ""

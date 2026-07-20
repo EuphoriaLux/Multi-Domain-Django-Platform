@@ -817,14 +817,15 @@ class CrushProfile(models.Model):
             missing.append(
                 {"field": "phone_verified", "label": _("Phone Verification"), "step": 1}
             )
-        if not self.location:
-            missing.append({"field": "location", "label": _("Location"), "step": 1})
+        # Location is optional for fast-track event verification
+        # if not self.location:
+        #     missing.append({"field": "location", "label": _("Location"), "step": 1})
 
         # Step 2: About You (bio and interests are optional)
 
-        # Step 3: Photos (At least one required)
-        if not self.photo_1:
-            missing.append({"field": "photo_1", "label": _("Profile Photo"), "step": 3})
+        # Step 3: Photos (At least one required for Connect, optional for event verification)
+        # if not self.photo_1:
+        #     missing.append({"field": "photo_1", "label": _("Profile Photo"), "step": 3})
 
         # Step 3: Event Languages (At least one required)
         if not self.event_languages:
@@ -862,14 +863,13 @@ class CrushProfile(models.Model):
             self.date_of_birth
             and self.gender
             and self.phone_number
-            and self.location
             and self.phone_verified
         ):
             return 1  # Basic Info
         # event_languages lives on the Photos sub-step and is required by
         # get_missing_fields() — without this check a user missing only their
         # event languages would resume on Basic Info instead of step 3.
-        if not self.photo_1 or not self.event_languages:
+        if not self.event_languages:
             return 3  # Photos & event languages
         return None  # complete — can submit
 
