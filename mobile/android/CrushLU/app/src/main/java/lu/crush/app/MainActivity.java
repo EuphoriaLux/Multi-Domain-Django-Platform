@@ -232,6 +232,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean shouldStartNativeAuth(Uri uri) {
+        // For local testing, allow login in the WebView to test insets/keyboard
+        if (BuildConfig.BASE_URL.contains("10.0.2.2")) {
+            return false;
+        }
         if (!isInternal(uri)) {
             return false;
         }
