@@ -48,7 +48,10 @@ android {
         }
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
+        // CI passes -PCRUSH_VERSION_CODE=<git commit count> so every uploaded
+        // build gets a unique, always-increasing code with no manual bump. The
+        // literal is only a fallback for local builds (which never upload).
+        versionCode = providers.gradleProperty("CRUSH_VERSION_CODE").map { it.toInt() }.getOrElse(4)
         versionName = "1.0.2"
         buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
         buildConfigField("String", "AUTH_SCHEME", "\"$authScheme\"")
