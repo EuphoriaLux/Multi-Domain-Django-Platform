@@ -10,7 +10,6 @@ from crush_lu.pre_screening_schema import (
     compute_readiness_score,
     get_question,
     get_section,
-    iter_questions,
     readiness_score_label,
     validate_pre_screening_responses,
 )

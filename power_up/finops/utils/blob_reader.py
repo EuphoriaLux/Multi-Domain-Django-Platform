@@ -6,7 +6,7 @@ import os
 import gzip
 import io
 from datetime import datetime
-from azure.storage.blob import BlobServiceClient, ContainerClient
+from azure.storage.blob import BlobServiceClient
 from django.conf import settings
 
 

@@ -5,12 +5,13 @@ from urllib.parse import urlencode, urlparse, urlunparse, parse_qsl
 from django.conf import settings
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import redirect_to_login
 from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from .decorators import ratelimit
+from .mobile_auth import clear_mobile_handoff, stash_mobile_handoff
 from .models import IOSAppDevice, IOSNativeAuthCode
 
 logger = logging.getLogger(__name__)
@@ -69,7 +70,9 @@ def ios_app_config(request):
         "teamId": getattr(settings, "IOS_APP_TEAM_ID", "C5XDPB2G33"),
         "version": getattr(settings, "IOS_APP_VERSION", "1.0.0"),
         "build": getattr(settings, "IOS_APP_BUILD", "1"),
-        "minSupportedVersion": getattr(settings, "IOS_APP_MIN_SUPPORTED_VERSION", "1.0.0"),
+        "minSupportedVersion": getattr(
+            settings, "IOS_APP_MIN_SUPPORTED_VERSION", "1.0.0"
+        ),
         "appStoreUrl": getattr(settings, "IOS_APP_STORE_URL", ""),
     }
     return JsonResponse(
@@ -96,7 +99,6 @@ def ios_app_config(request):
     )
 
 
-@login_required
 @require_http_methods(["GET"])
 def ios_auth_handoff(request):
     """Issue a one-time code that the native shell can redeem in WKWebView."""
@@ -107,10 +109,16 @@ def ios_auth_handoff(request):
             status=400,
         )
 
+    if not request.user.is_authenticated:
+        # Stash a session flag so any login completed inside the auth sheet
+        # routes back here even if the ?next= chain gets lost on the way
+        # (signup page, language switch, in-sheet browsing).
+        stash_mobile_handoff(request, "ios", redirect_uri)
+        return redirect_to_login(request.get_full_path())
+
+    clear_mobile_handoff(request)
     code = IOSNativeAuthCode.issue(request.user, redirect_uri, request=request)
-    complete_url = request.build_absolute_uri(
-        f"/api/mobile/ios/auth/complete/{code}/"
-    )
+    complete_url = request.build_absolute_uri(f"/api/mobile/ios/auth/complete/{code}/")
     return IOSAppRedirect(
         _append_query(
             redirect_uri,
@@ -177,7 +185,11 @@ def register_ios_device(request):
         return JsonResponse({"success": False, "error": "Invalid JSON"}, status=400)
 
     device_token = str(data.get("deviceToken", "")).strip()
-    if not device_token or len(device_token) > 255 or any(c.isspace() for c in device_token):
+    if (
+        not device_token
+        or len(device_token) > 255
+        or any(c.isspace() for c in device_token)
+    ):
         return JsonResponse(
             {"success": False, "error": "Invalid deviceToken"},
             status=400,
@@ -187,7 +199,9 @@ def register_ios_device(request):
         "sandbox" if getattr(settings, "IOS_APNS_USE_SANDBOX", False) else "production"
     )
     if environment not in dict(IOSAppDevice.ENVIRONMENT_CHOICES):
-        return JsonResponse({"success": False, "error": "Invalid environment"}, status=400)
+        return JsonResponse(
+            {"success": False, "error": "Invalid environment"}, status=400
+        )
 
     device, created = IOSAppDevice.objects.update_or_create(
         device_token=device_token,
@@ -196,7 +210,9 @@ def register_ios_device(request):
             "device_id": str(data.get("deviceId", ""))[:128],
             "environment": environment,
             "bundle_id": str(
-                data.get("bundleId", getattr(settings, "IOS_APP_BUNDLE_ID", "lu.crush.app"))
+                data.get(
+                    "bundleId", getattr(settings, "IOS_APP_BUNDLE_ID", "lu.crush.app")
+                )
             )[:128],
             "app_version": str(data.get("appVersion", ""))[:32],
             "app_build": str(data.get("appBuild", ""))[:32],
@@ -211,7 +227,11 @@ def register_ios_device(request):
     return JsonResponse(
         {
             "success": True,
-            "message": "iOS device registration created" if created else "iOS device registration updated",
+            "message": (
+                "iOS device registration created"
+                if created
+                else "iOS device registration updated"
+            ),
             "deviceId": device.id,
         }
     )
@@ -255,7 +275,9 @@ def update_ios_device_preferences(request):
         if key in preferences
     }
     if not updates:
-        return JsonResponse({"success": False, "error": "No preferences provided"}, status=400)
+        return JsonResponse(
+            {"success": False, "error": "No preferences provided"}, status=400
+        )
 
     devices = IOSAppDevice.objects.filter(user=request.user)
     if data.get("deviceToken"):

@@ -4,8 +4,7 @@ IDOR (Insecure Direct Object Reference) Tests for Crush.lu
 Tests that users cannot access or modify resources belonging to other users
 by manipulating IDs in URLs.
 """
-import pytest
-from django.test import TestCase, Client, override_settings
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site

@@ -164,7 +164,7 @@ class Command(BaseCommand):
         if not profile.phone_number:
             self.stdout.write(
                 self.style.WARNING(
-                    f'  Skipped - no phone number\n'
+                    '  Skipped - no phone number\n'
                 )
             )
             return

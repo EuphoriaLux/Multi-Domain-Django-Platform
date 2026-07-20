@@ -35859,3 +35859,21 @@ msgstr "Supprimer le profil, gestion des données"
 
 msgid "Sign out of your account on this device"
 msgstr "Déconnectez-vous de votre compte sur cet appareil"
+
+#: templates/socialaccount/login_crush.html
+msgid "Sign in with %(provider)s"
+msgstr "Se connecter avec %(provider)s"
+
+#: templates/socialaccount/login_crush.html
+msgid "You'll be taken to %(provider)s to continue securely."
+msgstr ""
+"Vous allez être redirigé vers %(provider)s pour continuer en toute sécurité."
+
+#: templates/socialaccount/login_crush.html
+msgid "Connect %(provider)s"
+msgstr "Connecter %(provider)s"
+
+#: templates/socialaccount/login_crush.html
+msgid "You'll be taken to %(provider)s to connect your account."
+msgstr ""
+"Vous allez être redirigé vers %(provider)s pour connecter votre compte."

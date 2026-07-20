@@ -12,7 +12,6 @@ import json
 import pytest
 from django.contrib.auth import get_user_model
 from django.test import Client, override_settings
-from django.urls import reverse
 from rest_framework.test import APIClient
 
 from hub.models import WhatsAppInboundMessage, WhatsAppMessage

@@ -67,7 +67,7 @@ def setup_containers():
 
     except Exception as e:
         print(f"ERROR: Could not connect to Azurite at {AZURITE_BLOB_URL}")
-        print(f"Make sure Azurite is running: docker-compose up -d azurite")
+        print("Make sure Azurite is running: docker-compose up -d azurite")
         print(f"Error details: {e}")
         return False
 

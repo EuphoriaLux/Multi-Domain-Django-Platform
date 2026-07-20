@@ -105,5 +105,5 @@ class Command(BaseCommand):
         # Recommendations
         if failing_subs.exists() and not cleanup:
             self.stdout.write(self.style.NOTICE(
-                f'\n  💡 Tip: Run with --cleanup to remove dead subscriptions'
+                '\n  💡 Tip: Run with --cleanup to remove dead subscriptions'
             ))

@@ -1,5 +1,4 @@
 from django.db.models import Q, Count, Avg
-from django.utils.translation import gettext as _
 
 
 def get_preference_stats(approved_qs):

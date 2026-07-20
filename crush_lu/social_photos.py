@@ -412,7 +412,7 @@ def get_microsoft_photo_url(social_account):
             result_url = f"data:{content_type};base64,{base64_data}"
         elif response.status_code == 404:
             # User has no profile photo set
-            logger.info(f"Microsoft user has no profile photo set")
+            logger.info("Microsoft user has no profile photo set")
         else:
             logger.warning(f"Microsoft Graph API returned status {response.status_code}")
 

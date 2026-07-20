@@ -17,7 +17,7 @@ def membership_concept_preview(request):
     here (LuxID = has a luxid/openid_connect social account) because the
     dedicated field is not built yet — see memory `verification-method-planned`.
     """
-    from django.db.models import Count, Q, Exists, OuterRef
+    from django.db.models import Exists, OuterRef
     from allauth.socialaccount.models import SocialAccount
     from .models import CrushProfile
 

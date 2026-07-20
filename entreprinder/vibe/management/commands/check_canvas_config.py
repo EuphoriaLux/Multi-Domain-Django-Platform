@@ -1,7 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from entreprinder.vibe.models import PixelCanvas, UserPixelCooldown
-import json
 
 
 class Command(BaseCommand):
@@ -125,7 +124,7 @@ class Command(BaseCommand):
                 )
 
                 if recent_cooldowns.exists():
-                    self.stdout.write(f'\n🕒 Recent Activity (last hour):')
+                    self.stdout.write('\n🕒 Recent Activity (last hour):')
                     for cooldown in recent_cooldowns[:5]:  # Show first 5
                         user_type = "Authenticated" if cooldown.user else "Anonymous"
                         user_id = cooldown.user.username if cooldown.user else (cooldown.session_key[:8] if cooldown.session_key else "Unknown")
@@ -158,8 +157,8 @@ class Command(BaseCommand):
             self.stdout.write(f'   • {key}: {value}')
 
         # JavaScript configuration check
-        self.stdout.write(f'\n🔧 To verify frontend configuration, check these template variables:')
-        self.stdout.write(f'   • {{{{ canvas.anonymous_cooldown_seconds }}}}')
-        self.stdout.write(f'   • {{{{ canvas.registered_cooldown_seconds }}}}')
-        self.stdout.write(f'   • {{{{ canvas.anonymous_pixels_per_minute }}}}')
-        self.stdout.write(f'   • {{{{ canvas.registered_pixels_per_minute }}}}')
+        self.stdout.write('\n🔧 To verify frontend configuration, check these template variables:')
+        self.stdout.write('   • {{ canvas.anonymous_cooldown_seconds }}')
+        self.stdout.write('   • {{ canvas.registered_cooldown_seconds }}')
+        self.stdout.write('   • {{ canvas.anonymous_pixels_per_minute }}')
+        self.stdout.write('   • {{ canvas.registered_pixels_per_minute }}')

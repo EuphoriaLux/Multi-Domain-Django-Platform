@@ -15,9 +15,9 @@ How it works:
 3. If session lookup fails, we fall back to database lookup
 4. This allows OAuth to work even when sessions don't persist across browser contexts
 """
+import ipaddress
 import json
 import logging
-import traceback
 from typing import Any, Dict, Optional
 
 from django.utils import timezone
@@ -49,12 +49,26 @@ def get_client_ip(request) -> Optional[str]:
     else:
         ip = request.META.get('REMOTE_ADDR')
 
-    # Remove port if present (e.g., "185.40.60.86:13580" -> "185.40.60.86")
-    if ip and ':' in ip and not ip.startswith('['):
-        # IPv4 with port - split on last colon
-        ip = ip.rsplit(':', 1)[0]
+    if not ip:
+        return ip
 
-    return ip
+    # Bracketed IPv6, optionally with port:
+    # "[2001:db8:1::1]:443" -> "2001:db8:1::1"
+    if ip.startswith('['):
+        host, _, _rest = ip[1:].partition(']')
+        ip = host
+    # IPv4 with port: "203.0.113.10:1234" -> "203.0.113.10".
+    # Plain IPv6 contains multiple colons and must not be split.
+    elif ip.count(':') == 1:
+        host, port = ip.rsplit(':', 1)
+        if port.isdigit():
+            ip = host
+
+    # Normalize valid IPs so equivalent IPv6 spellings share one rate-limit key.
+    try:
+        return str(ipaddress.ip_address(ip))
+    except ValueError:
+        return ip
 
 
 def patch_allauth_statekit():
@@ -98,6 +112,24 @@ def patch_allauth_statekit():
         if is_popup:
             request.session['oauth_popup_mode'] = True
             logger.debug("[OAUTH] Popup mode detected and stored in session")
+
+        # Native-app auth sheet: if this provider login starts inside an
+        # iOS/Android handoff flow that has lost its ?next= (signup detour,
+        # language switch), pin the handoff into the OAuth state itself. The
+        # state is database-backed, so unlike the session flag it survives the
+        # cross-browser and replayed-callback paths below - and it is bound to
+        # this one OAuth flow rather than to the whole browser session.
+        try:
+            if not state.get('next'):
+                from crush_lu.mobile_auth import peek_mobile_handoff_url
+
+                handoff_url = peek_mobile_handoff_url(request)
+                if handoff_url:
+                    state['next'] = handoff_url
+                    logger.info("[OAUTH] Pinned native-app handoff into OAuth state")
+        except Exception as e:
+            # Never block the login over this - the session flag still applies.
+            logger.error(f"[OAUTH] Failed to pin native-app handoff: {e}")
 
         # First, use original session-based storage (for compatibility)
         try:
@@ -214,7 +246,7 @@ def patch_allauth_statekit():
             if recent_state:
                 state = OAuthState.get_and_consume_state(recent_state.state_id)
                 if state:
-                    logger.info(f"OAuth last state retrieved from database")
+                    logger.info("OAuth last state retrieved from database")
                     return state
         except Exception as e:
             logger.error(f"Failed to retrieve last OAuth state from database: {e}")

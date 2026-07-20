@@ -3,7 +3,6 @@ import logging
 import requests
 
 from django.conf import settings
-from django.template import Template, Context
 from google.oauth2 import service_account
 import google.auth
 import google.auth.transport.requests

@@ -4,7 +4,6 @@ Vibe Coding Admin Configuration
 """
 
 from django.contrib import admin
-from .models import PixelCanvas, Pixel, PixelHistory, UserPixelCooldown, UserPixelStats
 
 
 class PixelCanvasAdmin(admin.ModelAdmin):

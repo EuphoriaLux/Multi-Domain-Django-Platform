@@ -6,11 +6,11 @@ percentages, and voter demographics.
 """
 
 from django.contrib.admin.views.decorators import staff_member_required
-from django.db.models import Count, Q
+from django.db.models import Count
 from django.shortcuts import render, get_object_or_404
 from django.utils import timezone
 
-from crush_lu.models.event_polls import EventPoll, EventPollOption, EventPollVote
+from crush_lu.models.event_polls import EventPoll, EventPollVote
 
 
 @staff_member_required

@@ -1,6 +1,5 @@
 from django.contrib import admin
 
-from ..models import IOSAppDevice, IOSNativeAuthCode
 
 
 class IOSAppDeviceAdmin(admin.ModelAdmin):

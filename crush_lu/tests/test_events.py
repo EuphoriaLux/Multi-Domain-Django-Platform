@@ -236,8 +236,7 @@ class EventVotingTests(TestCase):
     def setUp(self):
         """Set up test data."""
         from crush_lu.models import (
-            MeetupEvent, EventVotingSession, EventActivityOption,
-            GlobalActivityOption, EventRegistration, CrushProfile
+            MeetupEvent, EventVotingSession, GlobalActivityOption, EventRegistration, CrushProfile
         )
 
         self.user = User.objects.create_user(
@@ -536,7 +535,7 @@ class WaitlistPromotionTests(TestCase):
     """Test gender-aware waitlist promotion logic."""
 
     def setUp(self):
-        from crush_lu.models import MeetupEvent, EventRegistration, CrushProfile
+        from crush_lu.models import MeetupEvent
 
         self.event = MeetupEvent.objects.create(
             title='Waitlist Promotion Test',

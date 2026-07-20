@@ -11,8 +11,6 @@ Only active on the Crush.lu domain (checks request.urlconf).
 import logging
 from django.shortcuts import redirect
 from django.urls import reverse
-from django.contrib import messages
-from django.utils.translation import gettext as _
 
 logger = logging.getLogger(__name__)
 

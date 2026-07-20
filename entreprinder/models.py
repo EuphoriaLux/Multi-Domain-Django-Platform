@@ -12,10 +12,6 @@ from django.db import models
 from django.contrib.auth.models import User
 
 # Import submodule models so Django migrations can find them
-from entreprinder.vibe.models import (
-    PixelCanvas, Pixel, PixelHistory, UserPixelCooldown, UserPixelStats
-)
-from django.conf import settings
 
 
 class Industry(models.Model):

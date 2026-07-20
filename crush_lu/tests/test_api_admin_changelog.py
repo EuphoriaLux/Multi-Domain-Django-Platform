@@ -20,7 +20,7 @@ from unittest import mock
 from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
-from crush_lu.models import PatchNote, PatchRelease
+from crush_lu.models import PatchRelease
 
 INGEST_URL = "/api/admin/changelog/ingest/"
 API_KEY = "test-admin-key"

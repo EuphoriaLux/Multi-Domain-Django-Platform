@@ -13,7 +13,6 @@ Usage:
 import random
 import requests
 from datetime import date, timedelta
-from io import BytesIO
 
 from django.core.management.base import BaseCommand
 from django.core.files.base import ContentFile
@@ -195,7 +194,7 @@ class Command(BaseCommand):
             f'\nSuccessfully created {created_count} profiles with {photo_count} photos'
         ))
         self.stdout.write(f'Default password for all users: {password}')
-        self.stdout.write(f'Email format: testuser{{N}}@crush.lu')
+        self.stdout.write('Email format: testuser{N}@crush.lu')
 
     def show_progress(self, current, total):
         """Show progress indicator."""

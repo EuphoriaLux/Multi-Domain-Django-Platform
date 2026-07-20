@@ -6,7 +6,7 @@ Native iOS shell for the Crush.lu App Store build.
 - Bundle ID: lu.crush.app
 - Team ID: C5XDPB2G33
 - Version: 1.0.2
-- Build: 2
+- Build: 3
 - Device family: iPhone only for v1
 - Minimum iOS: 16.0
 

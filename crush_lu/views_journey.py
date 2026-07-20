@@ -9,7 +9,6 @@ from django.contrib import messages
 from django.utils import timezone
 from django.utils.translation import get_language, gettext as _
 from django.db.models import Q
-from django.http import JsonResponse
 from .decorators import crush_login_required
 from .models import (
     JourneyConfiguration, JourneyChapter, JourneyChallenge,
@@ -153,7 +152,7 @@ def journey_map_wonderland(request):
             logger.info(f"Wonderland journey found: {journey.journey_name}, active: {journey.is_active}")
         except JourneyConfiguration.DoesNotExist:
             # No Wonderland journey - redirect to selector to show what's available
-            logger.info(f"No Wonderland journey found - redirecting to selector")
+            logger.info("No Wonderland journey found - redirecting to selector")
             return redirect('crush_lu:journey_selector')
 
         # Get or create journey progress

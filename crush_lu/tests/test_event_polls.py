@@ -10,7 +10,6 @@ from datetime import timedelta
 import pytest
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
-from django.urls import reverse
 from django.utils import timezone
 
 from crush_lu.models.event_polls import EventPoll, EventPollOption, EventPollVote

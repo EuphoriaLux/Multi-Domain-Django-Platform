@@ -239,7 +239,7 @@ class TestPhotoPuzzleUI:
 
         # Check points decreased
         authenticated_puzzle_page.wait_for_function(
-            f"document.getElementById('currentPoints').textContent === '450'"
+            "document.getElementById('currentPoints').textContent === '450'"
         )
         new_points = int(points_element.text_content())
         assert new_points == 450

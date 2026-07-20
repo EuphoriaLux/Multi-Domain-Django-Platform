@@ -6,7 +6,6 @@ while maintaining enough information for debugging.
 """
 import re
 import logging
-from functools import lru_cache
 
 
 def mask_email(email: str) -> str:

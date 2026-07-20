@@ -326,7 +326,7 @@ class WalletPassAdmin(admin.ModelAdmin):
                     updated += 1
                 else:
                     failed += 1
-            except Exception as e:
+            except Exception:
                 failed += 1
 
         if updated > 0:

@@ -50,7 +50,7 @@ def main():
         noreload = "--noreload" in sys.argv
 
         print(f"\n{'='*60}")
-        print(f"ASGI mode (Uvicorn) — WebSocket support enabled")
+        print("ASGI mode (Uvicorn) — WebSocket support enabled")
         print(f"Redis: {os.environ['REDIS_URL']}")
         print(f"Listening: http://{host}:{port}/")
         print(f"{'='*60}\n")

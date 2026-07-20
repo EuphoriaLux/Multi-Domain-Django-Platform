@@ -72,7 +72,7 @@ class TestMobileProfileCreation:
                 # Check if field extends beyond viewport
                 field_right_edge = box['x'] + box['width']
                 if field_right_edge > self.MOBILE_VIEWPORT['width']:
-                    print(f"WARNING: Phone field extends beyond viewport!")
+                    print("WARNING: Phone field extends beyond viewport!")
                     print(f"Field right edge: {field_right_edge}px")
                     print(f"Overflow: {field_right_edge - self.MOBILE_VIEWPORT['width']}px")
 

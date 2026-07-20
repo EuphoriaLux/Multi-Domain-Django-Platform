@@ -176,7 +176,7 @@ class Command(BaseCommand):
         if existing_journey:
             if force:
                 self.stdout.write(self.style.WARNING(
-                    f'[!] Deleting existing advent calendar journey...'
+                    '[!] Deleting existing advent calendar journey...'
                 ))
                 # Delete cascade will remove calendar, doors, content, progress, tokens
                 existing_journey.delete()
@@ -197,7 +197,7 @@ class Command(BaseCommand):
             certificate_enabled=False,  # No certificate for advent
             final_message=f"Merry Christmas, {first_name}! You've discovered all 24 surprises.",
         )
-        self.stdout.write(f'[+] Created Journey Configuration (advent_calendar type)')
+        self.stdout.write('[+] Created Journey Configuration (advent_calendar type)')
 
         # 4. Create Advent Calendar
         calendar = AdventCalendar.objects.create(
@@ -248,7 +248,7 @@ class Command(BaseCommand):
         self.stdout.write('=' * 50)
         self.stdout.write(f'Calendar: {calendar.calendar_title}')
         self.stdout.write(f'Year: {year}')
-        self.stdout.write(f'Doors: 24')
+        self.stdout.write('Doors: 24')
         self.stdout.write(f'QR Required Doors: {sum(1 for c in DEFAULT_DOOR_CONFIG if c["qr"] == "required")}')
         self.stdout.write(f'QR Bonus Doors: {sum(1 for c in DEFAULT_DOOR_CONFIG if c["qr"] == "bonus")}')
         self.stdout.write('')

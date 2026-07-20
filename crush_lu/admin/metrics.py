@@ -11,7 +11,6 @@ from django.contrib import admin
 from django.http import HttpResponse
 from django.utils import timezone
 
-from crush_lu.models import WeeklyMetricsSnapshot
 
 
 def _flatten(metrics, prefix=""):

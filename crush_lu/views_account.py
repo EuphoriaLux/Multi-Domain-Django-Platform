@@ -1,7 +1,6 @@
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import login, logout
+from django.shortcuts import render, redirect
+from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
 from django.contrib import messages
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -22,9 +21,7 @@ logger = logging.getLogger(__name__)
 
 from .models import (
     CrushProfile,
-    CrushCoach,
     ProfileSubmission,
-    UserActivity,
     CoachPushSubscription,
     EventRegistration,
     EventConnection,
@@ -37,7 +34,6 @@ from .email_helpers import send_welcome_email
 from .referrals import (
     capture_referral,
     capture_referral_from_request,
-    apply_referral_to_user,
 )
 
 
@@ -243,7 +239,6 @@ def delete_crushlu_profile_only(user):
     Sets permanent ban preventing future Crush.lu profile creation.
     """
     from crush_lu.storage import delete_user_storage
-    from crush_lu.models.profiles import UserDataConsent
 
     logger.info(f"Starting Crush.lu profile deletion for user {user.id}")
 
@@ -427,7 +422,7 @@ def account_settings(request):
     import json
     from allauth.socialaccount.models import SocialApp
     from django.contrib.sites.models import Site
-    from .models import EmailPreference, PushSubscription, CoachPushSubscription
+    from .models import EmailPreference, PushSubscription
     from .social_photos import get_all_social_photos
 
     # Helper function to determine device type from device name

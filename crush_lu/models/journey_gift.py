@@ -10,7 +10,7 @@ import secrets
 import string
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Optional
 
 from django.conf import settings
@@ -581,7 +581,6 @@ class JourneyGift(models.Model):
         """
         from .journey import JourneyReward
         from django.core.files.base import ContentFile
-        from django.core.files.storage import default_storage
 
         results: List[MediaAttachmentResult] = []
 

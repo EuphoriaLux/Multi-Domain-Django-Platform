@@ -6,7 +6,6 @@ from django.shortcuts import redirect, render
 from django.utils.translation import gettext as _
 from .forms import EntrepreneurProfileForm
 from .models import EntrepreneurProfile
-from django.conf import settings
 import logging
 from django.http import JsonResponse
 

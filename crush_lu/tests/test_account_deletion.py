@@ -79,7 +79,6 @@ class AccountDeletionTests(TestCase):
 
     def test_crush_user_context_handles_deleted_profile(self):
         from crush_lu.context_processors import crush_user_context
-        from crush_lu.models import CrushProfile
 
         profile = self.user.crushprofile
         profile.delete()

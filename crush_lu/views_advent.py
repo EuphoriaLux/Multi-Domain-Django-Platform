@@ -7,7 +7,6 @@ Extends the Journey system to provide a 24-door December experience.
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
-from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.db.models import Q
 from django.http import JsonResponse
@@ -17,8 +16,7 @@ import logging
 
 from .decorators import crush_login_required
 from .models import (
-    SpecialUserExperience, JourneyConfiguration,
-    AdventCalendar, AdventDoor, AdventDoorContent,
+    SpecialUserExperience, AdventCalendar, AdventDoor, AdventDoorContent,
     AdventProgress, QRCodeToken
 )
 

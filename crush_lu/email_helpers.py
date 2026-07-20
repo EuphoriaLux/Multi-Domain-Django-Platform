@@ -9,8 +9,8 @@ from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.urls import reverse
 from django.utils.translation import override
-from azureproject.email_utils import send_domain_email, get_domain_from_email
-from .utils.i18n import get_user_preferred_language, is_valid_language
+from azureproject.email_utils import send_domain_email
+from .utils.i18n import get_user_preferred_language
 
 logger = logging.getLogger(__name__)
 
@@ -1433,7 +1433,6 @@ def get_users_needing_reminder(reminder_type):
     from django.conf import settings
     from django.utils import timezone
     from django.contrib.auth.models import User
-    from .models import CrushProfile, ProfileReminder
 
     # Get timing config
     timing = getattr(settings, "PROFILE_REMINDER_TIMING", {})

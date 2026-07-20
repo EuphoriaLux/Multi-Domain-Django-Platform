@@ -15,7 +15,6 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from .profiles import get_crush_photo_storage
-from crush_lu.storage import crush_media_storage
 
 crush_photo_storage = get_crush_photo_storage
 

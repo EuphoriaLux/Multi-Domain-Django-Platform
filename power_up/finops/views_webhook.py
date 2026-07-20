@@ -93,7 +93,7 @@ def sync_status(request):
             } if latest_export else None
         })
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error while fetching sync status")
         return JsonResponse({
             'success': False,

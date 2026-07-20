@@ -7,7 +7,6 @@ import zipfile
 from io import BytesIO
 
 import pytest
-from django.test import override_settings
 
 # Certificate paths for testing (use real certs in certs/apple/)
 CERT_DIR = os.path.join(

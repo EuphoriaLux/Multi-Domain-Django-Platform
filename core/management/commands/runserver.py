@@ -46,7 +46,7 @@ class Command(RunserverCommand):
         # Show all *.localhost domains
         self.stdout.write(
             self.style.SUCCESS(
-                f"\nUse *.localhost domains to test other platforms:\n"
+                "\nUse *.localhost domains to test other platforms:\n"
             )
         )
 
@@ -65,8 +65,8 @@ class Command(RunserverCommand):
             )
         )
         self.stdout.write(
-            f"  Edit azureproject/domains.py and set:\n"
-            f"  DEV_DEFAULT = 'vinsdelux.com'  # or any other domain\n"
+            "  Edit azureproject/domains.py and set:\n"
+            "  DEV_DEFAULT = 'vinsdelux.com'  # or any other domain\n"
         )
 
         self.stdout.write(

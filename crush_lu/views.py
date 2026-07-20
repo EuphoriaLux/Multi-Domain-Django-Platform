@@ -18,7 +18,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
 from django.db import transaction
-from django.http import HttpResponseRedirect, JsonResponse
+from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 import logging
 import json

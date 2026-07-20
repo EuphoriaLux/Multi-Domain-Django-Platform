@@ -16,7 +16,6 @@ from django.contrib.messages.storage.fallback import FallbackStorage
 from django.contrib.sessions.backends.db import SessionStore
 from django.contrib.sites.models import Site
 from django.test import Client, RequestFactory, TestCase, override_settings
-from django.urls import reverse
 from django.utils import timezone
 
 from allauth.socialaccount.models import SocialAccount
