@@ -35877,3 +35877,18 @@ msgstr "Connecter %(provider)s"
 msgid "You'll be taken to %(provider)s to connect your account."
 msgstr ""
 "Vous allez être redirigé vers %(provider)s pour connecter votre compte."
+
+msgid "Open menu"
+msgstr "Ouvrir le menu"
+
+msgid "Close menu"
+msgstr "Fermer le menu"
+
+msgid "Coach Actions"
+msgstr "Actions coach"
+
+msgid "Please upload a profile photo to join Crush Connect."
+msgstr "Veuillez ajouter une photo de profil pour rejoindre Crush Connect."
+
+msgid "Please upload a profile photo to use Crush Connect."
+msgstr "Veuillez ajouter une photo de profil pour utiliser Crush Connect."

@@ -35748,3 +35748,18 @@ msgstr "%(provider)s verbinden"
 #: templates/socialaccount/login_crush.html
 msgid "You'll be taken to %(provider)s to connect your account."
 msgstr "Du wirst zu %(provider)s weitergeleitet, um dein Konto zu verbinden."
+
+msgid "Open menu"
+msgstr "Menü öffnen"
+
+msgid "Close menu"
+msgstr "Menü schließen"
+
+msgid "Coach Actions"
+msgstr "Coach-Aktionen"
+
+msgid "Please upload a profile photo to join Crush Connect."
+msgstr "Bitte lade ein Profilfoto hoch, um Crush Connect beizutreten."
+
+msgid "Please upload a profile photo to use Crush Connect."
+msgstr "Bitte lade ein Profilfoto hoch, um Crush Connect zu nutzen."
