@@ -2,6 +2,7 @@ package lu.crush.app;
 
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
@@ -12,7 +13,9 @@ import android.view.View;
 import android.webkit.CookieManager;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -28,6 +31,7 @@ import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -36,6 +40,7 @@ import android.os.Build;
 
 public class MainActivity extends AppCompatActivity {
     private static final int FILE_CHOOSER_REQUEST = 1001;
+    private static final int NOTIFICATION_PERMISSION_REQUEST = 1002;
     private static final String BASE_URL = BuildConfig.BASE_URL;
     private static final String START_URL = BASE_URL + "/en/dashboard/?source=android_app";
     private static final String AUTH_SCHEME = BuildConfig.AUTH_SCHEME;
@@ -62,14 +67,17 @@ public class MainActivity extends AppCompatActivity {
 
         ViewCompat.setOnApplyWindowInsetsListener(mainContainer, (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
             
             // Set top padding for status bar
             int extraTopPadding = (int) (16 * getResources().getDisplayMetrics().density);
             v.setPadding(0, systemBars.top + extraTopPadding, 0, 0);
 
-            // Set the filler height to match the navigation bar
+            // Set the filler height to match the navigation bar or keyboard
             if (filler != null) {
-                filler.getLayoutParams().height = systemBars.bottom;
+                // Use the maximum of navigation bar and keyboard height to ensure
+                // we don't overlap with either.
+                filler.getLayoutParams().height = Math.max(systemBars.bottom, ime.bottom);
                 filler.requestLayout();
             }
             return WindowInsetsCompat.CONSUMED;
@@ -85,6 +93,11 @@ public class MainActivity extends AppCompatActivity {
         configureWebView();
         configureSwipeRefresh();
         configureBackNavigation();
+        maybeRequestNotificationPermission();
+        // Create the high-importance channel up front so background pushes,
+        // which the system renders via the default_notification_channel_id
+        // manifest meta-data, get a heads-up banner instead of a fallback channel.
+        MyFirebaseMessagingService.ensureNotificationChannel(this);
 
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
@@ -93,15 +106,8 @@ public class MainActivity extends AppCompatActivity {
         if (launchUri != null) {
             handleUri(launchUri);
         } else {
-            String targetUrl = getIntent().getStringExtra("target_url");
-            if (targetUrl != null && !targetUrl.isEmpty()) {
-                if (targetUrl.startsWith("/")) {
-                    targetUrl = BASE_URL + targetUrl;
-                }
-                loadInternal(targetUrl);
-            } else {
-                loadInternal(START_URL);
-            }
+            String targetUrl = pendingTargetUrl(getIntent());
+            loadInternal(targetUrl != null ? targetUrl : START_URL);
         }
     }
 
@@ -113,13 +119,33 @@ public class MainActivity extends AppCompatActivity {
         if (uri != null) {
             handleUri(uri);
         } else {
-            String targetUrl = intent.getStringExtra("target_url");
-            if (targetUrl != null && !targetUrl.isEmpty()) {
-                if (targetUrl.startsWith("/")) {
-                    targetUrl = BASE_URL + targetUrl;
-                }
+            String targetUrl = pendingTargetUrl(intent);
+            if (targetUrl != null) {
                 loadInternal(targetUrl);
             }
+        }
+    }
+
+    private String pendingTargetUrl(Intent intent) {
+        String targetUrl = intent.getStringExtra("target_url");
+        if (targetUrl == null || targetUrl.isEmpty()) {
+            // Background FCM notifications are rendered by the system; tapping
+            // them delivers the data payload's raw "url" key as an extra.
+            targetUrl = intent.getStringExtra("url");
+        }
+        if (targetUrl == null || targetUrl.isEmpty()) {
+            return null;
+        }
+        return targetUrl.startsWith("/") ? BASE_URL + targetUrl : targetUrl;
+    }
+
+    private void maybeRequestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                        != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(
+                    new String[]{android.Manifest.permission.POST_NOTIFICATIONS},
+                    NOTIFICATION_PERMISSION_REQUEST);
         }
     }
 
@@ -185,6 +211,13 @@ public class MainActivity extends AppCompatActivity {
                 loadInternal(START_URL);
             }
         });
+
+        // Disable swipe-to-refresh if the WebView is scrolled down
+        webView.getViewTreeObserver().addOnScrollChangedListener(() -> {
+            if (webView != null) {
+                swipeRefresh.setEnabled(webView.getScrollY() == 0);
+            }
+        });
     }
 
     private void configureBackNavigation() {
@@ -232,6 +265,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean shouldStartNativeAuth(Uri uri) {
+        // For local testing, allow login in the WebView to test insets/keyboard
+        if (BuildConfig.BASE_URL.contains("10.0.2.2")) {
+            return false;
+        }
         if (!isInternal(uri)) {
             return false;
         }
@@ -257,9 +294,27 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void openExternal(Uri uri) {
-        Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+        Intent intent;
+        if ("intent".equals(uri.getScheme())) {
+            try {
+                intent = Intent.parseUri(uri.toString(), Intent.URI_INTENT_SCHEME);
+                // A web page must not be able to target internal components.
+                intent.setComponent(null);
+                intent.setSelector(null);
+            } catch (URISyntaxException exception) {
+                return;
+            }
+        } else {
+            intent = new Intent(Intent.ACTION_VIEW, uri);
+        }
         intent.addCategory(Intent.CATEGORY_BROWSABLE);
-        startActivity(intent);
+        try {
+            startActivity(intent);
+        } catch (ActivityNotFoundException | SecurityException exception) {
+            // No installed app handles this link, or a parsed intent: URI asked
+            // for something this app isn't permitted to launch (e.g. an
+            // ACTION_CALL that needs CALL_PHONE). Dropping it beats crashing.
+        }
     }
 
     private void showOffline() {
@@ -313,8 +368,21 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @Override
-        public boolean shouldOverrideUrlLoading(WebView view, String url) {
-            return handleNavigation(Uri.parse(url));
+        public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+            if (request.isForMainFrame()) {
+                showOffline();
+            }
+        }
+
+        @Override
+        public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse errorResponse) {
+            // onReceivedError only fires for network-level failures; a main-document
+            // 5xx (origin/proxy outage) surfaces here instead. Show the offline view
+            // rather than leaving the raw server error page in the WebView. 4xx pages
+            // (e.g. a 404) carry real content, so they are left to render normally.
+            if (request.isForMainFrame() && errorResponse.getStatusCode() >= 500) {
+                showOffline();
+            }
         }
 
         private boolean handleNavigation(Uri uri) {
@@ -359,9 +427,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void injectTokenRegistrationScript(String token) {
         String deviceId = android.provider.Settings.Secure.getString(getContentResolver(), android.provider.Settings.Secure.ANDROID_ID);
-        String deviceName = Build.MANUFACTURER + " " + Build.MODEL;
-        String systemVersion = "Android " + Build.VERSION.RELEASE;
-        String appVersion = BuildConfig.VERSION_NAME;
+        // Escape single quotes to prevent JS injection/syntax errors
+        String deviceName = (Build.MANUFACTURER + " " + Build.MODEL).replace("'", "\\'");
+        String systemVersion = ("Android " + Build.VERSION.RELEASE).replace("'", "\\'");
+        String appVersion = BuildConfig.VERSION_NAME.replace("'", "\\'");
         String appBuild = String.valueOf(BuildConfig.VERSION_CODE);
 
         String js = String.format(
@@ -402,7 +471,7 @@ public class MainActivity extends AppCompatActivity {
             "  }) " +
             "  .catch(function(err) { console.error('FCM registration error', err); }); " +
             "})();",
-            token, deviceId, deviceName, appVersion, appBuild, systemVersion
+            token.replace("'", "\\'"), deviceId.replace("'", "\\'"), deviceName, appVersion, appBuild, systemVersion
         );
 
         webView.evaluateJavascript(js, null);

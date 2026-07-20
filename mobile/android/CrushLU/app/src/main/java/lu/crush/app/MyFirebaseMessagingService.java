@@ -20,7 +20,12 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     private static final String PREFS_NAME = "CrushPreferences";
     private static final String KEY_FCM_TOKEN = "fcm_token";
     private static final String KEY_TOKEN_SYNCED = "fcm_token_synced";
-    private static final String CHANNEL_ID = "crush_notifications";
+    // Bumped from the original "crush_notifications": that channel shipped in
+    // build 3 at IMPORTANCE_DEFAULT, and a channel's importance is immutable once
+    // created. A fresh id is the only way to give upgrading users the heads-up
+    // (IMPORTANCE_HIGH) channel; the old one is deleted in ensureNotificationChannel.
+    private static final String CHANNEL_ID = "crush_notifications_v2";
+    private static final String LEGACY_CHANNEL_ID = "crush_notifications";
 
     @Override
     public void onNewToken(@NonNull String token) {
@@ -60,31 +65,29 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
 
     private void sendNotification(String title, String messageBody, Map<String, String> data) {
         Intent intent = new Intent(this, MainActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
         // Pass payload URL data to MainActivity so it can navigate on click
         if (data != null && data.containsKey("url")) {
             intent.putExtra("target_url", data.get("url"));
         }
 
+        // Unique per notification: a fixed id would make every push overwrite
+        // the previous one, and a fixed PendingIntent requestCode would reuse
+        // the first notification's target_url extra for all later ones.
+        int notificationId = (int) (System.currentTimeMillis() & 0x7FFFFFFF);
+
         PendingIntent pendingIntent = PendingIntent.getActivity(
-                this, 0, intent,
-                PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE
+                this, notificationId, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
         NotificationManager notificationManager =
                 (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
-        // Create the NotificationChannel for Android Oreo and above
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID,
-                    "Crush Notifications",
-                    NotificationManager.IMPORTANCE_DEFAULT
-            );
-            channel.setDescription("Crush push notification updates");
-            notificationManager.createNotificationChannel(channel);
-        }
+        // Idempotent with the channel created at app startup; keeps the
+        // foreground path working even if onCreate hasn't run this process.
+        ensureNotificationChannel(this);
 
         NotificationCompat.Builder notificationBuilder =
                 new NotificationCompat.Builder(this, CHANNEL_ID)
@@ -94,6 +97,37 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                         .setAutoCancel(true)
                         .setContentIntent(pendingIntent);
 
-        notificationManager.notify(0, notificationBuilder.build());
+        notificationManager.notify(notificationId, notificationBuilder.build());
+    }
+
+    /**
+     * Create (or update) the high-importance notification channel.
+     *
+     * <p>Background FCM "notification" messages are rendered by the system, which
+     * bypasses {@link #onMessageReceived} and looks up the channel named by the
+     * {@code com.google.firebase.messaging.default_notification_channel_id}
+     * manifest meta-data. That channel must already exist, so this is also called
+     * from {@code MainActivity.onCreate()} to guarantee heads-up delivery for
+     * pushes received while the app is backgrounded.
+     */
+    static void ensureNotificationChannel(Context context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            return;
+        }
+        NotificationManager notificationManager =
+                context.getSystemService(NotificationManager.class);
+        if (notificationManager == null) {
+            return;
+        }
+        // Remove the superseded IMPORTANCE_DEFAULT channel so upgrading users
+        // land on the high-importance one below (no-op on fresh installs).
+        notificationManager.deleteNotificationChannel(LEGACY_CHANNEL_ID);
+        NotificationChannel channel = new NotificationChannel(
+                CHANNEL_ID,
+                "Crush Notifications",
+                NotificationManager.IMPORTANCE_HIGH
+        );
+        channel.setDescription("Crush push notification updates");
+        notificationManager.createNotificationChannel(channel);
     }
 }

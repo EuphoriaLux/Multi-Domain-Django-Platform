@@ -262,3 +262,4 @@ mobile/android/**/app/build/
 build-artifacts/
 *.jks
 project-*.json
+.idea/
