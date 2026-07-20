@@ -117,6 +117,7 @@ def _make_user(
         location="Luxembourg City",
         is_approved=is_approved,
         is_active=True,
+        photo_1="users/1/photos/test.jpg",
         preferred_genders=preferred_genders if preferred_genders is not None else [],
         preferred_age_min=preferred_age_min,
         preferred_age_max=preferred_age_max,
@@ -242,6 +243,25 @@ def test_pool_excludes_unapproved_targets():
     unapproved = _make_user(username="unapproved", is_approved=False)
     _mark_attended(unapproved)
     assert unapproved not in get_eligible_pool(me)
+
+
+@pytest.mark.django_db
+def test_pool_and_catalogue_exclude_photoless_targets():
+    # Fast-track event verification made photo_1 optional, but "Read-the-Photo"
+    # cannot surface a member who has no photo — and clearing the photo AFTER
+    # onboarding must drop them out at the next action point too (the view
+    # gates alone can be bypassed via direct catalogue/notification URLs).
+    from crush_lu.services.crush_connect import is_catalogue_eligible
+
+    me = _make_user(username="me", preferred_genders=["F", "M"])
+    photoless = _make_user(username="photoless")
+    assert photoless in get_eligible_pool(me)
+    assert is_catalogue_eligible(photoless)
+
+    photoless.crushprofile.photo_1 = ""
+    photoless.crushprofile.save(update_fields=["photo_1"])
+    assert photoless not in get_eligible_pool(me)
+    assert not is_catalogue_eligible(photoless)
 
 
 @pytest.mark.django_db
@@ -900,6 +920,30 @@ def test_home_renders_drop_with_cards(client, settings):
     expected_firstnames = {t.first_name for t in drop.recipients.all()}
     for fn in expected_firstnames:
         assert fn in body
+
+
+@pytest.mark.django_db
+def test_home_hides_recipient_who_cleared_photo_after_snapshot(client, settings):
+    """The pool filter only protects NEW snapshots — a member who clears
+    their photo after being pinned into a ConnectDailyDrop must vanish from
+    the rendered Drop too (the snapshot stays intact for audit)."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"])
+    _mark_attended(me)
+    _seed_pool_for(me, n=3)
+    _login_eligible(client, me)
+
+    # Pin today's Drop, then clear one recipient's photo.
+    client.get(CONNECT_HOME_URL)
+    drop = ConnectDailyDrop.objects.filter(user=me).latest("drop_date")
+    cleared = drop.recipients.first()
+    cleared.crushprofile.photo_1 = ""
+    cleared.crushprofile.save(update_fields=["photo_1"])
+
+    body = client.get(CONNECT_HOME_URL).content.decode()
+    assert cleared.first_name not in body
+    # The persisted snapshot is untouched — only the render filters it out.
+    assert drop.recipients.filter(pk=cleared.pk).exists()
 
 
 @pytest.mark.django_db

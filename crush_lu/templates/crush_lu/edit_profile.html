@@ -212,6 +212,23 @@
                 </div>
                 <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
             </a>
+
+            {# Log Out (mobile only — desktop has it in the navbar user dropdown) #}
+            <a href="{% url 'crush_lu:logout' %}"
+               class="section-edit-card card-tappable lg:hidden">
+                <div class="flex items-center gap-3">
+                    <div class="section-edit-card-icon bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+                        {% include "shared/icons/arrow-right-on-rectangle.html" with class="w-5 h-5" %}
+                    </div>
+                    <div>
+                        <div class="font-medium text-red-600 dark:text-red-400">{% trans "Log Out" %}</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">
+                            {% trans "Sign out of your account on this device" %}
+                        </div>
+                    </div>
+                </div>
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
         </div>
     </div>
 {% endif %}

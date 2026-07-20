@@ -5,12 +5,29 @@ plugins {
 
 val uploadStoreFile = providers.gradleProperty("CRUSH_UPLOAD_STORE_FILE")
 val env = providers.gradleProperty("CRUSH_ENV").getOrElse("production")
-val baseUrl = if (env == "staging") "https://test.crush.lu" else "https://crush.lu"
+val baseUrl = when (env) {
+    "staging" -> "https://test.crush.lu"
+    "local" -> "http://10.0.2.2:8000"
+    else -> "https://crush.lu"
+}
 
 val isStaging = (env == "staging")
-val appName = if (isStaging) "Crush (Staging)" else "Crush.lu"
-val authScheme = if (isStaging) "crushlustaging" else "crushlu"
-val hostName = if (isStaging) "test.crush.lu" else "crush.lu"
+val isLocal = (env == "local")
+val appName = when {
+    isStaging -> "Crush (Staging)"
+    isLocal -> "Crush (Local)"
+    else -> "Crush.lu"
+}
+val authScheme = when {
+    isStaging -> "crushlustaging"
+    isLocal -> "crushlulocal"
+    else -> "crushlu"
+}
+val hostName = when {
+    isStaging -> "test.crush.lu"
+    isLocal -> "10.0.2.2"
+    else -> "crush.lu"
+}
 
 android {
     namespace = "lu.crush.app"
@@ -22,8 +39,12 @@ android {
 
     defaultConfig {
         applicationId = "lu.crush.app"
+        // Non-production variants get their own application id so they can be
+        // installed alongside (not over) the store-signed production app.
         if (isStaging) {
             applicationIdSuffix = ".staging"
+        } else if (isLocal) {
+            applicationIdSuffix = ".local"
         }
         minSdk = 26
         targetSdk = 35

@@ -20,6 +20,8 @@ import android.widget.ProgressBar;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.core.graphics.Insets;
 import androidx.core.splashscreen.SplashScreen;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
@@ -51,23 +53,32 @@ public class MainActivity extends AppCompatActivity {
         SplashScreen.installSplashScreen(this);
         super.onCreate(savedInstanceState);
 
-        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
-        getWindow().setStatusBarColor(Color.TRANSPARENT);
-        getWindow().setNavigationBarColor(Color.TRANSPARENT);
-
         setContentView(R.layout.activity_main);
+
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+
+        View filler = findViewById(R.id.bottom_system_bar_filler);
+        View mainContainer = findViewById(R.id.main_container);
+
+        ViewCompat.setOnApplyWindowInsetsListener(mainContainer, (v, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            
+            // Set top padding for status bar
+            int extraTopPadding = (int) (16 * getResources().getDisplayMetrics().density);
+            v.setPadding(0, systemBars.top + extraTopPadding, 0, 0);
+
+            // Set the filler height to match the navigation bar
+            if (filler != null) {
+                filler.getLayoutParams().height = systemBars.bottom;
+                filler.requestLayout();
+            }
+            return WindowInsetsCompat.CONSUMED;
+        });
 
         webView = findViewById(R.id.web_view);
         progressBar = findViewById(R.id.progress_bar);
         swipeRefresh = findViewById(R.id.swipe_refresh);
         offlineView = findViewById(R.id.offline_view);
-
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main_container), (v, insets) -> {
-            int statusBarHeight = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
-            int extraPadding = (int) (16 * getResources().getDisplayMetrics().density);
-            v.setPadding(0, statusBarHeight + extraPadding, 0, 0);
-            return insets;
-        });
 
         findViewById(R.id.retry_button).setOnClickListener(v -> loadInternal(webView.getUrl() != null ? webView.getUrl() : START_URL));
 
@@ -270,11 +281,13 @@ public class MainActivity extends AppCompatActivity {
                 || capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET));
     }
 
-    private void fixWebHeaderStyle() {
+    private void fixWebStyles() {
         String js = "(function() { " +
                     "  var css = 'nav, header, .navbar, .nav-bar { " +
-                    "    padding-bottom: 12px !important; " +
-                    "    min-height: 65px !important; " +
+                    "    padding-bottom: 8px !important; " +
+                    "  } " +
+                    "  .bottom-nav { " +
+                    "    padding-bottom: 4px !important; " +
                     "  }'; " +
                     "  var style = document.getElementById('crush-fix-style') || document.createElement('style'); " +
                     "  style.id = 'crush-fix-style'; " +
@@ -283,14 +296,13 @@ public class MainActivity extends AppCompatActivity {
                     "})();";
 
         webView.evaluateJavascript(js, null);
-        webView.postDelayed(() -> webView.evaluateJavascript(js, null), 1000);
     }
 
     private final class CrushWebViewClient extends WebViewClient {
         @Override
         public void onPageFinished(WebView view, String url) {
             swipeRefresh.setRefreshing(false);
-            fixWebHeaderStyle();
+            fixWebStyles();
             CookieManager.getInstance().flush();
             registerFcmTokenIfAuthenticated();
         }

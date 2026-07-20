@@ -53,15 +53,6 @@
         </div>
     </div>
 
-    <!-- Log Out -->
-    <div class="section-card mb-4 border-red-200 dark:border-red-800">
-        <a href="{% url 'account_logout' %}"
-           class="flex items-center gap-3 py-3 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors">
-            {% include "shared/icons/arrow-right-on-rectangle.html" with class="w-5 h-5" %}
-            <span class="font-medium">{% trans "Log Out" %}</span>
-        </a>
-    </div>
-
     <!-- Back Button -->
     <div class="action-buttons-container action-buttons-sticky">
         <a href="{% url 'crush_lu:edit_profile' %}?section=account" class="btn-cancel">

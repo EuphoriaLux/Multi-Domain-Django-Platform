@@ -199,7 +199,10 @@ class CrushProfileForm(forms.ModelForm):
     ]
 
     location = forms.ChoiceField(
-        required=True,
+        # Optional since fast-track event verification — the wizard's final
+        # POST goes through this form, so requiring it here would re-block
+        # the users the relaxed model check just let through.
+        required=False,
         choices=LOCATION_CHOICES,
         widget=forms.HiddenInput(attrs={'id': 'id_location'}),
         help_text=_('Your region in or near Luxembourg')

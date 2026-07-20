@@ -35727,6 +35727,12 @@ msgstr ""
 "sodass beide gleichzeitig schließen). Nach Ablauf des Zeitfensters werden "
 "Teilnehmer zum Crush-Connect-Teaser weitergeleitet."
 
+msgid "Delete profile, data management"
+msgstr "Profil löschen, Datenverwaltung"
+
+msgid "Sign out of your account on this device"
+msgstr "Melde dich auf diesem Gerät von deinem Konto ab"
+
 #: templates/socialaccount/login_crush.html
 msgid "Sign in with %(provider)s"
 msgstr "Mit %(provider)s anmelden"
@@ -35742,3 +35748,18 @@ msgstr "%(provider)s verbinden"
 #: templates/socialaccount/login_crush.html
 msgid "You'll be taken to %(provider)s to connect your account."
 msgstr "Du wirst zu %(provider)s weitergeleitet, um dein Konto zu verbinden."
+
+msgid "Open menu"
+msgstr "Menü öffnen"
+
+msgid "Close menu"
+msgstr "Menü schließen"
+
+msgid "Coach Actions"
+msgstr "Coach-Aktionen"
+
+msgid "Please upload a profile photo to join Crush Connect."
+msgstr "Bitte lade ein Profilfoto hoch, um Crush Connect beizutreten."
+
+msgid "Please upload a profile photo to use Crush Connect."
+msgstr "Bitte lade ein Profilfoto hoch, um Crush Connect zu nutzen."

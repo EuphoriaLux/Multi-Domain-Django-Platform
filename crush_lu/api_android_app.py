@@ -35,7 +35,11 @@ def _json_body(request):
 
 
 class AndroidAppRedirect(HttpResponseRedirect):
-    allowed_schemes = ["http", "https", "ftp", "crushlu"]
+    # The staging/local app flavors register their own callback schemes
+    # (build.gradle.kts authScheme). Listing a scheme here only lets Django
+    # EMIT the redirect — the actual gate stays ANDROID_AUTH_REDIRECT_URIS,
+    # which production does not extend beyond crushlu://auth.
+    allowed_schemes = ["http", "https", "ftp", "crushlu", "crushlustaging", "crushlulocal"]
 
 
 def _allowed_redirect_uri(uri):

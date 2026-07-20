@@ -35854,6 +35854,12 @@ msgstr ""
 "pour que les deux ferment ensemble). Une fois la fenêtre fermée, les "
 "participants sont redirigés vers le teaser Crush Connect."
 
+msgid "Delete profile, data management"
+msgstr "Supprimer le profil, gestion des données"
+
+msgid "Sign out of your account on this device"
+msgstr "Déconnectez-vous de votre compte sur cet appareil"
+
 #: templates/socialaccount/login_crush.html
 msgid "Sign in with %(provider)s"
 msgstr "Se connecter avec %(provider)s"
@@ -35871,3 +35877,18 @@ msgstr "Connecter %(provider)s"
 msgid "You'll be taken to %(provider)s to connect your account."
 msgstr ""
 "Vous allez être redirigé vers %(provider)s pour connecter votre compte."
+
+msgid "Open menu"
+msgstr "Ouvrir le menu"
+
+msgid "Close menu"
+msgstr "Fermer le menu"
+
+msgid "Coach Actions"
+msgstr "Actions coach"
+
+msgid "Please upload a profile photo to join Crush Connect."
+msgstr "Veuillez ajouter une photo de profil pour rejoindre Crush Connect."
+
+msgid "Please upload a profile photo to use Crush Connect."
+msgstr "Veuillez ajouter une photo de profil pour utiliser Crush Connect."

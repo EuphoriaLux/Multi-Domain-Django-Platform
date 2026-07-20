@@ -70,7 +70,7 @@ DOMAINS = {
 
 # Development configuration
 # Note: 'testserver' is added for pytest-django live_server fixture
-DEV_HOSTS = ['localhost', '127.0.0.1', '192.168.178.184', 'testserver']
+DEV_HOSTS = ['localhost', '127.0.0.1', '192.168.178.184', 'testserver', '10.0.2.2']
 DEV_DEFAULT = 'crush.lu'  # Change this to test different sites locally
 
 # Local development domain mappings (avoids HSTS issues with real domains)

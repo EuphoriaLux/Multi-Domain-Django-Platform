@@ -12,6 +12,23 @@
  */
 
 document.addEventListener("alpine:init", function () {
+    // Global drawer store for mobile side menu
+    Alpine.store("drawer", {
+        open: false,
+        toggle() {
+            this.open = !this.open;
+            if (this.open) {
+                document.body.style.overflow = "hidden";
+            } else {
+                document.body.style.overflow = "";
+            }
+        },
+        close() {
+            this.open = false;
+            document.body.style.overflow = "";
+        }
+    });
+
     // =========================================================================
     // SHARED INTERACTIVITY MIXINS (Phase 5 — see crush_lu/STYLE.md §7)
     //
@@ -285,6 +302,25 @@ document.addEventListener("alpine:init", function () {
                     navigator.vibrate(10);
                 }
                 window.history.back();
+            },
+
+            toggleDrawer: function () {
+                this.$store.drawer.toggle();
+            },
+        };
+    });
+
+    // Mobile navigation side drawer (partials/mobile_drawer.html). State lives
+    // in the global `drawer` store so the top bar's hamburger (a separate
+    // component) can toggle it; the CSP build cannot evaluate `$store.…`
+    // expressions in templates, so these members wrap the store access.
+    Alpine.data("mobileDrawer", function () {
+        return {
+            get drawerOpen() {
+                return this.$store.drawer.open;
+            },
+            closeDrawer: function () {
+                this.$store.drawer.close();
             },
         };
     });
@@ -3573,10 +3609,11 @@ document.addEventListener("alpine:init", function () {
                 return Object.keys(this.fieldErrors).length > 0;
             },
             get canContinueStep1() {
+                // Location is deliberately absent: optional since fast-track
+                // event verification (must match save-step1 API + model).
                 return (
                     this.phoneVerified &&
                     this.gender !== "" &&
-                    this.location !== "" &&
                     !this.isSaving
                 );
             },
@@ -3584,7 +3621,6 @@ document.addEventListener("alpine:init", function () {
                 return (
                     !this.phoneVerified ||
                     this.gender === "" ||
-                    this.location === "" ||
                     this.isSaving
                 );
             },
