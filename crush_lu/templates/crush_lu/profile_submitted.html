@@ -834,15 +834,15 @@
                         {% trans "Go to Dashboard" %}
                     </a>
                     {% if submission.status == 'approved' %}
-                        <a href="{% url 'crush_lu:event_list' %}" class="btn-outline-secondary">
+                        <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-outline">
                             {% trans "Browse Events" %}
                         </a>
                     {% elif submission.status != 'pending' and submission.status != 'under_review' %}
-                        <a href="{% url 'crush_lu:event_list' %}" class="btn-outline-secondary">
+                        <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-outline">
                             {% trans "Browse Events (while you wait)" %}
                         </a>
                     {% endif %}
-                    <a href="{% url 'crush_lu:account_settings' %}" class="btn-outline-secondary inline-flex items-center justify-center gap-2">
+                    <a href="{% url 'crush_lu:account_settings' %}" class="btn-crush-outline inline-flex items-center justify-center gap-2">
                         {% include "shared/icons/cog.html" with class="w-4 h-4" %}
                         {% trans "Account Settings" %}
                     </a>

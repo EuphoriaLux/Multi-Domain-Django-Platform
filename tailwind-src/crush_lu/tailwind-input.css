@@ -13925,10 +13925,10 @@ body.connect-wizard main.has-bottom-nav {
         @apply flex h-full flex-col items-center justify-center gap-0.5 rounded-[14px] px-1.5 py-2.5 text-center text-[12.5px]/[1.35] font-semibold;
     }
 
-    /* Trait / interest chip. Design pads 7px; min-h-10 guarantees a 40px tap
-       target regardless of font metrics. */
+    /* Trait / interest chip. Design pads 7px; min-h-11 guarantees a 44px tap
+       target (meeting WCAG and iOS accessibility guidelines) regardless of font metrics. */
     .connect-chip {
-        @apply inline-flex items-center rounded-full px-3.5 py-2 min-h-10 text-[12.5px] font-semibold;
+        @apply inline-flex items-center rounded-full px-3.5 py-2 min-h-11 text-[12.5px] font-semibold;
     }
 
     /* Wizard/step card title (mockup: Fraunces 22px, tight tracking). One
