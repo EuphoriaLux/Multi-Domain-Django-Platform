@@ -15,6 +15,14 @@ on:
     tags:
       - 'v*'
 
+concurrency:
+  # Serialize releases so Play uploads happen in versionCode order. Two
+  # overlapping runs could otherwise upload out of order, and Play rejects the
+  # older run's lower versionCode when it lands second. cancel-in-progress:
+  # false lets an in-flight release finish rather than being aborted mid-upload.
+  group: android-release
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
