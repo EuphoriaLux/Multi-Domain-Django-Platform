@@ -303,6 +303,25 @@ document.addEventListener("alpine:init", function () {
                 }
                 window.history.back();
             },
+
+            toggleDrawer: function () {
+                this.$store.drawer.toggle();
+            },
+        };
+    });
+
+    // Mobile navigation side drawer (partials/mobile_drawer.html). State lives
+    // in the global `drawer` store so the top bar's hamburger (a separate
+    // component) can toggle it; the CSP build cannot evaluate `$store.…`
+    // expressions in templates, so these members wrap the store access.
+    Alpine.data("mobileDrawer", function () {
+        return {
+            get drawerOpen() {
+                return this.$store.drawer.open;
+            },
+            closeDrawer: function () {
+                this.$store.drawer.close();
+            },
         };
     });
 

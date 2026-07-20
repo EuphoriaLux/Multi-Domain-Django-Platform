@@ -41,7 +41,7 @@
             <span class="top-bar-mobile-bell-badge" x-show="hasNotifications" x-text="notificationCount" x-cloak></span>
         </a>
         <button type="button"
-                @click="$store.drawer.toggle()"
+                @click="toggleDrawer"
                 class="p-2 text-white/90 hover:bg-white/10 hover:text-white rounded-lg transition-colors cursor-pointer shrink-0"
                 aria-label="{% trans 'Open menu' %}">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6">
