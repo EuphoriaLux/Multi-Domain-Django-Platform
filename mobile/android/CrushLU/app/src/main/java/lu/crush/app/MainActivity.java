@@ -62,14 +62,17 @@ public class MainActivity extends AppCompatActivity {
 
         ViewCompat.setOnApplyWindowInsetsListener(mainContainer, (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
             
             // Set top padding for status bar
             int extraTopPadding = (int) (16 * getResources().getDisplayMetrics().density);
             v.setPadding(0, systemBars.top + extraTopPadding, 0, 0);
 
-            // Set the filler height to match the navigation bar
+            // Set the filler height to match the navigation bar or keyboard
             if (filler != null) {
-                filler.getLayoutParams().height = systemBars.bottom;
+                // Use the maximum of navigation bar and keyboard height to ensure
+                // we don't overlap with either.
+                filler.getLayoutParams().height = Math.max(systemBars.bottom, ime.bottom);
                 filler.requestLayout();
             }
             return WindowInsetsCompat.CONSUMED;
@@ -183,6 +186,13 @@ public class MainActivity extends AppCompatActivity {
                 webView.reload();
             } else {
                 loadInternal(START_URL);
+            }
+        });
+
+        // Disable swipe-to-refresh if the WebView is scrolled down
+        webView.getViewTreeObserver().addOnScrollChangedListener(() -> {
+            if (webView != null) {
+                swipeRefresh.setEnabled(webView.getScrollY() == 0);
             }
         });
     }
@@ -363,9 +373,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void injectTokenRegistrationScript(String token) {
         String deviceId = android.provider.Settings.Secure.getString(getContentResolver(), android.provider.Settings.Secure.ANDROID_ID);
-        String deviceName = Build.MANUFACTURER + " " + Build.MODEL;
-        String systemVersion = "Android " + Build.VERSION.RELEASE;
-        String appVersion = BuildConfig.VERSION_NAME;
+        // Escape single quotes to prevent JS injection/syntax errors
+        String deviceName = (Build.MANUFACTURER + " " + Build.MODEL).replace("'", "\\'");
+        String systemVersion = ("Android " + Build.VERSION.RELEASE).replace("'", "\\'");
+        String appVersion = BuildConfig.VERSION_NAME.replace("'", "\\'");
         String appBuild = String.valueOf(BuildConfig.VERSION_CODE);
 
         String js = String.format(
@@ -406,7 +417,7 @@ public class MainActivity extends AppCompatActivity {
             "  }) " +
             "  .catch(function(err) { console.error('FCM registration error', err); }); " +
             "})();",
-            token, deviceId, deviceName, appVersion, appBuild, systemVersion
+            token.replace("'", "\\'"), deviceId.replace("'", "\\'"), deviceName, appVersion, appBuild, systemVersion
         );
 
         webView.evaluateJavascript(js, null);
