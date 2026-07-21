@@ -23,6 +23,7 @@ from crush_lu.email_helpers import (
     send_profile_incomplete_reminder,
 )
 from crush_lu.models import CrushProfile, EmailPreference, ProfileReminder
+from crush_lu.models.profiles import UserDataConsent
 
 User = get_user_model()
 
@@ -48,6 +49,12 @@ def make_incomplete_user(
         completion_status=completion_status,
         verification_status=verification_status,
         preferred_language=preferred_language,
+    )
+    # A real crush.lu signup records crushlu consent; the reminder query now
+    # requires it (Codex P1), so give the helper's baseline user consent. The
+    # post_save signal already created the row with the False default.
+    UserDataConsent.objects.update_or_create(
+        user=user, defaults={"crushlu_consent_given": True}
     )
     # created_at is auto_now_add — backdate it via queryset update. Backdate
     # date_joined to match (they're set together at signup in production), so
@@ -139,12 +146,41 @@ class GetUsersNeedingReminderTests(TestCase):
         # older account. (Ordering by date_joined would wrongly put lazy first.)
         self.assertEqual(ordered[0], near_expiry)
 
+    def test_users_without_crushlu_consent_are_excluded(self):
+        """create_crush_profile_on_login can make an incomplete CrushProfile for
+        a cross-domain account that never confirmed Crush.lu consent
+        (crushlu_consent_given stays False). The timer must not email them
+        (Codex P1)."""
+        consented = make_incomplete_user("consented", created_hours_ago=30)
+
+        noconsent = make_incomplete_user("noconsent", created_hours_ago=30)
+        UserDataConsent.objects.update_or_create(
+            user=noconsent, defaults={"crushlu_consent_given": False}
+        )
+
+        eligible = set(get_users_needing_reminder("24h"))
+        self.assertEqual(eligible, {consented})
+
+    def test_backlog_recovered_user_can_still_reach_later_stage(self):
+        """A profile whose earlier stage fired at the end of its window must
+        still fit the later stage's window once the cadence gap plus a daily-run
+        cycle has elapsed — the widened later windows leave that slack, so the
+        sequence isn't stranded (Codex P2)."""
+        # Profile 228h old; its 24h nudge went out at ~168h (the 24h max), i.e.
+        # 60h ago — past the 48h gap, but the profile is now beyond the OLD 216h
+        # 72h ceiling and only fits the widened 240h window.
+        user = make_incomplete_user("late", created_hours_ago=228)
+        reminder = ProfileReminder.objects.create(user=user, reminder_type="24h")
+        ProfileReminder.objects.filter(pk=reminder.pk).update(
+            sent_at=timezone.now() - timedelta(hours=60)
+        )
+
+        self.assertIn(user, get_users_needing_reminder("72h"))
+
     def test_banned_and_deactivated_users_are_excluded(self):
         """A ban keeps the profile but sets user.is_active False +
         crushlu_banned True; a profile deactivation sets crushprofile.is_active
         False. Neither must be emailed a reminder (Codex P1)."""
-        from crush_lu.models.profiles import UserDataConsent
-
         ok = make_incomplete_user("okuser", created_hours_ago=30)
 
         banned = make_incomplete_user("banneduser", created_hours_ago=30)

@@ -1046,6 +1046,16 @@ CSRF_FAILURE_VIEW = "azureproject.middleware.csrf_failure_view"
 # enabling this against a historical backlog only contacts recent signups,
 # not months-old abandoned ones. At most one send per stage: the query
 # excludes users who already have that stage's ProfileReminder row.
+#
+# Each later stage's max_hours must leave slack for a backlog-recovered user to
+# still reach it: get_users_needing_reminder gates the next stage on the prior
+# reminder's sent_at + the cadence gap (24h->72h = 48h, 72h->7d = 96h), so a
+# user whose prior stage fired at the very end of ITS window only becomes
+# eligible gap-hours later and needs one more daily run to be caught. So each
+# later max_hours >= prior stage's max_hours + gap + 24h (one daily cycle):
+#   72h: 168 + 48 + 24 = 240;  7d: 240 + 96 + 24 = 360.
+# Otherwise the cadence gate would push a delayed user past this ceiling before
+# any run selects them, stranding the sequence. (Codex P2)
 PROFILE_REMINDER_TIMING = {
     "24h": {
         "min_hours": 24,
@@ -1053,11 +1063,11 @@ PROFILE_REMINDER_TIMING = {
     },
     "72h": {
         "min_hours": 72,
-        "max_hours": 216,  # 3-9 days
+        "max_hours": 240,  # 3-10 days (leaves slack past the 48h cadence gap)
     },
     "7d": {
         "min_hours": 168,  # 7 days
-        "max_hours": 312,  # 7-13 days
+        "max_hours": 360,  # 7-15 days (leaves slack past the 96h cadence gap)
     },
 }
 

@@ -1457,12 +1457,22 @@ def get_users_needing_reminder(reminder_type):
     # False and data_consent.crushlu_banned True, and a profile deactivation
     # sets crushprofile.is_active False — can_send_email() only checks
     # EmailPreference, so those users would otherwise still be emailed. (Codex P1)
+    #
+    # Also require crushlu_consent_given: create_crush_profile_on_login lazily
+    # creates an incomplete CrushProfile for an existing cross-domain account on
+    # its first crush.lu login, while ConsentMiddleware redirects it to confirm
+    # consent. If the user never confirms, crushlu_consent_given stays False (the
+    # signal default) and we must not send profile-completion outreach for a
+    # profile layer they haven't consented to. Requiring =True also drops users
+    # with no data_consent row at all, which is correct — no consent recorded.
+    # (Codex P1)
     users = User.objects.filter(
         is_active=True,
         crushprofile__completion_status__in=incomplete_statuses,
         crushprofile__is_active=True,
         crushprofile__created_at__gte=min_created,
         crushprofile__created_at__lte=max_created,
+        data_consent__crushlu_consent_given=True,
     ).exclude(
         # Exclude users who already got this reminder type
         profile_reminders__reminder_type=reminder_type
