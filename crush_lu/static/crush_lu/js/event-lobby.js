@@ -56,6 +56,7 @@ document.addEventListener("alpine:init", function () {
                     tileLabel: root.dataset.msgTileLabel || "Select participant photo",
                     sentBadge: root.dataset.msgSentBadge || "Signal sent",
                     metBadge: root.dataset.msgMetBadge || "You've already met",
+                    signalsRemaining: root.dataset.msgSignalsRemaining || "Signals remaining",
                 };
 
                 if (this.phase === "live") {
@@ -91,6 +92,13 @@ document.addEventListener("alpine:init", function () {
 
             get signalsDisplay() {
                 return this.signalsRemaining + " / " + this.signalsTotal;
+            },
+
+            // Accessible name for the spark ledger — bound with
+            // x-bind:aria-label so screen readers hear the live count
+            // after signals are spent, not the server-rendered one.
+            get signalsLabel() {
+                return this.msgs.signalsRemaining + ": " + this.signalsDisplay;
             },
 
             // Named getters keep the three static signal indicators compatible
