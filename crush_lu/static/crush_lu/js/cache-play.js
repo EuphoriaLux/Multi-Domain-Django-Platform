@@ -417,7 +417,8 @@ document.addEventListener("alpine:init", function () {
                         color: "#22c55e",
                         fillColor: "#22c55e",
                         fillOpacity: 0.9,
-                    }).bindTooltip("✅ " + s.order + ". " + s.name).addTo(self.map);
+                        title: "✅ " + s.order + ". " + s.name,
+                    }).addTo(self.map);
                 });
 
                 if (hasTarget) {
