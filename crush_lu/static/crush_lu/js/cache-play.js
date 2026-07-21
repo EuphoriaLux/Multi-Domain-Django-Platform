@@ -360,15 +360,7 @@ document.addEventListener("alpine:init", function () {
             },
 
             attachCompass: function () {
-                if (typeof window === "undefined" || !window.DeviceOrientationEvent) return;
-                try {
-                    var fp = document.featurePolicy || document.permissionsPolicy;
-                    if (fp && typeof fp.allowsFeature === "function") {
-                        if (!fp.allowsFeature("accelerometer") && !fp.allowsFeature("gyroscope")) {
-                            return;
-                        }
-                    }
-                } catch (err) {}
+                if (typeof window === "undefined") return;
                 if (this._compassAttached) return;
                 this._compassAttached = true;
                 var self = this;
@@ -378,26 +370,17 @@ document.addEventListener("alpine:init", function () {
                         self.updateSelfMarker(self.currentLat, self.currentLng, self.accuracyM || 10);
                     }
                 };
-                try {
-                    window.addEventListener("deviceorientationabsolute", function (e) {
-                        if (e.alpha !== null && e.alpha !== undefined) {
-                            self.hasAbsoluteHeading = true;
-                            updateHeading(360 - e.alpha);
-                        }
-                    }, true);
-                } catch (err) {}
 
-                try {
-                    window.addEventListener("deviceorientation", function (e) {
-                        if (typeof e.webkitCompassHeading === "number" && !isNaN(e.webkitCompassHeading)) {
-                            // iOS Safari
-                            updateHeading(e.webkitCompassHeading);
-                        } else if (e.alpha !== null && e.alpha !== undefined) {
-                            // Android & Chrome DevTools Emulation
-                            updateHeading(360 - e.alpha);
-                        }
-                    }, true);
-                } catch (err) {}
+                var handler = function (e) {
+                    if (typeof e.webkitCompassHeading === "number" && !isNaN(e.webkitCompassHeading)) {
+                        updateHeading(e.webkitCompassHeading);
+                    } else if (e.alpha !== null && e.alpha !== undefined) {
+                        updateHeading(360 - e.alpha);
+                    }
+                };
+
+                try { window.addEventListener("deviceorientationabsolute", handler, true); } catch (err) {}
+                try { window.addEventListener("deviceorientation", handler, true); } catch (err) {}
             },
 
             // --- Leaflet map (map navigation mode only) ---
@@ -478,13 +461,6 @@ document.addEventListener("alpine:init", function () {
                     }).addTo(this.map);
                 }
 
-                // Lazy-attach orientation listener on first user tap/click to comply with Chrome Sensor Permissions Policy
-                var lazyAttach = function () {
-                    self.attachCompass();
-                };
-                window.addEventListener("pointerdown", lazyAttach, { once: true });
-                window.addEventListener("click", lazyAttach, { once: true });
-
                 // Custom Recenter button control inside Leaflet top-left bar
                 var RecenterControl = L.Control.extend({
                     options: { position: "topleft" },
@@ -504,6 +480,7 @@ document.addEventListener("alpine:init", function () {
                     }
                 });
                 this.map.addControl(new RecenterControl());
+                this.attachCompass();
             },
 
             recenterMap: function () {
@@ -530,17 +507,17 @@ document.addEventListener("alpine:init", function () {
             updateSelfMarker: function (lat, lng, accuracy) {
                 if (!this.map || !window.L || !this._isValidCoord(lat, lng)) return;
                 var firstFix = !this.selfMarker;
-                var headingAngle = typeof this.heading === "number" && !isNaN(this.heading) ? this.heading : null;
+                var headingAngle = typeof this.heading === "number" && !isNaN(this.heading) ? this.heading : 0;
 
                 if (!this.selfMarker) {
-                    var selfHtml = '<div style="width:20px; height:20px; border-radius:50%; background:#3b82f6; border:3px solid #ffffff; box-shadow:0 0 10px rgba(59,130,246,0.7); position:relative;">' +
-                        '<div class="self-heading-cone" style="position:absolute; top:-12px; left:3px; width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-bottom:12px solid #3b82f6; opacity:0.85; display:' + (headingAngle !== null ? 'block' : 'none') + '; transform: rotate(' + (headingAngle || 0) + 'deg); transform-origin: 4px 20px;"></div>' +
+                    var selfHtml = '<div style="width:22px; height:22px; border-radius:50%; background:#3b82f6; border:3px solid #ffffff; box-shadow:0 0 10px rgba(59,130,246,0.8); position:relative;">' +
+                        '<div class="self-heading-cone" style="position:absolute; top:-12px; left:4px; width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-bottom:12px solid #3b82f6; opacity:0.9; transition:transform 0.15s linear; transform: rotate(' + headingAngle + 'deg); transform-origin: 4px 20px;"></div>' +
                         '</div>';
                     var selfIcon = L.divIcon({
                         className: "crush-self-marker",
                         html: selfHtml,
-                        iconSize: [20, 20],
-                        iconAnchor: [10, 10],
+                        iconSize: [22, 22],
+                        iconAnchor: [11, 11],
                     });
                     this.selfMarker = L.marker([lat, lng], { icon: selfIcon, zIndexOffset: 1000 }).addTo(this.map);
 
@@ -558,12 +535,7 @@ document.addEventListener("alpine:init", function () {
                     var el = this.selfMarker.getElement();
                     var cone = el ? el.querySelector(".self-heading-cone") : null;
                     if (cone) {
-                        if (headingAngle !== null) {
-                            cone.style.display = "block";
-                            cone.style.transform = "rotate(" + headingAngle + "deg)";
-                        } else {
-                            cone.style.display = "none";
-                        }
+                        cone.style.transform = "rotate(" + headingAngle + "deg)";
                     }
                 }
                 if (firstFix) {
