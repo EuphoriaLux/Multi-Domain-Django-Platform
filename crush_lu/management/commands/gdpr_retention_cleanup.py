@@ -32,7 +32,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.core.management import call_command
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from crush_lu.models.phone_otp import PhoneOTP
@@ -78,6 +78,21 @@ class Command(BaseCommand):
             options["daily_activity_days"], "daily_activity_days"
         )
         call_days = _window(options["call_attempt_days"], "call_attempt_days")
+
+        # A negative window (CLI or GDPR_RETENTION) produces a cutoff in the
+        # future, so `created_at < cutoff` would match — and delete — every
+        # row in the category. Reject it rather than purge everything.
+        for label, value in (
+            ("phone_otp_days", phone_days),
+            ("daily_activity_days", activity_days),
+            ("call_attempt_days", call_days),
+        ):
+            if value < 0:
+                raise CommandError(
+                    f"Retention window {label!r} must be >= 0 (got {value}). "
+                    "A negative window makes a future cutoff that would delete "
+                    "every row in the category."
+                )
 
         mode = "APPLY" if apply_changes else "DRY-RUN"
         self.stdout.write(f"GDPR retention sweep [{mode}]")

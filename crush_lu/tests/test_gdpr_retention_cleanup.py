@@ -148,3 +148,17 @@ class GdprRetentionCommandTests(TestCase):
 
         self.assertFalse(CallAttempt.objects.filter(pk=mid_call.pk).exists())
         self.assertFalse(CallAttempt.objects.filter(pk=self.old_call.pk).exists())
+
+    def test_negative_window_is_rejected(self):
+        """A negative window makes a future cutoff that would delete every
+        row in the category; the command must refuse, not purge (Codex P2)."""
+        from django.core.management.base import CommandError
+
+        with self.assertRaises(CommandError):
+            call_command(
+                "gdpr_retention_cleanup",
+                **{"apply": True, "phone_otp_days": -1},
+                stdout=StringIO(),
+            )
+        # Aborted before any deletion — even the 40d-old OTP survives.
+        self.assertTrue(PhoneOTP.objects.filter(pk=self.old_otp.pk).exists())
