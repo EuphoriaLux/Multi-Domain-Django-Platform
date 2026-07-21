@@ -92,3 +92,71 @@ def rotate_connect_questions_sweep(request):
         {"status": "ok", "timestamp": started.isoformat()},
         status=202,
     )
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def profile_reminders_sweep(request):
+    """POST /api/admin/profile-reminders/
+
+    Send the 24h/72h/7d profile-completion reminder emails. Idempotent per
+    user per reminder type — a ``ProfileReminder`` row (unique on
+    ``(user, reminder_type)``) records each send, so a retried Function
+    invocation never re-sends the same reminder. Invoked daily by the
+    ``ProfileReminders`` Azure Function timer.
+    """
+    if not _authenticate_admin_request(request):
+        return _unauthorized(request)
+
+    started = timezone.now()
+    buffer = StringIO()
+    try:
+        call_command("send_profile_reminders", stdout=buffer, stderr=buffer)
+    except CommandError:
+        logger.exception("[profile_reminders] Command error")
+        return JsonResponse({"error": "command_error"}, status=500)
+    except Exception:  # noqa: BLE001
+        logger.exception("[profile_reminders] Unhandled error")
+        return JsonResponse({"error": "internal_error"}, status=500)
+
+    logger.info("[profile_reminders] completed: %s", buffer.getvalue().strip())
+    return JsonResponse(
+        {"status": "ok", "timestamp": started.isoformat()},
+        status=202,
+    )
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def gdpr_retention_sweep(request):
+    """POST /api/admin/gdpr-retention/
+
+    Apply the GDPR data-minimization retention sweep (PhoneOTP, CallAttempt,
+    DailyUserActivity — see the ``gdpr_retention_cleanup`` command). Runs with
+    ``--apply`` here; the command alone is dry-run by default. Invoked weekly
+    by the ``GdprRetention`` Azure Function timer.
+    """
+    if not _authenticate_admin_request(request):
+        return _unauthorized(request)
+
+    started = timezone.now()
+    buffer = StringIO()
+    try:
+        call_command(
+            "gdpr_retention_cleanup",
+            **{"apply": True},
+            stdout=buffer,
+            stderr=buffer,
+        )
+    except CommandError:
+        logger.exception("[gdpr_retention] Command error")
+        return JsonResponse({"error": "command_error"}, status=500)
+    except Exception:  # noqa: BLE001
+        logger.exception("[gdpr_retention] Unhandled error")
+        return JsonResponse({"error": "internal_error"}, status=500)
+
+    logger.info("[gdpr_retention] completed: %s", buffer.getvalue().strip())
+    return JsonResponse(
+        {"status": "ok", "timestamp": started.isoformat()},
+        status=202,
+    )

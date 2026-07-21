@@ -7,7 +7,10 @@
     "DJANGO_PRE_SCREENING_INVITES_URL": "http://localhost:8000/api/admin/pre-screening-invites/",
     "DJANGO_HYBRID_SLA_SWEEP_URL": "http://localhost:8000/api/admin/hybrid-coach-sla-sweep/",
     "DJANGO_WEEKLY_KPIS_URL": "http://localhost:8000/api/admin/weekly-kpis/",
+    "DJANGO_ROTATE_CONNECT_QUESTIONS_URL": "http://localhost:8000/api/admin/rotate-connect-questions/",
     "DJANGO_CAMPAIGN_DISPATCH_URL": "http://localhost:8000/api/admin/campaigns/dispatch/",
+    "DJANGO_PROFILE_REMINDERS_URL": "http://localhost:8000/api/admin/profile-reminders/",
+    "DJANGO_GDPR_RETENTION_URL": "http://localhost:8000/api/admin/gdpr-retention/",
     "ADMIN_API_KEY": "your-admin-api-key-here",
     "HYBRID_MAINTENANCE_ENABLED": "true",
     "APPLICATIONINSIGHTS_CONNECTION_STRING": ""
