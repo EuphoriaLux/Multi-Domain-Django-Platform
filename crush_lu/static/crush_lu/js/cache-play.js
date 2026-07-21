@@ -517,8 +517,13 @@ document.addEventListener("alpine:init", function () {
             },
 
             updateSelfMarker: function (lat, lng, accuracy) {
-                var validLat = this._isValidCoord(lat, lng) ? lat : (this._isValidCoord(this.targetLat, this.targetLng) ? this.targetLat : 49.533691);
-                var validLng = this._isValidCoord(lat, lng) ? lng : (this._isValidCoord(this.targetLat, this.targetLng) ? this.targetLng : 5.850556);
+                var isRealFix = this._isValidCoord(lat, lng);
+                if (isRealFix) {
+                    this.currentLat = lat;
+                    this.currentLng = lng;
+                }
+                var validLat = isRealFix ? lat : (this._isValidCoord(this.targetLat, this.targetLng) ? (this.targetLat - 0.0015) : 49.532000);
+                var validLng = isRealFix ? lng : (this._isValidCoord(this.targetLat, this.targetLng) ? (this.targetLng - 0.0015) : 5.849000);
                 if (!this.map || !window.L || !this._isValidCoord(validLat, validLng)) return;
                 var firstFix = !this.selfMarker;
                 var headingAngle = typeof this.heading === "number" && !isNaN(this.heading) ? this.heading : 0;
