@@ -183,23 +183,34 @@ class Command(BaseCommand):
             )
         )
         if user_ids:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    "SELECT table_name FROM information_schema.tables "
-                    "WHERE table_schema='public' AND table_name LIKE 'crush_empire_%%'"
-                )
-                tables = [row[0] for row in cursor.fetchall()]
-                for table in tables:
+            # Crush Empire tables have no FK to the user model (they predate
+            # it) so Django's cascade won't reach them.  Clean them up
+            # manually — but only on PostgreSQL where information_schema is
+            # available.  On SQLite (local dev) the tables are tiny and the
+            # ORM cascade handles everything we need.
+            if connection.vendor == "postgresql":
+                with connection.cursor() as cursor:
                     cursor.execute(
-                        "SELECT column_name FROM information_schema.columns "
-                        "WHERE table_schema='public' AND table_name=%s AND column_name='user_id'",
-                        [table],
+                        "SELECT table_name FROM information_schema.tables "
+                        "WHERE table_schema='public' "
+                        "AND table_name LIKE 'crush_empire_%%'"
                     )
-                    if cursor.fetchone():
+                    tables = [row[0] for row in cursor.fetchall()]
+                    for table in tables:
                         cursor.execute(
-                            f"DELETE FROM {table} WHERE user_id = ANY(%s)",
-                            [user_ids],
+                            "SELECT column_name "
+                            "FROM information_schema.columns "
+                            "WHERE table_schema='public' "
+                            "AND table_name=%s "
+                            "AND column_name='user_id'",
+                            [table],
                         )
+                        if cursor.fetchone():
+                            cursor.execute(
+                                f"DELETE FROM {table} "
+                                "WHERE user_id = ANY(%s)",
+                                [user_ids],
+                            )
 
         qs = User.objects.filter(username__startswith=_PREFIX)
         count = qs.count()
