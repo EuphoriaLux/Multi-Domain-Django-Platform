@@ -290,6 +290,36 @@ document.addEventListener("alpine:init", function () {
                 } catch (e) {}
             },
 
+            playSynthQrSound: function () {
+                try {
+                    var AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (!AudioCtx) return;
+                    if (!window._crushAudioCtx) {
+                        window._crushAudioCtx = new AudioCtx();
+                    }
+                    var ctx = window._crushAudioCtx;
+                    if (ctx.state === "suspended") {
+                        ctx.resume();
+                    }
+                    var now = ctx.currentTime;
+                    // C Major chord arpeggio: C5 (523.25Hz), E5 (659.25Hz), G5 (783.99Hz), C6 (1046.50Hz)
+                    var freqs = [523.25, 659.25, 783.99, 1046.50];
+                    freqs.forEach(function (f, idx) {
+                        var o = ctx.createOscillator();
+                        var g = ctx.createGain();
+                        var t = now + (idx * 0.08);
+                        o.type = "triangle";
+                        o.frequency.setValueAtTime(f, t);
+                        g.gain.setValueAtTime(0.35, t);
+                        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+                        o.connect(g);
+                        g.connect(ctx.destination);
+                        o.start(t);
+                        o.stop(t + 0.4);
+                    });
+                } catch (e) {}
+            },
+
             // A station-complete celebration owns the screen: stop GPS
             // posting and cancel any armed arrival reload so the card is
             // actually readable. The status poll stays live so a finished

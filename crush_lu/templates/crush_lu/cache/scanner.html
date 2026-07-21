@@ -35,7 +35,7 @@
                 <p class="mb-2 text-center text-sm text-gray-500 dark:text-gray-400">
                     {% trans "Camera not working? Type the short code printed under the QR:" %}
                 </p>
-                <form method="post" action="{% url 'crush_lu:cache_manual_code' event.id %}" class="flex gap-2">
+                <form method="post" action="{% url 'crush_lu:cache_manual_code' event.id %}" class="flex gap-2" onsubmit="return handleManualCodeSubmit(event, this)">
                     {% csrf_token %}
                     <input type="text" name="code" autocomplete="off" required
                            autocapitalize="characters" autocorrect="off" spellcheck="false"
@@ -96,6 +96,18 @@ document.addEventListener('DOMContentLoaded', function() {
     function playQrSuccessSound() {
         playSynthQrSound();
     }
+
+    window.handleManualCodeSubmit = function(evt, form) {
+        evt.preventDefault();
+        playQrSuccessSound();
+        if (navigator.vibrate) {
+            try { navigator.vibrate([80, 50, 80]); } catch (e) {}
+        }
+        setTimeout(function() {
+            form.submit();
+        }, 350);
+        return false;
+    };
 
     function playSynthQrSound() {
         try {
