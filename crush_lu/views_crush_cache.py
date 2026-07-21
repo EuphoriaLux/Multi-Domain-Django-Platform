@@ -253,7 +253,7 @@ def cache_lobby(request, event_id):
     registration = _get_registration(hunt, request.user)
     membership = _get_membership(hunt, request.user) if registration else None
 
-    if membership and (hunt.is_live or hunt.status == "finished"):
+    if membership and (hunt.status == "finished" or (hunt.is_live and request.GET.get("view") != "lobby")):
         return redirect("crush_lu:cache_play", event_id=event_id)
 
     teams = hunt.teams.prefetch_related(

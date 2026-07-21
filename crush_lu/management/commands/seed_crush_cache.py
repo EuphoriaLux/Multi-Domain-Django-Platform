@@ -38,12 +38,10 @@ from crush_lu.models.crush_cache import (
 )
 from crush_lu.models.profiles import CrushCoach
 
-EVENT_TITLE = "🧭 [DEBUG] Luxembourg City Crush Cache"
+EVENT_TITLE_LUX = "🧭 [DEBUG] Luxembourg City Crush Cache"
+EVENT_TITLE_MINETTE = "🧭 [DEBUG] Fond-de-Gras Crush Cache \"Minette\""
 
-# Real Luxembourg City landmarks — a compact walking loop in the Ville Haute /
-# Pétrusse. Coordinates are approximate to the landmark; tweak per station in
-# the admin (📍 Cache Stations) if you want tighter/looser arrival radii.
-STATIONS = [
+STATIONS_LUX_CITY = [
     {
         "order": 1,
         "name": "Gëlle Fra (Monument of Remembrance)",
@@ -116,14 +114,133 @@ STATIONS = [
     },
 ]
 
+# Fond-de-Gras Geo Crush Cache "Minette" (6 stations: GPS + Crush Statue QR code at every station)
+STATIONS_MINETTE = [
+    {
+        "order": 1,
+        "name": "Gare de Fond-de-Gras (Train 1900)",
+        "lat": "49.532894",
+        "lng": "5.858759",
+        "unlock_mode": "gps_qr",
+        "intro": "Head to Gare de Fond-de-Gras! Find the Crush Statue near the historic Train 1900 platform and scan the QR code to unlock your first question.",
+        "challenge_type": "multiple_choice",
+        "question": "Was darf bei einem Date nicht fehlen?",
+        "options": {
+            "1": "tiefgründige Gespräche",
+            "2": "Spaß und lockere Vibes",
+            "3": "Flirt und Spannung",
+        },
+        "answer": "",  # Accepts any choice (icebreaker prompt)
+        "alternatives": [],
+        "hint_1": "Wähle spontan aus dem Bauch heraus!",
+        "points": 100,
+    },
+    {
+        "order": 2,
+        "name": "Sentier des Minières (Mining Track Line)",
+        "lat": "49.532948",
+        "lng": "5.853189",
+        "unlock_mode": "gps_qr",
+        "intro": "Follow the narrow gauge railway tracks along the valley until you spot the Crush Statue by the trail!",
+        "challenge_type": "multiple_choice",
+        "question": "Wie tankst du Energie auf?",
+        "options": {
+            "1": "gerne auch alleine",
+            "2": "mit einem guten Gespräch mit Freunden",
+            "3": "in Aktion wie beim Sport",
+        },
+        "answer": "",  # Accepts any choice
+        "alternatives": [],
+        "hint_1": "Denke an deinen perfekten freien Nachmittag.",
+        "points": 100,
+    },
+    {
+        "order": 3,
+        "name": "Galerie Mine Doenn",
+        "lat": "49.533691",
+        "lng": "5.850556",
+        "unlock_mode": "gps_qr",
+        "intro": "Approach the historic underground mine gallery entrance and find the Crush Statue near the entry sign.",
+        "challenge_type": "multiple_choice",
+        "question": "Wer bist du in einer Gruppe?",
+        "options": {
+            "1": "Ich rede mit allen und bringe Stimmung rein",
+            "2": "Ich beobachte und wähle Gespräche",
+            "3": "Kommt auf die Leute an",
+        },
+        "answer": "",  # Accepts any choice
+        "alternatives": [],
+        "hint_1": "Wie verhältst du dich typischerweise unter neuen Leuten?",
+        "points": 100,
+    },
+    {
+        "order": 4,
+        "name": "Réserve Naturelle Giele Botter Trail",
+        "lat": "49.534649",
+        "lng": "5.847993",
+        "unlock_mode": "gps_qr",
+        "intro": "Walk up towards the former open-cast mine turned nature reserve and locate the Crush Statue along the path.",
+        "challenge_type": "multiple_choice",
+        "question": "Dein Leben ist...",
+        "options": {
+            "1": "gut organisiert und durchgeplant",
+            "2": "von Spontaneität geprägt",
+            "3": "ein geordnetes Chaos",
+        },
+        "answer": "",  # Accepts any choice
+        "alternatives": [],
+        "hint_1": "Wie schaut deine Wochenplanung meistens aus?",
+        "points": 100,
+    },
+    {
+        "order": 5,
+        "name": "Viktoriastoll & Mine Heritage",
+        "lat": "49.529388",
+        "lng": "5.857374",
+        "unlock_mode": "gps_qr",
+        "intro": "Discover the entrance to the Viktoriastoll adit and scan the QR code on the Crush Statue.",
+        "challenge_type": "multiple_choice",
+        "question": "Ein Gespräch mit dir:",
+        "options": {
+            "1": "ich teile gerne von mir mit",
+            "2": "ich liebe es zuzuhören",
+            "3": "sowohl als auch",
+        },
+        "answer": "",  # Accepts any choice
+        "alternatives": [],
+        "hint_1": "Wie läuft eine gute Unterhaltung für dich ab?",
+        "points": 100,
+    },
+    {
+        "order": 6,
+        "name": "Hall Paul Wurth & Épicerie Ancienne (Schluss)",
+        "lat": "49.533819",
+        "lng": "5.863352",
+        "unlock_mode": "gps_qr",
+        "intro": "Reach the final station (Schluss) near the historic Paul Wurth hall and grocery shop. Find the final Crush Statue and scan the QR code!",
+        "challenge_type": "riddle",
+        "question": "Glückwunsch! Welches historische Industriezeitalter hat dieses Tal geprägt?",
+        "answer": "Industrielle Revolution",
+        "alternatives": ["Industrial Revolution", "Bergbau", "Stahlindustrie", "Stahlzeitalter"],
+        "hint_1": "Das Zeitalter von Eisen, Stahl und Dampf im 19. und 20. Jahrhundert.",
+        "points": 150,
+    },
+]
+
 
 class Command(BaseCommand):
     help = (
-        "Seed a playable Crush Cache hunt through Luxembourg City (GPS + QR) "
+        "Seed a playable Crush Cache hunt (Luxembourg City or Fond-de-Gras Minette) "
         "for manual QA. Local-only."
     )
 
     def add_arguments(self, parser):
+        parser.add_argument(
+            "--preset",
+            choices=["lux_city", "minette"],
+            default="lux_city",
+            help="Which hunt preset to seed: 'lux_city' (default) or 'minette' (Fond-de-Gras).",
+        )
         parser.add_argument(
             "--reset",
             action="store_true",
@@ -161,24 +278,28 @@ class Command(BaseCommand):
                 )
             )
 
+        preset = options["preset"]
+        event_title = EVENT_TITLE_MINETTE if preset == "minette" else EVENT_TITLE_LUX
+        stations_data = STATIONS_MINETTE if preset == "minette" else STATIONS_LUX_CITY
+
         existing = MeetupEvent.objects.filter(
-            title=EVENT_TITLE, event_type="crush_cache"
+            title=event_title, event_type="crush_cache"
         ).first()
         if existing:
             if not options["reset"]:
                 raise CommandError(
-                    "The debug Crush Cache event already exists. Re-run with "
+                    f"The debug Crush Cache event '{event_title}' already exists. Re-run with "
                     "--reset to delete and recreate it."
                 )
             # Cascades to hunt, stations, challenges, teams, registrations.
             existing.delete()
-            self.stdout.write("Deleted the previous debug Crush Cache event.")
+            self.stdout.write(f"Deleted the previous debug Crush Cache event '{event_title}'.")
 
         coach = self._ensure_coach()
-        event = self._create_event()
-        hunt = self._create_hunt(event, coach)
-        self._create_stations(hunt)
-        team = self._create_demo_team(hunt)
+        event = self._create_event(preset, event_title)
+        hunt = self._create_hunt(event, coach, preset)
+        self._create_stations(hunt, stations_data)
+        team = self._create_demo_team(hunt, preset)
         players = self._register_players(event)
 
         if options["live"]:
@@ -186,7 +307,7 @@ class Command(BaseCommand):
             hunt.started_at = timezone.now()
             hunt.save(update_fields=["status", "started_at"])
 
-        self._report(hunt, team, players)
+        self._report(hunt, team, players, stations_data)
 
     # ------------------------------------------------------------------ #
 
@@ -217,25 +338,41 @@ class Command(BaseCommand):
         )
         return coach_user
 
-    def _create_event(self):
+    def _create_event(self, preset, title):
         now = timezone.now()
+        if preset == "minette":
+            desc = "Debug scavenger hunt through Fond-de-Gras Minette mining area for QA."
+            loc = "Fond-de-Gras"
+            addr = "Fond-de-Gras, L-4570 Differdange"
+        else:
+            desc = "Debug scavenger hunt through Luxembourg City for QA."
+            loc = "Luxembourg City"
+            addr = "Place de la Constitution, Luxembourg"
+
         return MeetupEvent.objects.create(
-            title=EVENT_TITLE,
-            description="Debug scavenger hunt through Luxembourg City for QA.",
+            title=title,
+            description=desc,
             event_type="crush_cache",
             date_time=now + timedelta(hours=2),
             registration_deadline=now + timedelta(hours=1),
-            location="Luxembourg City",
-            address="Place de la Constitution, Luxembourg",
+            location=loc,
+            address=addr,
             max_participants=30,
             is_published=True,
         )
 
-    def _create_hunt(self, event, coach):
+    def _create_hunt(self, event, coach, preset):
+        if preset == "minette":
+            title = "Crush Cache \"Minette\""
+            desc = "Explore the historic red-rock mining valley of Fond-de-Gras. First team to the Schluss station wins!"
+        else:
+            title = "Old Town GPS Hunt"
+            desc = "Follow the pins around the Ville Haute. First team home wins!"
+
         return CacheHunt.objects.create(
             event=event,
-            title="Old Town GPS Hunt",
-            description="Follow the pins around the Ville Haute. First team home wins!",
+            title=title,
+            description=desc,
             status="draft",
             navigation_mode="map",  # target pin shown — easiest to test GPS with
             team_size_max=4,
@@ -243,8 +380,8 @@ class Command(BaseCommand):
             created_by=coach,
         )
 
-    def _create_stations(self, hunt):
-        for s in STATIONS:
+    def _create_stations(self, hunt, stations_data):
+        for s in stations_data:
             station = CacheStation.objects.create(
                 hunt=hunt,
                 order=s["order"],
@@ -254,13 +391,14 @@ class Command(BaseCommand):
                 longitude=s["lng"],
                 radius_meters=40,
                 unlock_mode=s["unlock_mode"],
-                completion_message="Nice — on to the next one!",
+                completion_message="Nice — on to the next station!",
             )
             CacheChallenge.objects.create(
                 station=station,
                 challenge_order=1,
                 challenge_type=s["challenge_type"],
                 question=s["question"],
+                options=s.get("options", {}),
                 correct_answer=s["answer"],
                 alternative_answers=s["alternatives"],
                 hint_1=s["hint_1"],
@@ -268,24 +406,42 @@ class Command(BaseCommand):
                 success_message="Correct!",
             )
 
-    def _create_demo_team(self, hunt):
+    def _create_demo_team(self, hunt, preset):
+        team_name = "Minette Miners" if preset == "minette" else "Explorers"
         return CacheTeam.objects.create(
-            hunt=hunt, name="Explorers", color="#3b82f6"
+            hunt=hunt, name=team_name, color="#3b82f6"
         )
 
     def _register_players(self, event):
-        debug_users = list(User.objects.filter(username__startswith="debug_"))
-        if not debug_users:
-            debug_users = []
-            for i in (1, 2):
-                u, _ = User.objects.get_or_create(
-                    username=f"debug_cache_player{i}@crush.lu",
-                    defaults={"email": f"debug_cache_player{i}@crush.lu"},
-                )
-                debug_users.append(u)
+        from allauth.account.models import EmailAddress
+
+        for i in (1, 2):
+            u, _ = User.objects.get_or_create(
+                username=f"debug_cache_player{i}@crush.lu",
+                defaults={"email": f"debug_cache_player{i}@crush.lu"},
+            )
+
+        seeded_usernames = [
+            "debug_cache_coach@crush.lu",
+            "debug_cache_player1@crush.lu",
+            "debug_cache_player2@crush.lu",
+        ]
+        debug_users = list(User.objects.filter(username__in=seeded_usernames))
 
         registered = []
         for user in debug_users:
+            user.set_password("debug2025")
+            if not user.email and "@" in user.username:
+                user.email = user.username
+            user.save()
+
+            if user.email:
+                EmailAddress.objects.update_or_create(
+                    user=user,
+                    email=user.email,
+                    defaults={"verified": True, "primary": True},
+                )
+
             reg, _ = EventRegistration.objects.get_or_create(
                 event=event, user=user, defaults={"status": "confirmed"}
             )
@@ -295,7 +451,7 @@ class Command(BaseCommand):
             registered.append(user)
         return registered
 
-    def _report(self, hunt, team, players):
+    def _report(self, hunt, team, players, stations_data):
         out = self.stdout
         style = self.style
         out.write(style.SUCCESS(f"\n✅ Seeded '{hunt.title}' ({hunt.status})."))
@@ -310,7 +466,7 @@ class Command(BaseCommand):
         out.write("\n   Play URL (log in as a registered player first):")
         out.write(f"     http://localhost:8000/en/events/{hunt.event_id}/cache/")
         out.write("\n   Station coordinates (for the DevTools → Sensors override):")
-        for s in STATIONS:
+        for s in stations_data:
             out.write(
                 f"     {s['order']}. {s['name']}: {s['lat']}, {s['lng']} "
                 f"({s['unlock_mode']})"
@@ -324,3 +480,4 @@ class Command(BaseCommand):
                 )
             )
         out.write("")
+
