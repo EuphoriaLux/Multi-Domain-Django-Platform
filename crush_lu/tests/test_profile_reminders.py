@@ -285,6 +285,25 @@ class SendProfileRemindersCommandTests(TestCase):
         self.assertEqual(reminded, {"oldest@example.com", "middle@example.com"})
         self.assertEqual(len(mail.outbox), 2)
 
+    def test_panel_does_not_double_send_adjacent_stages(self):
+        """The admin panel (execute_reminders) must process stages newest-first
+        too, or a boundary user gets two emails in one submission now that the
+        widened windows overlap (Codex P2)."""
+        from crush_lu.admin.profile_reminders import execute_reminders
+
+        # 4-day-old user sits in both the widened 24h and 72h windows.
+        user = make_incomplete_user("panelboundary", created_hours_ago=96)
+
+        execute_reminders(reminder_type="all", limit=100, dry_run=False)
+
+        types = set(
+            ProfileReminder.objects.filter(user=user).values_list(
+                "reminder_type", flat=True
+            )
+        )
+        self.assertEqual(types, {"24h"})
+        self.assertEqual(len(mail.outbox), 1)
+
     @override_settings(
         PROFILE_REMINDER_TIMING={
             # Deliberately overlapping windows so one user sits in both the

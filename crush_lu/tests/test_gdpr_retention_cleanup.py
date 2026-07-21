@@ -188,7 +188,7 @@ class GdprRetentionCommandTests(TestCase):
         expected = qs.count()
 
         deleted, budget_hit = Command()._delete_in_chunks(
-            qs, deadline=time.monotonic() + 30, chunk_size=2
+            qs, deadline=time.monotonic() + 30, order_by="created_at", chunk_size=2
         )
 
         self.assertFalse(budget_hit)
@@ -210,9 +210,42 @@ class GdprRetentionCommandTests(TestCase):
         remaining_before = qs.count()
 
         deleted, budget_hit = Command()._delete_in_chunks(
-            qs, deadline=time.monotonic() - 1, chunk_size=1
+            qs, deadline=time.monotonic() - 1, order_by="created_at", chunk_size=1
         )
 
         self.assertTrue(budget_hit)
         self.assertEqual(deleted, 1)  # only the first chunk
         self.assertEqual(qs.count(), remaining_before - 1)
+
+    def test_chunked_delete_removes_oldest_first(self):
+        """Under a truncated budget the oldest expired rows go first, so the
+        backlog can't indefinitely leave the oldest PII behind (Codex P2)."""
+        import time
+        from crush_lu.management.commands.gdpr_retention_cleanup import Command
+
+        now = timezone.now()
+        older = PhoneOTP.objects.create(
+            user=self.user, phone_number="+352100000100",
+            code_hash="older", expires_at=now - timedelta(days=100),
+        )
+        PhoneOTP.objects.filter(pk=older.pk).update(
+            created_at=now - timedelta(days=100)
+        )
+        newer = PhoneOTP.objects.create(
+            user=self.user, phone_number="+352100000200",
+            code_hash="newer", expires_at=now - timedelta(days=35),
+        )
+        PhoneOTP.objects.filter(pk=newer.pk).update(
+            created_at=now - timedelta(days=35)
+        )
+
+        qs = PhoneOTP.objects.filter(created_at__lt=now - timedelta(days=30))
+        # Deadline already passed -> only the first (oldest) chunk of 1 deletes.
+        deleted, budget_hit = Command()._delete_in_chunks(
+            qs, deadline=time.monotonic() - 1, order_by="created_at", chunk_size=1
+        )
+
+        self.assertTrue(budget_hit)
+        self.assertEqual(deleted, 1)
+        self.assertFalse(PhoneOTP.objects.filter(pk=older.pk).exists())
+        self.assertTrue(PhoneOTP.objects.filter(pk=newer.pk).exists())

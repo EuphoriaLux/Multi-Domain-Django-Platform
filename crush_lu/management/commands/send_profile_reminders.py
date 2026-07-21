@@ -43,10 +43,14 @@ SWEEP_LOCK_KEY = "profile_reminders_sweep_lock"
 SWEEP_LOCK_TTL = 900  # seconds
 
 # Wall-clock budget for one sweep. The endpoint runs this command synchronously
-# in the request, and each Graph send can block up to ~30s, so a slow batch of
-# the default 100 would blow past the Function App's HTTP timeout / gunicorn's
-# 120s cap. Stop early and let the next run pick up the rest. (Codex P1.)
-SEND_TIME_BUDGET_SECONDS = 50
+# in the request, so a slow batch of the default 100 would blow past the
+# Function App's HTTP timeout / gunicorn's 120s cap. Stop early and let the next
+# run pick up the rest. Because a single Graph send can itself block up to
+# GRAPH_SEND_TIMEOUT_SECONDS (azureproject/graph_email_backend.py), we stop
+# STARTING new sends once less than that much budget remains, so a send begun
+# near the deadline still finishes under the 60s HTTP timeout. (Codex P1/P2.)
+SEND_TIME_BUDGET_SECONDS = 55
+GRAPH_SEND_TIMEOUT_SECONDS = 30
 
 
 class Command(BaseCommand):
@@ -135,7 +139,7 @@ class Command(BaseCommand):
                     self.style.WARNING(f'Limit of {limit} emails reached, stopping')
                 )
                 break
-            if not dry_run and time.monotonic() >= deadline:
+            if not dry_run and (deadline - time.monotonic()) < GRAPH_SEND_TIMEOUT_SECONDS:
                 self.stdout.write(self.style.WARNING(
                     'Time budget reached; remaining reminders will be sent '
                     'on the next run.'
@@ -163,7 +167,7 @@ class Command(BaseCommand):
             users_to_process = users[:emails_remaining]
 
             for user in users_to_process:
-                if not dry_run and time.monotonic() >= deadline:
+                if not dry_run and (deadline - time.monotonic()) < GRAPH_SEND_TIMEOUT_SECONDS:
                     self.stdout.write(self.style.WARNING(
                         'Time budget reached mid-batch; remaining reminders '
                         'will be sent on the next run.'

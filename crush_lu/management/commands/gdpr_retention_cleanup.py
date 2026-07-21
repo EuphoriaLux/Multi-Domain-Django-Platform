@@ -33,12 +33,11 @@ from datetime import timedelta
 from django.conf import settings
 import time
 
-from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from crush_lu.models.phone_otp import PhoneOTP
-from crush_lu.models.profiles import CallAttempt
+from crush_lu.models.profiles import CallAttempt, DailyUserActivity
 
 # The GdprRetention endpoint runs this synchronously under _call_admin_endpoint's
 # 60s HTTP timeout. A single bulk DELETE of a large first-run backlog could
@@ -117,7 +116,9 @@ class Command(BaseCommand):
             created_at__lt=now - timedelta(days=phone_days)
         )
         if apply_changes:
-            deleted, budget_hit = self._delete_in_chunks(otp_qs, deadline)
+            deleted, budget_hit = self._delete_in_chunks(
+                otp_qs, deadline, order_by="created_at"
+            )
             total_deleted += deleted
             self.stdout.write(
                 f"  PhoneOTP older than {phone_days}d: deleted {deleted}"
@@ -133,7 +134,9 @@ class Command(BaseCommand):
                 attempt_date__lt=now - timedelta(days=call_days)
             )
             if apply_changes:
-                deleted, budget_hit = self._delete_in_chunks(call_qs, deadline)
+                deleted, budget_hit = self._delete_in_chunks(
+                    call_qs, deadline, order_by="attempt_date"
+                )
                 total_deleted += deleted
                 self.stdout.write(
                     f"  CallAttempt older than {call_days}d: deleted {deleted}"
@@ -144,19 +147,28 @@ class Command(BaseCommand):
                     f"{call_qs.count()} row(s)"
                 )
 
-        # 3. DailyUserActivity — delegate to the existing single-purpose
-        # command so the window logic stays in one place.
+        # 3. DailyUserActivity — WAU snapshot rows. Prune through the same
+        # bounded loop (mirrors cleanup_daily_activity's date cutoff) so a large
+        # activity backlog can't blow the budget after the earlier categories.
         if not budget_hit:
-            self.stdout.write(
-                f"  DailyUserActivity older than {activity_days}d "
-                f"(via cleanup_daily_activity):"
+            activity_cutoff = timezone.localdate() - timedelta(days=activity_days)
+            activity_qs = DailyUserActivity.objects.filter(
+                activity_date__lt=activity_cutoff
             )
-            call_command(
-                "cleanup_daily_activity",
-                days=activity_days,
-                dry_run=not apply_changes,
-                stdout=self.stdout,
-            )
+            if apply_changes:
+                deleted, budget_hit = self._delete_in_chunks(
+                    activity_qs, deadline, order_by="activity_date"
+                )
+                total_deleted += deleted
+                self.stdout.write(
+                    f"  DailyUserActivity older than {activity_days}d: "
+                    f"deleted {deleted}"
+                )
+            else:
+                self.stdout.write(
+                    f"  DailyUserActivity older than {activity_days}d: "
+                    f"{activity_qs.count()} row(s)"
+                )
 
         if apply_changes and budget_hit:
             self.stdout.write(self.style.WARNING(
@@ -166,8 +178,7 @@ class Command(BaseCommand):
         elif apply_changes:
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"Retention sweep applied — {total_deleted} row(s) deleted "
-                    "(plus DailyUserActivity above)."
+                    f"Retention sweep applied — {total_deleted} row(s) deleted."
                 )
             )
         else:
@@ -175,18 +186,24 @@ class Command(BaseCommand):
                 "Dry-run only — re-run with --apply to delete."
             )
 
-    def _delete_in_chunks(self, queryset, deadline, chunk_size=RETENTION_CHUNK_SIZE):
-        """Delete a filtered queryset in bounded batches, stopping at the
-        wall-clock deadline. Returns (deleted_count, budget_exhausted).
+    def _delete_in_chunks(
+        self, queryset, deadline, order_by, chunk_size=RETENTION_CHUNK_SIZE
+    ):
+        """Delete a filtered queryset in bounded batches, oldest first, stopping
+        at the wall-clock deadline. Returns (deleted_count, budget_exhausted).
 
-        Each batch re-queries the (shrinking) filtered set by primary key, so
-        the deletes stay small and the loop makes progress; the next scheduled
-        run prunes whatever is left.
+        Ordering by the age field (asc) with a pk tiebreaker guarantees the
+        oldest expired PII is deleted first, so a budget-truncated run can never
+        indefinitely leave the oldest rows behind while newer rows keep ageing
+        in. Each batch re-queries the (shrinking) filtered set, so the deletes
+        stay small and the loop makes progress; the next scheduled run prunes
+        whatever is left.
         """
         model = queryset.model
+        ordered = queryset.order_by(order_by, "pk")
         total = 0
         while True:
-            pks = list(queryset.values_list("pk", flat=True)[:chunk_size])
+            pks = list(ordered.values_list("pk", flat=True)[:chunk_size])
             if not pks:
                 return total, False
             deleted, _ = model.objects.filter(pk__in=pks).delete()
