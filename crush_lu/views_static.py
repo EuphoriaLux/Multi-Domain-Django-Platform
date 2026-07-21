@@ -7,11 +7,11 @@ from .models import MeetupEvent
 from .models.crush_connect import CrushConnectWaitlist
 from .models.events import EventRegistration
 
-# Enforced upper bound on how long an event can run. `duration_minutes` is an
-# unbounded PositiveIntegerField, so this caps the home-page live-event lookback:
-# a single mis-configured event can never extend the scan across the whole event
-# history. Comfortably covers any real Crush event (a few hours).
-MAX_EVENT_DURATION = timedelta(hours=24)
+# Bound for the home-page live-event lookback, tied to the model's enforced
+# ceiling on event length (MeetupEvent.MAX_DURATION_MINUTES). Because no event
+# can be configured longer than this, the lookback is BOTH bounded (never scans
+# the whole event history) and complete (never drops a still-live event).
+MAX_EVENT_DURATION = timedelta(minutes=MeetupEvent.MAX_DURATION_MINUTES)
 
 
 @staff_member_required

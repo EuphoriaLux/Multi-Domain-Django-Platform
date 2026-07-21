@@ -72,6 +72,25 @@ class EventIsLiveTests(TestCase):
         with self._at(self.start + timedelta(minutes=30)):
             self.assertFalse(self.event.is_live)
 
+    def test_duration_over_ceiling_rejected(self):
+        # The enforced ceiling keeps the home live-lookback complete: no event
+        # can be configured longer than the window it is scanned in.
+        from django.core.exceptions import ValidationError
+
+        self.event.duration_minutes = MeetupEvent.MAX_DURATION_MINUTES + 1
+        with self.assertRaises(ValidationError) as ctx:
+            self.event.full_clean()
+        self.assertIn("duration_minutes", ctx.exception.error_dict)
+
+    def test_duration_at_ceiling_accepted(self):
+        from django.core.exceptions import ValidationError
+
+        self.event.duration_minutes = MeetupEvent.MAX_DURATION_MINUTES
+        try:
+            self.event.full_clean()
+        except ValidationError as exc:
+            self.assertNotIn("duration_minutes", exc.error_dict)
+
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class HomeLiveEventTests(TestCase):

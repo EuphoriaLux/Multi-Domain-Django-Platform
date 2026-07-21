@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.core.validators import MaxValueValidator
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from datetime import timedelta
@@ -53,6 +54,14 @@ class MeetupEventManager(models.Manager):
 class MeetupEvent(models.Model):
     """Speed dating and social meetup events"""
 
+    # Enforced ceiling on event length. `duration_minutes` is otherwise an
+    # unbounded PositiveIntegerField; capping it keeps the home page's
+    # live-event lookback both bounded AND complete — the lookback window equals
+    # this ceiling, so no valid live event is ever scanned past or dropped
+    # (see crush_lu.views_static.home). Generous enough for any real event,
+    # including multi-day formats.
+    MAX_DURATION_MINUTES = 7 * 24 * 60  # 7 days
+
     EVENT_TYPE_CHOICES = [
         ("speed_dating", "Speed Dating"),
         ("mixer", "Social Mixer"),
@@ -102,7 +111,10 @@ class MeetupEvent(models.Model):
         ),
     )
     date_time = models.DateTimeField()
-    duration_minutes = models.PositiveIntegerField(default=120)
+    duration_minutes = models.PositiveIntegerField(
+        default=120,
+        validators=[MaxValueValidator(MAX_DURATION_MINUTES)],
+    )
 
     # Capacity & Requirements
     max_participants = models.PositiveIntegerField(default=20)
