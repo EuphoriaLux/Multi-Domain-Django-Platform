@@ -398,6 +398,7 @@ class Command(BaseCommand):
                 challenge_order=1,
                 challenge_type=s["challenge_type"],
                 question=s["question"],
+                options=s.get("options", {}),
                 correct_answer=s["answer"],
                 alternative_answers=s["alternatives"],
                 hint_1=s["hint_1"],

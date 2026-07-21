@@ -387,12 +387,19 @@ document.addEventListener("alpine:init", function () {
                 var handler = function (e) {
                     if (typeof e.webkitCompassHeading === "number" && !isNaN(e.webkitCompassHeading)) {
                         updateHeading(e.webkitCompassHeading);
-                    } else if (e.alpha !== null && e.alpha !== undefined) {
+                    } else if (e.absolute === true && e.alpha !== null && e.alpha !== undefined) {
                         updateHeading(360 - e.alpha);
                     }
                 };
 
                 try { window.addEventListener("deviceorientation", handler, true); } catch (err) {}
+                try {
+                    window.addEventListener("deviceorientationabsolute", function (e) {
+                        if (e.alpha !== null && e.alpha !== undefined) {
+                            updateHeading(360 - e.alpha);
+                        }
+                    }, true);
+                } catch (err) {}
             },
 
             // --- Leaflet map (map navigation mode only) ---
@@ -412,7 +419,6 @@ document.addEventListener("alpine:init", function () {
                     tap: false,
                     touchZoom: true,
                     bounceAtZoom: false,
-                    attributionControl: false,
                 }).setView(center, 16);
 
                 L.control.zoom({ position: "bottomright" }).addTo(this.map);
