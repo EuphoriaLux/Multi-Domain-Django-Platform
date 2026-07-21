@@ -86,8 +86,12 @@ document.addEventListener("alpine:init", function () {
                     try {
                         var AudioCtx = window.AudioContext || window.webkitAudioContext;
                         if (AudioCtx) {
-                            if (!window._crushAudioCtx) window._crushAudioCtx = new AudioCtx();
-                            if (window._crushAudioCtx.state === "suspended") window._crushAudioCtx.resume();
+                            if (!window._crushAudioCtx) {
+                                window._crushAudioCtx = new AudioCtx();
+                            } else if (window._crushAudioCtx.state === "suspended") {
+                                var res = window._crushAudioCtx.resume();
+                                if (res && res.catch) res.catch(function () {});
+                            }
                         }
                     } catch (e) {}
                 };
@@ -420,24 +424,26 @@ document.addEventListener("alpine:init", function () {
                 var self = this;
                 var protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
                 var url = protocol + "//" + window.location.host + "/ws/cache/" + this.huntId + "/";
-                this.ws = new WebSocket(url);
-                this.ws.onmessage = function (event) {
-                    var msg;
-                    try { msg = JSON.parse(event.data); } catch (e) { return; }
-                    // The consumer sends "state" on connect and "status" on
-                    // every change; both carry the hunt status. React to
-                    // either so a status change that happened between page
-                    // render and group subscription still lands.
-                    if ((msg.type === "status" || msg.type === "state") && msg.data && msg.data.status && msg.data.status !== self.huntStatus) {
-                        self.stopAndReload();
-                    }
-                };
-                this.ws.onclose = function () {
-                    if (self.wsRetry < 5) {
-                        self.wsRetry += 1;
-                        setTimeout(function () { self.connectWebSocket(); }, 2000 * self.wsRetry);
-                    }
-                };
+                try {
+                    this.ws = new WebSocket(url);
+                    this.ws.onerror = function () {
+                        // WSGI dev server without Channels/Redis doesn't serve WebSockets:
+                        // HTTP polling fallback (startPolling) handles live status updates instead.
+                    };
+                    this.ws.onmessage = function (event) {
+                        var msg;
+                        try { msg = JSON.parse(event.data); } catch (e) { return; }
+                        if ((msg.type === "status" || msg.type === "state") && msg.data && msg.data.status && msg.data.status !== self.huntStatus) {
+                            self.stopAndReload();
+                        }
+                    };
+                    this.ws.onclose = function () {
+                        if (self.wsRetry < 5) {
+                            self.wsRetry += 1;
+                            setTimeout(function () { self.connectWebSocket(); }, 2000 * self.wsRetry);
+                        }
+                    };
+                } catch (e) {}
             },
 
             // --- Polling fallback: keeps the hunt advancing without Redis ---
