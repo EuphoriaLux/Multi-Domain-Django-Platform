@@ -69,7 +69,7 @@ def split_interests(value):
 
 @register.inclusion_tag('crush_lu/components/profile_photo.html')
 def profile_photo(profile, photo_field, css_class='', alt_text='Profile photo',
-                  fallback='initials', is_blurred=False):
+                  fallback='initials'):
     """
     Render a profile photo with consistent fallback.
 
@@ -77,7 +77,6 @@ def profile_photo(profile, photo_field, css_class='', alt_text='Profile photo',
         {% load crush_media %}
         {% profile_photo profile 'photo_1' css_class='w-14 h-14 rounded-full' %}
         {% profile_photo profile 'photo_1' css_class='w-10 h-10 rounded-full' fallback='icon' %}
-        {% profile_photo profile 'photo_1' css_class='w-28 h-28 rounded-2xl' is_blurred=True %}
 
     Args:
         profile: CrushProfile instance
@@ -86,8 +85,6 @@ def profile_photo(profile, photo_field, css_class='', alt_text='Profile photo',
         alt_text: Alt text for accessibility
         fallback: 'initials' (default — gradient + initial letter) or 'icon'
                   (neutral user-circle for non-personal placeholders)
-        is_blurred: When True, applies heavy CSS blur (used by Crush Connect
-                    Drop cards before mutual interest reveals identity).
 
     Returns:
         Rendered component
@@ -109,5 +106,4 @@ def profile_photo(profile, photo_field, css_class='', alt_text='Profile photo',
         'alt_text': alt_text,
         'display_name': profile.display_name if profile else 'User',
         'fallback': fallback,
-        'is_blurred': is_blurred,
     }

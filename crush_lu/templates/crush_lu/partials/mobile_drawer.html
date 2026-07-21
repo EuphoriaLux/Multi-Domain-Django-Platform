@@ -85,6 +85,14 @@
                     {% include "shared/icons/cog.html" with class="w-5 h-5 text-gray-400 dark:text-gray-500" %}
                     <span>{% trans "Account Settings" %}</span>
                 </a>
+                <a href="{% url 'crush_lu:edit_profile' %}?section=privacy" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors font-medium text-sm">
+                    {% include "shared/icons/shield-check.html" with class="w-5 h-5 text-gray-400 dark:text-gray-500" %}
+                    <span>{% trans "Privacy Settings" %}</span>
+                </a>
+                <a href="{% url 'crush_lu:edit_profile' %}?section=about_crushlu" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors font-medium text-sm">
+                    {% include "shared/icons/information-circle.html" with class="w-5 h-5 text-gray-400 dark:text-gray-500" %}
+                    <span>{% trans "About Crush.lu" %}</span>
+                </a>
                 <a href="{% url 'crush_lu:crush_coach' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors font-medium text-sm">
                     {% include "shared/icons/sparkles.html" with class="w-5 h-5 text-gray-400 dark:text-gray-500" %}
                     <span>{% trans "Become a Coach" %}</span>

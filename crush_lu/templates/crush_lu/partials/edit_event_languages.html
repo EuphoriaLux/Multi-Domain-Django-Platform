@@ -1,0 +1,88 @@
+{% load static i18n %}
+
+{% if has_errors %}
+<div x-data="dismissible" x-show="show" x-transition class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg mb-4 flex items-center justify-between" role="alert">
+    <div class="flex items-center gap-2">
+        {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}
+        {% trans "Please correct the errors below." %}
+    </div>
+    <button @click="dismiss" type="button" class="text-red-500 hover:text-red-700" aria-label="{% trans "Dismiss" %}">
+        {% include "shared/icons/x-mark.html" with class="w-4 h-4" aria_hidden="true" %}
+    </button>
+</div>
+{% endif %}
+
+<div class="max-w-3xl mx-auto">
+    <form method="post"
+          id="editEventLanguagesForm"
+          x-data="profileSectionAutosave"
+          data-section="about"
+          data-save-url="{% url 'api_profile_settings_autosave' %}">
+        {% csrf_token %}
+
+        <div data-non-field-errors class="{% if not form.non_field_errors %}hidden {% endif %}bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg mb-4">
+            {% for error in form.non_field_errors %}
+                <p>{{ error }}</p>
+            {% endfor %}
+        </div>
+
+        <div class="flex items-center gap-2 mb-4 min-h-[1.5rem]">
+            <div x-show="showSaving" x-transition class="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
+                <span class="animate-spin inline-block w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full"></span>
+                <span>{% trans "Saving..." %}</span>
+            </div>
+            <div x-show="showSuccess" x-transition class="flex items-center gap-1 text-sm text-green-600">
+                <span>✓</span>
+                <span>{% trans "Saved" %}</span>
+            </div>
+            <div x-show="showError" x-transition class="flex items-center gap-1 text-sm text-red-600">
+                <span>✗</span>
+                <span>{% trans "Error saving. Please try again." %}</span>
+            </div>
+            <p x-show="showIdleMessage" class="text-gray-400 dark:text-gray-500 text-sm">{% trans "Changes are saved automatically." %}</p>
+        </div>
+
+        <!-- Event Preferences Section -->
+        <div class="section-card mb-4">
+            <h5 class="section-title">
+                {% include "shared/icons/globe-alt.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
+                {% trans "Event Preferences" %}
+            </h5>
+
+            <p class="text-gray-500 dark:text-gray-400 text-sm mb-2">{% trans "Which languages can you speak at in-person events?" %}</p>
+            <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-lg p-3 mb-3">
+                <p class="text-sm text-amber-800 dark:text-amber-300 flex items-start gap-2">
+                    <svg class="w-4 h-4 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                    </svg>
+                    {% trans "You will only be able to sign up for events in your selected languages. Open Format events are available to everyone regardless of language selection." %}
+                </p>
+            </div>
+
+            <div class="flex flex-wrap gap-3">
+                {% for value, label in form.event_languages.field.choices %}
+                <label class="event-language-pill cursor-pointer">
+                    <input type="checkbox"
+                           name="{{ form.event_languages.html_name }}"
+                           value="{{ value }}"
+                           class="peer hidden"
+                           {% if value in profile.event_languages %}checked{% endif %}>
+                    <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200 transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 dark:peer-checked:bg-purple-900/30 peer-checked:text-purple-700 dark:peer-checked:text-purple-300 hover:border-purple-300">
+                        {% if value == 'en' %}🇬🇧{% elif value == 'de' %}🇩🇪{% elif value == 'fr' %}🇫🇷{% elif value == 'lu' %}🇱🇺{% endif %}
+                        {{ label }}
+                    </span>
+                </label>
+                {% endfor %}
+            </div>
+            <div data-error-for="event_languages" class="{% if not form.event_languages.errors %}hidden {% endif %}text-red-600 text-sm mt-2">{% if form.event_languages.errors %}{{ form.event_languages.errors.0 }}{% endif %}</div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons-container action-buttons-sticky">
+            <a href="{% url 'crush_lu:edit_profile' %}" class="btn-cancel">
+                {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
+                {% trans "Back" %}
+            </a>
+        </div>
+    </form>
+</div>

@@ -27,7 +27,7 @@
 {% endpartialdef %}
 
 {% block title %}{% trans "Edit Your Profile - Crush.lu" %}{% endblock %}
-{% block mobile_page_title %}{% if section == 'photos' %}{% trans "Photos" %}{% elif section == 'about' %}{% trans "About You" %}{% elif section == 'privacy' %}{% trans "Privacy" %}{% elif section == 'account' %}{% trans "Account" %}{% elif section == 'about_crushlu' %}{% trans "About Crush.lu" %}{% else %}{% trans "Edit Profile" %}{% endif %}{% endblock %}
+{% block mobile_page_title %}{% if section == 'photos' %}{% trans "Photos" %}{% elif section == 'about' %}{% trans "About You" %}{% elif section == 'traits' %}{% trans "Your Personality" %}{% elif section == 'contact' %}{% trans "Contact & Location" %}{% elif section == 'event_languages' %}{% trans "Event Preferences" %}{% elif section == 'privacy' %}{% trans "Privacy" %}{% elif section == 'account' %}{% trans "Account" %}{% elif section == 'about_crushlu' %}{% trans "About Crush.lu" %}{% else %}{% trans "Edit Profile" %}{% endif %}{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'crush_lu/css/components/profile-creation.css' %}">
@@ -63,7 +63,23 @@
                         {% if not profile.is_approved or field.field != 'photo_1' %}
                         <li class="text-amber-700 dark:text-amber-300 text-sm flex items-center gap-2">
                             <span class="w-2 h-2 bg-amber-500 dark:bg-amber-400 rounded-full"></span>
-                            {{ field.label }}
+                            {% if field.field == 'photo_1' %}
+                                <a href="{% url 'crush_lu:edit_profile' %}?section=photos" class="underline hover:text-amber-900 dark:hover:text-amber-100 transition-colors">
+                                    {{ field.label }}
+                                </a>
+                            {% elif field.field == 'event_languages' %}
+                                <a href="{% url 'crush_lu:edit_profile' %}?section=event_languages" class="underline hover:text-amber-900 dark:hover:text-amber-100 transition-colors">
+                                    {{ field.label }}
+                                </a>
+                            {% elif field.field in 'gender,date_of_birth,phone_number,location' %}
+                                <a href="{% url 'crush_lu:edit_profile' %}?section=contact" class="underline hover:text-amber-900 dark:hover:text-amber-100 transition-colors">
+                                    {{ field.label }}
+                                </a>
+                            {% else %}
+                                <a href="{% url 'crush_lu:edit_profile' %}?section=about" class="underline hover:text-amber-900 dark:hover:text-amber-100 transition-colors">
+                                    {{ field.label }}
+                                </a>
+                            {% endif %}
                         </li>
                         {% endif %}
                         {% endfor %}
@@ -116,29 +132,64 @@
                     <div>
                         <div class="font-medium text-gray-900 dark:text-white">{% trans "About You" %}</div>
                         <div class="text-sm text-gray-500 dark:text-gray-400">
-                            {% trans "Bio, interests, personality, contact" %}
+                            {% trans "Bio & interests" %}
                         </div>
                     </div>
                 </div>
                 <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
             </a>
 
-            {# Privacy #}
-            <a href="{% url 'crush_lu:edit_profile' %}?section=privacy"
+            {# Your Personality #}
+            <a href="{% url 'crush_lu:edit_profile' %}?section=traits"
                class="section-edit-card card-tappable">
                 <div class="flex items-center gap-3">
-                    <div class="section-edit-card-icon bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
-                        {% include "shared/icons/shield-check.html" with class="w-5 h-5" %}
+                    <div class="section-edit-card-icon bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
+                        {% include "shared/icons/sparkles.html" with class="w-5 h-5" %}
                     </div>
                     <div>
-                        <div class="font-medium text-gray-900 dark:text-white">{% trans "Privacy" %}</div>
+                        <div class="font-medium text-gray-900 dark:text-white">{% trans "Your Personality" %}</div>
                         <div class="text-sm text-gray-500 dark:text-gray-400">
-                            {% trans "Name visibility, age, photo blur" %}
+                            {% trans "Qualities & defects" %}
                         </div>
                     </div>
                 </div>
                 <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
             </a>
+
+            {# Contact & Location #}
+            <a href="{% url 'crush_lu:edit_profile' %}?section=contact"
+               class="section-edit-card card-tappable">
+                <div class="flex items-center gap-3">
+                    <div class="section-edit-card-icon bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                        {% include "shared/icons/map-pin.html" with class="w-5 h-5" %}
+                    </div>
+                    <div>
+                        <div class="font-medium text-gray-900 dark:text-white">{% trans "Contact & Location" %}</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">
+                            {% trans "Phone number & region" %}
+                        </div>
+                    </div>
+                </div>
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+
+            {# Event Preferences #}
+            <a href="{% url 'crush_lu:edit_profile' %}?section=event_languages"
+               class="section-edit-card card-tappable">
+                <div class="flex items-center gap-3">
+                    <div class="section-edit-card-icon bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
+                        {% include "shared/icons/globe-alt.html" with class="w-5 h-5" %}
+                    </div>
+                    <div>
+                        <div class="font-medium text-gray-900 dark:text-white">{% trans "Event Preferences" %}</div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400">
+                            {% trans "Languages spoken at events" %}
+                        </div>
+                    </div>
+                </div>
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+
 
             {# Crush Connect profile — unlocked once Connect onboarding is complete #}
             {% if user|crush_connect_visible %}
@@ -179,56 +230,6 @@
             {% endif %}
             {% endif %}
 
-            {# Account #}
-            <a href="{% url 'crush_lu:edit_profile' %}?section=account"
-               class="section-edit-card card-tappable">
-                <div class="flex items-center gap-3">
-                    <div class="section-edit-card-icon bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
-                        {% include "shared/icons/cog-6-tooth.html" with class="w-5 h-5" %}
-                    </div>
-                    <div>
-                        <div class="font-medium text-gray-900 dark:text-white">{% trans "Account" %}</div>
-                        <div class="text-sm text-gray-500 dark:text-gray-400">
-                            {% trans "Settings, notifications, language, theme" %}
-                        </div>
-                    </div>
-                </div>
-                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-            </a>
-
-            {# About Crush.lu (mobile only — replaces footer) #}
-            <a href="{% url 'crush_lu:edit_profile' %}?section=about_crushlu"
-               class="section-edit-card card-tappable lg:hidden">
-                <div class="flex items-center gap-3">
-                    <div class="section-edit-card-icon bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
-                        {% include "shared/icons/information-circle.html" with class="w-5 h-5" %}
-                    </div>
-                    <div>
-                        <div class="font-medium text-gray-900 dark:text-white">{% trans "About Crush.lu" %}</div>
-                        <div class="text-sm text-gray-500 dark:text-gray-400">
-                            {% trans "Links, legal, contact, social" %}
-                        </div>
-                    </div>
-                </div>
-                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-            </a>
-
-            {# Log Out (mobile only — desktop has it in the navbar user dropdown) #}
-            <a href="{% url 'crush_lu:logout' %}"
-               class="section-edit-card card-tappable lg:hidden">
-                <div class="flex items-center gap-3">
-                    <div class="section-edit-card-icon bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
-                        {% include "shared/icons/arrow-right-on-rectangle.html" with class="w-5 h-5" %}
-                    </div>
-                    <div>
-                        <div class="font-medium text-red-600 dark:text-red-400">{% trans "Log Out" %}</div>
-                        <div class="text-sm text-gray-500 dark:text-gray-400">
-                            {% trans "Sign out of your account on this device" %}
-                        </div>
-                    </div>
-                </div>
-                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-            </a>
         </div>
     </div>
 {% endif %}

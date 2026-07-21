@@ -1,0 +1,134 @@
+{% load static i18n %}
+
+{% if has_errors %}
+<div x-data="dismissible" x-show="show" x-transition class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg mb-4 flex items-center justify-between" role="alert">
+    <div class="flex items-center gap-2">
+        {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}
+        {% trans "Please correct the errors below." %}
+    </div>
+    <button @click="dismiss" type="button" class="text-red-500 hover:text-red-700" aria-label="{% trans "Dismiss" %}">
+        {% include "shared/icons/x-mark.html" with class="w-4 h-4" aria_hidden="true" %}
+    </button>
+</div>
+{% endif %}
+
+<div class="max-w-3xl mx-auto">
+    <form method="post"
+          id="editTraitsForm"
+          x-data="profileSectionAutosave"
+          data-section="about"
+          data-save-url="{% url 'api_profile_settings_autosave' %}">
+        {% csrf_token %}
+
+        <div data-non-field-errors class="{% if not form.non_field_errors %}hidden {% endif %}bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg mb-4">
+            {% for error in form.non_field_errors %}
+                <p>{{ error }}</p>
+            {% endfor %}
+        </div>
+
+        <div class="flex items-center gap-2 mb-4 min-h-[1.5rem]">
+            <div x-show="showSaving" x-transition class="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
+                <span class="animate-spin inline-block w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full"></span>
+                <span>{% trans "Saving..." %}</span>
+            </div>
+            <div x-show="showSuccess" x-transition class="flex items-center gap-1 text-sm text-green-600">
+                <span>✓</span>
+                <span>{% trans "Saved" %}</span>
+            </div>
+            <div x-show="showError" x-transition class="flex items-center gap-1 text-sm text-red-600">
+                <span>✗</span>
+                <span>{% trans "Error saving. Please try again." %}</span>
+            </div>
+            <p x-show="showIdleMessage" class="text-gray-400 dark:text-gray-500 text-sm">{% trans "Changes are saved automatically." %}</p>
+        </div>
+
+        <!-- Personality Traits Section -->
+        <div class="section-card mb-4">
+            <h5 class="section-title">
+                {% include "shared/icons/sparkles.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
+                {% trans "Your Personality" %}
+            </h5>
+            <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">{% trans "Select up to 5 traits in each category to improve your compatibility matches." %}</p>
+
+            <!-- My Qualities -->
+            <div class="mb-6"
+                 x-data="traitSelector"
+                 data-max="5"
+                 data-accent="purple"
+                 data-initial="{{ selected_qualities_json }}">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                        {% trans "My Qualities" %}
+                    </label>
+                    <span class="text-sm font-semibold text-purple-600 dark:text-purple-400" x-text="counterText"></span>
+                </div>
+                <p class="text-gray-400 dark:text-gray-500 text-xs mb-3">{% trans "What best describes you?" %}</p>
+                {% for cat in qualities_grouped %}
+                <div class="mb-3">
+                    <div class="flex items-center gap-2 mb-1.5">
+                        {% include cat.ghost_include with class="w-5 h-5" %}
+                        <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{{ cat.label }}</span>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        {% for trait in cat.traits %}
+                        <button type="button"
+                                data-trait-id="{{ trait.pk }}"
+                                @click="handleClick"
+                                class="px-3.5 py-2 min-h-10 rounded-full text-sm font-medium border-2 transition-all duration-200
+                                       border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200">
+                            {{ trait.label }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+                <input type="hidden" name="qualities_ids" x-bind:value="hiddenValue">
+                <div data-error-for="qualities_ids" class="{% if not form.qualities_ids.errors %}hidden {% endif %}text-red-600 text-sm mt-1">{% if form.qualities_ids.errors %}{{ form.qualities_ids.errors.0 }}{% endif %}</div>
+            </div>
+
+            <!-- My Defects -->
+            <div class="mb-2"
+                 x-data="traitSelector"
+                 data-max="5"
+                 data-accent="pink"
+                 data-initial="{{ selected_defects_json }}">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                        {% trans "My Defects" %}
+                    </label>
+                    <span class="text-sm font-semibold text-pink-600 dark:text-pink-400" x-text="counterText"></span>
+                </div>
+                <p class="text-gray-400 dark:text-gray-500 text-xs mb-3">{% trans "What do you own up to?" %}</p>
+                {% for cat in defects_grouped %}
+                <div class="mb-3">
+                    <div class="flex items-center gap-2 mb-1.5">
+                        {% include cat.ghost_include with class="w-5 h-5" %}
+                        <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{{ cat.label }}</span>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        {% for trait in cat.traits %}
+                        <button type="button"
+                                data-trait-id="{{ trait.pk }}"
+                                @click="handleClick"
+                                class="px-3.5 py-2 min-h-10 rounded-full text-sm font-medium border-2 transition-all duration-200
+                                       border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200">
+                            {{ trait.label }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+                <input type="hidden" name="defects_ids" x-bind:value="hiddenValue">
+                <div data-error-for="defects_ids" class="{% if not form.defects_ids.errors %}hidden {% endif %}text-red-600 text-sm mt-1">{% if form.defects_ids.errors %}{{ form.defects_ids.errors.0 }}{% endif %}</div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons-container action-buttons-sticky">
+            <a href="{% url 'crush_lu:edit_profile' %}" class="btn-cancel">
+                {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
+                {% trans "Back" %}
+            </a>
+        </div>
+    </form>
+</div>

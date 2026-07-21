@@ -301,7 +301,27 @@ document.addEventListener("alpine:init", function () {
                 if (navigator.vibrate) {
                     navigator.vibrate(10);
                 }
-                window.history.back();
+
+                // Hierarchical back for profile edit sub-sections
+                var params = new URLSearchParams(window.location.search);
+                if (window.location.pathname.indexOf('/profile/edit/') !== -1 && params.has('section')) {
+                    // Navigate to the parent edit profile overview
+                    window.location.href = window.location.pathname;
+                    return;
+                }
+
+                // Fallback to history.back(). If history length is 1 (direct load/no history),
+                // fall back to a safe location like dashboard.
+                if (window.history.length <= 1) {
+                    var prefix = "/en";
+                    var match = window.location.pathname.match(/^\/([a-z]{2})\//);
+                    if (match) {
+                        prefix = "/" + match[1];
+                    }
+                    window.location.href = prefix + '/dashboard/';
+                } else {
+                    window.history.back();
+                }
             },
 
             toggleDrawer: function () {

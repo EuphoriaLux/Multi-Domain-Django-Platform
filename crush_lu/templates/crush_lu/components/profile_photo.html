@@ -21,13 +21,7 @@ Args (resolved by the {% profile_photo %} inclusion_tag in crush_media):
   has_photo, photo_url, alt_text, css_class, display_name, fallback, is_blurred
 {% endcomment %}
 {% load i18n %}
-{% if is_blurred %}
-    {# Never serve the real photo URL for pre-reveal Drop cards. #}
-    <div class="{{ css_class }} flex items-center justify-center bg-gradient-to-br from-crush-purple to-crush-pink select-none"
-         aria-hidden="true">
-        <span class="text-white font-semibold opacity-0">?</span>
-    </div>
-{% elif has_photo %}
+{% if has_photo %}
     <img src="{{ photo_url }}"
          alt="{{ alt_text }}"
          class="{{ css_class }} object-cover"
