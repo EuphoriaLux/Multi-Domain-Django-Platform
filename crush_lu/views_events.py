@@ -405,7 +405,7 @@ def my_events(request):
             "is_waitlist": reg.status == "waitlist",
             "is_pending_payment": reg.status == "pending",
             "can_cancel": reg.event.date_time > now
-            and reg.status in ("confirmed", "waitlist"),
+            and reg.status in ("pending", "confirmed", "waitlist"),
             "lobby_cta": _card_lobby_cta(reg),
         }
         for reg in upcoming

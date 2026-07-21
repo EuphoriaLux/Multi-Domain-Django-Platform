@@ -10,6 +10,7 @@ This module provides dynamic sitemap generation for:
 from datetime import timedelta
 
 from django.contrib.sitemaps import Sitemap
+from django.db.models import Q
 from django.urls import reverse
 from .models import MeetupEvent
 from django.utils import timezone
@@ -83,13 +84,24 @@ class CrushEventSitemap(Sitemap):
     def items(self):
         """Return all published, non-cancelled, current/upcoming events."""
         now = timezone.now()
-        events = MeetupEvent.objects.filter(
-            is_published=True,
-            is_cancelled=False,
-            is_private_invitation=False,  # Don't include private events
-            date_time__gte=MeetupEvent.live_lookback_cutoff(now),
+        event_filter = {
+            "is_published": True,
+            "is_cancelled": False,
+            "is_private_invitation": False,
+        }
+        live_event_ids = [
+            event.pk
+            for event in MeetupEvent.objects.filter(
+                **event_filter,
+                date_time__gte=MeetupEvent.live_lookback_cutoff(now),
+                date_time__lt=now,
+            ).only("pk", "date_time", "duration_minutes")
+            if event.end_time >= now
+        ]
+        return MeetupEvent.objects.filter(
+            Q(date_time__gte=now) | Q(pk__in=live_event_ids),
+            **event_filter,
         ).order_by('date_time')
-        return [event for event in events if event.end_time >= now]
 
     def location(self, obj):
         return reverse('crush_lu:event_detail', kwargs={'event_id': obj.id})
