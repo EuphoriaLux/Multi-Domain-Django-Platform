@@ -106,11 +106,28 @@ conversion moment that exists, without a paywall screen.
   read this"), so the Event Identity spec's no-free-text rule (profile
   surfaces) is unaffected.
 
-* **Lead routing:** `assigned_coach` if set; else one of the **event's
-  coaches** (`MeetupEvent.coaches` M2M, `crush_lu/models/events.py:239`,
-  `related_name="assigned_events"` — already populated by event operations);
-  else the coach-pool queue. Only the *selection policy* within
-  `event.coaches` is net-new (§7, O11).
+* **Lead routing:** `assigned_coach` if set **and still active**; else an
+  **active** one of the event's coaches (`MeetupEvent.coaches` M2M,
+  `crush_lu/models/events.py:239`, `related_name="assigned_events"` — already
+  populated by event operations); else the coach-pool queue. Every tier
+  filters `is_active=True`: `coach_required` (`crush_lu/decorators.py:27`)
+  bars deactivated coaches from all coach views, and §7's per-lead
+  authorization hides the lead from everyone else — so routing to a stale
+  coach would strand the lead unworkable until the SLA breaches. Only the
+  *selection policy* within `event.coaches` is net-new (§7, O11). Test a
+  stale assignment and a deactivated event coach falling through (§13).
+
+* **The recipient's coach gets a defined work item.** When the recipient has
+  their own (active) assigned coach different from the routed coach, the §4
+  promise "contacting the crush's coach" must be trackable, not manual: the
+  lead records the recipient-side coach, who receives a **recipient-scoped
+  co-coach task** — recipient identity, event, and requesting coach only,
+  **never the crusher's `requester_note`** (that stays with the routed coach)
+  and not the crusher's identity until the coaches agree the intro is
+  happening. Recipient outreach gets its own tracking timestamp so the SLA
+  covers both halves. If the recipient has no active coach, the routed coach
+  performs the outreach directly. Test a pair assigned to different coaches
+  (§13).
 
 * **Lead record:** extend `EventConnection` with call-tracking fields
   (`coach_call_scheduled_at`, `coach_call_completed_at`, `call_outcome`) or a
@@ -138,12 +155,17 @@ conversion moment that exists, without a paywall screen.
   (`notify_new_connection`, `crush_lu/views_connections.py:420`, `:601`),
   lists the row in their inbox with an Accept/Decline card
   (`received_pending` → `received_requests`, `views_connections.py:875`),
-  and exposes it on `connection_detail`. Left as-is, a one-sided crush is
-  revealed within seconds. Crush leads must be excluded from recipient
-  notifications, the recipient's `my_connections` inbox, attendee-page
-  connection state, and `connection_detail` until the coach has obtained the
-  recipient's consent — and §13 tests that the recipient cannot discover the
-  row from any existing page.
+  and exposes it on `connection_detail`. The attendee page additionally
+  shows an **aggregate hint** — `incoming_pending_count`
+  (`views_connections.py:144–146`) renders "Someone here wants to connect
+  with you" from the count of received `pending` rows — which would reveal
+  that *a* crush exists even with all per-row surfaces hidden. Left as-is, a
+  one-sided crush is revealed within seconds. Crush leads must be excluded
+  from recipient notifications, the recipient's `my_connections` inbox,
+  attendee-page connection state, **the `incoming_pending_count` aggregate**,
+  and `connection_detail` until the coach has obtained the recipient's
+  consent — and §13 tests that the recipient cannot discover the row (or the
+  hint) from any existing page.
 
 * **Declines must be invisible to the crusher too.** `connection_detail`
   authorizes *either* party of a row (`views_connections.py:917–921`) and
@@ -268,6 +290,22 @@ one flagship event) first.
   introduction and the no-chat non-goal (§12). Crush leads expose no message
   creation, polling, or notification in any pre-`shared` status — enforced
   server-side, not merely hidden in the template.
+
+* **Coach-side consent recording and the `shared` transition.** In the
+  legacy flow the two consent flags are set only through **member**
+  `connection_detail`/response posts, and the coach's `approve` action sets
+  nothing but `coach_approved` — so with member surfaces suppressed for
+  crush rows (§5), a lead would have **no path from the coach calls to a
+  completed introduction**. Net-new coach actions on the review view:
+  record the requester's and the recipient's **call-obtained consent**
+  individually (each an audited write: actor coach + timestamp), and a
+  final **share** action that performs the contact disclosure. `share` is
+  valid only when both consents are recorded — reuse the
+  `can_share_contacts` invariant (`crush_lu/models/connections.py:212–218`)
+  rather than bypassing it. The member-facing consent controls stay disabled
+  for crush rows; consent is given verbally to the coach, recorded by the
+  coach. Test that one recorded consent never releases either side's
+  contact details (§13).
 
 * **Coach workflow: reciprocal crush leads stay independent.** The existing
   `coach_connection_review` treats a reverse row as part of one legacy
@@ -446,6 +484,23 @@ before or after them.
 * **Reminder idempotency:** delivering the timer sweep twice for the same
   overdue lead produces exactly one reminder; a lead with
   `coach_call_completed_at` set is never swept.
+
+* **Aggregate hint suppressed:** a recipient whose only received rows are
+  crush leads sees no "Someone here wants to connect with you" alert —
+  `incoming_pending_count` is 0.
+
+* **Stale-coach routing:** a deactivated `assigned_coach` and a deactivated
+  event coach each fall through to the next tier; no lead is ever routed to
+  an inactive coach.
+
+* **Co-coach work item:** for a pair assigned to different coaches, the
+  recipient's coach receives the recipient-scoped task (without
+  `requester_note` or premature crusher identity) and the routed coach keeps
+  the lead; recipient-outreach tracking is SLA-visible.
+
+* **Coach-side consent:** recording one consent does not release any contact
+  details; the share action succeeds only with both consents recorded and is
+  fully audited (actor + timestamps).
 
 * **Crush limit is gender-independent:** a same-gender declaration counts
   against the per-event limit exactly like a cross-gender one.
