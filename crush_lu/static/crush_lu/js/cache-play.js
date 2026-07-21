@@ -443,6 +443,26 @@ document.addEventListener("alpine:init", function () {
                         opacity: 0.7,
                     }).addTo(this.map);
                 }
+
+                // Custom Recenter button control inside Leaflet top-left bar
+                var RecenterControl = L.Control.extend({
+                    options: { position: "topleft" },
+                    onAdd: function () {
+                        var container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
+                        var btn = L.DomUtil.create("a", "", container);
+                        btn.href = "#";
+                        btn.title = "Recenter map";
+                        btn.innerHTML = "🎯";
+                        btn.style.cssText = "font-size: 15px; display: flex; align-items: center; justify-content: center; text-decoration: none; width: 34px; height: 34px; line-height: 34px; background: rgba(255,255,255,0.95); font-weight: bold; border-radius: 8px;";
+                        L.DomEvent.on(btn, "click", function (e) {
+                            L.DomEvent.stopPropagation(e);
+                            L.DomEvent.preventDefault(e);
+                            self.recenterMap();
+                        });
+                        return container;
+                    }
+                });
+                this.map.addControl(new RecenterControl());
             },
 
             recenterMap: function () {

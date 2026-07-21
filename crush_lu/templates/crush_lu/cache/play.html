@@ -67,14 +67,7 @@
         </div>
 
         {% if show_map %}
-        <div class="relative mb-4">
-            <div id="cache-map" class="h-64 w-full rounded-2xl border border-gray-200 dark:border-gray-700 shadow-crush-sm overflow-hidden z-10"></div>
-            <button type="button" x-on:click="recenterMap"
-                    class="absolute top-3 left-3 z-[400] flex items-center gap-1.5 rounded-xl bg-white/90 dark:bg-gray-800/90 px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-200 shadow-md backdrop-blur border border-gray-200 dark:border-gray-700 active:scale-95 transition-transform"
-                    title="{% trans 'Recenter map on your position & station' %}">
-                🎯 {% trans "Recenter" %}
-            </button>
-        </div>
+        <div id="cache-map" class="mb-4 h-64 w-full rounded-2xl border border-gray-200 dark:border-gray-700 shadow-crush-sm overflow-hidden"></div>
         {% endif %}
 
         {% include "crush_lu/cache/_play_content.html" %}
