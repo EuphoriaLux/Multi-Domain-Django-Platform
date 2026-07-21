@@ -329,6 +329,60 @@ class CampaignCreateFlowTests(TestCase):
             )
         self.assertIn('dispatch_campaigns', str(ctx.exception))
 
+    def test_draft_can_be_launched_now(self):
+        campaign = create_campaign(
+            name='Launch me', channels=['email'], audience='all_users',
+            email_content={'subject_en': 'S', 'body_html_en': 'B'},
+        )
+        self.assertEqual(campaign.status, 'draft')
+        response = self.client.post(
+            reverse('campaign_launch', kwargs={'campaign_id': campaign.pk}),
+        )
+        campaign.refresh_from_db()
+        self.assertEqual(campaign.status, 'scheduled')
+        self.assertLessEqual(campaign.scheduled_at, timezone.now())
+        self.assertRedirects(
+            response,
+            reverse('campaign_detail', kwargs={'campaign_id': campaign.pk}),
+        )
+
+    def test_draft_can_be_launched_at_future_utc_time(self):
+        from datetime import datetime, timezone as dt_timezone
+
+        campaign = create_campaign(
+            name='Launch later', channels=['email'], audience='all_users',
+            email_content={'subject_en': 'S', 'body_html_en': 'B'},
+        )
+        self.client.post(
+            reverse('campaign_launch', kwargs={'campaign_id': campaign.pk}),
+            {'scheduled_at': '2030-09-01T09:30'},
+        )
+        campaign.refresh_from_db()
+        self.assertEqual(campaign.status, 'scheduled')
+        self.assertEqual(
+            campaign.scheduled_at,
+            datetime(2030, 9, 1, 9, 30, tzinfo=dt_timezone.utc),
+        )
+
+    def test_launch_rejects_past_time_and_non_drafts(self):
+        campaign = create_campaign(
+            name='No launch', channels=['email'], audience='all_users',
+            email_content={'subject_en': 'S', 'body_html_en': 'B'},
+        )
+        self.client.post(
+            reverse('campaign_launch', kwargs={'campaign_id': campaign.pk}),
+            {'scheduled_at': '2001-01-01T00:00'},
+        )
+        campaign.refresh_from_db()
+        self.assertEqual(campaign.status, 'draft')
+
+        Campaign.objects.filter(pk=campaign.pk).update(status='sent')
+        self.client.post(
+            reverse('campaign_launch', kwargs={'campaign_id': campaign.pk}),
+        )
+        campaign.refresh_from_db()
+        self.assertEqual(campaign.status, 'sent')
+
     def test_cancel_transitions_campaign(self):
         campaign = create_campaign(
             name='Cancel me', channels=['email'], audience='all_users',

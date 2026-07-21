@@ -92,13 +92,15 @@ class BuildTrackedUrlTests(TestCase):
                           user=self.user)
         self.assertEqual(CampaignLink.objects.count(), 1)
 
-    def test_user_attribution_is_signed(self):
+    def test_user_attribution_is_signed_and_bound_to_link(self):
         tracked = build_tracked_url(
             'https://crush.lu/a/', self.campaign, 'email', user=self.user,
         )
+        link = CampaignLink.objects.get()
         params = parse_qs(urlsplit(tracked).query)
         self.assertEqual(
-            click_signer().unsign(params['r'][0]), str(self.user.pk),
+            click_signer().unsign(params['r'][0]),
+            f'{self.user.pk}:{link.token}',
         )
 
 
@@ -172,6 +174,20 @@ class ClickRedirectViewTests(TestCase):
         response = self.client.get(f'/c/{self.link.token}/')
         self.assertEqual(response.status_code, 302)
         self.assertIsNone(CampaignClick.objects.get().user)
+
+    def test_signature_from_other_link_counts_anonymous(self):
+        """A valid ?r= lifted onto another campaign's URL must not attribute."""
+        other_campaign = Campaign.objects.create(
+            name='Other', channels=['email'], audience='all_users',
+        )
+        other_tracked = build_tracked_url(
+            'https://crush.lu/other/', other_campaign, 'email', self.user,
+        )
+        stolen_r = parse_qs(urlsplit(other_tracked).query)['r'][0]
+        response = self.client.get(f'/c/{self.link.token}/?r={stolen_r}')
+        self.assertEqual(response.status_code, 302)
+        click = CampaignClick.objects.get(link=self.link)
+        self.assertIsNone(click.user)
 
     def test_unknown_token_404s(self):
         response = self.client.get('/c/does-not-exist/')

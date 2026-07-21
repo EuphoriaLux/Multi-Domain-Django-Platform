@@ -386,6 +386,7 @@ urlpatterns = [
     path('crush-admin/campaigns/preview/', campaign_dashboard_views.campaign_preview, name='campaign_preview'),
     path('crush-admin/campaigns/<int:campaign_id>/', campaign_dashboard_views.campaign_detail, name='campaign_detail'),
     path('crush-admin/campaigns/<int:campaign_id>/cancel/', campaign_dashboard_views.campaign_cancel, name='campaign_cancel'),
+    path('crush-admin/campaigns/<int:campaign_id>/launch/', campaign_dashboard_views.campaign_launch, name='campaign_launch'),
     path('crush-admin/campaigns/<int:campaign_id>/status/', campaign_dashboard_views.campaign_status_partial, name='campaign_status_partial'),
     path('crush-admin/api/campaign-overview/', campaign_dashboard_views.campaign_overview_api, name='campaign_overview_api'),
     path('crush-admin/api/campaign-clicks/<int:campaign_id>/', campaign_dashboard_views.campaign_clicks_api, name='campaign_clicks_api'),

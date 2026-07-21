@@ -191,7 +191,9 @@ class ResumabilityTests(TestCase):
         )
 
     def test_processed_recipients_excluded(self):
-        for status in ('sent', 'failed', 'skipped'):
+        # 'pending' is the durable pre-send claim: a worker that died after
+        # Meta accepted must not cause a second paid send.
+        for status in ('pending', 'sent', 'failed', 'skipped'):
             CampaignRecipient.objects.all().delete()
             CampaignRecipient.objects.create(
                 campaign=self.campaign,

@@ -29,8 +29,14 @@ def campaign_click_redirect(request, token):
     signed = request.GET.get('r', '')
     if signed:
         try:
-            user_id = click_signer().unsign(signed)
-            user = User.objects.filter(pk=int(user_id)).first()
+            value = click_signer().unsign(signed)
+            user_id, _, signed_token = value.partition(':')
+            # The signature binds user AND link — a valid ?r= copied onto a
+            # different campaign URL degrades to an anonymous click.
+            if signed_token == token:
+                user = User.objects.filter(pk=int(user_id)).first()
+            else:
+                logger.info("Campaign click signature for a different link")
         except (BadSignature, ValueError):
             logger.info("Campaign click with invalid recipient signature")
 

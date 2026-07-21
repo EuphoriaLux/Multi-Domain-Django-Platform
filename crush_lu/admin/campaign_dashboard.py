@@ -413,6 +413,54 @@ def campaign_detail(request, campaign_id):
 
 @login_required
 @require_POST
+def campaign_launch(request, campaign_id):
+    """Schedule a saved draft (now, or at a provided UTC datetime)."""
+    error = _check_admin_access(request)
+    if error:
+        return error
+
+    campaign = get_object_or_404(Campaign, pk=campaign_id)
+    raw = (request.POST.get('scheduled_at') or '').strip()
+    scheduled_at = timezone.now()
+    if raw:
+        from django.utils.dateparse import parse_datetime
+        parsed = parse_datetime(raw)
+        if parsed is None:
+            messages.error(request, "Pick a valid launch date and time.")
+            return redirect('campaign_detail', campaign_id=campaign.pk)
+        if timezone.is_naive(parsed):
+            parsed = parsed.replace(tzinfo=dt_timezone.utc)
+        if parsed <= timezone.now():
+            messages.error(request, "The launch time must be in the future.")
+            return redirect('campaign_detail', campaign_id=campaign.pk)
+        scheduled_at = parsed
+
+    # Conditional update: only a draft can be launched (mirrors cancel()).
+    updated = Campaign.objects.filter(
+        pk=campaign.pk, status='draft',
+    ).update(status='scheduled', scheduled_at=scheduled_at)
+    if not updated:
+        messages.warning(
+            request,
+            f'Campaign "{campaign.name}" is no longer a draft — nothing to launch.',
+        )
+    elif raw:
+        messages.success(
+            request,
+            f'Campaign "{campaign.name}" scheduled for '
+            f'{scheduled_at:%Y-%m-%d %H:%M} UTC.',
+        )
+    else:
+        messages.success(
+            request,
+            f'Campaign "{campaign.name}" queued — sending begins within '
+            f'~5 minutes.',
+        )
+    return redirect('campaign_detail', campaign_id=campaign.pk)
+
+
+@login_required
+@require_POST
 def campaign_cancel(request, campaign_id):
     error = _check_admin_access(request)
     if error:

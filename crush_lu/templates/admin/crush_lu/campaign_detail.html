@@ -49,6 +49,20 @@
     </div>
     {% endif %}
 
+    {% if campaign.status == 'draft' %}
+    <div class="panel-section">
+        <div class="section-header"><h2>🚀 {% trans "Launch this draft" %}</h2></div>
+        <form method="post" action="{% url 'campaign_launch' campaign.pk %}">
+            {% csrf_token %}
+            <div class="form-field">
+                <label for="id_launch_at">{% trans "Send at (UTC) — leave empty to send now" %}</label>
+                <input type="datetime-local" id="id_launch_at" name="scheduled_at">
+            </div>
+            <button type="submit" class="btn btn-primary">🚀 {% trans "Launch campaign" %}</button>
+        </form>
+    </div>
+    {% endif %}
+
     <div class="panel-section" x-data="campaignClicksChart" data-campaign-id="{{ campaign.pk }}">
         <div class="section-header"><h2>🖱️ {% trans "Clicks per day" %}</h2></div>
         <div class="chart-box"><canvas></canvas></div>

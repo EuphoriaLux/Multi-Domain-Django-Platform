@@ -101,9 +101,12 @@ def resolve_campaign_audience(campaign):
 def _exclude_processed(users, campaign, channel):
     """Resumability: drop users already handled for this campaign+channel.
 
-    All three outcomes are terminal for dispatch — failed sends are not
-    retried automatically (WhatsApp template sends are paid; email failures
-    are excluded for the same convergence reason in send_newsletter).
+    All outcomes are terminal for dispatch — failed sends are not retried
+    automatically (WhatsApp template sends are paid; email failures are
+    excluded for the same convergence reason in send_newsletter). 'pending'
+    is a pre-send claim (WhatsApp): if a worker died mid-send the outcome is
+    unknown, so at-most-once wins over retrying a possibly-delivered paid
+    message.
     """
     if campaign.pk is None:
         # Transient campaign (estimate-only call) — nothing processed yet.
@@ -111,7 +114,7 @@ def _exclude_processed(users, campaign, channel):
     processed_ids = CampaignRecipient.objects.filter(
         campaign=campaign,
         channel=channel,
-        status__in=['sent', 'failed', 'skipped'],
+        status__in=['pending', 'sent', 'failed', 'skipped'],
     ).values_list('user_id', flat=True)
     return users.exclude(id__in=processed_ids)
 
@@ -199,7 +202,10 @@ def build_tracked_url(url, campaign, channel, user=None):
     )
     redirect_url = f"{CLICK_REDIRECT_BASE}{path}"
     if user is not None:
-        signed = click_signer().sign(str(user.pk))
+        # Bind the attribution to this specific link so a recipient can't
+        # lift their ?r= value onto another campaign's URL and pollute its
+        # click stats (verified against the resolved link in the redirect).
+        signed = click_signer().sign(f"{user.pk}:{link.token}")
         redirect_url = f"{redirect_url}?r={quote(signed)}"
     return redirect_url
 
@@ -331,14 +337,16 @@ class WhatsAppAdapter:
             return result
 
         for i, user_id in enumerate(user_ids):
+            if i > 0:
+                time_module.sleep(WHATSAPP_SEND_SPACING_SECONDS)
+            # Checked AFTER the pacing sleep so a cancel (or the deadline)
+            # landing during it stops before the next paid Meta call.
             if deadline is not None and time_module.monotonic() > deadline:
                 result.interrupted = True
                 break
             if _is_cancelled(campaign):
                 result.interrupted = True
                 break
-            if i > 0:
-                time_module.sleep(WHATSAPP_SEND_SPACING_SECONDS)
 
             user = User.objects.filter(id=user_id).first()
             if user is None:
@@ -351,6 +359,21 @@ class WhatsAppAdapter:
                 if value.startswith(('http://', 'https://')):
                     value = build_tracked_url(value, campaign, self.key, user)
                 parameters[key] = value
+
+            # Durable pre-send claim: if the worker dies after Meta accepts
+            # but before the outcome lands, this row (excluded from later
+            # eligibility) prevents a second paid send for the same user.
+            claim, created = CampaignRecipient.objects.get_or_create(
+                campaign=campaign,
+                channel=self.key,
+                user=user,
+                defaults={
+                    'status': 'pending',
+                    'error_message': 'claimed for send',
+                },
+            )
+            if not created and claim.status != 'pending':
+                continue  # processed by a concurrent tick
 
             try:
                 message = send_whatsapp_template(

@@ -155,15 +155,20 @@ class Campaign(models.Model):
         return self.status in ('draft', 'scheduled', 'sending')
 
     def cancel(self):
-        if not self.can_cancel():
-            return False
-        self.status = 'cancelled'
-        self.completed_at = timezone.now()
-        self.dispatch_heartbeat_at = None
-        self.save(update_fields=[
-            'status', 'completed_at', 'dispatch_heartbeat_at', 'updated_at',
-        ])
-        return True
+        # Conditional update on active statuses only — a concurrent dispatcher
+        # may finalize this campaign between our read and this write, and a
+        # stale unconditional save would overwrite that terminal status.
+        updated = Campaign.objects.filter(
+            pk=self.pk,
+            status__in=['draft', 'scheduled', 'sending'],
+        ).update(
+            status='cancelled',
+            completed_at=timezone.now(),
+            dispatch_heartbeat_at=None,
+        )
+        if updated:
+            self.refresh_from_db()
+        return bool(updated)
 
     @property
     def stats(self):
