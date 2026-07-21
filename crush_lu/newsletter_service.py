@@ -25,6 +25,57 @@ BATCH_SIZE = 25
 BATCH_PAUSE_SECONDS = 62
 
 
+def resolve_audience(audience, segment_key=''):
+    """
+    Resolve an audience choice (Newsletter.AUDIENCE_CHOICES) to a User queryset.
+
+    Shared by newsletter sending and the multi-channel campaign service
+    (crush_lu/services/campaigns.py) so both target audiences identically.
+    """
+    if audience == 'all_users':
+        return User.objects.filter(is_active=True, crushprofile__isnull=False)
+    elif audience == 'all_profiles':
+        return User.objects.filter(is_active=True, crushprofile__isnull=False)
+    elif audience == 'approved_profiles':
+        return User.objects.filter(
+            is_active=True, crushprofile__verification_status="verified"
+        )
+    elif audience == 'pending_review':
+        from .models.profiles import ProfileSubmission
+        pending_user_ids = ProfileSubmission.objects.filter(
+            status='pending',
+        ).values_list('profile__user_id', flat=True)
+        return User.objects.filter(is_active=True, id__in=pending_user_ids)
+    elif audience == 'segment':
+        return _get_segment_users(segment_key)
+
+    logger.error(f"Unknown audience type: {audience}")
+    return User.objects.none()
+
+
+def exclude_banned_users(users):
+    """Exclude users who deleted their profile or are banned from Crush.lu."""
+    from .models.profiles import UserDataConsent
+
+    banned_user_ids = UserDataConsent.objects.filter(
+        crushlu_banned=True
+    ).values_list('user_id', flat=True)
+    return users.exclude(id__in=banned_user_ids)
+
+
+def apply_language_filter(users, language):
+    """Restrict a User queryset to a preferred language ('all' = no filter)."""
+    if not language or language == 'all':
+        return users
+    if language == 'en':
+        # English includes users without a profile (they default to English)
+        return users.filter(
+            Q(crushprofile__preferred_language='en')
+            | Q(crushprofile__isnull=True)
+        )
+    return users.filter(crushprofile__preferred_language=language)
+
+
 def get_newsletter_recipients(newsletter):
     """
     Resolve the audience for a newsletter into a User queryset.
@@ -42,24 +93,7 @@ def get_newsletter_recipients(newsletter):
     """
     from .models import EmailPreference
 
-    # Base queryset depends on audience
-    if newsletter.audience == 'all_users':
-        users = User.objects.filter(is_active=True, crushprofile__isnull=False)
-    elif newsletter.audience == 'all_profiles':
-        users = User.objects.filter(is_active=True, crushprofile__isnull=False)
-    elif newsletter.audience == 'approved_profiles':
-        users = User.objects.filter(is_active=True, crushprofile__verification_status="verified")
-    elif newsletter.audience == 'pending_review':
-        from .models.profiles import ProfileSubmission
-        pending_user_ids = ProfileSubmission.objects.filter(
-            status='pending',
-        ).values_list('profile__user_id', flat=True)
-        users = User.objects.filter(is_active=True, id__in=pending_user_ids)
-    elif newsletter.audience == 'segment':
-        users = _get_segment_users(newsletter.segment_key)
-    else:
-        logger.error(f"Unknown audience type: {newsletter.audience}")
-        return User.objects.none()
+    users = resolve_audience(newsletter.audience, newsletter.segment_key)
 
     # Exclude users who opted out of newsletters
     opted_out_user_ids = EmailPreference.objects.filter(
@@ -67,26 +101,8 @@ def get_newsletter_recipients(newsletter):
     ).values_list('user_id', flat=True)
     users = users.exclude(id__in=opted_out_user_ids)
 
-    # Exclude users who deleted their profile or are banned
-    from .models.profiles import UserDataConsent
-
-    banned_user_ids = UserDataConsent.objects.filter(
-        crushlu_banned=True
-    ).values_list('user_id', flat=True)
-    users = users.exclude(id__in=banned_user_ids)
-
-    # Filter by language preference
-    if newsletter.language and newsletter.language != 'all':
-        if newsletter.language == 'en':
-            # English includes users without a profile (they default to English)
-            users = users.filter(
-                Q(crushprofile__preferred_language='en')
-                | Q(crushprofile__isnull=True)
-            )
-        else:
-            users = users.filter(
-                crushprofile__preferred_language=newsletter.language
-            )
+    users = exclude_banned_users(users)
+    users = apply_language_filter(users, newsletter.language)
 
     # For event announcements, exclude users already registered for the event
     if newsletter.event_id:
@@ -204,6 +220,11 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None):
         )
 
     recipients = get_newsletter_recipients(newsletter)
+    if limit is not None:
+        # Bounded (dispatcher) runs never retry previously-failed recipients —
+        # otherwise a permanently bouncing address would head every batch and
+        # the send could never converge. Unlimited manual runs keep retrying.
+        recipients = recipients.exclude(id__in=_failed_recipient_ids(newsletter))
     total_eligible = recipients.count()
 
     if limit:
@@ -314,6 +335,32 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None):
             newsletter=newsletter, status='skipped'
         ).count()
     )
+
+    if limit is not None:
+        remaining = (
+            get_newsletter_recipients(newsletter)
+            .exclude(id__in=_failed_recipient_ids(newsletter))
+            .count()
+        )
+        if remaining > 0:
+            # Bounded batch with recipients still eligible: stay 'sending' so
+            # the next run continues where this one stopped instead of
+            # prematurely finalizing the newsletter.
+            newsletter.save(update_fields=[
+                'total_sent', 'total_failed', 'total_skipped', 'updated_at',
+            ])
+            log(
+                f"\nBatch done. Sent: {sent}, Failed: {failed}, "
+                f"Skipped: {skipped} ({remaining} eligible remaining)"
+            )
+            return {
+                'sent': sent,
+                'failed': failed,
+                'skipped': skipped,
+                'complete': False,
+                'remaining': remaining,
+            }
+
     newsletter.status = 'sent' if failed == 0 else 'failed'
     newsletter.sent_at = timezone.now()
     newsletter.save(update_fields=[
@@ -322,7 +369,20 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None):
     ])
 
     log(f"\nDone! Sent: {sent}, Failed: {failed}, Skipped: {skipped}")
-    return {'sent': sent, 'failed': failed, 'skipped': skipped}
+    return {
+        'sent': sent,
+        'failed': failed,
+        'skipped': skipped,
+        'complete': True,
+        'remaining': 0,
+    }
+
+
+def _failed_recipient_ids(newsletter):
+    """User ids with a terminal 'failed' receipt for this newsletter."""
+    return NewsletterRecipient.objects.filter(
+        newsletter=newsletter, status='failed'
+    ).values_list('user_id', flat=True)
 
 
 def render_event_announcement(event, user, lang):

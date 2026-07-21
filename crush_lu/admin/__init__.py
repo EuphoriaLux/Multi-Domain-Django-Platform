@@ -150,6 +150,11 @@ from .newsletter import (
     NewsletterRecipientAdmin,
 )
 
+from .campaigns import (
+    CampaignAdmin,
+    CampaignRecipientAdmin,
+)
+
 from .users import (
     CrushProfileUserInline,
     CrushCoachUserInline,
@@ -296,6 +301,8 @@ from crush_lu.models import (
     CrushSiteConfig,
     Newsletter,
     NewsletterRecipient,
+    Campaign,
+    CampaignRecipient,
     EventPoll,
     EventPollOption,
     EventPollVote,
@@ -439,6 +446,10 @@ crush_admin_site.register(PasskitDeviceRegistration, PasskitDeviceRegistrationAd
 # Newsletter System
 crush_admin_site.register(Newsletter, NewsletterAdmin)
 crush_admin_site.register(NewsletterRecipient, NewsletterRecipientAdmin)
+
+# Multi-channel Campaigns
+crush_admin_site.register(Campaign, CampaignAdmin)
+crush_admin_site.register(CampaignRecipient, CampaignRecipientAdmin)
 
 # Event Polls
 crush_admin_site.register(EventPoll, EventPollAdmin)
@@ -642,6 +653,10 @@ __all__ = [
     # Newsletter
     'NewsletterAdmin',
     'NewsletterRecipientAdmin',
+
+    # Multi-channel Campaigns
+    'CampaignAdmin',
+    'CampaignRecipientAdmin',
 
     # Site Configuration
     'CrushSiteConfigAdmin',

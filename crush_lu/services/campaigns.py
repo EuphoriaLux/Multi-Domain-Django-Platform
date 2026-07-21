@@ -1,0 +1,545 @@
+"""
+Multi-channel campaign service: audience resolution, channel adapters, and the
+bounded-batch dispatcher behind the Coach Panel campaign dashboard.
+
+Design constraints (see docs/specs/campaign-dashboard.md):
+
+- Production has no async task worker (Django tasks run on ImmediateBackend),
+  so campaign sends are driven by an Azure Function timer POSTing
+  ``/api/admin/campaigns/dispatch/`` every few minutes. Each tick must finish
+  well inside gunicorn's 120s request timeout, hence the per-channel tick
+  limits and the wall-clock budget below.
+- Every channel is resumable: the email leg persists per-recipient state in
+  ``NewsletterRecipient`` (via the campaign-linked Newsletter), the other
+  channels in ``CampaignRecipient``. A tick processes a bounded slice and the
+  next tick continues where it stopped.
+- Adding a channel means adding one adapter to ``CHANNEL_ADAPTERS``.
+"""
+import logging
+import time as time_module
+from dataclasses import dataclass
+
+from django.contrib.auth.models import User
+from django.db.models import Q
+from django.utils import timezone, translation
+
+from crush_lu import newsletter_service
+from crush_lu.models import Campaign, CampaignRecipient, EmailPreference
+from crush_lu.utils.i18n import get_user_preferred_language
+
+logger = logging.getLogger(__name__)
+
+# Per-tick send limits, sized so one dispatch tick stays far below gunicorn's
+# 120s timeout (startup.sh):
+# - Email: exactly one Graph API batch (send_newsletter pauses 62s only
+#   *between* 25-email batches, so a 25-email run never sleeps).
+# - WhatsApp: sends are spaced ~1s apart (pair rate-limit hygiene).
+# - Push: webpush calls are fast but still network I/O.
+EMAIL_LIMIT_PER_TICK = 25
+WHATSAPP_LIMIT_PER_TICK = 30
+PUSH_LIMIT_PER_TICK = 150
+
+# Stop starting new channel batches once a tick has run this long.
+DISPATCH_TIME_BUDGET_SECONDS = 80
+
+# A campaign claimed by a tick (dispatch_heartbeat_at set) is skipped by other
+# ticks until the heartbeat goes stale — covers overlapping timer invocations
+# without holding row locks across network calls.
+HEARTBEAT_STALE_MINUTES = 15
+
+WHATSAPP_SEND_SPACING_SECONDS = 1.0
+
+
+@dataclass
+class BatchResult:
+    """Outcome of one bounded send batch for one channel."""
+
+    sent: int = 0
+    failed: int = 0
+    skipped: int = 0
+    remaining: int = 0
+    # True when the batch was cut short (tick budget) rather than exhausted,
+    # so `remaining` may undercount; the campaign must stay in 'sending'.
+    interrupted: bool = False
+
+    @property
+    def processed(self):
+        return self.sent + self.failed + self.skipped
+
+    @property
+    def complete(self):
+        return self.remaining == 0 and not self.interrupted
+
+
+def resolve_campaign_audience(campaign):
+    """Base audience for the non-email channels of a campaign.
+
+    Mirrors the newsletter audience semantics exactly (same resolver), then
+    applies the exclusions shared by every channel: banned/deleted users and
+    the campaign's language restriction. Channel-specific consent gates are
+    layered on top by each adapter.
+    """
+    users = newsletter_service.resolve_audience(
+        campaign.audience, campaign.segment_key
+    )
+    users = newsletter_service.exclude_banned_users(users)
+    users = newsletter_service.apply_language_filter(users, campaign.language)
+    return users
+
+
+def _exclude_processed(users, campaign, channel):
+    """Resumability: drop users already handled for this campaign+channel.
+
+    All three outcomes are terminal for dispatch — failed sends are not
+    retried automatically (WhatsApp template sends are paid; email failures
+    are excluded for the same convergence reason in send_newsletter).
+    """
+    if campaign.pk is None:
+        # Transient campaign (estimate-only call) — nothing processed yet.
+        return users
+    processed_ids = CampaignRecipient.objects.filter(
+        campaign=campaign,
+        channel=channel,
+        status__in=['sent', 'failed', 'skipped'],
+    ).values_list('user_id', flat=True)
+    return users.exclude(id__in=processed_ids)
+
+
+def _substitute_merge_tokens(text, user):
+    """Replace supported {token}s in WhatsApp parameter values."""
+    return (
+        str(text)
+        .replace('{first_name}', user.first_name or '')
+        .replace('{last_name}', user.last_name or '')
+        .replace('{email}', user.email or '')
+    )
+
+
+class EmailAdapter:
+    """Email leg — thin wrapper over the proven newsletter engine."""
+
+    key = Campaign.CHANNEL_EMAIL
+
+    def eligible_users(self, campaign):
+        newsletter = getattr(campaign, 'email_newsletter', None)
+        if newsletter is None:
+            return User.objects.none()
+        return newsletter_service.get_newsletter_recipients(newsletter)
+
+    def send_batch(self, campaign, limit, deadline=None, stdout=None):
+        newsletter = getattr(campaign, 'email_newsletter', None)
+        if newsletter is None:
+            logger.error(
+                "Campaign #%s has the email channel enabled but no linked "
+                "newsletter", campaign.pk,
+            )
+            return BatchResult(remaining=0)
+        if newsletter.status not in ('draft', 'sending'):
+            # Already finalized (e.g. sent manually) — nothing left to do.
+            return BatchResult(remaining=0)
+
+        result = newsletter_service.send_newsletter(
+            newsletter, limit=limit, stdout=stdout,
+        )
+        return BatchResult(
+            sent=result['sent'],
+            failed=result['failed'],
+            skipped=result['skipped'],
+            remaining=result.get('remaining', 0),
+        )
+
+
+class WhatsAppAdapter:
+    """WhatsApp template sends via the hub's Meta Cloud API service."""
+
+    key = Campaign.CHANNEL_WHATSAPP
+
+    def eligible_users(self, campaign):
+        users = resolve_campaign_audience(campaign)
+        # Explicit opt-in only: a missing EmailPreference row means NOT opted
+        # in (whatsapp_opt_in defaults to False — GDPR).
+        opted_in_ids = EmailPreference.objects.filter(
+            whatsapp_opt_in=True,
+            unsubscribed_all=False,
+        ).values_list('user_id', flat=True)
+        users = users.filter(id__in=opted_in_ids)
+        # Sendable number: verified, present, and not flagged off-WhatsApp
+        # (queryset form of services.whatsapp.can_send_whatsapp).
+        users = users.filter(
+            crushprofile__phone_verified=True,
+            crushprofile__not_on_whatsapp=False,
+        ).exclude(crushprofile__phone_number='')
+        return _exclude_processed(users, campaign, self.key)
+
+    def send_batch(self, campaign, limit, deadline=None, stdout=None):
+        from hub.whatsapp_service import send_whatsapp_template
+
+        users = self.eligible_users(campaign)
+        user_ids = list(users.values_list('id', flat=True)[:limit])
+
+        result = BatchResult()
+        for i, user_id in enumerate(user_ids):
+            if deadline is not None and time_module.monotonic() > deadline:
+                result.interrupted = True
+                break
+            if i > 0:
+                time_module.sleep(WHATSAPP_SEND_SPACING_SECONDS)
+
+            user = User.objects.filter(id=user_id).first()
+            if user is None:
+                continue
+            profile = getattr(user, 'crushprofile', None)
+            lang = get_user_preferred_language(user=user, default='en')
+            parameters = {
+                key: _substitute_merge_tokens(value, user)
+                for key, value in (campaign.whatsapp_parameters or {}).items()
+            }
+
+            try:
+                message = send_whatsapp_template(
+                    sender=campaign.created_by,
+                    recipient=profile.phone_number,
+                    template_name=campaign.whatsapp_template_name,
+                    language=lang,
+                    parameters=parameters,
+                )
+            except Exception as exc:  # noqa: BLE001 — record and continue
+                logger.exception(
+                    "Campaign #%s WhatsApp send crashed for user %s",
+                    campaign.pk, user_id,
+                )
+                self._record(campaign, user, 'failed', error=str(exc)[:500])
+                result.failed += 1
+                continue
+
+            if message.status == message.Status.SENT:
+                self._record(campaign, user, 'sent', message=message)
+                result.sent += 1
+            else:
+                error = ''
+                if message.status_history:
+                    error = message.status_history[-1].get('error_message', '')
+                self._record(
+                    campaign, user, 'failed', message=message, error=error
+                )
+                result.failed += 1
+
+        result.remaining = self.eligible_users(campaign).count()
+        return result
+
+    def _record(self, campaign, user, status, message=None, error=''):
+        CampaignRecipient.objects.update_or_create(
+            campaign=campaign,
+            channel=self.key,
+            user=user,
+            defaults={
+                'status': status,
+                'sent_at': timezone.now() if status == 'sent' else None,
+                'error_message': error,
+                'whatsapp_message': message,
+            },
+        )
+
+
+class PushAdapter:
+    """Web push broadcast — fans out per-user via push_notifications."""
+
+    key = Campaign.CHANNEL_PUSH
+
+    def eligible_users(self, campaign):
+        users = resolve_campaign_audience(campaign)
+        users = users.filter(push_subscriptions__enabled=True).distinct()
+        return _exclude_processed(users, campaign, self.key)
+
+    def send_batch(self, campaign, limit, deadline=None, stdout=None):
+        from crush_lu.push_notifications import send_push_notification
+
+        users = self.eligible_users(campaign)
+        user_ids = list(users.values_list('id', flat=True)[:limit])
+
+        result = BatchResult()
+        for user_id in user_ids:
+            if deadline is not None and time_module.monotonic() > deadline:
+                result.interrupted = True
+                break
+
+            user = User.objects.filter(id=user_id).first()
+            if user is None:
+                continue
+            lang = get_user_preferred_language(user=user, default='en')
+
+            try:
+                # Read the modeltranslation variants for the user's language.
+                with translation.override(lang):
+                    title = campaign.push_title
+                    body = campaign.push_body
+                outcome = send_push_notification(
+                    user,
+                    title,
+                    body,
+                    url=self.build_push_url(campaign, user),
+                    tag=f'campaign-{campaign.slug}',
+                )
+            except Exception as exc:  # noqa: BLE001 — record and continue
+                logger.exception(
+                    "Campaign #%s push send crashed for user %s",
+                    campaign.pk, user_id,
+                )
+                self._record(campaign, user, 'failed', error=str(exc)[:500])
+                result.failed += 1
+                continue
+
+            if outcome.get('success', 0) > 0:
+                self._record(campaign, user, 'sent')
+                result.sent += 1
+            elif outcome.get('total', 0) == 0:
+                self._record(
+                    campaign, user, 'skipped',
+                    error='No active push subscriptions',
+                )
+                result.skipped += 1
+            else:
+                self._record(
+                    campaign, user, 'failed',
+                    error='All push subscriptions failed',
+                )
+                result.failed += 1
+
+        result.remaining = self.eligible_users(campaign).count()
+        return result
+
+    def build_push_url(self, campaign, user):
+        return campaign.push_url or '/'
+
+    def _record(self, campaign, user, status, error=''):
+        CampaignRecipient.objects.update_or_create(
+            campaign=campaign,
+            channel=self.key,
+            user=user,
+            defaults={
+                'status': status,
+                'sent_at': timezone.now() if status == 'sent' else None,
+                'error_message': error,
+            },
+        )
+
+
+CHANNEL_ADAPTERS = {
+    adapter.key: adapter
+    for adapter in (EmailAdapter(), WhatsAppAdapter(), PushAdapter())
+}
+
+DEFAULT_TICK_LIMITS = {
+    Campaign.CHANNEL_EMAIL: EMAIL_LIMIT_PER_TICK,
+    Campaign.CHANNEL_WHATSAPP: WHATSAPP_LIMIT_PER_TICK,
+    Campaign.CHANNEL_PUSH: PUSH_LIMIT_PER_TICK,
+}
+
+
+def estimate_campaign(audience, segment_key='', language='all', channels=None):
+    """Per-channel eligible counts for the composer's live estimate.
+
+    Uses transient (unsaved) Campaign/Newsletter instances so the exact
+    production exclusion logic runs without touching the database.
+    """
+    from crush_lu.models import Newsletter
+
+    channels = [c for c in (channels or []) if c in CHANNEL_ADAPTERS]
+    campaign = Campaign(
+        audience=audience,
+        segment_key=segment_key,
+        language=language,
+        channels=channels,
+    )
+
+    estimate = {}
+    union_ids = set()
+    for channel in channels:
+        if channel == Campaign.CHANNEL_EMAIL:
+            newsletter = Newsletter(
+                audience=audience, segment_key=segment_key, language=language,
+            )
+            ids = set(
+                newsletter_service.get_newsletter_recipients(newsletter)
+                .values_list('id', flat=True)
+            )
+        else:
+            ids = set(
+                CHANNEL_ADAPTERS[channel]
+                .eligible_users(campaign)
+                .values_list('id', flat=True)
+            )
+        estimate[channel] = len(ids)
+        union_ids |= ids
+
+    estimate['reach'] = len(union_ids)
+    return estimate
+
+
+def create_campaign(*, name, channels, audience, segment_key='',
+                    language='all', email_content=None, whatsapp=None,
+                    push=None, created_by=None, scheduled_at=None):
+    """Create a campaign (and its email-leg Newsletter when email is enabled).
+
+    ``email_content`` is a dict of Newsletter field values — plain
+    (``subject``, ``body_html``) and/or modeltranslation-suffixed
+    (``subject_de``, ``body_html_fr``) keys are both accepted.
+    ``scheduled_at`` set => status 'scheduled'; None => stays 'draft'.
+    """
+    from crush_lu.models import Newsletter
+
+    channels = list(dict.fromkeys(channels))  # de-dupe, keep order
+    unknown = [c for c in channels if c not in CHANNEL_ADAPTERS]
+    if unknown:
+        raise ValueError(f"Unknown campaign channels: {unknown}")
+    if not channels:
+        raise ValueError("A campaign needs at least one channel")
+
+    campaign = Campaign(
+        name=name,
+        channels=channels,
+        audience=audience,
+        segment_key=segment_key,
+        language=language,
+        whatsapp_template_name=(whatsapp or {}).get('template_name', ''),
+        whatsapp_parameters=(whatsapp or {}).get('parameters', {}),
+        push_url=(push or {}).get('url', '/'),
+        created_by=created_by,
+        status='scheduled' if scheduled_at else 'draft',
+        scheduled_at=scheduled_at,
+    )
+    for field, value in (push or {}).items():
+        if field.startswith(('title', 'body')):
+            setattr(campaign, f'push_{field}', value)
+    campaign.save()
+
+    if Campaign.CHANNEL_EMAIL in channels:
+        newsletter = Newsletter(
+            campaign=campaign,
+            audience=audience,
+            segment_key=segment_key,
+            language=language,
+            created_by=created_by,
+            status='draft',
+        )
+        for field, value in (email_content or {}).items():
+            setattr(newsletter, field, value)
+        newsletter.save()
+
+    snapshot = estimate_campaign(
+        audience, segment_key, language, channels,
+    )
+    snapshot['captured_at'] = timezone.now().isoformat()
+    campaign.audience_snapshot = snapshot
+    campaign.save(update_fields=['audience_snapshot', 'updated_at'])
+    return campaign
+
+
+def _finalize_status(campaign):
+    """Terminal status from persisted per-recipient stats."""
+    totals = campaign.stats['totals']
+    if totals['failed'] == 0:
+        return 'sent'
+    if totals['sent'] > 0:
+        return 'partial'
+    return 'failed'
+
+
+def dispatch_campaigns(now=None, limits=None, time_budget=None, stdout=None):
+    """Run one bounded dispatch tick. Safe to invoke concurrently.
+
+    1. Promote due scheduled campaigns to 'sending'.
+    2. For each 'sending' campaign without a fresh heartbeat (oldest first),
+       run every enabled channel's bounded batch until the per-channel tick
+       limits or the wall-clock budget are spent.
+    3. Finalize campaigns whose channels all report nothing left to send.
+
+    Returns a summary dict for the admin API endpoint / management command.
+    """
+    now = now or timezone.now()
+    budget = dict(DEFAULT_TICK_LIMITS)
+    if limits:
+        budget.update(limits)
+    deadline = time_module.monotonic() + (
+        time_budget if time_budget is not None else DISPATCH_TIME_BUDGET_SECONDS
+    )
+
+    def log(msg):
+        if stdout:
+            stdout.write(msg)
+        logger.info(msg)
+
+    promoted = Campaign.objects.filter(
+        status='scheduled', scheduled_at__lte=now,
+    ).update(status='sending', started_at=now)
+    if promoted:
+        log(f"Promoted {promoted} scheduled campaign(s) to sending")
+
+    stale_cutoff = now - timezone.timedelta(minutes=HEARTBEAT_STALE_MINUTES)
+    not_claimed = Q(dispatch_heartbeat_at__isnull=True) | Q(
+        dispatch_heartbeat_at__lt=stale_cutoff
+    )
+    candidates = list(
+        Campaign.objects.filter(status='sending')
+        .filter(not_claimed)
+        .order_by('started_at', 'created_at')
+    )
+
+    summary = {'promoted': promoted, 'campaigns': []}
+    for campaign in candidates:
+        if time_module.monotonic() > deadline:
+            log("Tick budget exhausted; remaining campaigns wait for next tick")
+            break
+        if all(budget[c] <= 0 for c in campaign.channels if c in budget):
+            continue
+
+        # Atomic claim — loses gracefully to a concurrent tick.
+        claimed = (
+            Campaign.objects.filter(pk=campaign.pk, status='sending')
+            .filter(not_claimed)
+            .update(dispatch_heartbeat_at=now)
+        )
+        if not claimed:
+            continue
+
+        entry = {'id': campaign.pk, 'name': campaign.name, 'channels': {}}
+        all_complete = True
+        try:
+            for channel in campaign.channels:
+                adapter = CHANNEL_ADAPTERS.get(channel)
+                if adapter is None:
+                    log(f"Campaign #{campaign.pk}: unknown channel '{channel}' skipped")
+                    continue
+                if budget.get(channel, 0) <= 0 or time_module.monotonic() > deadline:
+                    all_complete = False
+                    continue
+
+                result = adapter.send_batch(
+                    campaign,
+                    limit=budget[channel],
+                    deadline=deadline,
+                    stdout=stdout,
+                )
+                budget[channel] -= result.processed
+                entry['channels'][channel] = {
+                    'sent': result.sent,
+                    'failed': result.failed,
+                    'skipped': result.skipped,
+                    'remaining': result.remaining,
+                }
+                if not result.complete:
+                    all_complete = False
+        finally:
+            update_fields = ['dispatch_heartbeat_at', 'updated_at']
+            campaign.dispatch_heartbeat_at = None
+            if all_complete:
+                campaign.status = _finalize_status(campaign)
+                campaign.completed_at = timezone.now()
+                update_fields += ['status', 'completed_at']
+                log(f"Campaign #{campaign.pk} finalized: {campaign.status}")
+            campaign.save(update_fields=update_fields)
+
+        entry['status'] = campaign.status
+        summary['campaigns'].append(entry)
+
+    return summary
