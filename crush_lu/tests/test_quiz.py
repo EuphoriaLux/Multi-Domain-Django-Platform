@@ -3698,3 +3698,134 @@ class TestQuizTablesCurrentRoundDefault:
             m.get("display_name") == user_a.crushprofile.display_name
             for m in by_number[2]["members"]
         ), "user_a should appear at table 2 in round 1"
+
+
+# ============================================================================
+# CONNECT AUTHORIZATION (finding H3)
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestConnectAuthorization:
+    """Finding H3: any authenticated user could previously subscribe to any
+    quiz's live feed (roster, standings) because quiz_id is sequential.
+    Only the host (or an event-assigned coach) and members holding a
+    confirmed/attended registration for the quiz's event may connect."""
+
+    @pytest.fixture(autouse=True)
+    def _keep_test_connection_open(self, monkeypatch):
+        """Same pytest-django atomic-wrapper guard as the other consumer
+        tests (see TestRotateGuard)."""
+        monkeypatch.setattr(
+            "channels.db.close_old_connections", lambda *a, **kw: None
+        )
+
+    def _make_consumer(self, quiz, user):
+        """Build a QuizConsumer wired to ``quiz`` without WebsocketCommunicator
+        (which pulls in daphne). channel_layer/accept/close/send_json are
+        mocked; connect() is then awaited directly."""
+        from unittest.mock import AsyncMock
+        from crush_lu.consumers import QuizConsumer
+
+        consumer = QuizConsumer()
+        consumer.scope = {
+            "user": user,
+            "url_route": {"kwargs": {"quiz_id": quiz.id}},
+            "query_string": b"",
+        }
+        consumer.channel_name = "test-channel-name"
+        consumer.channel_layer = AsyncMock()
+        consumer.accept = AsyncMock()
+        consumer.close = AsyncMock()
+        consumer.send_json = AsyncMock()
+        return consumer
+
+    def test_host_can_connect(self, quiz_event, coach_user):
+        from asgiref.sync import async_to_sync
+
+        async def run():
+            consumer = self._make_consumer(quiz_event, coach_user)
+            await consumer.connect()
+            consumer.accept.assert_awaited_once()
+            consumer.close.assert_not_awaited()
+
+        async_to_sync(run)()
+
+    def test_confirmed_registrant_can_connect(self, quiz_event, quiz_user):
+        from asgiref.sync import async_to_sync
+        from crush_lu.models.events import EventRegistration
+
+        EventRegistration.objects.create(
+            event=quiz_event.event, user=quiz_user, status="confirmed"
+        )
+
+        async def run():
+            consumer = self._make_consumer(quiz_event, quiz_user)
+            await consumer.connect()
+            consumer.accept.assert_awaited_once()
+            consumer.close.assert_not_awaited()
+
+        async_to_sync(run)()
+
+    def test_attended_registrant_can_connect(self, quiz_event, quiz_user):
+        from asgiref.sync import async_to_sync
+        from crush_lu.models.events import EventRegistration
+
+        EventRegistration.objects.create(
+            event=quiz_event.event, user=quiz_user, status="attended"
+        )
+
+        async def run():
+            consumer = self._make_consumer(quiz_event, quiz_user)
+            await consumer.connect()
+            consumer.accept.assert_awaited_once()
+            consumer.close.assert_not_awaited()
+
+        async_to_sync(run)()
+
+    def test_staff_viewer_can_connect(self, quiz_event, quiz_user):
+        """Staff without a registration are allowed a read-only feed, matching
+        quiz_live_view's is_staff allowance — otherwise the staff live page
+        loses updates and reconnect-loops (Codex P2)."""
+        from asgiref.sync import async_to_sync
+
+        quiz_user.is_staff = True
+        quiz_user.save(update_fields=["is_staff"])
+
+        async def run():
+            consumer = self._make_consumer(quiz_event, quiz_user)
+            await consumer.connect()
+            consumer.accept.assert_awaited_once()
+            consumer.close.assert_not_awaited()
+
+        async_to_sync(run)()
+
+    def test_unregistered_user_rejected(self, quiz_event, quiz_user):
+        from asgiref.sync import async_to_sync
+
+        async def run():
+            consumer = self._make_consumer(quiz_event, quiz_user)
+            await consumer.connect()
+            consumer.close.assert_awaited_once()
+            consumer.accept.assert_not_awaited()
+            # And crucially: never joined the broadcast group.
+            consumer.channel_layer.group_add.assert_not_awaited()
+
+        async_to_sync(run)()
+
+    def test_waitlist_registrant_rejected(self, quiz_event, quiz_user):
+        from asgiref.sync import async_to_sync
+        from crush_lu.models.events import EventRegistration
+
+        EventRegistration.objects.create(
+            event=quiz_event.event, user=quiz_user, status="waitlist"
+        )
+
+        async def run():
+            consumer = self._make_consumer(quiz_event, quiz_user)
+            await consumer.connect()
+            consumer.close.assert_awaited_once()
+            consumer.accept.assert_not_awaited()
+            consumer.channel_layer.group_add.assert_not_awaited()
+
+        async_to_sync(run)()
