@@ -1478,12 +1478,24 @@ def get_users_needing_reminder(reminder_type):
         # Must have received 72h reminder
         users = users.filter(profile_reminders__reminder_type="72h")
 
-    # Oldest signups first so that when a run's send limit / time budget can't
+    # Oldest PROFILES first so that when a run's send limit / time budget can't
     # clear the whole backlog, the users closest to ageing out of max_hours are
-    # served first. Order by date_joined (a User column) rather than
-    # crushprofile__created_at so SELECT DISTINCT ... ORDER BY stays valid on
-    # PostgreSQL; the two are set together at signup.
-    return users.distinct().order_by("date_joined")
+    # served first. Order by crushprofile.created_at — the same timestamp
+    # eligibility and expiry use — NOT User.date_joined: create_crush_profile_
+    # on_login (crush_lu/signals.py) lazily creates a CrushProfile when an old
+    # cross-domain account first logs into crush.lu, so date_joined can be far
+    # older than the profile and would push a genuinely near-expiry profile
+    # behind a freshly-created one. Annotate the profile timestamp and order by
+    # the annotation so SELECT DISTINCT ... ORDER BY stays valid on PostgreSQL
+    # (the ordering expression is then part of the select list); pk is a stable
+    # tiebreaker. (Codex P2)
+    from django.db.models import F
+
+    return (
+        users.annotate(_reminder_profile_created=F("crushprofile__created_at"))
+        .distinct()
+        .order_by("_reminder_profile_created", "pk")
+    )
 
 
 # =============================================================================

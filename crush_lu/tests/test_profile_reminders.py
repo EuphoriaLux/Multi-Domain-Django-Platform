@@ -93,6 +93,25 @@ class GetUsersNeedingReminderTests(TestCase):
         ProfileReminder.objects.create(user=user, reminder_type="72h")
         self.assertIn(user, get_users_needing_reminder("7d"))
 
+    def test_orders_by_profile_creation_not_account_join_date(self):
+        """A lazily-created profile on an old cross-domain account (old
+        date_joined, recent CrushProfile via create_crush_profile_on_login)
+        must NOT be served ahead of a profile genuinely near its max_hours
+        cutoff. Order by the profile timestamp eligibility/expiry use, not
+        User.date_joined (Codex P2)."""
+        near_expiry = make_incomplete_user("nearexpiry", created_hours_ago=150)
+
+        lazy = make_incomplete_user("lazyprofile", created_hours_ago=30)
+        # Account far older than the profile it just got on first crush.lu login.
+        User.objects.filter(pk=lazy.pk).update(
+            date_joined=timezone.now() - timedelta(hours=5000)
+        )
+
+        ordered = list(get_users_needing_reminder("24h"))
+        # near_expiry's profile is older, so it comes first despite lazy's much
+        # older account. (Ordering by date_joined would wrongly put lazy first.)
+        self.assertEqual(ordered[0], near_expiry)
+
     def test_banned_and_deactivated_users_are_excluded(self):
         """A ban keeps the profile but sets user.is_active False +
         crushlu_banned True; a profile deactivation sets crushprofile.is_active
@@ -284,6 +303,40 @@ class SendProfileRemindersCommandTests(TestCase):
         )
         self.assertEqual(reminded, {"oldest@example.com", "middle@example.com"})
         self.assertEqual(len(mail.outbox), 2)
+
+    def test_newest_stage_not_starved_by_older_stage_backlog(self):
+        """With --type=all sharing one limit, a large 7d/72h backlog must not
+        consume every send and starve the newest (24h) stage — those users
+        would age out of the funnel entirely, worse than a dropped final 7d
+        nudge. Each stage gets a reserved floor (Codex P2)."""
+        # 7d-eligible: profile in the 7d window, already has 24h + 72h rows.
+        for name in ("seven_a", "seven_b"):
+            u = make_incomplete_user(name, created_hours_ago=180)
+            ProfileReminder.objects.create(user=u, reminder_type="24h")
+            ProfileReminder.objects.create(user=u, reminder_type="72h")
+        # 72h-eligible: profile in the 72h window, already has a 24h row.
+        for name in ("three_a", "three_b"):
+            u = make_incomplete_user(name, created_hours_ago=80)
+            ProfileReminder.objects.create(user=u, reminder_type="24h")
+        # 24h-eligible: fresh signups, no prior rows.
+        u24a = make_incomplete_user("one_a", created_hours_ago=30)
+        u24b = make_incomplete_user("one_b", created_hours_ago=30)
+
+        # limit 3 across 3 stages -> floor 1 each.
+        call_command("send_profile_reminders", "--limit=3", stdout=StringIO())
+
+        # The 24h stage is served rather than starved by the older backlog.
+        self.assertEqual(
+            ProfileReminder.objects.filter(
+                reminder_type="24h", user__in=[u24a, u24b]
+            ).count(),
+            1,
+        )
+        # The 7d backlog is capped at its floor, not eating the whole limit.
+        self.assertEqual(
+            ProfileReminder.objects.filter(reminder_type="7d").count(), 1
+        )
+        self.assertEqual(len(mail.outbox), 3)
 
     def test_panel_does_not_double_send_adjacent_stages(self):
         """The admin panel (execute_reminders) must process stages newest-first

@@ -133,7 +133,26 @@ class Command(BaseCommand):
         total_failed = 0
         emails_remaining = limit
 
-        for rtype in reminder_types:
+        # Fair per-stage capacity. With --type=all the stages share one `limit`
+        # and are processed oldest-signup-stage first (7d -> 72h -> 24h) for
+        # double-send safety. Without a reservation a large older-stage backlog
+        # would consume the whole limit and STARVE the newest stage (24h) run
+        # after run; those users then age past the 24h max_hours and never enter
+        # the reminder funnel at all — worse than a dropped 7d nudge, which only
+        # misses the final touch after the user already got 24h + 72h. Reserve a
+        # floor for each stage, capped at its real demand so we never defer an
+        # earlier stage for capacity a later one won't use, and let earlier
+        # stages spend whatever slack remains. (Codex P2)
+        if len(reminder_types) > 1:
+            per_stage_floor = max(1, limit // len(reminder_types))
+            stage_demand = {
+                rt: get_users_needing_reminder(rt).count() for rt in reminder_types
+            }
+        else:
+            per_stage_floor = limit
+            stage_demand = {}
+
+        for idx, rtype in enumerate(reminder_types):
             if emails_remaining <= 0:
                 self.stdout.write(
                     self.style.WARNING(f'Limit of {limit} emails reached, stopping')
@@ -145,6 +164,23 @@ class Command(BaseCommand):
                     'on the next run.'
                 ))
                 break
+
+            # Hold back a floor for each later (newer, more fragile) stage, but
+            # only up to what that stage can actually use.
+            reserved_for_later = sum(
+                min(per_stage_floor, stage_demand.get(rt, 0))
+                for rt in reminder_types[idx + 1:]
+            )
+            stage_cap = max(0, emails_remaining - reserved_for_later)
+            if stage_cap <= 0:
+                # All remaining capacity is reserved for later stages; skip
+                # ahead so they aren't starved by this older-stage backlog.
+                if verbosity >= 1:
+                    self.stdout.write(
+                        f'\n  Reserving capacity for later stages; '
+                        f'deferring {rtype} to the next run'
+                    )
+                continue
 
             if verbosity >= 1:
                 self.stdout.write(f'\nProcessing {rtype} reminders...')
@@ -163,8 +199,8 @@ class Command(BaseCommand):
             if verbosity >= 1:
                 self.stdout.write(f'  Found {user_count} users eligible for {rtype} reminder')
 
-            # Process users (up to remaining limit)
-            users_to_process = users[:emails_remaining]
+            # Process users (up to this stage's fair share of the remaining limit)
+            users_to_process = users[:stage_cap]
 
             for user in users_to_process:
                 if not dry_run and (deadline - time.monotonic()) < GRAPH_SEND_TIMEOUT_SECONDS:
