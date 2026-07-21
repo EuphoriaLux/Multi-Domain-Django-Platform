@@ -1,0 +1,313 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Campaign Dashboard" %} - Crush.lu{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+{% include "admin/crush_lu/partials/_campaign_styles.html" %}
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<script src="{% static 'crush_lu/js/vendor/chart.umd.min.js' %}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="campaign-container" x-data="campaignDashboardTabs">
+    <a href="{% url 'crush_admin:index' %}" class="back-link">← {% trans "Back to Coach Panel" %}</a>
+
+    <div class="page-header">
+        <div>
+            <h1>📢 {% trans "Campaign Dashboard" %}</h1>
+            <p>{% trans "Run and track outreach across email, WhatsApp and push." %}</p>
+        </div>
+        <a href="{% url 'campaign_new' %}" class="btn btn-primary">＋ {% trans "New campaign" %}</a>
+    </div>
+
+    <div class="tab-nav">
+        <button type="button" class="tab-btn" :class="overviewTabClass" @click="setOverview">📊 {% trans "Overview" %}</button>
+        <button type="button" class="tab-btn" :class="campaignsTabClass" @click="setCampaigns">📢 {% trans "Campaigns" %}</button>
+        <button type="button" class="tab-btn" :class="whatsappTabClass" @click="setWhatsapp">💬 {% trans "WhatsApp" %}</button>
+        <button type="button" class="tab-btn" :class="remindersTabClass" @click="setReminders">📬 {% trans "Reminders" %}</button>
+        <button type="button" class="tab-btn" :class="segmentsTabClass" @click="setSegments">🎯 {% trans "Segments" %}</button>
+    </div>
+
+    {# ---------------- Overview tab ---------------- #}
+    <div x-show="isOverview">
+        <div class="summary-grid">
+            <div class="summary-card">
+                <span class="summary-icon">✅</span>
+                <div class="summary-content">
+                    <h3>{{ overview.campaigns_completed }}</h3>
+                    <p>{% trans "Campaigns completed" %}</p>
+                </div>
+            </div>
+            <div class="summary-card">
+                <span class="summary-icon">🚀</span>
+                <div class="summary-content">
+                    <h3>{{ overview.campaigns_active }}</h3>
+                    <p>{% trans "Active / scheduled" %}</p>
+                </div>
+            </div>
+            <div class="summary-card">
+                <span class="summary-icon">📧</span>
+                <div class="summary-content">
+                    <h3>{{ overview.email_sent }}</h3>
+                    <p>{% trans "Emails sent" %}</p>
+                </div>
+            </div>
+            <div class="summary-card">
+                <span class="summary-icon">💬</span>
+                <div class="summary-content">
+                    <h3>{{ overview.whatsapp_sent }}</h3>
+                    <p>{% trans "WhatsApp sent" %}</p>
+                </div>
+            </div>
+            <div class="summary-card">
+                <span class="summary-icon">🔔</span>
+                <div class="summary-content">
+                    <h3>{{ overview.push_sent }}</h3>
+                    <p>{% trans "Push sent" %}</p>
+                </div>
+            </div>
+            <div class="summary-card">
+                <span class="summary-icon">🖱️</span>
+                <div class="summary-content">
+                    <h3>{{ overview.total_clicks }} ({{ overview.click_rate }}%)</h3>
+                    <p>{% trans "Clicks (CTR)" %}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-section" x-data="campaignOverviewChart">
+            <div class="section-header"><h2>{% trans "Campaign messages per week" %}</h2></div>
+            <div class="chart-box"><canvas></canvas></div>
+        </div>
+    </div>
+
+    {# ---------------- Campaigns tab ---------------- #}
+    <div x-show="isCampaigns" x-cloak>
+        <div class="panel-section">
+            <div class="section-header">
+                <h2>{% trans "Recent campaigns" %}</h2>
+                <a href="{% url 'campaign_new' %}" class="btn btn-primary">＋ {% trans "New campaign" %}</a>
+            </div>
+            {% if campaign_rows %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>{% trans "Campaign" %}</th>
+                        <th>{% trans "Channels" %}</th>
+                        <th>{% trans "Audience" %}</th>
+                        <th>{% trans "Status" %}</th>
+                        <th>{% trans "Sent / Failed" %}</th>
+                        <th>{% trans "Clicks" %}</th>
+                        <th>{% trans "Scheduled" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in campaign_rows %}
+                    <tr>
+                        <td><a href="{% url 'campaign_detail' row.campaign.pk %}">{{ row.campaign.name }}</a></td>
+                        <td>
+                            {% for channel in row.campaign.channels %}
+                            <span class="chan-badge chan-{{ channel }}">{{ channel }}</span>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            {{ row.campaign.get_audience_display }}
+                            {% if row.campaign.segment_key %}<br><small>{{ row.campaign.segment_key }}</small>{% endif %}
+                        </td>
+                        <td><span class="badge badge-{{ row.campaign.status }}">{{ row.campaign.get_status_display }}</span></td>
+                        <td>{{ row.stats.totals.sent }} / {{ row.stats.totals.failed }}</td>
+                        <td>{{ row.stats.clicks.total }}</td>
+                        <td>{{ row.campaign.scheduled_at|date:"Y-m-d H:i"|default:"—" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>{% trans "No campaigns yet — launch your first one!" %}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    {# ---------------- WhatsApp tab ---------------- #}
+    <div x-show="isWhatsapp" x-cloak>
+        <div class="summary-grid">
+            <div class="summary-card">
+                <span class="summary-icon">📤</span>
+                <div class="summary-content">
+                    <h3>{{ whatsapp.total }}</h3>
+                    <p>{% trans "Total outbound" %}</p>
+                </div>
+            </div>
+            {% for status, count in whatsapp.funnel.items %}
+            <div class="summary-card">
+                <span class="summary-icon">
+                    {% if status == 'read' %}👁️{% elif status == 'delivered' %}📬{% elif status == 'failed' %}⚠️{% elif status == 'sent' %}✉️{% else %}⏳{% endif %}
+                </span>
+                <div class="summary-content">
+                    <h3>{{ count }}</h3>
+                    <p>{{ status }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="panel-section">
+            <div class="section-header">
+                <h2>{% trans "Inbound replies" %}</h2>
+                <span class="badge badge-scheduled">{{ whatsapp.unread }} {% trans "unread" %}</span>
+            </div>
+            {% if whatsapp.inbound %}
+            <table class="data-table">
+                <thead>
+                    <tr><th>{% trans "From" %}</th><th>{% trans "Message" %}</th><th>{% trans "Received" %}</th><th></th></tr>
+                </thead>
+                <tbody>
+                    {% for msg in whatsapp.inbound %}
+                    <tr>
+                        <td>{{ msg.contact_name|default:msg.from_number }}</td>
+                        <td>{{ msg.text|truncatechars:80 }}</td>
+                        <td>{{ msg.received_at|date:"Y-m-d H:i" }}</td>
+                        <td>{% if not msg.is_read %}<span class="badge badge-scheduled">{% trans "new" %}</span>{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>{% trans "No inbound messages." %}</p>
+            {% endif %}
+        </div>
+
+        <div class="panel-section">
+            <div class="section-header"><h2>{% trans "Recent outbound messages" %}</h2></div>
+            {% if whatsapp.outbound %}
+            <table class="data-table">
+                <thead>
+                    <tr><th>{% trans "Recipient" %}</th><th>{% trans "Template" %}</th><th>{% trans "Status" %}</th><th>{% trans "Sent by" %}</th><th>{% trans "Created" %}</th></tr>
+                </thead>
+                <tbody>
+                    {% for msg in whatsapp.outbound %}
+                    <tr>
+                        <td>{{ msg.recipient }}</td>
+                        <td>{{ msg.template_name }} ({{ msg.language }})</td>
+                        <td><span class="badge badge-{{ msg.status }}">{{ msg.get_status_display }}</span></td>
+                        <td>{{ msg.user.get_full_name|default:msg.user.username }}</td>
+                        <td>{{ msg.created_at|date:"Y-m-d H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>{% trans "No outbound messages yet." %}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    {# ---------------- Reminders tab ---------------- #}
+    <div x-show="isReminders" x-cloak>
+        <div class="summary-grid">
+            <div class="summary-card">
+                <span class="summary-icon">📬</span>
+                <div class="summary-content">
+                    <h3>{{ reminders.total }}</h3>
+                    <p>{% trans "Reminders sent" %}</p>
+                </div>
+            </div>
+            <div class="summary-card">
+                <span class="summary-icon">🕐</span>
+                <div class="summary-content">
+                    <h3>{{ reminders.counts.24h }}</h3>
+                    <p>{% trans "24h reminders" %}</p>
+                </div>
+            </div>
+            <div class="summary-card">
+                <span class="summary-icon">🕒</span>
+                <div class="summary-content">
+                    <h3>{{ reminders.counts.72h }}</h3>
+                    <p>{% trans "72h reminders" %}</p>
+                </div>
+            </div>
+            <div class="summary-card">
+                <span class="summary-icon">📅</span>
+                <div class="summary-content">
+                    <h3>{{ reminders.counts.7d }}</h3>
+                    <p>{% trans "7-day reminders" %}</p>
+                </div>
+            </div>
+            <div class="summary-card">
+                <span class="summary-icon">🎯</span>
+                <div class="summary-content">
+                    <h3>{{ reminders.conversion }}%</h3>
+                    <p>{% trans "Verified after reminder" %}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-section" x-data="remindersFunnelChart">
+            <div class="section-header"><h2>{% trans "Reminder funnel" %}</h2></div>
+            <div class="chart-box"><canvas></canvas></div>
+        </div>
+
+        <div class="panel-section">
+            <div class="section-header">
+                <h2>{% trans "Recent reminders" %}</h2>
+                <a href="{% url 'profile_reminders_panel' %}" class="btn btn-secondary">{% trans "Open reminders panel" %}</a>
+            </div>
+            {% if reminders.recent %}
+            <table class="data-table">
+                <thead>
+                    <tr><th>{% trans "User" %}</th><th>{% trans "Type" %}</th><th>{% trans "Sent" %}</th><th>{% trans "Profile status" %}</th></tr>
+                </thead>
+                <tbody>
+                    {% for reminder in reminders.recent %}
+                    <tr>
+                        <td>{{ reminder.user.email }}</td>
+                        <td>{{ reminder.reminder_type }}</td>
+                        <td>{{ reminder.sent_at|date:"Y-m-d H:i" }}</td>
+                        <td>{{ reminder.user.crushprofile.verification_status|default:"—" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>{% trans "No reminders sent yet." %}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    {# ---------------- Segments tab ---------------- #}
+    <div x-show="isSegments" x-cloak>
+        {% for group_key, group in segment_groups.items %}
+        <div class="panel-section">
+            <div class="section-header">
+                <h2>{{ group.icon }} {{ group.title }}</h2>
+                <a href="{% url 'user_segments_dashboard' %}" class="btn btn-secondary">{% trans "Segment details" %}</a>
+            </div>
+            <table class="data-table">
+                <thead>
+                    <tr><th>{% trans "Segment" %}</th><th>{% trans "Description" %}</th><th>{% trans "Users" %}</th><th></th></tr>
+                </thead>
+                <tbody>
+                    {% for segment in group.segments %}
+                    <tr>
+                        <td>{{ segment.name }}</td>
+                        <td>{{ segment.description }}</td>
+                        <td><strong>{{ segment.count }}</strong></td>
+                        <td>
+                            <a class="btn btn-primary" href="{% url 'campaign_new' %}?segment={{ segment.key }}">
+                                🚀 {% trans "Start campaign" %}
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

@@ -24,6 +24,7 @@ from crush_lu.admin.user_segments import user_segments_dashboard, segment_detail
 from crush_lu.admin.profile_reminders import profile_reminders_panel
 from crush_lu import admin_views, views, views_phone_verification, views_profile, views_profile_draft, views_event_polls
 from crush_lu.admin.poll_analytics import poll_analytics_dashboard, poll_analytics_detail
+from crush_lu.admin import campaign_dashboard as campaign_dashboard_views
 from crush_lu.admin_views import signup_trend_api, verification_trend_api, cumulative_growth_api, daily_active_users_api
 from crush_lu.admin_views import (
     email_template_manager,
@@ -372,6 +373,19 @@ urlpatterns = [
     # Poll Analytics
     path('crush-admin/poll-analytics/', poll_analytics_dashboard, name='poll_analytics_dashboard'),
     path('crush-admin/poll-analytics/<int:poll_id>/', poll_analytics_detail, name='poll_analytics_detail'),
+
+    # Campaign & Remarketing Dashboard (unified multi-channel campaigns)
+    path('crush-admin/campaigns/', campaign_dashboard_views.campaign_dashboard, name='campaign_dashboard'),
+    path('crush-admin/campaigns/new/', campaign_dashboard_views.campaign_composer, name='campaign_new'),
+    path('crush-admin/campaigns/create/', campaign_dashboard_views.campaign_create, name='campaign_create'),
+    path('crush-admin/campaigns/estimate/', campaign_dashboard_views.campaign_estimate, name='campaign_estimate'),
+    path('crush-admin/campaigns/preview/', campaign_dashboard_views.campaign_preview, name='campaign_preview'),
+    path('crush-admin/campaigns/<int:campaign_id>/', campaign_dashboard_views.campaign_detail, name='campaign_detail'),
+    path('crush-admin/campaigns/<int:campaign_id>/cancel/', campaign_dashboard_views.campaign_cancel, name='campaign_cancel'),
+    path('crush-admin/campaigns/<int:campaign_id>/status/', campaign_dashboard_views.campaign_status_partial, name='campaign_status_partial'),
+    path('crush-admin/api/campaign-overview/', campaign_dashboard_views.campaign_overview_api, name='campaign_overview_api'),
+    path('crush-admin/api/campaign-clicks/<int:campaign_id>/', campaign_dashboard_views.campaign_clicks_api, name='campaign_clicks_api'),
+    path('crush-admin/api/reminders-funnel/', campaign_dashboard_views.reminders_funnel_api, name='reminders_funnel_api'),
 
     path('crush-admin/', crush_admin_site.urls),
 
