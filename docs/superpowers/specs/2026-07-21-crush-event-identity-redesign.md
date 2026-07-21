@@ -243,9 +243,12 @@ what people discover at events."
    read it, members must be able to download it.
 3. Both fields stop rendering on all member-facing and attendee-facing
    surfaces (§7).
-4. Coach-facing screens keep a collapsed read-only **"Legacy bio (pre-2026
-   redesign)"** block so coaches lose no context on existing members during
-   transition.
+4. Coach-facing screens keep a collapsed read-only **"Legacy bio & interests
+   (pre-2026 redesign)"** block covering **both** retained columns — this
+   matters most for §8.2's *unmatched* free-text interests, whose only
+   remaining display anywhere is this block once member-facing rendering is
+   removed. Coaches lose no context on existing members during transition.
+   Test with a profile whose interests did not map (§13).
 5. A later retention decision (O6) sets the hard-delete date, per the
    privacy-by-design posture in the lobby spec §13.
 
@@ -260,7 +263,7 @@ what people discover at events."
 | `coach_presentation_control.html`                                                                                                      | quotes bio on the live slide                                    | event vibe + ask-me-about chips + top qualities                                     |
 | `event_presentations.html`                                                                                                             | (check during impl.)                                            | same chip rendering                                                                 |
 | `event_attendees.html` (own + attendee)                                                                                                | interests free-text snippet                                     | up to 3 interest chips                                                              |
-| `coach_review_profile.html`, `coach_member_overview.html`, `coach_verification_channel.html`, `crush_connect/coach_member_detail.html` | bio/interests display                                           | Event Identity + collapsed legacy bio block                                         |
+| `coach_review_profile.html`, `coach_member_overview.html`, `coach_verification_channel.html`, `crush_connect/coach_member_detail.html` | bio/interests display                                           | Event Identity + collapsed legacy **bio & interests** block (§6.4)                  |
 | `crush_connect/_drop_card.html` fallback                                                                                               | `target_profile.interests\|split_interests`                     | taxonomy chips from new M2M                                                         |
 | `crush_connect/dev_card_preview.html`                                                                                                  | interests row                                                   | updated                                                                             |
 | Check-in toast (`views_checkin.py` `_get_profile_data` L412–428 → rendered by `alpine-components.js`)                                   | JSON ships `profile.interests` free text to event staff         | taxonomy chip labels (or drop the key) — a **JSON producer** the template grep cannot catch |
@@ -401,7 +404,9 @@ connection-flow phases; it can ship before or after C–D.
   — JSON producers need their own coverage: test that
   `_get_profile_data` (`views_checkin.py:412–428`) no longer returns legacy
   free-text interests to the check-in toast, and that the data-portability
-  export (§6) still does.
+  export (§6) still does. Coach surfaces: a profile whose free-text
+  interests did **not** map in migration still shows them in the collapsed
+  legacy bio & interests block (§6.4).
 
 * i18n: every new string translated EN/DE/FR; vibe list renders in all
   locales.
@@ -416,7 +421,8 @@ connection-flow phases; it can ship before or after C–D.
 * Event presentation slides and attendee cards show only structured Event
   Identity content.
 
-* Existing members' legacy bio remains visible to coaches during transition.
+* Existing members' legacy bio **and interests** (including
+  taxonomy-unmatched free text) remain visible to coaches during transition.
 
 * Production interests are ≥85% taxonomy-mapped after the migration command
   (per dry-run report target set in Phase A).

@@ -170,10 +170,17 @@ conversion moment that exists, without a paywall screen.
   one-sided crush is revealed within seconds. Crush leads must be excluded
   from recipient notifications, the recipient's `my_connections` inbox,
   attendee-page connection state, the `incoming_pending_count` aggregate,
-  **both context-processor counters (in every pre-consent status)**, and
-  `connection_detail` until the coach has obtained the recipient's consent —
-  and §13 tests that the recipient cannot discover the row (or any hint or
-  badge change) from any existing page.
+  **both context-processor counters**, and `connection_detail` **until the
+  introduction completes (`shared`)** — not merely until the recipient's
+  consent is recorded. The coach workflow records the two consents
+  independently (§7), so there is an intermediate state where the recipient
+  has consented but the requester has not; un-hiding at recipient-consent
+  would let `connection_detail.html` render the crusher's display name,
+  city, and languages while the outreach is still the anonymous "someone
+  you met" — an identity disclosure before the completed introduction. §13
+  tests that the recipient cannot discover the row (or any hint or badge
+  change) from any existing page in **every** pre-`shared` state, including
+  after their own consent is recorded.
 
 * **Declines must be invisible to the crusher too.** `connection_detail`
   authorizes *either* party of a row (`views_connections.py:917–921`) and
@@ -388,7 +395,14 @@ one flagship event) first.
   `DJANGO_*_URL` env var on the function app (ops note: unset = the timer
   silently no-ops — a known failure mode of this pattern), and an
   idempotency record (e.g. `reminder_sent_at`) so repeated timer delivery
-  never double-reminds. Integration-test repeated delivery (§13).
+  never double-reminds. The sweep (and the queue) select **live actionable
+  statuses only** — a member block silently flips an in-flight
+  `EventConnection` to `declined` (and a coach-recorded decline has the
+  same shape) without setting any call/reminder field, so an
+  overdue-and-unreminded filter alone would remind a coach about a
+  cancelled pair. A decline or block also cancels the recipient-side
+  co-coach task. Integration-test repeated delivery and a block/decline
+  landing before the 24h deadline (§13).
 
 * Migration is additive (nullable call-tracking fields + the discriminator
   with a `legacy` default); no data backfill.
@@ -419,7 +433,14 @@ Identity spec §7).
    crush button redirect to the recap ("You'll find them in your event
    recap — confirm you met."); if either side has since dropped out of
    eligibility, the recap can no longer show them, so My Crush stays
-   available as the only remaining flow. **The check is enforced in the
+   available as the only remaining flow. **The recap must also still be
+   open:** `eligible_participations` filters members, not phases — and
+   `connection_window_hours` is per-event configurable and can exceed the
+   lobby's fixed 48h recap, so both rows can be eligible while the recap is
+   already closed. The redirect predicate is therefore *both members in the
+   read-time roster **and** the recap window open (usable recap access for
+   the requester)*; once the recap has closed, My Crush applies even for an
+   eligible pair. **The check is enforced in the
    write endpoints, not just the button:** both `request_connection`
    (`views_connections.py:281`) and `request_connection_inline` (`:443`)
    accept direct POSTs and currently never consult
@@ -515,9 +536,9 @@ before or after them.
   `my_connections` inbox, notification feed, attendee page, and
   `connection_detail` show nothing; `notify_new_connection` is not sent for
   crush leads; `pending_requests_count` and `connection_count` (context
-  processor) are unchanged for the recipient in **every** pre-consent status
-  (`pending` and after the coach moves to `coach_reviewing`/
-  `coach_approved`).
+  processor) are unchanged for the recipient in **every** pre-`shared`
+  status — `pending`, `coach_reviewing`, `coach_approved`, **and after the
+  recipient's own consent is recorded while the requester's is not**.
 
 * **Member-overview redaction:** an active coach who is neither the routed
   coach nor the recipient-side co-coach sees no crush row (and no requester
@@ -537,7 +558,9 @@ before or after them.
 
 * **Redirect fallback:** a pair with lobby-participation rows where one side
   has lost read-time eligibility gets the My Crush flow, not a dead-end
-  recap redirect.
+  recap redirect; likewise an eligible pair whose recap window has already
+  closed (e.g. `connection_window_hours` > 48) gets My Crush, never a
+  redirect into a closed recap.
 
 * **Requester decline suppression:** after a coach records a decline, the
   crusher's `my_connections` list and a direct `connection_detail` fetch
@@ -554,7 +577,9 @@ before or after them.
 
 * **Reminder idempotency:** delivering the timer sweep twice for the same
   overdue lead produces exactly one reminder; a lead with
-  `coach_call_completed_at` set is never swept.
+  `coach_call_completed_at` set is never swept; a lead flipped to
+  `declined` before the 24h deadline (member block or coach decline) is
+  never swept and its co-coach task is cancelled.
 
 * **Aggregate hint suppressed:** a recipient whose only received rows are
   crush leads sees no "Someone here wants to connect with you" alert —
