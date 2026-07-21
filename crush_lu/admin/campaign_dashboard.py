@@ -222,13 +222,20 @@ def campaign_composer(request):
     )
 
 
-def _validate_whatsapp_template(template_name, language):
-    """Server-side re-check that the chosen template is actually approved.
+def _validate_whatsapp_template(template_name, language, parameters):
+    """Server-side re-check that the chosen template is actually usable.
 
     The composer only *renders* approved templates, but a stale page or a
     modified form can still submit a DRAFT/PENDING/REJECTED name — which the
-    dispatcher would then attempt for every eligible recipient.
+    dispatcher would then attempt (and pay for) per eligible recipient.
+    Also verifies language coverage (sends pick each recipient's preferred
+    variant) and that every body placeholder has a parameter (Meta rejects
+    invocations with missing required parameters).
     """
+    import re
+
+    from crush_lu.utils.i18n import get_supported_language_codes
+
     try:
         # Uncached: a template Meta just rejected must not slip through on a
         # stale 10-minute cache entry at creation time.
@@ -238,18 +245,50 @@ def _validate_whatsapp_template(template_name, language):
             f"Could not verify the WhatsApp template with Meta "
             f"({exc.detail}) — try again in a moment."
         )
-    approved_languages = [
-        t['language'] for t in templates
+    approved = [
+        t for t in templates
         if t['name'] == template_name and t.get('status') == 'APPROVED'
     ]
-    if not approved_languages:
+    approved_languages = [t['language'] for t in approved]
+    if not approved:
         raise ValueError(
             f'WhatsApp template "{template_name}" has no approved variant.'
         )
-    if language != 'all' and language not in approved_languages:
+    if language == 'all':
+        # Sends resolve each recipient's preferred language, so an
+        # all-language campaign needs every supported variant approved —
+        # otherwise those recipients get paid sends Meta rejects.
+        missing = [
+            lang for lang in get_supported_language_codes()
+            if lang not in approved_languages
+        ]
+        if missing:
+            raise ValueError(
+                f'WhatsApp template "{template_name}" is missing approved '
+                f'variants for: {", ".join(missing)}. Approve them in Meta '
+                f'or restrict the campaign language.'
+            )
+    elif language not in approved_languages:
         raise ValueError(
             f'WhatsApp template "{template_name}" has no approved '
             f'"{language}" variant, but the campaign targets that language.'
+        )
+
+    # Every body placeholder ({{1}}..{{n}}) needs a parameter — Meta rejects
+    # invocations whose required body parameters are missing.
+    body_text = ''
+    for component in approved[0].get('components', []):
+        if (component.get('type') or '').upper() == 'BODY':
+            body_text = component.get('text') or ''
+            break
+    placeholders = {int(n) for n in re.findall(r'\{\{(\d+)\}\}', body_text)}
+    missing_params = sorted(
+        n for n in placeholders if not (parameters or {}).get(str(n))
+    )
+    if missing_params:
+        raise ValueError(
+            'The template body needs parameter(s) '
+            f'{", ".join(str(n) for n in missing_params)} — fill them in.'
         )
 
 
@@ -306,12 +345,12 @@ def _parse_composer_form(request):
         template_name = (request.POST.get('whatsapp_template_name') or '').strip()
         if not template_name:
             raise ValueError("Pick an approved WhatsApp template.")
-        _validate_whatsapp_template(template_name, language)
         parameters = {}
         for slot in range(1, WHATSAPP_PARAM_SLOTS + 1):
             value = (request.POST.get(f'whatsapp_param_{slot}') or '').strip()
             if value:
                 parameters[str(slot)] = value
+        _validate_whatsapp_template(template_name, language, parameters)
         whatsapp = {'template_name': template_name, 'parameters': parameters}
 
     push = None

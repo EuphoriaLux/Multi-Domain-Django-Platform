@@ -363,6 +363,127 @@ class CampaignCreateFlowTests(TestCase):
         self.assertRedirects(response, reverse('campaign_new'))
         self.assertFalse(Campaign.objects.exists())
 
+    def _whatsapp_form(self, **overrides):
+        form = self._base_form(
+            channels=['whatsapp'],
+            language='en',
+            whatsapp_template_name='event_reminder',
+        )
+        del form['email_subject'], form['email_body_html']
+        form.update(overrides)
+        return form
+
+    APPROVED_EN = {
+        'name': 'event_reminder', 'language': 'en', 'category': 'MARKETING',
+        'status': 'APPROVED',
+        'components': [{'type': 'BODY', 'text': 'Hi {{1}}, join us at {{2}}!'}],
+    }
+
+    def test_whatsapp_missing_body_parameters_rejected(self):
+        from unittest.mock import patch
+
+        with patch(
+            'crush_lu.admin.campaign_dashboard.fetch_approved_templates',
+            return_value=[self.APPROVED_EN],
+        ):
+            response = self.client.post(
+                reverse('campaign_create'),
+                self._whatsapp_form(whatsapp_param_1='Anna'),  # {{2}} missing
+            )
+        self.assertRedirects(response, reverse('campaign_new'))
+        self.assertFalse(Campaign.objects.exists())
+
+    def test_whatsapp_full_parameters_accepted(self):
+        from unittest.mock import patch
+
+        with patch(
+            'crush_lu.admin.campaign_dashboard.fetch_approved_templates',
+            return_value=[self.APPROVED_EN],
+        ):
+            self.client.post(
+                reverse('campaign_create'),
+                self._whatsapp_form(
+                    whatsapp_param_1='{first_name}', whatsapp_param_2='Neimenster',
+                ),
+            )
+        campaign = Campaign.objects.get()
+        self.assertEqual(
+            campaign.whatsapp_parameters,
+            {'1': '{first_name}', '2': 'Neimenster'},
+        )
+
+    def test_all_language_campaign_requires_all_variants(self):
+        from unittest.mock import patch
+
+        with patch(
+            'crush_lu.admin.campaign_dashboard.fetch_approved_templates',
+            return_value=[self.APPROVED_EN],  # de/fr variants missing
+        ):
+            response = self.client.post(
+                reverse('campaign_create'),
+                self._whatsapp_form(
+                    language='all',
+                    whatsapp_param_1='x', whatsapp_param_2='y',
+                ),
+            )
+        self.assertRedirects(response, reverse('campaign_new'))
+        self.assertFalse(Campaign.objects.exists())
+
+        variants = [
+            dict(self.APPROVED_EN, language=lang) for lang in ('en', 'de', 'fr')
+        ]
+        with patch(
+            'crush_lu.admin.campaign_dashboard.fetch_approved_templates',
+            return_value=variants,
+        ):
+            self.client.post(
+                reverse('campaign_create'),
+                self._whatsapp_form(
+                    language='all',
+                    whatsapp_param_1='x', whatsapp_param_2='y',
+                ),
+            )
+        self.assertTrue(Campaign.objects.exists())
+
+    def test_campaign_records_and_email_receipts_not_deletable(self):
+        from crush_lu.admin import crush_admin_site
+        from crush_lu.admin.campaigns import CampaignAdmin
+        from crush_lu.admin.newsletter import NewsletterRecipientAdmin
+        from crush_lu.models import Campaign as CampaignModel
+        from crush_lu.models.newsletter import Newsletter, NewsletterRecipient
+        from django.test import RequestFactory
+
+        campaign = create_campaign(
+            name='Undeletable', channels=['email'], audience='all_users',
+            email_content={'subject_en': 'S', 'body_html_en': 'B'},
+        )
+        request = RequestFactory().get('/')
+        request.user = self.superuser
+
+        campaign_admin = CampaignAdmin(CampaignModel, crush_admin_site)
+        self.assertFalse(campaign_admin.has_delete_permission(request))
+
+        receipt = NewsletterRecipient.objects.create(
+            newsletter=campaign.email_newsletter,
+            user=self.superuser, email='x@example.com', status='sent',
+        )
+        recipient_admin = NewsletterRecipientAdmin(
+            NewsletterRecipient, crush_admin_site,
+        )
+        self.assertFalse(
+            recipient_admin.has_delete_permission(request, receipt),
+        )
+        standalone = Newsletter.objects.create(
+            subject='Solo', body_html='<p>x</p>', audience='all_users',
+        )
+        standalone_receipt = NewsletterRecipient.objects.create(
+            newsletter=standalone,
+            user=self.superuser, email='y@example.com', status='sent',
+        )
+        self.assertTrue(
+            recipient_admin.has_delete_permission(request, standalone_receipt),
+        )
+
     def test_campaign_newsletter_blocked_from_admin_send(self):
         from unittest.mock import patch
 

@@ -37,6 +37,12 @@ class CampaignAdmin(AutoTranslateMixin, TranslationAdmin):
     def has_add_permission(self, request):
         return False
 
+    def has_delete_permission(self, request, obj=None):
+        # Deleting a campaign cascades its recipients/links/clicks and frees
+        # the linked newsletter back into the standalone send paths —
+        # cancellation is the supported lifecycle operation.
+        return False
+
     def get_readonly_fields(self, request, obj=None):
         # Every field read-only (change permission stays on so the
         # cancel_campaigns changelist action remains available).

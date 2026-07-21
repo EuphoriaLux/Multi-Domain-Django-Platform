@@ -662,3 +662,10 @@ class NewsletterRecipientAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return False
+
+    def has_delete_permission(self, request, obj=None):
+        if obj is not None and obj.newsletter.campaign_id:
+            # Campaign email receipts are the deduplication record — deleting
+            # one lets a later dispatch tick email that recipient again.
+            return False
+        return super().has_delete_permission(request, obj)
