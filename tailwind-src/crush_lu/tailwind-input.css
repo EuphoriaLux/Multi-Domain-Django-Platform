@@ -63,6 +63,23 @@
     --color-crush-danger: #dc3545;
     --color-crush-info: #17a2b8;
 
+    /* ===================
+     EVENT LOBBY "LIGHTS DOWN" TOKENS
+     The live Event Lobby is the one surface that always happens at night, in a
+     room — it commits to a dark ground in BOTH site themes (like the Journey
+     dark tokens above, this is a deliberate single-world surface, not a theme
+     gap). The ground hue derives from crush-purple, not neutral slate; the
+     ember accent is crush-pink and is reserved for the signal system; the glow
+     appears only at the mutual reveal so that moment reads warmer than
+     everything else.
+     =================== */
+    --color-lobby-night: #191022;
+    --color-lobby-room: #241732;
+    --color-lobby-edge: #362447;
+    --color-lobby-ink: #f3edf8;
+    --color-lobby-dim: #a896b8;
+    --color-lobby-glow: #f0a868;
+
     /* Custom border radius — only the two brand-specific values that don't map
        cleanly onto Tailwind's rounded-* scale. For all other rounding, prefer
        the Tailwind defaults (rounded-lg / rounded-xl / rounded-2xl / rounded-full).
@@ -14099,5 +14116,108 @@ body.connect-wizard main.has-bottom-nav {
                 }
             }
         }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       EVENT LOBBY — live "lights down" surface (tokens in @theme above).
+       Only the pieces that event-lobby.js re-renders imperatively, or that
+       need pseudo-elements, live here; everything else is utilities in
+       crush_lu/event_lobby/lobby.html. Class names are load-bearing for
+       event-lobby.js (buildTile / buildTileBadge / renderMutuals).
+       ═══════════════════════════════════════════════════════════════════ */
+
+    /* Spark token — one signal in the ledger. Lit = still available;
+       --spent = burnt-out stub. --sm is the confirm-sheet echo. */
+    /* Child combinators are load-bearing: a lit .lobby-spark overlay nests
+       inside its .lobby-spark--spent base slot, so descendant selectors
+       would paint the lit glyph in the spent color. Glyph sizes come from
+       utility classes on the include (components lose to utilities). */
+    .lobby-spark {
+        @apply grid h-7 w-7 place-items-center rounded-full border;
+        background: color-mix(in srgb, var(--color-crush-pink) 15%, transparent);
+        border-color: color-mix(in srgb, var(--color-crush-pink) 40%, transparent);
+    }
+    .lobby-spark > svg {
+        fill: var(--color-crush-pink);
+    }
+    .lobby-spark--spent {
+        background: transparent;
+        border-style: dashed;
+        border-color: var(--color-lobby-edge);
+    }
+    .lobby-spark--spent > svg {
+        fill: var(--color-lobby-edge);
+    }
+    .lobby-spark--sm {
+        @apply h-5 w-5;
+    }
+
+    /* Roster tile. The state ring is drawn inset so it survives the
+       rounded-image crop; disabled tiles keep full opacity — their state
+       is a story, not an error. */
+    .lobby-tile {
+        @apply relative aspect-square overflow-hidden rounded-2xl bg-lobby-room transition-transform duration-150 focus:outline-none;
+    }
+    .lobby-tile:not(:disabled):hover {
+        transform: translateY(-2px);
+    }
+    .lobby-tile:not(:disabled):active {
+        transform: scale(0.97);
+    }
+    .lobby-tile:focus-visible {
+        outline: 2px solid var(--color-purple-300);
+        outline-offset: 2px;
+    }
+    .lobby-tile > img {
+        @apply h-full w-full object-cover;
+    }
+    .lobby-tile--signalled::after,
+    .lobby-tile--mutual::after {
+        content: "";
+        @apply pointer-events-none absolute inset-0 rounded-2xl;
+    }
+    .lobby-tile--signalled::after {
+        box-shadow: inset 0 0 0 1.5px
+            color-mix(in srgb, var(--color-crush-pink) 55%, transparent);
+    }
+    .lobby-tile--mutual::after {
+        box-shadow: inset 0 0 0 2px var(--color-lobby-glow);
+    }
+    .lobby-tile--met > img {
+        filter: saturate(0.35) brightness(0.75);
+    }
+
+    /* Corner ember mark on a tile you have signalled. */
+    .lobby-tile-mark {
+        @apply absolute top-1.5 right-1.5 grid h-6 w-6 place-items-center rounded-full;
+        background: color-mix(in srgb, var(--color-lobby-night) 75%, transparent);
+    }
+    .lobby-tile-mark > svg {
+        fill: var(--color-crush-pink);
+    }
+
+    /* Bottom label on met tiles; --mutual is the warm revealed-name variant. */
+    .lobby-tile-label {
+        @apply absolute inset-x-0 bottom-0 px-2 pt-6 pb-1.5 text-left text-xs font-medium text-lobby-dim;
+        background: linear-gradient(
+            to top,
+            color-mix(in srgb, var(--color-lobby-night) 85%, transparent),
+            transparent
+        );
+    }
+    .lobby-tile-label--mutual {
+        @apply font-display text-sm font-semibold text-white;
+        background: linear-gradient(to top, rgba(43, 22, 8, 0.85), transparent);
+    }
+
+    /* Mutual row in the "Go say hello" list (rebuilt by renderMutuals). */
+    .lobby-mutual-item {
+        @apply flex items-center gap-3 rounded-xl border border-lobby-edge bg-lobby-room p-3;
+    }
+    .lobby-mutual-item > img {
+        @apply h-12 w-12 rounded-xl object-cover;
+    }
+    .lobby-mutual-item > p {
+        @apply mb-0 font-display font-semibold text-lobby-ink;
     }
 }

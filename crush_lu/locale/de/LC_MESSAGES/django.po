@@ -35763,3 +35763,39 @@ msgstr "Bitte lade ein Profilfoto hoch, um Crush Connect beizutreten."
 
 msgid "Please upload a profile photo to use Crush Connect."
 msgstr "Bitte lade ein Profilfoto hoch, um Crush Connect zu nutzen."
+
+#: crush_lu/templates/crush_lu/event_lobby/lobby.html:1
+msgid "Ends in"
+msgstr "Endet in"
+
+#: crush_lu/templates/crush_lu/event_lobby/lobby.html:1
+msgid "Express interest in the room — quietly."
+msgstr "Zeig dezent Interesse an Leuten im Raum."
+
+#: crush_lu/templates/crush_lu/event_lobby/lobby.html:1
+msgid "Your signals for tonight"
+msgstr "Deine Signale für heute Abend"
+
+#: crush_lu/templates/crush_lu/event_lobby/lobby.html:1
+msgid "Spent ones don't come back."
+msgstr "Verbrauchte kommen nicht zurück."
+
+#: crush_lu/templates/crush_lu/event_lobby/lobby.html:1
+msgid "Signals remaining"
+msgstr "Verbleibende Signale"
+
+#: crush_lu/templates/crush_lu/event_lobby/lobby.html:1
+msgid "Go say hello"
+msgstr "Sag Hallo"
+
+#: crush_lu/templates/crush_lu/event_lobby/lobby.html:1
+msgid "Spend a signal on them?"
+msgstr "Ein Signal für diese Person ausgeben?"
+
+#: crush_lu/templates/crush_lu/event_lobby/lobby.html:1
+msgid "This leaves you"
+msgstr "Danach bleiben dir"
+
+#: crush_lu/templates/crush_lu/event_lobby/lobby.html:1
+msgid "Spend a signal"
+msgstr "Signal ausgeben"

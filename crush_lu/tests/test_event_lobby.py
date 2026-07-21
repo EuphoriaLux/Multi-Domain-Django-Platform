@@ -843,7 +843,9 @@ class TestLobbyPage:
         assert response.status_code == 200
         html = response.content.decode()
         assert "x-for" not in html
-        assert 'x-show="firstSignalUsed"' in html
+        # The signal ledger + confirm sheet bind the named *Available getters
+        # (lit spark overlays) — property paths only, per the CSP Alpine build.
+        assert 'x-show="firstSignalAvailable"' in html
         assert 'x-show="thirdSignalAvailable"' in html
 
     def test_live_component_loads_before_alpine(self, client):
