@@ -412,6 +412,7 @@ document.addEventListener("alpine:init", function () {
                     tap: false,
                     touchZoom: true,
                     bounceAtZoom: false,
+                    attributionControl: false,
                 }).setView(center, 16);
 
                 L.control.zoom({ position: "bottomright" }).addTo(this.map);
@@ -570,6 +571,10 @@ document.addEventListener("alpine:init", function () {
                 var url = protocol + "//" + window.location.host + "/ws/cache/" + this.huntId + "/";
                 try {
                     this.ws = new WebSocket(url);
+                    this.ws.onopen = function () {
+                        self.wsConnected = true;
+                        self.wsRetry = 0;
+                    };
                     this.ws.onerror = function () {
                         // WSGI dev server without Channels/Redis doesn't serve WebSockets:
                         // HTTP polling fallback (startPolling) handles live status updates instead.
@@ -582,7 +587,7 @@ document.addEventListener("alpine:init", function () {
                         }
                     };
                     this.ws.onclose = function () {
-                        if (self.wsRetry < 5) {
+                        if (self.wsConnected && self.wsRetry < 5) {
                             self.wsRetry += 1;
                             setTimeout(function () { self.connectWebSocket(); }, 2000 * self.wsRetry);
                         }

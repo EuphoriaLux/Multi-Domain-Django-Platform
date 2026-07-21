@@ -39,7 +39,9 @@ document.addEventListener("DOMContentLoaded", function () {
             .filter(function (s) { return s.lat !== null; })
             .map(function (s) { return [s.lat, s.lng]; });
 
-        map = L.map("coach-map");
+        map = L.map("coach-map", {
+            attributionControl: false,
+        });
         L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
             maxZoom: 19,
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
