@@ -153,7 +153,9 @@ document.addEventListener('DOMContentLoaded', function() {
             var match = decodedText.match(/\/cache\/qr\/([a-f0-9-]+)/i);
             if (match) token = match[1];
         }
-        goToToken(token);
+        setTimeout(function() {
+            goToToken(token);
+        }, 350);
     }
 
     function showWarning(msg) { statusEl.textContent = msg; }

@@ -26,6 +26,7 @@ document.addEventListener("alpine:init", function () {
             bearing: null,
             heading: null,
             gpsStatus: "",
+            accuracyM: null,
             arrived: false,
             unlocked: false,
             compassNeedsPermission: false,
@@ -173,6 +174,7 @@ document.addEventListener("alpine:init", function () {
                 var lat = pos.coords.latitude;
                 var lng = pos.coords.longitude;
                 var accuracy = pos.coords.accuracy || 0;
+                this.accuracyM = accuracy;
 
                 this.updateSelfMarker(lat, lng, accuracy);
                 this.gpsStatus = this.msgs.gpsAccuracy.replace("{n}", Math.round(accuracy));

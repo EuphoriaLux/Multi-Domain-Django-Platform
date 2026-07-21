@@ -38,7 +38,7 @@ class PermissionsPolicyMiddleware:
         "identity-credentials-get=()",
         "idle-detection=()",
         "local-fonts=()",
-        "magnetometer=()",
+        "magnetometer=(self)",
         "microphone=()",  # Not used - disable for privacy
         "midi=()",
         "otp-credentials=()",
