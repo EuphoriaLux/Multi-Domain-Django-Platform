@@ -414,15 +414,13 @@ class Command(BaseCommand):
     def _register_players(self, event):
         from allauth.account.models import EmailAddress
 
+        for i in (1, 2):
+            u, _ = User.objects.get_or_create(
+                username=f"debug_cache_player{i}@crush.lu",
+                defaults={"email": f"debug_cache_player{i}@crush.lu"},
+            )
+
         debug_users = list(User.objects.filter(username__startswith="debug_"))
-        if not debug_users:
-            debug_users = []
-            for i in (1, 2):
-                u, _ = User.objects.get_or_create(
-                    username=f"debug_cache_player{i}@crush.lu",
-                    defaults={"email": f"debug_cache_player{i}@crush.lu"},
-                )
-                debug_users.append(u)
 
         registered = []
         for user in debug_users:
