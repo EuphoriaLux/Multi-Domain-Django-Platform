@@ -26,6 +26,7 @@ import csv
 
 from crush_lu.models import (
     CrushProfile,
+    MeetupEvent,
     ProfileSubmission,
     UserActivity,
     EmailPreference,
@@ -337,10 +338,17 @@ def get_segment_definitions():
         )
         .distinct()
     )
+    current_event_ids = [
+        event.pk
+        for event in MeetupEvent.objects.filter(
+            date_time__gte=MeetupEvent.live_lookback_cutoff(now),
+            is_cancelled=False,
+        ).only("pk", "date_time", "duration_minutes")
+        if event.end_time >= now
+    ]
     event_upcoming_registrants = approved.filter(
         user__eventregistration__status__in=["confirmed", "waitlist"],
-        user__eventregistration__event__date_time__gt=now,
-        user__eventregistration__event__is_cancelled=False,
+        user__eventregistration__event_id__in=current_event_ids,
     ).distinct()
 
     # Connection activity segments

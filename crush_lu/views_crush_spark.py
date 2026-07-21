@@ -53,8 +53,14 @@ def spark_request(request, event_id):
     # Check deadline
     deadline = event.connection_window_deadline
     if timezone.now() > deadline:
-        messages.error(request, _("The deadline for Crush Spark requests has passed."))
-        return redirect("crush_lu:event_detail", event_id=event.id)
+        messages.info(
+            request,
+            _(
+                "The Crush Spark window has closed. You can keep meeting people "
+                "through Crush Connect."
+            ),
+        )
+        return redirect("crush_lu:crush_connect_teaser")
 
     # Check max sparks limit (use select_for_update for race conditions)
     with transaction.atomic():
@@ -279,7 +285,12 @@ def spark_send_inline(request, event_id, user_id):
         return render(
             request,
             "crush_lu/_htmx_error.html",
-            {"message": _("The deadline for Crush Spark requests has passed.")},
+            {
+                "message": _(
+                    "The Crush Spark window has closed. Try Crush Connect to keep "
+                    "meeting people."
+                )
+            },
         )
 
     # Check for existing spark to same person
