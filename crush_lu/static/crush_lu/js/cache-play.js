@@ -423,14 +423,25 @@ document.addEventListener("alpine:init", function () {
 
                 if (hasTarget) {
                     trailPoints.push([this.targetLat, this.targetLng]);
-                    L.marker([this.targetLat, this.targetLng]).addTo(this.map);
+                    var targetIcon = L.divIcon({
+                        className: "crush-target-marker",
+                        html: '<div style="display:flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:50%; background:linear-gradient(135deg, #8b5cf6, #ec4899); box-shadow:0 4px 12px rgba(139,92,246,0.4); border:2px solid #ffffff; font-size:18px;">📍</div>',
+                        iconSize: [38, 38],
+                        iconAnchor: [19, 19],
+                    });
+                    L.marker([this.targetLat, this.targetLng], {
+                        icon: targetIcon,
+                        title: "Target Station",
+                    }).addTo(this.map);
+
                     if (this.targetRadius) {
                         L.circle([this.targetLat, this.targetLng], {
                             radius: this.targetRadius,
-                            color: "#8b5cf6",
+                            color: "#ec4899",
                             fillColor: "#8b5cf6",
-                            fillOpacity: 0.15,
+                            fillOpacity: 0.18,
                             weight: 2,
+                            dashArray: "4, 6",
                         }).addTo(this.map);
                     }
                 }
