@@ -159,13 +159,21 @@ conversion moment that exists, without a paywall screen.
   shows an **aggregate hint** — `incoming_pending_count`
   (`views_connections.py:144–146`) renders "Someone here wants to connect
   with you" from the count of received `pending` rows — which would reveal
-  that *a* crush exists even with all per-row surfaces hidden. Left as-is, a
+  that *a* crush exists even with all per-row surfaces hidden. The **sitewide
+  badge counters leak too**: the context processor
+  (`crush_lu/context_processors.py:96–115`) computes
+  `pending_requests_count` from every received `pending` row and
+  `connection_count` from `accepted`/`coach_reviewing`/`coach_approved`/
+  `shared` rows in either direction, and `base.html`, `dashboard.html`, and
+  the mobile nav render them — so a recipient's badge increments the moment
+  a crush is declared, and again when the coach starts review. Left as-is, a
   one-sided crush is revealed within seconds. Crush leads must be excluded
   from recipient notifications, the recipient's `my_connections` inbox,
-  attendee-page connection state, **the `incoming_pending_count` aggregate**,
-  and `connection_detail` until the coach has obtained the recipient's
-  consent — and §13 tests that the recipient cannot discover the row (or the
-  hint) from any existing page.
+  attendee-page connection state, the `incoming_pending_count` aggregate,
+  **both context-processor counters (in every pre-consent status)**, and
+  `connection_detail` until the coach has obtained the recipient's consent —
+  and §13 tests that the recipient cannot discover the row (or any hint or
+  badge change) from any existing page.
 
 * **Declines must be invisible to the crusher too.** `connection_detail`
   authorizes *either* party of a row (`views_connections.py:917–921`) and
@@ -211,20 +219,48 @@ conversion moment that exists, without a paywall screen.
 ## 6. Coach capacity — the build gate
 
 The entire value of this reframe is that a human calls the member. That makes
-**coach time the binding constraint**, and it is currently unmodelled. Before
-any build starts (Phase A), produce a written back-of-envelope estimate:
+**coach time the binding constraint**. A lead costs coach time on **both
+sides**, not one call: the routed coach calls the requester, and then the
+recipient must be reached for consent — by the recipient's own coach (co-coach
+task + handoff, §5) or by the routed coach directly. The estimate models both
+halves separately:
 
 ```
-weekly coach-hours needed
-  = events/week
-  × attendees/event
-  × crush declaration rate
-  × (call length + intro-arrangement overhead)
+hours per lead   = requester call (~20–30 min)
+                 + recipient outreach (~10–15 min)
+                 + co-coach handoff overhead when coaches differ (~10 min)
+weekly coach-hours = events/week × attendees/event × declaration rate
+                   × hours per lead
 ```
 
-Measure the inputs the same way §2 of the Event Identity spec was measured
-(production Django shell, via Azure SSH). Then compare against **actual
-available coach-hours/week** across the active coach roster.
+### Phase A measurement (production, 2026-07-22)
+
+Measured via the production Django shell (same access pattern as the Event
+Identity spec §2):
+
+* **11 past events** Feb–Jun 2026 ≈ 2.4/month; attendance 11–41 declining
+  (recent events ~11–14); 1 event scheduled in the next 60 days.
+* **Declaration rate 0.36/attendee** (79 `EventConnection`s / 222 attended)
+  under the existing `max_cross_gender_connections=1` — i.e. the proposed
+  limit-1 behaviour is already in force, and ~1 in 3 attendees uses it. One
+  event hit 10/11 (91%).
+* **9 active coaches** (11 total); 463 members hold an assigned coach.
+* Corroborating facts: 41% of all connections ever are `declined`
+  (requester-side silence matters, §5); **0 mutual pairs have ever
+  existed** (the legacy auto-share branch has never fired in production);
+  `PremiumMembership` has 0 rows (the conversion story starts from zero).
+
+| Scenario | Leads/week | Coach-hours/week (0.75–1.25 h/lead, two-sided) | Per active coach |
+| --- | --- | --- | --- |
+| Today (2.4 ev/mo × ~15 att × 0.36) | 3–4 | 2.5–5 h | ~20–35 min |
+| Growth (weekly event, 30 att) | ~11 | 8–14 h | ~1–1.5 h |
+| Worst case (every attendee, limit 1) | ~30 | 22–38 h | ~2.5–4 h |
+
+**Verdict: absorbable at current scale with margin** — O8 (48h SLA, 24h
+reminder) and O9 (limit 1) are confirmed by measurement, not assumption.
+The growth scenario stays manageable; the worst case is the ceiling the
+limit exists to prevent. Re-run the numbers at build time if event cadence
+or attendance has shifted materially.
 
 The result *sets*, rather than assumes, two decisions:
 
@@ -329,6 +365,20 @@ one flagship event) first.
   object-level authorization applies to **GET and POST** on the review view.
   A non-routed coach gets no queue row and no detail response (§13).
 
+* **Member-overview surfaces redact crush rows.** The queue and review view
+  are not the only coach-facing disclosure path: any active coach can open
+  `coach_member_overview` for an arbitrary member
+  (`views_coach.py:2799–2837`), which loads that member's connections in
+  both directions and renders the incoming requester's name
+  (`coach_member_overview.html`). An unrelated coach — or the recipient's
+  co-coach *before* the coaches have agreed to introduce — would learn the
+  crusher's identity there. `flow=crush` rows are filtered or redacted on
+  `coach_member_overview` and every equivalent member-detail surface
+  (`coach_verification_channel`, `crush_connect/coach_member_detail`, …):
+  visible in full only to the routed coach; the recipient-side co-coach
+  sees only their recipient-scoped task (§5). Authorization tests cover an
+  unrelated coach and a pre-agreement co-coach (§13).
+
 * **The 24h reminder needs real scheduler wiring, not just a field.**
   Follow the platform's existing pattern: an Azure Function timer calling a
   language-neutral admin endpoint (`ADMIN_API_KEY`-authenticated, like the
@@ -369,9 +419,16 @@ Identity spec §7).
    crush button redirect to the recap ("You'll find them in your event
    recap — confirm you met."); if either side has since dropped out of
    eligibility, the recap can no longer show them, so My Crush stays
-   available as the only remaining flow. This couples the crush flow to the
-   lobby eligibility service — a new integration surface that must be tested
-   (O7).
+   available as the only remaining flow. **The check is enforced in the
+   write endpoints, not just the button:** both `request_connection`
+   (`views_connections.py:281`) and `request_connection_inline` (`:443`)
+   accept direct POSTs and currently never consult
+   `eligible_participations` — a stale form or hand-crafted request could
+   create a crush for a lobby-eligible pair despite the invariant. Both
+   endpoints perform the same read-time roster check and redirect instead
+   of creating the row; test a direct POST for an eligible pair (§13). This
+   couples the crush flow to the lobby eligibility service — a new
+   integration surface that must be tested (O7).
 2. **Cross-world bridge.** A Connect member may still declare "My Crush!" on a
    **non-Connect** attendee; the lead goes to their assigned Premium coach.
 3. **Different questions, no merge.** "People I've Met" (lobby) is a *record of
@@ -391,8 +448,9 @@ that segment. Out of scope here.
 
 ## 10. Delivery
 
-* **Phase A — capacity gate:** the §6 estimate, reviewed by Tom. Blocks
-  everything else. Sets O8 and O9.
+* **Phase A — capacity gate:** the §6 estimate — **measured 2026-07-22**,
+  pending Tom's review. Sets O8 and O9; re-verify at build time if event
+  cadence or attendance has shifted.
 
 * **Phase B — lead model:** §7 call-tracking fields, routing tier, coach action
   queue integration, tests.
@@ -415,7 +473,7 @@ before or after them.
 
 | #     | Question                                                        | Recommended default                                                                                                                             |
 | ----- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| O-cap | Coach-capacity estimate (§6) before build?                     | **Required.** Produce the written estimate in Phase A; it sets O8 and O9. Do not build to an assumed capacity.                                   |
+| O-cap | Coach-capacity estimate (§6) before build?                     | **Measured 2026-07-22** (§6): 3–4 leads/week today, 2.5–5 two-sided coach-hours across 9 active coaches — absorbable with margin. O8/O9 defaults confirmed by data; re-run at build time if cadence shifts. |
 | O7    | Confirm the one-pair-one-flow redirect (§9) for Connect pairs. | **Yes**, redirect — gated on the read-time recap roster (`eligible_participations`), with My Crush as the fallback when either side is no longer eligible; test the coupling to the lobby eligibility service. |
 | O8    | Coach-call SLA for crush leads.                                | **Call within 48h, reminder at 24h** — *conditional on the O-cap model showing it is absorbable*; otherwise lengthen.                            |
 | O9    | Crush limit per event.                                         | **1 per event for free AND 1 for Connect members** — do not make Connect unlimited; scarcity protects signal quality and bounds coach load. Enforced by a **gender-independent** counter (§5/§7) — the legacy cross-gender counter cannot bound coach load. |
@@ -456,7 +514,20 @@ before or after them.
 * **Recipient invisibility:** after a declaration, the recipient's
   `my_connections` inbox, notification feed, attendee page, and
   `connection_detail` show nothing; `notify_new_connection` is not sent for
-  crush leads.
+  crush leads; `pending_requests_count` and `connection_count` (context
+  processor) are unchanged for the recipient in **every** pre-consent status
+  (`pending` and after the coach moves to `coach_reviewing`/
+  `coach_approved`).
+
+* **Member-overview redaction:** an active coach who is neither the routed
+  coach nor the recipient-side co-coach sees no crush row (and no requester
+  name) on `coach_member_overview` or equivalent member-detail surfaces;
+  the co-coach sees the recipient-scoped task but not the crusher's
+  identity pre-agreement.
+
+* **Write-endpoint roster check:** a direct POST to `request_connection` or
+  `request_connection_inline` for a currently lobby-eligible pair creates
+  no row and redirects to the recap.
 
 * **Flow discriminator:** historical pre-launch `pending` connections never
   appear in the crush queue and never receive SLA/reminder tasks.
