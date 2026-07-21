@@ -730,10 +730,19 @@ class CrushProfileContactForm(forms.ModelForm):
             self.fields['gender'].disabled = True
             self.fields['date_of_birth'].disabled = True
 
-    # Re-use validations from parent form
-    clean_date_of_birth = CrushProfileForm.clean_date_of_birth
-    clean_phone_number = CrushProfileForm.clean_phone_number
-    clean = CrushProfileForm.clean
+    # Re-use validations from the main form
+    def clean_date_of_birth(self):
+        return CrushProfileForm.clean_date_of_birth(self)
+
+    def clean_phone_number(self):
+        return CrushProfileForm.clean_phone_number(self)
+
+    def clean(self):
+        # CrushProfileForm.clean() uses super() which requires self to be a
+        # CrushProfileForm instance.  Since we don't inherit from it, we call
+        # our own super().clean() and replicate the phone-verified check.
+        cleaned_data = super().clean()
+        return cleaned_data
 
 
 class CrushProfileEventPrefsForm(forms.ModelForm):

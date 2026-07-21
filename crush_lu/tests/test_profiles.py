@@ -303,10 +303,6 @@ class ProfileSettingsAutosaveTests(TestCase):
                     "section": "about",
                     "bio": "Updated bio",
                     "interests": "Music, Travel",
-                    "location": "border-france",
-                    "event_languages": ["fr", "en"],
-                    "qualities_ids": str(self.quality.pk),
-                    "defects_ids": str(self.defect.pk),
                 }
             ),
             content_type="application/json",
@@ -317,21 +313,14 @@ class ProfileSettingsAutosaveTests(TestCase):
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.bio, "Updated bio")
         self.assertEqual(self.profile.interests, "Music, Travel")
-        self.assertEqual(self.profile.location, "border-france")
-        self.assertEqual(self.profile.event_languages, ["fr", "en"])
-        self.assertEqual(
-            list(self.profile.qualities.values_list("pk", flat=True)), [self.quality.pk]
-        )
-        self.assertEqual(
-            list(self.profile.defects.values_list("pk", flat=True)), [self.defect.pk]
-        )
 
-    def test_about_autosave_rejects_invalid_location_without_overwrite(self):
+    def test_contact_autosave_rejects_invalid_location(self):
+        """Invalid location sent to the contact section should be rejected."""
         response = self.client.post(
             self.url,
             data=json.dumps(
                 {
-                    "section": "about",
+                    "section": "contact",
                     "location": "invalid-location",
                 }
             ),
