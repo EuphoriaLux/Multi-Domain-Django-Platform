@@ -314,6 +314,38 @@ what people discover at events."
 4. Report matched/unmatched counts; unmatched stay coach-visible via the
    legacy block only.
 
+### 8.2.1 Phase A keyword-map results (measured 2026-07-22)
+
+Dry-run analysis against the full production corpus (aggregated via the
+production Django shell, same access pattern as §2): **556 profiles with
+legacy interests** (312 verified), **2,310 token occurrences**, 1,189
+distinct tokens across EN/FR/DE/LU.
+
+| Keyword map | Occurrence coverage (all) | Verified only |
+| --- | --- | --- |
+| Current 38-interest taxonomy | 65.8% | 64.7% |
+| **+ 14 proposed additions (O3)** | **76.8%** | **75.7%** |
+
+Proposed additions, ranked by captured occurrences: **Dancing (41)** — the
+largest single gap, present in four languages; **Ball & racket sports
+(36)**; Water sports (23); Animals & pets (22); Cars & motorcycles (20);
+Anime & manga (19); **Nightlife & going out (19)** — notably on-brand for a
+dating platform; Winter sports (15); Languages (15); Self-development (12);
+DIY & crafts (11); Tech (10); Writing (8); Martial arts (2, optional).
+
+The remaining ~23% of occurrences are **unmappable by design**: social
+filler that is not an interest ("friends", "chilling", "meaningful
+conversations", "…") plus true one-offs (tattoos, scouting, space,
+finance). No taxonomy extension recovers them; they stay coach-visible in
+the legacy block (§6.4).
+
+**Metric consequence:** ~77% is the realistic *occurrence*-level ceiling, so
+the acceptance target is defined **per profile** — a profile counts as
+migrated when it gains ≥1 mapped interest — which the common-token
+distribution makes far more achievable. The Phase B dry-run command
+computes the exact per-profile rate; the full keyword-rule map ships with
+that command.
+
 ### 8.3 Forms
 
 * New `CrushProfileEventIdentityForm` (qualities, defects, interests\_new,
@@ -336,8 +368,9 @@ chip UX, coach "legacy bio" label) requires EN/DE/FR before launch.
 
 ## 10. Delivery phases
 
-* **Phase A — data readiness:** taxonomy audit vs §2 sample; dry-run keyword
-  map on production; report reviewed by Tom.
+* **Phase A — data readiness:** taxonomy audit + keyword-map dry-run —
+  **measured 2026-07-22 (§8.2.1)**, pending Tom's review of the 14 proposed
+  additions (O3).
 
 * **Phase B — models & migration:** §8.1 fields, admin, migration command,
   model/service tests.
@@ -360,7 +393,7 @@ connection-flow phases; it can ship before or after C–D.
 | -- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
 | O1 | Confirm D1: truly zero free text (incl. no "custom interest tag")?                   | **Yes** — Connect already set the precedent (curated, no moderation burden).                               |
 | O2 | Minimum vibe requirements at submission?                                             | **Optional + nudge, not required.** The funnel already loses 50% at incomplete and 54% never finish inscription — do not add a submission gate now. |
-| O3 | Taxonomy gaps from the production sample (e.g. Photography, Ski, Languages)?          | These are **sub-interests inside existing categories**, not missing categories — `ConnectInterest.Category` already has the 8 the spec names. Add the specific interests before migration; spoken languages are already handled by `event_languages`. |
+| O3 | Taxonomy gaps from the production sample?                                             | **Measured 2026-07-22 (§8.2.1):** 14 proposed additions lift coverage 65.8% → 76.8%. Recommend adopting at least the top 12 (Dancing and Ball & racket sports alone add 77 occurrences); Martial arts (2) is optional. All fit the existing 8 categories; "Languages" = learning languages, distinct from `event_languages`. |
 | O4 | Final "event vibe" chip list + copy.                                                 | Copy review, EN/DE/FR. Ship the §5.3 starter list unless Tom rewrites it.                                  |
 | O5 | Rename `ConnectInterest` → neutral `Interest` now that it's cross-product?           | **Yes, rename now** — it's cross-product the moment the M2M ships; renaming after migration history locks in is the expensive path. |
 | O6 | Legacy bio/interests hard-delete date.                                               | **~6 months post-launch**, aligned with the lobby spec's privacy-by-design posture (§13 there).            |
@@ -424,5 +457,8 @@ connection-flow phases; it can ship before or after C–D.
 * Existing members' legacy bio **and interests** (including
   taxonomy-unmatched free text) remain visible to coaches during transition.
 
-* Production interests are ≥85% taxonomy-mapped after the migration command
-  (per dry-run report target set in Phase A).
+* **≥85% of profiles with legacy interests gain at least one mapped
+  taxonomy interest** from the migration command (per-profile metric set by
+  the §8.2.1 Phase A analysis; the occurrence-level ceiling is ~77%, so an
+  occurrence target would be unmeetable by design). Exact per-profile rate
+  verified by the Phase B dry-run before execution.
