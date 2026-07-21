@@ -89,8 +89,9 @@ conversion moment that exists, without a paywall screen.
    consent flags, and a 300-char `requester_note`
    (`crush_lu/models/connections.py:84–150`). The coach action queue,
    screening-call booking, and call-completion tracking exist as patterns to
-   reuse. **The genuinely net-new work is call-tracking fields (§7) and the
-   lead-routing tier (§9/O11) — not the state machine.**
+   reuse. **The genuinely net-new work is call-tracking fields, the
+   lead-routing selection policy, a gender-independent crush counter, and
+   directional duplicate handling (§7) — not the state machine.**
 
 ## 5. Mechanics (proposed)
 
@@ -101,25 +102,44 @@ conversion moment that exists, without a paywall screen.
   read this"), so the Event Identity spec's no-free-text rule (profile
   surfaces) is unaffected.
 
-* **Lead routing:** `assigned_coach` if set; else the event's coach; else the
-  coach-pool queue (§9, O11 — the middle tier is net-new; see §9).
+* **Lead routing:** `assigned_coach` if set; else one of the **event's
+  coaches** (`MeetupEvent.coaches` M2M, `crush_lu/models/events.py:239`,
+  `related_name="assigned_events"` — already populated by event operations);
+  else the coach-pool queue. Only the *selection policy* within
+  `event.coaches` is net-new (§7, O11).
 
 * **Lead record:** extend `EventConnection` with call-tracking fields
   (`coach_call_scheduled_at`, `coach_call_completed_at`, `call_outcome`) or a
   linked `CoachLead` model — implementation choice (§7). Appears in the coach
   action queue with a "call by" timestamp; 24h reminder if untouched.
 
-* **Crush limits:** today's per-event cross-gender connection accounting stays
+* **Crush limits:** the per-event limit needs a **gender-independent
+  counter** — net-new. The existing accounting
   (`EventConnection.cross_gender_connection_count`,
   `crush_lu/models/connections.py:182`, read against the event's
-  `max_cross_gender_connections`); the proposed default is **1 crush per event
-  for free members** (O9) — scarcity raises signal quality and bounds coach
-  load.
+  `max_cross_gender_connections`) only counts requests where the genders
+  differ or are missing, so same-gender crushes would bypass a cap built on
+  it and generate unbounded coach leads — invalidating the §6 capacity model.
+  Count **all** crush declarations per (member, event) against the limit;
+  proposed default **1 crush per event** (O9). Whether the legacy cross-gender
+  mechanic stays alongside or is superseded is an implementation decision.
 
 * **The other side:** the crush recipient hears nothing until the coach reaches
   out personally: *"Someone you met at {event} would like to know you better —
   may I introduce you?"* Consent before any share. Mutual crush pairs surface
   to both coaches immediately (priority lead).
+
+* **Reciprocal declarations must work — today they can't.** Both
+  `request_connection` guards reject a new request when a row exists in
+  *either* direction (`crush_lu/views_connections.py:295–302` and `:488–491`),
+  so after A declares, B's independent reverse declaration is refused and the
+  mutual-crush path is unreachable. Worse, the "Connection request already
+  exists" warning on B's *first* attempt reveals that A already declared —
+  a privacy leak that directly contradicts "the recipient hears nothing."
+  Required change: block only same-direction duplicates
+  (`unique_together ('requester','recipient','event')` already permits the
+  reverse row), accept the reverse declaration silently, and never expose
+  whether a reverse row exists. Test explicitly (§13).
 
 * **Status mapping (existing choices keep working,
   `connections.py:87–94`):** `pending` = new lead; `coach_reviewing` = call
@@ -174,9 +194,25 @@ one flagship event) first.
 
 * **Routing tier** — `EventConnection.assign_coach()`
   (`crush_lu/models/connections.py:220`) today assigns the requester's approved
-  `ProfileSubmission` coach, else **any active coach**. There is **no "event's
-  coach" tier today** — the O11 middle option is net-new behaviour to build
-  (needs an event→coach association), not a config toggle.
+  `ProfileSubmission` coach, else **any active coach**. The event→coach
+  association **already exists** — `MeetupEvent.coaches`
+  (`crush_lu/models/events.py:239`) is actively populated by event
+  operations, so the middle tier must reuse it, not introduce a parallel
+  source. Net-new is only the **selection policy** when an event has several
+  coaches (e.g. least-loaded by open crush leads, else first by id) and the
+  final coach-pool fallback ordering.
+
+* **Gender-independent crush counter** — a per-(member, event) count of all
+  declarations, enforced at declaration time under concurrency (§5). The
+  existing `cross_gender_connection_count` cannot serve as the capacity
+  bound (it skips same-gender pairs).
+
+* **Directional duplicate guard** — replace the either-direction existence
+  check in both `request_connection` guards
+  (`crush_lu/views_connections.py:295–302`, `:488–491`) with a
+  same-direction-only check, so reciprocal declarations create the second row
+  (the model's `unique_together` already allows it) and no response ever
+  discloses a reverse row (§5).
 
 * Migration is additive (nullable call-tracking fields); no data backfill.
 
@@ -249,9 +285,9 @@ before or after them.
 | O-cap | Coach-capacity estimate (§6) before build?                     | **Required.** Produce the written estimate in Phase A; it sets O8 and O9. Do not build to an assumed capacity.                                   |
 | O7    | Confirm the one-pair-one-flow redirect (§9) for Connect pairs. | **Yes**, redirect — worth the complexity to avoid double-flow confusion; test the new coupling to the lobby eligibility service.                 |
 | O8    | Coach-call SLA for crush leads.                                | **Call within 48h, reminder at 24h** — *conditional on the O-cap model showing it is absorbable*; otherwise lengthen.                            |
-| O9    | Crush limit per event.                                         | **1 per event for free AND 1 for Connect members** — do not make Connect unlimited; scarcity protects signal quality and bounds coach load.      |
+| O9    | Crush limit per event.                                         | **1 per event for free AND 1 for Connect members** — do not make Connect unlimited; scarcity protects signal quality and bounds coach load. Enforced by a **gender-independent** counter (§5/§7) — the legacy cross-gender counter cannot bound coach load. |
 | O10   | Resolve "My Crush" naming collision with the coach navbar dropdown. | **Rename the coach dropdown to "My Dating Profile"** in both nav locations (`base.html:365` desktop, `base.html:896` mobile); member feature keeps "My Crush!". Record in `docs/products/crush-connect.md` §9. |
-| O11   | Lead routing when the crusher has no assigned coach.           | Add an **event-coach tier** (net-new; needs event→coach association), then the coach-pool queue. Until built, `assign_coach()` falls back to any active coach. |
+| O11   | Lead routing when the crusher has no assigned coach.           | **Reuse `MeetupEvent.coaches`** (`events.py:239`) as the middle tier — the association already exists; only the selection policy among an event's coaches is net-new (§7). Then the coach-pool queue. Until built, `assign_coach()` falls back to any active coach. |
 
 ## 12. Non-goals
 
@@ -270,8 +306,16 @@ before or after them.
 
 * **Declaration** creates exactly one coach lead with a "call by" timestamp.
 
-* **Routing** follows assigned → event coach → pool; verify the net-new
-  event-coach tier and the current "any active coach" fallback.
+* **Routing** follows assigned → event coach (`event.coaches`) → pool; verify
+  the selection policy among multiple event coaches and the pool fallback.
+
+* **Reciprocal declarations:** after A declares on B, B's independent
+  declaration on A succeeds, creates the second directional row, and B's
+  response is byte-identical whether or not A's row exists (no leak); a
+  same-direction duplicate is still rejected.
+
+* **Crush limit is gender-independent:** a same-gender declaration counts
+  against the per-event limit exactly like a cross-gender one.
 
 * **Recipient** is never notified by the system at any point before coach
   outreach.
@@ -302,7 +346,9 @@ before or after them.
   agreed SLA after declaration.
 
 * The crush recipient receives no system notification at any point before coach
-  outreach.
+  outreach — including indirectly: no response to any of the recipient's own
+  actions (e.g. their own declaration attempt) may reveal that a crush on them
+  exists.
 
 * Contact details are shared only after coach-facilitated mutual consent;
   declines never reach the crusher.

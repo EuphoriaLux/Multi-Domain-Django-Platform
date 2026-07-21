@@ -120,7 +120,7 @@ minutes; a Connect member invests in the full onboarding once.
 | D2 | Merge "About You", "Your Personality" and "Event Preferences" into one **"Your Event Identity"** edit section.                                                                   | Proposed |
 | D3 | Interests adopt the existing `ConnectInterest` curated taxonomy (translated, categorized, `is_active` retirement, `crush_lu/models/crush_connect.py:566`) via a new M2M on `CrushProfile`. One taxonomy serves both products. | Proposed |
 | D4 | Bio is replaced by two structured elements: **"Ask me about"** topics and an **"Event vibe"** chip (§5.3).                                                                       | Proposed |
-| D5 | Qualities/defects pick-lists stay (model unchanged); UX redesigned inside Event Identity. Sought qualities unchanged (matching input).                                           | Proposed |
+| D5 | Qualities/defects pick-lists stay (model unchanged) as **event-display data**; UX redesigned inside Event Identity. `sought_qualities`/`astro_enabled`/`first_step_preference` are **excluded** — trait matching reads the `CrushConnectMembership` copies (`crush_lu/matching.py` L12–19), so the profile copies are dead writes (§5.1). | Proposed |
 | D6 | Legacy `bio`/`interests` columns are kept, deprecated, hidden from all member/attendee surfaces, and remain visible to **coaches only** as a read-only "legacy" block during transition. Sunset date decided later (§12, O6). | Proposed |
 | D7 | Free-text interests are keyword-mapped into the taxonomy by a one-off migration command (dry-run report first); unmatched content is left in the legacy field only.               | Proposed |
 | D8 | The create-profile wizard step 2 is rebuilt around Event Identity; bio/interests inputs removed.                                                                                 | Proposed |
@@ -142,11 +142,24 @@ no long bio needed."*
   accepts the friction (O2); otherwise keep optional with a progress hint.
   Production shows 28%/25% fill — the redesign must beat this.
 
-* `sought_qualities` (`profiles.py:601`) stays a matching input, edited here,
-  never displayed on attendee-facing surfaces.
+* **Not on this card:** `sought_qualities`, `astro_enabled` and
+  `first_step_preference`. Trait matching is **Crush Connect-only** and reads
+  the copies on `CrushConnectMembership`, not `CrushProfile` — see the
+  `crush_lu/matching.py` module docstring (L12–19) and the
+  `_member_match_data` adapter (L581–601). The `CrushProfile` copies of these
+  three fields are legacy: they only seed Connect onboarding once
+  (`views_crush_connect.py:459–461`) and have no live event-side surface.
+  Editing them from Event Identity would write dead fields. They stay editable
+  where they matter — the Connect profile section
+  (`forms_crush_connect.py:202`). During Phase B, audit for any remaining live
+  consumer of the profile copies before marking them deprecated alongside
+  bio/interests.
 
-* `astro_enabled` (`profiles.py:608`) and `first_step_preference`
-  (`profiles.py:578`) move into this section.
+* `qualities`/`defects` **do** stay on this card despite the same duplication:
+  unlike the three fields above, the profile copies have live event-side
+  consumers (coach screens `views_coach.py:1248`, and the §5.3 presentation
+  slides will render "top qualities"). They are event-display data here, not
+  matching inputs.
 
 ### 5.2 Your interests (shared taxonomy)
 
@@ -284,10 +297,11 @@ what people discover at events."
 
 ### 8.3 Forms
 
-* New `CrushProfileEventIdentityForm` (qualities, defects, sought qualities,
-  first\_step\_preference, astro\_enabled, interests\_new, ask\_me\_about,
-  event\_vibe, event\_languages) with the existing autosave convention
-  (`profileSectionAutosave` + `api_profile_settings_autosave`).
+* New `CrushProfileEventIdentityForm` (qualities, defects, interests\_new,
+  ask\_me\_about, event\_vibe, event\_languages) with the existing autosave
+  convention (`profileSectionAutosave` + `api_profile_settings_autosave`).
+  `sought_qualities`/`astro_enabled`/`first_step_preference` are excluded —
+  they are Connect-membership matching inputs, not event-profile data (§5.1).
 
 * `CrushProfileAboutForm` and `CrushProfileEventPrefsForm` retired;
   `CrushProfileTraitsForm` folded into the new form.
@@ -357,9 +371,15 @@ connection-flow phases; it can ship before or after C–D.
 
 * Surfaces: no member/attendee template renders `profile.bio` /
   `profile.interests` outside the coach legacy block. Implement as a CI grep
-  guard that asserts the absence of `.bio`, `.interests`, and `|split_interests`
-  in `crush_lu/templates/crush_lu/**` **except** the one coach legacy-bio
-  partial (whitelist that exact path so the guard is not over-broad).
+  guard **scoped to CrushProfile expressions** — match `profile.bio`,
+  `profile.interests`, known legacy context variables, and `|split_interests`
+  in `crush_lu/templates/crush_lu/**`, with the one coach legacy-bio partial
+  whitelisted. Do **not** match bare `.bio` / `.interests`: `coach.bio`
+  (`CrushCoach.bio` — dashboard, `profile_submitted.html`,
+  `premium/choose_coach.html`, `onboarding/meet_coach.html`) and
+  `membership.interests` (the structured `ConnectInterest` M2M —
+  `catalogue_status.html`, `coach_member_detail.html`, `_drop_card.html`) are
+  legitimate surfaces that must keep working.
 
 * i18n: every new string translated EN/DE/FR; vibe list renders in all
   locales.
