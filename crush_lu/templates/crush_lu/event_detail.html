@@ -359,6 +359,24 @@
                 <hr class="my-6 sm:my-8 border-gray-200 dark:border-gray-700">
                 {% endif %}
 
+                {# Live banner: frames the whole action area while the event is in progress #}
+                {% if event.is_live %}
+                <div class="mb-4 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 sm:p-4">
+                    <div class="flex items-start gap-2">
+                        <span class="relative flex h-3 w-3 flex-shrink-0 mt-1" aria-hidden="true">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                        </span>
+                        <div class="flex-1">
+                            <p class="font-semibold text-sm sm:text-base text-red-700 dark:text-red-300 mb-0.5">{% trans "This event is happening now" %}</p>
+                            {% if user_registration.status == 'confirmed' or user_registration.status == 'attended' %}
+                            <p class="text-xs sm:text-sm text-red-600 dark:text-red-400 mb-0">{% trans "Show your ticket at the door to check in." %}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
                 {# Prominent action buttons for attended users #}
                 {% if user.is_authenticated and user_registration and user_registration.status == 'attended' %}
                 <div class="space-y-3 mb-6">
