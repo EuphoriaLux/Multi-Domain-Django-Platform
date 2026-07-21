@@ -236,8 +236,13 @@ what people discover at events."
 1. `bio` and `interests` columns remain on `CrushProfile` (no destructive
    migration).
 2. Both fields are removed from every form, wizard step, autosave endpoint,
-   and member/attendee-facing API payload — **except the authenticated
-   data-portability export** (`views_account.export_user_data`,
+   and member/attendee-facing API payload — **including the direct legacy
+   write endpoint `POST /api/profile/save-step2/`**
+   (`views_profile.save_profile_step2`, `crush_lu/views_profile.py:240–266`),
+   which assigns `bio`/`interests` from raw JSON outside any form: retire or
+   re-point it with the wizard rebuild, else a phone-verified member can
+   keep submitting free text after the UI changes. **Except the
+   authenticated data-portability export** (`views_account.export_user_data`,
    `crush_lu/views_account.py:1268–1269`), which keeps returning the retained
    columns until the O6 hard delete: while the data exists and coaches can
    read it, members must be able to download it.
@@ -430,7 +435,9 @@ connection-flow phases; it can ship before or after C–D.
   entries pointing at a retired-but-still-selected interest stay valid.
 
 * Wizard: step 2 completes without bio/interests; draft\_data round-trip;
-  review step renders chips.
+  review step renders chips; a direct POST to the legacy
+  `/api/profile/save-step2/` route can no longer write `bio`/`interests`
+  (retired or re-pointed, §6.2).
 
 * Surfaces: no member/attendee template renders `profile.bio` /
   `profile.interests` outside the coach legacy block. Implement as a CI grep

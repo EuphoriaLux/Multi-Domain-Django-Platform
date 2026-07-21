@@ -3,8 +3,9 @@
 **Date:** 2026-07-21
 
 **Status:** Draft — product decisions proposed with recommended defaults,
-pending Tom's confirmation (§11). **The build is gated on a coach-capacity
-estimate (§6, O-cap) that does not yet exist.**
+pending Tom's confirmation (§11). **The §6 coach-capacity gate was measured
+on production on 2026-07-22** (after this document's original 2026-07-21
+draft date); the O8/O9 defaults are data-confirmed, pending Tom's review.
 
 **Scope of this PR:** Planning only. No models, migrations, routes, templates,
 JavaScript, tasks, or production behavior are changed by this document.
@@ -175,7 +176,12 @@ conversion moment that exists, without a paywall screen.
   `connection_count` from `accepted`/`coach_reviewing`/`coach_approved`/
   `shared` rows in either direction, and `base.html`, `dashboard.html`, and
   the mobile nav render them — so a recipient's badge increments the moment
-  a crush is declared, and again when the coach starts review. Left as-is, a
+  a crush is declared, and again when the coach starts review. **The
+  dashboard view additionally computes its own `connection_count`**
+  (`crush_lu/views.py:361–368`, via `active_for_user`) which overrides the
+  context-processor value in `dashboard.html` — it needs the same
+  pre-`shared` crush exclusion, tested for both `coach_reviewing` and
+  `coach_approved`. Left as-is, a
   one-sided crush is revealed within seconds. Crush leads must be excluded
   from recipient notifications, the recipient's `my_connections` inbox,
   attendee-page connection state, the `incoming_pending_count` aggregate,
@@ -206,7 +212,13 @@ conversion moment that exists, without a paywall screen.
   from the recipient's export; the requester's own export keeps their
   **outgoing** declaration (it is their own action — data portability is
   preserved for what the member did, not for what was privately done
-  toward them; after `shared`, both sides export normally). The coach workflow records the two consents
+  toward them; after `shared`, both sides export normally). **But the
+  outgoing record's `status` field is normalized pre-`shared`**: the export
+  serializes `conn.status`, so a raw payload would tell the crusher about a
+  coach-recorded decline or in-progress review, contradicting the neutral
+  requester state. Until `shared`, the exported row carries a neutral
+  status (e.g. `"with your coach"`); tested for both a declined and an
+  in-progress lead (§13). The coach workflow records the two consents
   independently (§7), so there is an intermediate state where the recipient
   has consented but the requester has not; un-hiding at recipient-consent
   would let `connection_detail.html` render the crusher's display name,
@@ -215,6 +227,17 @@ conversion moment that exists, without a paywall screen.
   tests that the recipient cannot discover the row (or any hint or badge
   change) from any existing page in **every** pre-`shared` state, including
   after their own consent is recorded.
+
+* **The recipient's response endpoint is closed for crush rows.** Hiding
+  the controls does not close `respond_connection`
+  (`crush_lu/views_connections.py:685`, POST
+  `/connections/<id>/accept|decline/`): a recipient who reaches or guesses
+  the URL could still mutate a pending crush — `accept` auto-shares
+  same-gender rows and notifies the requester of the acceptance, `decline`
+  cancels the lead; both bypass the coach-only consent flow. For every
+  pre-`shared` `flow=crush` row the endpoint rejects (or no-ops neutrally,
+  revealing nothing) for **both** actions; consent moves only through the
+  coach actions (§7). Direct-POST tests for both actions (§13).
 
 * **Declines must be invisible to the crusher too.** `connection_detail`
   authorizes *either* party of a row (`views_connections.py:917–921`) and
@@ -618,7 +641,15 @@ before or after them.
   `connection_actions` returns the byte-identical no-connection
   representation; the recipient's `export_user_data` contains no trace of
   the row (no counterpart email), while the requester's export still lists
-  their own outgoing declaration.
+  their own outgoing declaration **with a neutral status for both a
+  declined and an in-progress lead** (raw `declined`/`coach_reviewing`
+  never appears pre-`shared`).
+
+* **Response endpoint closed:** a direct POST to
+  `respond_connection` accept and decline for a pre-`shared` crush row
+  changes nothing (no status change, no consent flags, no notification)
+  and reveals nothing; the dashboard view's own `connection_count` is
+  unchanged for the recipient in `coach_reviewing` and `coach_approved`.
 
 * **Reciprocal navigation:** after B declares B→A where A had privately
   declared A→B, B's `my_events` mutual-match count and B's recap email
