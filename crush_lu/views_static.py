@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.shortcuts import render, redirect
 from django.utils import timezone
 from django.contrib.admin.views.decorators import staff_member_required
@@ -125,9 +127,19 @@ def home(request):
     if request.user.is_authenticated:
         return redirect("crush_lu:dashboard")
 
-    upcoming_events = MeetupEvent.objects.filter(
-        is_published=True, is_cancelled=False, date_time__gte=timezone.now()
-    )[:3]
+    now = timezone.now()
+    # Include events that are still in progress ("live"), not just future ones.
+    # Fetch with a generous 24h ORM cutoff, then keep any that haven't ended yet
+    # using the model's end_time property in Python. This avoids timedelta * F()
+    # which is not supported on SQLite (see views_events.event_list).
+    generous_cutoff = now - timedelta(hours=24)
+    upcoming_events = [
+        e
+        for e in MeetupEvent.objects.filter(
+            is_published=True, is_cancelled=False, date_time__gte=generous_cutoff
+        ).order_by("date_time")
+        if e.end_time >= now
+    ][:3]
 
     context = {
         "upcoming_events": upcoming_events,

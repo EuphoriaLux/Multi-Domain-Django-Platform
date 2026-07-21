@@ -453,6 +453,12 @@ class MeetupEvent(models.Model):
         return self.date_time + timedelta(minutes=self.duration_minutes)
 
     @property
+    def is_live(self):
+        """Whether the event is happening right now (started, not ended)."""
+        now = timezone.now()
+        return self.date_time <= now < self.end_time
+
+    @property
     def connection_window_deadline(self):
         """When the post-event connection-request window closes.
 
