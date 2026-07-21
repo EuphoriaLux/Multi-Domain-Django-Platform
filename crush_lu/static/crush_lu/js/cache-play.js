@@ -379,8 +379,13 @@ document.addEventListener("alpine:init", function () {
 
             // --- Leaflet map (map navigation mode only) ---
 
+            _isValidCoord: function (lat, lng) {
+                return typeof lat === "number" && typeof lng === "number" && !isNaN(lat) && !isNaN(lng);
+            },
+
             initMap: function () {
-                var center = this.targetLat !== null
+                var hasTarget = this._isValidCoord(this.targetLat, this.targetLng);
+                var center = hasTarget
                     ? [this.targetLat, this.targetLng]
                     : [49.6116, 6.1319]; // Luxembourg City fallback
 
@@ -403,17 +408,19 @@ document.addEventListener("alpine:init", function () {
                 var trailPoints = [];
                 var self = this;
                 (this.completedStations || []).forEach(function (s) {
-                    if (s.lat === null || s.lng === null) return;
-                    trailPoints.push([s.lat, s.lng]);
-                    L.circleMarker([s.lat, s.lng], {
+                    var sLat = parseFloat(s.lat);
+                    var sLng = parseFloat(s.lng);
+                    if (!self._isValidCoord(sLat, sLng)) return;
+                    trailPoints.push([sLat, sLng]);
+                    L.circleMarker([sLat, sLng], {
                         radius: 7,
                         color: "#22c55e",
                         fillColor: "#22c55e",
                         fillOpacity: 0.9,
-                    }).bindPopup("✅ " + s.order + ". " + s.name).addTo(self.map);
+                    }).bindTooltip("✅ " + s.order + ". " + s.name).addTo(self.map);
                 });
 
-                if (this.targetLat !== null) {
+                if (hasTarget) {
                     trailPoints.push([this.targetLat, this.targetLng]);
                     L.marker([this.targetLat, this.targetLng]).addTo(this.map);
                     if (this.targetRadius) {
@@ -440,21 +447,26 @@ document.addEventListener("alpine:init", function () {
             recenterMap: function () {
                 if (!this.map || !window.L) return;
                 var points = [];
-                if (this.currentLat !== null && this.currentLng !== null) {
+                if (this._isValidCoord(this.currentLat, this.currentLng)) {
                     points.push([this.currentLat, this.currentLng]);
                 }
-                if (this.targetLat !== null && this.targetLng !== null) {
+                if (this._isValidCoord(this.targetLat, this.targetLng)) {
                     points.push([this.targetLat, this.targetLng]);
                 }
                 if (points.length > 1) {
-                    this.map.fitBounds(L.latLngBounds(points), { padding: [40, 40], maxZoom: 17 });
+                    try {
+                        var bounds = L.latLngBounds(points);
+                        if (bounds.isValid()) {
+                            this.map.fitBounds(bounds, { padding: [40, 40], maxZoom: 17, animate: false });
+                        }
+                    } catch (e) {}
                 } else if (points.length === 1) {
                     this.map.setView(points[0], 16);
                 }
             },
 
             updateSelfMarker: function (lat, lng, accuracy) {
-                if (!this.map || !window.L) return;
+                if (!this.map || !window.L || !this._isValidCoord(lat, lng)) return;
                 var firstFix = !this.selfMarker;
                 if (!this.selfMarker) {
                     this.selfMarker = L.circleMarker([lat, lng], {
@@ -465,7 +477,7 @@ document.addEventListener("alpine:init", function () {
                         weight: 2,
                     }).addTo(this.map);
                     this.accuracyCircle = L.circle([lat, lng], {
-                        radius: accuracy,
+                        radius: accuracy || 10,
                         color: "#3b82f6",
                         weight: 1,
                         fillOpacity: 0.08,
@@ -473,7 +485,7 @@ document.addEventListener("alpine:init", function () {
                 } else {
                     this.selfMarker.setLatLng([lat, lng]);
                     this.accuracyCircle.setLatLng([lat, lng]);
-                    this.accuracyCircle.setRadius(accuracy);
+                    this.accuracyCircle.setRadius(accuracy || 10);
                 }
                 if (firstFix) {
                     this.recenterMap();
