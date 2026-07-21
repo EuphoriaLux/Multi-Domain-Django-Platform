@@ -81,6 +81,19 @@ document.addEventListener("alpine:init", function () {
                         self.suspendNavigation();
                     }
                 });
+                // Pre-unlock AudioContext on first tap anywhere on the page
+                var unlockAudio = function () {
+                    try {
+                        var AudioCtx = window.AudioContext || window.webkitAudioContext;
+                        if (AudioCtx) {
+                            if (!window._crushAudioCtx) window._crushAudioCtx = new AudioCtx();
+                            if (window._crushAudioCtx.state === "suspended") window._crushAudioCtx.resume();
+                        }
+                    } catch (e) {}
+                };
+                window.addEventListener("pointerdown", unlockAudio, { once: true });
+                window.addEventListener("click", unlockAudio, { once: true });
+
                 if (document.getElementById("cache-map") && window.L) {
                     this.initMap();
                 }
@@ -236,18 +249,21 @@ document.addEventListener("alpine:init", function () {
                 setTimeout(function () {
                     if (self.suspended) return;
                     window.location.reload();
-                }, reduce ? 700 : 1600);
+                }, reduce ? 1200 : 2200);
             },
 
             playGpsChime: function () {
+                var self = this;
+                // Try MP3 audio if available; fallback immediately to Web Audio synth
                 var mp3Url = "/static/crush_lu/audio/gps_arrived.mp3";
                 var audio = new Audio(mp3Url);
-                var self = this;
+                var played = false;
                 var promise = audio.play();
                 if (promise !== undefined) {
-                    promise.catch(function () {
-                        // Fall back to Web Audio synthesizer if MP3 is missing or blocked
-                        self.playSynthGpsChime();
+                    promise.then(function() {
+                        played = true;
+                    }).catch(function () {
+                        if (!played) self.playSynthGpsChime();
                     });
                 } else {
                     self.playSynthGpsChime();
@@ -258,7 +274,10 @@ document.addEventListener("alpine:init", function () {
                 try {
                     var AudioCtx = window.AudioContext || window.webkitAudioContext;
                     if (!AudioCtx) return;
-                    var ctx = new AudioCtx();
+                    if (!window._crushAudioCtx) {
+                        window._crushAudioCtx = new AudioCtx();
+                    }
+                    var ctx = window._crushAudioCtx;
                     if (ctx.state === "suspended") {
                         ctx.resume();
                     }
@@ -268,15 +287,15 @@ document.addEventListener("alpine:init", function () {
                     notes.forEach(function (freq, idx) {
                         var o = ctx.createOscillator();
                         var g = ctx.createGain();
-                        var t = now + (idx * 0.1);
+                        var t = now + (idx * 0.12);
                         o.type = "sine";
                         o.frequency.setValueAtTime(freq, t);
-                        g.gain.setValueAtTime(0.35, t);
-                        g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+                        g.gain.setValueAtTime(0.4, t);
+                        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
                         o.connect(g);
                         g.connect(ctx.destination);
                         o.start(t);
-                        o.stop(t + 0.4);
+                        o.stop(t + 0.5);
                     });
                 } catch (e) {}
             },
