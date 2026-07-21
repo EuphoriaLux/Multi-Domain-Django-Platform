@@ -101,6 +101,7 @@ document.addEventListener("alpine:init", function () {
                 if (document.getElementById("cache-map") && window.L) {
                     this.initMap();
                 }
+                this.attachCompass();
                 if (this.navMode === "compass") {
                     this.listenToCompass();
                 }
@@ -361,18 +362,25 @@ document.addEventListener("alpine:init", function () {
 
             attachCompass: function () {
                 var self = this;
+                var updateHeading = function (deg) {
+                    self.heading = (deg + 360) % 360;
+                    if (self.selfMarker && self.currentLat !== null && self.currentLng !== null) {
+                        self.updateSelfMarker(self.currentLat, self.currentLng, self.accuracyM || 10);
+                    }
+                };
                 window.addEventListener("deviceorientationabsolute", function (e) {
-                    if (e.alpha !== null) {
+                    if (e.alpha !== null && e.alpha !== undefined) {
                         self.hasAbsoluteHeading = true;
-                        self.heading = 360 - e.alpha;
+                        updateHeading(360 - e.alpha);
                     }
                 }, true);
                 window.addEventListener("deviceorientation", function (e) {
-                    if (typeof e.webkitCompassHeading === "number") {
-                        // iOS Safari: degrees clockwise from north, ready to use
-                        self.heading = e.webkitCompassHeading;
-                    } else if (!self.hasAbsoluteHeading && e.absolute && e.alpha !== null) {
-                        self.heading = 360 - e.alpha;
+                    if (typeof e.webkitCompassHeading === "number" && !isNaN(e.webkitCompassHeading)) {
+                        // iOS Safari
+                        updateHeading(e.webkitCompassHeading);
+                    } else if (e.alpha !== null && e.alpha !== undefined) {
+                        // Android & Chrome DevTools Emulation
+                        updateHeading(360 - e.alpha);
                     }
                 }, true);
             },
