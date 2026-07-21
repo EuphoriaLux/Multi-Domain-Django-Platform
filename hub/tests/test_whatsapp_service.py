@@ -159,6 +159,29 @@ class FetchApprovedTemplatesTests(TestCase):
             fetch_approved_templates()
         self.assertEqual(mock_get.call_count, 1)
 
+    def test_follows_meta_pagination(self):
+        page1 = graph_response(body={
+            'data': [{'name': 'a', 'language': 'en', 'category': 'MARKETING',
+                      'status': 'APPROVED', 'components': []}],
+            'paging': {'next': 'https://graph.facebook.com/v25.0/next-page'},
+        })
+        page2 = graph_response(body={
+            'data': [{'name': 'b', 'language': 'en', 'category': 'MARKETING',
+                      'status': 'APPROVED', 'components': []}],
+        })
+        with patch(
+            'hub.whatsapp_service.requests.get',
+            side_effect=[page1, page2],
+        ) as mock_get:
+            items = fetch_approved_templates(use_cache=False)
+        self.assertEqual([t['name'] for t in items], ['a', 'b'])
+        self.assertEqual(mock_get.call_count, 2)
+        second_call = mock_get.call_args_list[1]
+        self.assertEqual(
+            second_call.args[0], 'https://graph.facebook.com/v25.0/next-page',
+        )
+        self.assertIsNone(second_call.kwargs['params'])
+
     def test_transport_error_raises(self):
         with patch(
             'hub.whatsapp_service.requests.get',

@@ -497,6 +497,23 @@ class DispatcherTests(TestCase):
         self.assertEqual(campaign.status, 'sent')
 
 
+class PushConfigGuardTests(TestCase):
+    """No VAPID override here on purpose — dev settings lack the keys."""
+
+    def test_missing_vapid_defers_batch_instead_of_skipping(self):
+        user = make_user('vapidless@example.com')
+        add_push_subscription(user)
+        campaign = Campaign.objects.create(
+            name='No VAPID', channels=['push'], audience='all_users',
+            status='sending', started_at=timezone.now(),
+        )
+        result = CHANNEL_ADAPTERS['push'].send_batch(campaign, limit=10)
+        self.assertTrue(result.interrupted)
+        self.assertEqual(result.remaining, 1)
+        # Nobody recorded as skipped/sent — the batch waits for a config fix.
+        self.assertEqual(CampaignRecipient.objects.count(), 0)
+
+
 class CreateAndEstimateTests(TestCase):
     def setUp(self):
         self.user = make_user('create@example.com')

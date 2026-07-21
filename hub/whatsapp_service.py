@@ -29,6 +29,7 @@ META_TIMEOUT = 15
 
 TEMPLATES_CACHE_KEY = "hub:whatsapp:approved-templates"
 TEMPLATES_CACHE_SECONDS = 600
+TEMPLATES_MAX_PAGES = 20
 
 
 class TemplatesFetchError(Exception):
@@ -194,36 +195,44 @@ def fetch_approved_templates(use_cache: bool = True) -> list[dict]:
         if cached is not None:
             return cached
 
-    url = f"{GRAPH_BASE}/{settings.META_WABA_ID}/message_templates"
     headers = {
         "Authorization": f"Bearer {settings.META_WHATSAPP_ACCESS_TOKEN}",
     }
-    try:
-        resp = requests.get(
-            url,
-            headers=headers,
-            params={"limit": 100},
-            timeout=META_TIMEOUT,
-        )
-    except requests.RequestException:
-        logger.exception("WhatsApp templates fetch transport error")
-        raise TemplatesFetchError("Unable to reach Meta Graph API.")
-
-    if not resp.ok:
-        raise TemplatesFetchError(f"Meta returned HTTP {resp.status_code}.")
-
-    body = resp.json() if resp.content else {}
     items = []
-    for raw in body.get("data", []):
-        items.append(
-            {
-                "name": raw.get("name", ""),
-                "language": raw.get("language", ""),
-                "category": raw.get("category", ""),
-                "status": raw.get("status", ""),
-                "components": raw.get("components", []),
-            }
-        )
+    url = f"{GRAPH_BASE}/{settings.META_WABA_ID}/message_templates"
+    params = {"limit": 100}
+    # Follow Meta's paging cursors — a WABA can hold more than one page of
+    # templates and the composer must see (and validate against) all of them.
+    # Page cap is a runaway guard, far above any real template count.
+    for _ in range(TEMPLATES_MAX_PAGES):
+        try:
+            resp = requests.get(
+                url, headers=headers, params=params, timeout=META_TIMEOUT,
+            )
+        except requests.RequestException:
+            logger.exception("WhatsApp templates fetch transport error")
+            raise TemplatesFetchError("Unable to reach Meta Graph API.")
+
+        if not resp.ok:
+            raise TemplatesFetchError(f"Meta returned HTTP {resp.status_code}.")
+
+        body = resp.json() if resp.content else {}
+        for raw in body.get("data", []):
+            items.append(
+                {
+                    "name": raw.get("name", ""),
+                    "language": raw.get("language", ""),
+                    "category": raw.get("category", ""),
+                    "status": raw.get("status", ""),
+                    "components": raw.get("components", []),
+                }
+            )
+
+        next_url = (body.get("paging") or {}).get("next")
+        if not next_url:
+            break
+        # paging.next is a complete URL (cursor included) — no extra params.
+        url, params = next_url, None
 
     if use_cache:
         cache.set(TEMPLATES_CACHE_KEY, items, TEMPLATES_CACHE_SECONDS)

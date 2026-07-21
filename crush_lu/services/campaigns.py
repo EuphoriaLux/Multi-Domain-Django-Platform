@@ -22,6 +22,7 @@ import time as time_module
 from dataclasses import dataclass
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.signing import Signer
 from django.db.models import Q
@@ -414,6 +415,21 @@ class PushAdapter:
         user_ids = list(users.values_list('id', flat=True)[:limit])
 
         result = BatchResult()
+        if user_ids and not (
+            getattr(settings, 'VAPID_PRIVATE_KEY', '')
+            and getattr(settings, 'VAPID_PUBLIC_KEY', '')
+        ):
+            # Config failure, not an empty audience: send_push_notification
+            # would zero out every user and this batch would record them all
+            # as skipped, letting the campaign finalize as 'sent' without a
+            # single push attempted. Defer instead so a config fix resumes it.
+            logger.error(
+                "Campaign #%s push batch deferred: VAPID keys are not "
+                "configured", campaign.pk,
+            )
+            result.interrupted = True
+            result.remaining = users.count()
+            return result
         for user_id in user_ids:
             if deadline is not None and time_module.monotonic() > deadline:
                 result.interrupted = True

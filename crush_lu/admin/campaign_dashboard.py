@@ -230,7 +230,9 @@ def _validate_whatsapp_template(template_name, language):
     dispatcher would then attempt for every eligible recipient.
     """
     try:
-        templates = fetch_approved_templates()
+        # Uncached: a template Meta just rejected must not slip through on a
+        # stale 10-minute cache entry at creation time.
+        templates = fetch_approved_templates(use_cache=False)
     except TemplatesFetchError as exc:
         raise ValueError(
             f"Could not verify the WhatsApp template with Meta "
