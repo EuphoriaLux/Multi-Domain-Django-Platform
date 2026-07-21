@@ -28,8 +28,17 @@ Scheduling:
 """
 from django.core.management.base import BaseCommand
 from django.conf import settings
+from django.core.cache import cache
 
 from crush_lu.email_helpers import get_users_needing_reminder, send_profile_incomplete_reminder
+
+# Cross-process lock so two overlapping sweeps (e.g. a manual recovery run
+# while the daily timer is mid-run) can't both select and email the same user
+# before either records the ProfileReminder row. Best-effort: the shared Redis
+# cache in production makes it effective across gunicorn workers; the TTL is a
+# safety net if a run dies before releasing.
+SWEEP_LOCK_KEY = "profile_reminders_sweep_lock"
+SWEEP_LOCK_TTL = 900  # seconds
 
 
 class Command(BaseCommand):
@@ -60,11 +69,29 @@ class Command(BaseCommand):
         limit = options['limit']
         verbosity = options['verbosity']
 
-        # Determine which reminder types to process
+        # Determine which reminder types to process. Process the newest stage
+        # LAST (7d -> 72h -> 24h): the eligibility windows are 48h wide and
+        # adjacent (24h: 24-72h, 72h: 72-120h), so a user recovered near a
+        # boundary can sit in two windows at once. Creating a stage's row
+        # before the next stage's query runs would let both fire in one sweep;
+        # evaluating the later stage first (before this run's row exists) caps
+        # each user at one reminder per run. (Codex P2.)
         if reminder_type == 'all':
-            reminder_types = ['24h', '72h', '7d']
+            reminder_types = ['7d', '72h', '24h']
         else:
             reminder_types = [reminder_type]
+
+        # Serialize concurrent sweeps before any provider delivery (Codex P2).
+        # Dry-runs don't send, so they skip the lock.
+        lock_acquired = False
+        if not dry_run:
+            lock_acquired = cache.add(SWEEP_LOCK_KEY, "1", SWEEP_LOCK_TTL)
+            if not lock_acquired:
+                self.stdout.write(self.style.WARNING(
+                    'Another profile-reminder sweep is in progress; '
+                    'skipping this run.'
+                ))
+                return
 
         # Show timing configuration
         timing = getattr(settings, 'PROFILE_REMINDER_TIMING', {})
@@ -180,3 +207,9 @@ class Command(BaseCommand):
             'skipped': total_skipped,
             'failed': total_failed,
         }
+
+        # Release the sweep lock promptly (the TTL only backstops an abnormal
+        # exit; per-user sends are already caught above, so normal runs reach
+        # here). Only the holder deletes it.
+        if lock_acquired:
+            cache.delete(SWEEP_LOCK_KEY)

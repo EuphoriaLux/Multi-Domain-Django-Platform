@@ -15,7 +15,7 @@ from io import StringIO
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from crush_lu.email_helpers import (
@@ -173,3 +173,47 @@ class SendProfileRemindersCommandTests(TestCase):
 
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(ProfileReminder.objects.count(), 1)
+
+    @override_settings(
+        PROFILE_REMINDER_TIMING={
+            # Deliberately overlapping windows so one user sits in both the
+            # 24h and 72h stages at once — the boundary case Codex flagged.
+            "24h": {"min_hours": 24, "max_hours": 100},
+            "72h": {"min_hours": 50, "max_hours": 120},
+            "7d": {"min_hours": 168, "max_hours": 216},
+        }
+    )
+    def test_no_double_send_across_adjacent_stages_in_one_run(self):
+        """A user eligible for two adjacent stages in the same sweep must get
+        only the earlier stage's email — the later stage is evaluated first,
+        before this run creates the prerequisite row (Codex P2)."""
+        user = make_incomplete_user("overlap", created_hours_ago=60)
+
+        call_command("send_profile_reminders", stdout=StringIO())
+
+        types = set(
+            ProfileReminder.objects.filter(user=user).values_list(
+                "reminder_type", flat=True
+            )
+        )
+        self.assertEqual(types, {"24h"})
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_concurrent_sweep_is_skipped(self):
+        """A second sweep started while one holds the lock must no-op, not
+        re-send to the same users before the first records its rows (Codex P2)."""
+        from crush_lu.management.commands.send_profile_reminders import (
+            SWEEP_LOCK_KEY,
+        )
+        from django.core.cache import cache
+
+        make_incomplete_user("locked", created_hours_ago=30)
+        cache.add(SWEEP_LOCK_KEY, "held", 600)  # simulate an in-progress sweep
+        try:
+            out = StringIO()
+            call_command("send_profile_reminders", stdout=out)
+            self.assertIn("in progress", out.getvalue().lower())
+            self.assertEqual(len(mail.outbox), 0)
+            self.assertEqual(ProfileReminder.objects.count(), 0)
+        finally:
+            cache.delete(SWEEP_LOCK_KEY)
