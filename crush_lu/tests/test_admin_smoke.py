@@ -233,6 +233,83 @@ class AdminMenuOrganizationTests(SiteTestMixin, TestCase):
                     "CrushConnectMembership"):
             self.assertIn(obj, names)
 
+    # -- Redesign: tiered sidebar (see docs/crush-admin-redesign.md) ----------
+
+    def test_no_model_falls_into_the_other_catch_all(self):
+        """Every registered model must have an explicit group.
+
+        'Other' is a runtime safety net so a newly-registered model is never
+        invisible — but it should stay *empty* in a healthy tree. If this fails,
+        add the listed model(s) to ``custom_order`` in
+        ``CrushLuAdminSite.get_app_list``.
+        """
+        app_list = self._app_list_for(self.superuser)
+        stragglers = sorted(
+            m["object_name"]
+            for app in app_list
+            if app["name"].strip().endswith("Other")
+            for m in app["models"]
+        )
+        self.assertEqual(
+            stragglers, [], f"Uncategorised models in the 'Other' group: {stragglers}"
+        )
+
+    def test_every_group_carries_a_known_tier(self):
+        """Each sidebar group is tagged with a tier the nav override understands."""
+        for app in self._app_list_for(self.superuser):
+            self.assertIn(
+                app.get("tier"),
+                {"pinned", "more", "superuser"},
+                f"{app['name']} has an unknown sidebar tier: {app.get('tier')!r}",
+            )
+
+    def test_pinned_tier_is_the_daily_workflow(self):
+        """The always-expanded tier is exactly the five daily-workflow groups."""
+        pinned = {
+            a["name"]
+            for a in self._app_list_for(self.superuser)
+            if a.get("tier") == "pinned"
+        }
+        self.assertEqual(
+            pinned,
+            {
+                "💞 Crush Connect",
+                "👥 Users & Profiles",
+                "🎉 Events & Meetups",
+                "💕 Connections",
+                "🔔 Notifications",
+            },
+        )
+
+    def test_coach_sees_no_superuser_tier_groups(self):
+        coach = User.objects.get(pk=self.coach_pk)
+        superuser_tier = [
+            a["name"]
+            for a in self._app_list_for(coach)
+            if a.get("tier") == "superuser"
+        ]
+        self.assertEqual(superuser_tier, [])
+
+    def test_index_renders_as_command_center(self):
+        """The index renders the redesigned hub + tiered sidebar end to end.
+
+        Guards both the Phase 2 body rewrite (curated Tools panel, no duplicated
+        model dump) and the Phase 1 sidebar override (collapsible tiers).
+        """
+        self.client.force_login(self.superuser)
+        resp = self.client.get(reverse(f"{crush_admin_site.name}:index"))
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        # Curated launcher replaced the old flat "Quick Links" list.
+        self.assertIn("Tools &amp; Dashboards", html)
+        self.assertNotIn(">Quick Links<", html)
+        # The full model dump no longer duplicates the sidebar in the body.
+        self.assertNotIn('x-data="modelGroup"', html)
+        self.assertIn("model-browser-hint", html)
+        # Tiered sidebar is present, with the collapsible superuser section.
+        self.assertIn("nav-tier", html)
+        self.assertIn("Developer &amp; Analytics", html)
+
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
 class EventRegistrationChangelistQueryTests(SiteTestMixin, TestCase):
