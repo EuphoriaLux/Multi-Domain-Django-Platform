@@ -1,12 +1,17 @@
 from datetime import timedelta
 
-from django.db.models import Max
 from django.shortcuts import render, redirect
 from django.utils import timezone
 from django.contrib.admin.views.decorators import staff_member_required
 from .models import MeetupEvent
 from .models.crush_connect import CrushConnectWaitlist
 from .models.events import EventRegistration
+
+# Enforced upper bound on how long an event can run. `duration_minutes` is an
+# unbounded PositiveIntegerField, so this caps the home-page live-event lookback:
+# a single mis-configured event can never extend the scan across the whole event
+# history. Comfortably covers any real Crush event (a few hours).
+MAX_EVENT_DURATION = timedelta(hours=24)
 
 
 @staff_member_required
@@ -129,20 +134,29 @@ def home(request):
         return redirect("crush_lu:dashboard")
 
     now = timezone.now()
-    # Include events that are still in progress ("live"), not just future ones.
-    # Fetch with an ORM cutoff, then keep any that haven't ended yet using the
-    # model's end_time property in Python (timedelta * F() is unsupported on
-    # SQLite — see views_events.event_list). The cutoff is derived from the
-    # longest configured duration so an in-progress event is never dropped, even
-    # if it runs longer than a day (duration_minutes is unbounded).
-    published = MeetupEvent.objects.filter(is_published=True, is_cancelled=False)
-    longest_minutes = published.aggregate(m=Max("duration_minutes"))["m"] or 0
-    cutoff = now - timedelta(minutes=longest_minutes)
-    upcoming_events = [
+    # Public, non-private events only — private-invitation events are visible
+    # only to invited guests, and this landing page is anonymous (authenticated
+    # users were redirected above).
+    published = MeetupEvent.objects.filter(
+        is_published=True, is_cancelled=False, is_private_invitation=False
+    )
+    # Events happening right now ("live"): started but not yet ended. end_time
+    # can't be filtered in the ORM (timedelta * F() is unsupported on SQLite),
+    # so confirm in Python — but bound the scan to MAX_EVENT_DURATION so a stray
+    # long-duration record can't turn this into a full-history scan.
+    live_events = [
         e
-        for e in published.filter(date_time__gte=cutoff).order_by("date_time")
+        for e in published.filter(
+            date_time__gte=now - MAX_EVENT_DURATION, date_time__lt=now
+        ).order_by("date_time")
         if e.end_time >= now
-    ][:3]
+    ]
+    # Soonest upcoming events (future starts are never ended; bound at the query
+    # level so we never materialise the full future backlog).
+    future_events = list(
+        published.filter(date_time__gte=now).order_by("date_time")[:3]
+    )
+    upcoming_events = (live_events + future_events)[:3]
 
     context = {
         "upcoming_events": upcoming_events,

@@ -114,13 +114,13 @@ class HomeLiveEventTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(live, list(response.context["upcoming_events"]))
 
-    def test_long_running_live_event_appears(self):
+    def test_long_running_live_event_within_window_appears(self):
         now = timezone.now()
-        # Started 30h ago but runs for 48h -> still live, yet beyond a fixed
-        # 24h cutoff. The duration-derived cutoff must still surface it.
+        # Started 20h ago (inside the enforced max-duration lookback) but runs
+        # for 25h -> still live. The bounded live scan must still surface it.
         live = self._make_event(
-            date_time=now - timedelta(hours=30),
-            duration_minutes=48 * 60,
+            date_time=now - timedelta(hours=20),
+            duration_minutes=25 * 60,
         )
 
         response = self.client.get(reverse("crush_lu:home"))
@@ -130,14 +130,28 @@ class HomeLiveEventTests(TestCase):
 
     def test_ended_event_excluded_from_upcoming(self):
         now = timezone.now()
-        # Started 3h ago, 60 min long -> ended 2h ago. Within the 24h ORM
-        # cutoff, so it is fetched but must be dropped by the end_time filter.
+        # Started 3h ago, 60 min long -> ended 2h ago. Within the live-lookback
+        # window, so it is fetched but must be dropped by the end_time filter.
         ended = self._make_event(date_time=now - timedelta(hours=3))
 
         response = self.client.get(reverse("crush_lu:home"))
 
         self.assertEqual(response.status_code, 200)
         self.assertNotIn(ended, list(response.context["upcoming_events"]))
+
+    def test_private_live_event_excluded(self):
+        now = timezone.now()
+        # A private-invitation event that is live must NOT be disclosed on the
+        # anonymous home page.
+        private = self._make_event(
+            date_time=now - timedelta(minutes=10),
+            is_private_invitation=True,
+        )
+
+        response = self.client.get(reverse("crush_lu:home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(private, list(response.context["upcoming_events"]))
 
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
