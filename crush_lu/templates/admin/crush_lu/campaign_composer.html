@@ -88,9 +88,9 @@
             <div class="form-field">
                 <label>{% trans "Send via" %}</label>
                 <div class="channel-toggle">
-                    <label><input type="checkbox" name="channels" value="email" x-model="channels"> 📧 {% trans "Email" %}</label>
-                    <label><input type="checkbox" name="channels" value="whatsapp" x-model="channels"> 💬 {% trans "WhatsApp" %}</label>
-                    <label><input type="checkbox" name="channels" value="push" x-model="channels"> 🔔 {% trans "Web Push" %}</label>
+                    <label><input type="checkbox" name="channels" value="email" :checked="emailEnabled" @change="toggleEmail"> 📧 {% trans "Email" %}</label>
+                    <label><input type="checkbox" name="channels" value="whatsapp" :checked="whatsappEnabled" @change="toggleWhatsapp"> 💬 {% trans "WhatsApp" %}</label>
+                    <label><input type="checkbox" name="channels" value="push" :checked="pushEnabled" @change="togglePush"> 🔔 {% trans "Web Push" %}</label>
                 </div>
                 <div class="hint" x-show="noChannels">{% trans "Pick at least one channel." %}</div>
             </div>
@@ -238,9 +238,9 @@
 
             <div class="form-field">
                 <div class="channel-toggle">
-                    <label><input type="radio" name="send_mode" value="draft" x-model="sendMode"> 📝 {% trans "Save as draft" %}</label>
-                    <label><input type="radio" name="send_mode" value="now" x-model="sendMode"> 🚀 {% trans "Send now" %}</label>
-                    <label><input type="radio" name="send_mode" value="schedule" x-model="sendMode"> ⏰ {% trans "Schedule" %}</label>
+                    <label><input type="radio" name="send_mode" value="draft" :checked="isDraftMode" @change="selectDraft"> 📝 {% trans "Save as draft" %}</label>
+                    <label><input type="radio" name="send_mode" value="now" :checked="isSendNow" @change="selectSendNow"> 🚀 {% trans "Send now" %}</label>
+                    <label><input type="radio" name="send_mode" value="schedule" :checked="isScheduleMode" @change="selectSchedule"> ⏰ {% trans "Schedule" %}</label>
                 </div>
                 <div class="hint" x-show="isSendNow">{% trans "Sending starts with the next dispatch tick (within ~5 minutes)." %}</div>
             </div>

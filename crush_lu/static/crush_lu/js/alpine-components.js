@@ -13733,6 +13733,7 @@ document.addEventListener("alpine:init", function () {
             // Schedule section
             get isScheduleMode() { return this.sendMode === "schedule"; },
             get isSendNow() { return this.sendMode === "now"; },
+            get isDraftMode() { return this.sendMode === "draft"; },
             get submitLabel() {
                 if (this.sendMode === "now") return "Launch campaign";
                 if (this.sendMode === "schedule") return "Schedule campaign";
@@ -13756,6 +13757,24 @@ document.addEventListener("alpine:init", function () {
                 if (estimateBtn) htmx.trigger(estimateBtn, "refresh-estimate");
                 if (previewBtn) htmx.trigger(previewBtn, "refresh-preview");
             },
+
+            // Channel checkboxes and send-mode radios are wired with @change +
+            // :checked (bare method/getter refs) instead of x-model, because the
+            // Alpine CSP build cannot evaluate x-model's "channels = __placeholder"
+            // setter expression (see campaign_composer.html). @change fires only on
+            // user interaction, so flipping array membership stays in sync with the
+            // native input state.
+            toggleEmail() { this._toggleChannel("email"); },
+            toggleWhatsapp() { this._toggleChannel("whatsapp"); },
+            togglePush() { this._toggleChannel("push"); },
+            _toggleChannel(name) {
+                var i = this.channels.indexOf(name);
+                if (i === -1) this.channels.push(name);
+                else this.channels.splice(i, 1);
+            },
+            selectDraft() { this.sendMode = "draft"; },
+            selectSendNow() { this.sendMode = "now"; },
+            selectSchedule() { this.sendMode = "schedule"; },
         };
     });
 });
