@@ -421,9 +421,11 @@ document.addEventListener("alpine:init", function () {
                     tap: false,
                     touchZoom: true,
                     bounceAtZoom: false,
+                    attributionControl: false,
                 }).setView(center, 16);
 
                 L.control.zoom({ position: "bottomright" }).addTo(this.map);
+                L.control.attribution({ prefix: false }).addTo(this.map);
 
                 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
                     maxZoom: 19,
