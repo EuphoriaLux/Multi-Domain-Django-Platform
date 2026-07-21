@@ -155,8 +155,10 @@ def event_list(request):
 
     # Fetch published, non-cancelled events and split into upcoming/past
     # in Python using the model's end_time property. This avoids
-    # timedelta * F() which is not supported on SQLite.
-    generous_cutoff = now - timedelta(hours=24)
+    # timedelta * F() which is not supported on SQLite. The cutoff is the
+    # enforced max event duration, so an in-progress event is never dropped
+    # regardless of its length (see MeetupEvent.live_lookback_cutoff).
+    generous_cutoff = MeetupEvent.live_lookback_cutoff(now)
     upcoming_events = list(
         MeetupEvent.objects.with_registration_counts()
         .filter(is_published=True, is_cancelled=False, date_time__gte=generous_cutoff)

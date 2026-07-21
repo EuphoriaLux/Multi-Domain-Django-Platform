@@ -35799,3 +35799,15 @@ msgstr "Danach bleiben dir"
 #: crush_lu/templates/crush_lu/event_lobby/lobby.html:1
 msgid "Spend a signal"
 msgstr "Signal ausgeben"
+
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid "This event is happening now"
+msgstr "Dieses Event findet gerade statt"
+
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid "Show your ticket at the door to check in."
+msgstr "Zeig dein Ticket am Eingang, um einzuchecken."
+
+#: crush_lu/templates/crush_lu/includes/event_card.html
+msgid "Live now"
+msgstr "Jetzt live"

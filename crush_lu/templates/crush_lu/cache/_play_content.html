@@ -11,6 +11,14 @@
     {% endif %}
 
     {% if celebrated_station %}
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.4/dist/confetti.browser.min.js"></script>
+    <script nonce="{{ csp_nonce }}">
+        if (typeof confetti === "function") {
+            try {
+                confetti({ particleCount: 70, spread: 65, origin: { y: 0.55 } });
+            } catch (e) {}
+        }
+    </script>
     {# --- Station / hunt completed celebration --- #}
     {# The id is load-bearing: cache-play.js suspends GPS navigation while #}
     {# this card is on screen (the shell data is stale — progress already  #}
@@ -102,6 +110,11 @@
     <img src="{{ station.photo.url }}" alt="{{ station.name }}" class="mb-4 w-full rounded-2xl">
     {% endif %}
 
+    {# --- Interactive Map (Station Rose & clue above, enlarged Map below) --- #}
+    {% if show_map %}
+    <div id="cache-map" class="mb-4 h-80 w-full rounded-2xl border border-gray-200 dark:border-gray-700 shadow-crush-sm overflow-hidden"></div>
+    {% endif %}
+
     {% if station.requires_gps and not attempt.arrived_at %}
     <div class="rounded-2xl border border-gray-200 dark:border-gray-700 p-6 text-center shadow-crush-sm">
         <p class="text-sm text-gray-600 dark:text-gray-300">{% trans "Get to the location to unlock this station." %}</p>
@@ -123,6 +136,14 @@
                 🧭 {% trans "Enable compass" %}
             </button>
             {% endif %}
+
+            <div class="mt-3 flex justify-center gap-2 flex-wrap">
+                <button type="button" x-on:click="playGpsChime"
+                        class="btn-crush-outline btn-sm"
+                        title="{% trans 'Test GPS arrival sound' %}">
+                    🔊 {% trans "Test Sound" %}
+                </button>
+            </div>
             <p class="mt-3 text-xs text-gray-500 dark:text-gray-400" x-text="gpsStatus"></p>
             <div class="mt-3 rounded-xl bg-amber-50 dark:bg-amber-900/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200 text-left"
                  x-show="gpsDenied" x-cloak>
