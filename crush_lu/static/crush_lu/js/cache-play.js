@@ -468,6 +468,8 @@ document.addEventListener("alpine:init", function () {
                     }).addTo(this.map);
                 }
 
+                this.attachCompass();
+
                 // Custom Recenter button control inside Leaflet top-left bar
                 var RecenterControl = L.Control.extend({
                     options: { position: "topleft" },
