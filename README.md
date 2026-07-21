@@ -329,6 +329,17 @@ Configuration in `pyproject.toml` (88 character line length).
 
 ## Recently Shipped Features
 
+### Campaign & Remarketing Dashboard (Crush.lu Coach Panel)
+
+A unified multi-channel campaign system at `/crush-admin/campaigns/`: compose once, target any user segment, and send across **Email, WhatsApp, and Web Push** — with scheduling and click tracking.
+
+- **Unified `Campaign` model** orchestrating the existing per-channel engines (Newsletter for email, Meta Cloud API templates for WhatsApp, Web Push/VAPID) with combined per-channel stats.
+- **Composer wizard** with live consent-aware recipient estimates, per-channel content previews, and optional DE/FR variants (EN fallback).
+- **Scheduled sending** via an Azure Function timer → `/api/admin/campaigns/dispatch/` → bounded, resumable batches (no async worker needed); gated by `CAMPAIGN_DISPATCH_ENABLED`.
+- **Click + UTM tracking** through `/c/<token>/` redirects with signed recipient attribution and GDPR data minimization (no IP/UA stored).
+- Segments tab with one-click "Start campaign" shortcuts; WhatsApp delivery funnel + inbound inbox; profile-reminder conversion funnel.
+- Details: `docs/specs/campaign-dashboard.md`.
+
 ### Hub CRM SPA API (`api.crush.lu`)
 
 A dedicated REST API subdomain that backs the `hub.crush.lu` CRM single-page application. Built with Django REST Framework and SimpleJWT.
