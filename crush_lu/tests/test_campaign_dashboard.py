@@ -167,6 +167,28 @@ class CampaignCreateFlowTests(TestCase):
         self.assertEqual(campaign.status, 'scheduled')
         self.assertGreater(campaign.scheduled_at, timezone.now())
 
+    def test_schedule_input_is_parsed_as_utc(self):
+        """The composer labels the field UTC — not Europe/Luxembourg."""
+        from datetime import datetime, timezone as dt_timezone
+
+        self.client.post(
+            reverse('campaign_create'),
+            self._base_form(send_mode='schedule', scheduled_at='2030-08-01T10:00'),
+        )
+        campaign = Campaign.objects.get(name='Composer campaign')
+        self.assertEqual(
+            campaign.scheduled_at,
+            datetime(2030, 8, 1, 10, 0, tzinfo=dt_timezone.utc),
+        )
+
+    def test_admin_add_is_disabled_for_campaigns(self):
+        """Campaigns are composer-only; a hand-made admin record would lack
+        the linked Newsletter and dispatch as 'sent' without sending."""
+        response = self.client.get(
+            reverse('crush_admin:crush_lu_campaign_add'),
+        )
+        self.assertEqual(response.status_code, 403)
+
     def test_past_schedule_rejected(self):
         past = (timezone.now() - timedelta(days=1)).strftime('%Y-%m-%dT%H:%M')
         response = self.client.post(

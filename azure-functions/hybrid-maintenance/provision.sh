@@ -78,6 +78,7 @@ SETTINGS=(
   "DJANGO_PRE_SCREENING_INVITES_URL=https://crush.lu/api/admin/pre-screening-invites/"
   "DJANGO_HYBRID_SLA_SWEEP_URL=https://crush.lu/api/admin/hybrid-coach-sla-sweep/"
   "DJANGO_WEEKLY_KPIS_URL=https://crush.lu/api/admin/weekly-kpis/"
+  "DJANGO_CAMPAIGN_DISPATCH_URL=https://crush.lu/api/admin/campaigns/dispatch/"
   # Safe default: functions deploy dark. Flip to 'true' once you've verified
   # the first invocation in Application Insights.
   "HYBRID_MAINTENANCE_ENABLED=false"

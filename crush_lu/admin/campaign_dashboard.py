@@ -9,7 +9,7 @@ mounted in ``azureproject/urls_crush.py`` before the ``crush-admin/`` site,
 guarded by the shared coach-or-superuser check.
 """
 import logging
-from datetime import timedelta
+from datetime import timedelta, timezone as dt_timezone
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -297,7 +297,9 @@ def _parse_composer_form(request):
         if parsed is None:
             raise ValueError("Pick a valid schedule date and time.")
         if timezone.is_naive(parsed):
-            parsed = timezone.make_aware(parsed)
+            # The composer labels this input as UTC — attach UTC, not the
+            # project default timezone (Europe/Luxembourg).
+            parsed = parsed.replace(tzinfo=dt_timezone.utc)
         if parsed <= timezone.now():
             raise ValueError("The scheduled time must be in the future.")
         scheduled_at = parsed

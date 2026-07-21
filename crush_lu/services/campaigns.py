@@ -253,7 +253,16 @@ class EmailAdapter:
             link_rewriter=lambda html, user: rewrite_html_links(
                 html, campaign, self.key, user,
             ),
-            should_abort=lambda: _is_cancelled(campaign),
+            # Abort between recipients on cancellation OR when the tick's
+            # wall-clock budget is spent — a slow Graph backend (30s/request)
+            # could otherwise push 25 sends far past the gunicorn timeout.
+            should_abort=lambda: (
+                _is_cancelled(campaign)
+                or (
+                    deadline is not None
+                    and time_module.monotonic() > deadline
+                )
+            ),
         )
         return BatchResult(
             sent=result['sent'],
@@ -268,6 +277,22 @@ class WhatsAppAdapter:
     """WhatsApp template sends via the hub's Meta Cloud API service."""
 
     key = Campaign.CHANNEL_WHATSAPP
+
+    @staticmethod
+    def _resolve_sender(campaign):
+        """Sender identity for WhatsAppMessage rows (its user is NOT nullable).
+
+        Falls back to an active superuser when the creating coach's account
+        was deleted before a scheduled campaign dispatched — the campaign and
+        recipient consent remain valid without them.
+        """
+        if campaign.created_by is not None:
+            return campaign.created_by
+        return (
+            User.objects.filter(is_superuser=True, is_active=True)
+            .order_by('pk')
+            .first()
+        )
 
     def eligible_users(self, campaign):
         users = resolve_campaign_audience(campaign)
@@ -293,6 +318,17 @@ class WhatsAppAdapter:
         user_ids = list(users.values_list('id', flat=True)[:limit])
 
         result = BatchResult()
+        sender = self._resolve_sender(campaign)
+        if user_ids and sender is None:
+            logger.error(
+                "Campaign #%s has no usable WhatsApp sender (creator deleted, "
+                "no active superuser) — leaving batch for a later tick",
+                campaign.pk,
+            )
+            result.interrupted = True
+            result.remaining = users.count()
+            return result
+
         for i, user_id in enumerate(user_ids):
             if deadline is not None and time_module.monotonic() > deadline:
                 result.interrupted = True
@@ -317,7 +353,7 @@ class WhatsAppAdapter:
 
             try:
                 message = send_whatsapp_template(
-                    sender=campaign.created_by,
+                    sender=sender,
                     recipient=profile.phone_number,
                     template_name=campaign.whatsapp_template_name,
                     language=lang,

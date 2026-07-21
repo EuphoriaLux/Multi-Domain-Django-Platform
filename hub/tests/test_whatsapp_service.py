@@ -280,6 +280,42 @@ class WhatsAppAdapterSendTests(TestCase):
         self.assertEqual(stats['whatsapp']['failed'], 1)
         self.assertEqual(stats['totals']['failed'], 1)
 
+    def test_deleted_creator_falls_back_to_superuser_sender(self):
+        superuser = User.objects.create_superuser(
+            username='root@example.com', email='root@example.com', password='x',
+        )
+        self.campaign.created_by = None
+        self.campaign.save(update_fields=['created_by'])
+        self.campaign.status = 'sending'
+        self.campaign.save(update_fields=['status'])
+
+        with patch(
+            'hub.whatsapp_service.requests.post',
+            return_value=graph_response(body=SENT_BODY),
+        ):
+            result = self.adapter.send_batch(self.campaign, limit=10)
+
+        self.assertEqual(result.sent, 1)
+        self.assertEqual(WhatsAppMessage.objects.get().user, superuser)
+
+    def test_expired_deadline_aborts_email_batch_immediately(self):
+        import time as time_module
+
+        from crush_lu.services.campaigns import CHANNEL_ADAPTERS
+        from crush_lu.services.campaigns import create_campaign
+
+        campaign = create_campaign(
+            name='Deadline test',
+            channels=['email'],
+            audience='all_users',
+            email_content={'subject_en': 'S', 'body_html_en': 'B'},
+        )
+        result = CHANNEL_ADAPTERS['email'].send_batch(
+            campaign, limit=10, deadline=time_module.monotonic() - 1,
+        )
+        self.assertTrue(result.interrupted)
+        self.assertEqual(result.sent, 0)
+
     def test_batch_stops_after_cancellation(self):
         """A cancel landing mid-batch stops further (paid) sends."""
         second = User.objects.create_user(

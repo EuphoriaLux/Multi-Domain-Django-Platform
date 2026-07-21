@@ -1,4 +1,4 @@
-{% load i18n %}
+{% load i18n tz %}
 <div class="summary-grid">
     <div class="summary-card">
         <span class="summary-icon">
@@ -8,7 +8,7 @@
             <h3><span class="badge badge-{{ campaign.status }}">{{ campaign.get_status_display }}</span></h3>
             <p>
                 {% if campaign.status == 'scheduled' and campaign.scheduled_at %}
-                    {% trans "Sends" %} {{ campaign.scheduled_at|date:"Y-m-d H:i" }} UTC
+                    {% trans "Sends" %} {{ campaign.scheduled_at|utc|date:"Y-m-d H:i" }} UTC
                 {% elif campaign.completed_at %}
                     {% trans "Completed" %} {{ campaign.completed_at|date:"Y-m-d H:i" }}
                 {% else %}

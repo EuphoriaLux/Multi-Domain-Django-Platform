@@ -16,7 +16,14 @@ logger = logging.getLogger(__name__)
 
 
 class CampaignAdmin(AutoTranslateMixin, TranslationAdmin):
-    """Multi-channel campaign records (push content is translatable)."""
+    """Read-only campaign records (inspection + cancellation only).
+
+    Campaigns are created exclusively through the dashboard composer
+    (``create_campaign()``), which also creates the linked Newsletter for the
+    email leg and captures the audience snapshot. A hand-made admin record
+    would skip both — e.g. an email campaign with no newsletter dispatches
+    as instantly "sent" without contacting anyone — so add/change stay off.
+    """
 
     list_display = (
         'name', 'status', 'channel_list', 'audience', 'segment_key',
@@ -24,13 +31,16 @@ class CampaignAdmin(AutoTranslateMixin, TranslationAdmin):
     )
     list_filter = ('status', 'audience', 'language')
     search_fields = ('name', 'slug', 'segment_key')
-    readonly_fields = (
-        'slug', 'status', 'started_at', 'completed_at',
-        'dispatch_heartbeat_at', 'audience_snapshot', 'created_at',
-        'updated_at',
-    )
     date_hierarchy = 'created_at'
     actions = ['cancel_campaigns']
+
+    def has_add_permission(self, request):
+        return False
+
+    def get_readonly_fields(self, request, obj=None):
+        # Every field read-only (change permission stays on so the
+        # cancel_campaigns changelist action remains available).
+        return [field.name for field in self.model._meta.fields]
 
     def channel_list(self, obj):
         return ', '.join(obj.channels) or '—'
