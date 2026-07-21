@@ -371,6 +371,21 @@ document.addEventListener("alpine:init", function () {
                     }
                 };
 
+                // Developer testing helpers for HTTP localhost where Chrome blocks real hardware sensors
+                window.setDebugHeading = function (deg) {
+                    updateHeading(deg);
+                };
+
+                window.addEventListener("keydown", function (e) {
+                    if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
+                    var current = self.heading || 0;
+                    if (e.key === "ArrowLeft") {
+                        updateHeading(current - 15);
+                    } else if (e.key === "ArrowRight") {
+                        updateHeading(current + 15);
+                    }
+                });
+
                 var handler = function (e) {
                     if (typeof e.webkitCompassHeading === "number" && !isNaN(e.webkitCompassHeading)) {
                         updateHeading(e.webkitCompassHeading);
