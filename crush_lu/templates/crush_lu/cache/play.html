@@ -27,6 +27,10 @@
     @media (prefers-reduced-motion: reduce) {
         .cache-shake, .cache-pop { animation: none; }
     }
+    /* Dark mode tile adaptation for OpenStreetMap Leaflet tiles */
+    .dark #cache-map .leaflet-tile-pane {
+        filter: brightness(0.65) invert(1) contrast(2.5) hue-rotate(190deg) saturate(0.35) brightness(0.85);
+    }
 </style>
 {% endblock %}
 
@@ -54,21 +58,14 @@
 
         <div class="mb-4 flex items-center justify-between">
             <div class="flex items-center gap-2">
-                <span class="inline-block h-3 w-3 rounded-full" style="background: {{ team.color }}" aria-hidden="true"></span>
-                <span class="font-semibold">{{ team.name }}</span>
+                <span class="inline-block h-3.5 w-3.5 rounded-full ring-2 ring-white/50 dark:ring-gray-900/50 shadow-sm" style="background: {{ team.color }}" aria-hidden="true"></span>
+                <span class="font-bold text-gray-900 dark:text-white text-base tracking-tight">{{ team.name }}</span>
             </div>
-            <a href="{% url 'crush_lu:cache_lobby' event.id %}" class="text-sm text-gray-500 dark:text-gray-400 underline">
-                {% trans "Lobby" %}
+            <a href="{% url 'crush_lu:cache_lobby' event.id %}?view=lobby"
+               class="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white/90 dark:bg-gray-800/90 px-3 py-1.5 text-xs font-bold text-gray-700 dark:text-gray-200 shadow-sm backdrop-blur hover:bg-gray-50 dark:hover:bg-gray-750 active:scale-95 transition-all">
+                🏛️ {% trans "Lobby" %}
             </a>
         </div>
-
-        {% if show_map %}
-        <div id="cache-map" class="mb-4 h-64 w-full rounded-2xl border border-gray-200 dark:border-gray-700"></div>
-        {% comment %}
-        Map data © OpenStreetMap contributors. Tile usage is fine at event
-        scale; switch to MapTiler/Stadia free tier if this becomes daily traffic.
-        {% endcomment %}
-        {% endif %}
 
         {% include "crush_lu/cache/_play_content.html" %}
 

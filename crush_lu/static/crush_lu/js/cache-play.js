@@ -26,6 +26,7 @@ document.addEventListener("alpine:init", function () {
             bearing: null,
             heading: null,
             gpsStatus: "",
+            accuracyM: null,
             arrived: false,
             unlocked: false,
             compassNeedsPermission: false,
@@ -81,6 +82,23 @@ document.addEventListener("alpine:init", function () {
                         self.suspendNavigation();
                     }
                 });
+                // Pre-unlock AudioContext on first tap anywhere on the page
+                var unlockAudio = function () {
+                    try {
+                        var AudioCtx = window.AudioContext || window.webkitAudioContext;
+                        if (AudioCtx) {
+                            if (!window._crushAudioCtx) {
+                                window._crushAudioCtx = new AudioCtx();
+                            } else if (window._crushAudioCtx.state === "suspended") {
+                                var res = window._crushAudioCtx.resume();
+                                if (res && res.catch) res.catch(function () {});
+                            }
+                        }
+                    } catch (e) {}
+                };
+                window.addEventListener("pointerdown", unlockAudio, { once: true });
+                window.addEventListener("click", unlockAudio, { once: true });
+
                 if (document.getElementById("cache-map") && window.L) {
                     this.initMap();
                 }
@@ -156,6 +174,7 @@ document.addEventListener("alpine:init", function () {
                 var lat = pos.coords.latitude;
                 var lng = pos.coords.longitude;
                 var accuracy = pos.coords.accuracy || 0;
+                this.accuracyM = accuracy;
 
                 this.updateSelfMarker(lat, lng, accuracy);
                 this.gpsStatus = this.msgs.gpsAccuracy.replace("{n}", Math.round(accuracy));
@@ -226,13 +245,81 @@ document.addEventListener("alpine:init", function () {
                 this.reloading = true;
                 this.stopWatching();
                 this.arrivalCelebrating = true;
+                this.playGpsChime();
+                if (navigator.vibrate) {
+                    try { navigator.vibrate([150, 100, 150]); } catch (e) {}
+                }
                 var self = this;
                 var reduce = window.matchMedia
                     && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
                 setTimeout(function () {
                     if (self.suspended) return;
                     window.location.reload();
-                }, reduce ? 700 : 1600);
+                }, reduce ? 1200 : 2200);
+            },
+
+            playGpsChime: function () {
+                this.playSynthGpsChime();
+            },
+
+            playSynthGpsChime: function () {
+                try {
+                    var AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (!AudioCtx) return;
+                    if (!window._crushAudioCtx) {
+                        window._crushAudioCtx = new AudioCtx();
+                    }
+                    var ctx = window._crushAudioCtx;
+                    if (ctx.state === "suspended") {
+                        ctx.resume();
+                    }
+                    var now = ctx.currentTime;
+                    // E Major triad arpeggio: E5 (659.25Hz), G#5 (830.61Hz), B5 (987.77Hz)
+                    var notes = [659.25, 830.61, 987.77];
+                    notes.forEach(function (freq, idx) {
+                        var o = ctx.createOscillator();
+                        var g = ctx.createGain();
+                        var t = now + (idx * 0.12);
+                        o.type = "sine";
+                        o.frequency.setValueAtTime(freq, t);
+                        g.gain.setValueAtTime(0.4, t);
+                        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+                        o.connect(g);
+                        g.connect(ctx.destination);
+                        o.start(t);
+                        o.stop(t + 0.5);
+                    });
+                } catch (e) {}
+            },
+
+            playSynthQrSound: function () {
+                try {
+                    var AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (!AudioCtx) return;
+                    if (!window._crushAudioCtx) {
+                        window._crushAudioCtx = new AudioCtx();
+                    }
+                    var ctx = window._crushAudioCtx;
+                    if (ctx.state === "suspended") {
+                        ctx.resume();
+                    }
+                    var now = ctx.currentTime;
+                    // C Major chord arpeggio: C5 (523.25Hz), E5 (659.25Hz), G5 (783.99Hz), C6 (1046.50Hz)
+                    var freqs = [523.25, 659.25, 783.99, 1046.50];
+                    freqs.forEach(function (f, idx) {
+                        var o = ctx.createOscillator();
+                        var g = ctx.createGain();
+                        var t = now + (idx * 0.08);
+                        o.type = "triangle";
+                        o.frequency.setValueAtTime(f, t);
+                        g.gain.setValueAtTime(0.35, t);
+                        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+                        o.connect(g);
+                        g.connect(ctx.destination);
+                        o.start(t);
+                        o.stop(t + 0.4);
+                    });
+                } catch (e) {}
             },
 
             // A station-complete celebration owns the screen: stop GPS
@@ -275,77 +362,218 @@ document.addEventListener("alpine:init", function () {
             },
 
             attachCompass: function () {
+                if (typeof window === "undefined") return;
+                if (this._compassAttached) return;
+                this._compassAttached = true;
                 var self = this;
-                window.addEventListener("deviceorientationabsolute", function (e) {
-                    if (e.alpha !== null) {
-                        self.hasAbsoluteHeading = true;
-                        self.heading = 360 - e.alpha;
+                var updateHeading = function (deg) {
+                    self.heading = (deg + 360) % 360;
+                    self.updateSelfMarker(self.currentLat, self.currentLng, self.accuracyM || 10);
+                };
+
+                // Developer testing helpers for HTTP localhost where Chrome blocks real hardware sensors
+                window.setDebugHeading = function (deg) {
+                    updateHeading(deg);
+                };
+
+                window.addEventListener("keydown", function (e) {
+                    if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
+                    var current = self.heading || 0;
+                    if (e.key === "ArrowLeft") {
+                        updateHeading(current - 15);
+                    } else if (e.key === "ArrowRight") {
+                        updateHeading(current + 15);
                     }
-                }, true);
-                window.addEventListener("deviceorientation", function (e) {
-                    if (typeof e.webkitCompassHeading === "number") {
-                        // iOS Safari: degrees clockwise from north, ready to use
-                        self.heading = e.webkitCompassHeading;
-                    } else if (!self.hasAbsoluteHeading && e.absolute && e.alpha !== null) {
-                        self.heading = 360 - e.alpha;
+                });
+
+                var handler = function (e) {
+                    if (typeof e.webkitCompassHeading === "number" && !isNaN(e.webkitCompassHeading)) {
+                        updateHeading(e.webkitCompassHeading);
+                    } else if (!self.hasAbsoluteHeading && e.alpha !== null && e.alpha !== undefined) {
+                        updateHeading(360 - e.alpha);
                     }
-                }, true);
+                };
+
+                try { window.addEventListener("deviceorientation", handler, true); } catch (err) {}
+                try {
+                    window.addEventListener("deviceorientationabsolute", function (e) {
+                        if (e.alpha !== null && e.alpha !== undefined) {
+                            self.hasAbsoluteHeading = true;
+                            updateHeading(360 - e.alpha);
+                        }
+                    }, true);
+                } catch (err) {}
             },
 
             // --- Leaflet map (map navigation mode only) ---
 
+            _isValidCoord: function (lat, lng) {
+                return typeof lat === "number" && typeof lng === "number" && !isNaN(lat) && !isNaN(lng);
+            },
+
             initMap: function () {
-                var center = this.targetLat !== null
+                var hasTarget = this._isValidCoord(this.targetLat, this.targetLng);
+                var center = hasTarget
                     ? [this.targetLat, this.targetLng]
                     : [49.6116, 6.1319]; // Luxembourg City fallback
 
-                this.map = L.map("cache-map").setView(center, 16);
+                this.map = L.map("cache-map", {
+                    zoomControl: false,
+                    tap: false,
+                    touchZoom: true,
+                    bounceAtZoom: false,
+                    attributionControl: false,
+                }).setView(center, 16);
+
+                L.control.zoom({ position: "bottomright" }).addTo(this.map);
+                L.control.attribution({ prefix: false }).addTo(this.map);
+
                 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
                     maxZoom: 19,
-                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                    detectRetina: true,
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
                 }).addTo(this.map);
 
-                if (this.targetLat !== null) {
-                    L.marker([this.targetLat, this.targetLng]).addTo(this.map);
+                // Draw trail connecting completed stations
+                var trailPoints = [];
+                var self = this;
+                (this.completedStations || []).forEach(function (s) {
+                    var sLat = parseFloat(s.lat);
+                    var sLng = parseFloat(s.lng);
+                    if (!self._isValidCoord(sLat, sLng)) return;
+                    trailPoints.push([sLat, sLng]);
+                    L.circleMarker([sLat, sLng], {
+                        radius: 7,
+                        color: "#22c55e",
+                        fillColor: "#22c55e",
+                        fillOpacity: 0.9,
+                        title: "✅ " + s.order + ". " + s.name,
+                    }).addTo(self.map);
+                });
+
+                if (hasTarget) {
+                    trailPoints.push([this.targetLat, this.targetLng]);
+                    var targetIcon = L.divIcon({
+                        className: "crush-target-marker",
+                        html: '<div style="display:flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:50%; background:linear-gradient(135deg, #8b5cf6, #ec4899); box-shadow:0 4px 12px rgba(139,92,246,0.4); border:2px solid #ffffff; font-size:18px;">📍</div>',
+                        iconSize: [38, 38],
+                        iconAnchor: [19, 19],
+                    });
+                    L.marker([this.targetLat, this.targetLng], {
+                        icon: targetIcon,
+                        title: "Target Station",
+                    }).addTo(this.map);
+
                     if (this.targetRadius) {
                         L.circle([this.targetLat, this.targetLng], {
                             radius: this.targetRadius,
-                            color: "#8b5cf6",
-                            fillOpacity: 0.1,
+                            color: "#ec4899",
+                            fillColor: "#8b5cf6",
+                            fillOpacity: 0.18,
+                            weight: 2,
+                            dashArray: "4, 6",
                         }).addTo(this.map);
                     }
                 }
 
-                var self = this;
-                (this.completedStations || []).forEach(function (s) {
-                    if (s.lat === null || s.lng === null) return;
-                    L.circleMarker([s.lat, s.lng], {
-                        radius: 7,
-                        color: "#22c55e",
-                        fillOpacity: 0.8,
-                    }).bindPopup("✅ " + s.order + ". " + s.name).addTo(self.map);
+                if (trailPoints.length > 1) {
+                    L.polyline(trailPoints, {
+                        color: "#8b5cf6",
+                        weight: 3,
+                        dashArray: "6, 8",
+                        opacity: 0.7,
+                    }).addTo(this.map);
+                }
+
+                // Custom Recenter button control inside Leaflet top-left bar
+                var RecenterControl = L.Control.extend({
+                    options: { position: "topleft" },
+                    onAdd: function () {
+                        var container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
+                        var btn = L.DomUtil.create("a", "", container);
+                        btn.href = "#";
+                        btn.title = "Recenter map";
+                        btn.innerHTML = "🎯";
+                        btn.style.cssText = "font-size: 15px; display: flex; align-items: center; justify-content: center; text-decoration: none; width: 34px; height: 34px; line-height: 34px; background: rgba(255,255,255,0.95); font-weight: bold; border-radius: 8px;";
+                        L.DomEvent.on(btn, "click", function (e) {
+                            L.DomEvent.stopPropagation(e);
+                            L.DomEvent.preventDefault(e);
+                            self.recenterMap();
+                        });
+                        return container;
+                    }
                 });
+                this.map.addControl(new RecenterControl());
+                this.attachCompass();
+            },
+
+            recenterMap: function () {
+                if (!this.map || !window.L) return;
+                var points = [];
+                if (this._isValidCoord(this.currentLat, this.currentLng)) {
+                    points.push([this.currentLat, this.currentLng]);
+                }
+                if (this._isValidCoord(this.targetLat, this.targetLng)) {
+                    points.push([this.targetLat, this.targetLng]);
+                }
+                if (points.length > 1) {
+                    try {
+                        var bounds = L.latLngBounds(points);
+                        if (bounds.isValid()) {
+                            this.map.fitBounds(bounds, { padding: [40, 40], maxZoom: 17, animate: false });
+                        }
+                    } catch (e) {}
+                } else if (points.length === 1) {
+                    this.map.setView(points[0], 16);
+                }
             },
 
             updateSelfMarker: function (lat, lng, accuracy) {
+                var isRealFix = this._isValidCoord(lat, lng);
+                if (isRealFix) {
+                    this.currentLat = lat;
+                    this.currentLng = lng;
+                }
+                if (!this._isValidCoord(this.currentLat, this.currentLng)) {
+                    return;
+                }
+                var validLat = this.currentLat;
+                var validLng = this.currentLng;
                 if (!this.map || !window.L) return;
+                var firstFix = !this.selfMarker;
+                var headingAngle = typeof this.heading === "number" && !isNaN(this.heading) ? this.heading : 0;
+
                 if (!this.selfMarker) {
-                    this.selfMarker = L.circleMarker([lat, lng], {
-                        radius: 8,
-                        color: "#3b82f6",
-                        fillColor: "#3b82f6",
-                        fillOpacity: 0.9,
-                    }).addTo(this.map);
-                    this.accuracyCircle = L.circle([lat, lng], {
-                        radius: accuracy,
+                    var selfHtml = '<div style="width:22px; height:22px; border-radius:50%; background:#3b82f6; border:3px solid #ffffff; box-shadow:0 0 10px rgba(59,130,246,0.8); position:relative;">' +
+                        '<div class="self-heading-cone" style="position:absolute; top:-12px; left:4px; width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-bottom:12px solid #3b82f6; opacity:0.9; transition:transform 0.15s linear; transform: rotate(' + headingAngle + 'deg); transform-origin: 4px 20px;"></div>' +
+                        '</div>';
+                    var selfIcon = L.divIcon({
+                        className: "crush-self-marker",
+                        html: selfHtml,
+                        iconSize: [22, 22],
+                        iconAnchor: [11, 11],
+                    });
+                    this.selfMarker = L.marker([validLat, validLng], { icon: selfIcon, zIndexOffset: 1000 }).addTo(this.map);
+
+                    this.accuracyCircle = L.circle([validLat, validLng], {
+                        radius: accuracy || 10,
                         color: "#3b82f6",
                         weight: 1,
-                        fillOpacity: 0.05,
+                        fillOpacity: 0.08,
                     }).addTo(this.map);
                 } else {
-                    this.selfMarker.setLatLng([lat, lng]);
-                    this.accuracyCircle.setLatLng([lat, lng]);
-                    this.accuracyCircle.setRadius(accuracy);
+                    this.selfMarker.setLatLng([validLat, validLng]);
+                    this.accuracyCircle.setLatLng([validLat, validLng]);
+                    this.accuracyCircle.setRadius(accuracy || 10);
+
+                    var el = this.selfMarker.getElement();
+                    var cone = el ? el.querySelector(".self-heading-cone") : null;
+                    if (cone) {
+                        cone.style.transform = "rotate(" + headingAngle + "deg)";
+                    }
+                }
+                if (firstFix) {
+                    this.recenterMap();
                 }
             },
 
@@ -355,24 +583,30 @@ document.addEventListener("alpine:init", function () {
                 var self = this;
                 var protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
                 var url = protocol + "//" + window.location.host + "/ws/cache/" + this.huntId + "/";
-                this.ws = new WebSocket(url);
-                this.ws.onmessage = function (event) {
-                    var msg;
-                    try { msg = JSON.parse(event.data); } catch (e) { return; }
-                    // The consumer sends "state" on connect and "status" on
-                    // every change; both carry the hunt status. React to
-                    // either so a status change that happened between page
-                    // render and group subscription still lands.
-                    if ((msg.type === "status" || msg.type === "state") && msg.data && msg.data.status && msg.data.status !== self.huntStatus) {
-                        self.stopAndReload();
-                    }
-                };
-                this.ws.onclose = function () {
-                    if (self.wsRetry < 5) {
-                        self.wsRetry += 1;
-                        setTimeout(function () { self.connectWebSocket(); }, 2000 * self.wsRetry);
-                    }
-                };
+                try {
+                    this.ws = new WebSocket(url);
+                    this.ws.onopen = function () {
+                        self.wsConnected = true;
+                        self.wsRetry = 0;
+                    };
+                    this.ws.onerror = function () {
+                        // WSGI dev server without Channels/Redis doesn't serve WebSockets:
+                        // HTTP polling fallback (startPolling) handles live status updates instead.
+                    };
+                    this.ws.onmessage = function (event) {
+                        var msg;
+                        try { msg = JSON.parse(event.data); } catch (e) { return; }
+                        if ((msg.type === "status" || msg.type === "state") && msg.data && msg.data.status && msg.data.status !== self.huntStatus) {
+                            self.stopAndReload();
+                        }
+                    };
+                    this.ws.onclose = function () {
+                        if (self.wsConnected && self.wsRetry < 5) {
+                            self.wsRetry += 1;
+                            setTimeout(function () { self.connectWebSocket(); }, 2000 * self.wsRetry);
+                        }
+                    };
+                } catch (e) {}
             },
 
             // --- Polling fallback: keeps the hunt advancing without Redis ---

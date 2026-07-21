@@ -245,7 +245,7 @@ class CacheHunt(models.Model):
         checks.append(
             {
                 "label": _("Correct answers"),
-                "blocking": True,
+                "blocking": False,
                 "ok": len(bad_mc) == 0,
                 "detail": (
                     _("All multiple-choice challenges have a correct answer")

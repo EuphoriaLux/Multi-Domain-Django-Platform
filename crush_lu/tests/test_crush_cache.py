@@ -1579,3 +1579,44 @@ class TestDashboardAttendeesLink:
         assert response.status_code == 200  # they can still run the hunt
         roster_url = reverse("crush_lu:coach_event_detail", args=[hunt.event_id])
         assert roster_url.encode() not in response.content
+
+
+# ============================================================================
+# MANAGEMENT COMMAND SEEDING PRESETS
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestSeedCrushCacheCommand:
+    def test_seed_minette_preset(self):
+        from django.core.management import call_command
+        from crush_lu.models.crush_cache import CacheHunt, CacheStation
+
+        call_command("seed_crush_cache", preset="minette", reset=True, live=True, force=True)
+
+        hunt = CacheHunt.objects.get(event__title__contains="Minette")
+        assert hunt.status == "live"
+        assert hunt.event.location == "Fond-de-Gras"
+
+        stations = list(hunt.ordered_stations())
+        assert len(stations) == 6
+        assert stations[0].name == "Gare de Fond-de-Gras (Train 1900)"
+        assert str(stations[0].latitude) == "49.532894"
+        assert str(stations[0].longitude) == "5.858759"
+
+        # Check Schluss station
+        schluss = stations[5]
+        assert schluss.name == "Hall Paul Wurth & Épicerie Ancienne (Schluss)"
+        assert str(schluss.latitude) == "49.533819"
+        assert str(schluss.longitude) == "5.863352"
+        assert schluss.unlock_mode == "gps_qr"
+
+    def test_seed_lux_city_default_preset(self):
+        from django.core.management import call_command
+        from crush_lu.models.crush_cache import CacheHunt
+
+        call_command("seed_crush_cache", reset=True, force=True)
+
+        hunt = CacheHunt.objects.get(event__title__contains="Luxembourg City")
+        assert hunt.stations.count() == 5
+

@@ -25,7 +25,7 @@ class PermissionsPolicyMiddleware:
     """
 
     PERMISSIONS_POLICY = ", ".join([
-        "accelerometer=()",
+        "accelerometer=(self)",  # Required for Crush Cache compass orientation
         "autoplay=()",
         "camera=(self)",  # Needed for QR check-in scanner
         "display-capture=()",
@@ -33,12 +33,12 @@ class PermissionsPolicyMiddleware:
         "fullscreen=(self)",  # Allow fullscreen on same origin
         "gamepad=()",
         "geolocation=(self)",  # Required for Crush Cache scavenger hunts
-        "gyroscope=()",
+        "gyroscope=(self)",  # Required for Crush Cache compass orientation
         "hid=()",
         "identity-credentials-get=()",
         "idle-detection=()",
         "local-fonts=()",
-        "magnetometer=()",
+        "magnetometer=(self)",
         "microphone=()",  # Not used - disable for privacy
         "midi=()",
         "otp-credentials=()",
