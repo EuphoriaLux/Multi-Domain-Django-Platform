@@ -117,19 +117,20 @@
                 </svg>
             </div>
             {# iOS only fires orientation events after an explicit user-gesture grant #}
+            <button type="button" x-show="compassNeedsPermission" x-cloak
+                    x-on:click="enableCompass"
+                    class="btn-crush-outline btn-sm mt-3">
+                🧭 {% trans "Enable compass" %}
+            </button>
+            {% endif %}
+
             <div class="mt-3 flex justify-center gap-2 flex-wrap">
-                <button type="button" x-show="compassNeedsPermission" x-cloak
-                        x-on:click="enableCompass"
-                        class="btn-crush-outline btn-sm">
-                    🧭 {% trans "Enable compass" %}
-                </button>
                 <button type="button" x-on:click="playGpsChime"
                         class="btn-crush-outline btn-sm"
                         title="{% trans 'Test GPS arrival sound' %}">
                     🔊 {% trans "Test Sound" %}
                 </button>
             </div>
-            {% endif %}
             <p class="mt-3 text-xs text-gray-500 dark:text-gray-400" x-text="gpsStatus"></p>
             <div class="mt-3 rounded-xl bg-amber-50 dark:bg-amber-900/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200 text-left"
                  x-show="gpsDenied" x-cloak>
