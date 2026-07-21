@@ -361,6 +361,14 @@ document.addEventListener("alpine:init", function () {
 
             attachCompass: function () {
                 if (typeof window === "undefined" || !window.DeviceOrientationEvent) return;
+                try {
+                    var fp = document.featurePolicy || document.permissionsPolicy;
+                    if (fp && typeof fp.allowsFeature === "function") {
+                        if (!fp.allowsFeature("accelerometer") && !fp.allowsFeature("gyroscope")) {
+                            return;
+                        }
+                    }
+                } catch (err) {}
                 if (this._compassAttached) return;
                 this._compassAttached = true;
                 var self = this;
