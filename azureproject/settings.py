@@ -387,7 +387,7 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = (
 SESSION_REMEMBER_ME = True
 
 # PWA Manifest version - bump when updating icons to force cache refresh
-PWA_MANIFEST_VERSION = "v16"
+PWA_MANIFEST_VERSION = "v17"
 
 # Native iOS App Store wrapper settings
 IOS_APP_BUNDLE_ID = os.getenv("IOS_APP_BUNDLE_ID", "lu.crush.app")
