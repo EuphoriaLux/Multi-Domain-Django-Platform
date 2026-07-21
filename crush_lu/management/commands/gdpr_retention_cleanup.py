@@ -31,12 +31,22 @@ Usage:
 from datetime import timedelta
 
 from django.conf import settings
+import time
+
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from crush_lu.models.phone_otp import PhoneOTP
 from crush_lu.models.profiles import CallAttempt
+
+# The GdprRetention endpoint runs this synchronously under _call_admin_endpoint's
+# 60s HTTP timeout. A single bulk DELETE of a large first-run backlog could
+# exceed it (and gunicorn's 120s cap), leaving the weekly job perpetually
+# failed. Delete in chunks under a wall-clock budget instead; the sweep is
+# idempotent (re-queries expired rows), so the next weekly run resumes.
+RETENTION_TIME_BUDGET_SECONDS = 45
+RETENTION_CHUNK_SIZE = 2000
 
 DEFAULT_RETENTION = {
     "phone_otp_days": 30,
@@ -98,46 +108,62 @@ class Command(BaseCommand):
         self.stdout.write(f"GDPR retention sweep [{mode}]")
 
         now = timezone.now()
+        deadline = time.monotonic() + RETENTION_TIME_BUDGET_SECONDS
         total_deleted = 0
+        budget_hit = False
 
         # 1. PhoneOTP — phone number + code hash, worthless after expiry.
-        otp_cutoff = now - timedelta(days=phone_days)
-        otp_qs = PhoneOTP.objects.filter(created_at__lt=otp_cutoff)
-        otp_count = otp_qs.count()
-        self.stdout.write(
-            f"  PhoneOTP older than {phone_days}d: {otp_count} row(s)"
+        otp_qs = PhoneOTP.objects.filter(
+            created_at__lt=now - timedelta(days=phone_days)
         )
-        if apply_changes and otp_count:
-            deleted, _ = otp_qs.delete()
+        if apply_changes:
+            deleted, budget_hit = self._delete_in_chunks(otp_qs, deadline)
             total_deleted += deleted
-            self.stdout.write(f"    deleted {deleted}")
+            self.stdout.write(
+                f"  PhoneOTP older than {phone_days}d: deleted {deleted}"
+            )
+        else:
+            self.stdout.write(
+                f"  PhoneOTP older than {phone_days}d: {otp_qs.count()} row(s)"
+            )
 
         # 2. CallAttempt — screening-call audit trail with PII notes.
-        call_cutoff = now - timedelta(days=call_days)
-        call_qs = CallAttempt.objects.filter(attempt_date__lt=call_cutoff)
-        call_count = call_qs.count()
-        self.stdout.write(
-            f"  CallAttempt older than {call_days}d: {call_count} row(s)"
-        )
-        if apply_changes and call_count:
-            deleted, _ = call_qs.delete()
-            total_deleted += deleted
-            self.stdout.write(f"    deleted {deleted}")
+        if not budget_hit:
+            call_qs = CallAttempt.objects.filter(
+                attempt_date__lt=now - timedelta(days=call_days)
+            )
+            if apply_changes:
+                deleted, budget_hit = self._delete_in_chunks(call_qs, deadline)
+                total_deleted += deleted
+                self.stdout.write(
+                    f"  CallAttempt older than {call_days}d: deleted {deleted}"
+                )
+            else:
+                self.stdout.write(
+                    f"  CallAttempt older than {call_days}d: "
+                    f"{call_qs.count()} row(s)"
+                )
 
         # 3. DailyUserActivity — delegate to the existing single-purpose
         # command so the window logic stays in one place.
-        self.stdout.write(
-            f"  DailyUserActivity older than {activity_days}d "
-            f"(via cleanup_daily_activity):"
-        )
-        call_command(
-            "cleanup_daily_activity",
-            days=activity_days,
-            dry_run=not apply_changes,
-            stdout=self.stdout,
-        )
+        if not budget_hit:
+            self.stdout.write(
+                f"  DailyUserActivity older than {activity_days}d "
+                f"(via cleanup_daily_activity):"
+            )
+            call_command(
+                "cleanup_daily_activity",
+                days=activity_days,
+                dry_run=not apply_changes,
+                stdout=self.stdout,
+            )
 
-        if apply_changes:
+        if apply_changes and budget_hit:
+            self.stdout.write(self.style.WARNING(
+                f"Time budget reached — {total_deleted} row(s) deleted so far; "
+                "remaining expired rows will be pruned on the next sweep."
+            ))
+        elif apply_changes:
             self.stdout.write(
                 self.style.SUCCESS(
                     f"Retention sweep applied — {total_deleted} row(s) deleted "
@@ -148,3 +174,22 @@ class Command(BaseCommand):
             self.stdout.write(
                 "Dry-run only — re-run with --apply to delete."
             )
+
+    def _delete_in_chunks(self, queryset, deadline, chunk_size=RETENTION_CHUNK_SIZE):
+        """Delete a filtered queryset in bounded batches, stopping at the
+        wall-clock deadline. Returns (deleted_count, budget_exhausted).
+
+        Each batch re-queries the (shrinking) filtered set by primary key, so
+        the deletes stay small and the loop makes progress; the next scheduled
+        run prunes whatever is left.
+        """
+        model = queryset.model
+        total = 0
+        while True:
+            pks = list(queryset.values_list("pk", flat=True)[:chunk_size])
+            if not pks:
+                return total, False
+            deleted, _ = model.objects.filter(pk__in=pks).delete()
+            total += deleted
+            if time.monotonic() >= deadline:
+                return total, True

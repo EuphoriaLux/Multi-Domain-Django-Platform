@@ -162,3 +162,57 @@ class GdprRetentionCommandTests(TestCase):
             )
         # Aborted before any deletion — even the 40d-old OTP survives.
         self.assertTrue(PhoneOTP.objects.filter(pk=self.old_otp.pk).exists())
+
+    def _make_old_otps(self, count):
+        now = timezone.now()
+        for i in range(count):
+            otp = PhoneOTP.objects.create(
+                user=self.user,
+                phone_number=f"+35299999{i:03d}",
+                code_hash=f"chunk-{i}",
+                expires_at=now - timedelta(days=40),
+            )
+            PhoneOTP.objects.filter(pk=otp.pk).update(
+                created_at=now - timedelta(days=40)
+            )
+
+    def test_chunked_delete_removes_all_expired_rows(self):
+        """Batched deletion still clears the whole expired set (Codex P2)."""
+        import time
+        from crush_lu.management.commands.gdpr_retention_cleanup import Command
+
+        self._make_old_otps(5)  # + self.old_otp from setUp = 6 expired rows
+        qs = PhoneOTP.objects.filter(
+            created_at__lt=timezone.now() - timedelta(days=30)
+        )
+        expected = qs.count()
+
+        deleted, budget_hit = Command()._delete_in_chunks(
+            qs, deadline=time.monotonic() + 30, chunk_size=2
+        )
+
+        self.assertFalse(budget_hit)
+        self.assertEqual(deleted, expected)
+        self.assertEqual(qs.count(), 0)
+        # The fresh OTP (created 'now') is outside the window and survives.
+        self.assertTrue(PhoneOTP.objects.filter(pk=self.new_otp.pk).exists())
+
+    def test_chunked_delete_stops_at_deadline(self):
+        """A passed deadline stops after one chunk, leaving the rest for the
+        next (idempotent) run instead of blocking past the HTTP timeout."""
+        import time
+        from crush_lu.management.commands.gdpr_retention_cleanup import Command
+
+        self._make_old_otps(3)
+        qs = PhoneOTP.objects.filter(
+            created_at__lt=timezone.now() - timedelta(days=30)
+        )
+        remaining_before = qs.count()
+
+        deleted, budget_hit = Command()._delete_in_chunks(
+            qs, deadline=time.monotonic() - 1, chunk_size=1
+        )
+
+        self.assertTrue(budget_hit)
+        self.assertEqual(deleted, 1)  # only the first chunk
+        self.assertEqual(qs.count(), remaining_before - 1)

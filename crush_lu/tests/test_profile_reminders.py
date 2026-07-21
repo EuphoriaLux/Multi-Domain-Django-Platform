@@ -49,25 +49,27 @@ def make_incomplete_user(
         verification_status=verification_status,
         preferred_language=preferred_language,
     )
-    # created_at is auto_now_add — backdate it via queryset update
-    CrushProfile.objects.filter(pk=profile.pk).update(
-        created_at=timezone.now() - timedelta(hours=created_hours_ago)
-    )
+    # created_at is auto_now_add — backdate it via queryset update. Backdate
+    # date_joined to match (they're set together at signup in production), so
+    # get_users_needing_reminder's oldest-first ordering reflects age in tests.
+    signup_time = timezone.now() - timedelta(hours=created_hours_ago)
+    CrushProfile.objects.filter(pk=profile.pk).update(created_at=signup_time)
+    User.objects.filter(pk=user.pk).update(date_joined=signup_time)
     return user
 
 
 class GetUsersNeedingReminderTests(TestCase):
-    def test_24h_window_covers_24_to_72h_incomplete_profiles(self):
-        # 48h-wide window: a signup missed by one daily tick (send-limit
-        # spike or a transient email failure) is retried on the next run
-        # instead of ageing out. 24h < created <= 72h is eligible.
-        early = make_incomplete_user("inwindow", created_hours_ago=30)
-        late = make_incomplete_user("stillinwindow", created_hours_ago=60)
+    def test_24h_drain_window_covers_1_to_7_days(self):
+        # Wide drain window (24-168h): a backlog is served over several daily
+        # runs instead of aged out after one tick. Only < 24h (too early) and
+        # > 168h (too stale, avoids first-enablement spam) fall outside.
+        day1 = make_incomplete_user("day1", created_hours_ago=30)
+        day5 = make_incomplete_user("day5", created_hours_ago=120)
         make_incomplete_user("tooearly", created_hours_ago=10)
-        make_incomplete_user("toolate", created_hours_ago=80)
+        make_incomplete_user("toostale", created_hours_ago=200)
 
-        eligible = get_users_needing_reminder("24h")
-        self.assertEqual(set(eligible), {early, late})
+        eligible = set(get_users_needing_reminder("24h"))
+        self.assertEqual(eligible, {day1, day5})
 
     def test_24h_excludes_users_already_reminded(self):
         user = make_incomplete_user("reminded", created_hours_ago=30)
@@ -266,6 +268,22 @@ class SendProfileRemindersCommandTests(TestCase):
 
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(ProfileReminder.objects.count(), 1)
+
+    def test_oldest_signups_served_first_under_limit(self):
+        """When a run can't clear the whole backlog, the oldest (closest to
+        ageing out of the drain window) are served first, so a spike drains
+        over days without dropping the most at-risk users (Codex P2)."""
+        make_incomplete_user("oldest", created_hours_ago=140)
+        make_incomplete_user("middle", created_hours_ago=90)
+        make_incomplete_user("newest", created_hours_ago=30)
+
+        call_command("send_profile_reminders", "--limit=2", stdout=StringIO())
+
+        reminded = set(
+            ProfileReminder.objects.values_list("user__username", flat=True)
+        )
+        self.assertEqual(reminded, {"oldest@example.com", "middle@example.com"})
+        self.assertEqual(len(mail.outbox), 2)
 
     @override_settings(
         PROFILE_REMINDER_TIMING={

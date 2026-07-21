@@ -1478,7 +1478,12 @@ def get_users_needing_reminder(reminder_type):
         # Must have received 72h reminder
         users = users.filter(profile_reminders__reminder_type="72h")
 
-    return users.distinct()
+    # Oldest signups first so that when a run's send limit / time budget can't
+    # clear the whole backlog, the users closest to ageing out of max_hours are
+    # served first. Order by date_joined (a User column) rather than
+    # crushprofile__created_at so SELECT DISTINCT ... ORDER BY stays valid on
+    # PostgreSQL; the two are set together at signup.
+    return users.distinct().order_by("date_joined")
 
 
 # =============================================================================
