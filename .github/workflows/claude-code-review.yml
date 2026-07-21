@@ -11,7 +11,12 @@ concurrency:
 
 jobs:
   claude-review:
-    if: ${{ !github.event.pull_request.draft }}
+    # Skip drafts, forked PRs, and Dependabot PRs — the latter two don't get
+    # Actions secrets on pull_request, so the OAuth token would be empty
+    if: >-
+      ${{ !github.event.pull_request.draft &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
