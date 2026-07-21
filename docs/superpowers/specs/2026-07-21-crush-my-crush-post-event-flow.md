@@ -179,7 +179,9 @@ conversion moment that exists, without a paywall screen.
   one-sided crush is revealed within seconds. Crush leads must be excluded
   from recipient notifications, the recipient's `my_connections` inbox,
   attendee-page connection state, the `incoming_pending_count` aggregate,
-  **both context-processor counters**, and `connection_detail` **until the
+  **both context-processor counters**, **the post-event recap email's
+  waiting-connections count** (`send_event_recap`,
+  `email_helpers.py:920–922`), and `connection_detail` **until the
   introduction completes (`shared`)** — not merely until the recipient's
   consent is recorded. The coach workflow records the two consents
   independently (§7), so there is an intermediate state where the recipient
@@ -458,10 +460,18 @@ Identity spec §7).
    open:** `eligible_participations` filters members, not phases — and
    `connection_window_hours` is per-event configurable and can exceed the
    lobby's fixed 48h recap, so both rows can be eligible while the recap is
-   already closed. The redirect predicate is therefore *both members in the
-   read-time roster **and** the recap window open (usable recap access for
-   the requester)*; once the recap has closed, My Crush applies even for an
-   eligible pair. **The check is enforced in the
+   already closed. **And eligibility alone is not visibility:** the real
+   recap roster (`get_recap_roster`,
+   `crush_lu/services/event_lobby.py:770`) further subtracts blocked pairs
+   and pending/approved encounter removals (`hidden_encounter_user_ids`,
+   `:731`) — a pair can pass `eligible_participations` yet be mutually
+   invisible in the recap. Nor do participation rows imply the feature is
+   on: rows outlive a `CRUSH_EVENT_LOBBY_ENABLED` flag-off (`:67`), after
+   which lobby views 404. The redirect predicate is therefore: *the lobby
+   flag is enabled, the recap window is open, and the target is actually
+   present in the requester's `get_recap_roster` for the event*; in every
+   other case — closed recap, flag off, hidden or blocked counterpart —
+   My Crush applies even for an eligible pair. **The check is enforced in the
    write endpoints, not just the button:** both `request_connection`
    (`views_connections.py:281`) and `request_connection_inline` (`:443`)
    accept direct POSTs and currently never consult
@@ -561,6 +571,15 @@ before or after them.
   status — `pending`, `coach_reviewing`, `coach_approved`, **and after the
   recipient's own consent is recorded while the requester's is not**.
 
+* **Recap email excluded:** the recurring post-event recap
+  (`send_event_recap`, `crush_lu/email_helpers.py:884`, batch command
+  `send_event_recaps`) counts the recipient's received `pending` rows for
+  the event (`:920–922`) and emails "people are waiting to hear back" with
+  an attendee-page CTA — one more channel that would announce a private
+  crush. `flow=crush` rows are excluded from that count; a recipient whose
+  only received rows are crush leads gets no waiting-connections section
+  (and no email, if that was its only trigger).
+
 * **Member-overview redaction:** an active coach who is neither the routed
   coach nor the recipient-side co-coach sees no crush row (and no requester
   name) on `coach_member_overview` or equivalent member-detail surfaces;
@@ -580,8 +599,10 @@ before or after them.
 * **Redirect fallback:** a pair with lobby-participation rows where one side
   has lost read-time eligibility gets the My Crush flow, not a dead-end
   recap redirect; likewise an eligible pair whose recap window has already
-  closed (e.g. `connection_window_hours` > 48) gets My Crush, never a
-  redirect into a closed recap.
+  closed (e.g. `connection_window_hours` > 48), a pair mutually hidden by a
+  pending/approved encounter removal (`hidden_encounter_user_ids`), and any
+  pair after `CRUSH_EVENT_LOBBY_ENABLED` is switched off — all get My
+  Crush, never a redirect into a closed, empty, or 404 recap.
 
 * **Requester decline suppression:** after a coach records a decline, the
   crusher's `my_connections` list and a direct `connection_detail` fetch
