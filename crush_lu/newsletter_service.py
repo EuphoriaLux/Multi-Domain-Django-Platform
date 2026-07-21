@@ -193,7 +193,7 @@ def _get_segment_users(segment_key):
 
 
 def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
-                    link_rewriter=None):
+                    link_rewriter=None, should_abort=None):
     """
     Send a newsletter to its audience with rate limiting and resumability.
 
@@ -205,6 +205,9 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
         link_rewriter: Optional callable(html, user) applied to the rendered
             HTML body just before sending — used by campaign sends for click
             tracking. None (the default) keeps output byte-identical.
+        should_abort: Optional zero-arg callable checked before each send;
+            returning True stops the run without finalizing (used by campaign
+            sends so a cancellation halts the batch mid-flight).
 
     Returns:
         dict: {'sent': int, 'failed': int, 'skipped': int}
@@ -264,7 +267,13 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
     # Materialize the queryset to avoid issues with batching
     user_ids = list(recipients.values_list('id', flat=True))
 
+    aborted = False
     for i, user_id in enumerate(user_ids):
+        if should_abort is not None and should_abort():
+            log("  Send aborted by caller signal")
+            aborted = True
+            break
+
         # Rate limiting: pause between batches
         if batch_count > 0 and batch_count % BATCH_SIZE == 0:
             log(f"  Batch pause ({BATCH_PAUSE_SECONDS}s) after {batch_count} emails...")
@@ -340,16 +349,16 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
         ).count()
     )
 
-    if limit is not None:
+    if limit is not None or aborted:
         remaining = (
             get_newsletter_recipients(newsletter)
             .exclude(id__in=_failed_recipient_ids(newsletter))
             .count()
         )
-        if remaining > 0:
-            # Bounded batch with recipients still eligible: stay 'sending' so
-            # the next run continues where this one stopped instead of
-            # prematurely finalizing the newsletter.
+        if remaining > 0 or aborted:
+            # Bounded batch with recipients still eligible (or an aborted
+            # run): stay 'sending' so a later run continues where this one
+            # stopped instead of prematurely finalizing the newsletter.
             newsletter.save(update_fields=[
                 'total_sent', 'total_failed', 'total_skipped', 'updated_at',
             ])
@@ -363,6 +372,7 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
                 'skipped': skipped,
                 'complete': False,
                 'remaining': remaining,
+                'aborted': aborted,
             }
 
     # Bounded runs must finalize from the persisted per-recipient failures:

@@ -263,3 +263,57 @@ class WhatsAppAdapterSendTests(TestCase):
         self.assertEqual(stats['whatsapp']['sent'], 1)
         self.assertEqual(stats['whatsapp']['delivered'], 1)
         self.assertEqual(stats['whatsapp']['read'], 1)
+
+    def test_webhook_delivery_failure_reclassifies_stats(self):
+        """An accepted send that later fails via webhook counts as failed."""
+        with patch(
+            'hub.whatsapp_service.requests.post',
+            return_value=graph_response(body=SENT_BODY),
+        ):
+            self.adapter.send_batch(self.campaign, limit=10)
+
+        WhatsAppMessage.objects.filter(wa_message_id='wamid.TEST123').update(
+            status=WhatsAppMessage.Status.FAILED,
+        )
+        stats = self.campaign.stats
+        self.assertEqual(stats['whatsapp']['sent'], 0)
+        self.assertEqual(stats['whatsapp']['failed'], 1)
+        self.assertEqual(stats['totals']['failed'], 1)
+
+    def test_batch_stops_after_cancellation(self):
+        """A cancel landing mid-batch stops further (paid) sends."""
+        second = User.objects.create_user(
+            username='second@example.com', email='second@example.com',
+            password='x', first_name='Ben',
+        )
+        CrushProfile.objects.create(
+            user=second,
+            date_of_birth='1994-01-01',
+            gender='M',
+            location='Luxembourg',
+            is_approved=True,
+            phone_number='+352621444555',
+            phone_verified=True,
+        )
+        EmailPreference.objects.update_or_create(
+            user=second, defaults={'whatsapp_opt_in': True},
+        )
+        self.campaign.status = 'sending'
+        self.campaign.save(update_fields=['status'])
+
+        campaign_pk = self.campaign.pk
+
+        def send_then_cancel(*args, **kwargs):
+            Campaign.objects.get(pk=campaign_pk).cancel()
+            return graph_response(body=SENT_BODY)
+
+        with patch(
+            'hub.whatsapp_service.requests.post',
+            side_effect=send_then_cancel,
+        ) as mock_post:
+            result = self.adapter.send_batch(self.campaign, limit=10)
+
+        self.assertEqual(mock_post.call_count, 1)
+        self.assertEqual(result.sent, 1)
+        self.assertTrue(result.interrupted)
+        self.assertEqual(WhatsAppMessage.objects.count(), 1)

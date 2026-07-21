@@ -199,11 +199,9 @@ class Campaign(models.Model):
             }
 
         if self.CHANNEL_WHATSAPP in stats:
+            wa_rows = self.recipients.filter(channel=self.CHANNEL_WHATSAPP)
             delivery = dict(
-                self.recipients.filter(
-                    channel=self.CHANNEL_WHATSAPP,
-                    whatsapp_message__isnull=False,
-                )
+                wa_rows.filter(whatsapp_message__isnull=False)
                 .values_list('whatsapp_message__status')
                 .annotate(n=models.Count('id'))
                 .values_list('whatsapp_message__status', 'n')
@@ -212,6 +210,14 @@ class Campaign(models.Model):
                 delivery.get('delivered', 0) + delivery.get('read', 0)
             )
             stats[self.CHANNEL_WHATSAPP]['read'] = delivery.get('read', 0)
+            # A send Meta accepted but later reported failed via the status
+            # webhook is a failure — the recipient row still says 'sent'
+            # (recorded at accept time), so reclassify from the message.
+            delivery_failed = wa_rows.filter(
+                status='sent', whatsapp_message__status='failed',
+            ).count()
+            stats[self.CHANNEL_WHATSAPP]['sent'] -= delivery_failed
+            stats[self.CHANNEL_WHATSAPP]['failed'] += delivery_failed
 
         totals = {
             'sent': sum(s.get('sent', 0) for s in stats.values()),

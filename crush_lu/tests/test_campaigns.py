@@ -452,6 +452,32 @@ class DispatcherTests(TestCase):
         campaign.refresh_from_db()
         self.assertEqual(campaign.status, 'cancelled')
 
+    def test_cancellation_stops_email_batch_mid_flight(self):
+        """A cancel during the email loop stops remaining sends."""
+        campaign = self._email_campaign(
+            scheduled_at=timezone.now() - timedelta(minutes=1),
+        )
+        real_send = 'crush_lu.newsletter_service._send_newsletter_to_user'
+
+        def cancel_after_first(newsletter, user, link_rewriter=None):
+            Campaign.objects.get(pk=campaign.pk).cancel()
+
+        with patch(real_send, side_effect=cancel_after_first):
+            dispatch_campaigns()
+        campaign.refresh_from_db()
+        newsletter = campaign.email_newsletter
+        newsletter.refresh_from_db()
+        self.assertEqual(campaign.status, 'cancelled')
+        # Only the first of the two recipients was processed; the newsletter
+        # is left resumable, not finalized.
+        self.assertEqual(
+            NewsletterRecipient.objects.filter(
+                newsletter=newsletter, status='sent',
+            ).count(),
+            1,
+        )
+        self.assertEqual(newsletter.status, 'sending')
+
     def test_cancelled_campaign_not_dispatched(self):
         campaign = self._email_campaign(
             scheduled_at=timezone.now() - timedelta(minutes=1),

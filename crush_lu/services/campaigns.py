@@ -115,6 +115,18 @@ def _exclude_processed(users, campaign, channel):
     return users.exclude(id__in=processed_ids)
 
 
+def _is_cancelled(campaign):
+    """Fresh-from-DB check so an in-flight batch notices a cancellation.
+
+    Cheap single-row read; called between per-recipient sends (which are
+    slow network calls anyway) so a cancel stops contact within one message
+    of the click instead of at the end of the batch.
+    """
+    return Campaign.objects.filter(
+        pk=campaign.pk, status='cancelled',
+    ).exists()
+
+
 def _substitute_merge_tokens(text, user):
     """Replace supported {token}s in WhatsApp parameter values."""
     return (
@@ -241,12 +253,14 @@ class EmailAdapter:
             link_rewriter=lambda html, user: rewrite_html_links(
                 html, campaign, self.key, user,
             ),
+            should_abort=lambda: _is_cancelled(campaign),
         )
         return BatchResult(
             sent=result['sent'],
             failed=result['failed'],
             skipped=result['skipped'],
             remaining=result.get('remaining', 0),
+            interrupted=result.get('aborted', False),
         )
 
 
@@ -281,6 +295,9 @@ class WhatsAppAdapter:
         result = BatchResult()
         for i, user_id in enumerate(user_ids):
             if deadline is not None and time_module.monotonic() > deadline:
+                result.interrupted = True
+                break
+            if _is_cancelled(campaign):
                 result.interrupted = True
                 break
             if i > 0:
@@ -363,6 +380,9 @@ class PushAdapter:
         result = BatchResult()
         for user_id in user_ids:
             if deadline is not None and time_module.monotonic() > deadline:
+                result.interrupted = True
+                break
+            if _is_cancelled(campaign):
                 result.interrupted = True
                 break
 
@@ -620,6 +640,10 @@ def dispatch_campaigns(now=None, limits=None, time_budget=None, stdout=None,
         all_complete = True
         try:
             for channel in campaign.channels:
+                if _is_cancelled(campaign):
+                    log(f"Campaign #{campaign.pk} cancelled mid-tick — stopping")
+                    all_complete = False
+                    break
                 adapter = CHANNEL_ADAPTERS.get(channel)
                 if adapter is None:
                     log(f"Campaign #{campaign.pk}: unknown channel '{channel}' skipped")
