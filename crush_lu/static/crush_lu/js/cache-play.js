@@ -533,9 +533,12 @@ document.addEventListener("alpine:init", function () {
                     this.currentLat = lat;
                     this.currentLng = lng;
                 }
-                var validLat = isRealFix ? lat : (this._isValidCoord(this.targetLat, this.targetLng) ? (this.targetLat - 0.0015) : 49.532000);
-                var validLng = isRealFix ? lng : (this._isValidCoord(this.targetLat, this.targetLng) ? (this.targetLng - 0.0015) : 5.849000);
-                if (!this.map || !window.L || !this._isValidCoord(validLat, validLng)) return;
+                if (!this._isValidCoord(this.currentLat, this.currentLng)) {
+                    return;
+                }
+                var validLat = this.currentLat;
+                var validLng = this.currentLng;
+                if (!this.map || !window.L) return;
                 var firstFix = !this.selfMarker;
                 var headingAngle = typeof this.heading === "number" && !isNaN(this.heading) ? this.heading : 0;
 
