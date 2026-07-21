@@ -256,6 +256,79 @@ class CampaignCreateFlowTests(TestCase):
         self.assertContains(response, 'Preview subject')
         self.assertContains(response, 'Push title')
 
+    def test_whatsapp_template_must_be_approved_server_side(self):
+        from unittest.mock import patch
+
+        form = self._base_form(
+            channels=['whatsapp'],
+            whatsapp_template_name='sneaky_pending',
+        )
+        del form['email_subject'], form['email_body_html']
+        templates = [
+            {'name': 'sneaky_pending', 'language': 'en',
+             'category': 'MARKETING', 'status': 'PENDING', 'components': []},
+        ]
+        with patch(
+            'crush_lu.admin.campaign_dashboard.fetch_approved_templates',
+            return_value=templates,
+        ):
+            response = self.client.post(reverse('campaign_create'), form)
+        self.assertRedirects(response, reverse('campaign_new'))
+        self.assertFalse(Campaign.objects.exists())
+
+    def test_whatsapp_template_language_must_match_target(self):
+        from unittest.mock import patch
+
+        form = self._base_form(
+            channels=['whatsapp'],
+            whatsapp_template_name='event_reminder',
+            language='fr',
+        )
+        del form['email_subject'], form['email_body_html']
+        templates = [
+            {'name': 'event_reminder', 'language': 'en',
+             'category': 'MARKETING', 'status': 'APPROVED', 'components': []},
+        ]
+        with patch(
+            'crush_lu.admin.campaign_dashboard.fetch_approved_templates',
+            return_value=templates,
+        ):
+            response = self.client.post(reverse('campaign_create'), form)
+        self.assertRedirects(response, reverse('campaign_new'))
+        self.assertFalse(Campaign.objects.exists())
+
+    def test_campaign_newsletter_blocked_from_admin_send(self):
+        from unittest.mock import patch
+
+        campaign = create_campaign(
+            name='Guarded', channels=['email'], audience='all_users',
+            email_content={'subject_en': 'S', 'body_html_en': 'B'},
+        )
+        newsletter = campaign.email_newsletter
+        send_url = reverse(
+            'crush_admin:crush_lu_newsletter_send', args=[newsletter.pk],
+        )
+        with patch('crush_lu.admin.newsletter.threading.Thread') as thread:
+            response = self.client.post(send_url, follow=True)
+        thread.assert_not_called()
+        self.assertContains(response, 'Campaign Dashboard')
+        newsletter.refresh_from_db()
+        self.assertEqual(newsletter.status, 'draft')
+
+    def test_campaign_newsletter_blocked_from_send_command(self):
+        from django.core.management import CommandError, call_command
+
+        campaign = create_campaign(
+            name='Guarded cmd', channels=['email'], audience='all_users',
+            email_content={'subject_en': 'S', 'body_html_en': 'B'},
+        )
+        with self.assertRaises(CommandError) as ctx:
+            call_command(
+                'send_newsletter',
+                '--newsletter-id', str(campaign.email_newsletter.pk),
+            )
+        self.assertIn('dispatch_campaigns', str(ctx.exception))
+
     def test_cancel_transitions_campaign(self):
         campaign = create_campaign(
             name='Cancel me', channels=['email'], audience='all_users',

@@ -222,6 +222,35 @@ def campaign_composer(request):
     )
 
 
+def _validate_whatsapp_template(template_name, language):
+    """Server-side re-check that the chosen template is actually approved.
+
+    The composer only *renders* approved templates, but a stale page or a
+    modified form can still submit a DRAFT/PENDING/REJECTED name — which the
+    dispatcher would then attempt for every eligible recipient.
+    """
+    try:
+        templates = fetch_approved_templates()
+    except TemplatesFetchError as exc:
+        raise ValueError(
+            f"Could not verify the WhatsApp template with Meta "
+            f"({exc.detail}) — try again in a moment."
+        )
+    approved_languages = [
+        t['language'] for t in templates
+        if t['name'] == template_name and t.get('status') == 'APPROVED'
+    ]
+    if not approved_languages:
+        raise ValueError(
+            f'WhatsApp template "{template_name}" has no approved variant.'
+        )
+    if language != 'all' and language not in approved_languages:
+        raise ValueError(
+            f'WhatsApp template "{template_name}" has no approved '
+            f'"{language}" variant, but the campaign targets that language.'
+        )
+
+
 def _parse_composer_form(request):
     """Extract create_campaign kwargs from the composer POST. Raises ValueError."""
     name = (request.POST.get('name') or '').strip()
@@ -258,6 +287,7 @@ def _parse_composer_form(request):
         template_name = (request.POST.get('whatsapp_template_name') or '').strip()
         if not template_name:
             raise ValueError("Pick an approved WhatsApp template.")
+        _validate_whatsapp_template(template_name, language)
         parameters = {}
         for slot in range(1, WHATSAPP_PARAM_SLOTS + 1):
             value = (request.POST.get(f'whatsapp_param_{slot}') or '').strip()

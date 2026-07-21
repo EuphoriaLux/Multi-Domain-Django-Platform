@@ -455,6 +455,20 @@ class NewsletterAdmin(AutoTranslateMixin, TranslationAdmin):
         """Two-step send: GET shows confirmation, POST launches async send."""
         newsletter = get_object_or_404(Newsletter, pk=pk)
 
+        if newsletter.campaign_id:
+            # Campaign email legs send only through the campaign dispatcher —
+            # a standalone send here would skip click tracking and bypass the
+            # campaign's schedule/cancellation.
+            self.message_user(
+                request,
+                "This newsletter is the email leg of a campaign — manage it "
+                "from the Campaign Dashboard instead.",
+                level=messages.WARNING,
+            )
+            return redirect(
+                reverse('crush_admin:crush_lu_newsletter_change', args=[pk])
+            )
+
         if newsletter.status != 'draft':
             self.message_user(
                 request,
@@ -571,7 +585,15 @@ class NewsletterAdmin(AutoTranslateMixin, TranslationAdmin):
 
     def send_selected_newsletters(self, request, queryset):
         """Send selected draft newsletters (async)."""
-        drafts = queryset.filter(status='draft')
+        campaign_legs = queryset.filter(campaign__isnull=False).count()
+        if campaign_legs:
+            self.message_user(
+                request,
+                f"Skipped {campaign_legs} newsletter(s) that belong to a "
+                f"campaign — those send only via the Campaign Dashboard.",
+                level=messages.WARNING,
+            )
+        drafts = queryset.filter(status='draft', campaign__isnull=True)
         if not drafts.exists():
             self.message_user(
                 request,
