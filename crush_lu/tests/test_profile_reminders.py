@@ -91,6 +91,28 @@ class GetUsersNeedingReminderTests(TestCase):
         ProfileReminder.objects.create(user=user, reminder_type="72h")
         self.assertIn(user, get_users_needing_reminder("7d"))
 
+    def test_banned_and_deactivated_users_are_excluded(self):
+        """A ban keeps the profile but sets user.is_active False +
+        crushlu_banned True; a profile deactivation sets crushprofile.is_active
+        False. Neither must be emailed a reminder (Codex P1)."""
+        from crush_lu.models.profiles import UserDataConsent
+
+        ok = make_incomplete_user("okuser", created_hours_ago=30)
+
+        banned = make_incomplete_user("banneduser", created_hours_ago=30)
+        banned.is_active = False
+        banned.save(update_fields=["is_active"])
+        UserDataConsent.objects.update_or_create(
+            user=banned, defaults={"crushlu_banned": True}
+        )
+
+        deactivated = make_incomplete_user("deactuser", created_hours_ago=30)
+        deactivated.crushprofile.is_active = False
+        deactivated.crushprofile.save(update_fields=["is_active"])
+
+        eligible = set(get_users_needing_reminder("24h"))
+        self.assertEqual(eligible, {ok})
+
 
 class SendProfileIncompleteReminderTests(TestCase):
     def test_batch_send_uses_crush_sender_and_records_reminder(self):
@@ -183,6 +205,24 @@ class SendProfileIncompleteReminderTests(TestCase):
         self.assertTrue(cache.add(key, "1", 1))
         cache.delete(key)
 
+    def test_send_proceeds_when_claim_cache_unavailable(self):
+        """Redis down with IGNORE_EXCEPTIONS makes cache.add return None; the
+        helper must fail open and still deliver, not skip every reminder as if
+        one were in flight (Codex P2)."""
+        from unittest.mock import patch
+        from crush_lu import email_helpers
+
+        user = make_incomplete_user("cachedown", created_hours_ago=30)
+        # Patch only .add (cache unavailable), leaving other cache methods real.
+        with patch.object(email_helpers.cache, "add", return_value=None):
+            result = send_profile_incomplete_reminder(user, "24h", request=None)
+
+        self.assertTrue(result)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertTrue(
+            ProfileReminder.objects.filter(user=user, reminder_type="24h").exists()
+        )
+
     def test_unsubscribed_user_is_skipped(self):
         user = make_incomplete_user("optout", created_hours_ago=30)
         prefs = EmailPreference.get_or_create_for_user(user)
@@ -270,3 +310,19 @@ class SendProfileRemindersCommandTests(TestCase):
             self.assertEqual(ProfileReminder.objects.count(), 0)
         finally:
             cache.delete(SWEEP_LOCK_KEY)
+
+    def test_sweep_proceeds_when_lock_cache_unavailable(self):
+        """A cache outage (cache.add -> None) must fail open, not treat every
+        run as 'another sweep in progress' and silently no-op (Codex P2)."""
+        from unittest.mock import patch, MagicMock
+        import crush_lu.management.commands.send_profile_reminders as cmd_mod
+
+        make_incomplete_user("cmdcachedown", created_hours_ago=30)
+        mock_cache = MagicMock()
+        mock_cache.add.return_value = None  # cache unavailable
+        with patch.object(cmd_mod, "cache", mock_cache):
+            out = StringIO()
+            call_command("send_profile_reminders", stdout=out)
+
+        self.assertIn("unavailable", out.getvalue().lower())
+        self.assertEqual(len(mail.outbox), 1)

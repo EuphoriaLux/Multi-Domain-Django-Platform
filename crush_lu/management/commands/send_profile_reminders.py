@@ -26,6 +26,8 @@ Scheduling:
     Run this command daily (e.g., via Azure WebJobs or cron):
     0 9 * * * cd /home/site/wwwroot && python manage.py send_profile_reminders
 """
+import time
+
 from django.core.management.base import BaseCommand
 from django.conf import settings
 from django.core.cache import cache
@@ -39,6 +41,12 @@ from crush_lu.email_helpers import get_users_needing_reminder, send_profile_inco
 # safety net if a run dies before releasing.
 SWEEP_LOCK_KEY = "profile_reminders_sweep_lock"
 SWEEP_LOCK_TTL = 900  # seconds
+
+# Wall-clock budget for one sweep. The endpoint runs this command synchronously
+# in the request, and each Graph send can block up to ~30s, so a slow batch of
+# the default 100 would blow past the Function App's HTTP timeout / gunicorn's
+# 120s cap. Stop early and let the next run pick up the rest. (Codex P1.)
+SEND_TIME_BUDGET_SECONDS = 50
 
 
 class Command(BaseCommand):
@@ -85,13 +93,26 @@ class Command(BaseCommand):
         # Dry-runs don't send, so they skip the lock.
         lock_acquired = False
         if not dry_run:
-            lock_acquired = cache.add(SWEEP_LOCK_KEY, "1", SWEEP_LOCK_TTL)
-            if not lock_acquired:
+            acquired = cache.add(SWEEP_LOCK_KEY, "1", SWEEP_LOCK_TTL)
+            if acquired is False:
+                # Key present -> another sweep is genuinely running.
                 self.stdout.write(self.style.WARNING(
                     'Another profile-reminder sweep is in progress; '
                     'skipping this run.'
                 ))
                 return
+            # acquired is None -> cache unavailable (prod Redis uses
+            # IGNORE_EXCEPTIONS, so a connection failure returns None, not
+            # raises). Fail open and send rather than no-op every run until
+            # Redis recovers. (Codex P2.)
+            if acquired is None:
+                self.stdout.write(self.style.WARNING(
+                    'Reminder sweep lock cache is unavailable; proceeding '
+                    'without cross-process locking.'
+                ))
+            lock_acquired = acquired is True
+
+        deadline = time.monotonic() + SEND_TIME_BUDGET_SECONDS
 
         # Show timing configuration
         timing = getattr(settings, 'PROFILE_REMINDER_TIMING', {})
@@ -113,6 +134,12 @@ class Command(BaseCommand):
                 self.stdout.write(
                     self.style.WARNING(f'Limit of {limit} emails reached, stopping')
                 )
+                break
+            if not dry_run and time.monotonic() >= deadline:
+                self.stdout.write(self.style.WARNING(
+                    'Time budget reached; remaining reminders will be sent '
+                    'on the next run.'
+                ))
                 break
 
             if verbosity >= 1:
@@ -136,6 +163,14 @@ class Command(BaseCommand):
             users_to_process = users[:emails_remaining]
 
             for user in users_to_process:
+                if not dry_run and time.monotonic() >= deadline:
+                    self.stdout.write(self.style.WARNING(
+                        'Time budget reached mid-batch; remaining reminders '
+                        'will be sent on the next run.'
+                    ))
+                    emails_remaining = 0  # stop the outer loop too
+                    break
+
                 # Get profile info for logging
                 try:
                     profile = user.crushprofile

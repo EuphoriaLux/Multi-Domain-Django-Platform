@@ -9,6 +9,7 @@ from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.urls import reverse
 from django.utils.translation import override
+from django.core.cache import cache
 from azureproject.email_utils import send_domain_email
 from .utils.i18n import get_user_preferred_language
 
@@ -1451,14 +1452,22 @@ def get_users_needing_reminder(reminder_type):
     # Incomplete statuses that need reminders
     incomplete_statuses = ["not_started", "step1", "step2", "step3", "step4"]
 
-    # Get users with incomplete profiles in the time window
+    # Get users with incomplete profiles in the time window. Exclude anyone we
+    # must not contact: a ban keeps the CrushProfile but sets user.is_active
+    # False and data_consent.crushlu_banned True, and a profile deactivation
+    # sets crushprofile.is_active False — can_send_email() only checks
+    # EmailPreference, so those users would otherwise still be emailed. (Codex P1)
     users = User.objects.filter(
+        is_active=True,
         crushprofile__completion_status__in=incomplete_statuses,
+        crushprofile__is_active=True,
         crushprofile__created_at__gte=min_created,
         crushprofile__created_at__lte=max_created,
     ).exclude(
         # Exclude users who already got this reminder type
         profile_reminders__reminder_type=reminder_type
+    ).exclude(
+        data_consent__crushlu_banned=True,
     )
 
     # For 72h and 7d, require previous reminder to have been sent
@@ -1642,8 +1651,6 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
     # insert window for a truly simultaneous path. The row is still written only
     # on success, so a crashed run leaves no false "sent" record — the claim
     # (5 min TTL) simply expires and the reminder is retried on the next run.
-    from django.core.cache import cache
-
     if ProfileReminder.objects.filter(
         user=user, reminder_type=reminder_type
     ).exists():
@@ -1653,12 +1660,19 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
         return False
 
     claim_key = f"profile_reminder_claim:{user.id}:{reminder_type}"
-    if not cache.add(claim_key, "1", 300):
+    claim = cache.add(claim_key, "1", 300)
+    if claim is False:
+        # Key present -> another path is delivering this reminder right now.
         logger.info(
             f"{reminder_type} reminder for {user.email} is already in flight; "
             "skipping"
         )
         return False
+    # claim is True (we hold it) or None (cache unavailable — Redis down with
+    # IGNORE_EXCEPTIONS returns None, not raise). On an outage, fail open: the
+    # ProfileReminder row check above still dedups staggered paths, so proceed
+    # rather than skip the send. Only release a claim we actually took.
+    claim_held = claim is True
 
     # Get user's preferred language for email content
     lang = getattr(profile, "preferred_language", "en") or "en"
@@ -1735,7 +1749,8 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
                 reminder_type=reminder_type,
             )
             # Durable dedup now exists — release the in-flight claim.
-            cache.delete(claim_key)
+            if claim_held:
+                cache.delete(claim_key)
 
             # Update UserActivity if it exists
             try:
@@ -1754,13 +1769,15 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
             return True
         else:
             # Nothing delivered — release the claim so it retries next run.
-            cache.delete(claim_key)
+            if claim_held:
+                cache.delete(claim_key)
             logger.warning(f"Email send returned 0 for {user.email}")
             return False
 
     except Exception as e:
         # Send failed — release the claim so the reminder isn't dropped.
-        cache.delete(claim_key)
+        if claim_held:
+            cache.delete(claim_key)
         logger.error(
             f"Failed to send {reminder_type} reminder to {user.email}: {e}",
             exc_info=True,
