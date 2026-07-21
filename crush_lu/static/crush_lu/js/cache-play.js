@@ -366,9 +366,7 @@ document.addEventListener("alpine:init", function () {
                 var self = this;
                 var updateHeading = function (deg) {
                     self.heading = (deg + 360) % 360;
-                    if (self.selfMarker && self.currentLat !== null && self.currentLng !== null) {
-                        self.updateSelfMarker(self.currentLat, self.currentLng, self.accuracyM || 10);
-                    }
+                    self.updateSelfMarker(self.currentLat, self.currentLng, self.accuracyM || 10);
                 };
 
                 // Developer testing helpers for HTTP localhost where Chrome blocks real hardware sensors
@@ -519,7 +517,9 @@ document.addEventListener("alpine:init", function () {
             },
 
             updateSelfMarker: function (lat, lng, accuracy) {
-                if (!this.map || !window.L || !this._isValidCoord(lat, lng)) return;
+                var validLat = this._isValidCoord(lat, lng) ? lat : (this._isValidCoord(this.targetLat, this.targetLng) ? this.targetLat : 49.533691);
+                var validLng = this._isValidCoord(lat, lng) ? lng : (this._isValidCoord(this.targetLat, this.targetLng) ? this.targetLng : 5.850556);
+                if (!this.map || !window.L || !this._isValidCoord(validLat, validLng)) return;
                 var firstFix = !this.selfMarker;
                 var headingAngle = typeof this.heading === "number" && !isNaN(this.heading) ? this.heading : 0;
 
@@ -533,17 +533,17 @@ document.addEventListener("alpine:init", function () {
                         iconSize: [22, 22],
                         iconAnchor: [11, 11],
                     });
-                    this.selfMarker = L.marker([lat, lng], { icon: selfIcon, zIndexOffset: 1000 }).addTo(this.map);
+                    this.selfMarker = L.marker([validLat, validLng], { icon: selfIcon, zIndexOffset: 1000 }).addTo(this.map);
 
-                    this.accuracyCircle = L.circle([lat, lng], {
+                    this.accuracyCircle = L.circle([validLat, validLng], {
                         radius: accuracy || 10,
                         color: "#3b82f6",
                         weight: 1,
                         fillOpacity: 0.08,
                     }).addTo(this.map);
                 } else {
-                    this.selfMarker.setLatLng([lat, lng]);
-                    this.accuracyCircle.setLatLng([lat, lng]);
+                    this.selfMarker.setLatLng([validLat, validLng]);
+                    this.accuracyCircle.setLatLng([validLat, validLng]);
                     this.accuracyCircle.setRadius(accuracy || 10);
 
                     var el = this.selfMarker.getElement();
