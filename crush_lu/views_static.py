@@ -1,17 +1,9 @@
-from datetime import timedelta
-
 from django.shortcuts import render, redirect
 from django.utils import timezone
 from django.contrib.admin.views.decorators import staff_member_required
 from .models import MeetupEvent
 from .models.crush_connect import CrushConnectWaitlist
 from .models.events import EventRegistration
-
-# Bound for the home-page live-event lookback, tied to the model's enforced
-# ceiling on event length (MeetupEvent.MAX_DURATION_MINUTES). Because no event
-# can be configured longer than this, the lookback is BOTH bounded (never scans
-# the whole event history) and complete (never drops a still-live event).
-MAX_EVENT_DURATION = timedelta(minutes=MeetupEvent.MAX_DURATION_MINUTES)
 
 
 @staff_member_required
@@ -147,7 +139,7 @@ def home(request):
     live_events = [
         e
         for e in published.filter(
-            date_time__gte=now - MAX_EVENT_DURATION, date_time__lt=now
+            date_time__gte=MeetupEvent.live_lookback_cutoff(now), date_time__lt=now
         ).order_by("date_time")
         if e.end_time >= now
     ]

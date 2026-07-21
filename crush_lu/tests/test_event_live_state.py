@@ -91,6 +91,18 @@ class EventIsLiveTests(TestCase):
         except ValidationError as exc:
             self.assertNotIn("duration_minutes", exc.error_dict)
 
+    def test_duration_over_ceiling_rejected_at_db(self):
+        # The DB CheckConstraint enforces the ceiling even on paths that skip
+        # validators (bulk update / plain save), so no row can exceed the
+        # window the live-event lookbacks scan in.
+        from django.db import IntegrityError, transaction
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                MeetupEvent.objects.filter(pk=self.event.pk).update(
+                    duration_minutes=MeetupEvent.MAX_DURATION_MINUTES + 1
+                )
+
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class HomeLiveEventTests(TestCase):

@@ -8,6 +8,11 @@ import uuid
 from .profiles import CrushCoach, SpecialUserExperience
 from crush_lu.storage import crush_upload_path, crush_media_storage
 
+# Enforced ceiling on event length (minutes). Module-level so it is reachable
+# from the field definition, the Meta CheckConstraint, and live-event lookbacks
+# across surfaces (home page, event list, nav menu). See MeetupEvent.
+MAX_EVENT_DURATION_MINUTES = 7 * 24 * 60  # 7 days
+
 
 class MeetupEventQuerySet(models.QuerySet):
     """Custom QuerySet for MeetupEvent with performance optimizations."""
@@ -55,12 +60,13 @@ class MeetupEvent(models.Model):
     """Speed dating and social meetup events"""
 
     # Enforced ceiling on event length. `duration_minutes` is otherwise an
-    # unbounded PositiveIntegerField; capping it keeps the home page's
-    # live-event lookback both bounded AND complete — the lookback window equals
-    # this ceiling, so no valid live event is ever scanned past or dropped
-    # (see crush_lu.views_static.home). Generous enough for any real event,
-    # including multi-day formats.
-    MAX_DURATION_MINUTES = 7 * 24 * 60  # 7 days
+    # unbounded PositiveIntegerField; capping it keeps every live-event lookback
+    # (home page, event list, nav menu) both bounded AND complete — the lookback
+    # window equals this ceiling, so no valid live event is ever scanned past or
+    # dropped. Enforced at persistence by a Meta CheckConstraint (a validator
+    # alone does not run on bulk updates or plain save()). Generous enough for
+    # any real event, including multi-day formats.
+    MAX_DURATION_MINUTES = MAX_EVENT_DURATION_MINUTES
 
     EVENT_TYPE_CHOICES = [
         ("speed_dating", "Speed Dating"),
@@ -287,9 +293,29 @@ class MeetupEvent(models.Model):
 
     class Meta:
         ordering = ["date_time"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(
+                    duration_minutes__lte=MAX_EVENT_DURATION_MINUTES
+                ),
+                name="crush_lu_meetupevent_duration_within_ceiling",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.title} - {self.date_time.strftime('%Y-%m-%d %H:%M')}"
+
+    @classmethod
+    def live_lookback_cutoff(cls, now):
+        """Earliest start an event could have and still be live at ``now``.
+
+        Equals ``now - MAX_DURATION_MINUTES``. Because durations are capped at
+        that ceiling, every still-live event started at or after this cutoff, so
+        live-event queries can filter ``date_time__gte`` by it — a bounded scan
+        that never drops a live event — before the precise ``end_time`` check in
+        Python (``timedelta * F()`` is unsupported on SQLite).
+        """
+        return now - timedelta(minutes=cls.MAX_DURATION_MINUTES)
 
     # Maps a profile gender code to a capacity pool key
     GENDER_POOL_MAP = {"M": "m", "F": "f", "NB": "nb", "O": "nb", "P": "nb"}

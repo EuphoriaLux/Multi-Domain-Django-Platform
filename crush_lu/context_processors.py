@@ -18,6 +18,7 @@ from .models import (
     ProfileSubmission,
     EventRegistration,
     CrushSpark,
+    MeetupEvent,
 )
 
 # Simple in-memory cache for site config (avoids DB hit on every request)
@@ -217,9 +218,11 @@ def crush_user_context(request):
         # Upcoming events for user (includes ongoing events until end_time)
         # Use a generous cutoff to include events that may still be ongoing,
         # then filter precisely in Python. This avoids timedelta * F()
-        # which is not supported on SQLite.
+        # which is not supported on SQLite. The cutoff is the enforced max
+        # event duration, so a still-live event is never dropped from the nav
+        # regardless of its length (see MeetupEvent.live_lookback_cutoff).
         now = timezone.now()
-        generous_cutoff = now - timedelta(hours=24)
+        generous_cutoff = MeetupEvent.live_lookback_cutoff(now)
         upcoming_registrations = list(
             EventRegistration.objects.filter(
                 user=request.user,
