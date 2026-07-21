@@ -361,6 +361,8 @@ document.addEventListener("alpine:init", function () {
 
             attachCompass: function () {
                 if (typeof window === "undefined" || !window.DeviceOrientationEvent) return;
+                if (this._compassAttached) return;
+                this._compassAttached = true;
                 var self = this;
                 var updateHeading = function (deg) {
                     self.heading = (deg + 360) % 360;
@@ -468,7 +470,12 @@ document.addEventListener("alpine:init", function () {
                     }).addTo(this.map);
                 }
 
-                this.attachCompass();
+                // Lazy-attach orientation listener on first user tap/click to comply with Chrome Sensor Permissions Policy
+                var lazyAttach = function () {
+                    self.attachCompass();
+                };
+                window.addEventListener("pointerdown", lazyAttach, { once: true });
+                window.addEventListener("click", lazyAttach, { once: true });
 
                 // Custom Recenter button control inside Leaflet top-left bar
                 var RecenterControl = L.Control.extend({
