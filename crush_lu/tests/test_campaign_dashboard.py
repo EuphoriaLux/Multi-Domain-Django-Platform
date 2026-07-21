@@ -251,6 +251,16 @@ class CampaignCreateFlowTests(TestCase):
             self.assertRedirects(response, reverse('campaign_new'))
         self.assertFalse(Campaign.objects.exists())
 
+    def test_unknown_segment_key_rejected(self):
+        response = self.client.post(
+            reverse('campaign_create'),
+            self._base_form(
+                audience='segment', segment_key='no-such-segment',
+            ),
+        )
+        self.assertRedirects(response, reverse('campaign_new'))
+        self.assertFalse(Campaign.objects.exists())
+
     def test_recipient_receipts_cannot_be_deleted_in_admin(self):
         from crush_lu.admin import crush_admin_site
         from crush_lu.admin.campaigns import CampaignRecipientAdmin

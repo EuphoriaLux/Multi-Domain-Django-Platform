@@ -672,6 +672,24 @@ def create_campaign(*, name, channels, audience, segment_key='',
     return campaign
 
 
+def _reconcile_unresolved_claims(campaign):
+    """Convert stale pre-send claims into failures before finalizing.
+
+    A 'pending' CampaignRecipient at finalization time means a worker died
+    between claiming and recording the outcome — the recipient may or may
+    not have been contacted. Counting these as failed keeps the campaign
+    from finalizing as a clean 'sent' over unknown outcomes. (The email leg
+    does the same sweep inside send_newsletter.)
+    """
+    return CampaignRecipient.objects.filter(
+        campaign=campaign, status='pending',
+    ).update(
+        status='failed',
+        error_message='Unresolved send claim — outcome unknown '
+                      '(worker interrupted mid-send)',
+    )
+
+
 def _finalize_status(campaign):
     """Terminal status from persisted per-recipient stats."""
     totals = campaign.stats['totals']
@@ -787,6 +805,12 @@ def dispatch_campaigns(now=None, limits=None, time_budget=None, stdout=None,
             raise
         finally:
             if all_complete:
+                reconciled = _reconcile_unresolved_claims(campaign)
+                if reconciled:
+                    log(
+                        f"Campaign #{campaign.pk}: {reconciled} unresolved "
+                        f"send claim(s) marked failed"
+                    )
                 final_status = _finalize_status(campaign)
                 # Guarded update: only finalize while still 'sending', so a
                 # cancellation that landed mid-batch is never overwritten.

@@ -323,6 +323,43 @@ class SendNewsletterBoundedRunTests(TestCase):
         # 'sent' would contradict total_failed=1 on the same record.
         self.assertEqual(self.newsletter.status, 'failed')
 
+    def test_email_claims_recipient_before_sending(self):
+        """The durable claim must exist when the Graph send happens."""
+        claims_seen = []
+
+        def record_claim(newsletter, user, link_rewriter=None):
+            claims_seen.append(
+                NewsletterRecipient.objects.filter(
+                    newsletter=newsletter, user=user, status='pending',
+                ).exists()
+            )
+
+        real_send = 'crush_lu.newsletter_service._send_newsletter_to_user'
+        with patch(real_send, side_effect=record_claim):
+            send_newsletter(self.newsletter, limit=1)
+        self.assertEqual(claims_seen, [True])
+
+    def test_stale_email_claim_becomes_failure_not_clean_sent(self):
+        """An unresolved pre-send claim must surface in the final status."""
+        NewsletterRecipient.objects.create(
+            newsletter=self.newsletter,
+            user=self.users[0],
+            email=self.users[0].email,
+            status='pending',
+        )
+        result = send_newsletter(self.newsletter, limit=10)
+        self.newsletter.refresh_from_db()
+        # The claimed user is neither retried (possibly already delivered)...
+        self.assertEqual(result['sent'], 2)
+        self.assertTrue(result['complete'])
+        # ...nor forgotten: the unknown outcome counts as a failure.
+        self.assertEqual(
+            NewsletterRecipient.objects.get(user=self.users[0]).status,
+            'failed',
+        )
+        self.assertEqual(self.newsletter.status, 'failed')
+        self.assertEqual(self.newsletter.total_failed, 1)
+
     def test_unlimited_run_still_retries_failed_recipients(self):
         NewsletterRecipient.objects.create(
             newsletter=self.newsletter,
@@ -500,6 +537,32 @@ class DispatcherTests(TestCase):
             1,
         )
         self.assertEqual(newsletter.status, 'sending')
+
+    def test_stale_pending_claim_finalizes_as_partial_not_sent(self):
+        """A crashed worker's claim must not vanish into a clean 'sent'."""
+        for user in self.users:
+            add_push_subscription(user)
+        campaign = create_campaign(
+            name='Stale claim',
+            channels=['push'],
+            audience='all_users',
+            push={'title': 'T', 'body': 'B'},
+            scheduled_at=timezone.now() - timedelta(minutes=1),
+        )
+        CampaignRecipient.objects.create(
+            campaign=campaign, channel='push', user=self.users[0],
+            status='pending', error_message='claimed for send',
+        )
+        dispatch_campaigns()
+        campaign.refresh_from_db()
+        self.assertEqual(campaign.status, 'partial')
+        stale = CampaignRecipient.objects.get(
+            campaign=campaign, user=self.users[0],
+        )
+        self.assertEqual(stale.status, 'failed')
+        self.assertIn('Unresolved', stale.error_message)
+        # The other user was genuinely sent.
+        self.assertEqual(campaign.stats['push']['sent'], 1)
 
     def test_crashed_batch_never_finalizes_the_campaign(self):
         """An exception mid-batch must leave the campaign resumable."""

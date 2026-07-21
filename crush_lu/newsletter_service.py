@@ -228,10 +228,14 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
 
     recipients = get_newsletter_recipients(newsletter)
     if limit is not None:
-        # Bounded (dispatcher) runs never retry previously-failed recipients —
-        # otherwise a permanently bouncing address would head every batch and
-        # the send could never converge. Unlimited manual runs keep retrying.
-        recipients = recipients.exclude(id__in=_failed_recipient_ids(newsletter))
+        # Bounded (dispatcher) runs never retry previously-failed recipients
+        # (a permanently bouncing address would head every batch and the send
+        # could never converge) nor unresolved pre-send claims (a crashed
+        # worker may already have delivered — at-most-once wins). Unlimited
+        # manual runs keep retrying both.
+        recipients = recipients.exclude(
+            id__in=_unresumable_recipient_ids(newsletter)
+        )
     total_eligible = recipients.count()
 
     if limit:
@@ -299,6 +303,15 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
             skipped += 1
             continue
 
+        # Durable pre-send claim: a crash after the Graph send but before the
+        # receipt write must not cause a duplicate email on the next bounded
+        # run (stale claims are swept to 'failed' below).
+        NewsletterRecipient.objects.update_or_create(
+            newsletter=newsletter,
+            user=user,
+            defaults={'email': user.email, 'status': 'pending'},
+        )
+
         try:
             _send_newsletter_to_user(newsletter, user, link_rewriter)
             NewsletterRecipient.objects.update_or_create(
@@ -332,6 +345,19 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
                 exc_info=True,
             )
 
+    # Any recipient still 'pending' now is a stale claim from an interrupted
+    # earlier run — the outcome is unknown, so count it as failed instead of
+    # letting the newsletter (and its campaign) finalize as a clean 'sent'.
+    unresolved = NewsletterRecipient.objects.filter(
+        newsletter=newsletter, status='pending',
+    ).exclude(user_id__in=user_ids).update(
+        status='failed',
+        error_message='Unresolved send claim — outcome unknown '
+                      '(worker interrupted mid-send)',
+    )
+    if unresolved:
+        log(f"  Marked {unresolved} unresolved send claim(s) as failed")
+
     # Update newsletter stats
     newsletter.total_sent = (
         NewsletterRecipient.objects.filter(
@@ -352,7 +378,7 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
     if limit is not None or aborted:
         remaining = (
             get_newsletter_recipients(newsletter)
-            .exclude(id__in=_failed_recipient_ids(newsletter))
+            .exclude(id__in=_unresumable_recipient_ids(newsletter))
             .count()
         )
         if remaining > 0 or aborted:
@@ -397,10 +423,14 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
     }
 
 
-def _failed_recipient_ids(newsletter):
-    """User ids with a terminal 'failed' receipt for this newsletter."""
+def _unresumable_recipient_ids(newsletter):
+    """User ids bounded runs must not retry.
+
+    'failed' is terminal; 'pending' is an unresolved pre-send claim from a
+    crashed worker whose outcome is unknown (possibly delivered).
+    """
     return NewsletterRecipient.objects.filter(
-        newsletter=newsletter, status='failed'
+        newsletter=newsletter, status__in=['failed', 'pending'],
     ).values_list('user_id', flat=True)
 
 

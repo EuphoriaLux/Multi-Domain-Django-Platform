@@ -269,8 +269,19 @@ def _parse_composer_form(request):
         # would finalize as 'sent' without contacting anyone.
         raise ValueError("Pick a valid audience.")
     segment_key = (request.POST.get('segment_key') or '').strip()
-    if audience == 'segment' and not segment_key:
-        raise ValueError("Pick a segment (or a different audience).")
+    if audience == 'segment':
+        if not segment_key:
+            raise ValueError("Pick a segment (or a different audience).")
+        # An unknown key resolves to zero recipients and the campaign would
+        # finalize as 'sent' without contacting anyone.
+        from crush_lu.newsletter_service import LEGACY_SEGMENT_ALIASES
+        known_keys = {
+            segment['key']
+            for group in get_segment_definitions().values()
+            for segment in group.get('segments', [])
+        }
+        if segment_key not in known_keys and segment_key not in LEGACY_SEGMENT_ALIASES:
+            raise ValueError("Pick a valid segment.")
     language = request.POST.get('language') or 'all'
     if language not in {value for value, _ in LANGUAGE_CHOICES}:
         raise ValueError("Pick a valid language filter.")
