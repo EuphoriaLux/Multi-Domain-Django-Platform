@@ -361,6 +361,7 @@ document.addEventListener("alpine:init", function () {
             },
 
             attachCompass: function () {
+                if (typeof window === "undefined" || !window.DeviceOrientationEvent) return;
                 var self = this;
                 var updateHeading = function (deg) {
                     self.heading = (deg + 360) % 360;
@@ -368,21 +369,26 @@ document.addEventListener("alpine:init", function () {
                         self.updateSelfMarker(self.currentLat, self.currentLng, self.accuracyM || 10);
                     }
                 };
-                window.addEventListener("deviceorientationabsolute", function (e) {
-                    if (e.alpha !== null && e.alpha !== undefined) {
-                        self.hasAbsoluteHeading = true;
-                        updateHeading(360 - e.alpha);
-                    }
-                }, true);
-                window.addEventListener("deviceorientation", function (e) {
-                    if (typeof e.webkitCompassHeading === "number" && !isNaN(e.webkitCompassHeading)) {
-                        // iOS Safari
-                        updateHeading(e.webkitCompassHeading);
-                    } else if (e.alpha !== null && e.alpha !== undefined) {
-                        // Android & Chrome DevTools Emulation
-                        updateHeading(360 - e.alpha);
-                    }
-                }, true);
+                try {
+                    window.addEventListener("deviceorientationabsolute", function (e) {
+                        if (e.alpha !== null && e.alpha !== undefined) {
+                            self.hasAbsoluteHeading = true;
+                            updateHeading(360 - e.alpha);
+                        }
+                    }, true);
+                } catch (err) {}
+
+                try {
+                    window.addEventListener("deviceorientation", function (e) {
+                        if (typeof e.webkitCompassHeading === "number" && !isNaN(e.webkitCompassHeading)) {
+                            // iOS Safari
+                            updateHeading(e.webkitCompassHeading);
+                        } else if (e.alpha !== null && e.alpha !== undefined) {
+                            // Android & Chrome DevTools Emulation
+                            updateHeading(360 - e.alpha);
+                        }
+                    }, true);
+                } catch (err) {}
             },
 
             // --- Leaflet map (map navigation mode only) ---
