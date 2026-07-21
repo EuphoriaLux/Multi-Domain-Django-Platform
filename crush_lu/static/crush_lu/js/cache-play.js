@@ -226,6 +226,10 @@ document.addEventListener("alpine:init", function () {
                 this.reloading = true;
                 this.stopWatching();
                 this.arrivalCelebrating = true;
+                this.playGpsChime();
+                if (navigator.vibrate) {
+                    try { navigator.vibrate([150, 100, 150]); } catch (e) {}
+                }
                 var self = this;
                 var reduce = window.matchMedia
                     && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -233,6 +237,34 @@ document.addEventListener("alpine:init", function () {
                     if (self.suspended) return;
                     window.location.reload();
                 }, reduce ? 700 : 1600);
+            },
+
+            playGpsChime: function () {
+                try {
+                    var AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (!AudioCtx) return;
+                    var ctx = new AudioCtx();
+                    var now = ctx.currentTime;
+                    // Note 1: E5 (659.25Hz)
+                    var o1 = ctx.createOscillator();
+                    var g1 = ctx.createGain();
+                    o1.type = "sine";
+                    o1.frequency.setValueAtTime(659.25, now);
+                    g1.gain.setValueAtTime(0.3, now);
+                    g1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+                    o1.connect(g1); g1.connect(ctx.destination);
+                    o1.start(now); o1.stop(now + 0.35);
+
+                    // Note 2: B5 (987.77Hz)
+                    var o2 = ctx.createOscillator();
+                    var g2 = ctx.createGain();
+                    o2.type = "sine";
+                    o2.frequency.setValueAtTime(987.77, now + 0.12);
+                    g2.gain.setValueAtTime(0.4, now + 0.12);
+                    g2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+                    o2.connect(g2); g2.connect(ctx.destination);
+                    o2.start(now + 0.12); o2.stop(now + 0.6);
+                } catch (e) {}
             },
 
             // A station-complete celebration owns the screen: stop GPS
