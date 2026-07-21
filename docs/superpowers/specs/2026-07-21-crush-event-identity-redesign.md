@@ -309,10 +309,16 @@ what people discover at events."
    Arts/Cinema; `cuisine|cooking|kochen|backen|baking` → Food/Cooking;
    `voyage|travel|reisen` → Travel; etc. Full map written from the dry-run
    report before execution.
-3. Matched ids populate `interests_new`; nothing is deleted from legacy
-   fields.
-4. Report matched/unmatched counts; unmatched stay coach-visible via the
-   legacy block only.
+3. Matched ids populate `interests_new`, **capped at the form's max of 8
+   per profile, deterministically**: keep the first 8 in order of
+   appearance in the legacy string (ties broken by taxonomy `sort_order`).
+   Without the cap, a keyword-rich profile mapping to >8 entries would be
+   migrated into a state the Event Identity form rejects (or silently
+   truncates) on its next save. Overflow matches are reported by the
+   command and remain readable in the retained legacy field. Nothing is
+   deleted from legacy fields.
+4. Report matched/unmatched/overflow counts; unmatched stay coach-visible
+   via the legacy block only.
 
 ### 8.2.1 Phase A keyword-map results (measured 2026-07-22)
 
@@ -413,7 +419,10 @@ connection-flow phases; it can ship before or after C–D.
 ## 13. Test plan (implementation PRs)
 
 * Migration command: dry-run accuracy on fixtures, idempotency, accent/case
-  folding, no writes to legacy fields.
+  folding, no writes to legacy fields; a profile matching **more than 8**
+  taxonomy entries migrates to exactly 8 (deterministic order-of-appearance
+  cap) and round-trips through the Event Identity form without rejection or
+  silent loss.
 
 * Form: min/max selections, ask-me-about ⊆ interests\_new, autosave contract
   unchanged; retiring a selected interest (`is_active=False`) neither rejects

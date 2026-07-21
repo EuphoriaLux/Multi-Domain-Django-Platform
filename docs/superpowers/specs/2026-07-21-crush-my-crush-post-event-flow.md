@@ -126,8 +126,17 @@ conversion moment that exists, without a paywall screen.
   and not the crusher's identity until the coaches agree the intro is
   happening. Recipient outreach gets its own tracking timestamp so the SLA
   covers both halves. If the recipient has no active coach, the routed coach
-  performs the outreach directly. Test a pair assigned to different coaches
-  (§13).
+  performs the outreach directly. **The task carries its own constrained
+  actions** — without them the flow deadlocks: the §7 consent actions live
+  on the lead review view, which the privacy model forbids the co-coach
+  from opening, so the co-coach would have no auditable way to record the
+  recipient's answer. The co-coach task exposes exactly three writes —
+  *record outreach made*, *record recipient consent*, *record recipient
+  decline* — each an audited narrow write to the lead (actor + timestamp)
+  that never renders the lead itself or the crusher's identity. Recording
+  consent notifies the routed coach, whose `share` action (§7) then
+  completes the introduction. Test the full different-coach path to
+  `shared` (§13).
 
 * **Lead record:** extend `EventConnection` with call-tracking fields
   (`coach_call_scheduled_at`, `coach_call_completed_at`, `call_outcome`) or a
@@ -314,7 +323,16 @@ one flagship event) first.
   same-direction-only check, so reciprocal declarations create the second row
   (the model's `unique_together` already allows it) and no response ever
   discloses a reverse row — with the legacy mutual auto-accept/auto-share
-  branch neutralized for crush rows first (§5).
+  branch neutralized for crush rows first (§5). **The mutual-priority flag
+  must survive a concurrent race:** simultaneous A→B and B→A submissions
+  insert different unique keys, so each transaction can pass its reverse-row
+  check before the other commits — both rows land and neither is flagged.
+  Either serialize on a canonical pair key (lock ordered
+  `(min(user_a,user_b), max(…), event)` before the check) **or** make
+  mutual-priority *derived/reconciled idempotently* after commit (the
+  `annotate_is_mutual` pattern already computes it) so the flag appears
+  regardless of interleaving. Test simultaneous reciprocal declarations
+  (§13).
 
 * **Flow discriminator** — a durable field on `EventConnection` (e.g.
   `flow` = `legacy` | `crush`, or `declared_as_crush` boolean). Without it,
@@ -347,7 +365,10 @@ one flagship event) first.
   `can_share_contacts` invariant (`crush_lu/models/connections.py:212–218`)
   rather than bypassing it. The member-facing consent controls stay disabled
   for crush rows; consent is given verbally to the coach, recorded by the
-  coach. Test that one recorded consent never releases either side's
+  coach. When the coaches differ, the recipient's consent arrives through
+  the co-coach task's constrained actions (§5) — the review-view
+  recipient-consent action covers the same-coach and no-recipient-coach
+  cases. Test that one recorded consent never releases either side's
   contact details (§13).
 
 * **Coach workflow: reciprocal crush leads stay independent.** The existing
@@ -592,7 +613,16 @@ before or after them.
 * **Co-coach work item:** for a pair assigned to different coaches, the
   recipient's coach receives the recipient-scoped task (without
   `requester_note` or premature crusher identity) and the routed coach keeps
-  the lead; recipient-outreach tracking is SLA-visible.
+  the lead; recipient-outreach tracking is SLA-visible. The **full
+  different-coach path completes**: co-coach records outreach + recipient
+  consent via the constrained task actions (never opening the lead), the
+  routed coach records requester consent and shares — the lead reaches
+  `shared` with both writes audited.
+
+* **Reciprocal race:** simultaneous A→B and B→A declarations (concurrent
+  transactions) both commit and end flagged as exactly one mutual-priority
+  pair — via pair-key serialization or idempotent reconciliation, whichever
+  §7 approach is implemented.
 
 * **Coach-side consent:** recording one consent does not release any contact
   details; the share action succeeds only with both consents recorded and is
