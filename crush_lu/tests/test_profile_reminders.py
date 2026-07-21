@@ -82,7 +82,13 @@ class GetUsersNeedingReminderTests(TestCase):
 
         self.assertNotIn(user, get_users_needing_reminder("72h"))
 
-        ProfileReminder.objects.create(user=user, reminder_type="24h")
+        reminder = ProfileReminder.objects.create(user=user, reminder_type="24h")
+        # Backdate the 24h send past the 48h cadence gap so this test exercises
+        # the chain requirement, not the spacing (see
+        # test_recovered_stage_respects_cadence_spacing).
+        ProfileReminder.objects.filter(pk=reminder.pk).update(
+            sent_at=timezone.now() - timedelta(hours=48)
+        )
         self.assertIn(user, get_users_needing_reminder("72h"))
 
     def test_7d_requires_prior_72h_reminder(self):
@@ -90,8 +96,29 @@ class GetUsersNeedingReminderTests(TestCase):
 
         self.assertNotIn(user, get_users_needing_reminder("7d"))
 
-        ProfileReminder.objects.create(user=user, reminder_type="72h")
+        reminder = ProfileReminder.objects.create(user=user, reminder_type="72h")
+        # Backdate the 72h send past the 96h cadence gap (chain, not spacing).
+        ProfileReminder.objects.filter(pk=reminder.pk).update(
+            sent_at=timezone.now() - timedelta(hours=96)
+        )
         self.assertIn(user, get_users_needing_reminder("7d"))
+
+    def test_recovered_stage_respects_cadence_spacing(self):
+        """A backlog-recovered profile that satisfies every later stage's
+        created_at window must still not receive the next reminder until the
+        intended gap has elapsed since the prior send — otherwise 24h/72h/7d
+        collapse onto consecutive daily sweeps (Codex P2)."""
+        user = make_incomplete_user("recovered", created_hours_ago=150)
+
+        # The 24h nudge only just went out (late, due to a backlog).
+        reminder = ProfileReminder.objects.create(user=user, reminder_type="24h")
+        self.assertNotIn(user, get_users_needing_reminder("72h"))
+
+        # Once the 48h 24h->72h gap has elapsed, the 72h stage may select it.
+        ProfileReminder.objects.filter(pk=reminder.pk).update(
+            sent_at=timezone.now() - timedelta(hours=48)
+        )
+        self.assertIn(user, get_users_needing_reminder("72h"))
 
     def test_orders_by_profile_creation_not_account_join_date(self):
         """A lazily-created profile on an old cross-domain account (old
@@ -309,15 +336,23 @@ class SendProfileRemindersCommandTests(TestCase):
         consume every send and starve the newest (24h) stage — those users
         would age out of the funnel entirely, worse than a dropped final 7d
         nudge. Each stage gets a reserved floor (Codex P2)."""
-        # 7d-eligible: profile in the 7d window, already has 24h + 72h rows.
+        # 7d-eligible: profile in the 7d window, has 24h + 72h rows with the
+        # 72h sent far enough back to clear the 96h cadence gap.
         for name in ("seven_a", "seven_b"):
             u = make_incomplete_user(name, created_hours_ago=180)
             ProfileReminder.objects.create(user=u, reminder_type="24h")
-            ProfileReminder.objects.create(user=u, reminder_type="72h")
-        # 72h-eligible: profile in the 72h window, already has a 24h row.
+            r72 = ProfileReminder.objects.create(user=u, reminder_type="72h")
+            ProfileReminder.objects.filter(pk=r72.pk).update(
+                sent_at=timezone.now() - timedelta(hours=100)
+            )
+        # 72h-eligible: profile in the 72h window, has a 24h row sent past the
+        # 48h cadence gap.
         for name in ("three_a", "three_b"):
             u = make_incomplete_user(name, created_hours_ago=80)
-            ProfileReminder.objects.create(user=u, reminder_type="24h")
+            r24 = ProfileReminder.objects.create(user=u, reminder_type="24h")
+            ProfileReminder.objects.filter(pk=r24.pk).update(
+                sent_at=timezone.now() - timedelta(hours=50)
+            )
         # 24h-eligible: fresh signups, no prior rows.
         u24a = make_incomplete_user("one_a", created_hours_ago=30)
         u24b = make_incomplete_user("one_b", created_hours_ago=30)

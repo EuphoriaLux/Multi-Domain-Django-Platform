@@ -1470,13 +1470,23 @@ def get_users_needing_reminder(reminder_type):
         data_consent__crushlu_banned=True,
     )
 
-    # For 72h and 7d, require previous reminder to have been sent
-    if reminder_type == "72h":
-        # Must have received 24h reminder
-        users = users.filter(profile_reminders__reminder_type="24h")
-    elif reminder_type == "7d":
-        # Must have received 72h reminder
-        users = users.filter(profile_reminders__reminder_type="72h")
+    # For 72h and 7d, require the previous reminder to have been sent AND to
+    # have been sent long enough ago to preserve the intended cadence. Checking
+    # only that the prior row exists is not enough: with the widened drain
+    # windows a backlog-recovered profile (e.g. a 6-day-old signup that only
+    # gets its 24h nudge today) already satisfies every later stage's created_at
+    # window, so it would receive 24h, then 72h, then 7d on three consecutive
+    # daily sweeps. Gate the next stage on the prior reminder's sent_at plus the
+    # same spacing an on-time profile sees — the difference of the two stages'
+    # min_hours (24h->72h = 48h, 72h->7d = 96h). (Codex P2)
+    prior_type = {"72h": "24h", "7d": "72h"}.get(reminder_type)
+    if prior_type:
+        min_gap_hours = min_hours - timing[prior_type]["min_hours"]
+        prior_sent_cutoff = now - timezone.timedelta(hours=min_gap_hours)
+        users = users.filter(
+            profile_reminders__reminder_type=prior_type,
+            profile_reminders__sent_at__lte=prior_sent_cutoff,
+        )
 
     # Oldest PROFILES first so that when a run's send limit / time budget can't
     # clear the whole backlog, the users closest to ageing out of max_hours are
