@@ -1214,3 +1214,94 @@ a.metric-card:hover {
         font-size: 28px;
     }
 }
+
+/* ==========================================================================
+   Sidebar tiers (collapsible "More" / "Developer & Analytics" sections)
+   Rendered by templates/admin/nav_sidebar.html. Colors use Django admin theme
+   variables so they track the admin's own light/dark theme; spacing/radius use
+   the crush design tokens above.
+   ========================================================================== */
+#nav-sidebar details.nav-tier {
+    border-top: 1px solid var(--border-color, var(--card-border));
+}
+
+#nav-sidebar .nav-tier-summary {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--body-quiet-color, var(--text-muted));
+    transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+/* Hide the native disclosure triangle; we draw our own chevron. */
+#nav-sidebar .nav-tier-summary::-webkit-details-marker {
+    display: none;
+}
+
+#nav-sidebar .nav-tier-summary::before {
+    content: "\25B8"; /* ▸ */
+    font-size: 0.75em;
+    line-height: 1;
+    transition: transform var(--transition-fast);
+}
+
+#nav-sidebar details.nav-tier[open] > .nav-tier-summary::before {
+    transform: rotate(90deg);
+}
+
+#nav-sidebar .nav-tier-summary:hover {
+    color: var(--body-fg, var(--text-primary));
+    background: var(--darkened-bg, var(--table-header-bg));
+}
+
+#nav-sidebar .nav-tier-label {
+    flex: 1 1 auto;
+}
+
+#nav-sidebar .nav-tier-count {
+    flex: 0 0 auto;
+    min-width: 1.4em;
+    text-align: center;
+    padding: 1px var(--spacing-sm);
+    border-radius: var(--radius-pill);
+    background: var(--darkened-bg, var(--table-header-bg));
+    color: var(--body-quiet-color, var(--text-muted));
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0;
+}
+
+/* ==========================================================================
+   Index "browse in the sidebar" hint (replaces the old full model dump)
+   ========================================================================== */
+.model-browser-hint {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    margin-top: var(--spacing-sm);
+    border: 1px dashed var(--card-border);
+    border-radius: var(--radius-md);
+    background: var(--funnel-bg);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.model-browser-hint-icon {
+    font-size: 1.2rem;
+    line-height: 1.3;
+    flex: 0 0 auto;
+}
+
+.model-browser-hint strong {
+    color: var(--text-primary);
+}

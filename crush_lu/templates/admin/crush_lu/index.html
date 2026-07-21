@@ -94,23 +94,22 @@
         </a>
     </div>
 
+        {% comment %}
+           Curated launchers for the bespoke tools that are NOT reachable from
+           the model sidebar. Plain model changelists (Events, Connections,
+           Polls, …) now live in the tiered sidebar, so they were dropped here
+           to keep this a short, high-signal launcher.
+        {% endcomment %}
         <div class="quick-links-panel">
-        <h3><span>&#x1F680;</span> Quick Links</h3>
+        <h3><span>&#x1F9F0;</span> Tools &amp; Dashboards</h3>
         <div class="quick-links-grid">
             <a href="{% url 'crush_admin_dashboard' %}" class="quick-link">
                 <span class="quick-link-icon">&#x1F4CA;</span>
-                <span class="quick-link-text">Analytics Dashboard</span>
-            </a>
-            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?status__exact=pending" class="quick-link">
-                <span class="quick-link-icon">&#x1F4DD;</span>
-                <span class="quick-link-text">Pending Reviews</span>
-                {% if pending_actions.total_pending > 0 %}
-                <span class="quick-link-badge">{{ pending_actions.total_pending }}</span>
-                {% endif %}
+                <span class="quick-link-text">Analytics</span>
             </a>
             <a href="{% url 'campaign_dashboard' %}" class="quick-link">
                 <span class="quick-link-icon">&#x1F4E2;</span>
-                <span class="quick-link-text">Campaign Dashboard</span>
+                <span class="quick-link-text">Campaigns</span>
             </a>
             <a href="{% url 'user_segments_dashboard' %}" class="quick-link">
                 <span class="quick-link-icon">&#x1F465;</span>
@@ -124,25 +123,20 @@
                 <span class="quick-link-icon">&#x1F4E7;</span>
                 <span class="quick-link-text">Email Templates</span>
             </a>
-            <a href="{% url 'crush_admin:crush_lu_meetupevent_changelist' %}" class="quick-link">
-                <span class="quick-link-icon">&#x1F389;</span>
-                <span class="quick-link-text">Manage Events</span>
-            </a>
-            <a href="{% url 'crush_admin:crush_lu_crushprofile_changelist' %}?is_approved__exact=0" class="quick-link">
-                <span class="quick-link-icon">&#x23F3;</span>
-                <span class="quick-link-text">Unapproved Profiles</span>
-            </a>
-            <a href="{% url 'crush_admin:crush_lu_eventconnection_changelist' %}" class="quick-link">
-                <span class="quick-link-icon">&#x1F495;</span>
-                <span class="quick-link-text">Connections</span>
-            </a>
-            <a href="{% url 'crush_admin:crush_lu_eventpoll_changelist' %}" class="quick-link">
-                <span class="quick-link-icon">&#x1F4CA;</span>
-                <span class="quick-link-text">Event Polls</span>
-            </a>
             <a href="{% url 'poll_analytics_dashboard' %}" class="quick-link">
                 <span class="quick-link-icon">&#x1F5F3;</span>
                 <span class="quick-link-text">Poll Analytics</span>
+            </a>
+            <a href="{% url 'merge_accounts_confirm' %}" class="quick-link">
+                <span class="quick-link-icon">&#x1F500;</span>
+                <span class="quick-link-text">Merge Accounts</span>
+            </a>
+            <a href="{% url 'crush_admin:crush_lu_profilesubmission_changelist' %}?status__exact=pending" class="quick-link">
+                <span class="quick-link-icon">&#x1F4DD;</span>
+                <span class="quick-link-text">Pending Reviews</span>
+                {% if pending_actions.total_pending > 0 %}
+                <span class="quick-link-badge">{{ pending_actions.total_pending }}</span>
+                {% endif %}
             </a>
         </div>
     </div>
@@ -248,49 +242,17 @@
     </div>
 
         <div id="content-main">
+        {% comment %}
+           The full model list now lives in the collapsible left sidebar (with a
+           type-to-filter search), so it is no longer duplicated here — this page
+           is the command center. The hint keeps model browsing discoverable even
+           if the sidebar is toggled shut.
+        {% endcomment %}
         {% if app_list %}
-            {% for app in app_list %}
-            <div class="model-group" x-data="modelGroup" data-group-id="{{ app.app_label }}" data-default-open="true">
-                <div class="model-group-header" @click="toggle">
-                    <span class="model-group-title">
-                        {% if app.app_label == 'crush_lu' %}&#x1F495;{% elif app.app_label == 'auth' %}&#x1F512;{% else %}&#x1F4E6;{% endif %}
-                        {{ app.name }}
-                    </span>
-                    <button class="model-group-toggle" :class="toggleClass" :aria-expanded="ariaExpanded">
-                        &#x25BC;
-                    </button>
-                </div>
-                <div class="model-group-content" :class="contentClass">
-                    <table>
-                        {% for model in app.models %}
-                        <tr class="model-{{ model.object_name|lower }}">
-                            {% if model.admin_url %}
-                            <th scope="row"><a href="{{ model.admin_url }}">{{ model.name }}</a></th>
-                            {% else %}
-                            <th scope="row">{{ model.name }}</th>
-                            {% endif %}
-
-                            {% if model.add_url %}
-                            <td><a href="{{ model.add_url }}" class="addlink">{% trans 'Add' %}</a></td>
-                            {% else %}
-                            <td>&nbsp;</td>
-                            {% endif %}
-
-                            {% if model.admin_url and show_changelinks %}
-                            {% if model.view_only %}
-                            <td><a href="{{ model.admin_url }}" class="viewlink">{% trans 'View' %}</a></td>
-                            {% else %}
-                            <td><a href="{{ model.admin_url }}" class="changelink">{% trans 'Change' %}</a></td>
-                            {% endif %}
-                            {% elif show_changelinks %}
-                            <td>&nbsp;</td>
-                            {% endif %}
-                        </tr>
-                        {% endfor %}
-                    </table>
-                </div>
-            </div>
-            {% endfor %}
+        <div class="model-browser-hint">
+            <span class="model-browser-hint-icon">&#x1F9ED;</span>
+            <span>Browse every model in the <strong>left sidebar</strong> — start typing in its search box to filter across all sections. Rarely-used and developer groups are tucked under <em>More</em> and <em>Developer &amp; Analytics</em>.</span>
+        </div>
         {% else %}
             <p>{% trans 'You don\'t have permission to view or edit anything.' %}</p>
         {% endif %}
