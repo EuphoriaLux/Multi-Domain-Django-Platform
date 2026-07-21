@@ -174,6 +174,17 @@ no long bio needed."*
 * No custom tags. A "Suggest an interest" link sends free text to admins only
   (never displayed) — feeds taxonomy curation.
 
+* **Retired interests must not break saved profiles.** The Connect form's
+  active-only queryset (`forms_crush_connect.py:130–135`) is the pattern to
+  *avoid* copying verbatim: once an interest is retired
+  (`is_active=False`), an active-only field would reject or silently drop a
+  member's existing selection on their next save. The Event Identity form's
+  queryset is **active choices ∪ the member's current selections**, with
+  retired selections rendered as non-addable "legacy" chips (removable, not
+  re-selectable). `ask_me_about` stays valid as long as the item is still in
+  `interests_new`, retired or not. Test retirement → profile edit
+  round-trip (§13).
+
 * The wizard's 5 hardcoded UI-only checkboxes (sports/arts/food/outdoors/
   business) are removed; the taxonomy supersedes them.
 
@@ -225,7 +236,11 @@ what people discover at events."
 1. `bio` and `interests` columns remain on `CrushProfile` (no destructive
    migration).
 2. Both fields are removed from every form, wizard step, autosave endpoint,
-   and API payload.
+   and member/attendee-facing API payload — **except the authenticated
+   data-portability export** (`views_account.export_user_data`,
+   `crush_lu/views_account.py:1268–1269`), which keeps returning the retained
+   columns until the O6 hard delete: while the data exists and coaches can
+   read it, members must be able to download it.
 3. Both fields stop rendering on all member-facing and attendee-facing
    surfaces (§7).
 4. Coach-facing screens keep a collapsed read-only **"Legacy bio (pre-2026
@@ -248,6 +263,7 @@ what people discover at events."
 | `coach_review_profile.html`, `coach_member_overview.html`, `coach_verification_channel.html`, `crush_connect/coach_member_detail.html` | bio/interests display                                           | Event Identity + collapsed legacy bio block                                         |
 | `crush_connect/_drop_card.html` fallback                                                                                               | `target_profile.interests\|split_interests`                     | taxonomy chips from new M2M                                                         |
 | `crush_connect/dev_card_preview.html`                                                                                                  | interests row                                                   | updated                                                                             |
+| Check-in toast (`views_checkin.py` `_get_profile_data` L412–428 → rendered by `alpine-components.js`)                                   | JSON ships `profile.interests` free text to event staff         | taxonomy chip labels (or drop the key) — a **JSON producer** the template grep cannot catch |
 | `partials/edit_profile_form.html` (legacy partial)                                                                                     | bio/interests inputs                                            | removed/retired                                                                     |
 
 > **Connection-flow surfaces** (`request_connection.html`,
@@ -364,7 +380,9 @@ connection-flow phases; it can ship before or after C–D.
   folding, no writes to legacy fields.
 
 * Form: min/max selections, ask-me-about ⊆ interests\_new, autosave contract
-  unchanged.
+  unchanged; retiring a selected interest (`is_active=False`) neither rejects
+  nor silently drops it on the member's next save, and `ask_me_about`
+  entries pointing at a retired-but-still-selected interest stay valid.
 
 * Wizard: step 2 completes without bio/interests; draft\_data round-trip;
   review step renders chips.
@@ -379,7 +397,11 @@ connection-flow phases; it can ship before or after C–D.
   `premium/choose_coach.html`, `onboarding/meet_coach.html`) and
   `membership.interests` (the structured `ConnectInterest` M2M —
   `catalogue_status.html`, `coach_member_detail.html`, `_drop_card.html`) are
-  legitimate surfaces that must keep working.
+  legitimate surfaces that must keep working. The guard is **template-only**
+  — JSON producers need their own coverage: test that
+  `_get_profile_data` (`views_checkin.py:412–428`) no longer returns legacy
+  free-text interests to the check-in toast, and that the data-portability
+  export (§6) still does.
 
 * i18n: every new string translated EN/DE/FR; vibe list renders in all
   locales.

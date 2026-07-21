@@ -145,6 +145,16 @@ conversion moment that exists, without a paywall screen.
   recipient's consent — and §13 tests that the recipient cannot discover the
   row from any existing page.
 
+* **Declines must be invisible to the crusher too.** `connection_detail`
+  authorizes *either* party of a row (`views_connections.py:917–921`) and
+  `my_connections` lists every outgoing connection — so flipping a crush
+  lead to `declined` would reveal the outcome via a bookmarked detail URL or
+  the sent-requests state. For crush rows, every requester-facing surface
+  renders a **neutral state** ("your coach will contact you") regardless of
+  whether the actual status is `pending`, `declined`, or mid-coach-workflow;
+  only a completed introduction (`shared`) is ever distinguishable. Cover
+  both the list and the direct detail endpoint (§13).
+
 * **Reciprocal declarations must work — today they can't.** Both
   `request_connection` guards reject a new request when a row exists in
   *either* direction (`crush_lu/views_connections.py:295–302` and `:488–491`),
@@ -258,6 +268,39 @@ one flagship event) first.
   introduction and the no-chat non-goal (§12). Crush leads expose no message
   creation, polling, or notification in any pre-`shared` status — enforced
   server-side, not merely hidden in the template.
+
+* **Coach workflow: reciprocal crush leads stay independent.** The existing
+  `coach_connection_review` treats a reverse row as part of one legacy
+  connection: it loads it (`views_coach.py:3748–3753`) and `start_review`
+  (`:3773–3778`), `approve` (`:3813–3833`) and `claim` (`:3848–3850`) all
+  overwrite the reverse row's `assigned_coach` and status — approve even
+  copies `coach_notes`/`coach_introduction` onto it. With reciprocal crush
+  leads routed to *different* coaches (§5), the first coach acting would
+  hijack the other coach's lead and promote it to `coach_approved`, opening
+  consent surfaces before that coach's outreach. Every reverse-row coupling
+  in the coach workflow is bypassed for `flow=crush`; mutual pairs are
+  *flagged* to both coaches, never merged. Test independently assigned
+  reciprocal leads (§13).
+
+* **Coach authorization is server-side per lead.** `coach_connections`
+  starts from **every** `EventConnection` (`views_coach.py:3590–3596` — the
+  code even notes "or all for now") and `coach_connection_review` checks
+  ownership only on POST (`:3758–3764`), so today any coach can open any
+  lead and read the supposedly coach-only `requester_note`. For
+  `flow=crush`: the queue queryset is filtered to the routed coach, and
+  object-level authorization applies to **GET and POST** on the review view.
+  A non-routed coach gets no queue row and no detail response (§13).
+
+* **The 24h reminder needs real scheduler wiring, not just a field.**
+  Follow the platform's existing pattern: an Azure Function timer calling a
+  language-neutral admin endpoint (`ADMIN_API_KEY`-authenticated, like the
+  SLA-sweep / KPI timers on `crush-hybrid-maintenance`) that runs a
+  management-command sweep over crush leads with `call by` overdue and no
+  reminder recorded. Requires: the endpoint + command, a feature gate, a
+  `DJANGO_*_URL` env var on the function app (ops note: unset = the timer
+  silently no-ops — a known failure mode of this pattern), and an
+  idempotency record (e.g. `reminder_sent_at`) so repeated timer delivery
+  never double-reminds. Integration-test repeated delivery (§13).
 
 * Migration is additive (nullable call-tracking fields + the discriminator
   with a `legacy` default); no data backfill.
@@ -386,6 +429,23 @@ before or after them.
 * **Redirect fallback:** a pair with lobby-participation rows where one side
   has lost read-time eligibility gets the My Crush flow, not a dead-end
   recap redirect.
+
+* **Requester decline suppression:** after a coach records a decline, the
+  crusher's `my_connections` list and a direct `connection_detail` fetch
+  both render the neutral state — byte-identical to an untouched pending
+  lead.
+
+* **Reciprocal leads stay independent:** with A's and B's leads routed to
+  different coaches, `start_review`/`approve`/`claim` on one lead leaves the
+  other lead's `assigned_coach`, status, and notes untouched.
+
+* **Coach authorization:** a coach who is not the routed coach sees no crush
+  queue row and gets no detail response on GET; the routed coach sees
+  exactly their own leads.
+
+* **Reminder idempotency:** delivering the timer sweep twice for the same
+  overdue lead produces exactly one reminder; a lead with
+  `coach_call_completed_at` set is never swept.
 
 * **Crush limit is gender-independent:** a same-gender declaration counts
   against the per-event limit exactly like a cross-gender one.
