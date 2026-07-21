@@ -19,6 +19,7 @@ Environment Variables Required:
     - DJANGO_HYBRID_SLA_SWEEP_URL: e.g. https://crush.lu/api/admin/hybrid-coach-sla-sweep/
     - DJANGO_WEEKLY_KPIS_URL: e.g. https://crush.lu/api/admin/weekly-kpis/
     - DJANGO_ROTATE_CONNECT_QUESTIONS_URL: e.g. https://crush.lu/api/admin/rotate-connect-questions/
+    - DJANGO_CAMPAIGN_DISPATCH_URL: e.g. https://crush.lu/api/admin/campaigns/dispatch/
     - ADMIN_API_KEY: Bearer token shared with the Django ADMIN_API_KEY setting
     - HYBRID_MAINTENANCE_ENABLED: Should be 'true' in production; anything
       else skips both triggers (safe-default: functions are deployed disabled
@@ -176,3 +177,26 @@ def rotate_connect_questions(timer: func.TimerRequest) -> None:
     _call_admin_endpoint(
         "RotateConnectQuestions", "DJANGO_ROTATE_CONNECT_QUESTIONS_URL"
     )
+
+
+@app.function_name(name="CampaignDispatch")
+@app.timer_trigger(
+    schedule="0 2/5 * * * *",  # Every 5 minutes at :02 (offset from invites at :00/:10)
+    arg_name="timer",
+    run_on_startup=False,
+    use_monitor=True,
+)
+def campaign_dispatch(timer: func.TimerRequest) -> None:
+    """Drive one bounded dispatch tick for multi-channel campaigns.
+
+    The Django endpoint promotes due scheduled campaigns and sends bounded
+    per-channel batches with per-recipient resumability, guarded by a
+    heartbeat claim — so overlapping or retried invocations never
+    double-send. Gated Django-side by CAMPAIGN_DISPATCH_ENABLED (returns
+    200 skipped when off) on top of this app's HYBRID_MAINTENANCE_ENABLED.
+    """
+    ts = datetime.utcnow().isoformat()
+    if timer.past_due:
+        logging.warning("CampaignDispatch: timer past due at %s", ts)
+    logging.info("CampaignDispatch: starting at %s", ts)
+    _call_admin_endpoint("CampaignDispatch", "DJANGO_CAMPAIGN_DISPATCH_URL")

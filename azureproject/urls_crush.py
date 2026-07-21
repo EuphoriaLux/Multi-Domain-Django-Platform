@@ -37,7 +37,7 @@ from crush_lu.admin_views import (
     email_template_load_invitations,
     email_template_load_gifts,
 )
-from crush_lu import api_views, api_push, api_coach_push, api_pwa, api_ios_app, api_android_app, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, api_admin_hybrid, api_admin_metrics, api_admin_changelog, views_crush_spark, views_checkin, api_crush_connect, views_coach, api_quiz, views_quiz, views_notifications
+from crush_lu import api_views, api_push, api_coach_push, api_pwa, api_ios_app, api_android_app, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, api_admin_hybrid, api_admin_metrics, api_admin_campaigns, api_admin_changelog, views_crush_spark, views_checkin, api_crush_connect, views_coach, api_quiz, views_quiz, views_notifications
 from crush_lu.views_campaign_click import campaign_click_redirect
 from crush_lu.wallet import passkit_service, google_callback
 from crush_lu.sitemaps import crush_sitemaps
@@ -302,6 +302,10 @@ urlpatterns = [
     # Changelog ingest (called by the Claude Code changelog routine on PR merge).
     # Language-neutral path; auto-publishes to /changelog/. See docs/changelog-routine.md.
     path('api/admin/changelog/ingest/', api_admin_changelog.ingest_changelog, name='api_admin_changelog_ingest'),
+
+    # Campaign dispatch tick (CampaignDispatch Azure Function timer, every 5 min).
+    # Must stay language-neutral: the Function App uses hardcoded /api/admin/... paths.
+    path('api/admin/campaigns/dispatch/', api_admin_campaigns.dispatch_campaigns_endpoint, name='api_admin_campaign_dispatch'),
 
 
     # Live Quiz API (called from quiz-live.js WebSocket fallback)
