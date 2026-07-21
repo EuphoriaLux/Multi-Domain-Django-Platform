@@ -389,7 +389,7 @@ document.addEventListener("alpine:init", function () {
                 var handler = function (e) {
                     if (typeof e.webkitCompassHeading === "number" && !isNaN(e.webkitCompassHeading)) {
                         updateHeading(e.webkitCompassHeading);
-                    } else if (e.absolute === true && e.alpha !== null && e.alpha !== undefined) {
+                    } else if (!self.hasAbsoluteHeading && e.alpha !== null && e.alpha !== undefined) {
                         updateHeading(360 - e.alpha);
                     }
                 };
@@ -398,6 +398,7 @@ document.addEventListener("alpine:init", function () {
                 try {
                     window.addEventListener("deviceorientationabsolute", function (e) {
                         if (e.alpha !== null && e.alpha !== undefined) {
+                            self.hasAbsoluteHeading = true;
                             updateHeading(360 - e.alpha);
                         }
                     }, true);
