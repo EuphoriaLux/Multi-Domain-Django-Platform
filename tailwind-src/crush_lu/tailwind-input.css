@@ -4941,6 +4941,16 @@ footer hr {
     display: inline-block;
 }
 
+/* The `btn-crush-outline inline-flex items-center gap-*` icon+label idiom
+   appears across templates, but these two button components are UNLAYERED
+   (unlike the @apply-based .btn-crush-primary/.btn-crush-solid), so their
+   display: inline-block beats the layered Tailwind utility. Restore the
+   utility's intent with an equally-unlayered, higher-specificity rule. */
+.btn-crush-secondary.inline-flex,
+.btn-crush-outline.inline-flex {
+    display: inline-flex;
+}
+
 .btn-crush-outline:hover {
     background: var(--gradient-primary);
     color: white;
