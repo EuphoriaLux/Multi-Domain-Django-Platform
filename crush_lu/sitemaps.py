@@ -87,7 +87,7 @@ class CrushEventSitemap(Sitemap):
             is_published=True,
             is_cancelled=False,
             is_private_invitation=False,  # Don't include private events
-            date_time__gte=now - timedelta(hours=24),
+            date_time__gte=MeetupEvent.live_lookback_cutoff(now),
         ).order_by('date_time')
         return [event for event in events if event.end_time >= now]
 

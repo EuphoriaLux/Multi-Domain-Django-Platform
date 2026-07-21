@@ -707,7 +707,7 @@ def coach_profiles(request):
         upcoming_regs = (
             EventRegistration.objects.filter(
                 user_id__in=submission_user_ids,
-                event__date_time__gte=now - timedelta(hours=24),
+                event__date_time__gte=MeetupEvent.live_lookback_cutoff(now),
             )
             .exclude(status="cancelled")
             .select_related("event")
@@ -717,15 +717,29 @@ def coach_profiles(request):
             if reg.event.end_time >= now:
                 upcoming_event_regs.setdefault(reg.user_id, []).append(reg)
 
-        past_regs = (
+        # Events that started before the duration ceiling are certainly over:
+        # count them in the database. Only the bounded boundary window (started
+        # within the ceiling, may or may not have ended) needs Python's precise
+        # end_time check.
+        past_event_counts = {
+            row["user_id"]: row["n"]
+            for row in EventRegistration.objects.filter(
+                user_id__in=submission_user_ids,
+                event__date_time__lt=MeetupEvent.live_lookback_cutoff(now),
+            )
+            .exclude(status="cancelled")
+            .values("user_id")
+            .annotate(n=Count("id"))
+        }
+        for reg in (
             EventRegistration.objects.filter(
                 user_id__in=submission_user_ids,
+                event__date_time__gte=MeetupEvent.live_lookback_cutoff(now),
                 event__date_time__lt=now,
             )
             .exclude(status="cancelled")
             .select_related("event")
-        )
-        for reg in past_regs:
+        ):
             if reg.event.end_time < now:
                 past_event_counts[reg.user_id] = (
                     past_event_counts.get(reg.user_id, 0) + 1
@@ -782,7 +796,7 @@ def coach_profiles(request):
         for reg in (
             EventRegistration.objects.filter(
                 user_id__in=incomplete_user_ids,
-                event__date_time__gte=now - timedelta(hours=24),
+                event__date_time__gte=MeetupEvent.live_lookback_cutoff(now),
             )
             .exclude(status="cancelled")
             .select_related("event")
@@ -791,9 +805,22 @@ def coach_profiles(request):
             if reg.event.end_time >= now:
                 incomplete_upcoming_regs.setdefault(reg.user_id, []).append(reg)
 
+        # Same split as above: DB-count everything older than the ceiling,
+        # Python-check only the bounded boundary window.
+        incomplete_past_counts = {
+            row["user_id"]: row["n"]
+            for row in EventRegistration.objects.filter(
+                user_id__in=incomplete_user_ids,
+                event__date_time__lt=MeetupEvent.live_lookback_cutoff(now),
+            )
+            .exclude(status="cancelled")
+            .values("user_id")
+            .annotate(n=Count("id"))
+        }
         for reg in (
             EventRegistration.objects.filter(
                 user_id__in=incomplete_user_ids,
+                event__date_time__gte=MeetupEvent.live_lookback_cutoff(now),
                 event__date_time__lt=now,
             )
             .exclude(status="cancelled")
@@ -1974,21 +2001,32 @@ def coach_event_list(request):
     """Coach dashboard for managing events and viewing attendees"""
     now = timezone.now()
 
+    lookback = MeetupEvent.live_lookback_cutoff(now)
     upcoming_events = list(
-        MeetupEvent.objects.filter(
-            date_time__gte=now - timedelta(hours=24), is_published=True
-        )
+        MeetupEvent.objects.filter(date_time__gte=lookback, is_published=True)
         .with_registration_counts()
         .order_by("date_time")
     )
     upcoming_events = [event for event in upcoming_events if event.end_time >= now]
 
-    past_events = list(
-        MeetupEvent.objects.filter(date_time__lt=now, is_published=True)
+    # Past = ended. Split so the scan stays bounded: events started within the
+    # duration-ceiling window need the precise end_time check; anything older
+    # is certainly over and can be limited in the database.
+    boundary_past = [
+        event
+        for event in MeetupEvent.objects.filter(
+            date_time__gte=lookback, date_time__lt=now, is_published=True
+        )
         .with_registration_counts()
         .order_by("-date_time")
+        if event.end_time < now
+    ]
+    older_past = list(
+        MeetupEvent.objects.filter(date_time__lt=lookback, is_published=True)
+        .with_registration_counts()
+        .order_by("-date_time")[:10]
     )
-    past_events = [event for event in past_events if event.end_time < now][:10]
+    past_events = (boundary_past + older_past)[:10]
 
     _attach_registration_stats(upcoming_events)
     _attach_registration_stats(past_events)

@@ -64,7 +64,7 @@ def _get_event_choices():
     events = MeetupEvent.objects.filter(
         is_published=True,
         is_cancelled=False,
-        date_time__gte=now - timedelta(hours=24),
+        date_time__gte=MeetupEvent.live_lookback_cutoff(now),
     ).order_by('date_time')
     for event in events:
         # Keep a live event selectable for same-night newsletter blasts.

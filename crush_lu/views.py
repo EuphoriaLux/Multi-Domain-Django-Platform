@@ -317,7 +317,7 @@ def _verification_path_context(profile, user):
             user=user,
             status__in=("confirmed", "waitlist"),
             event__is_cancelled=False,
-            event__date_time__gte=now - timedelta(hours=24),
+            event__date_time__gte=MeetupEvent.live_lookback_cutoff(now),
         ).select_related("event")
         chosen_path = (
             "event"
@@ -457,7 +457,7 @@ def dashboard(request):
         next_event_candidates = MeetupEvent.objects.filter(
             is_published=True,
             is_cancelled=False,
-            date_time__gte=_now - timedelta(hours=24),
+            date_time__gte=MeetupEvent.live_lookback_cutoff(_now),
         ).order_by("date_time")
         next_event = next(
             (event for event in next_event_candidates if event.end_time >= _now),
@@ -2149,7 +2149,7 @@ def profile_submitted(request):
     next_event_candidates = MeetupEvent.objects.filter(
         is_published=True,
         is_cancelled=False,
-        date_time__gte=now - timedelta(hours=24),
+        date_time__gte=MeetupEvent.live_lookback_cutoff(now),
     ).order_by("date_time")
     next_event = next(
         (event for event in next_event_candidates if event.end_time >= now),

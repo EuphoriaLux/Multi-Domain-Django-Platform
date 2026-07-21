@@ -99,7 +99,7 @@ class CrushLuAdminSite(admin.AdminSite):
         current_events = [
             event
             for event in MeetupEvent.objects.filter(
-                date_time__gte=now - timedelta(hours=24),
+                date_time__gte=MeetupEvent.live_lookback_cutoff(now),
                 is_published=True,
                 is_cancelled=False,
             ).annotate(

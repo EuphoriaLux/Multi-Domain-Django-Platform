@@ -340,7 +340,7 @@ def get_segment_definitions():
     event_upcoming_registrants = approved.filter(
         user__eventregistration__status__in=["confirmed", "waitlist"],
         # Generous cutoff keeps live-event registrants in this reusable segment.
-        user__eventregistration__event__date_time__gt=now - timedelta(hours=24),
+        user__eventregistration__event__date_time__gt=MeetupEvent.live_lookback_cutoff(now),
         user__eventregistration__event__is_cancelled=False,
     ).distinct()
 
