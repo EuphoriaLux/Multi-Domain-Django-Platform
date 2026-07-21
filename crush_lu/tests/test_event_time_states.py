@@ -227,7 +227,9 @@ class LiveEventDiscoveryTests(TestCase):
         )
         _grant_crush_access(self.user)
         self.live_event = _make_event(
-            "Live Discovery Event", timezone.now() - timedelta(hours=1)
+            "Long Live Discovery Event",
+            timezone.now() - timedelta(hours=25),
+            duration_minutes=26 * 60,
         )
         EventRegistration.objects.create(
             event=self.live_event, user=self.user, status="confirmed"
@@ -251,6 +253,31 @@ class LiveEventDiscoveryTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(self.live_event, response.context["upcoming_events"])
         self.assertNotIn(self.live_event, response.context["past_events"])
+
+    @patch("crush_lu.views_coach._attach_registration_stats")
+    def test_coach_event_list_limits_stats_to_ten_past_events(self, attach_stats):
+        coach_user = User.objects.create_user(
+            username="bounded-coach@example.com",
+            email="bounded-coach@example.com",
+            password="testpass123",
+        )
+        CrushCoach.objects.create(user=coach_user, is_active=True)
+        _grant_crush_access(coach_user)
+        for index in range(12):
+            _make_event(
+                f"Historical event {index}",
+                timezone.now() - timedelta(days=8 + index),
+            )
+        client = Client()
+        client.force_login(coach_user)
+
+        response = client.get(
+            reverse("crush_lu:coach_event_list"), HTTP_HOST="crush.lu"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["past_events"]), 10)
+        self.assertEqual(len(attach_stats.call_args_list[1].args[0]), 10)
 
     def test_wallet_pass_returns_live_event(self):
         from crush_lu.wallet_pass import get_next_event_for_pass

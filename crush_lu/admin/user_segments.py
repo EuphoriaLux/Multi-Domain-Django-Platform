@@ -26,6 +26,7 @@ import csv
 
 from crush_lu.models import (
     CrushProfile,
+    MeetupEvent,
     ProfileSubmission,
     UserActivity,
     EmailPreference,
