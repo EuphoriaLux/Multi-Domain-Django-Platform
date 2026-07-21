@@ -394,7 +394,6 @@ document.addEventListener("alpine:init", function () {
                     }
                 };
 
-                try { window.addEventListener("deviceorientationabsolute", handler, true); } catch (err) {}
                 try { window.addEventListener("deviceorientation", handler, true); } catch (err) {}
             },
 
