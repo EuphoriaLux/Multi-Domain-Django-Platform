@@ -56,6 +56,7 @@ document.addEventListener("alpine:init", function () {
                     tileLabel: root.dataset.msgTileLabel || "Select participant photo",
                     sentBadge: root.dataset.msgSentBadge || "Signal sent",
                     metBadge: root.dataset.msgMetBadge || "You've already met",
+                    signalsRemaining: root.dataset.msgSignalsRemaining || "Signals remaining",
                 };
 
                 if (this.phase === "live") {
@@ -91,6 +92,13 @@ document.addEventListener("alpine:init", function () {
 
             get signalsDisplay() {
                 return this.signalsRemaining + " / " + this.signalsTotal;
+            },
+
+            // Accessible name for the spark ledger — bound with
+            // x-bind:aria-label so screen readers hear the live count
+            // after signals are spent, not the server-rendered one.
+            get signalsLabel() {
+                return this.msgs.signalsRemaining + ": " + this.signalsDisplay;
             },
 
             // Named getters keep the three static signal indicators compatible
@@ -274,42 +282,57 @@ document.addEventListener("alpine:init", function () {
             },
 
             buildTile: function (entry) {
+                // Class names live in tailwind-input.css (.lobby-tile*) and are
+                // shared with the server-rendered tiles in lobby.html — keep
+                // the two in sync when restyling.
                 var tile = document.createElement("button");
                 tile.type = "button";
                 tile.dataset.handle = entry.handle;
                 tile.dataset.photoUrl = entry.photo_url;
-                tile.className =
-                    "lobby-tile relative aspect-square overflow-hidden rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 shadow-crush-sm focus:outline-none focus:ring-2 focus:ring-crush-purple transition-transform active:scale-[0.97]";
+                tile.className = "lobby-tile";
                 // §14: generic accessible name pre-reveal — never the first name.
                 tile.setAttribute("aria-label", this.msgs.tileLabel);
                 var img = document.createElement("img");
                 img.src = entry.photo_url;
                 img.alt = "";
                 img.loading = "lazy";
-                img.className = "w-full h-full object-cover";
                 tile.appendChild(img);
                 if (entry.already_met) {
                     tile.disabled = true;
-                    tile.appendChild(this.buildTileBadge(this.msgs.metBadge, false));
+                    tile.classList.add("lobby-tile--met");
+                    tile.appendChild(this.buildTileLabel(this.msgs.metBadge, false));
                     tile.setAttribute("aria-label", entry.first_name || this.msgs.tileLabel);
                 } else if (entry.is_mutual) {
                     tile.disabled = true;
-                    tile.appendChild(this.buildTileBadge(entry.first_name || "", true));
+                    tile.classList.add("lobby-tile--mutual");
+                    tile.appendChild(this.buildTileLabel(entry.first_name || "", true));
                     tile.setAttribute("aria-label", entry.first_name || this.msgs.tileLabel);
                 } else if (entry.signalled) {
                     tile.disabled = true;
-                    tile.appendChild(this.buildTileBadge(this.msgs.sentBadge, false));
+                    tile.classList.add("lobby-tile--signalled");
+                    tile.appendChild(this.buildSparkMark());
+                    tile.setAttribute("aria-label", this.msgs.sentBadge);
                 }
                 return tile;
             },
 
-            buildTileBadge: function (text, isMutual) {
-                var badge = document.createElement("span");
-                badge.className = isMutual
-                    ? "absolute inset-x-0 bottom-0 bg-gradient-to-t from-crush-purple/90 to-transparent px-2 pb-1.5 pt-6 text-left text-xs font-semibold text-white"
-                    : "absolute inset-x-0 bottom-0 bg-black/50 px-2 py-1 text-left text-xs font-medium text-white";
-                badge.textContent = text;
-                return badge;
+            buildTileLabel: function (text, isMutual) {
+                var label = document.createElement("span");
+                label.className = isMutual
+                    ? "lobby-tile-label lobby-tile-label--mutual"
+                    : "lobby-tile-label";
+                label.textContent = text;
+                return label;
+            },
+
+            buildSparkMark: function () {
+                var mark = document.createElement("span");
+                mark.className = "lobby-tile-mark";
+                var template = document.getElementById("lobby-spark-template");
+                if (template && template.content) {
+                    mark.appendChild(template.content.cloneNode(true));
+                }
+                return mark;
             },
 
             renderMutuals: function (mutuals) {
@@ -320,15 +343,14 @@ document.addEventListener("alpine:init", function () {
                 list.textContent = "";
                 for (var i = 0; i < mutuals.length; i++) {
                     var m = mutuals[i];
+                    // .lobby-mutual-item styles its img/p children — keep in
+                    // sync with the server-rendered rows in lobby.html.
                     var item = document.createElement("div");
-                    item.className =
-                        "flex items-center gap-3 rounded-2xl ring-1 ring-crush-purple/30 bg-white dark:bg-slate-800 p-3 shadow-crush-sm";
+                    item.className = "lobby-mutual-item";
                     var img = document.createElement("img");
                     img.src = m.photo_url;
                     img.alt = "";
-                    img.className = "w-12 h-12 rounded-xl object-cover";
                     var name = document.createElement("p");
-                    name.className = "font-semibold text-gray-900 dark:text-white mb-0";
                     name.textContent = m.first_name;
                     item.appendChild(img);
                     item.appendChild(name);

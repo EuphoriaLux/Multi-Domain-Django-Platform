@@ -5,7 +5,14 @@
 {% block mobile_page_title %}{% trans "Event Lobby" %}{% endblock %}
 
 {% block content %}
-<div class="min-h-screen pt-4 pb-24 lg:pb-16">
+{% comment %}
+    "Lights down" surface: the live lobby happens at night, in a room, so it
+    commits to the dark ground in both site themes (tokens: --color-lobby-* in
+    tailwind-input.css @theme). crush-pink is reserved for the signal system;
+    the golden lobby-glow appears only at the mutual reveal. Ids, data-*
+    attributes, and .lobby-* class names are load-bearing for event-lobby.js.
+{% endcomment %}
+<div class="min-h-screen bg-lobby-night text-lobby-ink pt-5 pb-24 lg:pb-16">
     <div class="mx-auto max-w-lg px-4"
          id="event-lobby-root"
          x-data="eventLobby"
@@ -27,271 +34,244 @@
          data-msg-ended="{% trans 'The live lobby has ended.' %}"
          data-msg-tile-label="{% trans 'Select participant photo' %}"
          data-msg-sent-badge="{% trans 'Signal sent' %}"
-         data-msg-met-badge="{% trans 'You have already met' %}">
+         data-msg-met-badge="{% trans 'You have already met' %}"
+         data-msg-signals-remaining="{% trans 'Signals remaining' %}">
 
-        {% comment %}═══════════════════════════════════════════════════════════════
-           ENHANCED HEADER — Gemini-inspired glassmorphism design
-           with animated background swirls + Claude's data structure
+        {# Spark mark cloned by event-lobby.js when it re-renders tiles. #}
+        <template id="lobby-spark-template">{% include "shared/icons/spark.html" with class="w-3 h-3" %}</template>
+
+        {% comment %}═══════════════════════════════════════════════════════════
+           MASTHEAD — one eyebrow line, the event title, the promise. The
+           people grid is the hero of this page; the header stays slim so the
+           roster sits inside the first phone viewport.
            ═══════════════════════════════════════════════════════════════{% endcomment %}
-        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-600 via-crush-purple to-fuchsia-600 dark:from-violet-950/60 dark:via-crush-purple/40 dark:to-fuchsia-950/60 p-5 sm:p-6 mb-4 shadow-lg shadow-crush-purple/20">
-            {# Animated background swirls (Gemini design element) #}
-            <div class="absolute -right-16 -top-16 w-48 h-48 bg-white/10 rounded-full blur-2xl animate-pulse"></div>
-            <div class="absolute -left-16 -bottom-16 w-48 h-48 bg-fuchsia-300/20 rounded-full blur-2xl animate-pulse" style="animation-delay: 1s;"></div>
-            <div class="absolute right-1/4 top-1/3 w-24 h-24 bg-white/5 rounded-full blur-xl"></div>
+        <header class="mb-4">
+            <p class="flex items-baseline gap-2.5 text-[11px] font-bold uppercase tracking-[0.14em] mb-0">
+                <span class="inline-flex items-center gap-1.5 text-crush-pink">
+                    <span class="w-1.5 h-1.5 rounded-full bg-crush-pink motion-safe:animate-pulse"></span>
+                    {% trans "Live" %}
+                </span>
+                <span class="text-lobby-dim font-semibold tracking-[0.1em]" x-show="notEnded">
+                    {% trans "Ends in" %}
+                    <span class="text-lobby-ink font-bold tabular-nums" x-text="countdownDisplay">--:--</span>
+                </span>
+            </p>
+            <h1 class="font-display text-[1.9rem] leading-[1.15] font-semibold tracking-[-0.01em] text-lobby-ink mt-2 mb-1.5 text-balance">{{ event.title }}</h1>
+            <p class="text-sm text-lobby-dim mb-0">
+                {% trans "Express interest in the room — quietly." %}
+            </p>
+        </header>
 
-            <div class="relative z-10">
-                <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                    <div class="flex-1">
-                        <p class="text-xs font-bold uppercase tracking-[0.14em] text-white/80 mb-1">
-                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/15 rounded-full backdrop-blur-sm">
-                                <span class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
-                                {% trans "Live Event Lobby" %}
-                            </span>
-                        </p>
-                        <h1 class="font-display text-2xl sm:text-3xl font-bold tracking-tight text-white mb-2 mt-2">{{ event.title }}</h1>
-                        <p class="text-sm text-white/80">
-                            {% trans "Express interest in the room before the event ends." %}
-                        </p>
-                    </div>
-
-                    {# Countdown timer — Gemini's fancy monospace design #}
-                    <div class="bg-white/15 backdrop-blur-md rounded-xl p-3 text-center min-w-[120px] border border-white/10 shadow-inner"
-                         x-show="notEnded">
-                        <span class="text-[10px] uppercase font-bold text-white/70 block mb-1">{% trans "Time Remaining" %}</span>
-                        <span class="text-xl font-mono font-bold tracking-wider text-white" x-text="countdownDisplay">--:--</span>
-                    </div>
-                </div>
-
-                {# Stats row — Gemini-inspired color-coded cards #}
-                <div class="grid grid-cols-2 gap-3 mt-4">
-                    {# Signals remaining — fuchsia/violet theme #}
-                    <div class="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/10">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-2xl font-black text-white mb-0">
-                                    <span x-text="signalsDisplay">{{ state.signals_remaining }}</span>
-                                </p>
-                                <p class="text-xs text-white/70 mb-0">{% trans "signals left" %}</p>
-                            </div>
-                            {# Signal indicator dots (Gemini design) #}
-                            <div class="flex space-x-1.5">
-                                <span class="relative block w-3 h-3 rounded-full bg-white/20">
-                                    <span class="absolute inset-0 rounded-full bg-fuchsia-400 shadow-sm shadow-fuchsia-400/50 transition-all duration-300"
-                                          x-show="firstSignalUsed" x-cloak></span>
-                                </span>
-                                <span class="relative block w-3 h-3 rounded-full bg-white/20">
-                                    <span class="absolute inset-0 rounded-full bg-fuchsia-400 shadow-sm shadow-fuchsia-400/50 transition-all duration-300"
-                                          x-show="secondSignalUsed" x-cloak></span>
-                                </span>
-                                <span class="relative block w-3 h-3 rounded-full bg-white/20">
-                                    <span class="absolute inset-0 rounded-full bg-fuchsia-400 shadow-sm shadow-fuchsia-400/50 transition-all duration-300"
-                                          x-show="thirdSignalUsed" x-cloak></span>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {# Incoming signals — emerald theme (Gemini design) #}
-                    <div class="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/10"
-                         x-show="hasIncoming" x-cloak>
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-2xl font-black text-emerald-300 mb-0">
-                                    <span x-text="incomingCount">{{ state.incoming_count }}</span>
-                                </p>
-                                <p class="text-xs text-white/70 mb-0">{% trans "want to meet you" %}</p>
-                            </div>
-                            <div class="bg-emerald-400/20 text-emerald-300 font-extrabold text-2xl px-3 py-1 rounded-lg border border-emerald-400/30">
-                                💌
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {# Privacy notice #}
-                <p class="text-xs leading-relaxed text-white/70 mt-4 mb-0">
-                    {% trans "Only checked-in Crush Connect members see this grid. Signals are anonymous and cannot be undone — names are revealed only when you both choose each other." %}
-                </p>
+        {% comment %}═══════════════════════════════════════════════════════════
+           SIGNAL LEDGER — the three signals as spark tokens; spent ones stay
+           as burnt-out stubs. Lit overlays bind the *Available getters
+           (Alpine CSP build: property paths only).
+           ═══════════════════════════════════════════════════════════════{% endcomment %}
+        <div class="flex items-center justify-between gap-4 rounded-2xl border border-lobby-edge bg-lobby-room px-4 py-3 mb-3"
+             x-show="notEnded">
+            <p class="text-xs text-lobby-dim mb-0">
+                <span class="block text-[13px] font-semibold text-lobby-ink">{% trans "Your signals for tonight" %}</span>
+                {% trans "Spent ones don't come back." %}
+            </p>
+            {% comment %}
+                Lit overlays are server-rendered only for signals actually
+                available, so the pre-Alpine and no-JS views state the true
+                quota; after init x-show keeps them live (the quota only ever
+                decreases, so a server-omitted overlay never needs to appear).
+                The aria-label binds signalsLabel so screen readers hear the
+                live count, not the render-time one.
+            {% endcomment %}
+            <div class="flex gap-2.5" role="img" x-bind:aria-label="signalsLabel"
+                 aria-label="{% trans 'Signals remaining' %}: {{ state.signals_remaining }} / {{ state.signals_total }}">
+                <span class="relative lobby-spark lobby-spark--spent">
+                    {% include "shared/icons/spark.html" with class="w-3.5 h-3.5" %}
+                    {% if state.signals_remaining >= 1 %}<span class="absolute -inset-px lobby-spark" x-show="firstSignalAvailable">{% include "shared/icons/spark.html" with class="w-3.5 h-3.5" %}</span>{% endif %}
+                </span>
+                <span class="relative lobby-spark lobby-spark--spent">
+                    {% include "shared/icons/spark.html" with class="w-3.5 h-3.5" %}
+                    {% if state.signals_remaining >= 2 %}<span class="absolute -inset-px lobby-spark" x-show="secondSignalAvailable">{% include "shared/icons/spark.html" with class="w-3.5 h-3.5" %}</span>{% endif %}
+                </span>
+                <span class="relative lobby-spark lobby-spark--spent">
+                    {% include "shared/icons/spark.html" with class="w-3.5 h-3.5" %}
+                    {% if state.signals_remaining >= 3 %}<span class="absolute -inset-px lobby-spark" x-show="thirdSignalAvailable">{% include "shared/icons/spark.html" with class="w-3.5 h-3.5" %}</span>{% endif %}
+                </span>
             </div>
         </div>
 
-        {% comment %}═══════════════════════════════════════════════════════════════
-           EPHEMERAL BANNER — Polite notifications
+        {# Incoming interest — ember pill, no identity. #}
+        <p class="inline-flex items-center gap-2 rounded-full border border-crush-pink/30 bg-crush-pink/10 px-3.5 py-1.5 text-[13px] font-semibold text-crush-pink mb-4"
+           x-show="hasIncoming" x-cloak>
+            {% include "shared/icons/spark.html" with class="w-3 h-3" %}
+            <span x-text="incomingCount">{{ state.incoming_count }}</span>
+            {% trans "want to meet you" %}
+        </p>
+
+        {% comment %}═══════════════════════════════════════════════════════════
+           EPHEMERAL BANNER — quiet, room-toned notifications.
            ═══════════════════════════════════════════════════════════════{% endcomment %}
         <div aria-live="polite">
-            <p class="rounded-xl bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 dark:from-violet-500/20 dark:to-fuchsia-500/20 text-violet-700 dark:text-violet-300 text-sm font-medium px-4 py-2.5 mb-3 border border-violet-200/50 dark:border-violet-700/50"
+            <p class="rounded-xl border border-lobby-edge bg-lobby-room text-lobby-ink text-sm font-medium px-4 py-2.5 mb-3"
                x-show="hasBanner" x-cloak x-text="banner"></p>
         </div>
 
-        {% comment %}═══════════════════════════════════════════════════════════════
-           MUTUAL REVEAL — Assertive announcement with gradient border
+        {% comment %}═══════════════════════════════════════════════════════════
+           MUTUAL REVEAL — the one warm-glow moment on the page.
            ═══════════════════════════════════════════════════════════════{% endcomment %}
         <div aria-live="assertive">
-            <div class="rounded-2xl p-0.5 bg-gradient-to-r from-violet-500 via-crush-purple to-fuchsia-500 mb-3 shadow-lg shadow-fuchsia-500/25"
+            <div class="flex items-start gap-3 rounded-2xl border border-lobby-glow/40 bg-gradient-to-br from-lobby-glow/15 to-crush-pink/10 p-4 mb-3"
                  x-show="hasReveal" x-cloak>
-                <div class="flex items-start gap-3 rounded-[14px] bg-white dark:bg-slate-800 p-4">
-                    <span class="text-2xl animate-bounce" aria-hidden="true">🎉</span>
-                    <p class="flex-1 font-semibold text-gray-900 dark:text-white mb-0" x-text="reveal"></p>
-                    <button type="button" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-                            x-on:click="dismissReveal" aria-label="{% trans 'Dismiss' %}">
-                        {% include "shared/icons/x-mark.html" with class="w-5 h-5" %}
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        {% comment %}═══════════════════════════════════════════════════════════════
-           "SAY HELLO NOW" SECTION — Gemini's gradient banner design
-           ═══════════════════════════════════════════════════════════════{% endcomment %}
-        <div id="lobby-mutuals" class="{% if not mutuals %}hidden{% endif %} mb-4">
-            <div class="rounded-2xl bg-gradient-to-r from-violet-50 to-fuchsia-50 dark:from-violet-950/30 dark:to-fuchsia-950/30 p-4 border border-violet-200/50 dark:border-violet-800/50 shadow-inner">
-                <h2 class="font-display text-lg font-semibold text-violet-900 dark:text-violet-300 mb-3 flex items-center gap-2">
-                    <span class="text-xl">💬</span>
-                    {% trans "Say Hello Now!" %}
-                </h2>
-                <div id="lobby-mutuals-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {% for mutual in mutuals %}
-                    <div class="flex items-center gap-3 rounded-xl bg-white dark:bg-slate-800 p-3 shadow-sm border border-violet-100 dark:border-violet-900/30 hover:shadow-md transition-shadow">
-                        <img src="{{ mutual.photo_url }}" alt="" class="w-14 h-14 rounded-xl object-cover ring-2 ring-violet-200 dark:ring-violet-800">
-                        <div class="flex-1">
-                            <p class="font-semibold text-gray-900 dark:text-white mb-0">{{ mutual.first_name }}</p>
-                            <p class="text-xs text-violet-600 dark:text-violet-400 font-medium">{% trans "Ready to say hello" %}</p>
-                        </div>
-                        <span class="text-2xl">👋</span>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-
-        {% comment %}═══════════════════════════════════════════════════════════════
-           LIVE PHOTO GRID — Enhanced with Gemini's visual polish
-           ═══════════════════════════════════════════════════════════════{% endcomment %}
-        <div x-show="notEnded">
-            <h2 class="font-display text-lg font-semibold text-gray-900 dark:text-white mb-3">
-                {% trans "People here now" %}
-            </h2>
-            <div id="lobby-grid" role="list" class="grid grid-cols-3 gap-3">
-                {% for entry in roster %}
-                <button type="button"
-                        data-handle="{{ entry.handle }}"
-                        data-photo-url="{{ entry.photo_url }}"
-                        {% if entry.is_mutual or entry.signalled or entry.already_met %}disabled{% endif %}
-                        aria-label="{% if entry.is_mutual or entry.already_met %}{{ entry.first_name }}{% else %}{% trans 'Select participant photo' %}{% endif %}"
-                        class="lobby-tile group relative aspect-square overflow-hidden rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 shadow-crush-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all duration-200 hover:shadow-lg hover:shadow-violet-500/20 hover:scale-[1.02] active:scale-[0.98] {% if entry.is_mutual %}ring-2 ring-fuchsia-400 shadow-fuchsia-500/25{% endif %}">
-                    <img src="{{ entry.photo_url }}" alt="" loading="lazy" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">
-
-                    {# Overlay gradient #}
-                    <div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
-
-                    {% if entry.already_met %}
-                    <span class="absolute inset-x-0 bottom-0 bg-black/70 backdrop-blur-sm px-2 py-1.5 text-left text-xs font-medium text-white">
-                        {% trans "You've already met" %}
-                    </span>
-                    {% elif entry.is_mutual %}
-                    <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-fuchsia-600/90 to-transparent px-2 pb-2 pt-8 text-left">
-                        <span class="block text-xs font-bold text-white">{{ entry.first_name }}</span>
-                        <span class="block text-[10px] text-fuchsia-200">{% trans "Say hello now" %}</span>
-                    </span>
-                    {% elif entry.signalled %}
-                    <span class="absolute inset-x-0 bottom-0 bg-black/60 backdrop-blur-sm px-2 py-1.5 text-left text-xs font-medium text-white">
-                        {% trans "Signal sent" %}
-                    </span>
-                    {% else %}
-                    {# Hover indicator for available tiles #}
-                    <span class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        <span class="bg-white/90 dark:bg-slate-800/90 text-violet-600 dark:text-violet-400 text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
-                            {% trans "I'd like to meet" %}
-                        </span>
-                    </span>
-                    {% endif %}
+                <p class="flex-1 font-display text-lg leading-snug font-semibold text-lobby-ink mb-0" x-text="reveal"></p>
+                <button type="button" class="text-lobby-dim hover:text-lobby-ink transition-colors"
+                        x-on:click="dismissReveal" aria-label="{% trans 'Dismiss' %}">
+                    {% include "shared/icons/x-mark.html" with class="w-5 h-5" %}
                 </button>
-                {% empty %}
-                <div class="col-span-3 text-center py-12">
-                    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-violet-100 to-fuchsia-100 dark:from-violet-900/30 dark:to-fuchsia-900/30 flex items-center justify-center">
-                        <span class="text-2xl">✨</span>
-                    </div>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">
-                        {% trans "You're the first one here — new arrivals appear automatically." %}
-                    </p>
+            </div>
+        </div>
+
+        {% comment %}═══════════════════════════════════════════════════════════
+           MUTUALS — revealed names, ready to approach.
+           ═══════════════════════════════════════════════════════════════{% endcomment %}
+        <div id="lobby-mutuals" class="{% if not mutuals %}hidden{% endif %} mb-5">
+            <h2 class="text-xs font-bold uppercase tracking-[0.12em] text-lobby-glow mb-2">
+                {% trans "Go say hello" %}
+            </h2>
+            <div id="lobby-mutuals-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {% for mutual in mutuals %}
+                <div class="lobby-mutual-item">
+                    <img src="{{ mutual.photo_url }}" alt="">
+                    <p>{{ mutual.first_name }}</p>
                 </div>
                 {% endfor %}
             </div>
         </div>
 
-        {% comment %}═══════════════════════════════════════════════════════════════
-           ENDED STATE — Elegant transition to recap
+        {% comment %}═══════════════════════════════════════════════════════════
+           LIVE GRID — the faces are the brightest objects on the page.
+           Tile state classes (.lobby-tile--*) mirror event-lobby.js buildTile.
            ═══════════════════════════════════════════════════════════════{% endcomment %}
-        <div class="rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 ring-1 ring-gray-200 dark:ring-slate-700 shadow-crush-sm p-8 text-center"
-             x-show="ended" x-cloak>
-            <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-violet-100 to-fuchsia-100 dark:from-violet-900/30 dark:to-fuchsia-900/30 flex items-center justify-center">
-                <span class="text-4xl" aria-hidden="true">🌙</span>
+        <div x-show="notEnded">
+            <h2 class="text-xs font-bold uppercase tracking-[0.12em] text-lobby-dim mb-2.5">
+                {% trans "People here now" %}
+            </h2>
+            <div id="lobby-grid" role="list" class="grid grid-cols-3 gap-2.5">
+                {% for entry in roster %}
+                {% if entry.already_met %}
+                <button type="button" disabled
+                        data-handle="{{ entry.handle }}" data-photo-url="{{ entry.photo_url }}"
+                        aria-label="{{ entry.first_name }}"
+                        class="lobby-tile lobby-tile--met">
+                    <img src="{{ entry.photo_url }}" alt="" loading="lazy">
+                    <span class="lobby-tile-label">{% trans "You've already met" %}</span>
+                </button>
+                {% elif entry.is_mutual %}
+                <button type="button" disabled
+                        data-handle="{{ entry.handle }}" data-photo-url="{{ entry.photo_url }}"
+                        aria-label="{{ entry.first_name }}"
+                        class="lobby-tile lobby-tile--mutual">
+                    <img src="{{ entry.photo_url }}" alt="" loading="lazy">
+                    <span class="lobby-tile-label lobby-tile-label--mutual">{{ entry.first_name }}</span>
+                </button>
+                {% elif entry.signalled %}
+                <button type="button" disabled
+                        data-handle="{{ entry.handle }}" data-photo-url="{{ entry.photo_url }}"
+                        aria-label="{% trans 'Signal sent' %}"
+                        class="lobby-tile lobby-tile--signalled">
+                    <img src="{{ entry.photo_url }}" alt="" loading="lazy">
+                    <span class="lobby-tile-mark">{% include "shared/icons/spark.html" with class="w-3 h-3" %}</span>
+                </button>
+                {% else %}
+                <button type="button"
+                        data-handle="{{ entry.handle }}" data-photo-url="{{ entry.photo_url }}"
+                        aria-label="{% trans 'Select participant photo' %}"
+                        class="lobby-tile group">
+                    <img src="{{ entry.photo_url }}" alt="" loading="lazy">
+                    <span class="absolute inset-0 flex items-end p-2 bg-gradient-to-t from-lobby-night/85 via-transparent to-transparent opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity duration-150">
+                        <span class="text-xs font-semibold text-lobby-ink">{% trans "I'd like to meet" %}</span>
+                    </span>
+                </button>
+                {% endif %}
+                {% empty %}
+                <div class="col-span-3 text-center py-14">
+                    <span class="lobby-spark mx-auto mb-4">{% include "shared/icons/spark.html" with class="w-3.5 h-3.5" %}</span>
+                    <p class="text-sm text-lobby-dim mb-0">
+                        {% trans "You're the first one here — new arrivals appear automatically." %}
+                    </p>
+                </div>
+                {% endfor %}
             </div>
-            <p class="font-display text-xl font-semibold text-gray-900 dark:text-white mb-2">{% trans "The live lobby has ended." %}</p>
-            <p class="text-sm text-gray-600 dark:text-gray-300 mb-6 max-w-sm mx-auto">
+
+            {# Privacy contract — one quiet footnote under the room. #}
+            <p class="text-xs leading-relaxed text-lobby-dim mt-5 mb-0">
+                {% trans "Only checked-in Crush Connect members see this grid. Signals are anonymous and cannot be undone — names are revealed only when you both choose each other." %}
+            </p>
+        </div>
+
+        {% comment %}═══════════════════════════════════════════════════════════
+           ENDED STATE — the lights come up; hand over to the recap.
+           ═══════════════════════════════════════════════════════════════{% endcomment %}
+        <div class="rounded-2xl border border-lobby-edge bg-lobby-room p-8 text-center"
+             x-show="ended" x-cloak>
+            <span class="lobby-spark lobby-spark--spent mx-auto mb-4" aria-hidden="true">{% include "shared/icons/spark.html" with class="w-3.5 h-3.5" %}</span>
+            <p class="font-display text-xl font-semibold text-lobby-ink mb-2">{% trans "The live lobby has ended." %}</p>
+            <p class="text-sm text-lobby-dim mb-6 max-w-sm mx-auto">
                 {% trans "Who did you meet? You have 48 hours to confirm." %}
             </p>
-            <a href="{% url 'crush_lu:event_lobby' event.id %}" class="inline-flex items-center gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-semibold px-6 py-3 rounded-xl shadow-lg shadow-violet-500/30 hover:shadow-xl hover:shadow-violet-500/40 transition-all hover:scale-[1.02] active:scale-[0.98]">
+            <a href="{% url 'crush_lu:event_lobby' event.id %}" class="inline-flex items-center gap-2 bg-crush-pink hover:bg-crush-pink-light text-lobby-night font-bold px-6 py-3 rounded-xl transition-colors">
                 {% trans "Open the recap" %}
                 <span aria-hidden="true">→</span>
             </a>
         </div>
 
-        {% comment %}═══════════════════════════════════════════════════════════════
-           CONFIRMATION DIALOG — Enhanced with Gemini's styling
+        {% comment %}═══════════════════════════════════════════════════════════
+           CONFIRM SHEET — names the cost honestly: spending is irreversible,
+           and the small ledger echoes what you'd have left afterwards
+           (slot lit iff remaining ≥ slot+1 — see the *Available getters).
            ═══════════════════════════════════════════════════════════════{% endcomment %}
         <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
              x-show="confirmOpen" x-cloak
              role="dialog" aria-modal="true" aria-labelledby="lobby-confirm-title">
-            <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" x-on:click="closeConfirm" aria-hidden="true"></div>
-            <div class="relative w-full sm:max-w-sm bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl p-6 shadow-2xl border border-gray-200 dark:border-slate-700">
-                {# Decorative gradient top border #}
-                <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-violet-500 via-crush-purple to-fuchsia-500 rounded-t-2xl"></div>
-
-                <div class="pt-2">
-                    <img x-bind:src="confirmPhotoUrl" alt="" class="w-24 h-24 rounded-2xl object-cover mx-auto mb-4 ring-4 ring-violet-100 dark:ring-violet-900/50 shadow-lg">
-                    <h2 id="lobby-confirm-title" class="font-display text-xl font-bold text-center text-gray-900 dark:text-white mb-2">
-                        {% trans "Send a meet signal?" %}
-                    </h2>
-                    <p class="text-sm text-center text-gray-600 dark:text-gray-300 mb-1">
-                        {% trans "It stays anonymous unless they pick you too. This cannot be undone." %}
-                    </p>
-                    <div class="flex items-center justify-center gap-1.5 mb-6">
-                        <span class="text-xs text-gray-500 dark:text-gray-400">{% trans "Signals remaining:" %}</span>
-                        <div class="flex space-x-1">
-                            <span class="relative block w-2.5 h-2.5 rounded-full bg-gray-200 dark:bg-slate-600">
-                                <span class="absolute inset-0 rounded-full bg-fuchsia-500"
-                                      x-show="firstSignalAvailable" x-cloak></span>
-                            </span>
-                            <span class="relative block w-2.5 h-2.5 rounded-full bg-gray-200 dark:bg-slate-600">
-                                <span class="absolute inset-0 rounded-full bg-fuchsia-500"
-                                      x-show="secondSignalAvailable" x-cloak></span>
-                            </span>
-                            <span class="relative block w-2.5 h-2.5 rounded-full bg-gray-200 dark:bg-slate-600">
-                                <span class="absolute inset-0 rounded-full bg-fuchsia-500"
-                                      x-show="thirdSignalAvailable" x-cloak></span>
-                            </span>
-                        </div>
-                    </div>
-                    <div class="flex gap-3">
-                        <button type="button" class="flex-1 px-4 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 rounded-xl transition-colors"
-                                x-on:click="closeConfirm">
-                            {% trans "Cancel" %}
-                        </button>
-                        <button type="button" class="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 rounded-xl shadow-lg shadow-violet-500/30 transition-all hover:shadow-xl hover:shadow-violet-500/40 disabled:opacity-50 disabled:cursor-not-allowed"
-                                x-on:click="confirmSignal"
-                                x-bind:disabled="sending">
-                            {# CSP Alpine build forbids inline negation — bind the named getter. #}
-                            <span x-show="notSending">{% trans "Yes, I'd like to meet them" %}</span>
-                            <span x-show="sending" class="flex items-center justify-center gap-2">
-                                <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                {% trans "Sending..." %}
-                            </span>
-                        </button>
-                    </div>
+            <div class="absolute inset-0 bg-lobby-night/80" x-on:click="closeConfirm" aria-hidden="true"></div>
+            <div class="relative w-full sm:max-w-sm bg-lobby-room border border-lobby-edge border-b-0 sm:border-b rounded-t-2xl sm:rounded-2xl p-6 shadow-crush-lg text-lobby-ink">
+                <img x-bind:src="confirmPhotoUrl" alt="" class="w-24 h-24 rounded-2xl object-cover mx-auto mb-4">
+                <h2 id="lobby-confirm-title" class="font-display text-xl font-semibold text-center text-lobby-ink mb-2">
+                    {% trans "Spend a signal on them?" %}
+                </h2>
+                <p class="text-sm text-center text-lobby-dim mb-4">
+                    {% trans "It stays anonymous unless they pick you too. This cannot be undone." %}
+                </p>
+                <div class="flex items-center justify-center gap-2 mb-6">
+                    <span class="text-xs text-lobby-dim">{% trans "This leaves you" %}</span>
+                    {# Same server-conditioned overlays as the ledger — the sheet only opens with JS, but keep render-time truth. #}
+                    <span class="flex gap-1.5">
+                        <span class="relative lobby-spark lobby-spark--sm lobby-spark--spent">
+                            {% include "shared/icons/spark.html" with class="w-2.5 h-2.5" %}
+                            {% if state.signals_remaining >= 2 %}<span class="absolute -inset-px lobby-spark lobby-spark--sm" x-show="secondSignalAvailable">{% include "shared/icons/spark.html" with class="w-2.5 h-2.5" %}</span>{% endif %}
+                        </span>
+                        <span class="relative lobby-spark lobby-spark--sm lobby-spark--spent">
+                            {% include "shared/icons/spark.html" with class="w-2.5 h-2.5" %}
+                            {% if state.signals_remaining >= 3 %}<span class="absolute -inset-px lobby-spark lobby-spark--sm" x-show="thirdSignalAvailable">{% include "shared/icons/spark.html" with class="w-2.5 h-2.5" %}</span>{% endif %}
+                        </span>
+                        <span class="lobby-spark lobby-spark--sm lobby-spark--spent">{% include "shared/icons/spark.html" with class="w-2.5 h-2.5" %}</span>
+                    </span>
+                </div>
+                <div class="flex gap-3">
+                    <button type="button" class="flex-1 px-4 py-2.5 text-sm font-bold text-lobby-ink bg-lobby-edge hover:brightness-125 rounded-xl transition-all"
+                            x-on:click="closeConfirm">
+                        {% trans "Cancel" %}
+                    </button>
+                    <button type="button" class="flex-1 px-4 py-2.5 text-sm font-bold text-lobby-night bg-crush-pink hover:bg-crush-pink-light rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            x-on:click="confirmSignal"
+                            x-bind:disabled="sending">
+                        {# CSP Alpine build forbids inline negation — bind the named getter. #}
+                        <span x-show="notSending">{% trans "Spend a signal" %}</span>
+                        <span x-show="sending" class="flex items-center justify-center gap-2">
+                            <svg class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            {% trans "Sending..." %}
+                        </span>
+                    </button>
                 </div>
             </div>
         </div>
