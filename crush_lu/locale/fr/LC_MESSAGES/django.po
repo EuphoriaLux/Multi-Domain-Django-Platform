@@ -35928,3 +35928,15 @@ msgstr "Il vous restera"
 #: crush_lu/templates/crush_lu/event_lobby/lobby.html:1
 msgid "Spend a signal"
 msgstr "Dépenser un signal"
+
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid "This event is happening now"
+msgstr "Cet événement a lieu en ce moment"
+
+#: crush_lu/templates/crush_lu/event_detail.html
+msgid "Show your ticket at the door to check in."
+msgstr "Présentez votre billet à l'entrée pour vous enregistrer."
+
+#: crush_lu/templates/crush_lu/includes/event_card.html
+msgid "Live now"
+msgstr "En direct"
