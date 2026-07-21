@@ -200,12 +200,19 @@ def campaign_composer(request):
         return error
 
     templates, template_error = _safe_template_list()
+    # Only APPROVED variants are pickable — Meta rejects sends for DRAFT/
+    # PENDING/REJECTED templates, so offering them would create campaigns
+    # that fail for every recipient. (The preview still shows all variant
+    # statuses for the chosen name, as diagnostics.)
+    approved_templates = [
+        t for t in templates if t.get('status') == 'APPROVED'
+    ]
     context = {
         'title': 'New Campaign',
         'segment_options': _segment_options(),
         'audience_choices': AUDIENCE_CHOICES,
         'language_choices': LANGUAGE_CHOICES,
-        'whatsapp_templates': templates,
+        'whatsapp_templates': approved_templates,
         'whatsapp_template_error': template_error,
         'whatsapp_param_slots': range(1, WHATSAPP_PARAM_SLOTS + 1),
         'preselected_segment': request.GET.get('segment', ''),

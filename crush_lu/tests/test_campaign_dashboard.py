@@ -204,6 +204,23 @@ class CampaignCreateFlowTests(TestCase):
         # The single profiled member is eligible.
         self.assertContains(response, '<h3>1</h3>', html=True)
 
+    def test_composer_only_offers_approved_whatsapp_templates(self):
+        from unittest.mock import patch
+
+        templates = [
+            {'name': 'event_reminder', 'language': 'en',
+             'category': 'MARKETING', 'status': 'APPROVED', 'components': []},
+            {'name': 'unfinished_promo', 'language': 'en',
+             'category': 'MARKETING', 'status': 'PENDING', 'components': []},
+        ]
+        with patch(
+            'crush_lu.admin.campaign_dashboard.fetch_approved_templates',
+            return_value=templates,
+        ):
+            response = self.client.get(reverse('campaign_new'))
+        self.assertContains(response, 'event_reminder')
+        self.assertNotContains(response, 'unfinished_promo')
+
     def test_preview_endpoint_renders_email(self):
         response = self.client.post(reverse('campaign_preview'), {
             'channels': ['email', 'push'],
