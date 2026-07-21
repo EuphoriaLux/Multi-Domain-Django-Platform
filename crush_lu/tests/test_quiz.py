@@ -3783,6 +3783,23 @@ class TestConnectAuthorization:
 
         async_to_sync(run)()
 
+    def test_staff_viewer_can_connect(self, quiz_event, quiz_user):
+        """Staff without a registration are allowed a read-only feed, matching
+        quiz_live_view's is_staff allowance — otherwise the staff live page
+        loses updates and reconnect-loops (Codex P2)."""
+        from asgiref.sync import async_to_sync
+
+        quiz_user.is_staff = True
+        quiz_user.save(update_fields=["is_staff"])
+
+        async def run():
+            consumer = self._make_consumer(quiz_event, quiz_user)
+            await consumer.connect()
+            consumer.accept.assert_awaited_once()
+            consumer.close.assert_not_awaited()
+
+        async_to_sync(run)()
+
     def test_unregistered_user_rejected(self, quiz_event, quiz_user):
         from asgiref.sync import async_to_sync
 
