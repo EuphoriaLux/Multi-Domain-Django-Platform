@@ -67,7 +67,7 @@
                             {% elif profile_is_approved %}
                                 <span class="inline-flex items-center px-2 py-0.5 text-[10px] font-semibold bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full">✓ {% trans "Approved" %}</span>
                             {% else %}
-                                <span class="inline-flex items-center px-2 py-0.5 text-[10px] font-semibold bg-gray-100 dark:bg-gray-800 text-gray-650 dark:text-gray-450 rounded-full">{% trans "Not Submitted" %}</span>
+                                <span class="inline-flex items-center px-2 py-0.5 text-[10px] font-semibold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-500 rounded-full">{% trans "Not Submitted" %}</span>
                             {% endif %}
                         </div>
                     {% endif %}
@@ -105,16 +105,16 @@
                 <span class="block px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">{% trans "Coach Actions" %}</span>
                 <div class="space-y-1">
                     <a href="{% url 'crush_lu:coach_dashboard' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors font-medium text-sm">
-                        {% include "shared/icons/chart-bar.html" with class="w-5 h-5 text-purple-550 dark:text-purple-400" %}
+                        {% include "shared/icons/chart-bar.html" with class="w-5 h-5 text-purple-500 dark:text-purple-400" %}
                         <span>{% trans "Coach Dashboard" %}</span>
                     </a>
                     <a href="{% url 'crush_lu:coach_action_queue' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors font-medium text-sm">
-                        {% include "shared/icons/inbox.html" with class="w-5 h-5 text-purple-550 dark:text-purple-400" %}
+                        {% include "shared/icons/inbox.html" with class="w-5 h-5 text-purple-500 dark:text-purple-400" %}
                         <span>{% trans "Inbox" %}</span>
                     </a>
                     <a href="{% url 'crush_lu:coach_profiles' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors font-medium text-sm justify-between">
                         <div class="flex items-center gap-3">
-                            {% include "shared/icons/clipboard.html" with class="w-5 h-5 text-purple-550 dark:text-purple-400" %}
+                            {% include "shared/icons/clipboard.html" with class="w-5 h-5 text-purple-500 dark:text-purple-400" %}
                             <span>{% trans "Profile Queue" %}</span>
                         </div>
                         {% if pending_screening_count > 0 %}
@@ -122,57 +122,57 @@
                         {% endif %}
                     </a>
                     <a href="{% url 'crush_lu:coach_connections' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors font-medium text-sm">
-                        {% include "shared/icons/heart.html" with class="w-5 h-5 text-purple-550 dark:text-purple-400" %}
+                        {% include "shared/icons/heart.html" with class="w-5 h-5 text-purple-500 dark:text-purple-400" %}
                         <span>{% trans "Connections" %}</span>
                     </a>
                     <a href="{% url 'crush_lu:coach_spark_list' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors font-medium text-sm">
-                        <span class="w-5 h-5 flex items-center justify-center text-purple-550 dark:text-purple-400 shrink-0">
+                        <span class="w-5 h-5 flex items-center justify-center text-purple-500 dark:text-purple-400 shrink-0">
                             {% include "crush_lu/includes/ghost-logo-icon.html" with class="w-4 h-4" %}
                         </span>
                         <span>{% trans "Crush Sparks" %}</span>
                     </a>
                     <a href="{% url 'crush_lu:coach_members' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors font-medium text-sm">
-                        {% include "shared/icons/users.html" with class="w-5 h-5 text-purple-550 dark:text-purple-400" %}
+                        {% include "shared/icons/users.html" with class="w-5 h-5 text-purple-500 dark:text-purple-400" %}
                         <span>{% trans "Members" %}</span>
                     </a>
                     <a href="{% url 'crush_lu:coach_match_pairs' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors font-medium text-sm">
-                        {% include "shared/icons/sparkles.html" with class="w-5 h-5 text-purple-550 dark:text-purple-400" %}
+                        {% include "shared/icons/sparkles.html" with class="w-5 h-5 text-purple-500 dark:text-purple-400" %}
                         <span>{% trans "Match Pairs" %}</span>
                     </a>
                     <a href="{% url 'crush_lu:coach_connect_members' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors font-medium text-sm">
-                        {% include "shared/icons/user-check.html" with class="w-5 h-5 text-purple-550 dark:text-purple-400" %}
+                        {% include "shared/icons/user-check.html" with class="w-5 h-5 text-purple-500 dark:text-purple-400" %}
                         <span>{% trans "Coach Picks" %}</span>
                     </a>
                     <a href="{% url 'crush_lu:coach_verification_channel' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors font-medium text-sm">
-                        {% include "shared/icons/inbox.html" with class="w-5 h-5 text-purple-550 dark:text-purple-400" %}
+                        {% include "shared/icons/inbox.html" with class="w-5 h-5 text-purple-500 dark:text-purple-400" %}
                         <span>{% trans "Verification Channel" %}</span>
                     </a>
                     <a href="{% url 'crush_lu:coach_verification_history' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors font-medium text-sm">
-                        {% include "shared/icons/clipboard-document-check.html" with class="w-5 h-5 text-purple-550 dark:text-purple-400" %}
+                        {% include "shared/icons/clipboard-document-check.html" with class="w-5 h-5 text-purple-500 dark:text-purple-400" %}
                         <span>{% trans "Verification History" %}</span>
                     </a>
                     <a href="{% url 'crush_lu:coach_team_stats' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors font-medium text-sm">
-                        {% include "shared/icons/users.html" with class="w-5 h-5 text-purple-550 dark:text-purple-400" %}
+                        {% include "shared/icons/users.html" with class="w-5 h-5 text-purple-500 dark:text-purple-400" %}
                         <span>{% trans "Team Stats" %}</span>
                     </a>
                     <a href="{% url 'crush_lu:coach_event_list' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors font-medium text-sm">
-                        {% include "shared/icons/calendar.html" with class="w-5 h-5 text-purple-550 dark:text-purple-400" %}
+                        {% include "shared/icons/calendar.html" with class="w-5 h-5 text-purple-500 dark:text-purple-400" %}
                         <span>{% trans "Manage Events" %}</span>
                     </a>
                     <a href="{% url 'crush_lu:coach_journey_dashboard' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors font-medium text-sm">
-                        {% include "shared/icons/map-pin.html" with class="w-5 h-5 text-purple-550 dark:text-purple-400" %}
+                        {% include "shared/icons/map-pin.html" with class="w-5 h-5 text-purple-500 dark:text-purple-400" %}
                         <span>{% trans "Journey Management" %}</span>
                     </a>
                     <a href="{% url 'crush_lu:coach_sessions' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors font-medium text-sm">
-                        {% include "shared/icons/chat-bubble-left-right.html" with class="w-5 h-5 text-purple-550 dark:text-purple-400" %}
+                        {% include "shared/icons/chat-bubble-left-right.html" with class="w-5 h-5 text-purple-500 dark:text-purple-400" %}
                         <span>{% trans "Coach Sessions" %}</span>
                     </a>
                     <a href="{% url 'crush_lu:coach_settings' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors font-medium text-sm">
-                        {% include "shared/icons/cog.html" with class="w-5 h-5 text-purple-550 dark:text-purple-400" %}
+                        {% include "shared/icons/cog.html" with class="w-5 h-5 text-purple-500 dark:text-purple-400" %}
                         <span>{% trans "Coach Settings" %}</span>
                     </a>
                     <a href="{% url 'crush_lu:coach_edit_profile' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors font-medium text-sm">
-                        {% include "shared/icons/user-circle.html" with class="w-5 h-5 text-purple-550 dark:text-purple-400" %}
+                        {% include "shared/icons/user-circle.html" with class="w-5 h-5 text-purple-500 dark:text-purple-400" %}
                         <span>{% trans "Edit Coach Profile" %}</span>
                     </a>
                 </div>
@@ -180,8 +180,8 @@
 
             {# Logout Section #}
             <div class="border-t border-gray-100 dark:border-gray-800 my-5"></div>
-            <a href="{% url 'crush_lu:logout' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors font-medium text-sm">
-                {% include "shared/icons/arrow-right-on-rectangle.html" with class="w-5 h-5 text-red-550 dark:text-red-400" %}
+            <a href="{% url 'crush_lu:logout' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors font-medium text-sm">
+                {% include "shared/icons/arrow-right-on-rectangle.html" with class="w-5 h-5 text-red-500 dark:text-red-400" %}
                 <span>{% trans "Logout" %}</span>
             </a>
         </div>

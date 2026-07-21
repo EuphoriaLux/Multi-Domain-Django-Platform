@@ -1488,6 +1488,19 @@ def _edit_sub_account_danger(request, profile):
     )
 
 
+def _profile_autosave_values(profile):
+    """Build a serializable snapshot of all editable profile fields for autosave responses."""
+    return {
+        "bio": profile.bio or "",
+        "interests": profile.interests or "",
+        "phone_number": profile.phone_number or "",
+        "location": profile.location or "",
+        "event_languages": list(profile.event_languages or []),
+        "qualities_ids": list(profile.qualities.values_list("pk", flat=True)),
+        "defects_ids": list(profile.defects.values_list("pk", flat=True)),
+    }
+
+
 @crush_login_required
 @require_http_methods(["POST"])
 def api_profile_settings_autosave(request):
@@ -1515,13 +1528,28 @@ def api_profile_settings_autosave(request):
 
     section = payload.get("section", "")
 
-    if section == "about":
+    # --- Map each section to its specialised form + allowed fields ---
+    _section_config = {
+        "about": (CrushProfileAboutForm, {"bio", "interests"}),
+        "traits": (CrushProfileTraitsForm, {"qualities_ids", "defects_ids"}),
+        "contact": (
+            CrushProfileContactForm,
+            {"phone_number", "date_of_birth", "gender", "location"},
+        ),
+        "event_languages": (
+            CrushProfileEventPrefsForm,
+            {"event_languages"},
+        ),
+    }
+
+    if section in _section_config:
+        form_class, allowed_fields = _section_config[section]
         data = _merge_autosave_payload(
             _get_profile_form_initial_data(profile),
             payload,
-            AUTOSAVE_ABOUT_FIELDS,
+            allowed_fields,
         )
-        form = CrushProfileForm(data, instance=profile)
+        form = form_class(data, instance=profile)
         if form.is_valid():
             updated_profile = form.save()
             from .matching import update_match_scores_for_user
@@ -1530,20 +1558,8 @@ def api_profile_settings_autosave(request):
             return JsonResponse(
                 {
                     "success": True,
-                    "saved_fields": sorted(AUTOSAVE_ABOUT_FIELDS & set(payload.keys())),
-                    "values": {
-                        "bio": updated_profile.bio or "",
-                        "interests": updated_profile.interests or "",
-                        "phone_number": updated_profile.phone_number or "",
-                        "location": updated_profile.location or "",
-                        "event_languages": list(updated_profile.event_languages or []),
-                        "qualities_ids": list(
-                            updated_profile.qualities.values_list("pk", flat=True)
-                        ),
-                        "defects_ids": list(
-                            updated_profile.defects.values_list("pk", flat=True)
-                        ),
-                    },
+                    "saved_fields": sorted(allowed_fields & set(payload.keys())),
+                    "values": _profile_autosave_values(updated_profile),
                 }
             )
 
