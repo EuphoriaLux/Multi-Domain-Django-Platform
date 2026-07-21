@@ -412,6 +412,8 @@ class Command(BaseCommand):
         )
 
     def _register_players(self, event):
+        from allauth.account.models import EmailAddress
+
         debug_users = list(User.objects.filter(username__startswith="debug_"))
         if not debug_users:
             debug_users = []
@@ -424,6 +426,18 @@ class Command(BaseCommand):
 
         registered = []
         for user in debug_users:
+            user.set_password("debug2025")
+            if not user.email and "@" in user.username:
+                user.email = user.username
+            user.save()
+
+            if user.email:
+                EmailAddress.objects.update_or_create(
+                    user=user,
+                    email=user.email,
+                    defaults={"verified": True, "primary": True},
+                )
+
             reg, _ = EventRegistration.objects.get_or_create(
                 event=event, user=user, defaults={"status": "confirmed"}
             )
