@@ -1419,10 +1419,11 @@ def get_users_needing_reminder(reminder_type):
 
     Uses configurable timing from settings.PROFILE_REMINDER_TIMING.
 
-    Logic:
-    - 24h: Created 24-48h ago, completion_status in ['not_started', 'step1', 'step2'], no 24h reminder sent
-    - 72h: Created 72-96h ago, incomplete, has 24h but no 72h reminder
-    - 7d: Created 7-8d ago, incomplete, has 72h but no 7d reminder
+    Logic (windows are 48h wide so one missed daily tick is retried, not
+    dropped — see settings.PROFILE_REMINDER_TIMING):
+    - 24h: Created 24-72h ago, completion_status incomplete, no 24h reminder sent
+    - 72h: Created 72-120h ago, incomplete, has 24h but no 72h reminder
+    - 7d: Created 7-9d ago, incomplete, has 72h but no 7d reminder
 
     Args:
         reminder_type: One of '24h', '72h', '7d'

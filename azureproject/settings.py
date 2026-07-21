@@ -1037,18 +1037,25 @@ CSRF_FAILURE_VIEW = "azureproject.middleware.csrf_failure_view"
 # min_hours: Minimum time since profile creation before sending this reminder
 # max_hours: Maximum time window - don't send reminder after this point
 # Users are only eligible if they haven't received this reminder type before.
+# Each window is 48h wide (max_hours - min_hours) while the ProfileReminders
+# timer runs every 24h, so a user missed on one tick — the shared per-run
+# send limit was exhausted, or a transient email/Graph outage failed the
+# send (which writes no ProfileReminder row) — is still eligible on the next
+# tick instead of ageing out permanently and being dropped from the whole
+# 24h -> 72h -> 7d chain. The reminder is still sent at most once per stage:
+# get_users_needing_reminder excludes users who already have that stage's row.
 PROFILE_REMINDER_TIMING = {
     "24h": {
         "min_hours": 24,
-        "max_hours": 48,
+        "max_hours": 72,  # 48h-wide window => one daily-tick retry
     },
     "72h": {
         "min_hours": 72,
-        "max_hours": 96,
+        "max_hours": 120,
     },
     "7d": {
         "min_hours": 168,  # 7 days
-        "max_hours": 192,  # 8 days
+        "max_hours": 216,  # 9 days
     },
 }
 

@@ -57,13 +57,17 @@ def make_incomplete_user(
 
 
 class GetUsersNeedingReminderTests(TestCase):
-    def test_24h_window_picks_only_24_to_48h_old_incomplete_profiles(self):
-        in_window = make_incomplete_user("inwindow", created_hours_ago=30)
+    def test_24h_window_covers_24_to_72h_incomplete_profiles(self):
+        # 48h-wide window: a signup missed by one daily tick (send-limit
+        # spike or a transient email failure) is retried on the next run
+        # instead of ageing out. 24h < created <= 72h is eligible.
+        early = make_incomplete_user("inwindow", created_hours_ago=30)
+        late = make_incomplete_user("stillinwindow", created_hours_ago=60)
         make_incomplete_user("tooearly", created_hours_ago=10)
-        make_incomplete_user("toolate", created_hours_ago=60)
+        make_incomplete_user("toolate", created_hours_ago=80)
 
         eligible = get_users_needing_reminder("24h")
-        self.assertEqual(list(eligible), [in_window])
+        self.assertEqual(set(eligible), {early, late})
 
     def test_24h_excludes_users_already_reminded(self):
         user = make_incomplete_user("reminded", created_hours_ago=30)

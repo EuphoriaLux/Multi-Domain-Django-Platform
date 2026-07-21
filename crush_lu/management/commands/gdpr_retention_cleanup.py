@@ -65,11 +65,19 @@ class Command(BaseCommand):
         apply_changes = options["apply"]
         configured = getattr(settings, "GDPR_RETENTION", {}) or {}
         windows = {**DEFAULT_RETENTION, **configured}
-        phone_days = options["phone_otp_days"] or windows["phone_otp_days"]
-        activity_days = (
-            options["daily_activity_days"] or windows["daily_activity_days"]
+
+        # `opt if opt is not None else window` — NOT `opt or window`: 0 is a
+        # valid boundary for a destructive purge ("delete everything older
+        # than now"), and an `or` chain would silently fall back to the
+        # default window, leaving up to 30/90/365 days of data behind.
+        def _window(cli_value, key):
+            return cli_value if cli_value is not None else windows[key]
+
+        phone_days = _window(options["phone_otp_days"], "phone_otp_days")
+        activity_days = _window(
+            options["daily_activity_days"], "daily_activity_days"
         )
-        call_days = options["call_attempt_days"] or windows["call_attempt_days"]
+        call_days = _window(options["call_attempt_days"], "call_attempt_days")
 
         mode = "APPLY" if apply_changes else "DRY-RUN"
         self.stdout.write(f"GDPR retention sweep [{mode}]")

@@ -106,15 +106,45 @@ class GdprRetentionCommandTests(TestCase):
         )
 
     def test_apply_respects_window_override(self):
-        """A tighter --phone-otp-days window deletes the fresh OTP too."""
+        """--phone-otp-days 0 is a 0-day window: every OTP row predates the
+        command's 'now', so all are purged, while the non-overridden
+        categories (CallAttempt at its 365d default) are left untouched."""
         call_command(
             "gdpr_retention_cleanup",
             **{"apply": True, "phone_otp_days": 0},
             stdout=StringIO(),
         )
+        # A 0-day window deletes all OTPs, fresh included (created < now).
+        # (Under the pre-fix `opt or default` bug this fell back to 30d and
+        # the fresh OTP survived — so this doubles as a regression guard.)
         self.assertFalse(PhoneOTP.objects.filter(pk=self.old_otp.pk).exists())
-        # created_at of the fresh OTP is 'now', which is NOT < now - 0 days,
-        # so it survives a 0-day window; verify the old one is gone and the
-        # attempt rows were untouched by the OTP override.
-        self.assertTrue(PhoneOTP.objects.filter(pk=self.new_otp.pk).exists())
+        self.assertFalse(PhoneOTP.objects.filter(pk=self.new_otp.pk).exists())
+        # The OTP-only override left CallAttempt untouched.
         self.assertTrue(CallAttempt.objects.filter(pk=self.new_call.pk).exists())
+
+    def test_zero_day_cli_override_is_honored(self):
+        """A CLI 0-day window must purge by 'now', not fall back to the
+        default. Regression: `options[...] or window` swallowed 0 and used
+        the 365d default, silently leaving data an operator asked to purge.
+
+        A 5-day-old CallAttempt survives the 365d default but must be
+        deleted under a 0-day window — the discriminating case the existing
+        override test can't catch (its rows are either 'now' or 400d old,
+        which behave identically at 0d and 365d).
+        """
+        now = timezone.now()
+        mid_call = CallAttempt.objects.create(
+            profile=self.profile, result="failed",
+        )
+        CallAttempt.objects.filter(pk=mid_call.pk).update(
+            attempt_date=now - timedelta(days=5)
+        )
+
+        call_command(
+            "gdpr_retention_cleanup",
+            **{"apply": True, "call_attempt_days": 0},
+            stdout=StringIO(),
+        )
+
+        self.assertFalse(CallAttempt.objects.filter(pk=mid_call.pk).exists())
+        self.assertFalse(CallAttempt.objects.filter(pk=self.old_call.pk).exists())
