@@ -384,53 +384,99 @@ document.addEventListener("alpine:init", function () {
                     ? [this.targetLat, this.targetLng]
                     : [49.6116, 6.1319]; // Luxembourg City fallback
 
-                this.map = L.map("cache-map").setView(center, 16);
+                this.map = L.map("cache-map", {
+                    zoomControl: false,
+                    tap: false,
+                    touchZoom: true,
+                    bounceAtZoom: false,
+                }).setView(center, 16);
+
+                L.control.zoom({ position: "bottomright" }).addTo(this.map);
+
                 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
                     maxZoom: 19,
-                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                    detectRetina: true,
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
                 }).addTo(this.map);
 
+                // Draw trail connecting completed stations
+                var trailPoints = [];
+                var self = this;
+                (this.completedStations || []).forEach(function (s) {
+                    if (s.lat === null || s.lng === null) return;
+                    trailPoints.push([s.lat, s.lng]);
+                    L.circleMarker([s.lat, s.lng], {
+                        radius: 7,
+                        color: "#22c55e",
+                        fillColor: "#22c55e",
+                        fillOpacity: 0.9,
+                    }).bindPopup("✅ " + s.order + ". " + s.name).addTo(self.map);
+                });
+
                 if (this.targetLat !== null) {
+                    trailPoints.push([this.targetLat, this.targetLng]);
                     L.marker([this.targetLat, this.targetLng]).addTo(this.map);
                     if (this.targetRadius) {
                         L.circle([this.targetLat, this.targetLng], {
                             radius: this.targetRadius,
                             color: "#8b5cf6",
-                            fillOpacity: 0.1,
+                            fillColor: "#8b5cf6",
+                            fillOpacity: 0.15,
+                            weight: 2,
                         }).addTo(this.map);
                     }
                 }
 
-                var self = this;
-                (this.completedStations || []).forEach(function (s) {
-                    if (s.lat === null || s.lng === null) return;
-                    L.circleMarker([s.lat, s.lng], {
-                        radius: 7,
-                        color: "#22c55e",
-                        fillOpacity: 0.8,
-                    }).bindPopup("✅ " + s.order + ". " + s.name).addTo(self.map);
-                });
+                if (trailPoints.length > 1) {
+                    L.polyline(trailPoints, {
+                        color: "#8b5cf6",
+                        weight: 3,
+                        dashArray: "6, 8",
+                        opacity: 0.7,
+                    }).addTo(this.map);
+                }
+            },
+
+            recenterMap: function () {
+                if (!this.map || !window.L) return;
+                var points = [];
+                if (this.currentLat !== null && this.currentLng !== null) {
+                    points.push([this.currentLat, this.currentLng]);
+                }
+                if (this.targetLat !== null && this.targetLng !== null) {
+                    points.push([this.targetLat, this.targetLng]);
+                }
+                if (points.length > 1) {
+                    this.map.fitBounds(L.latLngBounds(points), { padding: [40, 40], maxZoom: 17 });
+                } else if (points.length === 1) {
+                    this.map.setView(points[0], 16);
+                }
             },
 
             updateSelfMarker: function (lat, lng, accuracy) {
                 if (!this.map || !window.L) return;
+                var firstFix = !this.selfMarker;
                 if (!this.selfMarker) {
                     this.selfMarker = L.circleMarker([lat, lng], {
                         radius: 8,
                         color: "#3b82f6",
                         fillColor: "#3b82f6",
-                        fillOpacity: 0.9,
+                        fillOpacity: 0.95,
+                        weight: 2,
                     }).addTo(this.map);
                     this.accuracyCircle = L.circle([lat, lng], {
                         radius: accuracy,
                         color: "#3b82f6",
                         weight: 1,
-                        fillOpacity: 0.05,
+                        fillOpacity: 0.08,
                     }).addTo(this.map);
                 } else {
                     this.selfMarker.setLatLng([lat, lng]);
                     this.accuracyCircle.setLatLng([lat, lng]);
                     this.accuracyCircle.setRadius(accuracy);
+                }
+                if (firstFix) {
+                    this.recenterMap();
                 }
             },
 
