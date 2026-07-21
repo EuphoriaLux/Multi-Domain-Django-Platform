@@ -54,16 +54,22 @@ def _get_segment_choices():
 
 
 def _get_event_choices():
-    """Build choices for the event dropdown (published, future events)."""
+    """Build choices for the event dropdown (published current/future events)."""
+    from datetime import timedelta
+
     from django.utils import timezone as tz
 
     choices = [('', '— None —')]
+    now = tz.now()
     events = MeetupEvent.objects.filter(
         is_published=True,
         is_cancelled=False,
-        date_time__gte=tz.now(),
+        date_time__gte=MeetupEvent.live_lookback_cutoff(now),
     ).order_by('date_time')
     for event in events:
+        # Keep a live event selectable for same-night newsletter blasts.
+        if event.end_time < now:
+            continue
         date_str = event.date_time.strftime('%b %d')
         label = f"{event.title} ({date_str})"
         choices.append((event.pk, label))

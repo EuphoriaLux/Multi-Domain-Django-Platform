@@ -64,9 +64,11 @@
                         {% include "shared/icons/qr-code.html" with class="w-4 h-4" %}
                     </a>
                     {% endif %}
+                    {% if entry.can_cancel %}
                     <a href="{% url 'crush_lu:event_cancel' entry.event.id %}" class="inline-flex items-center justify-center gap-1 px-3 py-2 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-sm font-medium transition-colors" aria-label="{% trans 'Cancel registration' %}">
                         {% include "shared/icons/x-circle.html" with class="w-4 h-4" %}
                     </a>
+                    {% endif %}
                 </div>
             </div>
         </div>
