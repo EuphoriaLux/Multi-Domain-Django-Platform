@@ -342,6 +342,26 @@ class LiveEventDiscoveryTests(TestCase):
         self.assertIn(future_event, events)
         self.assertNotIn(ended_event, events)
 
+    def test_event_list_fills_past_after_many_overlapping_live_events(self):
+        now = timezone.now()
+        for index in range(50):
+            _make_event(
+                f"Overlapping live event {index}",
+                now - timedelta(hours=25),
+                duration_minutes=26 * 60,
+            )
+        older_past = _make_event("Older past event", now - timedelta(days=8))
+
+        response = self.client.get(
+            reverse("crush_lu:event_list"), HTTP_HOST="crush.lu"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        visible_past = [
+            event for event, _attended in response.context["past_events_with_attendance"]
+        ]
+        self.assertIn(older_past, visible_past)
+
 
 class UpcomingRegistrantSegmentTests(TestCase):
     def test_excludes_recently_ended_event_and_keeps_long_live_event(self):
