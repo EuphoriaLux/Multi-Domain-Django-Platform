@@ -1,0 +1,279 @@
+"""Regression tests for upcoming/live/past event state handling."""
+
+from datetime import date, timedelta
+from unittest.mock import patch
+
+from allauth.account.models import EmailAddress
+from django.contrib.auth import get_user_model
+from django.contrib.sites.models import Site
+from django.test import Client, TestCase, override_settings
+from django.urls import reverse
+from django.utils import timezone
+
+from crush_lu.models import (
+    CrushCoach,
+    CrushProfile,
+    EventRegistration,
+    MeetupEvent,
+)
+from crush_lu.models.profiles import UserDataConsent
+
+User = get_user_model()
+
+
+def _grant_crush_access(user):
+    UserDataConsent.objects.update_or_create(
+        user=user, defaults={"crushlu_consent_given": True}
+    )
+    EmailAddress.objects.update_or_create(
+        user=user,
+        email=user.email,
+        defaults={"verified": True, "primary": True},
+    )
+
+
+def _make_event(title, start, *, duration_minutes=120):
+    return MeetupEvent.objects.create(
+        title=title,
+        description="Time-state regression event",
+        event_type="mixer",
+        date_time=start,
+        duration_minutes=duration_minutes,
+        location="Luxembourg",
+        address="1 Test Street",
+        max_participants=1,
+        registration_deadline=start - timedelta(hours=1),
+        is_published=True,
+    )
+
+
+class MeetupEventLiveStateTests(TestCase):
+    def test_is_live_boundaries(self):
+        now = timezone.now()
+
+        with patch("crush_lu.models.events.timezone.now", return_value=now):
+            before = MeetupEvent(
+                date_time=now + timedelta(seconds=1), duration_minutes=120
+            )
+            at_start = MeetupEvent(date_time=now, duration_minutes=120)
+            mid_event = MeetupEvent(
+                date_time=now - timedelta(minutes=30), duration_minutes=120
+            )
+            at_end = MeetupEvent(
+                date_time=now - timedelta(minutes=120), duration_minutes=120
+            )
+            after = MeetupEvent(
+                date_time=now - timedelta(minutes=121), duration_minutes=120
+            )
+
+            self.assertFalse(before.is_live)
+            self.assertTrue(at_start.is_live)
+            self.assertTrue(mid_event.is_live)
+            self.assertFalse(at_end.is_live)
+            self.assertFalse(after.is_live)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class EventCancellationTimeGateTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username="cancel-time@example.com",
+            email="cancel-time@example.com",
+            password="testpass123",
+        )
+        self.waitlisted_user = User.objects.create_user(
+            username="wait-time@example.com",
+            email="wait-time@example.com",
+            password="testpass123",
+        )
+        for user, gender in ((self.user, "M"), (self.waitlisted_user, "F")):
+            CrushProfile.objects.create(
+                user=user,
+                date_of_birth=date(1995, 1, 1),
+                gender=gender,
+                location="Luxembourg",
+                is_approved=True,
+            )
+            _grant_crush_access(user)
+        self.client.force_login(self.user)
+
+    def _registration_pair(self, event, *, status="confirmed"):
+        registration = EventRegistration.objects.create(
+            event=event, user=self.user, status=status
+        )
+        waitlisted = EventRegistration.objects.create(
+            event=event, user=self.waitlisted_user, status="waitlist"
+        )
+        return registration, waitlisted
+
+    def _cancel(self, event):
+        return self.client.post(
+            reverse("crush_lu:event_cancel", args=[event.id]),
+            HTTP_HOST="crush.lu",
+        )
+
+    @patch("crush_lu.views_events.send_event_registration_confirmation")
+    @patch("crush_lu.views_events.send_event_cancellation_confirmation")
+    @patch("crush_lu.views_events._promote_from_waitlist")
+    def test_attended_registration_is_refused_without_promotion_or_email(
+        self, promote, cancellation_email, promotion_email
+    ):
+        event = _make_event("Attended event", timezone.now() + timedelta(days=1))
+        registration, _waitlisted = self._registration_pair(event, status="attended")
+
+        response = self._cancel(event)
+
+        self.assertRedirects(
+            response,
+            reverse("crush_lu:event_detail", args=[event.id]),
+            fetch_redirect_response=False,
+        )
+        registration.refresh_from_db()
+        self.assertEqual(registration.status, "attended")
+        promote.assert_not_called()
+        cancellation_email.assert_not_called()
+        promotion_email.assert_not_called()
+
+    @patch("crush_lu.views_events.send_event_registration_confirmation")
+    @patch("crush_lu.views_events.send_event_cancellation_confirmation")
+    @patch("crush_lu.views_events._promote_from_waitlist")
+    def test_live_registration_is_refused_without_promotion_or_email(
+        self, promote, cancellation_email, promotion_email
+    ):
+        event = _make_event("Live event", timezone.now() - timedelta(hours=1))
+        registration, waitlisted = self._registration_pair(event)
+
+        response = self._cancel(event)
+
+        self.assertRedirects(
+            response,
+            reverse("crush_lu:event_detail", args=[event.id]),
+            fetch_redirect_response=False,
+        )
+        registration.refresh_from_db()
+        waitlisted.refresh_from_db()
+        self.assertEqual(registration.status, "confirmed")
+        self.assertEqual(waitlisted.status, "waitlist")
+        promote.assert_not_called()
+        cancellation_email.assert_not_called()
+        promotion_email.assert_not_called()
+
+    @patch("crush_lu.views_events.send_event_registration_confirmation")
+    @patch("crush_lu.views_events.send_event_cancellation_confirmation")
+    def test_upcoming_cancellation_promotes_waitlist(
+        self, cancellation_email, promotion_email
+    ):
+        event = _make_event("Upcoming event", timezone.now() + timedelta(days=1))
+        registration, waitlisted = self._registration_pair(event)
+
+        response = self._cancel(event)
+
+        self.assertRedirects(
+            response,
+            reverse("crush_lu:dashboard"),
+            fetch_redirect_response=False,
+        )
+        registration.refresh_from_db()
+        waitlisted.refresh_from_db()
+        self.assertEqual(registration.status, "cancelled")
+        self.assertEqual(waitlisted.status, "confirmed")
+        cancellation_email.assert_called_once()
+        promotion_email.assert_called_once()
+
+    @patch("crush_lu.views_events.send_event_registration_confirmation")
+    @patch("crush_lu.views_events.send_event_cancellation_confirmation")
+    @patch("crush_lu.views_events._promote_from_waitlist")
+    def test_past_registration_is_refused_without_promotion_or_email(
+        self, promote, cancellation_email, promotion_email
+    ):
+        event = _make_event("Past event", timezone.now() - timedelta(hours=3))
+        registration, waitlisted = self._registration_pair(event)
+
+        response = self._cancel(event)
+
+        self.assertRedirects(
+            response,
+            reverse("crush_lu:event_detail", args=[event.id]),
+            fetch_redirect_response=False,
+        )
+        registration.refresh_from_db()
+        waitlisted.refresh_from_db()
+        self.assertEqual(registration.status, "confirmed")
+        self.assertEqual(waitlisted.status, "waitlist")
+        promote.assert_not_called()
+        cancellation_email.assert_not_called()
+        promotion_email.assert_not_called()
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush", SITE_ID=1)
+class LiveEventDiscoveryTests(TestCase):
+    def setUp(self):
+        Site.objects.update_or_create(
+            id=1, defaults={"domain": "crush.lu", "name": "Crush.lu"}
+        )
+        self.user = User.objects.create_user(
+            username="live-state@example.com",
+            email="live-state@example.com",
+            password="testpass123",
+            first_name="Live",
+        )
+        self.profile = CrushProfile.objects.create(
+            user=self.user,
+            date_of_birth=date(1995, 1, 1),
+            gender="M",
+            location="Luxembourg",
+            verification_status="pending",
+        )
+        _grant_crush_access(self.user)
+        self.live_event = _make_event(
+            "Live Discovery Event", timezone.now() - timedelta(hours=1)
+        )
+        EventRegistration.objects.create(
+            event=self.live_event, user=self.user, status="confirmed"
+        )
+
+    def test_coach_event_list_keeps_live_event_upcoming(self):
+        coach_user = User.objects.create_user(
+            username="live-coach@example.com",
+            email="live-coach@example.com",
+            password="testpass123",
+        )
+        CrushCoach.objects.create(user=coach_user, is_active=True)
+        _grant_crush_access(coach_user)
+        client = Client()
+        client.force_login(coach_user)
+
+        response = client.get(
+            reverse("crush_lu:coach_event_list"), HTTP_HOST="crush.lu"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(self.live_event, response.context["upcoming_events"])
+        self.assertNotIn(self.live_event, response.context["past_events"])
+
+    def test_wallet_pass_returns_live_event(self):
+        from crush_lu.wallet_pass import get_next_event_for_pass
+
+        event_info = get_next_event_for_pass(self.profile)
+
+        self.assertIsNotNone(event_info)
+        self.assertEqual(event_info["title"], self.live_event.title)
+
+    def test_verification_path_stays_event_during_live_window(self):
+        from crush_lu.views import _verification_path_context
+
+        context = _verification_path_context(self.profile, self.user)
+
+        self.assertEqual(context["chosen_path"], "event")
+
+    def test_profile_submitted_teaser_includes_live_event(self):
+        client = Client()
+        client.force_login(self.user)
+
+        response = client.get(
+            reverse("crush_lu:profile_submitted"), HTTP_HOST="crush.lu"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["next_event"], self.live_event)

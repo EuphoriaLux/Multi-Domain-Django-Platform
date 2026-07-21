@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.core.paginator import Paginator
@@ -705,25 +707,29 @@ def coach_profiles(request):
         upcoming_regs = (
             EventRegistration.objects.filter(
                 user_id__in=submission_user_ids,
-                event__date_time__gte=now,
+                event__date_time__gte=now - timedelta(hours=24),
             )
             .exclude(status="cancelled")
             .select_related("event")
             .order_by("event__date_time")
         )
         for reg in upcoming_regs:
-            upcoming_event_regs.setdefault(reg.user_id, []).append(reg)
+            if reg.event.end_time >= now:
+                upcoming_event_regs.setdefault(reg.user_id, []).append(reg)
 
-        past_counts = (
+        past_regs = (
             EventRegistration.objects.filter(
                 user_id__in=submission_user_ids,
                 event__date_time__lt=now,
             )
             .exclude(status="cancelled")
-            .values("user_id")
-            .annotate(count=Count("id"))
+            .select_related("event")
         )
-        past_event_counts = {item["user_id"]: item["count"] for item in past_counts}
+        for reg in past_regs:
+            if reg.event.end_time < now:
+                past_event_counts[reg.user_id] = (
+                    past_event_counts.get(reg.user_id, 0) + 1
+                )
 
     for submission in pending_submissions:
         submission.upcoming_events = upcoming_event_regs.get(
@@ -776,24 +782,27 @@ def coach_profiles(request):
         for reg in (
             EventRegistration.objects.filter(
                 user_id__in=incomplete_user_ids,
-                event__date_time__gte=now,
+                event__date_time__gte=now - timedelta(hours=24),
             )
             .exclude(status="cancelled")
             .select_related("event")
             .order_by("event__date_time")
         ):
-            incomplete_upcoming_regs.setdefault(reg.user_id, []).append(reg)
+            if reg.event.end_time >= now:
+                incomplete_upcoming_regs.setdefault(reg.user_id, []).append(reg)
 
-        for item in (
+        for reg in (
             EventRegistration.objects.filter(
                 user_id__in=incomplete_user_ids,
                 event__date_time__lt=now,
             )
             .exclude(status="cancelled")
-            .values("user_id")
-            .annotate(count=Count("id"))
+            .select_related("event")
         ):
-            incomplete_past_counts[item["user_id"]] = item["count"]
+            if reg.event.end_time < now:
+                incomplete_past_counts[reg.user_id] = (
+                    incomplete_past_counts.get(reg.user_id, 0) + 1
+                )
 
     for profile in revision_profiles:
         profile.upcoming_events = incomplete_upcoming_regs.get(profile.user_id, [])
@@ -1966,16 +1975,20 @@ def coach_event_list(request):
     now = timezone.now()
 
     upcoming_events = list(
-        MeetupEvent.objects.filter(date_time__gte=now, is_published=True)
+        MeetupEvent.objects.filter(
+            date_time__gte=now - timedelta(hours=24), is_published=True
+        )
         .with_registration_counts()
         .order_by("date_time")
     )
+    upcoming_events = [event for event in upcoming_events if event.end_time >= now]
 
     past_events = list(
         MeetupEvent.objects.filter(date_time__lt=now, is_published=True)
         .with_registration_counts()
-        .order_by("-date_time")[:10]
+        .order_by("-date_time")
     )
+    past_events = [event for event in past_events if event.end_time < now][:10]
 
     _attach_registration_stats(upcoming_events)
     _attach_registration_stats(past_events)

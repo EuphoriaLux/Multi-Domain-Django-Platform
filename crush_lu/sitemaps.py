@@ -7,6 +7,8 @@ This module provides dynamic sitemap generation for:
 - Published events (with proper priority and changefreq)
 """
 
+from datetime import timedelta
+
 from django.contrib.sitemaps import Sitemap
 from django.urls import reverse
 from .models import MeetupEvent
@@ -79,13 +81,15 @@ class CrushEventSitemap(Sitemap):
     priority = 0.7
 
     def items(self):
-        """Return all published, non-cancelled, upcoming events."""
-        return MeetupEvent.objects.filter(
+        """Return all published, non-cancelled, current/upcoming events."""
+        now = timezone.now()
+        events = MeetupEvent.objects.filter(
             is_published=True,
             is_cancelled=False,
             is_private_invitation=False,  # Don't include private events
-            date_time__gte=timezone.now()
+            date_time__gte=now - timedelta(hours=24),
         ).order_by('date_time')
+        return [event for event in events if event.end_time >= now]
 
     def location(self, obj):
         return reverse('crush_lu:event_detail', kwargs={'event_id': obj.id})

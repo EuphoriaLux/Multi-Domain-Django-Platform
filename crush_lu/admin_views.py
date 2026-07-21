@@ -437,10 +437,25 @@ def crush_admin_dashboard(request):
     # ============================================================================
 
     total_events = MeetupEvent.objects.count()
-    upcoming_events = MeetupEvent.objects.filter(
-        date_time__gte=timezone.now(), is_published=True, is_cancelled=False
-    ).count()
-    past_events = MeetupEvent.objects.filter(date_time__lt=timezone.now()).count()
+    now = timezone.now()
+    upcoming_events = len(
+        [
+            event
+            for event in MeetupEvent.objects.filter(
+                date_time__gte=now - timedelta(hours=24),
+                is_published=True,
+                is_cancelled=False,
+            )
+            if event.end_time >= now
+        ]
+    )
+    past_events = len(
+        [
+            event
+            for event in MeetupEvent.objects.filter(date_time__lt=now)
+            if event.end_time < now
+        ]
+    )
 
     # Total registrations
     total_registrations = EventRegistration.objects.count()

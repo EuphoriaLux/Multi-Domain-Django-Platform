@@ -12,6 +12,8 @@ Split into modules for maintainability:
 - views_pwa.py: PWA, service worker, manifest, special experiences
 """
 
+from datetime import timedelta
+
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.utils import timezone
@@ -309,15 +311,22 @@ def _verification_path_context(profile, user):
     )
     if premium_pending:
         chosen_path = "premium"
-    elif EventRegistration.objects.filter(
-        user=user,
-        status__in=("confirmed", "waitlist"),
-        event__is_cancelled=False,
-        event__date_time__gte=timezone.now(),
-    ).exists():
-        chosen_path = "event"
     else:
-        chosen_path = ""
+        now = timezone.now()
+        candidate_registrations = EventRegistration.objects.filter(
+            user=user,
+            status__in=("confirmed", "waitlist"),
+            event__is_cancelled=False,
+            event__date_time__gte=now - timedelta(hours=24),
+        ).select_related("event")
+        chosen_path = (
+            "event"
+            if any(
+                registration.event.end_time >= now
+                for registration in candidate_registrations
+            )
+            else ""
+        )
 
     return {
         "chosen_path": chosen_path,
@@ -428,6 +437,11 @@ def dashboard(request):
 
         _now = timezone.now()
         for _reg in registrations:
+            _reg.can_cancel = bool(
+                _reg.event
+                and _reg.event.date_time > _now
+                and _reg.status in ("confirmed", "waitlist")
+            )
             if (
                 _reg.status == "attended"
                 and _reg.event
@@ -439,13 +453,15 @@ def dashboard(request):
             else:
                 _reg.lobby_cta = None
 
-        # Next upcoming published event (drives "attend to unlock" CTA)
-        next_event = (
-            MeetupEvent.objects.filter(
-                is_published=True, is_cancelled=False, date_time__gte=timezone.now()
-            )
-            .order_by("date_time")
-            .first()
+        # Next current or upcoming published event (drives "attend to unlock" CTA).
+        next_event_candidates = MeetupEvent.objects.filter(
+            is_published=True,
+            is_cancelled=False,
+            date_time__gte=_now - timedelta(hours=24),
+        ).order_by("date_time")
+        next_event = next(
+            (event for event in next_event_candidates if event.end_time >= _now),
+            None,
         )
 
         # Time-based greeting (use localtime for correct Luxembourg timezone)
@@ -2129,13 +2145,15 @@ def profile_submitted(request):
             and not submission.review_call_completed
         )
 
-    # Next upcoming event teaser
-    next_event = (
-        MeetupEvent.objects.filter(
-            is_published=True, is_cancelled=False, date_time__gte=now
-        )
-        .order_by("date_time")
-        .first()
+    # Next current or upcoming event teaser.
+    next_event_candidates = MeetupEvent.objects.filter(
+        is_published=True,
+        is_cancelled=False,
+        date_time__gte=now - timedelta(hours=24),
+    ).order_by("date_time")
+    next_event = next(
+        (event for event in next_event_candidates if event.end_time >= now),
+        None,
     )
 
     context = {

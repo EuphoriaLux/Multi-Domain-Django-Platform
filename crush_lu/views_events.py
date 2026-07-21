@@ -402,6 +402,8 @@ def my_events(request):
             "event": reg.event,
             "is_waitlist": reg.status == "waitlist",
             "is_pending_payment": reg.status == "pending",
+            "can_cancel": reg.event.date_time > now
+            and reg.status in ("confirmed", "waitlist"),
             "lobby_cta": _card_lobby_cta(reg),
         }
         for reg in upcoming
@@ -601,7 +603,13 @@ def event_detail(request, event_id):
         ensure_ascii=False,
     )
 
-    is_past = event.end_time < timezone.now()
+    now = timezone.now()
+    is_past = event.end_time < now
+    can_cancel = bool(
+        registration
+        and registration.status not in ("attended", "cancelled", "no_show")
+        and event.date_time > now
+    )
 
     # Premium (coach-assigned) members can claim reserved seats, so fullness is
     # evaluated against the full capacity for them and public capacity otherwise.
@@ -625,6 +633,7 @@ def event_detail(request, event_id):
     context = {
         "event": event,
         "is_past": is_past,
+        "can_cancel": can_cancel,
         "user_registration": registration,
         "user_profile": user_profile,
         "user_is_premium": user_is_premium,
@@ -1154,13 +1163,35 @@ def event_cancel(request, event_id):
             if registration.status in ("cancelled", "no_show"):
                 messages.info(request, _("Your registration was already cancelled."))
                 return redirect("crush_lu:dashboard")
+
+            now = timezone.now()
+            if registration.status == "attended" or locked_event.end_time <= now:
+                messages.error(
+                    request,
+                    _(
+                        "This event has already taken place. If something is wrong, "
+                        "contact your coach."
+                    ),
+                )
+                return redirect("crush_lu:event_detail", event_id=event_id)
+            if locked_event.date_time <= now:
+                messages.error(
+                    request,
+                    _(
+                        "This event has already started. If you can't make it, "
+                        "contact your coach."
+                    ),
+                )
+                return redirect("crush_lu:event_detail", event_id=event_id)
+
             registration.status = "cancelled"
             registration.save()
 
             messages.success(request, _("Your registration has been cancelled."))
 
             # Gender-aware waitlist promotion (DB only, inside transaction)
-            promoted = _promote_from_waitlist(locked_event, request.user)
+            if locked_event.date_time > now:
+                promoted = _promote_from_waitlist(locked_event, request.user)
 
         # Send emails OUTSIDE the transaction so they are only dispatched
         # after a successful commit and don't hold the DB lock during SMTP I/O.

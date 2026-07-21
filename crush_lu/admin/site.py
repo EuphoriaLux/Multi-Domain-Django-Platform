@@ -96,11 +96,18 @@ class CrushLuAdminSite(admin.AdminSite):
 
         # Upcoming events count
         now = timezone.now()
-        extra_context['upcoming_events'] = MeetupEvent.objects.filter(
-            date_time__gte=now,
-            is_published=True,
-            is_cancelled=False
-        ).count()
+        current_events = [
+            event
+            for event in MeetupEvent.objects.filter(
+                date_time__gte=now - timedelta(hours=24),
+                is_published=True,
+                is_cancelled=False,
+            ).annotate(
+                registration_count=Count('eventregistration')
+            ).order_by('date_time')
+            if event.end_time >= now
+        ]
+        extra_context['upcoming_events'] = len(current_events)
 
         # Pending actions for Action Center
         cutoff_24h = now - timedelta(hours=24)
@@ -138,13 +145,7 @@ class CrushLuAdminSite(admin.AdminSite):
         ).select_related('profile__user', 'coach__user').order_by('-submitted_at')[:5]
 
         # Upcoming events list for Today's Focus
-        extra_context['upcoming_events_list'] = MeetupEvent.objects.filter(
-            date_time__gte=now,
-            is_published=True,
-            is_cancelled=False
-        ).annotate(
-            registration_count=Count('eventregistration')
-        ).order_by('date_time')[:5]
+        extra_context['upcoming_events_list'] = current_events[:5]
 
         return super().index(request, extra_context)
 

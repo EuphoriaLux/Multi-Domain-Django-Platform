@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.utils import timezone
 
 from .models import ReferralCode, EventRegistration
@@ -30,15 +32,23 @@ def get_next_event_for_pass(profile):
             'location': 'Luxembourg City'
         }
     """
-    registration = (
+    now = timezone.now()
+    candidate_registrations = (
         EventRegistration.objects.filter(
             user=profile.user,
-            event__date_time__gte=timezone.now(),
+            event__date_time__gte=now - timedelta(hours=24),
             status__in=["confirmed", "waitlist"],
         )
         .select_related("event")
         .order_by("event__date_time")
-        .first()
+    )
+    registration = next(
+        (
+            candidate
+            for candidate in candidate_registrations
+            if candidate.event.end_time >= now
+        ),
+        None,
     )
 
     if not registration:
