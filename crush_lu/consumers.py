@@ -161,6 +161,28 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         self.quiz_group = f"quiz_{self.quiz_id}"
         self.table_group = None
 
+        # AUTHZ (finding H3): subscription is scoped to participation — the
+        # host (or an event-assigned coach), a staff viewer, or a member with
+        # a confirmed/attended registration for the quiz's event. Previously
+        # any authenticated user could join any quiz's live feed (roster,
+        # standings) because quiz_id is a sequential int. Staff are included
+        # to match quiz_live_view's is_staff allowance (crush_lu/views_quiz.py)
+        # so the staff live page keeps receiving updates; answer data stays
+        # stripped for non-hosts, so staff get a read-only feed.
+        if (
+            not await self.is_host(user)
+            and not await self._is_staff_viewer(user)
+            and not await self._has_event_registration(user)
+        ):
+            logger.info(
+                "Quiz WS connect rejected: user %s has no host/staff/"
+                "registration rights for quiz %s",
+                user.id,
+                self.quiz_id,
+            )
+            await self.close()
+            return
+
         # Join the quiz group
         await self.channel_layer.group_add(self.quiz_group, self.channel_name)
 
@@ -857,6 +879,31 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
     # Backward compat alias
     is_coach = is_host
+
+    @database_sync_to_async
+    def _is_staff_viewer(self, user) -> bool:
+        """True for staff users. Mirrors quiz_live_view's is_staff allowance
+        (crush_lu/views_quiz.py) so a staff member's live page keeps its WS
+        feed. This grants read-only subscription only — host privileges still
+        require is_host, and answer data stays stripped for non-hosts."""
+        return bool(user and user.is_authenticated and user.is_staff)
+
+    @database_sync_to_async
+    def _has_event_registration(self, user) -> bool:
+        """True iff the user holds a confirmed/attended EventRegistration
+        for the quiz's event (finding H3 participation check)."""
+        from crush_lu.models.events import EventRegistration
+        from crush_lu.models.quiz import QuizEvent
+
+        try:
+            quiz = QuizEvent.objects.only("event_id").get(id=self.quiz_id)
+        except QuizEvent.DoesNotExist:
+            return False
+        return EventRegistration.objects.filter(
+            event_id=quiz.event_id,
+            user=user,
+            status__in=["confirmed", "attended"],
+        ).exists()
 
     @database_sync_to_async
     def is_quiz_night_event(self):
