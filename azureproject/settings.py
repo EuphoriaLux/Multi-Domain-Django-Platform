@@ -58,6 +58,12 @@ ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
 # with per-coach CrushCoach.hybrid_features_enabled for staged rollout.
 HYBRID_COACH_SYSTEM_ENABLED = _env_bool("HYBRID_COACH_SYSTEM_ENABLED", False)
 
+# Multi-channel campaign dispatch (crush_lu campaign dashboard) — gate for the
+# /api/admin/campaigns/dispatch/ endpoint driven by the CampaignDispatch Azure
+# Function timer. Default OFF so scheduled campaigns never send until the
+# environment explicitly opts in.
+CAMPAIGN_DISPATCH_ENABLED = _env_bool("CAMPAIGN_DISPATCH_ENABLED", False)
+
 # Recipients for the weekly Crush.lu KPI digest email (send_weekly_kpis command,
 # driven on Mondays by the hybrid-maintenance Azure Function). Comma-separated
 # env var; empty means "compute + persist the snapshot but email no one".

@@ -122,6 +122,7 @@ $settings = @(
     "DJANGO_PRE_SCREENING_INVITES_URL=https://$DJANGO_HOST/api/admin/pre-screening-invites/",
     "DJANGO_HYBRID_SLA_SWEEP_URL=https://$DJANGO_HOST/api/admin/hybrid-coach-sla-sweep/",
     "DJANGO_WEEKLY_KPIS_URL=https://$DJANGO_HOST/api/admin/weekly-kpis/",
+    "DJANGO_CAMPAIGN_DISPATCH_URL=https://$DJANGO_HOST/api/admin/campaigns/dispatch/",
     "HYBRID_MAINTENANCE_ENABLED=false",
     "ApplicationInsightsAgent_EXTENSION_VERSION=disabled"
 )

@@ -1,0 +1,62 @@
+{% load i18n %}
+{% if 'email' in channels %}
+<div class="panel-section">
+    <div class="section-header"><h2>📧 {% trans "Email preview" %}</h2></div>
+    <p><strong>{% trans "Subject:" %}</strong> {{ email_subject|default:"—" }}</p>
+    <iframe class="preview-frame" sandbox srcdoc="{{ email_html }}"></iframe>
+</div>
+{% endif %}
+
+{% if 'whatsapp' in channels %}
+<div class="panel-section">
+    <div class="section-header"><h2>💬 {% trans "WhatsApp preview" %}</h2></div>
+    {% if whatsapp_error %}
+    <p class="hint">⚠️ {{ whatsapp_error }}</p>
+    {% endif %}
+    {% if whatsapp_template_name %}
+        {% if whatsapp_variants %}
+        <p>
+            <strong>{{ whatsapp_template_name }}</strong> —
+            {% trans "approved variants:" %}
+            {% for variant in whatsapp_variants %}
+            <span class="badge {% if variant.status == 'APPROVED' %}badge-sent{% else %}badge-failed{% endif %}">{{ variant.language }} · {{ variant.status }}</span>
+            {% endfor %}
+        </p>
+        {% for variant in whatsapp_variants %}
+            {% if forloop.first %}
+                {% for component in variant.components %}
+                    {% if component.type == 'BODY' %}
+                    <div class="whatsapp-bubble">{{ component.text }}</div>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+        {% endfor %}
+        {% else %}
+        <p class="hint">{% trans "Template not found in the approved list — check the name or Meta approval status." %}</p>
+        {% endif %}
+        {% if whatsapp_parameters %}
+        <p class="hint">
+            {% trans "Parameters:" %}
+            {% for key, value in whatsapp_parameters.items %}{{ key }} → “{{ value }}”{% if not forloop.last %} · {% endif %}{% endfor %}
+        </p>
+        {% endif %}
+    {% else %}
+    <p class="hint">{% trans "Pick a template to preview it." %}</p>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if 'push' in channels %}
+<div class="panel-section">
+    <div class="section-header"><h2>🔔 {% trans "Push preview" %}</h2></div>
+    <div class="push-preview-card">
+        <h4>{{ push_title|default:"(no title)" }}</h4>
+        <p>{{ push_body|default:"(no body)" }}</p>
+        <p class="hint">→ {{ push_url }}</p>
+    </div>
+</div>
+{% endif %}
+
+{% if not channels %}
+<p class="hint">{% trans "Pick at least one channel to preview content." %}</p>
+{% endif %}

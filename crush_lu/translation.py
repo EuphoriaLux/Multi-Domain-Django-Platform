@@ -7,6 +7,7 @@ When a user visits /de/journey/, the German content is automatically returned.
 
 from modeltranslation.translator import translator, TranslationOptions
 
+from .models.campaigns import Campaign
 from .models.newsletter import Newsletter
 from .models.profiles import CrushCoach, SpecialUserExperience
 from .models.matching import Trait
@@ -147,6 +148,16 @@ class NewsletterTranslationOptions(TranslationOptions):
     fields = ('subject', 'body_html', 'body_text')
 
 
+class CampaignTranslationOptions(TranslationOptions):
+    """Translatable push-notification content for multi-channel campaigns.
+
+    Email content is translated on the campaign's linked Newsletter; WhatsApp
+    localization happens Meta-side (one template name, per-language variants).
+    """
+
+    fields = ('push_title', 'push_body')
+
+
 class PatchReleaseTranslationOptions(TranslationOptions):
     """Translatable fields for changelog releases."""
 
@@ -179,6 +190,7 @@ class ConnectQuestionTranslationOptions(TranslationOptions):
 
 # Register models with translation options
 translator.register(Newsletter, NewsletterTranslationOptions)
+translator.register(Campaign, CampaignTranslationOptions)
 translator.register(Trait, TraitTranslationOptions)
 translator.register(CrushSiteConfig, CrushSiteConfigTranslationOptions)
 translator.register(CrushCoach, CrushCoachTranslationOptions)

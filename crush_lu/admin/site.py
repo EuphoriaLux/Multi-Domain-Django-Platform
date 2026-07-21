@@ -270,9 +270,11 @@ class CrushLuAdminSite(admin.AdminSite):
             'iosnativeauthcode': {'order': 4, 'icon': '🔐', 'group': 'Notifications'},
             'newsletter': {'order': 5, 'icon': '📰', 'group': 'Notifications'},
             'newsletterrecipient': {'order': 6, 'icon': '📨', 'group': 'Notifications'},
-            'emailpreference': {'order': 7, 'icon': '📧', 'group': 'Notifications'},
-            'useractivity': {'order': 8, 'icon': '📊', 'group': 'Notifications'},
-            'profilereminder': {'order': 9, 'icon': '📬', 'group': 'Notifications'},
+            'campaign': {'order': 7, 'icon': '📢', 'group': 'Notifications'},
+            'campaignrecipient': {'order': 8, 'icon': '📮', 'group': 'Notifications'},
+            'emailpreference': {'order': 9, 'icon': '📧', 'group': 'Notifications'},
+            'useractivity': {'order': 10, 'icon': '📊', 'group': 'Notifications'},
+            'profilereminder': {'order': 11, 'icon': '📬', 'group': 'Notifications'},
 
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 8: Wallet & Passes (Apple/Google Wallet integration)

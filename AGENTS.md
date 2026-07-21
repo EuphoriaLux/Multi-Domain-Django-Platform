@@ -75,6 +75,16 @@ DRF + SimpleJWT JSON API backing the external `hub.crush.lu` CRM SPA. JWT Bearer
 
 Uses Django 6.0's native `TASKS` framework. Default `ImmediateBackend` runs inline (safe for dev). Production sets `DJANGO_TASKS_BACKEND` to the DB backend and runs `manage.py db_worker`. **conftest.py forces `ImmediateBackend` in tests regardless of env.**
 
+### Multi-channel campaigns (crush_lu Coach Panel)
+
+`/crush-admin/campaigns/` runs unified outreach campaigns across **email / WhatsApp / web push**: compose once, pick a segment (`get_segment_definitions()`), send now or schedule. Spec + runbook: `docs/specs/campaign-dashboard.md`. Key mechanics you must not break:
+
+- **One `Campaign`, per-channel engines**: the email leg is a campaign-linked `Newsletter` (nullable `Newsletter.campaign` OneToOne — standalone newsletters must stay byte-identical); WhatsApp/push state lives in `CampaignRecipient` (`WhatsAppMessage.user` is the *sending admin*, recipient is a phone string — never treat it as the recipient FK). Channel adapters + dispatcher: `crush_lu/services/campaigns.py`; shared Meta send: `hub/whatsapp_service.py` (also backs the hub CRM views — response shapes are contract).
+- **No inline sends**: production has no task worker, so sending is driven by the `CampaignDispatch` Azure Function timer (every 5 min, `hybrid-maintenance` app) → `POST /api/admin/campaigns/dispatch/` (`crush_lu/api_admin_campaigns.py`, Bearer `ADMIN_API_KEY`, outside `i18n_patterns`) → bounded resumable tick (email 25 = one Graph batch / WhatsApp 30 / push 150, ~80s wall budget under the 120s gunicorn timeout; heartbeat claim prevents double-sends). Gated by `CAMPAIGN_DISPATCH_ENABLED` (default OFF). Manual: `manage.py dispatch_campaigns [--dry-run]`.
+- **Consent per channel**: email = newsletter opt-in; WhatsApp = explicit `whatsapp_opt_in` + verified phone + not `not_on_whatsapp`; push = enabled `PushSubscription`; banned (`crushlu_banned`) always excluded. Failed recipients are terminal for dispatch (paid WhatsApp templates / bouncing addresses are not auto-retried).
+- **Click tracking**: `/c/<token>/` (language-neutral) records `CampaignClick` (no IP/UA — deliberate GDPR data minimization) and 302s to the UTM-tagged destination; recipient attribution via signed `?r=`. Campaign email links are rewritten at send time — **unsubscribe links must stay direct**.
+- WhatsApp templates follow the OTP convention: one Meta template name, per-language variants (en/de/fr) selected by recipient language; body params `{{1}}`–`{{5}}` support `{first_name}`/`{last_name}`/`{email}` merge tokens.
+
 ### i18n
 
 EN/DE/FR via `i18n_patterns` (language-prefixed URLs like `/fr/…`) **plus** `django-modeltranslation` for translatable model fields (admin gets per-language tabs — `modeltranslation` must be first in `INSTALLED_APPS`). Admin panels are forced to English and live *outside* `i18n_patterns`; `AdminLanguagePrefixRedirectMiddleware` strips accidental `/fr/admin/` prefixes. `manage.py check_translations` reports missing/fuzzy strings.

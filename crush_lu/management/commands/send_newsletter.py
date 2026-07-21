@@ -112,6 +112,14 @@ class Command(BaseCommand):
             except Newsletter.DoesNotExist:
                 raise CommandError(f"Newsletter #{newsletter_id} not found")
 
+            if newsletter.campaign_id:
+                raise CommandError(
+                    f"Newsletter #{newsletter_id} is the email leg of "
+                    f"campaign #{newsletter.campaign_id} — send it via "
+                    f"'dispatch_campaigns --campaign-id {newsletter.campaign_id}' "
+                    f"so click tracking and campaign state stay correct."
+                )
+
             if newsletter.status not in ('draft', 'sending'):
                 raise CommandError(
                     f"Newsletter #{newsletter_id} has status '{newsletter.status}'. "

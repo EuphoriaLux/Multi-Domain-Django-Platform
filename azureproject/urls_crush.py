@@ -24,6 +24,7 @@ from crush_lu.admin.user_segments import user_segments_dashboard, segment_detail
 from crush_lu.admin.profile_reminders import profile_reminders_panel
 from crush_lu import admin_views, views, views_phone_verification, views_profile, views_profile_draft, views_event_polls
 from crush_lu.admin.poll_analytics import poll_analytics_dashboard, poll_analytics_detail
+from crush_lu.admin import campaign_dashboard as campaign_dashboard_views
 from crush_lu.admin_views import signup_trend_api, verification_trend_api, cumulative_growth_api, daily_active_users_api
 from crush_lu.admin_views import (
     email_template_manager,
@@ -36,7 +37,8 @@ from crush_lu.admin_views import (
     email_template_load_invitations,
     email_template_load_gifts,
 )
-from crush_lu import api_views, api_push, api_coach_push, api_pwa, api_ios_app, api_android_app, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, api_admin_hybrid, api_admin_metrics, api_admin_changelog, views_crush_spark, views_checkin, api_crush_connect, views_coach, api_quiz, views_quiz, views_notifications
+from crush_lu import api_views, api_push, api_coach_push, api_pwa, api_ios_app, api_android_app, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, api_admin_hybrid, api_admin_metrics, api_admin_campaigns, api_admin_changelog, views_crush_spark, views_checkin, api_crush_connect, views_coach, api_quiz, views_quiz, views_notifications
+from crush_lu.views_campaign_click import campaign_click_redirect
 from crush_lu.wallet import passkit_service, google_callback
 from crush_lu.sitemaps import crush_sitemaps
 from crush_lu.views_seo import robots_txt, custom_404, custom_500
@@ -301,6 +303,10 @@ urlpatterns = [
     # Language-neutral path; auto-publishes to /changelog/. See docs/changelog-routine.md.
     path('api/admin/changelog/ingest/', api_admin_changelog.ingest_changelog, name='api_admin_changelog_ingest'),
 
+    # Campaign dispatch tick (CampaignDispatch Azure Function timer, every 5 min).
+    # Must stay language-neutral: the Function App uses hardcoded /api/admin/... paths.
+    path('api/admin/campaigns/dispatch/', api_admin_campaigns.dispatch_campaigns_endpoint, name='api_admin_campaign_dispatch'),
+
 
     # Live Quiz API (called from quiz-live.js WebSocket fallback)
     path('api/quiz/<int:quiz_id>/state/', api_quiz.quiz_state, name='api_quiz_state'),
@@ -323,6 +329,10 @@ urlpatterns = [
     # This allows https://crush.lu/r/CODE/ to work without language prefix
     # Users will be redirected to the home page in their browser's preferred language
     path('r/<str:code>/', views.referral_redirect, name='referral_redirect_neutral'),
+
+    # Campaign click-tracking redirect (language-neutral: the URL is embedded
+    # in emails / WhatsApp / push payloads sent by the campaign dashboard)
+    path('c/<str:token>/', campaign_click_redirect, name='campaign_click_redirect'),
 
     # ============================================================================
     # LOGIN REDIRECT COMPATIBILITY
@@ -367,6 +377,20 @@ urlpatterns = [
     # Poll Analytics
     path('crush-admin/poll-analytics/', poll_analytics_dashboard, name='poll_analytics_dashboard'),
     path('crush-admin/poll-analytics/<int:poll_id>/', poll_analytics_detail, name='poll_analytics_detail'),
+
+    # Campaign & Remarketing Dashboard (unified multi-channel campaigns)
+    path('crush-admin/campaigns/', campaign_dashboard_views.campaign_dashboard, name='campaign_dashboard'),
+    path('crush-admin/campaigns/new/', campaign_dashboard_views.campaign_composer, name='campaign_new'),
+    path('crush-admin/campaigns/create/', campaign_dashboard_views.campaign_create, name='campaign_create'),
+    path('crush-admin/campaigns/estimate/', campaign_dashboard_views.campaign_estimate, name='campaign_estimate'),
+    path('crush-admin/campaigns/preview/', campaign_dashboard_views.campaign_preview, name='campaign_preview'),
+    path('crush-admin/campaigns/<int:campaign_id>/', campaign_dashboard_views.campaign_detail, name='campaign_detail'),
+    path('crush-admin/campaigns/<int:campaign_id>/cancel/', campaign_dashboard_views.campaign_cancel, name='campaign_cancel'),
+    path('crush-admin/campaigns/<int:campaign_id>/launch/', campaign_dashboard_views.campaign_launch, name='campaign_launch'),
+    path('crush-admin/campaigns/<int:campaign_id>/status/', campaign_dashboard_views.campaign_status_partial, name='campaign_status_partial'),
+    path('crush-admin/api/campaign-overview/', campaign_dashboard_views.campaign_overview_api, name='campaign_overview_api'),
+    path('crush-admin/api/campaign-clicks/<int:campaign_id>/', campaign_dashboard_views.campaign_clicks_api, name='campaign_clicks_api'),
+    path('crush-admin/api/reminders-funnel/', campaign_dashboard_views.reminders_funnel_api, name='reminders_funnel_api'),
 
     path('crush-admin/', crush_admin_site.urls),
 
