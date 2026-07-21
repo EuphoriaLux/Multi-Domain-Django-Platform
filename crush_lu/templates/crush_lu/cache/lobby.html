@@ -20,8 +20,13 @@
         </div>
 
         {% if hunt.status == 'live' %}
-        <div class="mb-4 rounded-xl border border-green-500 bg-green-50 dark:bg-green-900/30 px-4 py-3 text-center font-semibold text-green-700 dark:text-green-300" role="status">
-            {% trans "The hunt is live!" %}
+        <div class="mb-6 rounded-2xl border-2 border-crush-purple bg-gradient-to-r from-crush-purple/10 to-crush-pink/10 p-5 text-center shadow-crush-sm" role="status">
+            <p class="font-bold text-gray-900 dark:text-white text-lg">🚀 {% trans "The hunt is live!" %}</p>
+            {% if membership %}
+            <a href="{% url 'crush_lu:cache_play' event.id %}" class="btn-crush-primary mt-3 inline-flex items-center justify-center gap-2 w-full py-3 text-base font-bold shadow-md">
+                🎮 {% trans "Return to Hunt" %} →
+            </a>
+            {% endif %}
         </div>
         {% elif hunt.status == 'finished' %}
         <div class="mb-4 rounded-xl border border-gray-400 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-center text-gray-600 dark:text-gray-300">

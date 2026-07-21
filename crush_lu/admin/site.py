@@ -179,27 +179,40 @@ class CrushLuAdminSite(admin.AdminSite):
             'crushconnectwaitlist': {'order': 5, 'icon': '📋', 'group': 'Crush Connect'},
             'connectinterest': {'order': 6, 'icon': '🏷️', 'group': 'Crush Connect'},
             'sparkprompt': {'order': 7, 'icon': '💬', 'group': 'Crush Connect'},
+            'connectquestionweek': {'order': 8, 'icon': '📆', 'group': 'Crush Connect'},  # weekly Q&A rotation
+            'connectquestion': {'order': 9, 'icon': '❓', 'group': 'Crush Connect'},
+            'connectquestionanswer': {'order': 10, 'icon': '💭', 'group': 'Crush Connect'},
+            'confirmedencounter': {'order': 11, 'icon': '🤝', 'group': 'Crush Connect'},
+            'confirmedencounterremovalrequest': {'order': 12, 'icon': '🚫', 'group': 'Crush Connect'},
 
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 1: Users & Profiles (Core user management)
             # ═══════════════════════════════════════════════════════════════════
             'user': {'order': 0, 'icon': '🔑', 'group': 'Users & Profiles'},  # Django User accounts
             'crushprofile': {'order': 1, 'icon': '👤', 'group': 'Users & Profiles'},
-            'approvedprofile': {'order': 2, 'icon': '✅', 'group': 'Users & Profiles'},
-            'pendingreviewprofile': {'order': 3, 'icon': '⏳', 'group': 'Users & Profiles'},
-            'revisionneededprofile': {'order': 4, 'icon': '✏️', 'group': 'Users & Profiles'},
-            'recontactcoachprofile': {'order': 5, 'icon': '📞', 'group': 'Users & Profiles'},
-            'rejectedprofile': {'order': 6, 'icon': '❌', 'group': 'Users & Profiles'},
-            'incompleteprofile': {'order': 7, 'icon': '📝', 'group': 'Users & Profiles'},
-            'awaitingreviewprofile': {'order': 8, 'icon': '📋', 'group': 'Users & Profiles'},
-            'profilesubmission': {'order': 9, 'icon': '📄', 'group': 'Users & Profiles'},
-            'completedsubmission': {'order': 10, 'icon': '✔️', 'group': 'Users & Profiles'},
-            'inprocesssubmission': {'order': 11, 'icon': '🔄', 'group': 'Users & Profiles'},
-            'crushcoach': {'order': 12, 'icon': '🎓', 'group': 'Users & Profiles'},
-            'coachsession': {'order': 13, 'icon': '💬', 'group': 'Users & Profiles'},
-            'screeningslot': {'order': 14, 'icon': '📅', 'group': 'Users & Profiles'},
-            'premiummembership': {'order': 15, 'icon': '💎', 'group': 'Users & Profiles'},
-            'callattempt': {'order': 16, 'icon': '☎️', 'group': 'Users & Profiles'},
+            'profilesubmission': {'order': 2, 'icon': '📄', 'group': 'Users & Profiles'},
+            'crushcoach': {'order': 3, 'icon': '🎓', 'group': 'Users & Profiles'},
+            'coachsession': {'order': 4, 'icon': '💬', 'group': 'Users & Profiles'},
+            'screeningslot': {'order': 5, 'icon': '📅', 'group': 'Users & Profiles'},
+            'premiummembership': {'order': 6, 'icon': '💎', 'group': 'Users & Profiles'},
+            'callattempt': {'order': 7, 'icon': '☎️', 'group': 'Users & Profiles'},
+
+            # ═══════════════════════════════════════════════════════════════════
+            # GROUP: Profile Segments (saved-filter proxy views of profiles)
+            # These proxy admins stay registered (index Action Center deep-links
+            # target them); they just live in their own collapsed "More"-tier
+            # group instead of padding Users & Profiles with 9 extra rows.
+            # See docs/crush-admin-redesign.md.
+            # ═══════════════════════════════════════════════════════════════════
+            'approvedprofile': {'order': 1, 'icon': '✅', 'group': 'Profile Segments'},
+            'awaitingreviewprofile': {'order': 2, 'icon': '📋', 'group': 'Profile Segments'},
+            'pendingreviewprofile': {'order': 3, 'icon': '⏳', 'group': 'Profile Segments'},
+            'revisionneededprofile': {'order': 4, 'icon': '✏️', 'group': 'Profile Segments'},
+            'recontactcoachprofile': {'order': 5, 'icon': '📞', 'group': 'Profile Segments'},
+            'rejectedprofile': {'order': 6, 'icon': '❌', 'group': 'Profile Segments'},
+            'incompleteprofile': {'order': 7, 'icon': '📝', 'group': 'Profile Segments'},
+            'inprocesssubmission': {'order': 8, 'icon': '🔄', 'group': 'Profile Segments'},
+            'completedsubmission': {'order': 9, 'icon': '✔️', 'group': 'Profile Segments'},
 
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 2: Events & Meetups (Event management)
@@ -212,6 +225,9 @@ class CrushLuAdminSite(admin.AdminSite):
             'eventpoll': {'order': 7, 'icon': '🗳️', 'group': 'Events & Meetups'},
             'eventpollvote': {'order': 8, 'icon': '📊', 'group': 'Events & Meetups'},
             'eventfeedback': {'order': 9, 'icon': '📝', 'group': 'Events & Meetups'},
+            'eventlobbyparticipation': {'order': 10, 'icon': '🚪', 'group': 'Events & Meetups'},  # live event lobby
+            'eventmeetsignal': {'order': 11, 'icon': '👋', 'group': 'Events & Meetups'},
+            'eventmeetingconfirmation': {'order': 12, 'icon': '✅', 'group': 'Events & Meetups'},
 
             # ═══════════════════════════════════════════════════════════════════
             # GROUP: Quiz Night (Live quiz event management)
@@ -268,6 +284,7 @@ class CrushLuAdminSite(admin.AdminSite):
             'pushsubscription': {'order': 1, 'icon': '🔔', 'group': 'Notifications'},
             'coachpushsubscription': {'order': 2, 'icon': '📣', 'group': 'Notifications'},
             'iosappdevice': {'order': 3, 'icon': '📱', 'group': 'Notifications'},
+            'androidappdevice': {'order': 3, 'icon': '🤖', 'group': 'Notifications'},
             'iosnativeauthcode': {'order': 4, 'icon': '🔐', 'group': 'Notifications'},
             'newsletter': {'order': 5, 'icon': '📰', 'group': 'Notifications'},
             'newsletterrecipient': {'order': 6, 'icon': '📨', 'group': 'Notifications'},
@@ -288,6 +305,23 @@ class CrushLuAdminSite(admin.AdminSite):
             # ═══════════════════════════════════════════════════════════════════
             'referralcode': {'order': 1, 'icon': '🎟️', 'group': 'Growth & Referrals'},
             'referralattribution': {'order': 2, 'icon': '🔗', 'group': 'Growth & Referrals'},
+
+            # ═══════════════════════════════════════════════════════════════════
+            # GROUP: Crush Cache (location-based scavenger hunt feature)
+            # ═══════════════════════════════════════════════════════════════════
+            'cachehunt': {'order': 1, 'icon': '🧭', 'group': 'Crush Cache'},
+            'cachestation': {'order': 2, 'icon': '📍', 'group': 'Crush Cache'},
+            'cachechallenge': {'order': 3, 'icon': '🎯', 'group': 'Crush Cache'},
+            'cacheteam': {'order': 4, 'icon': '👥', 'group': 'Crush Cache'},
+            'cacheteamprogress': {'order': 5, 'icon': '📈', 'group': 'Crush Cache'},
+            'cachestationattempt': {'order': 6, 'icon': '🗒️', 'group': 'Crush Cache'},
+            'cachechallengeattempt': {'order': 7, 'icon': '📝', 'group': 'Crush Cache'},
+
+            # ═══════════════════════════════════════════════════════════════════
+            # GROUP: Trust & Safety (moderation — reports & blocks)
+            # ═══════════════════════════════════════════════════════════════════
+            'userreport': {'order': 1, 'icon': '🚩', 'group': 'Trust & Safety'},
+            'userblock': {'order': 2, 'icon': '🛑', 'group': 'Trust & Safety'},
 
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 11: Site Settings (Global configuration)
@@ -321,6 +355,24 @@ class CrushLuAdminSite(admin.AdminSite):
             'Matching', 'Analytics', 'Changelog', 'Technical & Debug', 'Other',
         }
         is_superuser = request.user.is_superuser
+
+        # Sidebar tiers (rendered by the nav_sidebar.html override):
+        #   pinned    -> always expanded (the daily coach workflow)
+        #   more      -> collapsed under a "More" section
+        #   superuser -> collapsed under a "Developer & Analytics" section
+        # Each fake-app below gets a 'tier' key so the template can group them.
+        # See docs/crush-admin-redesign.md.
+        PINNED_GROUPS = {
+            'Crush Connect', 'Users & Profiles', 'Events & Meetups',
+            'Connections', 'Notifications',
+        }
+
+        def tier_for(group_key):
+            if group_key in SUPERUSER_ONLY_GROUPS:
+                return 'superuser'
+            if group_key in PINNED_GROUPS:
+                return 'pinned'
+            return 'more'
 
         # Create grouped app list - transform single crush_lu app into multiple sections
         new_app_list = []
@@ -402,13 +454,16 @@ class CrushLuAdminSite(admin.AdminSite):
                     ('💕 Connections', 'Connections'),                 # Post-event connections, messages
                     ('🔔 Notifications', 'Notifications'),             # Push notifications, email prefs
 
-                    # === WEEKLY USE (Features & Growth) ===
+                    # === WEEKLY / OCCASIONAL (collapsed under "More") ===
+                    ('🛡️ Trust & Safety', 'Trust & Safety'),           # Reports & blocks (moderation)
+                    ('🗂️ Profile Segments', 'Profile Segments'),       # Saved-filter proxy views of profiles
                     ('✨ Special Journey', 'Special Journey'),         # VIP journey creation & monitoring
                     ('📈 Growth & Referrals', 'Growth & Referrals'),   # Referral tracking, marketing
 
                     # === EVENT-SPECIFIC (During Events Only) ===
                     ('🧠 Quiz Night', 'Quiz Night'),                   # Live quiz management
                     ('🗳️ Activity Voting', 'Activity Voting'),         # Live event voting sessions
+                    ('🧭 Crush Cache', 'Crush Cache'),                 # Location scavenger hunt
 
                     # === SEASONAL / OCCASIONAL ===
                     ('🎄 Advent Calendar', 'Advent Calendar'),         # December only
@@ -439,6 +494,7 @@ class CrushLuAdminSite(admin.AdminSite):
                             'app_url': '#',
                             'has_module_perms': True,
                             'models': groups[group_key],
+                            'tier': tier_for(group_key),
                         })
             elif app['app_label'] == 'auth':
                 # Skip auth app - User model is merged into Users & Profiles group

@@ -1,0 +1,42 @@
+{% load i18n %}
+{% comment %}
+Shared admin sidebar override (core/templates/admin wins via TEMPLATES.DIRS).
+
+For the Crush.lu Coach Panel it groups the tiered "fake apps" produced by
+CrushLuAdminSite.get_app_list into collapsible sections so the daily workflow
+stays visible while rarely-used and dev/analytics groups fold away. Each app
+carries a `tier` key:
+  pinned    -> rendered directly (always expanded)
+  more      -> collapsed <details> "More"
+  superuser -> collapsed <details> "Developer & Analytics"
+
+Every OTHER admin site (default admin, entreprinder, power_up, …) has apps with
+no `tier`, so `regroup` yields a single empty-grouper bucket that renders
+directly through admin/app_list.html exactly like Django's stock sidebar — no
+behaviour change there. Collapsing uses native <details>/<summary> (no JS
+required, CSP-safe); crush_admin_nav.js only auto-opens the sections while the
+quick-filter has text and remembers each section's state.
+{% endcomment %}
+<button class="sticky toggle-nav-sidebar" id="toggle-nav-sidebar" aria-label="{% translate 'Toggle navigation' %}"></button>
+<nav class="sticky" id="nav-sidebar" aria-label="{% translate 'Sidebar' %}">
+  <input type="search" id="nav-filter"
+         placeholder="{% translate 'Start typing to filter…' %}"
+         aria-label="{% translate 'Filter navigation items' %}">
+
+  {% regroup available_apps by tier as tiered_apps %}
+  {% for tier in tiered_apps %}
+    {% if tier.grouper == 'more' or tier.grouper == 'superuser' %}
+      <details class="nav-tier" data-tier="{{ tier.grouper }}">
+        <summary class="nav-tier-summary">
+          <span class="nav-tier-label">
+            {% if tier.grouper == 'superuser' %}{% translate 'Developer & Analytics' %}{% else %}{% translate 'More' %}{% endif %}
+          </span>
+          <span class="nav-tier-count">{{ tier.list|length }}</span>
+        </summary>
+        {% include 'admin/app_list.html' with app_list=tier.list show_changelinks=False %}
+      </details>
+    {% else %}
+      {% include 'admin/app_list.html' with app_list=tier.list show_changelinks=False %}
+    {% endif %}
+  {% endfor %}
+</nav>

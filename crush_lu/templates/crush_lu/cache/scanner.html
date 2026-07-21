@@ -35,7 +35,7 @@
                 <p class="mb-2 text-center text-sm text-gray-500 dark:text-gray-400">
                     {% trans "Camera not working? Type the short code printed under the QR:" %}
                 </p>
-                <form method="post" action="{% url 'crush_lu:cache_manual_code' event.id %}" class="flex gap-2">
+                <form method="post" action="{% url 'crush_lu:cache_manual_code' event.id %}" class="flex gap-2" onsubmit="return handleManualCodeSubmit(event, this)">
                     {% csrf_token %}
                     <input type="text" name="code" autocomplete="off" required
                            autocapitalize="characters" autocorrect="off" spellcheck="false"
@@ -90,8 +90,62 @@ document.addEventListener('DOMContentLoaded', function() {
     var msgNoCamera = '{% filter escapejs %}{% trans "No camera found. Please use manual input below." %}{% endfilter %}';
     var msgCameraError = '{% filter escapejs %}{% trans "Could not access camera. Please use manual input." %}{% endfilter %}';
 
-    var html5QrCode = new Html5Qrcode("qr-video");
+    window.handleManualCodeSubmit = function(evt, form) {
+        evt.preventDefault();
+        playQrSuccessSound();
+        if (navigator.vibrate) {
+            try { navigator.vibrate([80, 50, 80]); } catch (e) {}
+        }
+        setTimeout(function() {
+            form.submit();
+        }, 350);
+        return false;
+    };
+
+    function playQrSuccessSound() {
+        playSynthQrSound();
+    }
+
+    if (typeof Html5Qrcode === 'undefined') {
+        statusEl.textContent = msgNoCamera;
+        return;
+    }
+
+    var html5QrCode;
     var config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1 };
+    try {
+        html5QrCode = new Html5Qrcode("qr-video");
+    } catch (e) {
+        statusEl.textContent = msgCameraError;
+        return;
+    }
+
+    function playSynthQrSound() {
+        try {
+            var AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+            var ctx = new AudioCtx();
+            if (ctx.state === 'suspended') {
+                ctx.resume();
+            }
+            var now = ctx.currentTime;
+            // C Major chord arpeggio: C5 (523.25Hz), E5 (659.25Hz), G5 (783.99Hz), C6 (1046.50Hz)
+            var freqs = [523.25, 659.25, 783.99, 1046.50];
+            freqs.forEach(function(f, idx) {
+                var o = ctx.createOscillator();
+                var g = ctx.createGain();
+                var t = now + (idx * 0.08);
+                o.type = "triangle";
+                o.frequency.setValueAtTime(f, t);
+                g.gain.setValueAtTime(0.35, t);
+                g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+                o.connect(g);
+                g.connect(ctx.destination);
+                o.start(t);
+                o.stop(t + 0.4);
+            });
+        } catch (e) {}
+    }
 
     function goToToken(token) {
         window.location.href = scanUrlTemplate.replace('00000000-0000-0000-0000-000000000000', token);
@@ -100,13 +154,19 @@ document.addEventListener('DOMContentLoaded', function() {
     function onScanSuccess(decodedText) {
         html5QrCode.stop();
         statusEl.textContent = msgQrDetected;
+        playQrSuccessSound();
+        if (navigator.vibrate) {
+            try { navigator.vibrate([80, 50, 80]); } catch (e) {}
+        }
 
         var token = decodedText;
         if (decodedText.includes('/cache/qr/')) {
             var match = decodedText.match(/\/cache\/qr\/([a-f0-9-]+)/i);
             if (match) token = match[1];
         }
-        goToToken(token);
+        setTimeout(function() {
+            goToToken(token);
+        }, 350);
     }
 
     function showWarning(msg) { statusEl.textContent = msg; }
