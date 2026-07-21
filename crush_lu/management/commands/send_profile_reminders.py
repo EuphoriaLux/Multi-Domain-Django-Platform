@@ -26,10 +26,31 @@ Scheduling:
     Run this command daily (e.g., via Azure WebJobs or cron):
     0 9 * * * cd /home/site/wwwroot && python manage.py send_profile_reminders
 """
+import time
+
 from django.core.management.base import BaseCommand
 from django.conf import settings
+from django.core.cache import cache
 
 from crush_lu.email_helpers import get_users_needing_reminder, send_profile_incomplete_reminder
+
+# Cross-process lock so two overlapping sweeps (e.g. a manual recovery run
+# while the daily timer is mid-run) can't both select and email the same user
+# before either records the ProfileReminder row. Best-effort: the shared Redis
+# cache in production makes it effective across gunicorn workers; the TTL is a
+# safety net if a run dies before releasing.
+SWEEP_LOCK_KEY = "profile_reminders_sweep_lock"
+SWEEP_LOCK_TTL = 900  # seconds
+
+# Wall-clock budget for one sweep. The endpoint runs this command synchronously
+# in the request, so a slow batch of the default 100 would blow past the
+# Function App's HTTP timeout / gunicorn's 120s cap. Stop early and let the next
+# run pick up the rest. Because a single Graph send can itself block up to
+# GRAPH_SEND_TIMEOUT_SECONDS (azureproject/graph_email_backend.py), we stop
+# STARTING new sends once less than that much budget remains, so a send begun
+# near the deadline still finishes under the 60s HTTP timeout. (Codex P1/P2.)
+SEND_TIME_BUDGET_SECONDS = 55
+GRAPH_SEND_TIMEOUT_SECONDS = 30
 
 
 class Command(BaseCommand):
@@ -60,11 +81,42 @@ class Command(BaseCommand):
         limit = options['limit']
         verbosity = options['verbosity']
 
-        # Determine which reminder types to process
+        # Determine which reminder types to process. Process the newest stage
+        # LAST (7d -> 72h -> 24h): the eligibility windows are 48h wide and
+        # adjacent (24h: 24-72h, 72h: 72-120h), so a user recovered near a
+        # boundary can sit in two windows at once. Creating a stage's row
+        # before the next stage's query runs would let both fire in one sweep;
+        # evaluating the later stage first (before this run's row exists) caps
+        # each user at one reminder per run. (Codex P2.)
         if reminder_type == 'all':
-            reminder_types = ['24h', '72h', '7d']
+            reminder_types = ['7d', '72h', '24h']
         else:
             reminder_types = [reminder_type]
+
+        # Serialize concurrent sweeps before any provider delivery (Codex P2).
+        # Dry-runs don't send, so they skip the lock.
+        lock_acquired = False
+        if not dry_run:
+            acquired = cache.add(SWEEP_LOCK_KEY, "1", SWEEP_LOCK_TTL)
+            if acquired is False:
+                # Key present -> another sweep is genuinely running.
+                self.stdout.write(self.style.WARNING(
+                    'Another profile-reminder sweep is in progress; '
+                    'skipping this run.'
+                ))
+                return
+            # acquired is None -> cache unavailable (prod Redis uses
+            # IGNORE_EXCEPTIONS, so a connection failure returns None, not
+            # raises). Fail open and send rather than no-op every run until
+            # Redis recovers. (Codex P2.)
+            if acquired is None:
+                self.stdout.write(self.style.WARNING(
+                    'Reminder sweep lock cache is unavailable; proceeding '
+                    'without cross-process locking.'
+                ))
+            lock_acquired = acquired is True
+
+        deadline = time.monotonic() + SEND_TIME_BUDGET_SECONDS
 
         # Show timing configuration
         timing = getattr(settings, 'PROFILE_REMINDER_TIMING', {})
@@ -81,12 +133,54 @@ class Command(BaseCommand):
         total_failed = 0
         emails_remaining = limit
 
-        for rtype in reminder_types:
+        # Fair per-stage capacity. With --type=all the stages share one `limit`
+        # and are processed oldest-signup-stage first (7d -> 72h -> 24h) for
+        # double-send safety. Without a reservation a large older-stage backlog
+        # would consume the whole limit and STARVE the newest stage (24h) run
+        # after run; those users then age past the 24h max_hours and never enter
+        # the reminder funnel at all — worse than a dropped 7d nudge, which only
+        # misses the final touch after the user already got 24h + 72h. Reserve a
+        # floor for each stage, capped at its real demand so we never defer an
+        # earlier stage for capacity a later one won't use, and let earlier
+        # stages spend whatever slack remains. (Codex P2)
+        if len(reminder_types) > 1:
+            per_stage_floor = max(1, limit // len(reminder_types))
+            stage_demand = {
+                rt: get_users_needing_reminder(rt).count() for rt in reminder_types
+            }
+        else:
+            per_stage_floor = limit
+            stage_demand = {}
+
+        for idx, rtype in enumerate(reminder_types):
             if emails_remaining <= 0:
                 self.stdout.write(
                     self.style.WARNING(f'Limit of {limit} emails reached, stopping')
                 )
                 break
+            if not dry_run and (deadline - time.monotonic()) < GRAPH_SEND_TIMEOUT_SECONDS:
+                self.stdout.write(self.style.WARNING(
+                    'Time budget reached; remaining reminders will be sent '
+                    'on the next run.'
+                ))
+                break
+
+            # Hold back a floor for each later (newer, more fragile) stage, but
+            # only up to what that stage can actually use.
+            reserved_for_later = sum(
+                min(per_stage_floor, stage_demand.get(rt, 0))
+                for rt in reminder_types[idx + 1:]
+            )
+            stage_cap = max(0, emails_remaining - reserved_for_later)
+            if stage_cap <= 0:
+                # All remaining capacity is reserved for later stages; skip
+                # ahead so they aren't starved by this older-stage backlog.
+                if verbosity >= 1:
+                    self.stdout.write(
+                        f'\n  Reserving capacity for later stages; '
+                        f'deferring {rtype} to the next run'
+                    )
+                continue
 
             if verbosity >= 1:
                 self.stdout.write(f'\nProcessing {rtype} reminders...')
@@ -105,10 +199,18 @@ class Command(BaseCommand):
             if verbosity >= 1:
                 self.stdout.write(f'  Found {user_count} users eligible for {rtype} reminder')
 
-            # Process users (up to remaining limit)
-            users_to_process = users[:emails_remaining]
+            # Process users (up to this stage's fair share of the remaining limit)
+            users_to_process = users[:stage_cap]
 
             for user in users_to_process:
+                if not dry_run and (deadline - time.monotonic()) < GRAPH_SEND_TIMEOUT_SECONDS:
+                    self.stdout.write(self.style.WARNING(
+                        'Time budget reached mid-batch; remaining reminders '
+                        'will be sent on the next run.'
+                    ))
+                    emails_remaining = 0  # stop the outer loop too
+                    break
+
                 # Get profile info for logging
                 try:
                     profile = user.crushprofile
@@ -180,3 +282,9 @@ class Command(BaseCommand):
             'skipped': total_skipped,
             'failed': total_failed,
         }
+
+        # Release the sweep lock promptly (the TTL only backstops an abnormal
+        # exit; per-user sends are already caught above, so normal runs reach
+        # here). Only the holder deletes it.
+        if lock_acquired:
+            cache.delete(SWEEP_LOCK_KEY)

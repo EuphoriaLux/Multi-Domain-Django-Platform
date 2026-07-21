@@ -43,7 +43,11 @@ class PhoneOTP(models.Model):
         default=False,
         help_text=_("Set once the code is successfully verified (single-use)."),
     )
-    created_at = models.DateTimeField(auto_now_add=True)
+    # db_index supports the GDPR retention sweep, which filters + orders expired
+    # rows by created_at in bounded chunks (gdpr_retention_cleanup); without it
+    # each chunk seq-scans/sorts the whole table and a backlog can outrun the
+    # sweep's wall-clock budget. (Codex P2)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     expires_at = models.DateTimeField(db_index=True)
 
     class Meta:

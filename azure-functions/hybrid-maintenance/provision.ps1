@@ -122,7 +122,10 @@ $settings = @(
     "DJANGO_PRE_SCREENING_INVITES_URL=https://$DJANGO_HOST/api/admin/pre-screening-invites/",
     "DJANGO_HYBRID_SLA_SWEEP_URL=https://$DJANGO_HOST/api/admin/hybrid-coach-sla-sweep/",
     "DJANGO_WEEKLY_KPIS_URL=https://$DJANGO_HOST/api/admin/weekly-kpis/",
+    "DJANGO_ROTATE_CONNECT_QUESTIONS_URL=https://$DJANGO_HOST/api/admin/rotate-connect-questions/",
     "DJANGO_CAMPAIGN_DISPATCH_URL=https://$DJANGO_HOST/api/admin/campaigns/dispatch/",
+    "DJANGO_PROFILE_REMINDERS_URL=https://$DJANGO_HOST/api/admin/profile-reminders/",
+    "DJANGO_GDPR_RETENTION_URL=https://$DJANGO_HOST/api/admin/gdpr-retention/",
     "HYBRID_MAINTENANCE_ENABLED=false",
     "ApplicationInsightsAgent_EXTENSION_VERSION=disabled"
 )

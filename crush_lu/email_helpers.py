@@ -9,6 +9,7 @@ from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.urls import reverse
 from django.utils.translation import override
+from django.core.cache import cache
 from azureproject.email_utils import send_domain_email
 from .utils.i18n import get_user_preferred_language
 
@@ -1419,10 +1420,11 @@ def get_users_needing_reminder(reminder_type):
 
     Uses configurable timing from settings.PROFILE_REMINDER_TIMING.
 
-    Logic:
-    - 24h: Created 24-48h ago, completion_status in ['not_started', 'step1', 'step2'], no 24h reminder sent
-    - 72h: Created 72-96h ago, incomplete, has 24h but no 72h reminder
-    - 7d: Created 7-8d ago, incomplete, has 72h but no 7d reminder
+    Logic (windows are 48h wide so one missed daily tick is retried, not
+    dropped — see settings.PROFILE_REMINDER_TIMING):
+    - 24h: Created 24-72h ago, completion_status incomplete, no 24h reminder sent
+    - 72h: Created 72-120h ago, incomplete, has 24h but no 72h reminder
+    - 7d: Created 7-9d ago, incomplete, has 72h but no 7d reminder
 
     Args:
         reminder_type: One of '24h', '72h', '7d'
@@ -1450,25 +1452,70 @@ def get_users_needing_reminder(reminder_type):
     # Incomplete statuses that need reminders
     incomplete_statuses = ["not_started", "step1", "step2", "step3", "step4"]
 
-    # Get users with incomplete profiles in the time window
+    # Get users with incomplete profiles in the time window. Exclude anyone we
+    # must not contact: a ban keeps the CrushProfile but sets user.is_active
+    # False and data_consent.crushlu_banned True, and a profile deactivation
+    # sets crushprofile.is_active False — can_send_email() only checks
+    # EmailPreference, so those users would otherwise still be emailed. (Codex P1)
+    #
+    # Also require crushlu_consent_given: create_crush_profile_on_login lazily
+    # creates an incomplete CrushProfile for an existing cross-domain account on
+    # its first crush.lu login, while ConsentMiddleware redirects it to confirm
+    # consent. If the user never confirms, crushlu_consent_given stays False (the
+    # signal default) and we must not send profile-completion outreach for a
+    # profile layer they haven't consented to. Requiring =True also drops users
+    # with no data_consent row at all, which is correct — no consent recorded.
+    # (Codex P1)
     users = User.objects.filter(
+        is_active=True,
         crushprofile__completion_status__in=incomplete_statuses,
+        crushprofile__is_active=True,
         crushprofile__created_at__gte=min_created,
         crushprofile__created_at__lte=max_created,
+        data_consent__crushlu_consent_given=True,
     ).exclude(
         # Exclude users who already got this reminder type
         profile_reminders__reminder_type=reminder_type
+    ).exclude(
+        data_consent__crushlu_banned=True,
     )
 
-    # For 72h and 7d, require previous reminder to have been sent
-    if reminder_type == "72h":
-        # Must have received 24h reminder
-        users = users.filter(profile_reminders__reminder_type="24h")
-    elif reminder_type == "7d":
-        # Must have received 72h reminder
-        users = users.filter(profile_reminders__reminder_type="72h")
+    # For 72h and 7d, require the previous reminder to have been sent AND to
+    # have been sent long enough ago to preserve the intended cadence. Checking
+    # only that the prior row exists is not enough: with the widened drain
+    # windows a backlog-recovered profile (e.g. a 6-day-old signup that only
+    # gets its 24h nudge today) already satisfies every later stage's created_at
+    # window, so it would receive 24h, then 72h, then 7d on three consecutive
+    # daily sweeps. Gate the next stage on the prior reminder's sent_at plus the
+    # same spacing an on-time profile sees — the difference of the two stages'
+    # min_hours (24h->72h = 48h, 72h->7d = 96h). (Codex P2)
+    prior_type = {"72h": "24h", "7d": "72h"}.get(reminder_type)
+    if prior_type:
+        min_gap_hours = min_hours - timing[prior_type]["min_hours"]
+        prior_sent_cutoff = now - timezone.timedelta(hours=min_gap_hours)
+        users = users.filter(
+            profile_reminders__reminder_type=prior_type,
+            profile_reminders__sent_at__lte=prior_sent_cutoff,
+        )
 
-    return users.distinct()
+    # Oldest PROFILES first so that when a run's send limit / time budget can't
+    # clear the whole backlog, the users closest to ageing out of max_hours are
+    # served first. Order by crushprofile.created_at — the same timestamp
+    # eligibility and expiry use — NOT User.date_joined: create_crush_profile_
+    # on_login (crush_lu/signals.py) lazily creates a CrushProfile when an old
+    # cross-domain account first logs into crush.lu, so date_joined can be far
+    # older than the profile and would push a genuinely near-expiry profile
+    # behind a freshly-created one. Annotate the profile timestamp and order by
+    # the annotation so SELECT DISTINCT ... ORDER BY stays valid on PostgreSQL
+    # (the ordering expression is then part of the select list); pk is a stable
+    # tiebreaker. (Codex P2)
+    from django.db.models import F
+
+    return (
+        users.annotate(_reminder_profile_created=F("crushprofile__created_at"))
+        .distinct()
+        .order_by("_reminder_profile_created", "pk")
+    )
 
 
 # =============================================================================
@@ -1632,6 +1679,38 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
         logger.error(f"Unknown reminder type: {reminder_type}")
         return False
 
+    # Concurrency guard (Codex P2). This helper is invoked by both the daily
+    # timer sweep and the superuser panel (crush_lu/admin/profile_reminders.py),
+    # and it delivers the email *before* recording the ProfileReminder row — so
+    # two paths that both pass eligibility could each send before either writes
+    # the row. First skip if a staggered concurrent path already recorded it;
+    # then take a short-lived per-user cache claim to close the send-before-
+    # insert window for a truly simultaneous path. The row is still written only
+    # on success, so a crashed run leaves no false "sent" record — the claim
+    # (5 min TTL) simply expires and the reminder is retried on the next run.
+    if ProfileReminder.objects.filter(
+        user=user, reminder_type=reminder_type
+    ).exists():
+        logger.info(
+            f"{reminder_type} reminder already recorded for {user.email}; skipping"
+        )
+        return False
+
+    claim_key = f"profile_reminder_claim:{user.id}:{reminder_type}"
+    claim = cache.add(claim_key, "1", 300)
+    if claim is False:
+        # Key present -> another path is delivering this reminder right now.
+        logger.info(
+            f"{reminder_type} reminder for {user.email} is already in flight; "
+            "skipping"
+        )
+        return False
+    # claim is True (we hold it) or None (cache unavailable — Redis down with
+    # IGNORE_EXCEPTIONS returns None, not raise). On an outage, fail open: the
+    # ProfileReminder row check above still dedups staggered paths, so proceed
+    # rather than skip the send. Only release a claim we actually took.
+    claim_held = claim is True
+
     # Get user's preferred language for email content
     lang = getattr(profile, "preferred_language", "en") or "en"
 
@@ -1706,6 +1785,9 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
                 user=user,
                 reminder_type=reminder_type,
             )
+            # Durable dedup now exists — release the in-flight claim.
+            if claim_held:
+                cache.delete(claim_key)
 
             # Update UserActivity if it exists
             try:
@@ -1723,10 +1805,16 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
             )
             return True
         else:
+            # Nothing delivered — release the claim so it retries next run.
+            if claim_held:
+                cache.delete(claim_key)
             logger.warning(f"Email send returned 0 for {user.email}")
             return False
 
     except Exception as e:
+        # Send failed — release the claim so the reminder isn't dropped.
+        if claim_held:
+            cache.delete(claim_key)
         logger.error(
             f"Failed to send {reminder_type} reminder to {user.email}: {e}",
             exc_info=True,

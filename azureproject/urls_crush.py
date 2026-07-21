@@ -299,6 +299,14 @@ urlpatterns = [
     # timer calls this on Mondays). Language-neutral so the Function can hardcode it.
     path('api/admin/rotate-connect-questions/', api_admin_metrics.rotate_connect_questions_sweep, name='api_admin_rotate_connect_questions'),
 
+    # Daily profile-completion reminders (ProfileReminders Function timer).
+    # Language-neutral so the Function App can hardcode it.
+    path('api/admin/profile-reminders/', api_admin_metrics.profile_reminders_sweep, name='api_admin_profile_reminders'),
+
+    # Weekly GDPR data-minimization retention sweep (GdprRetention Function
+    # timer). Language-neutral so the Function App can hardcode it.
+    path('api/admin/gdpr-retention/', api_admin_metrics.gdpr_retention_sweep, name='api_admin_gdpr_retention'),
+
     # Changelog ingest (called by the Claude Code changelog routine on PR merge).
     # Language-neutral path; auto-publishes to /changelog/. See docs/changelog-routine.md.
     path('api/admin/changelog/ingest/', api_admin_changelog.ingest_changelog, name='api_admin_changelog_ingest'),

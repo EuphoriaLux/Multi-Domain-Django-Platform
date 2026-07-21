@@ -205,3 +205,45 @@ def campaign_dispatch(timer: func.TimerRequest) -> None:
     _call_admin_endpoint(
         "CampaignDispatch", "DJANGO_CAMPAIGN_DISPATCH_URL", timeout=110
     )
+
+
+@app.function_name(name="ProfileReminders")
+@app.timer_trigger(
+    schedule="0 0 8 * * *",  # Daily at 08:00 UTC
+    arg_name="timer",
+    run_on_startup=False,
+    use_monitor=True,
+)
+def profile_reminders(timer: func.TimerRequest) -> None:
+    """Send the 24h/72h/7d profile-completion reminder emails.
+
+    Idempotent per user per reminder type: a ProfileReminder row (unique on
+    (user, reminder_type)) records each send, so a retried or catch-up
+    invocation never re-sends the same reminder.
+    """
+    ts = datetime.utcnow().isoformat()
+    if timer.past_due:
+        logging.warning("ProfileReminders: timer past due at %s", ts)
+    logging.info("ProfileReminders: starting at %s", ts)
+    _call_admin_endpoint("ProfileReminders", "DJANGO_PROFILE_REMINDERS_URL")
+
+
+@app.function_name(name="GdprRetention")
+@app.timer_trigger(
+    schedule="0 30 5 * * 0",  # Sundays at 05:30 UTC (off-peak, clear of Monday jobs)
+    arg_name="timer",
+    run_on_startup=False,
+    use_monitor=True,
+)
+def gdpr_retention(timer: func.TimerRequest) -> None:
+    """Weekly GDPR data-minimization retention sweep.
+
+    The Django endpoint runs gdpr_retention_cleanup with --apply; retention
+    windows come from settings.GDPR_RETENTION on the Django side. Deletions
+    are bounded to rows past their window per category.
+    """
+    ts = datetime.utcnow().isoformat()
+    if timer.past_due:
+        logging.warning("GdprRetention: timer past due at %s", ts)
+    logging.info("GdprRetention: starting at %s", ts)
+    _call_admin_endpoint("GdprRetention", "DJANGO_GDPR_RETENTION_URL")

@@ -1037,18 +1037,37 @@ CSRF_FAILURE_VIEW = "azureproject.middleware.csrf_failure_view"
 # min_hours: Minimum time since profile creation before sending this reminder
 # max_hours: Maximum time window - don't send reminder after this point
 # Users are only eligible if they haven't received this reminder type before.
+# min_hours sets the cadence (a stage becomes eligible this many hours after
+# signup); the wide max_hours gives ~6 days of daily runs to DRAIN a backlog
+# so a signup spike larger than one run's capacity is served over the next
+# few days rather than aged out and permanently dropped. get_users_needing_
+# reminder orders oldest-first, so under a spike the users closest to their
+# max_hours are served first. The max_hours still bounds staleness, so first
+# enabling this against a historical backlog only contacts recent signups,
+# not months-old abandoned ones. At most one send per stage: the query
+# excludes users who already have that stage's ProfileReminder row.
+#
+# Each later stage's max_hours must leave slack for a backlog-recovered user to
+# still reach it: get_users_needing_reminder gates the next stage on the prior
+# reminder's sent_at + the cadence gap (24h->72h = 48h, 72h->7d = 96h), so a
+# user whose prior stage fired at the very end of ITS window only becomes
+# eligible gap-hours later and needs one more daily run to be caught. So each
+# later max_hours >= prior stage's max_hours + gap + 24h (one daily cycle):
+#   72h: 168 + 48 + 24 = 240;  7d: 240 + 96 + 24 = 360.
+# Otherwise the cadence gate would push a delayed user past this ceiling before
+# any run selects them, stranding the sequence. (Codex P2)
 PROFILE_REMINDER_TIMING = {
     "24h": {
         "min_hours": 24,
-        "max_hours": 48,
+        "max_hours": 168,  # eligible 1-7 days after signup (6-day drain window)
     },
     "72h": {
         "min_hours": 72,
-        "max_hours": 96,
+        "max_hours": 240,  # 3-10 days (leaves slack past the 48h cadence gap)
     },
     "7d": {
         "min_hours": 168,  # 7 days
-        "max_hours": 192,  # 8 days
+        "max_hours": 360,  # 7-15 days (leaves slack past the 96h cadence gap)
     },
 }
 

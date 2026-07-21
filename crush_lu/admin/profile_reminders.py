@@ -92,9 +92,13 @@ def execute_reminders(reminder_type, limit, dry_run):
     Returns:
         dict with execution results
     """
-    # Determine which reminder types to process
+    # Determine which reminder types to process. Newest stage LAST
+    # (7d -> 72h -> 24h), mirroring send_profile_reminders: the eligibility
+    # windows overlap, so evaluating a later stage before this run creates the
+    # earlier stage's row prevents a user from receiving two stages' emails in
+    # one submission. (Codex P2.)
     if reminder_type == 'all':
-        reminder_types = ['24h', '72h', '7d']
+        reminder_types = ['7d', '72h', '24h']
     else:
         reminder_types = [reminder_type]
 
