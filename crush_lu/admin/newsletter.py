@@ -199,6 +199,22 @@ class NewsletterAdmin(AutoTranslateMixin, TranslationAdmin):
     date_hierarchy = 'created_at'
     inlines = [NewsletterRecipientInline]
 
+    def get_readonly_fields(self, request, obj=None):
+        readonly = list(super().get_readonly_fields(request, obj))
+        if obj is not None and obj.campaign_id:
+            # Campaign email legs: the Campaign record is the single source
+            # of truth for targeting — editing it here would let one unified
+            # campaign send its channels to different cohorts.
+            readonly += ['audience', 'segment_key', 'language', 'event']
+        return readonly
+
+    def has_delete_permission(self, request, obj=None):
+        if obj is not None and obj.campaign_id:
+            # Deleting the email leg would make the campaign's email channel
+            # report "nothing to send" and finalize without delivering.
+            return False
+        return super().has_delete_permission(request, obj)
+
     class Media:
         css = {'all': ('crush_lu/admin/css/newsletter_admin.css',)}
         js = ('crush_lu/admin/js/newsletter_admin.js',)
@@ -455,6 +471,20 @@ class NewsletterAdmin(AutoTranslateMixin, TranslationAdmin):
         """Two-step send: GET shows confirmation, POST launches async send."""
         newsletter = get_object_or_404(Newsletter, pk=pk)
 
+        if newsletter.campaign_id:
+            # Campaign email legs send only through the campaign dispatcher —
+            # a standalone send here would skip click tracking and bypass the
+            # campaign's schedule/cancellation.
+            self.message_user(
+                request,
+                "This newsletter is the email leg of a campaign — manage it "
+                "from the Campaign Dashboard instead.",
+                level=messages.WARNING,
+            )
+            return redirect(
+                reverse('crush_admin:crush_lu_newsletter_change', args=[pk])
+            )
+
         if newsletter.status != 'draft':
             self.message_user(
                 request,
@@ -571,7 +601,15 @@ class NewsletterAdmin(AutoTranslateMixin, TranslationAdmin):
 
     def send_selected_newsletters(self, request, queryset):
         """Send selected draft newsletters (async)."""
-        drafts = queryset.filter(status='draft')
+        campaign_legs = queryset.filter(campaign__isnull=False).count()
+        if campaign_legs:
+            self.message_user(
+                request,
+                f"Skipped {campaign_legs} newsletter(s) that belong to a "
+                f"campaign — those send only via the Campaign Dashboard.",
+                level=messages.WARNING,
+            )
+        drafts = queryset.filter(status='draft', campaign__isnull=True)
         if not drafts.exists():
             self.message_user(
                 request,
@@ -624,3 +662,10 @@ class NewsletterRecipientAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return False
+
+    def has_delete_permission(self, request, obj=None):
+        if obj is not None and obj.newsletter.campaign_id:
+            # Campaign email receipts are the deduplication record — deleting
+            # one lets a later dispatch tick email that recipient again.
+            return False
+        return super().has_delete_permission(request, obj)

@@ -1,0 +1,260 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "New Campaign" %} - Crush.lu{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+{% include "admin/crush_lu/partials/_campaign_styles.html" %}
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<script src="https://unpkg.com/htmx.org@2.0.4"></script>
+{% endblock %}
+
+{% block content %}
+<div class="campaign-container">
+    <a href="{% url 'campaign_dashboard' %}" class="back-link">← {% trans "Back to Campaign Dashboard" %}</a>
+
+    <div class="page-header">
+        <div>
+            <h1>🚀 {% trans "New Campaign" %}</h1>
+            <p>{% trans "Compose once, send across email, WhatsApp and push." %}</p>
+        </div>
+    </div>
+
+    <form method="post" action="{% url 'campaign_create' %}" x-data="campaignComposer">
+        {% csrf_token %}
+
+        <div class="step-nav">
+            <span class="step-chip" :class="step1Class">1 · {% trans "Audience" %}</span>
+            <span class="step-chip" :class="step2Class">2 · {% trans "Channels & content" %}</span>
+            <span class="step-chip" :class="step3Class">3 · {% trans "Preview & estimate" %}</span>
+            <span class="step-chip" :class="step4Class">4 · {% trans "Schedule" %}</span>
+        </div>
+
+        {# ---------------- Step 1: Audience ---------------- #}
+        <div class="panel-section" x-show="isStep1">
+            <div class="section-header"><h2>🎯 {% trans "Who is this campaign for?" %}</h2></div>
+
+            <div class="form-field">
+                <label for="id_name">{% trans "Campaign name" %}</label>
+                <input type="text" id="id_name" name="name" maxlength="200" required
+                       placeholder="{% trans 'e.g. Spring event push — inactive members' %}">
+                <div class="hint">{% trans "Internal name; also used for the tracking slug." %}</div>
+            </div>
+
+            <div class="form-field">
+                <label for="id_audience">{% trans "Audience" %}</label>
+                <select id="id_audience" name="audience">
+                    {% for value, label in audience_choices %}
+                    <option value="{{ value }}" {% if value == 'segment' %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-field">
+                <label for="id_segment_key">{% trans "Segment (when audience is a segment)" %}</label>
+                <select id="id_segment_key" name="segment_key">
+                    <option value="">— {% trans "pick a segment" %} —</option>
+                    {% for segment in segment_options %}
+                    <option value="{{ segment.key }}" {% if segment.key == preselected_segment %}selected{% endif %}>
+                        {{ segment.group }} · {{ segment.name }} ({{ segment.count }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-field">
+                <label for="id_language">{% trans "Language filter" %}</label>
+                <select id="id_language" name="language">
+                    {% for value, label in language_choices %}
+                    <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <div class="hint">{% trans "Restrict recipients by preferred language, or send to all." %}</div>
+            </div>
+
+            <div class="wizard-actions">
+                <button type="button" class="btn btn-primary" @click="next">{% trans "Next: channels" %} →</button>
+            </div>
+        </div>
+
+        {# ---------------- Step 2: Channels & content ---------------- #}
+        <div class="panel-section" x-show="isStep2" x-cloak>
+            <div class="section-header"><h2>📡 {% trans "Channels & content" %}</h2></div>
+
+            <div class="form-field">
+                <label>{% trans "Send via" %}</label>
+                <div class="channel-toggle">
+                    <label><input type="checkbox" name="channels" value="email" x-model="channels"> 📧 {% trans "Email" %}</label>
+                    <label><input type="checkbox" name="channels" value="whatsapp" x-model="channels"> 💬 {% trans "WhatsApp" %}</label>
+                    <label><input type="checkbox" name="channels" value="push" x-model="channels"> 🔔 {% trans "Web Push" %}</label>
+                </div>
+                <div class="hint" x-show="noChannels">{% trans "Pick at least one channel." %}</div>
+            </div>
+
+            <div x-show="emailEnabled" x-cloak>
+                <div class="section-header"><h2>📧 {% trans "Email" %}</h2></div>
+                <div class="form-field">
+                    <label for="id_email_subject">{% trans "Subject (English)" %}</label>
+                    <input type="text" id="id_email_subject" name="email_subject" maxlength="200">
+                </div>
+                <div class="form-field">
+                    <label for="id_email_body_html">{% trans "Body HTML (English)" %}</label>
+                    <textarea id="id_email_body_html" name="email_body_html"
+                              placeholder="&lt;p&gt;Hello!&lt;/p&gt;"></textarea>
+                    <div class="hint">{% trans "Rendered inside the standard newsletter template. Links are click-tracked automatically." %}</div>
+                </div>
+                <details>
+                    <summary>{% trans "German / French variants (optional — falls back to English)" %}</summary>
+                    <div class="form-field">
+                        <label for="id_email_subject_de">{% trans "Subject (German)" %}</label>
+                        <input type="text" id="id_email_subject_de" name="email_subject_de" maxlength="200">
+                    </div>
+                    <div class="form-field">
+                        <label for="id_email_body_html_de">{% trans "Body HTML (German)" %}</label>
+                        <textarea id="id_email_body_html_de" name="email_body_html_de"></textarea>
+                    </div>
+                    <div class="form-field">
+                        <label for="id_email_subject_fr">{% trans "Subject (French)" %}</label>
+                        <input type="text" id="id_email_subject_fr" name="email_subject_fr" maxlength="200">
+                    </div>
+                    <div class="form-field">
+                        <label for="id_email_body_html_fr">{% trans "Body HTML (French)" %}</label>
+                        <textarea id="id_email_body_html_fr" name="email_body_html_fr"></textarea>
+                    </div>
+                </details>
+            </div>
+
+            <div x-show="whatsappEnabled" x-cloak>
+                <div class="section-header"><h2>💬 {% trans "WhatsApp" %}</h2></div>
+                {% if whatsapp_template_error %}
+                <p class="hint">⚠️ {% trans "Could not load approved templates:" %} {{ whatsapp_template_error }}</p>
+                {% endif %}
+                <div class="form-field">
+                    <label for="id_whatsapp_template_name">{% trans "Approved template" %}</label>
+                    <select id="id_whatsapp_template_name" name="whatsapp_template_name">
+                        <option value="">— {% trans "pick a template" %} —</option>
+                        {% regroup whatsapp_templates by name as template_groups %}
+                        {% for group in template_groups %}
+                        <option value="{{ group.grouper }}">
+                            {{ group.grouper }}
+                            ({% for variant in group.list %}{{ variant.language }}{% if not forloop.last %}, {% endif %}{% endfor %})
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="hint">{% trans "The recipient's language picks the localized variant; missing variants fail per recipient." %}</div>
+                </div>
+                <div class="form-field">
+                    <label>{% trans "Template parameters" %}</label>
+                    {% for slot in whatsapp_param_slots %}
+                    <input type="text" name="whatsapp_param_{{ slot }}" style="margin-bottom:6px"
+                           placeholder="{% blocktrans %}Parameter {{ slot }} (optional){% endblocktrans %}">
+                    {% endfor %}
+                    <div class="hint">{% trans "Merge tokens: {first_name}, {last_name}, {email}. URLs are click-tracked." %}</div>
+                </div>
+            </div>
+
+            <div x-show="pushEnabled" x-cloak>
+                <div class="section-header"><h2>🔔 {% trans "Web Push" %}</h2></div>
+                <div class="form-field">
+                    <label for="id_push_title">{% trans "Title (English)" %}</label>
+                    <input type="text" id="id_push_title" name="push_title" maxlength="120">
+                </div>
+                <div class="form-field">
+                    <label for="id_push_body">{% trans "Body (English)" %}</label>
+                    <input type="text" id="id_push_body" name="push_body" maxlength="300">
+                </div>
+                <div class="form-field">
+                    <label for="id_push_url">{% trans "Target URL" %}</label>
+                    <input type="text" id="id_push_url" name="push_url" value="/" maxlength="500">
+                    <div class="hint">{% trans "Where a tap takes the user (click-tracked)." %}</div>
+                </div>
+                <details>
+                    <summary>{% trans "German / French variants (optional — falls back to English)" %}</summary>
+                    <div class="form-field">
+                        <label for="id_push_title_de">{% trans "Title (German)" %}</label>
+                        <input type="text" id="id_push_title_de" name="push_title_de" maxlength="120">
+                    </div>
+                    <div class="form-field">
+                        <label for="id_push_body_de">{% trans "Body (German)" %}</label>
+                        <input type="text" id="id_push_body_de" name="push_body_de" maxlength="300">
+                    </div>
+                    <div class="form-field">
+                        <label for="id_push_title_fr">{% trans "Title (French)" %}</label>
+                        <input type="text" id="id_push_title_fr" name="push_title_fr" maxlength="120">
+                    </div>
+                    <div class="form-field">
+                        <label for="id_push_body_fr">{% trans "Body (French)" %}</label>
+                        <input type="text" id="id_push_body_fr" name="push_body_fr" maxlength="300">
+                    </div>
+                </details>
+            </div>
+
+            <div class="wizard-actions">
+                <button type="button" class="btn btn-secondary" @click="prev">← {% trans "Back" %}</button>
+                <button type="button" class="btn btn-primary" @click="next" :disabled="noChannels">{% trans "Next: preview" %} →</button>
+            </div>
+        </div>
+
+        {# ---------------- Step 3: Preview & estimate ---------------- #}
+        <div class="panel-section" x-show="isStep3" x-cloak>
+            <div class="section-header">
+                <h2>🔍 {% trans "Preview & estimate" %}</h2>
+                <span>
+                    <button type="button" class="btn btn-secondary" data-estimate-trigger
+                            hx-post="{% url 'campaign_estimate' %}"
+                            hx-include="closest form" hx-target="#estimate-result"
+                            hx-trigger="click, refresh-estimate">
+                        {% trans "Refresh estimate" %}
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-preview-trigger
+                            hx-post="{% url 'campaign_preview' %}"
+                            hx-include="closest form" hx-target="#preview-result"
+                            hx-trigger="click, refresh-preview">
+                        {% trans "Refresh preview" %}
+                    </button>
+                </span>
+            </div>
+
+            <div id="estimate-result">
+                <p class="hint">{% trans "Recipient estimate appears here." %}</p>
+            </div>
+            <div id="preview-result">
+                <p class="hint">{% trans "Content preview appears here." %}</p>
+            </div>
+
+            <div class="wizard-actions">
+                <button type="button" class="btn btn-secondary" @click="prev">← {% trans "Back" %}</button>
+                <button type="button" class="btn btn-primary" @click="next">{% trans "Next: schedule" %} →</button>
+            </div>
+        </div>
+
+        {# ---------------- Step 4: Schedule ---------------- #}
+        <div class="panel-section" x-show="isStep4" x-cloak>
+            <div class="section-header"><h2>🗓️ {% trans "When should it go out?" %}</h2></div>
+
+            <div class="form-field">
+                <div class="channel-toggle">
+                    <label><input type="radio" name="send_mode" value="draft" x-model="sendMode"> 📝 {% trans "Save as draft" %}</label>
+                    <label><input type="radio" name="send_mode" value="now" x-model="sendMode"> 🚀 {% trans "Send now" %}</label>
+                    <label><input type="radio" name="send_mode" value="schedule" x-model="sendMode"> ⏰ {% trans "Schedule" %}</label>
+                </div>
+                <div class="hint" x-show="isSendNow">{% trans "Sending starts with the next dispatch tick (within ~5 minutes)." %}</div>
+            </div>
+
+            <div class="form-field" x-show="isScheduleMode" x-cloak>
+                <label for="id_scheduled_at">{% trans "Send at (UTC)" %}</label>
+                <input type="datetime-local" id="id_scheduled_at" name="scheduled_at">
+            </div>
+
+            <div class="wizard-actions">
+                <button type="button" class="btn btn-secondary" @click="prev">← {% trans "Back" %}</button>
+                <button type="submit" class="btn btn-primary" x-text="submitLabel"></button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}

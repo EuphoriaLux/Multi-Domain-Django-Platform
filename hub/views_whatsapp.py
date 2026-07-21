@@ -14,7 +14,6 @@ import logging
 import secrets
 from datetime import datetime, timezone
 
-import requests
 from django.conf import settings
 from django.db import transaction
 from django.http import HttpResponse, JsonResponse
@@ -26,62 +25,21 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from crush_lu.services.whatsapp import ERROR_NOT_ON_WHATSAPP, mark_not_on_whatsapp
-
 from .models import WhatsAppInboundMessage, WhatsAppMessage
 from .serializers import (
     WhatsAppInboundMessageSerializer,
     WhatsAppMessageSerializer,
 )
+from .whatsapp_service import (
+    TemplatesFetchError,
+    fetch_approved_templates,
+    maybe_flag_not_on_whatsapp as _maybe_flag_not_on_whatsapp,
+    meta_settings_ok as _meta_settings_ok,
+    now_iso as _now_iso,
+    send_whatsapp_template,
+)
 
 logger = logging.getLogger(__name__)
-
-GRAPH_API_VERSION = "v25.0"
-GRAPH_BASE = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
-META_TIMEOUT = 15
-
-
-def _maybe_flag_not_on_whatsapp(recipient: str, error_code) -> None:
-    """Persist the not_on_whatsapp flag when Meta reports code 131026 (issue #519).
-
-    Never lets a lookup/update failure disrupt the send response or webhook ack.
-    """
-    if error_code != ERROR_NOT_ON_WHATSAPP:
-        return
-    try:
-        mark_not_on_whatsapp(recipient)
-    except Exception:  # noqa: BLE001 — best-effort side channel
-        logger.warning("Failed to flag not_on_whatsapp recipient", exc_info=True)
-
-
-def _meta_settings_ok() -> bool:
-    return bool(
-        getattr(settings, "META_WHATSAPP_ACCESS_TOKEN", "")
-        and getattr(settings, "META_PHONE_NUMBER_ID", "")
-        and getattr(settings, "META_WABA_ID", "")
-    )
-
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-def _normalize_recipient(recipient: str) -> str:
-    """Meta accepts both `+352...` and `352...`; strip the leading `+`."""
-    return (recipient or "").lstrip("+").strip()
-
-
-def _build_components(parameters: dict) -> list[dict]:
-    """Convert {"1": "v1", "2": "v2"} → Meta body parameters payload."""
-    if not parameters:
-        return []
-    ordered = sorted(parameters.items(), key=lambda kv: int(kv[0]) if kv[0].isdigit() else 0)
-    return [
-        {
-            "type": "body",
-            "parameters": [{"type": "text", "text": str(v)} for _, v in ordered],
-        }
-    ]
 
 
 class WhatsAppSendView(APIView):
@@ -111,97 +69,20 @@ class WhatsAppSendView(APIView):
                 status=http_status.HTTP_400_BAD_REQUEST,
             )
 
-        message = WhatsAppMessage.objects.create(
-            user=request.user,
+        message = send_whatsapp_template(
+            sender=request.user,
             recipient=recipient,
             template_name=template_name,
             language=language,
             parameters=parameters,
-            status=WhatsAppMessage.Status.QUEUED,
-            status_history=[{"status": "queued", "timestamp": _now_iso()}],
         )
-
-        payload = {
-            "messaging_product": "whatsapp",
-            "to": _normalize_recipient(recipient),
-            "type": "template",
-            "template": {
-                "name": template_name,
-                "language": {"code": language},
-                "components": _build_components(parameters),
-            },
-        }
-
-        url = f"{GRAPH_BASE}/{settings.META_PHONE_NUMBER_ID}/messages"
-        headers = {
-            "Authorization": f"Bearer {settings.META_WHATSAPP_ACCESS_TOKEN}",
-            "Content-Type": "application/json",
-        }
-
-        try:
-            resp = requests.post(url, headers=headers, json=payload, timeout=META_TIMEOUT)
-        except requests.RequestException as exc:
-            logger.exception("WhatsApp send transport error")
-            message.status = WhatsAppMessage.Status.FAILED
-            message.status_history = message.status_history + [
-                {
-                    "status": "failed",
-                    "timestamp": _now_iso(),
-                    "error_message": f"Transport error: {exc.__class__.__name__}",
-                }
-            ]
-            message.save(update_fields=["status", "status_history", "updated_at"])
-            return Response(
-                {"message": WhatsAppMessageSerializer(message).data},
-                status=http_status.HTTP_502_BAD_GATEWAY,
-            )
-
-        body = {}
-        try:
-            body = resp.json()
-        except ValueError:
-            body = {"raw": resp.text}
-
-        if resp.ok:
-            wa_id = ""
-            try:
-                wa_id = body["messages"][0]["id"]
-            except (KeyError, IndexError, TypeError):
-                logger.warning("WhatsApp send 2xx response missing messages[0].id")
-            message.wa_message_id = wa_id
-            message.status = WhatsAppMessage.Status.SENT
-            message.status_history = message.status_history + [
-                {"status": "sent", "timestamp": _now_iso()}
-            ]
-            message.save(
-                update_fields=[
-                    "wa_message_id",
-                    "status",
-                    "status_history",
-                    "updated_at",
-                ]
-            )
-            return Response(
-                {"message": WhatsAppMessageSerializer(message).data},
-                status=http_status.HTTP_201_CREATED,
-            )
-
-        # Meta returned 4xx/5xx — surface the error inline so the UI shows it.
-        err = (body.get("error") or {}) if isinstance(body, dict) else {}
-        message.status = WhatsAppMessage.Status.FAILED
-        message.status_history = message.status_history + [
-            {
-                "status": "failed",
-                "timestamp": _now_iso(),
-                "error_code": err.get("code"),
-                "error_message": err.get("message") or f"HTTP {resp.status_code}",
-            }
-        ]
-        message.save(update_fields=["status", "status_history", "updated_at"])
-        _maybe_flag_not_on_whatsapp(message.recipient, err.get("code"))
         return Response(
             {"message": WhatsAppMessageSerializer(message).data},
-            status=http_status.HTTP_502_BAD_GATEWAY,
+            status=(
+                http_status.HTTP_201_CREATED
+                if message.status == WhatsAppMessage.Status.SENT
+                else http_status.HTTP_502_BAD_GATEWAY
+            ),
         )
 
 
@@ -209,44 +90,13 @@ class WhatsAppTemplatesView(APIView):
     permission_classes = [IsAdminUser]
 
     def get(self, request):
-        if not _meta_settings_ok():
-            return Response({"items": []})
-
-        url = f"{GRAPH_BASE}/{settings.META_WABA_ID}/message_templates"
-        headers = {
-            "Authorization": f"Bearer {settings.META_WHATSAPP_ACCESS_TOKEN}",
-        }
         try:
-            resp = requests.get(
-                url,
-                headers=headers,
-                params={"limit": 100},
-                timeout=META_TIMEOUT,
-            )
-        except requests.RequestException:
-            logger.exception("WhatsApp templates fetch transport error")
+            # No cache here: the hub CRM always sees Meta's current list.
+            items = fetch_approved_templates(use_cache=False)
+        except TemplatesFetchError as exc:
             return Response(
-                {"detail": "Unable to reach Meta Graph API."},
+                {"detail": exc.detail},
                 status=http_status.HTTP_502_BAD_GATEWAY,
-            )
-
-        if not resp.ok:
-            return Response(
-                {"detail": f"Meta returned HTTP {resp.status_code}."},
-                status=http_status.HTTP_502_BAD_GATEWAY,
-            )
-
-        body = resp.json() if resp.content else {}
-        items = []
-        for raw in body.get("data", []):
-            items.append(
-                {
-                    "name": raw.get("name", ""),
-                    "language": raw.get("language", ""),
-                    "category": raw.get("category", ""),
-                    "status": raw.get("status", ""),
-                    "components": raw.get("components", []),
-                }
             )
         return Response({"items": items})
 

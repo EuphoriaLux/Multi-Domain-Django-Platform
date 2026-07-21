@@ -1,0 +1,140 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}{{ campaign.name }} - {% trans "Campaign" %} - Crush.lu{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+{% include "admin/crush_lu/partials/_campaign_styles.html" %}
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<script src="{% static 'crush_lu/js/vendor/chart.umd.min.js' %}"></script>
+<script src="https://unpkg.com/htmx.org@2.0.4"></script>
+{% endblock %}
+
+{% block content %}
+<div class="campaign-container">
+    <a href="{% url 'campaign_dashboard' %}" class="back-link">← {% trans "Back to Campaign Dashboard" %}</a>
+
+    <div class="page-header">
+        <div>
+            <h1>📢 {{ campaign.name }}</h1>
+            <p>
+                {% for channel in campaign.channels %}
+                <span class="chan-badge chan-{{ channel }}">{{ channel }}</span>
+                {% endfor %}
+                · {{ campaign.get_audience_display }}
+                {% if campaign.segment_key %}({{ campaign.segment_key }}){% endif %}
+                · {{ campaign.get_language_display }}
+            </p>
+        </div>
+        {% if campaign.can_cancel %}
+        <form method="post" action="{% url 'campaign_cancel' campaign.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">✖ {% trans "Cancel campaign" %}</button>
+        </form>
+        {% endif %}
+    </div>
+
+    {% if campaign.is_active %}
+    <div hx-get="{% url 'campaign_status_partial' campaign.pk %}"
+         hx-trigger="every 10s" hx-swap="innerHTML">
+        {% include "admin/crush_lu/partials/_campaign_status.html" %}
+    </div>
+    {% else %}
+    <div>
+        {% include "admin/crush_lu/partials/_campaign_status.html" %}
+    </div>
+    {% endif %}
+
+    {% if campaign.status == 'draft' %}
+    <div class="panel-section">
+        <div class="section-header"><h2>🚀 {% trans "Launch this draft" %}</h2></div>
+        <form method="post" action="{% url 'campaign_launch' campaign.pk %}">
+            {% csrf_token %}
+            <div class="form-field">
+                <label for="id_launch_at">{% trans "Send at (UTC) — leave empty to send now" %}</label>
+                <input type="datetime-local" id="id_launch_at" name="scheduled_at">
+            </div>
+            <button type="submit" class="btn btn-primary">🚀 {% trans "Launch campaign" %}</button>
+        </form>
+    </div>
+    {% endif %}
+
+    <div class="panel-section" x-data="campaignClicksChart" data-campaign-id="{{ campaign.pk }}">
+        <div class="section-header"><h2>🖱️ {% trans "Clicks per day" %}</h2></div>
+        <div class="chart-box"><canvas></canvas></div>
+    </div>
+
+    <div class="panel-section">
+        <div class="section-header"><h2>🔗 {% trans "Tracked links" %}</h2></div>
+        {% if links %}
+        <table class="data-table">
+            <thead>
+                <tr><th>{% trans "Destination" %}</th><th>{% trans "Channel" %}</th><th>{% trans "Clicks" %}</th></tr>
+            </thead>
+            <tbody>
+                {% for link in links %}
+                <tr>
+                    <td>{{ link.original_url|truncatechars:70 }}</td>
+                    <td><span class="chan-badge chan-{{ link.channel }}">{{ link.channel }}</span></td>
+                    <td><strong>{{ link.click_count }}</strong></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>{% trans "No tracked links yet — they appear once sending starts." %}</p>
+        {% endif %}
+    </div>
+
+    {% if newsletter %}
+    <div class="panel-section">
+        <div class="section-header">
+            <h2>📧 {% trans "Email leg" %}</h2>
+            <a class="btn btn-secondary" href="{% url 'crush_admin:crush_lu_newsletter_change' newsletter.pk %}">
+                {% trans "Open newsletter record" %}
+            </a>
+        </div>
+        <p>
+            <strong>{{ newsletter.subject }}</strong>
+            · <span class="badge badge-{{ newsletter.status }}">{{ newsletter.get_status_display }}</span>
+            · {{ newsletter.total_sent }} {% trans "sent" %},
+            {{ newsletter.total_failed }} {% trans "failed" %},
+            {{ newsletter.total_skipped }} {% trans "skipped" %}
+        </p>
+    </div>
+    {% endif %}
+
+    <div class="panel-section">
+        <div class="section-header"><h2>👥 {% trans "Recent recipients (WhatsApp / push)" %}</h2></div>
+        {% if recipients %}
+        <table class="data-table">
+            <thead>
+                <tr><th>{% trans "User" %}</th><th>{% trans "Channel" %}</th><th>{% trans "Status" %}</th><th>{% trans "Delivery" %}</th><th>{% trans "Sent" %}</th><th>{% trans "Error" %}</th></tr>
+            </thead>
+            <tbody>
+                {% for recipient in recipients %}
+                <tr>
+                    <td>{{ recipient.user.email }}</td>
+                    <td><span class="chan-badge chan-{{ recipient.channel }}">{{ recipient.channel }}</span></td>
+                    <td><span class="badge badge-{{ recipient.status }}">{{ recipient.get_status_display }}</span></td>
+                    <td>
+                        {% if recipient.whatsapp_message %}
+                        <span class="badge badge-{{ recipient.whatsapp_message.status }}">{{ recipient.whatsapp_message.get_status_display }}</span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td>{{ recipient.sent_at|date:"Y-m-d H:i"|default:"—" }}</td>
+                    <td>{{ recipient.error_message|truncatechars:60 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>{% trans "No per-recipient records yet." %}</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

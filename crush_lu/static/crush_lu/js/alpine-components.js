@@ -13562,4 +13562,180 @@ document.addEventListener("alpine:init", function () {
             }, 1000);
         },
     }));
+
+    // ========================================================================
+    // Campaign Dashboard (crush-admin/campaigns/)
+    // ========================================================================
+
+    Alpine.data("campaignDashboardTabs", function () {
+        return {
+            activeTab: "overview",
+
+            get isOverview() { return this.activeTab === "overview"; },
+            get isCampaigns() { return this.activeTab === "campaigns"; },
+            get isWhatsapp() { return this.activeTab === "whatsapp"; },
+            get isReminders() { return this.activeTab === "reminders"; },
+            get isSegments() { return this.activeTab === "segments"; },
+
+            get overviewTabClass() { return this.activeTab === "overview" ? "active" : ""; },
+            get campaignsTabClass() { return this.activeTab === "campaigns" ? "active" : ""; },
+            get whatsappTabClass() { return this.activeTab === "whatsapp" ? "active" : ""; },
+            get remindersTabClass() { return this.activeTab === "reminders" ? "active" : ""; },
+            get segmentsTabClass() { return this.activeTab === "segments" ? "active" : ""; },
+
+            setOverview() { this.activeTab = "overview"; },
+            setCampaigns() { this.activeTab = "campaigns"; },
+            setWhatsapp() { this.activeTab = "whatsapp"; },
+            setReminders() {
+                this.activeTab = "reminders";
+                document.dispatchEvent(new CustomEvent("reminders-tab-shown"));
+            },
+            setSegments() { this.activeTab = "segments"; },
+        };
+    });
+
+    function campaignRenderChart(canvas, type, payload, palette) {
+        if (!canvas || typeof Chart === "undefined") return null;
+        var datasets = payload.datasets.map(function (dataset, i) {
+            var color = palette[i % palette.length];
+            return {
+                label: dataset.label,
+                data: dataset.data,
+                borderColor: color.border,
+                backgroundColor: color.bg,
+                fill: type === "line",
+                tension: 0.3,
+            };
+        });
+        return new Chart(canvas, {
+            type: type,
+            data: { labels: payload.labels, datasets: datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+            },
+        });
+    }
+
+    var CAMPAIGN_CHART_PALETTE = [
+        { border: "rgb(99, 102, 241)", bg: "rgba(99, 102, 241, 0.15)" },   // email
+        { border: "rgb(34, 197, 94)", bg: "rgba(34, 197, 94, 0.15)" },     // whatsapp
+        { border: "rgb(139, 92, 246)", bg: "rgba(139, 92, 246, 0.15)" },   // push
+    ];
+
+    Alpine.data("campaignOverviewChart", function () {
+        return {
+            chart: null,
+            init() {
+                var self = this;
+                fetch("/crush-admin/api/campaign-overview/")
+                    .then(function (resp) { return resp.json(); })
+                    .then(function (payload) {
+                        var canvas = self.$el.querySelector("canvas");
+                        self.chart = campaignRenderChart(
+                            canvas, "line", payload, CAMPAIGN_CHART_PALETTE
+                        );
+                    })
+                    .catch(function () { /* chart is decorative */ });
+            },
+        };
+    });
+
+    Alpine.data("remindersFunnelChart", function () {
+        return {
+            chart: null,
+            loaded: false,
+            init() {
+                var self = this;
+                document.addEventListener("reminders-tab-shown", function () {
+                    if (self.loaded) return;
+                    self.loaded = true;
+                    fetch("/crush-admin/api/reminders-funnel/")
+                        .then(function (resp) { return resp.json(); })
+                        .then(function (payload) {
+                            var canvas = self.$el.querySelector("canvas");
+                            self.chart = campaignRenderChart(
+                                canvas, "bar", payload, CAMPAIGN_CHART_PALETTE
+                            );
+                        })
+                        .catch(function () { /* chart is decorative */ });
+                });
+            },
+        };
+    });
+
+    Alpine.data("campaignClicksChart", function () {
+        return {
+            chart: null,
+            init() {
+                var self = this;
+                var campaignId = self.$el.dataset.campaignId;
+                if (!campaignId) return;
+                fetch("/crush-admin/api/campaign-clicks/" + campaignId + "/")
+                    .then(function (resp) { return resp.json(); })
+                    .then(function (payload) {
+                        if (!payload.labels.length) return;
+                        var canvas = self.$el.querySelector("canvas");
+                        self.chart = campaignRenderChart(
+                            canvas, "line", payload,
+                            [{ border: "rgb(236, 72, 153)", bg: "rgba(236, 72, 153, 0.15)" }]
+                        );
+                    })
+                    .catch(function () { /* chart is decorative */ });
+            },
+        };
+    });
+
+    Alpine.data("campaignComposer", function () {
+        return {
+            step: 1,
+            channels: [],
+            sendMode: "draft",
+
+            // Step visibility
+            get isStep1() { return this.step === 1; },
+            get isStep2() { return this.step === 2; },
+            get isStep3() { return this.step === 3; },
+            get isStep4() { return this.step === 4; },
+            get step1Class() { return this.step === 1 ? "active" : this.step > 1 ? "done" : ""; },
+            get step2Class() { return this.step === 2 ? "active" : this.step > 2 ? "done" : ""; },
+            get step3Class() { return this.step === 3 ? "active" : this.step > 3 ? "done" : ""; },
+            get step4Class() { return this.step === 4 ? "active" : ""; },
+
+            // Channel content sections
+            get emailEnabled() { return this.channels.indexOf("email") !== -1; },
+            get whatsappEnabled() { return this.channels.indexOf("whatsapp") !== -1; },
+            get pushEnabled() { return this.channels.indexOf("push") !== -1; },
+            get hasChannels() { return this.channels.length > 0; },
+            get noChannels() { return this.channels.length === 0; },
+
+            // Schedule section
+            get isScheduleMode() { return this.sendMode === "schedule"; },
+            get isSendNow() { return this.sendMode === "now"; },
+            get submitLabel() {
+                if (this.sendMode === "now") return "Launch campaign";
+                if (this.sendMode === "schedule") return "Schedule campaign";
+                return "Save draft";
+            },
+
+            next() {
+                if (this.step >= 4) return;
+                this.step++;
+                if (this.step === 3) this.refreshPreview();
+            },
+            prev() {
+                if (this.step > 1) this.step--;
+            },
+            refreshPreview() {
+                // Trigger the HTMX-powered estimate + preview refreshes.
+                var form = this.$el.closest("form") || this.$el.querySelector("form");
+                if (!form || typeof htmx === "undefined") return;
+                var estimateBtn = form.querySelector("[data-estimate-trigger]");
+                var previewBtn = form.querySelector("[data-preview-trigger]");
+                if (estimateBtn) htmx.trigger(estimateBtn, "refresh-estimate");
+                if (previewBtn) htmx.trigger(previewBtn, "refresh-preview");
+            },
+        };
+    });
 });

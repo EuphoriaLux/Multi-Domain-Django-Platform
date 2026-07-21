@@ -1,0 +1,43 @@
+{% load i18n %}
+<div class="summary-grid">
+    {% if 'email' in channels %}
+    <div class="summary-card">
+        <span class="summary-icon">📧</span>
+        <div class="summary-content">
+            <h3>{{ estimate.email }}</h3>
+            <p>{% trans "Email recipients" %}</p>
+        </div>
+    </div>
+    {% endif %}
+    {% if 'whatsapp' in channels %}
+    <div class="summary-card">
+        <span class="summary-icon">💬</span>
+        <div class="summary-content">
+            <h3>{{ estimate.whatsapp }}</h3>
+            <p>{% trans "WhatsApp recipients" %}</p>
+        </div>
+    </div>
+    {% endif %}
+    {% if 'push' in channels %}
+    <div class="summary-card">
+        <span class="summary-icon">🔔</span>
+        <div class="summary-content">
+            <h3>{{ estimate.push }}</h3>
+            <p>{% trans "Push recipients" %}</p>
+        </div>
+    </div>
+    {% endif %}
+    <div class="summary-card">
+        <span class="summary-icon">👥</span>
+        <div class="summary-content">
+            <h3>{{ estimate.reach }}</h3>
+            <p>{% trans "Unique people reached" %}</p>
+        </div>
+    </div>
+</div>
+{% if not channels %}
+<p class="hint">{% trans "Pick at least one channel to estimate recipients." %}</p>
+{% endif %}
+<p class="hint">
+    {% trans "Counts respect consent per channel: newsletter opt-in for email, explicit WhatsApp opt-in plus a verified number, an active push subscription for push. Banned users are always excluded." %}
+</p>

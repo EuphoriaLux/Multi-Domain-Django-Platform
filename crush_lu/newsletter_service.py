@@ -25,6 +25,57 @@ BATCH_SIZE = 25
 BATCH_PAUSE_SECONDS = 62
 
 
+def resolve_audience(audience, segment_key=''):
+    """
+    Resolve an audience choice (Newsletter.AUDIENCE_CHOICES) to a User queryset.
+
+    Shared by newsletter sending and the multi-channel campaign service
+    (crush_lu/services/campaigns.py) so both target audiences identically.
+    """
+    if audience == 'all_users':
+        return User.objects.filter(is_active=True, crushprofile__isnull=False)
+    elif audience == 'all_profiles':
+        return User.objects.filter(is_active=True, crushprofile__isnull=False)
+    elif audience == 'approved_profiles':
+        return User.objects.filter(
+            is_active=True, crushprofile__verification_status="verified"
+        )
+    elif audience == 'pending_review':
+        from .models.profiles import ProfileSubmission
+        pending_user_ids = ProfileSubmission.objects.filter(
+            status='pending',
+        ).values_list('profile__user_id', flat=True)
+        return User.objects.filter(is_active=True, id__in=pending_user_ids)
+    elif audience == 'segment':
+        return _get_segment_users(segment_key)
+
+    logger.error(f"Unknown audience type: {audience}")
+    return User.objects.none()
+
+
+def exclude_banned_users(users):
+    """Exclude users who deleted their profile or are banned from Crush.lu."""
+    from .models.profiles import UserDataConsent
+
+    banned_user_ids = UserDataConsent.objects.filter(
+        crushlu_banned=True
+    ).values_list('user_id', flat=True)
+    return users.exclude(id__in=banned_user_ids)
+
+
+def apply_language_filter(users, language):
+    """Restrict a User queryset to a preferred language ('all' = no filter)."""
+    if not language or language == 'all':
+        return users
+    if language == 'en':
+        # English includes users without a profile (they default to English)
+        return users.filter(
+            Q(crushprofile__preferred_language='en')
+            | Q(crushprofile__isnull=True)
+        )
+    return users.filter(crushprofile__preferred_language=language)
+
+
 def get_newsletter_recipients(newsletter):
     """
     Resolve the audience for a newsletter into a User queryset.
@@ -42,24 +93,7 @@ def get_newsletter_recipients(newsletter):
     """
     from .models import EmailPreference
 
-    # Base queryset depends on audience
-    if newsletter.audience == 'all_users':
-        users = User.objects.filter(is_active=True, crushprofile__isnull=False)
-    elif newsletter.audience == 'all_profiles':
-        users = User.objects.filter(is_active=True, crushprofile__isnull=False)
-    elif newsletter.audience == 'approved_profiles':
-        users = User.objects.filter(is_active=True, crushprofile__verification_status="verified")
-    elif newsletter.audience == 'pending_review':
-        from .models.profiles import ProfileSubmission
-        pending_user_ids = ProfileSubmission.objects.filter(
-            status='pending',
-        ).values_list('profile__user_id', flat=True)
-        users = User.objects.filter(is_active=True, id__in=pending_user_ids)
-    elif newsletter.audience == 'segment':
-        users = _get_segment_users(newsletter.segment_key)
-    else:
-        logger.error(f"Unknown audience type: {newsletter.audience}")
-        return User.objects.none()
+    users = resolve_audience(newsletter.audience, newsletter.segment_key)
 
     # Exclude users who opted out of newsletters
     opted_out_user_ids = EmailPreference.objects.filter(
@@ -67,26 +101,8 @@ def get_newsletter_recipients(newsletter):
     ).values_list('user_id', flat=True)
     users = users.exclude(id__in=opted_out_user_ids)
 
-    # Exclude users who deleted their profile or are banned
-    from .models.profiles import UserDataConsent
-
-    banned_user_ids = UserDataConsent.objects.filter(
-        crushlu_banned=True
-    ).values_list('user_id', flat=True)
-    users = users.exclude(id__in=banned_user_ids)
-
-    # Filter by language preference
-    if newsletter.language and newsletter.language != 'all':
-        if newsletter.language == 'en':
-            # English includes users without a profile (they default to English)
-            users = users.filter(
-                Q(crushprofile__preferred_language='en')
-                | Q(crushprofile__isnull=True)
-            )
-        else:
-            users = users.filter(
-                crushprofile__preferred_language=newsletter.language
-            )
+    users = exclude_banned_users(users)
+    users = apply_language_filter(users, newsletter.language)
 
     # For event announcements, exclude users already registered for the event
     if newsletter.event_id:
@@ -176,7 +192,8 @@ def _get_segment_users(segment_key):
     return User.objects.none()
 
 
-def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None):
+def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
+                    link_rewriter=None, should_abort=None):
     """
     Send a newsletter to its audience with rate limiting and resumability.
 
@@ -185,6 +202,12 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None):
         dry_run: If True, preview recipients without sending
         limit: Maximum number of emails to send (None = no limit)
         stdout: Optional output stream for progress (management command)
+        link_rewriter: Optional callable(html, user) applied to the rendered
+            HTML body just before sending — used by campaign sends for click
+            tracking. None (the default) keeps output byte-identical.
+        should_abort: Optional zero-arg callable checked before each send;
+            returning True stops the run without finalizing (used by campaign
+            sends so a cancellation halts the batch mid-flight).
 
     Returns:
         dict: {'sent': int, 'failed': int, 'skipped': int}
@@ -204,6 +227,15 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None):
         )
 
     recipients = get_newsletter_recipients(newsletter)
+    if limit is not None:
+        # Bounded (dispatcher) runs never retry previously-failed recipients
+        # (a permanently bouncing address would head every batch and the send
+        # could never converge) nor unresolved pre-send claims (a crashed
+        # worker may already have delivered — at-most-once wins). Unlimited
+        # manual runs keep retrying both.
+        recipients = recipients.exclude(
+            id__in=_unresumable_recipient_ids(newsletter)
+        )
     total_eligible = recipients.count()
 
     if limit:
@@ -239,7 +271,13 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None):
     # Materialize the queryset to avoid issues with batching
     user_ids = list(recipients.values_list('id', flat=True))
 
+    aborted = False
     for i, user_id in enumerate(user_ids):
+        if should_abort is not None and should_abort():
+            log("  Send aborted by caller signal")
+            aborted = True
+            break
+
         # Rate limiting: pause between batches
         if batch_count > 0 and batch_count % BATCH_SIZE == 0:
             log(f"  Batch pause ({BATCH_PAUSE_SECONDS}s) after {batch_count} emails...")
@@ -265,8 +303,17 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None):
             skipped += 1
             continue
 
+        # Durable pre-send claim: a crash after the Graph send but before the
+        # receipt write must not cause a duplicate email on the next bounded
+        # run (stale claims are swept to 'failed' below).
+        NewsletterRecipient.objects.update_or_create(
+            newsletter=newsletter,
+            user=user,
+            defaults={'email': user.email, 'status': 'pending'},
+        )
+
         try:
-            _send_newsletter_to_user(newsletter, user)
+            _send_newsletter_to_user(newsletter, user, link_rewriter)
             NewsletterRecipient.objects.update_or_create(
                 newsletter=newsletter,
                 user=user,
@@ -298,6 +345,19 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None):
                 exc_info=True,
             )
 
+    # Any recipient still 'pending' now is a stale claim from an interrupted
+    # earlier run — the outcome is unknown, so count it as failed instead of
+    # letting the newsletter (and its campaign) finalize as a clean 'sent'.
+    unresolved = NewsletterRecipient.objects.filter(
+        newsletter=newsletter, status='pending',
+    ).exclude(user_id__in=user_ids).update(
+        status='failed',
+        error_message='Unresolved send claim — outcome unknown '
+                      '(worker interrupted mid-send)',
+    )
+    if unresolved:
+        log(f"  Marked {unresolved} unresolved send claim(s) as failed")
+
     # Update newsletter stats
     newsletter.total_sent = (
         NewsletterRecipient.objects.filter(
@@ -314,7 +374,39 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None):
             newsletter=newsletter, status='skipped'
         ).count()
     )
-    newsletter.status = 'sent' if failed == 0 else 'failed'
+
+    if limit is not None or aborted:
+        remaining = (
+            get_newsletter_recipients(newsletter)
+            .exclude(id__in=_unresumable_recipient_ids(newsletter))
+            .count()
+        )
+        if remaining > 0 or aborted:
+            # Bounded batch with recipients still eligible (or an aborted
+            # run): stay 'sending' so a later run continues where this one
+            # stopped instead of prematurely finalizing the newsletter.
+            newsletter.save(update_fields=[
+                'total_sent', 'total_failed', 'total_skipped', 'updated_at',
+            ])
+            log(
+                f"\nBatch done. Sent: {sent}, Failed: {failed}, "
+                f"Skipped: {skipped} ({remaining} eligible remaining)"
+            )
+            return {
+                'sent': sent,
+                'failed': failed,
+                'skipped': skipped,
+                'complete': False,
+                'remaining': remaining,
+                'aborted': aborted,
+            }
+
+    # Bounded runs must finalize from the persisted per-recipient failures:
+    # a failure from an earlier tick is excluded from later batches, so this
+    # run's local counter can be 0 while total_failed is not. Unlimited runs
+    # keep the historical this-run semantics.
+    terminal_failed = newsletter.total_failed if limit is not None else failed
+    newsletter.status = 'sent' if terminal_failed == 0 else 'failed'
     newsletter.sent_at = timezone.now()
     newsletter.save(update_fields=[
         'total_sent', 'total_failed', 'total_skipped',
@@ -322,7 +414,24 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None):
     ])
 
     log(f"\nDone! Sent: {sent}, Failed: {failed}, Skipped: {skipped}")
-    return {'sent': sent, 'failed': failed, 'skipped': skipped}
+    return {
+        'sent': sent,
+        'failed': failed,
+        'skipped': skipped,
+        'complete': True,
+        'remaining': 0,
+    }
+
+
+def _unresumable_recipient_ids(newsletter):
+    """User ids bounded runs must not retry.
+
+    'failed' is terminal; 'pending' is an unresolved pre-send claim from a
+    crashed worker whose outcome is unknown (possibly delivered).
+    """
+    return NewsletterRecipient.objects.filter(
+        newsletter=newsletter, status__in=['failed', 'pending'],
+    ).values_list('user_id', flat=True)
 
 
 def render_event_announcement(event, user, lang):
@@ -395,7 +504,7 @@ NEWSLETTER_TEMPLATE_MAP = {
 }
 
 
-def _send_newsletter_to_user(newsletter, user):
+def _send_newsletter_to_user(newsletter, user, link_rewriter=None):
     """
     Render and send a newsletter email to a single user.
 
@@ -458,6 +567,10 @@ def _send_newsletter_to_user(newsletter, user):
             plain_message = body_text
         else:
             plain_message = strip_tags(html_message)
+
+    if link_rewriter is not None:
+        # After plain_message is derived, so the text part keeps direct URLs.
+        html_message = link_rewriter(html_message, user)
 
     send_domain_email(
         subject=subject,

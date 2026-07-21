@@ -11,6 +11,7 @@ from .passkit import *
 from .site_config import *
 from .crush_spark import *
 from .newsletter import *
+from .campaigns import *
 from .event_polls import *
 from .crush_connect import *
 from .crush_connect_questions import *

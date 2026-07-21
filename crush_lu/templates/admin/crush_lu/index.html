@@ -108,6 +108,10 @@
                 <span class="quick-link-badge">{{ pending_actions.total_pending }}</span>
                 {% endif %}
             </a>
+            <a href="{% url 'campaign_dashboard' %}" class="quick-link">
+                <span class="quick-link-icon">&#x1F4E2;</span>
+                <span class="quick-link-text">Campaign Dashboard</span>
+            </a>
             <a href="{% url 'user_segments_dashboard' %}" class="quick-link">
                 <span class="quick-link-icon">&#x1F465;</span>
                 <span class="quick-link-text">User Segments</span>

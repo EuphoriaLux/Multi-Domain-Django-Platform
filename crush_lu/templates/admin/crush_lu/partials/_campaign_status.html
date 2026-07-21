@@ -1,0 +1,57 @@
+{% load i18n tz %}
+<div class="summary-grid">
+    <div class="summary-card">
+        <span class="summary-icon">
+            {% if campaign.status == 'sent' %}✅{% elif campaign.status == 'sending' %}🚀{% elif campaign.status == 'scheduled' %}⏰{% elif campaign.status == 'failed' %}⚠️{% elif campaign.status == 'partial' %}🟡{% elif campaign.status == 'cancelled' %}✖️{% else %}📝{% endif %}
+        </span>
+        <div class="summary-content">
+            <h3><span class="badge badge-{{ campaign.status }}">{{ campaign.get_status_display }}</span></h3>
+            <p>
+                {% if campaign.status == 'scheduled' and campaign.scheduled_at %}
+                    {% trans "Sends" %} {{ campaign.scheduled_at|utc|date:"Y-m-d H:i" }} UTC
+                {% elif campaign.completed_at %}
+                    {% trans "Completed" %} {{ campaign.completed_at|date:"Y-m-d H:i" }}
+                {% else %}
+                    {% trans "Status" %}
+                {% endif %}
+            </p>
+        </div>
+    </div>
+    {% if 'email' in campaign.channels %}
+    <div class="summary-card">
+        <span class="summary-icon">📧</span>
+        <div class="summary-content">
+            <h3>{{ stats.email.sent }} / {{ stats.email.failed }}</h3>
+            <p>{% trans "Email sent / failed" %}</p>
+        </div>
+    </div>
+    {% endif %}
+    {% if 'whatsapp' in campaign.channels %}
+    <div class="summary-card">
+        <span class="summary-icon">💬</span>
+        <div class="summary-content">
+            <h3>{{ stats.whatsapp.sent }} / {{ stats.whatsapp.failed }}</h3>
+            <p>
+                {% trans "WhatsApp sent / failed" %}
+                {% if stats.whatsapp.delivered %}· {{ stats.whatsapp.delivered }} {% trans "delivered" %}{% endif %}
+            </p>
+        </div>
+    </div>
+    {% endif %}
+    {% if 'push' in campaign.channels %}
+    <div class="summary-card">
+        <span class="summary-icon">🔔</span>
+        <div class="summary-content">
+            <h3>{{ stats.push.sent }} / {{ stats.push.failed }}</h3>
+            <p>{% trans "Push sent / failed" %}</p>
+        </div>
+    </div>
+    {% endif %}
+    <div class="summary-card">
+        <span class="summary-icon">🖱️</span>
+        <div class="summary-content">
+            <h3>{{ stats.clicks.total }}</h3>
+            <p>{% trans "Clicks" %} ({{ stats.clicks.unique_users }} {% trans "users" %})</p>
+        </div>
+    </div>
+</div>

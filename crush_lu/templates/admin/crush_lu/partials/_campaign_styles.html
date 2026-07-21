@@ -1,0 +1,186 @@
+{# Shared styles for the campaign dashboard pages (theme-aware CSS variables, #}
+{# same vocabulary as the other Coach Panel analytical pages). #}
+<style>
+    :root {
+        --card-bg: #ffffff;
+        --card-shadow: rgba(0,0,0,0.1);
+        --text-primary: #333333;
+        --text-secondary: #666666;
+        --text-muted: #999999;
+        --border-soft: #e5e7eb;
+        --accent: #8b5cf6;
+        --accent-soft: rgba(139, 92, 246, 0.12);
+        --success-bg: #d4edda;
+        --success-text: #155724;
+        --warning-bg: #fff3cd;
+        --warning-text: #856404;
+        --danger-bg: #f8d7da;
+        --danger-text: #721c24;
+        --info-bg: #d1ecf1;
+        --info-text: #0c5460;
+        --neutral-bg: #e9ecef;
+        --neutral-text: #495057;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --card-bg: #1e1e2e;
+            --card-shadow: rgba(0,0,0,0.3);
+            --text-primary: #e0e0e0;
+            --text-secondary: #b0b0b0;
+            --text-muted: #888888;
+            --border-soft: #33334a;
+            --accent-soft: rgba(139, 92, 246, 0.25);
+            --success-bg: #1e3a29; --success-text: #a3d9a5;
+            --warning-bg: #3a3520; --warning-text: #f5d78e;
+            --danger-bg: #3a1e20; --danger-text: #f5a3a7;
+            --info-bg: #1e2e3a; --info-text: #a3d1e0;
+            --neutral-bg: #2b2b3d; --neutral-text: #b0b0b0;
+        }
+    }
+
+    [data-theme="dark"] {
+        --card-bg: #1e1e2e;
+        --card-shadow: rgba(0,0,0,0.3);
+        --text-primary: #e0e0e0;
+        --text-secondary: #b0b0b0;
+        --text-muted: #888888;
+        --border-soft: #33334a;
+    }
+
+    [x-cloak] { display: none !important; }
+
+    .campaign-container { padding: 20px; max-width: 1280px; margin: 0 auto; }
+    .back-link {
+        display: inline-flex; align-items: center; gap: 4px;
+        color: var(--text-secondary); text-decoration: none;
+        font-size: 14px; margin-bottom: 16px;
+    }
+    .back-link:hover { color: var(--text-primary); }
+    .page-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
+    .page-header h1 { margin: 0 0 6px 0; color: var(--text-primary); }
+    .page-header p { margin: 0; color: var(--text-muted); }
+
+    .tab-nav { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; border-bottom: 2px solid var(--border-soft); padding-bottom: 0; }
+    .tab-btn {
+        background: none; border: none; border-bottom: 3px solid transparent;
+        padding: 10px 16px; font-size: 14px; font-weight: 600;
+        color: var(--text-secondary); cursor: pointer;
+    }
+    .tab-btn:hover { color: var(--text-primary); }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .summary-card {
+        background: var(--card-bg); border-radius: 8px; padding: 16px 20px;
+        box-shadow: 0 2px 4px var(--card-shadow);
+        display: flex; align-items: center; gap: 12px;
+    }
+    .summary-icon { font-size: 28px; }
+    .summary-content h3 { margin: 0; font-size: 24px; color: var(--text-primary); }
+    .summary-content p { margin: 0; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .panel-section {
+        background: var(--card-bg); border-radius: 12px; padding: 20px;
+        margin-bottom: 24px; box-shadow: 0 2px 4px var(--card-shadow);
+    }
+    .section-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 16px; }
+    .section-header h2 { margin: 0; font-size: 18px; color: var(--text-primary); }
+
+    .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .data-table th {
+        text-align: left; padding: 8px 10px; color: var(--text-muted);
+        text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;
+        border-bottom: 1px solid var(--border-soft);
+    }
+    .data-table td { padding: 10px; border-bottom: 1px solid var(--border-soft); color: var(--text-secondary); }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table a { color: var(--accent); text-decoration: none; }
+
+    .badge {
+        display: inline-block; padding: 3px 10px; border-radius: 12px;
+        font-size: 11px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.4px;
+    }
+    .badge-draft { background: var(--neutral-bg); color: var(--neutral-text); }
+    .badge-scheduled { background: var(--info-bg); color: var(--info-text); }
+    .badge-sending { background: var(--warning-bg); color: var(--warning-text); }
+    .badge-sent { background: var(--success-bg); color: var(--success-text); }
+    .badge-partial { background: var(--warning-bg); color: var(--warning-text); }
+    .badge-failed { background: var(--danger-bg); color: var(--danger-text); }
+    .badge-cancelled { background: var(--neutral-bg); color: var(--neutral-text); }
+    .badge-delivered, .badge-read { background: var(--success-bg); color: var(--success-text); }
+    .badge-queued { background: var(--neutral-bg); color: var(--neutral-text); }
+
+    .chan-badge {
+        display: inline-block; padding: 2px 8px; border-radius: 4px;
+        font-size: 11px; font-weight: 600; margin-right: 4px;
+    }
+    .chan-email { background: rgba(99, 102, 241, 0.15); color: rgb(99, 102, 241); }
+    .chan-whatsapp { background: rgba(34, 197, 94, 0.15); color: rgb(22, 163, 74); }
+    .chan-push { background: rgba(139, 92, 246, 0.15); color: rgb(139, 92, 246); }
+
+    .btn {
+        display: inline-block; padding: 9px 18px; border-radius: 8px;
+        font-size: 14px; font-weight: 600; cursor: pointer; border: none;
+        text-decoration: none;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { opacity: 0.9; color: #fff; }
+    .btn-secondary { background: var(--neutral-bg); color: var(--neutral-text); }
+    .btn-danger { background: var(--danger-bg); color: var(--danger-text); }
+    .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+    .chart-box { position: relative; height: 280px; }
+
+    /* Composer */
+    .step-nav { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+    .step-chip {
+        padding: 6px 14px; border-radius: 16px; font-size: 13px;
+        font-weight: 600; background: var(--neutral-bg); color: var(--neutral-text);
+    }
+    .step-chip.active { background: var(--accent); color: #fff; }
+    .step-chip.done { background: var(--accent-soft); color: var(--accent); }
+
+    .form-field { margin-bottom: 16px; }
+    .form-field label { display: block; font-weight: 600; font-size: 13px; color: var(--text-primary); margin-bottom: 6px; }
+    .form-field .hint { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    .form-field input[type="text"],
+    .form-field input[type="url"],
+    .form-field input[type="datetime-local"],
+    .form-field select,
+    .form-field textarea {
+        width: 100%; max-width: 640px; padding: 8px 10px;
+        border: 1px solid var(--border-soft); border-radius: 6px;
+        background: var(--card-bg); color: var(--text-primary);
+        font-size: 14px; box-sizing: border-box;
+    }
+    .form-field textarea { min-height: 140px; font-family: monospace; }
+    .channel-toggle { display: flex; gap: 16px; flex-wrap: wrap; }
+    .channel-toggle label {
+        display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+        border: 1px solid var(--border-soft); border-radius: 8px;
+        cursor: pointer; font-weight: 600; color: var(--text-primary);
+    }
+    .wizard-actions { display: flex; gap: 10px; margin-top: 20px; }
+
+    .preview-frame {
+        width: 100%; height: 420px; border: 1px solid var(--border-soft);
+        border-radius: 8px; background: #fff;
+    }
+    .push-preview-card {
+        max-width: 380px; border: 1px solid var(--border-soft);
+        border-radius: 12px; padding: 14px 16px; background: var(--card-bg);
+        box-shadow: 0 2px 6px var(--card-shadow);
+    }
+    .push-preview-card h4 { margin: 0 0 4px 0; color: var(--text-primary); font-size: 14px; }
+    .push-preview-card p { margin: 0; color: var(--text-secondary); font-size: 13px; }
+    .whatsapp-bubble {
+        max-width: 420px; background: #dcf8c6; color: #111;
+        border-radius: 10px; padding: 10px 14px; font-size: 14px;
+        white-space: pre-wrap;
+    }
+    @media (prefers-color-scheme: dark) {
+        .whatsapp-bubble { background: #144d37; color: #e6ffe6; }
+    }
+</style>

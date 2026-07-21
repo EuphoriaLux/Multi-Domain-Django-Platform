@@ -29,6 +29,16 @@ class Newsletter(models.Model):
         ('failed', _('Failed')),
     ]
 
+    # Set when this newsletter is the email leg of a multi-channel campaign
+    # (see crush_lu/models/campaigns.py). Standalone newsletters keep this null.
+    campaign = models.OneToOneField(
+        'crush_lu.Campaign',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='email_newsletter',
+    )
+
     # Type
     newsletter_type = models.CharField(
         max_length=20,
