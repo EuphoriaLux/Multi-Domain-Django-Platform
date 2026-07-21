@@ -383,7 +383,7 @@ class DispatcherTests(TestCase):
         real_send = 'crush_lu.newsletter_service._send_newsletter_to_user'
         calls = {'n': 0}
 
-        def flaky(newsletter, user):
+        def flaky(newsletter, user, link_rewriter=None):
             calls['n'] += 1
             if calls['n'] == 1:
                 raise RuntimeError('SMTP exploded')

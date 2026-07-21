@@ -192,7 +192,8 @@ def _get_segment_users(segment_key):
     return User.objects.none()
 
 
-def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None):
+def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
+                    link_rewriter=None):
     """
     Send a newsletter to its audience with rate limiting and resumability.
 
@@ -201,6 +202,9 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None):
         dry_run: If True, preview recipients without sending
         limit: Maximum number of emails to send (None = no limit)
         stdout: Optional output stream for progress (management command)
+        link_rewriter: Optional callable(html, user) applied to the rendered
+            HTML body just before sending — used by campaign sends for click
+            tracking. None (the default) keeps output byte-identical.
 
     Returns:
         dict: {'sent': int, 'failed': int, 'skipped': int}
@@ -287,7 +291,7 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None):
             continue
 
         try:
-            _send_newsletter_to_user(newsletter, user)
+            _send_newsletter_to_user(newsletter, user, link_rewriter)
             NewsletterRecipient.objects.update_or_create(
                 newsletter=newsletter,
                 user=user,
@@ -455,7 +459,7 @@ NEWSLETTER_TEMPLATE_MAP = {
 }
 
 
-def _send_newsletter_to_user(newsletter, user):
+def _send_newsletter_to_user(newsletter, user, link_rewriter=None):
     """
     Render and send a newsletter email to a single user.
 
@@ -518,6 +522,10 @@ def _send_newsletter_to_user(newsletter, user):
             plain_message = body_text
         else:
             plain_message = strip_tags(html_message)
+
+    if link_rewriter is not None:
+        # After plain_message is derived, so the text part keeps direct URLs.
+        html_message = link_rewriter(html_message, user)
 
     send_domain_email(
         subject=subject,

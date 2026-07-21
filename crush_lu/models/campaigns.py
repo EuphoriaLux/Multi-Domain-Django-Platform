@@ -219,6 +219,15 @@ class Campaign(models.Model):
             'skipped': sum(s.get('skipped', 0) for s in stats.values()),
         }
         stats['totals'] = totals
+
+        click_counts = self.links.aggregate(
+            total=models.Count('clicks'),
+            unique_users=models.Count('clicks__user', distinct=True),
+        )
+        stats['clicks'] = {
+            'total': click_counts['total'] or 0,
+            'unique_users': click_counts['unique_users'] or 0,
+        }
         return stats
 
 
@@ -278,3 +287,69 @@ class CampaignRecipient(models.Model):
 
     def __str__(self):
         return f"{self.user_id} via {self.channel} - {self.get_status_display()}"
+
+
+class CampaignLink(models.Model):
+    """One tracked destination URL per (campaign, channel).
+
+    Outbound campaign links are rewritten to ``/c/<token>/`` which records a
+    ``CampaignClick`` and 302s to ``tracked_url`` (the original destination
+    with UTM parameters merged in). Recipient attribution travels in a signed
+    ``?r=`` query parameter — no per-recipient link rows are needed.
+    """
+
+    campaign = models.ForeignKey(
+        Campaign,
+        on_delete=models.CASCADE,
+        related_name='links',
+    )
+    channel = models.CharField(max_length=20)
+    # CharField (not URLField): push links may be site-relative ('/events/').
+    original_url = models.CharField(max_length=1000)
+    tracked_url = models.CharField(
+        max_length=1200,
+        help_text=_("original_url with utm_source/medium/campaign merged in"),
+    )
+    token = models.CharField(max_length=16, unique=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [('campaign', 'channel', 'original_url')]
+        verbose_name = _("Campaign Link")
+        verbose_name_plural = _("Campaign Links")
+
+    def __str__(self):
+        return f"{self.token} → {self.original_url}"
+
+
+class CampaignClick(models.Model):
+    """A single click on a tracked campaign link.
+
+    Data minimization (GDPR): only the link, the attributed user (when the
+    signed recipient parameter verifies) and the timestamp are stored — no IP
+    address and no user agent, not even hashed.
+    """
+
+    link = models.ForeignKey(
+        CampaignLink,
+        on_delete=models.CASCADE,
+        related_name='clicks',
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='campaign_clicks',
+    )
+    clicked_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['link', 'clicked_at']),
+        ]
+        verbose_name = _("Campaign Click")
+        verbose_name_plural = _("Campaign Clicks")
+
+    def __str__(self):
+        return f"{self.link.token} @ {self.clicked_at:%Y-%m-%d %H:%M}"

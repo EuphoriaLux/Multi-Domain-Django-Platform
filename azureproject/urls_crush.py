@@ -37,6 +37,7 @@ from crush_lu.admin_views import (
     email_template_load_gifts,
 )
 from crush_lu import api_views, api_push, api_coach_push, api_pwa, api_ios_app, api_android_app, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, api_admin_hybrid, api_admin_metrics, api_admin_changelog, views_crush_spark, views_checkin, api_crush_connect, views_coach, api_quiz, views_quiz, views_notifications
+from crush_lu.views_campaign_click import campaign_click_redirect
 from crush_lu.wallet import passkit_service, google_callback
 from crush_lu.sitemaps import crush_sitemaps
 from crush_lu.views_seo import robots_txt, custom_404, custom_500
@@ -323,6 +324,10 @@ urlpatterns = [
     # This allows https://crush.lu/r/CODE/ to work without language prefix
     # Users will be redirected to the home page in their browser's preferred language
     path('r/<str:code>/', views.referral_redirect, name='referral_redirect_neutral'),
+
+    # Campaign click-tracking redirect (language-neutral: the URL is embedded
+    # in emails / WhatsApp / push payloads sent by the campaign dashboard)
+    path('c/<str:token>/', campaign_click_redirect, name='campaign_click_redirect'),
 
     # ============================================================================
     # LOGIN REDIRECT COMPATIBILITY

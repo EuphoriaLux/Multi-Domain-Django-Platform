@@ -16,15 +16,25 @@ Design constraints (see docs/specs/campaign-dashboard.md):
 - Adding a channel means adding one adapter to ``CHANNEL_ADAPTERS``.
 """
 import logging
+import re
+import secrets
 import time as time_module
 from dataclasses import dataclass
+from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from django.contrib.auth.models import User
+from django.core.signing import Signer
 from django.db.models import Q
+from django.urls import reverse
 from django.utils import timezone, translation
 
 from crush_lu import newsletter_service
-from crush_lu.models import Campaign, CampaignRecipient, EmailPreference
+from crush_lu.models import (
+    Campaign,
+    CampaignLink,
+    CampaignRecipient,
+    EmailPreference,
+)
 from crush_lu.utils.i18n import get_user_preferred_language
 
 logger = logging.getLogger(__name__)
@@ -115,6 +125,86 @@ def _substitute_merge_tokens(text, user):
     )
 
 
+# --- Click + UTM tracking ---------------------------------------------------
+
+CLICK_SIGNER_SALT = 'campaign-click'
+
+# The public host the redirect must live on: campaign links land in emails,
+# WhatsApp messages and push payloads, all of which need absolute URLs.
+CLICK_REDIRECT_BASE = 'https://crush.lu'
+
+_HREF_RE = re.compile(r'''href=(["'])(https?://[^"']+)\1''', re.IGNORECASE)
+
+
+def click_signer():
+    return Signer(salt=CLICK_SIGNER_SALT)
+
+
+def _merge_utm_params(url, campaign, channel):
+    """Add utm_source/medium/campaign to a URL, keeping existing params."""
+    parts = urlsplit(url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    for key, value in (
+        ('utm_source', 'crush.lu'),
+        ('utm_medium', channel),
+        ('utm_campaign', campaign.slug),
+    ):
+        query.setdefault(key, value)
+    return urlunsplit((
+        parts.scheme, parts.netloc, parts.path,
+        urlencode(query), parts.fragment,
+    ))
+
+
+def build_tracked_url(url, campaign, channel, user=None):
+    """Turn a destination URL into a click-tracked redirect URL.
+
+    Creates (or reuses) the campaign's ``CampaignLink`` for this destination
+    and returns ``https://crush.lu/c/<token>/``, carrying the recipient in a
+    signed ``?r=`` parameter when a user is given. The redirect resolves to
+    the destination with UTM parameters merged in.
+    """
+    link, _ = CampaignLink.objects.get_or_create(
+        campaign=campaign,
+        channel=channel,
+        original_url=url,
+        defaults={
+            'token': secrets.token_urlsafe(9),
+            'tracked_url': _merge_utm_params(url, campaign, channel),
+        },
+    )
+    path = reverse(
+        'campaign_click_redirect',
+        urlconf='azureproject.urls_crush',
+        kwargs={'token': link.token},
+    )
+    redirect_url = f"{CLICK_REDIRECT_BASE}{path}"
+    if user is not None:
+        signed = click_signer().sign(str(user.pk))
+        redirect_url = f"{redirect_url}?r={quote(signed)}"
+    return redirect_url
+
+
+def rewrite_html_links(html, campaign, channel, user=None):
+    """Rewrite absolute http(s) hrefs in an email body to tracked URLs.
+
+    Skips unsubscribe links (they must remain direct and one-click) and URLs
+    that are already tracked. ``mailto:`` and same-page anchors never match.
+    """
+    def _replace(match):
+        quote_char, url = match.group(1), match.group(2)
+        # hrefs are HTML-escaped; work on the real URL and re-escape after.
+        real_url = url.replace('&amp;', '&')
+        if 'unsubscribe' in real_url:
+            return match.group(0)
+        if real_url.startswith(f"{CLICK_REDIRECT_BASE}/c/"):
+            return match.group(0)
+        tracked = build_tracked_url(real_url, campaign, channel, user)
+        return f"href={quote_char}{tracked.replace('&', '&amp;')}{quote_char}"
+
+    return _HREF_RE.sub(_replace, html)
+
+
 class EmailAdapter:
     """Email leg — thin wrapper over the proven newsletter engine."""
 
@@ -139,7 +229,12 @@ class EmailAdapter:
             return BatchResult(remaining=0)
 
         result = newsletter_service.send_newsletter(
-            newsletter, limit=limit, stdout=stdout,
+            newsletter,
+            limit=limit,
+            stdout=stdout,
+            link_rewriter=lambda html, user: rewrite_html_links(
+                html, campaign, self.key, user,
+            ),
         )
         return BatchResult(
             sent=result['sent'],
@@ -190,10 +285,12 @@ class WhatsAppAdapter:
                 continue
             profile = getattr(user, 'crushprofile', None)
             lang = get_user_preferred_language(user=user, default='en')
-            parameters = {
-                key: _substitute_merge_tokens(value, user)
-                for key, value in (campaign.whatsapp_parameters or {}).items()
-            }
+            parameters = {}
+            for key, value in (campaign.whatsapp_parameters or {}).items():
+                value = _substitute_merge_tokens(value, user)
+                if value.startswith(('http://', 'https://')):
+                    value = build_tracked_url(value, campaign, self.key, user)
+                parameters[key] = value
 
             try:
                 message = send_whatsapp_template(
@@ -309,7 +406,9 @@ class PushAdapter:
         return result
 
     def build_push_url(self, campaign, user):
-        return campaign.push_url or '/'
+        return build_tracked_url(
+            campaign.push_url or '/', campaign, self.key, user,
+        )
 
     def _record(self, campaign, user, status, error=''):
         CampaignRecipient.objects.update_or_create(
