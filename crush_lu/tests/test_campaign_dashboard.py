@@ -181,6 +181,40 @@ class CampaignCreateFlowTests(TestCase):
             datetime(2030, 8, 1, 10, 0, tzinfo=dt_timezone.utc),
         )
 
+    def test_campaign_newsletter_locked_in_admin(self):
+        """Targeting is read-only and deletion blocked for campaign legs."""
+        from crush_lu.admin import crush_admin_site
+        from crush_lu.admin.newsletter import NewsletterAdmin
+        from crush_lu.models.newsletter import Newsletter
+        from django.test import RequestFactory
+
+        campaign = create_campaign(
+            name='Locked leg', channels=['email'], audience='all_users',
+            email_content={'subject_en': 'S', 'body_html_en': 'B'},
+        )
+        newsletter = campaign.email_newsletter
+        model_admin = NewsletterAdmin(Newsletter, crush_admin_site)
+        request = RequestFactory().get('/')
+        request.user = self.superuser
+
+        readonly = model_admin.get_readonly_fields(request, newsletter)
+        for field in ('audience', 'segment_key', 'language', 'event'):
+            self.assertIn(field, readonly)
+        self.assertFalse(
+            model_admin.has_delete_permission(request, newsletter),
+        )
+
+        # Standalone newsletters keep normal editing and deletion.
+        standalone = Newsletter.objects.create(
+            subject='Solo', body_html='<p>x</p>', audience='all_users',
+        )
+        self.assertNotIn(
+            'audience', model_admin.get_readonly_fields(request, standalone),
+        )
+        self.assertTrue(
+            model_admin.has_delete_permission(request, standalone),
+        )
+
     def test_admin_add_is_disabled_for_campaigns(self):
         """Campaigns are composer-only; a hand-made admin record would lack
         the linked Newsletter and dispatch as 'sent' without sending."""

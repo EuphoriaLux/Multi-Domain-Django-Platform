@@ -480,6 +480,48 @@ class DispatcherTests(TestCase):
         )
         self.assertEqual(newsletter.status, 'sending')
 
+    def test_crashed_batch_never_finalizes_the_campaign(self):
+        """An exception mid-batch must leave the campaign resumable."""
+        campaign = self._email_campaign(
+            scheduled_at=timezone.now() - timedelta(minutes=1),
+        )
+        from crush_lu.services.campaigns import CHANNEL_ADAPTERS
+
+        with patch.object(
+            CHANNEL_ADAPTERS['email'], 'send_batch',
+            side_effect=RuntimeError('db hiccup'),
+        ):
+            with self.assertRaises(RuntimeError):
+                dispatch_campaigns()
+        campaign.refresh_from_db()
+        self.assertEqual(campaign.status, 'sending')
+        self.assertIsNone(campaign.dispatch_heartbeat_at)
+
+    def test_missing_email_leg_defers_instead_of_finalizing(self):
+        campaign = self._email_campaign(
+            scheduled_at=timezone.now() - timedelta(minutes=1),
+        )
+        campaign.email_newsletter.delete()
+        campaign = Campaign.objects.get(pk=campaign.pk)
+        dispatch_campaigns()
+        campaign.refresh_from_db()
+        self.assertEqual(campaign.status, 'sending')
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_diverged_newsletter_targeting_is_realigned(self):
+        from crush_lu.models.newsletter import Newsletter as NewsletterModel
+
+        campaign = self._email_campaign(
+            scheduled_at=timezone.now() - timedelta(minutes=1),
+        )
+        NewsletterModel.objects.filter(pk=campaign.email_newsletter.pk).update(
+            audience='approved_profiles', language='fr',
+        )
+        dispatch_campaigns()
+        newsletter = Campaign.objects.get(pk=campaign.pk).email_newsletter
+        self.assertEqual(newsletter.audience, campaign.audience)
+        self.assertEqual(newsletter.language, campaign.language)
+
     def test_cancelled_campaign_not_dispatched(self):
         campaign = self._email_campaign(
             scheduled_at=timezone.now() - timedelta(minutes=1),

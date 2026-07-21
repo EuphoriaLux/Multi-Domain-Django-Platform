@@ -244,14 +244,36 @@ class EmailAdapter:
     def send_batch(self, campaign, limit, deadline=None, stdout=None):
         newsletter = getattr(campaign, 'email_newsletter', None)
         if newsletter is None:
+            # Broken invariant (linked newsletter deleted?) — defer rather
+            # than report complete, or the campaign would finalize as 'sent'
+            # without a single email. Stays visible as a stuck 'sending'
+            # campaign the operator can cancel.
             logger.error(
                 "Campaign #%s has the email channel enabled but no linked "
-                "newsletter", campaign.pk,
+                "newsletter — deferring the email leg", campaign.pk,
             )
-            return BatchResult(remaining=0)
+            return BatchResult(interrupted=True, remaining=1)
         if newsletter.status not in ('draft', 'sending'):
             # Already finalized (e.g. sent manually) — nothing left to do.
             return BatchResult(remaining=0)
+
+        # Consistency net: the campaign record is the single source of truth
+        # for targeting; realign the newsletter if they ever diverge.
+        if (
+            newsletter.audience != campaign.audience
+            or newsletter.segment_key != campaign.segment_key
+            or newsletter.language != campaign.language
+        ):
+            logger.warning(
+                "Campaign #%s: newsletter targeting diverged from the "
+                "campaign — realigning before send", campaign.pk,
+            )
+            newsletter.audience = campaign.audience
+            newsletter.segment_key = campaign.segment_key
+            newsletter.language = campaign.language
+            newsletter.save(update_fields=[
+                'audience', 'segment_key', 'language', 'updated_at',
+            ])
 
         result = newsletter_service.send_newsletter(
             newsletter,
@@ -742,6 +764,12 @@ def dispatch_campaigns(now=None, limits=None, time_budget=None, stdout=None,
                 }
                 if not result.complete:
                     all_complete = False
+        except Exception:
+            # A crashed batch means unknown channel state — never finalize
+            # from incomplete counters; clear the claim (finally) so the next
+            # tick resumes, and let the error propagate to the caller.
+            all_complete = False
+            raise
         finally:
             if all_complete:
                 final_status = _finalize_status(campaign)

@@ -199,6 +199,22 @@ class NewsletterAdmin(AutoTranslateMixin, TranslationAdmin):
     date_hierarchy = 'created_at'
     inlines = [NewsletterRecipientInline]
 
+    def get_readonly_fields(self, request, obj=None):
+        readonly = list(super().get_readonly_fields(request, obj))
+        if obj is not None and obj.campaign_id:
+            # Campaign email legs: the Campaign record is the single source
+            # of truth for targeting — editing it here would let one unified
+            # campaign send its channels to different cohorts.
+            readonly += ['audience', 'segment_key', 'language', 'event']
+        return readonly
+
+    def has_delete_permission(self, request, obj=None):
+        if obj is not None and obj.campaign_id:
+            # Deleting the email leg would make the campaign's email channel
+            # report "nothing to send" and finalize without delivering.
+            return False
+        return super().has_delete_permission(request, obj)
+
     class Media:
         css = {'all': ('crush_lu/admin/css/newsletter_admin.css',)}
         js = ('crush_lu/admin/js/newsletter_admin.js',)
