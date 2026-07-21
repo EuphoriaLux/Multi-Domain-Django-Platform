@@ -181,9 +181,32 @@ conversion moment that exists, without a paywall screen.
   attendee-page connection state, the `incoming_pending_count` aggregate,
   **both context-processor counters**, **the post-event recap email's
   waiting-connections count** (`send_event_recap`,
-  `email_helpers.py:920–922`), and `connection_detail` **until the
-  introduction completes (`shared`)** — not merely until the recipient's
-  consent is recorded. The coach workflow records the two consents
+  `email_helpers.py:920–922`), the **`connection_actions` endpoint**
+  (`views_connections.py:648–670` — it hands a probing recipient
+  `connection_status="received"` plus the actionable row id; crush rows
+  must yield the byte-identical no-connection representation), and
+  `connection_detail` **until the introduction completes (`shared`)** — not
+  merely until the recipient's consent is recorded.
+
+* **Mutual-derived metrics are flow-blind today and must not be.** Every
+  consumer of reverse-row existence leaks a private declaration the moment
+  the reciprocal row lands: `my_events` counts "mutual matches" regardless
+  of status or flow (`views_events.py:373–383`, rendered as "1 mutual
+  match"), and the recap email computes `mutual_match_count` from
+  `outgoing_qs` with no flow restriction (`email_helpers.py:913–918`,
+  rendered as "two-way interest") — so after B declares, both tell B
+  whether A had already privately declared. Pre-`shared` `flow=crush` rows
+  are excluded from **every** mutual-derived metric and count, on both
+  requester and recipient sides.
+
+* **Data export: recipient-side suppression, requester-side retention.**
+  `export_user_data` serializes every connection with the counterpart's
+  email (`views_account.py:1288–1300`) — a recipient's export would name
+  their secret admirer. Pre-`shared` **incoming** crush rows are excluded
+  from the recipient's export; the requester's own export keeps their
+  **outgoing** declaration (it is their own action — data portability is
+  preserved for what the member did, not for what was privately done
+  toward them; after `shared`, both sides export normally). The coach workflow records the two consents
   independently (§7), so there is an intermediate state where the recipient
   has consented but the requester has not; un-hiding at recipient-consent
   would let `connection_detail.html` render the crusher's display name,
@@ -583,9 +606,23 @@ before or after them.
   `send_event_recaps`) counts the recipient's received `pending` rows for
   the event (`:920–922`) and emails "people are waiting to hear back" with
   an attendee-page CTA — one more channel that would announce a private
-  crush. `flow=crush` rows are excluded from that count; a recipient whose
-  only received rows are crush leads gets no waiting-connections section
-  (and no email, if that was its only trigger).
+  crush. `flow=crush` rows are excluded from that count **and from the
+  outgoing/`mutual_match_count` calculation (`:913–918`)** — the
+  "two-way interest" line must never confirm a private reciprocal. A
+  recipient whose only received rows are crush leads gets no
+  waiting-connections section (and no email, if that was its only
+  trigger); a member with a pre-`shared` reciprocal crush gets no mutual
+  line.
+
+* **Direct-endpoint neutrality:** for a pre-`shared` incoming crush,
+  `connection_actions` returns the byte-identical no-connection
+  representation; the recipient's `export_user_data` contains no trace of
+  the row (no counterpart email), while the requester's export still lists
+  their own outgoing declaration.
+
+* **Reciprocal navigation:** after B declares B→A where A had privately
+  declared A→B, B's `my_events` mutual-match count and B's recap email
+  are byte-identical to the no-prior-declaration case until `shared`.
 
 * **Member-overview redaction:** an active coach who is neither the routed
   coach nor the recipient-side co-coach sees no crush row (and no requester
@@ -695,9 +732,10 @@ before or after them.
 
 * The crush recipient receives no system notification at any point before coach
   outreach — including indirectly: no response to any of the recipient's own
-  actions (e.g. their own declaration attempt) and no existing surface (inbox,
-  notification feed, attendee page, connection detail, chat) may reveal that a
-  crush on them exists.
+  actions (e.g. their own declaration attempt) and no existing surface or data
+  channel (inbox, notification feed, attendee page, connection detail, chat,
+  `connection_actions`, data export, My Events mutual counts, recap emails)
+  may reveal that a crush on them exists before `shared`.
 
 * Contact details are shared only after coach-facilitated mutual consent;
   declines never reach the crusher.
