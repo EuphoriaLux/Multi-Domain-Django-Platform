@@ -94,16 +94,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1 };
 
     function playQrSuccessSound() {
-        var mp3Url = '/static/crush_lu/audio/qr_scanned.mp3';
-        var audio = new Audio(mp3Url);
-        var promise = audio.play();
-        if (promise !== undefined) {
-            promise.catch(function() {
-                playSynthQrSound();
-            });
-        } else {
-            playSynthQrSound();
-        }
+        playSynthQrSound();
     }
 
     function playSynthQrSound() {

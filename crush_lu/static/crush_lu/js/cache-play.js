@@ -257,21 +257,7 @@ document.addEventListener("alpine:init", function () {
             },
 
             playGpsChime: function () {
-                var self = this;
-                // Try MP3 audio if available; fallback immediately to Web Audio synth
-                var mp3Url = "/static/crush_lu/audio/gps_arrived.mp3";
-                var audio = new Audio(mp3Url);
-                var played = false;
-                var promise = audio.play();
-                if (promise !== undefined) {
-                    promise.then(function() {
-                        played = true;
-                    }).catch(function () {
-                        if (!played) self.playSynthGpsChime();
-                    });
-                } else {
-                    self.playSynthGpsChime();
-                }
+                this.playSynthGpsChime();
             },
 
             playSynthGpsChime: function () {
