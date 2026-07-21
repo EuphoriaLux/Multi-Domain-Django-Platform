@@ -1,7 +1,7 @@
 {% comment %}
 Crush Connect Drop card.
 
-Renders ONE card from a user's Daily Drop. The viewer sees a blurred photo,
+Renders ONE card from a user's Daily Drop. The viewer sees an unblurred photo,
 first name only, age range (never exact age), one coach-curated Story line,
 and language/interest tag chips. The "Send a Curiosity Spark" CTA is shown
 when the page passes show_spark_cta.
@@ -15,7 +15,6 @@ Privacy contract (Crush Connect):
     - first_name only, never user.get_full_name or username
     - age_range, never exact age (independent of the target's show_exact_age
       preference — Crush Connect ALWAYS coarsens age until mutual reveal)
-    - photo always blurred until mutual interest is reached
 {% endcomment %}
 {% load i18n crush_media moderation_tags %}
 <article
@@ -28,7 +27,7 @@ Privacy contract (Crush Connect):
     consented, surfaced few (enforced in get_eligible_pool).
     {% endcomment %}
     <div class="relative aspect-[4/5] sm:aspect-[5/4] overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">
-        {% profile_photo target_profile 'photo_1' css_class='w-full h-full object-cover' alt_text=target.first_name is_blurred=False %}
+        {% profile_photo target_profile 'photo_1' css_class='w-full h-full object-cover' alt_text=target.first_name %}
         {# Bottom scrim so the overlaid name stays legible over any photo. #}
         <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/15 pointer-events-none"></div>
 

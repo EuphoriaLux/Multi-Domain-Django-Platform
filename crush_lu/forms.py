@@ -574,6 +574,202 @@ class CrushProfileForm(forms.ModelForm):
         return instance
 
 
+class CrushProfileAboutForm(forms.ModelForm):
+    """Form to edit profile bio and interests"""
+    class Meta:
+        model = CrushProfile
+        fields = ['bio', 'interests']
+
+    bio = forms.CharField(
+        required=False,
+        max_length=500,
+        widget=forms.Textarea(attrs={
+            'rows': 4,
+            'placeholder': _('Tell us about yourself... What do you love? What makes you smile? (Optional)'),
+            'class': TAILWIND_TEXTAREA
+        }),
+        help_text=_('Share what makes you unique! (Optional, max 500 characters)')
+    )
+
+    interests = forms.CharField(
+        required=False,
+        max_length=300,
+        widget=forms.Textarea(attrs={
+            'rows': 3,
+            'placeholder': _('Or select categories below...'),
+            'class': TAILWIND_TEXTAREA
+        }),
+        help_text=_('Select interest categories below or write your own (Optional)')
+    )
+
+
+class CrushProfileTraitsForm(forms.ModelForm):
+    """Form to edit profile personality traits (qualities and defects)"""
+    qualities_ids = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={'id': 'id_qualities_ids'}),
+    )
+    defects_ids = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={'id': 'id_defects_ids'}),
+    )
+
+    class Meta:
+        model = CrushProfile
+        fields = []
+
+    MAX_TRAITS_PER_CATEGORY = 5
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            self.initial['qualities_ids'] = ','.join(
+                str(pk) for pk in self.instance.qualities.values_list('pk', flat=True)
+            )
+            self.initial['defects_ids'] = ','.join(
+                str(pk) for pk in self.instance.defects.values_list('pk', flat=True)
+            )
+
+    def _parse_trait_ids(self, field_name):
+        raw = self.cleaned_data.get(field_name, '')
+        if not raw or not raw.strip():
+            return []
+        try:
+            return [int(x.strip()) for x in raw.split(',') if x.strip()]
+        except (ValueError, TypeError):
+            raise forms.ValidationError(_("Invalid trait selection."))
+
+    def clean_qualities_ids(self):
+        ids = self._parse_trait_ids('qualities_ids')
+        if ids and len(ids) > self.MAX_TRAITS_PER_CATEGORY:
+            raise forms.ValidationError(
+                _("You can select at most %(max)d qualities."),
+                params={'max': self.MAX_TRAITS_PER_CATEGORY},
+            )
+        return ids
+
+    def clean_defects_ids(self):
+        ids = self._parse_trait_ids('defects_ids')
+        if ids and len(ids) > self.MAX_TRAITS_PER_CATEGORY:
+            raise forms.ValidationError(
+                _("You can select at most %(max)d defects."),
+                params={'max': self.MAX_TRAITS_PER_CATEGORY},
+            )
+        return ids
+
+    def save(self, commit=True):
+        instance = super().save(commit=commit)
+        if commit:
+            from .models import Trait
+            qualities_ids = self.cleaned_data.get('qualities_ids', [])
+            defects_ids = self.cleaned_data.get('defects_ids', [])
+
+            if qualities_ids:
+                instance.qualities.set(
+                    Trait.objects.filter(pk__in=qualities_ids, trait_type='quality')
+                )
+            else:
+                instance.qualities.clear()
+
+            if defects_ids:
+                instance.defects.set(
+                    Trait.objects.filter(pk__in=defects_ids, trait_type='defect')
+                )
+            else:
+                instance.defects.clear()
+        return instance
+
+
+class CrushProfileContactForm(forms.ModelForm):
+    """Form to edit profile contact details and location region"""
+    phone_number = forms.CharField(
+        required=True,
+        max_length=20,
+        widget=forms.TextInput(attrs={
+            'type': 'tel',
+            'placeholder': '+352 XX XX XX XX',
+            'class': TAILWIND_INPUT_LG
+        }),
+        help_text=_('Required for coach screening and event coordination')
+    )
+
+    date_of_birth = forms.DateField(
+        required=True,
+        widget=forms.DateInput(
+            attrs={
+                'type': 'date',
+                'class': TAILWIND_INPUT
+            },
+            format='%Y-%m-%d'
+        ),
+        input_formats=['%Y-%m-%d'],
+        help_text=_('Must be 18+ to join')
+    )
+
+    gender = forms.ChoiceField(
+        required=True,
+        choices=CrushProfile.GENDER_CHOICES,
+        widget=forms.Select(attrs={'class': TAILWIND_SELECT}),
+        help_text=_('Required')
+    )
+
+    location = forms.ChoiceField(
+        required=False,
+        choices=CrushProfileForm.LOCATION_CHOICES,
+        widget=forms.HiddenInput(attrs={'id': 'id_location'}),
+        help_text=_('Your region in or near Luxembourg')
+    )
+
+    class Meta:
+        model = CrushProfile
+        fields = ['phone_number', 'date_of_birth', 'gender', 'location']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk and self.instance.is_approved:
+            self.fields['gender'].disabled = True
+            self.fields['date_of_birth'].disabled = True
+
+    # Re-use validations from the main form
+    def clean_date_of_birth(self):
+        return CrushProfileForm.clean_date_of_birth(self)
+
+    def clean_phone_number(self):
+        return CrushProfileForm.clean_phone_number(self)
+
+    def clean(self):
+        # CrushProfileForm.clean() uses super() which requires self to be a
+        # CrushProfileForm instance.  Since we don't inherit from it, we call
+        # our own super().clean() and replicate the phone-verified check.
+        cleaned_data = super().clean()
+        return cleaned_data
+
+
+class CrushProfileEventPrefsForm(forms.ModelForm):
+    """Form to edit event language preferences"""
+    event_languages = forms.MultipleChoiceField(
+        choices=CrushProfile.EVENT_LANGUAGE_CHOICES,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
+        required=True,
+        label=_('Languages for Events'),
+        help_text=_('Select the languages you can speak at events. You will only be able to sign up for events in your selected languages (except Open Format events).'),
+        error_messages={
+            'required': _('Please select at least one event language.'),
+        }
+    )
+
+    class Meta:
+        model = CrushProfile
+        fields = ['event_languages']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk and self.instance.event_languages:
+            self.initial['event_languages'] = self.instance.event_languages
+
+    clean_event_languages = CrushProfileForm.clean_event_languages
+
+
 class ProfileReviewForm(forms.ModelForm):
     """Form for coaches to review profiles"""
 

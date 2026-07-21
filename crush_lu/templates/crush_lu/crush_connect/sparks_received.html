@@ -25,10 +25,10 @@
             {% with sender=spark.sender %}
             <div class="rounded-2xl bg-white dark:bg-slate-800 ring-1 ring-gray-200 dark:ring-slate-700 shadow-crush-sm p-4">
 
-                {# Identity row — blurred mini-avatar + first name + age range + goal chip. #}
+                {# Identity row — mini-avatar + first name + age range + goal chip. #}
                 <div class="flex items-center gap-3 mb-3">
                     <div class="relative w-14 h-14 shrink-0 rounded-2xl overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">
-                        {% profile_photo sender.crushprofile 'photo_1' css_class='w-full h-full object-cover' alt_text=sender.first_name is_blurred=True %}
+                        {% profile_photo sender.crushprofile 'photo_1' css_class='w-full h-full object-cover' alt_text=sender.first_name %}
                     </div>
                     <div class="min-w-0 flex-1">
                         <div class="flex items-baseline gap-2">
