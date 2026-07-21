@@ -468,10 +468,17 @@ Identity spec §7).
    invisible in the recap. Nor do participation rows imply the feature is
    on: rows outlive a `CRUSH_EVENT_LOBBY_ENABLED` flag-off (`:67`), after
    which lobby views 404. The redirect predicate is therefore: *the lobby
-   flag is enabled, the recap window is open, and the target is actually
-   present in the requester's `get_recap_roster` for the event*; in every
-   other case — closed recap, flag off, hidden or blocked counterpart —
-   My Crush applies even for an eligible pair. **The check is enforced in the
+   flag is enabled (`lobby_feature_enabled()`), the recap window is open,
+   and the target is actually present in the requester's `get_recap_roster`
+   for the event*. When the predicate fails for a **phase/feature** reason —
+   closed recap, flag off — My Crush applies even for an eligible pair. But
+   when it fails for a **pair-level** reason — the counterpart is hidden by
+   a pending/approved encounter removal or a block — **neither flow is
+   offered**: falling back to My Crush would let the other party route a
+   coach at someone who had the encounter removed, defeating the removal
+   policy. Removal pairs mirror block semantics on the crush surfaces: the
+   target is absent from the requester's attendee list, and a direct POST is
+   rejected without disclosing why. **The check is enforced in the
    write endpoints, not just the button:** both `request_connection`
    (`views_connections.py:281`) and `request_connection_inline` (`:443`)
    accept direct POSTs and currently never consult
@@ -599,10 +606,16 @@ before or after them.
 * **Redirect fallback:** a pair with lobby-participation rows where one side
   has lost read-time eligibility gets the My Crush flow, not a dead-end
   recap redirect; likewise an eligible pair whose recap window has already
-  closed (e.g. `connection_window_hours` > 48), a pair mutually hidden by a
-  pending/approved encounter removal (`hidden_encounter_user_ids`), and any
-  pair after `CRUSH_EVENT_LOBBY_ENABLED` is switched off — all get My
-  Crush, never a redirect into a closed, empty, or 404 recap.
+  closed (e.g. `connection_window_hours` > 48) and any pair after
+  `CRUSH_EVENT_LOBBY_ENABLED` is switched off — never a redirect into a
+  closed or 404 recap.
+
+* **Removal pairs get neither flow:** for a pair hidden by a
+  pending/approved encounter removal (`hidden_encounter_user_ids`), the
+  counterpart is absent from the requester's attendee list, a direct
+  declaration POST is rejected without disclosing the reason, and no recap
+  redirect occurs — the removal policy is never defeated by a crush
+  declaration.
 
 * **Requester decline suppression:** after a coach records a decline, the
   crusher's `my_connections` list and a direct `connection_detail` fetch
