@@ -241,8 +241,7 @@
                 </p>
                 <div class="flex items-center justify-center gap-2 mb-6">
                     <span class="text-xs text-lobby-dim">{% trans "This leaves you" %}</span>
-                    {# Same server-conditioned overlays as the ledger: the
-                       sheet only opens with JS, but keep render-time truth. #}
+                    {# Same server-conditioned overlays as the ledger — the sheet only opens with JS, but keep render-time truth. #}
                     <span class="flex gap-1.5">
                         <span class="relative lobby-spark lobby-spark--sm lobby-spark--spent">
                             {% include "shared/icons/spark.html" with class="w-2.5 h-2.5" %}
