@@ -64,6 +64,14 @@ class EventIsLiveTests(TestCase):
         with self._at(self.start + timedelta(minutes=61)):
             self.assertFalse(self.event.is_live)
 
+    def test_cancelled_event_is_not_live(self):
+        # A cancelled event is never "live", even mid-window: its published
+        # detail page stays reachable, so the banner/badge must stay hidden.
+        self.event.is_cancelled = True
+        self.event.save(update_fields=["is_cancelled"])
+        with self._at(self.start + timedelta(minutes=30)):
+            self.assertFalse(self.event.is_live)
+
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class HomeLiveEventTests(TestCase):
@@ -100,6 +108,20 @@ class HomeLiveEventTests(TestCase):
         now = timezone.now()
         # Started 10 min ago, 60 min long -> still in progress.
         live = self._make_event(date_time=now - timedelta(minutes=10))
+
+        response = self.client.get(reverse("crush_lu:home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(live, list(response.context["upcoming_events"]))
+
+    def test_long_running_live_event_appears(self):
+        now = timezone.now()
+        # Started 30h ago but runs for 48h -> still live, yet beyond a fixed
+        # 24h cutoff. The duration-derived cutoff must still surface it.
+        live = self._make_event(
+            date_time=now - timedelta(hours=30),
+            duration_minutes=48 * 60,
+        )
 
         response = self.client.get(reverse("crush_lu:home"))
 

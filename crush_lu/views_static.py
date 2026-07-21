@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.db.models import Max
 from django.shortcuts import render, redirect
 from django.utils import timezone
 from django.contrib.admin.views.decorators import staff_member_required
@@ -129,15 +130,17 @@ def home(request):
 
     now = timezone.now()
     # Include events that are still in progress ("live"), not just future ones.
-    # Fetch with a generous 24h ORM cutoff, then keep any that haven't ended yet
-    # using the model's end_time property in Python. This avoids timedelta * F()
-    # which is not supported on SQLite (see views_events.event_list).
-    generous_cutoff = now - timedelta(hours=24)
+    # Fetch with an ORM cutoff, then keep any that haven't ended yet using the
+    # model's end_time property in Python (timedelta * F() is unsupported on
+    # SQLite — see views_events.event_list). The cutoff is derived from the
+    # longest configured duration so an in-progress event is never dropped, even
+    # if it runs longer than a day (duration_minutes is unbounded).
+    published = MeetupEvent.objects.filter(is_published=True, is_cancelled=False)
+    longest_minutes = published.aggregate(m=Max("duration_minutes"))["m"] or 0
+    cutoff = now - timedelta(minutes=longest_minutes)
     upcoming_events = [
         e
-        for e in MeetupEvent.objects.filter(
-            is_published=True, is_cancelled=False, date_time__gte=generous_cutoff
-        ).order_by("date_time")
+        for e in published.filter(date_time__gte=cutoff).order_by("date_time")
         if e.end_time >= now
     ][:3]
 

@@ -454,9 +454,17 @@ class MeetupEvent(models.Model):
 
     @property
     def is_live(self):
-        """Whether the event is happening right now (started, not ended)."""
+        """Whether the event is happening right now (started, not ended).
+
+        A cancelled event is never "live" — its detail page stays reachable
+        while published, so this guard keeps the "happening now" banner and the
+        "Live now" card badge from ever appearing for a cancelled event.
+        """
         now = timezone.now()
-        return self.date_time <= now < self.end_time
+        return (
+            not self.is_cancelled
+            and self.date_time <= now < self.end_time
+        )
 
     @property
     def connection_window_deadline(self):
