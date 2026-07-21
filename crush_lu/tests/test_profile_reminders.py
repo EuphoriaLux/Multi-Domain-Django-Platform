@@ -130,6 +130,59 @@ class SendProfileIncompleteReminderTests(TestCase):
         self.assertNotIn("ist warten", body)
         self.assertNotIn("ist wartet", body)
 
+    def test_existing_reminder_row_blocks_duplicate(self):
+        """The admin panel calls this helper directly, so it must skip a
+        reminder a concurrent path already recorded rather than re-send it
+        (Codex P2)."""
+        user = make_incomplete_user("dupe", created_hours_ago=30)
+        ProfileReminder.objects.create(user=user, reminder_type="24h")
+
+        result = send_profile_incomplete_reminder(user, "24h", request=None)
+
+        self.assertFalse(result)
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertEqual(
+            ProfileReminder.objects.filter(
+                user=user, reminder_type="24h"
+            ).count(),
+            1,
+        )
+
+    def test_in_flight_claim_blocks_duplicate(self):
+        """A per-user claim held by a concurrent send closes the
+        send-before-insert window so the second path doesn't also deliver."""
+        from django.core.cache import cache
+
+        user = make_incomplete_user("inflight", created_hours_ago=30)
+        key = f"profile_reminder_claim:{user.id}:24h"
+        cache.add(key, "1", 300)  # simulate an in-progress send from another path
+        try:
+            result = send_profile_incomplete_reminder(user, "24h", request=None)
+        finally:
+            cache.delete(key)
+
+        self.assertFalse(result)
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertFalse(ProfileReminder.objects.filter(user=user).exists())
+
+    def test_failed_send_leaves_no_row_and_releases_claim(self):
+        """A failed delivery records no reminder (so the user is retried, not
+        dropped) and frees the claim."""
+        from unittest.mock import patch
+        from django.core.cache import cache
+
+        user = make_incomplete_user("failsend", created_hours_ago=30)
+        key = f"profile_reminder_claim:{user.id}:24h"
+
+        with patch("crush_lu.email_helpers.send_domain_email", return_value=0):
+            result = send_profile_incomplete_reminder(user, "24h", request=None)
+
+        self.assertFalse(result)
+        self.assertFalse(ProfileReminder.objects.filter(user=user).exists())
+        # Claim was released: a genuine retry can re-acquire it.
+        self.assertTrue(cache.add(key, "1", 1))
+        cache.delete(key)
+
     def test_unsubscribed_user_is_skipped(self):
         user = make_incomplete_user("optout", created_hours_ago=30)
         prefs = EmailPreference.get_or_create_for_user(user)

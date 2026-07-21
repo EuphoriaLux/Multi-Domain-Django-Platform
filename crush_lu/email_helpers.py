@@ -1633,6 +1633,33 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
         logger.error(f"Unknown reminder type: {reminder_type}")
         return False
 
+    # Concurrency guard (Codex P2). This helper is invoked by both the daily
+    # timer sweep and the superuser panel (crush_lu/admin/profile_reminders.py),
+    # and it delivers the email *before* recording the ProfileReminder row — so
+    # two paths that both pass eligibility could each send before either writes
+    # the row. First skip if a staggered concurrent path already recorded it;
+    # then take a short-lived per-user cache claim to close the send-before-
+    # insert window for a truly simultaneous path. The row is still written only
+    # on success, so a crashed run leaves no false "sent" record — the claim
+    # (5 min TTL) simply expires and the reminder is retried on the next run.
+    from django.core.cache import cache
+
+    if ProfileReminder.objects.filter(
+        user=user, reminder_type=reminder_type
+    ).exists():
+        logger.info(
+            f"{reminder_type} reminder already recorded for {user.email}; skipping"
+        )
+        return False
+
+    claim_key = f"profile_reminder_claim:{user.id}:{reminder_type}"
+    if not cache.add(claim_key, "1", 300):
+        logger.info(
+            f"{reminder_type} reminder for {user.email} is already in flight; "
+            "skipping"
+        )
+        return False
+
     # Get user's preferred language for email content
     lang = getattr(profile, "preferred_language", "en") or "en"
 
@@ -1707,6 +1734,8 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
                 user=user,
                 reminder_type=reminder_type,
             )
+            # Durable dedup now exists — release the in-flight claim.
+            cache.delete(claim_key)
 
             # Update UserActivity if it exists
             try:
@@ -1724,10 +1753,14 @@ def send_profile_incomplete_reminder(user, reminder_type, request=None):
             )
             return True
         else:
+            # Nothing delivered — release the claim so it retries next run.
+            cache.delete(claim_key)
             logger.warning(f"Email send returned 0 for {user.email}")
             return False
 
     except Exception as e:
+        # Send failed — release the claim so the reminder isn't dropped.
+        cache.delete(claim_key)
         logger.error(
             f"Failed to send {reminder_type} reminder to {user.email}: {e}",
             exc_info=True,
