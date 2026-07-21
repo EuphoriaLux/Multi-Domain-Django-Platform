@@ -141,18 +141,24 @@ def click_signer():
 
 
 def _merge_utm_params(url, campaign, channel):
-    """Add utm_source/medium/campaign to a URL, keeping existing params."""
+    """Add utm_source/medium/campaign to a URL, keeping existing params.
+
+    Works on the raw (key, value) pair list — never a dict — so repeated
+    query keys (``?category=a&category=b``) survive the round trip.
+    """
     parts = urlsplit(url)
-    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    pairs = parse_qsl(parts.query, keep_blank_values=True)
+    present = {key for key, _ in pairs}
     for key, value in (
         ('utm_source', 'crush.lu'),
         ('utm_medium', channel),
         ('utm_campaign', campaign.slug),
     ):
-        query.setdefault(key, value)
+        if key not in present:
+            pairs.append((key, value))
     return urlunsplit((
         parts.scheme, parts.netloc, parts.path,
-        urlencode(query), parts.fragment,
+        urlencode(pairs), parts.fragment,
     ))
 
 
@@ -544,7 +550,8 @@ def _finalize_status(campaign):
     return 'failed'
 
 
-def dispatch_campaigns(now=None, limits=None, time_budget=None, stdout=None):
+def dispatch_campaigns(now=None, limits=None, time_budget=None, stdout=None,
+                       campaign_id=None):
     """Run one bounded dispatch tick. Safe to invoke concurrently.
 
     1. Promote due scheduled campaigns to 'sending'.
@@ -552,6 +559,10 @@ def dispatch_campaigns(now=None, limits=None, time_budget=None, stdout=None):
        run every enabled channel's bounded batch until the per-channel tick
        limits or the wall-clock budget are spent.
     3. Finalize campaigns whose channels all report nothing left to send.
+
+    ``campaign_id`` restricts the whole tick (promotion AND sending) to one
+    campaign — used by ``dispatch_campaigns --campaign-id`` so an operator
+    focusing on one campaign never launches unrelated ones.
 
     Returns a summary dict for the admin API endpoint / management command.
     """
@@ -568,9 +579,10 @@ def dispatch_campaigns(now=None, limits=None, time_budget=None, stdout=None):
             stdout.write(msg)
         logger.info(msg)
 
-    promoted = Campaign.objects.filter(
-        status='scheduled', scheduled_at__lte=now,
-    ).update(status='sending', started_at=now)
+    due = Campaign.objects.filter(status='scheduled', scheduled_at__lte=now)
+    if campaign_id is not None:
+        due = due.filter(pk=campaign_id)
+    promoted = due.update(status='sending', started_at=now)
     if promoted:
         log(f"Promoted {promoted} scheduled campaign(s) to sending")
 
@@ -578,11 +590,14 @@ def dispatch_campaigns(now=None, limits=None, time_budget=None, stdout=None):
     not_claimed = Q(dispatch_heartbeat_at__isnull=True) | Q(
         dispatch_heartbeat_at__lt=stale_cutoff
     )
-    candidates = list(
+    candidate_qs = (
         Campaign.objects.filter(status='sending')
         .filter(not_claimed)
         .order_by('started_at', 'created_at')
     )
+    if campaign_id is not None:
+        candidate_qs = candidate_qs.filter(pk=campaign_id)
+    candidates = list(candidate_qs)
 
     summary = {'promoted': promoted, 'campaigns': []}
     for campaign in candidates:
@@ -629,14 +644,28 @@ def dispatch_campaigns(now=None, limits=None, time_budget=None, stdout=None):
                 if not result.complete:
                     all_complete = False
         finally:
-            update_fields = ['dispatch_heartbeat_at', 'updated_at']
-            campaign.dispatch_heartbeat_at = None
             if all_complete:
-                campaign.status = _finalize_status(campaign)
-                campaign.completed_at = timezone.now()
-                update_fields += ['status', 'completed_at']
-                log(f"Campaign #{campaign.pk} finalized: {campaign.status}")
-            campaign.save(update_fields=update_fields)
+                final_status = _finalize_status(campaign)
+                # Guarded update: only finalize while still 'sending', so a
+                # cancellation that landed mid-batch is never overwritten.
+                finalized = Campaign.objects.filter(
+                    pk=campaign.pk, status='sending',
+                ).update(
+                    status=final_status,
+                    completed_at=timezone.now(),
+                    dispatch_heartbeat_at=None,
+                )
+                if finalized:
+                    log(f"Campaign #{campaign.pk} finalized: {final_status}")
+                else:
+                    Campaign.objects.filter(pk=campaign.pk).update(
+                        dispatch_heartbeat_at=None,
+                    )
+            else:
+                Campaign.objects.filter(pk=campaign.pk).update(
+                    dispatch_heartbeat_at=None,
+                )
+            campaign.refresh_from_db()
 
         entry['status'] = campaign.status
         summary['campaigns'].append(entry)

@@ -365,7 +365,12 @@ def send_newsletter(newsletter, dry_run=False, limit=None, stdout=None,
                 'remaining': remaining,
             }
 
-    newsletter.status = 'sent' if failed == 0 else 'failed'
+    # Bounded runs must finalize from the persisted per-recipient failures:
+    # a failure from an earlier tick is excluded from later batches, so this
+    # run's local counter can be 0 while total_failed is not. Unlimited runs
+    # keep the historical this-run semantics.
+    terminal_failed = newsletter.total_failed if limit is not None else failed
+    newsletter.status = 'sent' if terminal_failed == 0 else 'failed'
     newsletter.sent_at = timezone.now()
     newsletter.save(update_fields=[
         'total_sent', 'total_failed', 'total_skipped',

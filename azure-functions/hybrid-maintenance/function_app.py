@@ -40,7 +40,7 @@ import requests
 app = func.FunctionApp()
 
 
-def _call_admin_endpoint(name: str, url_env_var: str) -> None:
+def _call_admin_endpoint(name: str, url_env_var: str, timeout: int = 60) -> None:
     """Shared body: POST to a Django admin endpoint with bearer auth.
 
     Raises so Azure Functions marks the invocation as Failed on any
@@ -77,7 +77,7 @@ def _call_admin_endpoint(name: str, url_env_var: str) -> None:
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
             },
-            timeout=60,
+            timeout=timeout,
         )
         response.raise_for_status()
 
@@ -199,4 +199,9 @@ def campaign_dispatch(timer: func.TimerRequest) -> None:
     if timer.past_due:
         logging.warning("CampaignDispatch: timer past due at %s", ts)
     logging.info("CampaignDispatch: starting at %s", ts)
-    _call_admin_endpoint("CampaignDispatch", "DJANGO_CAMPAIGN_DISPATCH_URL")
+    # Dispatch runs synchronously with an ~80s wall-clock budget on the
+    # Django side — give the HTTP call headroom beyond that (but stay under
+    # gunicorn's 120s) so a slow batch doesn't get marked as a failure here.
+    _call_admin_endpoint(
+        "CampaignDispatch", "DJANGO_CAMPAIGN_DISPATCH_URL", timeout=110
+    )

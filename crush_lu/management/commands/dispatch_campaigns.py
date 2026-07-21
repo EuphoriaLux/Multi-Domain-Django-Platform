@@ -76,13 +76,8 @@ class Command(BaseCommand):
             limits=limits or None,
             time_budget=options['time_budget'],
             stdout=self.stdout,
+            campaign_id=options['campaign_id'],
         )
-
-        if options['campaign_id']:
-            summary['campaigns'] = [
-                c for c in summary['campaigns']
-                if c['id'] == options['campaign_id']
-            ]
 
         if not summary['campaigns'] and not summary['promoted']:
             self.stdout.write("No campaigns due for dispatch.")

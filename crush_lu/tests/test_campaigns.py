@@ -270,14 +270,35 @@ class SendNewsletterBoundedRunTests(TestCase):
         result = send_newsletter(self.newsletter, limit=10)
         self.newsletter.refresh_from_db()
         # The two non-failed users are sent; the failed one is not retried
-        # and does not block completion.
+        # and does not block completion — but it must still be reflected in
+        # the final status (total_failed=1 and 'sent' would contradict).
         self.assertEqual(result['sent'], 2)
         self.assertTrue(result['complete'])
-        self.assertEqual(self.newsletter.status, 'sent')
+        self.assertEqual(self.newsletter.status, 'failed')
+        self.assertEqual(self.newsletter.total_failed, 1)
         self.assertEqual(
             NewsletterRecipient.objects.get(user=self.users[0]).status,
             'failed',
         )
+
+    def test_bounded_runs_finalize_from_persisted_failures(self):
+        """A failure in an earlier tick must surface in the final status."""
+        real_send = 'crush_lu.newsletter_service._send_newsletter_to_user'
+        calls = {'n': 0}
+
+        def flaky(newsletter, user, link_rewriter=None):
+            calls['n'] += 1
+            if calls['n'] == 1:
+                raise RuntimeError('bounce')
+
+        with patch(real_send, side_effect=flaky):
+            send_newsletter(self.newsletter, limit=2)
+        result = send_newsletter(self.newsletter, limit=2)
+        self.newsletter.refresh_from_db()
+        self.assertTrue(result['complete'])
+        self.assertEqual(self.newsletter.total_failed, 1)
+        # 'sent' would contradict total_failed=1 on the same record.
+        self.assertEqual(self.newsletter.status, 'failed')
 
     def test_unlimited_run_still_retries_failed_recipients(self):
         NewsletterRecipient.objects.create(
@@ -395,6 +416,41 @@ class DispatcherTests(TestCase):
         stats = campaign.stats
         self.assertEqual(stats['email']['sent'], 1)
         self.assertEqual(stats['email']['failed'], 1)
+
+    def test_campaign_id_scopes_the_whole_tick(self):
+        """--campaign-id must never promote or send other due campaigns."""
+        target = self._email_campaign(
+            name='Target', scheduled_at=timezone.now() - timedelta(minutes=1),
+        )
+        bystander = self._email_campaign(
+            name='Bystander', scheduled_at=timezone.now() - timedelta(minutes=1),
+        )
+        summary = dispatch_campaigns(campaign_id=target.pk)
+        target.refresh_from_db()
+        bystander.refresh_from_db()
+        self.assertEqual(summary['promoted'], 1)
+        self.assertEqual(target.status, 'sent')
+        self.assertEqual(bystander.status, 'scheduled')
+        self.assertEqual([c['id'] for c in summary['campaigns']], [target.pk])
+
+    def test_cancellation_during_send_is_not_overwritten(self):
+        """A cancel landing mid-batch must survive finalization."""
+        campaign = self._email_campaign(
+            scheduled_at=timezone.now() - timedelta(minutes=1),
+        )
+        from crush_lu.services.campaigns import CHANNEL_ADAPTERS, BatchResult
+
+        def cancel_then_complete(c, limit, deadline=None, stdout=None):
+            Campaign.objects.get(pk=c.pk).cancel()
+            return BatchResult(sent=0, remaining=0)
+
+        with patch.object(
+            CHANNEL_ADAPTERS['email'], 'send_batch',
+            side_effect=cancel_then_complete,
+        ):
+            dispatch_campaigns()
+        campaign.refresh_from_db()
+        self.assertEqual(campaign.status, 'cancelled')
 
     def test_cancelled_campaign_not_dispatched(self):
         campaign = self._email_campaign(

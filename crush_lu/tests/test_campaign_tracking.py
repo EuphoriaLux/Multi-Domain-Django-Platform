@@ -76,6 +76,16 @@ class BuildTrackedUrlTests(TestCase):
         self.assertEqual(params['utm_source'], ['partner'])
         self.assertEqual(params['utm_medium'], ['email'])
 
+    def test_repeated_query_keys_are_preserved(self):
+        build_tracked_url(
+            'https://crush.lu/e/?category=a&category=b',
+            self.campaign, 'email',
+        )
+        link = CampaignLink.objects.get(campaign=self.campaign)
+        query = urlsplit(link.tracked_url).query
+        self.assertIn('category=a', query)
+        self.assertIn('category=b', query)
+
     def test_same_destination_reuses_link(self):
         build_tracked_url('https://crush.lu/a/', self.campaign, 'email')
         build_tracked_url('https://crush.lu/a/', self.campaign, 'email',
