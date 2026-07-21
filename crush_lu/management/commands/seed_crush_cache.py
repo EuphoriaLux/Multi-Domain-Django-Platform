@@ -421,7 +421,12 @@ class Command(BaseCommand):
                 defaults={"email": f"debug_cache_player{i}@crush.lu"},
             )
 
-        debug_users = list(User.objects.filter(username__startswith="debug_"))
+        seeded_usernames = [
+            "debug_cache_coach@crush.lu",
+            "debug_cache_player1@crush.lu",
+            "debug_cache_player2@crush.lu",
+        ]
+        debug_users = list(User.objects.filter(username__in=seeded_usernames))
 
         registered = []
         for user in debug_users:
