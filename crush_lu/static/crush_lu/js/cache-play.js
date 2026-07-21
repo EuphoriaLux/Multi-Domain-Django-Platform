@@ -500,14 +500,20 @@ document.addEventListener("alpine:init", function () {
             updateSelfMarker: function (lat, lng, accuracy) {
                 if (!this.map || !window.L || !this._isValidCoord(lat, lng)) return;
                 var firstFix = !this.selfMarker;
+                var headingAngle = typeof this.heading === "number" && !isNaN(this.heading) ? this.heading : null;
+
                 if (!this.selfMarker) {
-                    this.selfMarker = L.circleMarker([lat, lng], {
-                        radius: 8,
-                        color: "#3b82f6",
-                        fillColor: "#3b82f6",
-                        fillOpacity: 0.95,
-                        weight: 2,
-                    }).addTo(this.map);
+                    var selfHtml = '<div style="width:20px; height:20px; border-radius:50%; background:#3b82f6; border:3px solid #ffffff; box-shadow:0 0 10px rgba(59,130,246,0.7); position:relative;">' +
+                        '<div class="self-heading-cone" style="position:absolute; top:-12px; left:3px; width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-bottom:12px solid #3b82f6; opacity:0.85; display:' + (headingAngle !== null ? 'block' : 'none') + '; transform: rotate(' + (headingAngle || 0) + 'deg); transform-origin: 4px 20px;"></div>' +
+                        '</div>';
+                    var selfIcon = L.divIcon({
+                        className: "crush-self-marker",
+                        html: selfHtml,
+                        iconSize: [20, 20],
+                        iconAnchor: [10, 10],
+                    });
+                    this.selfMarker = L.marker([lat, lng], { icon: selfIcon, zIndexOffset: 1000 }).addTo(this.map);
+
                     this.accuracyCircle = L.circle([lat, lng], {
                         radius: accuracy || 10,
                         color: "#3b82f6",
@@ -518,6 +524,17 @@ document.addEventListener("alpine:init", function () {
                     this.selfMarker.setLatLng([lat, lng]);
                     this.accuracyCircle.setLatLng([lat, lng]);
                     this.accuracyCircle.setRadius(accuracy || 10);
+
+                    var el = this.selfMarker.getElement();
+                    var cone = el ? el.querySelector(".self-heading-cone") : null;
+                    if (cone) {
+                        if (headingAngle !== null) {
+                            cone.style.display = "block";
+                            cone.style.transform = "rotate(" + headingAngle + "deg)";
+                        } else {
+                            cone.style.display = "none";
+                        }
+                    }
                 }
                 if (firstFix) {
                     this.recenterMap();

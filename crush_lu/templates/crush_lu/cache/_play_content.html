@@ -11,25 +11,13 @@
     {% endif %}
 
     {% if celebrated_station %}
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.4/dist/confetti.browser.min.js"></script>
     <script nonce="{{ csp_nonce }}">
-        try {
-            var AudioCtx = window.AudioContext || window.webkitAudioContext;
-            if (AudioCtx) {
-                var ctx = window._crushAudioCtx || new AudioCtx();
-                window._crushAudioCtx = ctx;
-                if (ctx.state === "suspended") ctx.resume();
-                var now = ctx.currentTime;
-                var freqs = [523.25, 659.25, 783.99, 1046.50];
-                freqs.forEach(function (f, idx) {
-                    var o = ctx.createOscillator(); var g = ctx.createGain();
-                    var t = now + (idx * 0.08);
-                    o.type = "triangle"; o.frequency.setValueAtTime(f, t);
-                    g.gain.setValueAtTime(0.35, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
-                    o.connect(g); g.connect(ctx.destination);
-                    o.start(t); o.stop(t + 0.4);
-                });
-            }
-        } catch (e) {}
+        if (typeof confetti === "function") {
+            try {
+                confetti({ particleCount: 70, spread: 65, origin: { y: 0.55 } });
+            } catch (e) {}
+        }
     </script>
     {# --- Station / hunt completed celebration --- #}
     {# The id is load-bearing: cache-play.js suspends GPS navigation while #}
