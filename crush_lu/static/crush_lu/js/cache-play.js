@@ -101,7 +101,6 @@ document.addEventListener("alpine:init", function () {
                 if (document.getElementById("cache-map") && window.L) {
                     this.initMap();
                 }
-                this.attachCompass();
                 if (this.navMode === "compass") {
                     this.listenToCompass();
                 }
