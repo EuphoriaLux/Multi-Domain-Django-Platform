@@ -110,6 +110,11 @@
     <img src="{{ station.photo.url }}" alt="{{ station.name }}" class="mb-4 w-full rounded-2xl">
     {% endif %}
 
+    {# --- Interactive Map (Station Rose & clue above, enlarged Map below) --- #}
+    {% if show_map %}
+    <div id="cache-map" class="mb-4 h-80 w-full rounded-2xl border border-gray-200 dark:border-gray-700 shadow-crush-sm overflow-hidden"></div>
+    {% endif %}
+
     {% if station.requires_gps and not attempt.arrived_at %}
     <div class="rounded-2xl border border-gray-200 dark:border-gray-700 p-6 text-center shadow-crush-sm">
         <p class="text-sm text-gray-600 dark:text-gray-300">{% trans "Get to the location to unlock this station." %}</p>
