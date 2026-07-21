@@ -205,6 +205,27 @@ class ResumabilityTests(TestCase):
             self.assertNotIn(self.users[0], eligible, status)
             self.assertEqual(eligible.count(), 2, status)
 
+    def test_push_claims_recipient_before_delivery(self):
+        """The durable claim must exist when the external send happens."""
+        adapter = CHANNEL_ADAPTERS['push']
+        claims_seen = []
+
+        def record_claim(user, *args, **kwargs):
+            claims_seen.append(
+                CampaignRecipient.objects.filter(
+                    campaign=self.campaign, channel='push',
+                    user=user, status='pending',
+                ).exists()
+            )
+            return {'success': 1, 'failed': 0, 'total': 1}
+
+        with patch(
+            'crush_lu.push_notifications.send_push_notification',
+            side_effect=record_claim,
+        ):
+            adapter.send_batch(self.campaign, limit=1)
+        self.assertEqual(claims_seen, [True])
+
     def test_push_batch_respects_limit_and_resumes(self):
         adapter = CHANNEL_ADAPTERS['push']
         result = adapter.send_batch(self.campaign, limit=2)

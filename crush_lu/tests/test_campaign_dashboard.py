@@ -240,6 +240,28 @@ class CampaignCreateFlowTests(TestCase):
         self.assertRedirects(response, reverse('campaign_new'))
         self.assertFalse(Campaign.objects.exists())
 
+    def test_forged_audience_and_language_rejected(self):
+        for overrides in (
+            {'audience': 'everyone-on-earth'},
+            {'language': 'xx'},
+        ):
+            response = self.client.post(
+                reverse('campaign_create'), self._base_form(**overrides),
+            )
+            self.assertRedirects(response, reverse('campaign_new'))
+        self.assertFalse(Campaign.objects.exists())
+
+    def test_recipient_receipts_cannot_be_deleted_in_admin(self):
+        from crush_lu.admin import crush_admin_site
+        from crush_lu.admin.campaigns import CampaignRecipientAdmin
+        from crush_lu.models import CampaignRecipient
+        from django.test import RequestFactory
+
+        model_admin = CampaignRecipientAdmin(CampaignRecipient, crush_admin_site)
+        request = RequestFactory().get('/')
+        request.user = self.superuser
+        self.assertFalse(model_admin.has_delete_permission(request))
+
     def test_segment_audience_requires_segment_key(self):
         response = self.client.post(
             reverse('campaign_create'),

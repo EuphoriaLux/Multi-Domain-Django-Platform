@@ -103,3 +103,9 @@ class CampaignRecipientAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return False
+
+    def has_delete_permission(self, request, obj=None):
+        # Receipt rows are the resumability/deduplication record — deleting
+        # one makes the next dispatch tick contact that user again (a second
+        # paid template for WhatsApp).
+        return False

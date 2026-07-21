@@ -264,10 +264,16 @@ def _parse_composer_form(request):
         raise ValueError("Pick at least one channel.")
 
     audience = request.POST.get('audience') or 'segment'
+    if audience not in {value for value, _ in AUDIENCE_CHOICES}:
+        # A forged value would resolve to zero recipients and the campaign
+        # would finalize as 'sent' without contacting anyone.
+        raise ValueError("Pick a valid audience.")
     segment_key = (request.POST.get('segment_key') or '').strip()
     if audience == 'segment' and not segment_key:
         raise ValueError("Pick a segment (or a different audience).")
     language = request.POST.get('language') or 'all'
+    if language not in {value for value, _ in LANGUAGE_CHOICES}:
+        raise ValueError("Pick a valid language filter.")
 
     email_content = None
     if Campaign.CHANNEL_EMAIL in channels:

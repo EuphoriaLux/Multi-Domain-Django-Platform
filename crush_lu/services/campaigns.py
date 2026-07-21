@@ -488,6 +488,21 @@ class PushAdapter:
                 continue
             lang = get_user_preferred_language(user=user, default='en')
 
+            # Durable pre-send claim (same pattern as WhatsApp): a worker
+            # dying after delivery but before the receipt lands must not
+            # cause a duplicate push on the next tick.
+            claim, created = CampaignRecipient.objects.get_or_create(
+                campaign=campaign,
+                channel=self.key,
+                user=user,
+                defaults={
+                    'status': 'pending',
+                    'error_message': 'claimed for send',
+                },
+            )
+            if not created and claim.status != 'pending':
+                continue  # processed by a concurrent tick
+
             try:
                 # Read the modeltranslation variants for the user's language.
                 with translation.override(lang):
