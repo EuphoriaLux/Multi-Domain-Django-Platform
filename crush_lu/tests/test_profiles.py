@@ -295,7 +295,10 @@ class ProfileSettingsAutosaveTests(TestCase):
         self.client.login(username="autosave@example.com", password="testpass123")
         self.url = reverse("api_profile_settings_autosave")
 
-    def test_about_autosave_updates_profile_fields(self):
+    def test_about_autosave_section_retired(self):
+        """The free-text 'about' (bio/interests) autosave section was retired by
+        the Event Identity redesign — a direct POST is rejected and writes
+        nothing (spec §6.2)."""
         response = self.client.post(
             self.url,
             data=json.dumps(
@@ -309,10 +312,48 @@ class ProfileSettingsAutosaveTests(TestCase):
             HTTP_HOST="crush.lu",
         )
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 400)
         self.profile.refresh_from_db()
-        self.assertEqual(self.profile.bio, "Updated bio")
-        self.assertEqual(self.profile.interests, "Music, Travel")
+        # Legacy free-text fields are untouched by the retired section.
+        self.assertEqual(self.profile.bio, "Original bio")
+        self.assertEqual(self.profile.interests, "Original interests")
+
+    def test_event_identity_autosave_round_trips(self):
+        """The merged 'event_identity' section round-trips interests_new (M2M),
+        ask_me_about (JSON) and event_vibe (choice) through the autosave
+        contract (spec §8.3, §13)."""
+        from crush_lu.models import Interest
+
+        yoga = Interest.objects.get(slug="yoga")
+        city = Interest.objects.get(slug="city-trips")
+        response = self.client.post(
+            self.url,
+            data=json.dumps(
+                {
+                    "section": "event_identity",
+                    "interests_new": [yoga.pk, city.pk],
+                    "ask_me_about": [yoga.pk],
+                    "event_vibe": "quiet_corner",
+                    "event_languages": ["en"],
+                }
+            ),
+            content_type="application/json",
+            HTTP_HOST="crush.lu",
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.profile.refresh_from_db()
+        self.assertEqual(
+            set(self.profile.interests_new.values_list("slug", flat=True)),
+            {"yoga", "city-trips"},
+        )
+        self.assertEqual(self.profile.ask_me_about, [yoga.pk])
+        self.assertEqual(self.profile.event_vibe, "quiet_corner")
+        # The response echoes the structured values back for the client.
+        values = response.json()["values"]
+        self.assertEqual(sorted(values["interests_new"]), sorted([yoga.pk, city.pk]))
+        self.assertEqual(values["ask_me_about"], [yoga.pk])
+        self.assertEqual(values["event_vibe"], "quiet_corner")
 
     def test_contact_autosave_rejects_invalid_location(self):
         """Invalid location sent to the contact section should be rejected."""

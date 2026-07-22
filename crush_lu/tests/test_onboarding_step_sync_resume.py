@@ -121,7 +121,12 @@ class StepSavesImmediatelyTests(_SiteMixin, TestCase):
         profile = CrushProfile.objects.get(user=self.user)
         self.assertEqual(profile.location, "")
 
-    def test_step2_persists_bio_and_interests(self):
+    def test_step2_no_longer_writes_bio_and_interests(self):
+        """The free-text bio/interests write path is retired (spec §6.2): a
+        direct save-step2 POST carrying bio/interests writes neither field. The
+        structured Event Identity fields are persisted instead."""
+        from crush_lu.models import Interest
+
         # Step 2 is gated on a verified phone.
         CrushProfile.objects.create(
             user=self.user,
@@ -129,16 +134,30 @@ class StepSavesImmediatelyTests(_SiteMixin, TestCase):
             phone_verified=True,
             phone_verified_at=timezone.now(),
         )
+        yoga = Interest.objects.get(slug="yoga")
         resp = _post_json(
             self.client,
             "/api/profile/save-step2/",
-            {"bio": "I like long walks", "interests": "hiking, films"},
+            {
+                "bio": "I like long walks",
+                "interests": "hiking, films",
+                "interests_new": [yoga.pk],
+                "ask_me_about": [yoga.pk],
+                "event_vibe": "quiet_corner",
+            },
         )
         self.assertEqual(resp.status_code, 200)
 
         profile = CrushProfile.objects.get(user=self.user)
-        self.assertEqual(profile.bio, "I like long walks")
-        self.assertEqual(profile.interests, "hiking, films")
+        # Legacy free-text columns are never written by the new step 2.
+        self.assertEqual(profile.bio, "")
+        self.assertEqual(profile.interests, "")
+        # Structured Event Identity fields are saved.
+        self.assertEqual(
+            list(profile.interests_new.values_list("slug", flat=True)), ["yoga"]
+        )
+        self.assertEqual(profile.ask_me_about, [yoga.pk])
+        self.assertEqual(profile.event_vibe, "quiet_corner")
 
     def test_step2_blocked_without_verified_phone(self):
         CrushProfile.objects.create(user=self.user)  # phone NOT verified
@@ -220,11 +239,14 @@ class StepsAccumulateTests(_SiteMixin, TestCase):
         CrushProfile.objects.filter(user=self.user).update(
             phone_verified=True, phone_verified_at=timezone.now()
         )
-        # Now step 2.
+        # Now step 2 (structured Event Identity fields).
+        from crush_lu.models import Interest
+
+        yoga = Interest.objects.get(slug="yoga")
         _post_json(
             self.client,
             "/api/profile/save-step2/",
-            {"bio": "hello there", "interests": "chess"},
+            {"interests_new": [yoga.pk], "event_vibe": "quiet_corner"},
         )
 
         profile = CrushProfile.objects.get(user=self.user)
@@ -232,9 +254,11 @@ class StepsAccumulateTests(_SiteMixin, TestCase):
         self.assertEqual(profile.date_of_birth, date(1990, 1, 1))
         self.assertEqual(profile.gender, "M")
         self.assertEqual(profile.location, "canton-luxembourg")
-        # Step 2 fields are present too.
-        self.assertEqual(profile.bio, "hello there")
-        self.assertEqual(profile.interests, "chess")
+        # Step 2 Event Identity fields are present too.
+        self.assertEqual(
+            list(profile.interests_new.values_list("slug", flat=True)), ["yoga"]
+        )
+        self.assertEqual(profile.event_vibe, "quiet_corner")
 
     def test_invalid_step1_age_preserves_input_in_draft(self):
         """A sub-18 date is rejected, but the user's typed values are kept in
