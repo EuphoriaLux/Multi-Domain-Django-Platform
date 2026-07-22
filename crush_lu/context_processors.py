@@ -3,6 +3,7 @@ Context processors for Crush.lu app
 These make variables available to all templates
 """
 
+import logging
 import time
 
 from datetime import timedelta
@@ -21,8 +22,28 @@ from .models import (
     MeetupEvent,
 )
 
+logger = logging.getLogger(__name__)
+
 # Simple in-memory cache for site config (avoids DB hit on every request)
 _site_config_cache = {"config": None, "expires": 0}
+
+# Fallback navbar values used when the authenticated context block can't be
+# built (e.g. a transient DB error, or the broken async sync-executor seen
+# under the uvicorn worker). Without this guard, an exception here bubbles up
+# through the template render — and because custom_404 renders
+# crush_lu/base.html with these processors, it turned even a missing route
+# like /favicon.ico into a 500 instead of a 404. See crush_lu/views_seo.py.
+_SAFE_NAV_DEFAULTS = {
+    "email_verified": True,
+    "connection_count": 0,
+    "pending_requests_count": 0,
+    "actionable_sparks_count": 0,
+    "connect_pending_sparks_count": 0,
+    "profile_completion_step": 0,
+    "profile_step_label": _("Get started"),
+    "upcoming_events": [],
+    "upcoming_events_count": 0,
+}
 
 # Profile verification state → navbar progress indicator
 PROFILE_STEP_INFO = {
@@ -67,7 +88,12 @@ def crush_user_context(request):
         ),
     }
 
-    if request.user.is_authenticated:
+    def _fill_authenticated_context():
+        # Runs the authenticated-user DB queries that populate the navbar and
+        # badge counts. Kept as a nested closure so the guard wrapper below can
+        # catch any transient backend fault (DB error, or the broken async
+        # sync-executor under the uvicorn worker) without re-indenting the
+        # whole block. It mutates the enclosing ``context`` dict in place.
         # Email-verification flag — drives the verification banner in the
         # onboarding stepper. We rely on allauth's EmailAddress.verified;
         # social-login users always have at least one verified address
@@ -278,6 +304,23 @@ def crush_user_context(request):
             context["journey_started"] = journey_progress is not None
             if journey_progress:
                 context["journey_progress"] = journey_progress
+
+    if request.user.is_authenticated:
+        try:
+            _fill_authenticated_context()
+        except Exception:
+            # A transient backend fault must not turn every authenticated page
+            # — and, via custom_404 rendering base.html, every branded 404 —
+            # into a 500. Log it and fall back to safe navbar defaults so the
+            # page (and the 404) still renders. Partial context already set
+            # before the failure is preserved (setdefault only fills gaps).
+            logger.warning(
+                "crush_user_context: could not build authenticated nav "
+                "context; rendering with safe defaults",
+                exc_info=True,
+            )
+            for key, value in _SAFE_NAV_DEFAULTS.items():
+                context.setdefault(key, value)
 
     return context
 
