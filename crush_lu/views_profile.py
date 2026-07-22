@@ -240,7 +240,17 @@ def save_profile_step1(request):
 @crush_login_required
 @require_http_methods(["POST"])
 def save_profile_step2(request):
-    """Save Step 2 (About You) via AJAX"""
+    """Save Step 2 (Event Identity) via AJAX.
+
+    2026 redesign (spec §6.2): the free-text bio/interests write path is retired.
+    Step 2 now captures the structured Event Identity fields — interests from the
+    curated taxonomy, "Ask me about…" chips, the event vibe, and the qualities /
+    defects "vibe" chips — validated through ``CrushProfileEventIdentityForm``.
+    Any ``bio`` / ``interests`` keys in the payload are ignored and never written.
+    """
+    from django.http import QueryDict
+    from .forms import CrushProfileEventIdentityForm
+
     try:
         data = json.loads(request.body)
 
@@ -257,34 +267,56 @@ def save_profile_step2(request):
                 status=403,
             )
 
-        # Update profile content
-        profile.bio = data.get("bio", "").strip()
-        profile.interests = data.get("interests", "").strip()
+        # Build form data from the structured payload. event_languages is
+        # collected at step 3, so preserve whatever is already saved rather than
+        # clearing it here.
+        form_data = QueryDict(mutable=True)
+
+        interests_new = data.get("interests_new") or []
+        if not isinstance(interests_new, list):
+            interests_new = [interests_new]
+        form_data.setlist("interests_new", [str(x) for x in interests_new])
+
+        ask_me_about = data.get("ask_me_about") or []
+        if not isinstance(ask_me_about, list):
+            ask_me_about = [ask_me_about]
+        form_data.setlist("ask_me_about", [str(x) for x in ask_me_about])
+
+        form_data["event_vibe"] = data.get("event_vibe", "") or ""
+        form_data["qualities_ids"] = data.get("qualities_ids", "") or ""
+        form_data["defects_ids"] = data.get("defects_ids", "") or ""
+        form_data.setlist("event_languages", list(profile.event_languages or []))
+
+        form = CrushProfileEventIdentityForm(form_data, instance=profile)
+        if not form.is_valid():
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "Please correct the highlighted fields and try again.",
+                    "errors": {
+                        field: [str(e) for e in errors]
+                        for field, errors in form.errors.items()
+                    },
+                },
+                status=400,
+            )
+
         profile.completion_status = (
             "step2"  # legacy field; remove after migration cleanup
         )
         profile.verification_status = "incomplete"
 
-        # Clear step2 draft data on successful save, BUT preserve UI-only fields
+        # Clear step2 draft data on successful save (no UI-only fields remain
+        # after the free-text category checkboxes were removed).
         if profile.draft_data and "step2" in profile.draft_data:
-            # Preserve interest_category (UI-only, not stored in model)
-            interest_category = profile.draft_data["step2"].get("interest_category")
-
-            # Clear the entire step2 draft
             del profile.draft_data["step2"]
 
-            # Restore interest_category if it existed
-            if interest_category:
-                if "step2" not in profile.draft_data:
-                    profile.draft_data["step2"] = {}
-                profile.draft_data["step2"]["interest_category"] = interest_category
-
-        profile.save()
+        form.save()
 
         return JsonResponse(
             {
                 "success": True,
-                "message": "About section saved!",
+                "message": "Event Identity saved!",
                 "csrfToken": get_token(request),
             }
         )
