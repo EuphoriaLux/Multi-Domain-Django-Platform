@@ -108,21 +108,32 @@ _SPLIT_RE = re.compile(r"[,;/\n|]+")
 
 
 def match_slugs(interests_text, sort_key):
-    """Return taxonomy slugs matched in ``interests_text``, in first-appearance
-    order. ``sort_key`` maps a slug to its ``(category, sort_order)`` so slugs
-    surfaced by the same token get a deterministic order (spec §8.2 tie-break)."""
+    """Return taxonomy slugs matched in ``interests_text`` in the order they
+    appear in the text. Tokens are consumed left-to-right, and within a token
+    matches are ordered by their character position — so ``"yoga and hiking"``
+    (no split delimiter) yields ``yoga`` before ``hiking`` rather than rule
+    order. Slugs surfaced at the same position (a multi-slug rule) fall back to
+    the taxonomy's ``(category, sort_order)`` tie-break (spec §8.2). This keeps
+    the >8 cap honest: it retains the interests that appear earliest."""
     ordered = []
     seen = set()
     for raw_token in _SPLIT_RE.split(interests_text or ""):
         folded = _fold(raw_token)
         if not folded:
             continue
+        # (position, tie-break, slug) for every rule that matches this token.
+        hits = []
         for matchers, slugs in _RULES:
-            if any(m.search(folded) for m in matchers):
-                for slug in sorted(slugs, key=lambda s: sort_key.get(s, (99, 9999))):
-                    if slug not in seen:
-                        seen.add(slug)
-                        ordered.append(slug)
+            matches = [m.search(folded) for m in matchers]
+            positions = [mo.start() for mo in matches if mo]
+            if positions:
+                pos = min(positions)
+                for slug in slugs:
+                    hits.append((pos, sort_key.get(slug, (99, 9999)), slug))
+        for _pos, _tiebreak, slug in sorted(hits):
+            if slug not in seen:
+                seen.add(slug)
+                ordered.append(slug)
     return ordered
 
 
@@ -187,12 +198,18 @@ class Command(BaseCommand):
                 with transaction.atomic():
                     profile.interests_new.set(capped)
 
-        rate = (matched / total * 100) if total else 0.0
+        # Acceptance metric (spec §14): the share of legacy-interest profiles
+        # that end up with ≥1 taxonomy interest. Already-populated ("skipped")
+        # profiles succeeded on a prior run, so they count toward the rate —
+        # otherwise a dry-run after --execute would report a misleading 0%.
+        with_interest = matched + skipped
+        rate = (with_interest / total * 100) if total else 0.0
         mode = "EXECUTE" if execute else "DRY-RUN"
         self.stdout.write("")
         self.stdout.write(f"[{mode}] profiles with legacy interests : {total}")
-        self.stdout.write(f"          matched (≥1 taxonomy interest) : {matched}  ({rate:.1f}%)")
-        self.stdout.write(f"          unmatched                      : {unmatched}")
+        self.stdout.write(f"          with ≥1 taxonomy interest      : {with_interest}  ({rate:.1f}%)")
+        self.stdout.write(f"          newly matched this run         : {matched}")
+        self.stdout.write(f"          unmatched (no rule hit)        : {unmatched}")
         self.stdout.write(f"          skipped (already populated)    : {skipped}")
         self.stdout.write(f"          profiles with overflow (>8)    : {overflow_profiles}")
         self.stdout.write(f"          taxonomy interests assigned    : {assigned_total}")

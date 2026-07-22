@@ -64,6 +64,23 @@ def test_accent_and_case_folding():
 
 
 @pytest.mark.django_db
+def test_matches_are_ordered_by_position_within_a_token():
+    """Within one token (no split delimiter) matches follow text position, not
+    keyword-rule order, so the >8 cap keeps the earliest interests."""
+    from crush_lu.models import Interest
+    from crush_lu.management.commands.migrate_interests_to_taxonomy import match_slugs
+
+    sort_key = {
+        i.slug: (i.category, i.sort_order)
+        for i in Interest.objects.filter(is_active=True)
+    }
+    # "yoga" precedes "hiking" in the text even though the hiking rule is first
+    # in _RAW_RULES; position ordering must yield yoga before hiking.
+    assert match_slugs("yoga and hiking", sort_key) == ["yoga", "hiking"]
+    assert match_slugs("hiking then yoga", sort_key) == ["hiking", "yoga"]
+
+
+@pytest.mark.django_db
 def test_unmatched_profile_gets_nothing():
     p = _make_profile("nomatch@example.com", interests="oil rig engineer")
     _run("--execute")

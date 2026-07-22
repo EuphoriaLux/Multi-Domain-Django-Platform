@@ -49,9 +49,11 @@ def seed_additions(apps, schema_editor):
         )
 
 
-def unseed_additions(apps, schema_editor):
-    Interest = apps.get_model("crush_lu", "Interest")
-    Interest.objects.filter(slug__in=[row[0] for row in ADDITIONS]).delete()
+# Reverse is intentionally a no-op: `update_or_create` doesn't record which rows
+# it created, so a blanket delete-by-slug on reverse would also remove a row an
+# admin created independently, or one members have since selected — cascading
+# away their `interests_new` M2M links. Leaving the seeded rows in place on
+# reverse is safe (they're inert curated data); prune them by hand if ever needed.
 
 
 class Migration(migrations.Migration):
@@ -60,5 +62,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(seed_additions, unseed_additions),
+        migrations.RunPython(seed_additions, migrations.RunPython.noop),
     ]
