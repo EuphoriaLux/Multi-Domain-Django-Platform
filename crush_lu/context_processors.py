@@ -3,6 +3,7 @@ Context processors for Crush.lu app
 These make variables available to all templates
 """
 
+import logging
 import time
 
 from datetime import timedelta
@@ -21,8 +22,34 @@ from .models import (
     MeetupEvent,
 )
 
+logger = logging.getLogger(__name__)
+
 # Simple in-memory cache for site config (avoids DB hit on every request)
 _site_config_cache = {"config": None, "expires": 0}
+
+# Fallback navbar values used when the authenticated context block can't be
+# built (e.g. a transient DB error, or the broken async sync-executor seen
+# under the uvicorn worker). Without this guard, an exception here bubbles up
+# through the template render — and because custom_404 renders
+# crush_lu/base.html with these processors, it turned even a missing route
+# like /favicon.ico into a 500 instead of a 404. See crush_lu/views_seo.py.
+_SAFE_NAV_DEFAULTS = {
+    "email_verified": True,
+    "connection_count": 0,
+    "pending_requests_count": 0,
+    "actionable_sparks_count": 0,
+    "connect_pending_sparks_count": 0,
+    "profile_completion_step": 0,
+    "profile_step_label": _("Get started"),
+    "upcoming_events": [],
+    "upcoming_events_count": 0,
+    # base.html branches on these instead of dereferencing user.crushprofile /
+    # user.crushcoach directly — those reverse lookups run a DB query during
+    # template rendering and re-raise under a broken backend (they are not
+    # silent_variable_failure), which would 500 the page even with this guard.
+    "nav_has_profile": False,
+    "nav_is_active_coach": False,
+}
 
 # Profile verification state → navbar progress indicator
 PROFILE_STEP_INFO = {
@@ -67,7 +94,12 @@ def crush_user_context(request):
         ),
     }
 
-    if request.user.is_authenticated:
+    def _fill_authenticated_context():
+        # Runs the authenticated-user DB queries that populate the navbar and
+        # badge counts. Kept as a nested closure so the guard wrapper below can
+        # catch any transient backend fault (DB error, or the broken async
+        # sync-executor under the uvicorn worker) without re-indenting the
+        # whole block. It mutates the enclosing ``context`` dict in place.
         # Email-verification flag — drives the verification banner in the
         # onboarding stepper. We rely on allauth's EmailAddress.verified;
         # social-login users always have at least one verified address
@@ -157,6 +189,9 @@ def crush_user_context(request):
         profile_submission = None
         profile = CrushProfile.objects.filter(user=request.user).first()
         context["profile"] = profile
+        # Template-safe existence flag for base.html (see _SAFE_NAV_DEFAULTS):
+        # avoids a bare {% if user.crushprofile %} reverse lookup in the nav.
+        context["nav_has_profile"] = profile is not None
         if profile:
             verification_status = profile.verification_status
             context["profile_completion_status"] = (
@@ -243,8 +278,19 @@ def crush_user_context(request):
         context["upcoming_events"] = upcoming_registrations
         context["upcoming_events_count"] = len(upcoming_registrations)
 
+        # Coach flag drives the coach navigation branch in base.html. Compute
+        # it here (inside the guard) so the template never dereferences the
+        # crushcoach reverse relation directly — that lookup re-raises under a
+        # broken backend and would 500 the page even with this processor
+        # guarded. Resolve once and reuse (the reverse OneToOne caches on the
+        # instance, so this is a single query).
+        nav_is_active_coach = (
+            hasattr(request.user, "crushcoach") and request.user.crushcoach.is_active
+        )
+        context["nav_is_active_coach"] = nav_is_active_coach
+
         # Pending screening calls count for coaches
-        if hasattr(request.user, "crushcoach") and request.user.crushcoach.is_active:
+        if nav_is_active_coach:
             pending_screening_count = ProfileSubmission.objects.filter(
                 coach=request.user.crushcoach,
                 status__in=["pending", "recontact_coach"],
@@ -278,6 +324,23 @@ def crush_user_context(request):
             context["journey_started"] = journey_progress is not None
             if journey_progress:
                 context["journey_progress"] = journey_progress
+
+    if request.user.is_authenticated:
+        try:
+            _fill_authenticated_context()
+        except Exception:
+            # A transient backend fault must not turn every authenticated page
+            # — and, via custom_404 rendering base.html, every branded 404 —
+            # into a 500. Log it and fall back to safe navbar defaults so the
+            # page (and the 404) still renders. Partial context already set
+            # before the failure is preserved (setdefault only fills gaps).
+            logger.warning(
+                "crush_user_context: could not build authenticated nav "
+                "context; rendering with safe defaults",
+                exc_info=True,
+            )
+            for key, value in _SAFE_NAV_DEFAULTS.items():
+                context.setdefault(key, value)
 
     return context
 
