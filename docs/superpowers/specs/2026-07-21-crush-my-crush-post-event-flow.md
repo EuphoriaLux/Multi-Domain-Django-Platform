@@ -205,6 +205,18 @@ conversion moment that exists, without a paywall screen.
   are excluded from **every** mutual-derived metric and count, on both
   requester and recipient sides.
 
+* **Connect pool and Coach's Pick must ignore pre-`shared` crush rows.**
+  The Connect eligibility service excludes a pair from each other's pools
+  for an `EventConnection` in **any status** (its own docstring:
+  `crush_lu/services/crush_connect.py:18`; subquery `:111`), and
+  `get_active_coach_pick` hides an already-proposed pick when the pool
+  recheck fails. So if the recipient has an open, visible Coach's Pick *of
+  the requester*, a private crush declaration makes that pick vanish — an
+  observable state change attributable to the secret crush. Pre-`shared`
+  `flow=crush` rows are invisible to the pool exclusion and the pick
+  recheck; the normal exclusion applies only from `shared` (when the pair
+  is knowingly connected). §13 adds the existing-pick regression.
+
 * **Data export: recipient-side suppression, requester-side retention.**
   `export_user_data` serializes every connection with the counterpart's
   email (`views_account.py:1288–1300`) — a recipient's export would name
@@ -363,7 +375,14 @@ one flagship event) first.
 * **Gender-independent crush counter** — a per-(member, event) count of all
   declarations, enforced at declaration time under concurrency (§5). The
   existing `cross_gender_connection_count` cannot serve as the capacity
-  bound (it skips same-gender pairs).
+  bound (it skips same-gender pairs). **And the check itself must be
+  serialized per (requester, event):** the directional uniqueness key and
+  the reciprocal pair lock do not cover two concurrent declarations by the
+  *same requester to different recipients* — both can read a count of zero
+  and insert, exceeding the limit and creating unbudgeted coach work. Take
+  a stable requester/event lock (e.g. `select_for_update` on the
+  requester's event registration row, or a dedicated slot row) before
+  counting; test two simultaneous same-requester declarations (§13).
 
 * **Directional duplicate guard** — replace the either-direction existence
   check in both `request_connection` guards
@@ -513,10 +532,18 @@ Identity spec §7).
    `:731`) — a pair can pass `eligible_participations` yet be mutually
    invisible in the recap. Nor do participation rows imply the feature is
    on: rows outlive a `CRUSH_EVENT_LOBBY_ENABLED` flag-off (`:67`), after
-   which lobby views 404. The redirect predicate is therefore: *the lobby
-   flag is enabled (`lobby_feature_enabled()`), the recap window is open,
-   and the target is actually present in the requester's `get_recap_roster`
-   for the event*. When the predicate fails for a **phase/feature** reason —
+   which lobby views 404. **And the requester must be able to open the
+   recap themselves:** `get_recap_roster(viewer, event)` gates the
+   *counterparts*, not its viewer — while `views_event_lobby.event_lobby`
+   re-runs the participant gate on the viewer before rendering. A requester
+   who lost Connect eligibility after their participation row was created
+   would be redirected into the locked/closed lobby path with no fallback.
+   The redirect predicate is therefore: *the lobby flag is enabled
+   (`lobby_feature_enabled()`), the recap window is open, the requester
+   currently passes the viewer gate (eligibility + own participation), and
+   the target is actually present in the requester's `get_recap_roster`
+   for the event*. A requester-side gate failure is a phase-like failure —
+   My Crush applies (it is not a pair-removal case). When the predicate fails for a **phase/feature** reason —
    closed recap, flag off — My Crush applies even for an eligible pair. But
    when it fails for a **pair-level** reason — the counterpart is hidden by
    a pending/approved encounter removal or a block — **neither flow is
@@ -571,8 +598,15 @@ that segment. Out of scope here.
   glossary** to record the "My Crush!" (member feature) vs "My Dating Profile"
   (coach nav) naming — it is currently absent there.
 
-This spec is independent of the Event Identity redesign phases and can ship
-before or after them.
+**Sequencing dependency:** the §8 member surfaces (`request_connection`,
+`connection_detail`) render Event Identity taxonomy chips, and only the
+Event Identity spec creates `interests_new` / `ask_me_about` / `event_vibe` —
+so Phases C–D here require that spec's model phase (its Phase B) and chip
+partials to have landed first. Shipping My Crush earlier is possible only by
+rendering those surfaces with **no profile content** (name/photo only) —
+never by falling back to the legacy bio/interests free text, which would
+violate the no-free-text guarantee. Phases A–B (capacity gate, lead model)
+are genuinely independent.
 
 ## 11. Open decision points (for Tom)
 
@@ -731,7 +765,14 @@ before or after them.
   fully audited (actor + timestamps).
 
 * **Crush limit is gender-independent:** a same-gender declaration counts
-  against the per-event limit exactly like a cross-gender one.
+  against the per-event limit exactly like a cross-gender one; two
+  simultaneous declarations by the same requester to different recipients
+  (concurrent transactions) never exceed the limit.
+
+* **Connect surfaces unaffected:** a recipient's open, visible Coach's Pick
+  of the requester survives a pre-`shared` crush declaration (pool and
+  pick recheck ignore the row); the normal any-connection exclusion
+  applies from `shared`.
 
 * **Recipient** is never notified by the system at any point before coach
   outreach.

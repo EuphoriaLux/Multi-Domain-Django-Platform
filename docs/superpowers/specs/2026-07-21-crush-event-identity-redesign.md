@@ -241,7 +241,13 @@ what people discover at events."
    (`views_profile.save_profile_step2`, `crush_lu/views_profile.py:240–266`),
    which assigns `bio`/`interests` from raw JSON outside any form: retire or
    re-point it with the wizard rebuild, else a phone-verified member can
-   keep submitting free text after the UI changes. **Except the
+   keep submitting free text after the UI changes. **And including the
+   autosave endpoint's `"about"` section**: `api_profile_settings_autosave`
+   maps `"about"` to `CrushProfileAboutForm` with allowed fields
+   `{"bio", "interests"}` (`crush_lu/views.py:1549`) and echoes them in its
+   response — that section config is replaced by the Event Identity form's
+   (§8.3, which already retires `CrushProfileAboutForm`), so a direct
+   `{"section": "about", "bio": …}` POST can no longer write free text. **Except the
    authenticated data-portability export** (`views_account.export_user_data`,
    `crush_lu/views_account.py:1268–1269`), which keeps returning the retained
    columns until the O6 hard delete: while the data exists and coaches can
@@ -437,7 +443,9 @@ connection-flow phases; it can ship before or after C–D.
 * Wizard: step 2 completes without bio/interests; draft\_data round-trip;
   review step renders chips; a direct POST to the legacy
   `/api/profile/save-step2/` route can no longer write `bio`/`interests`
-  (retired or re-pointed, §6.2).
+  (retired or re-pointed, §6.2); a direct
+  `{"section": "about", "bio": …, "interests": …}` POST to
+  `api_profile_settings_autosave` is rejected and writes nothing (§6.2).
 
 * Surfaces: no member/attendee template renders `profile.bio` /
   `profile.interests` outside the coach legacy block. Implement as a CI grep
