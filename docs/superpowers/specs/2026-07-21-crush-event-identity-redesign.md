@@ -157,7 +157,8 @@ no long bio needed."*
 
 * `qualities`/`defects` **do** stay on this card despite the same duplication:
   unlike the three fields above, the profile copies have live event-side
-  consumers (coach screens `views_coach.py:1248`, and the §5.3 presentation
+  consumers (coach screens — `coach_member_overview` loads them at
+  `views_coach.py:2895–2896`, rendered in `coach_member_overview.html`, and the §5.3 presentation
   slides will render "top qualities"). They are event-display data here, not
   matching inputs.
 

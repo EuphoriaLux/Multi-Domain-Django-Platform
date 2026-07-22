@@ -109,7 +109,7 @@ conversion moment that exists, without a paywall screen.
 
 * **Lead routing:** `assigned_coach` if set **and still active**; else an
   **active** one of the event's coaches (`MeetupEvent.coaches` M2M,
-  `crush_lu/models/events.py:239`, `related_name="assigned_events"` — already
+  `crush_lu/models/events.py:257`, `related_name="assigned_events"` at `:260` — already
   populated by event operations); else the coach-pool queue. Every tier
   filters `is_active=True`: `coach_required` (`crush_lu/decorators.py:27`)
   bars deactivated coaches from all coach views, and §7's per-lead
@@ -366,7 +366,7 @@ one flagship event) first.
   (`crush_lu/models/connections.py:220`) today assigns the requester's approved
   `ProfileSubmission` coach, else **any active coach**. The event→coach
   association **already exists** — `MeetupEvent.coaches`
-  (`crush_lu/models/events.py:239`) is actively populated by event
+  (`crush_lu/models/events.py:257`) is actively populated by event
   operations, so the middle tier must reuse it, not introduce a parallel
   source. Net-new is only the **selection policy** when an event has several
   coaches (e.g. least-loaded by open crush leads, else first by id) and the
@@ -440,8 +440,8 @@ one flagship event) first.
 
 * **Coach workflow: reciprocal crush leads stay independent.** The existing
   `coach_connection_review` treats a reverse row as part of one legacy
-  connection: it loads it (`views_coach.py:3748–3753`) and `start_review`
-  (`:3773–3778`), `approve` (`:3813–3833`) and `claim` (`:3848–3850`) all
+  connection: it loads it (`views_coach.py:3784–3792`) and `start_review`
+  (`:3817–3831`), `approve` (`:3844–3893`) and `claim` (`:3894–3901`) all
   overwrite the reverse row's `assigned_coach` and status — approve even
   copies `coach_notes`/`coach_introduction` onto it. With reciprocal crush
   leads routed to *different* coaches (§5), the first coach acting would
@@ -452,9 +452,9 @@ one flagship event) first.
   reciprocal leads (§13).
 
 * **Coach authorization is server-side per lead.** `coach_connections`
-  starts from **every** `EventConnection` (`views_coach.py:3590–3596` — the
+  starts from **every** `EventConnection` (`views_coach.py:3641–3642` — the
   code even notes "or all for now") and `coach_connection_review` checks
-  ownership only on POST (`:3758–3764`), so today any coach can open any
+  ownership only on POST (`:3809–3815`), so today any coach can open any
   lead and read the supposedly coach-only `requester_note`. For
   `flow=crush`: the queue queryset is filtered to the routed coach, and
   object-level authorization applies to **GET and POST** on the review view.
@@ -463,8 +463,8 @@ one flagship event) first.
 * **Member-overview surfaces redact crush rows.** The queue and review view
   are not the only coach-facing disclosure path: any active coach can open
   `coach_member_overview` for an arbitrary member
-  (`views_coach.py:2799–2837`), which loads that member's connections in
-  both directions and renders the incoming requester's name
+  (`views_coach.py:2851`, connections query at `:2884–2885`), which loads
+  that member's connections in both directions and renders the incoming requester's name
   (`coach_member_overview.html`). An unrelated coach — or the recipient's
   co-coach *before* the coaches have agreed to introduce — would learn the
   crusher's identity there. `flow=crush` rows are filtered or redacted on
@@ -553,7 +553,7 @@ Identity spec §7).
    target is absent from the requester's attendee list, and a direct POST is
    rejected without disclosing why. **The check is enforced in the
    write endpoints, not just the button:** both `request_connection`
-   (`views_connections.py:281`) and `request_connection_inline` (`:443`)
+   (`views_connections.py:259`) and `request_connection_inline` (`:443`)
    accept direct POSTs and currently never consult
    `eligible_participations` — a stale form or hand-crafted request could
    create a crush for a lobby-eligible pair despite the invariant. Both
@@ -617,7 +617,7 @@ are genuinely independent.
 | O8    | Coach-call SLA for crush leads.                                | **Call within 48h, reminder at 24h** — *conditional on the O-cap model showing it is absorbable*; otherwise lengthen.                            |
 | O9    | Crush limit per event.                                         | **1 per event for free AND 1 for Connect members** — do not make Connect unlimited; scarcity protects signal quality and bounds coach load. Enforced by a **gender-independent** counter (§5/§7) — the legacy cross-gender counter cannot bound coach load. |
 | O10   | Resolve "My Crush" naming collision with the coach navbar dropdown. | **Rename the coach dropdown to "My Dating Profile"** in both nav locations (`base.html:365` desktop, `base.html:896` mobile); member feature keeps "My Crush!". Record in `docs/products/crush-connect.md` §9. |
-| O11   | Lead routing when the crusher has no assigned coach.           | **Reuse `MeetupEvent.coaches`** (`events.py:239`) as the middle tier — the association already exists; only the selection policy among an event's coaches is net-new (§7). Then the coach-pool queue. Until built, `assign_coach()` falls back to any active coach. |
+| O11   | Lead routing when the crusher has no assigned coach.           | **Reuse `MeetupEvent.coaches`** (`events.py:257`) as the middle tier — the association already exists; only the selection policy among an event's coaches is net-new (§7). Then the coach-pool queue. Until built, `assign_coach()` falls back to any active coach. |
 
 ## 12. Non-goals
 
