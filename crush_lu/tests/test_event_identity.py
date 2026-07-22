@@ -158,6 +158,25 @@ def test_repopulate_never_removes_member_added_interests():
     assert "yoga" in slugs  # inferred from legacy text, added alongside
 
 
+@pytest.mark.django_db
+def test_repopulate_adds_nothing_to_an_over_cap_profile():
+    """A profile already at/over the 8-cap (reachable via the admin's unvalidated
+    filter_horizontal) must get nothing added — `room` clamps at 0 rather than
+    taking a negative slice."""
+    from crush_lu.models import Interest
+
+    p = _make_profile("overcap@example.com", interests="yoga")  # would infer 'yoga'
+    nine = list(Interest.objects.exclude(slug="yoga")[:9])
+    p.interests_new.set(nine)
+    assert p.interests_new.count() == 9
+
+    _run("--repopulate", "--execute")
+
+    p.refresh_from_db()
+    assert p.interests_new.count() == 9  # nothing added
+    assert "yoga" not in set(p.interests_new.values_list("slug", flat=True))
+
+
 # ---------------------------------------------------------------------------
 # CrushProfileEventIdentityForm validators
 # ---------------------------------------------------------------------------

@@ -200,10 +200,12 @@ class Command(BaseCommand):
                     # doesn't already have, up to the cap. This never removes a
                     # selection a member made through the Event Identity UI, so
                     # --repopulate (rerun after refining the keyword map) is safe.
-                    existing_ids = set(
-                        profile.interests_new.values_list("pk", flat=True)
-                    )
-                    room = MAX_INTERESTS - len(existing_ids)
+                    # Reuse the prefetched cache; clamp room at 0 so an already-
+                    # over-cap profile (reachable via the admin's unvalidated
+                    # filter_horizontal widget) gets nothing added, not a
+                    # negative-index slice.
+                    existing_ids = {i.pk for i in profile.interests_new.all()}
+                    room = max(0, MAX_INTERESTS - len(existing_ids))
                     to_add = [i for i in capped if i.pk not in existing_ids][:room]
                     if to_add:
                         profile.interests_new.add(*to_add)
