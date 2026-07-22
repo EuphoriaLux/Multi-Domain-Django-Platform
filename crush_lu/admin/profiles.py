@@ -291,7 +291,35 @@ class ProfileSubmissionProfileInline(admin.TabularInline):
     verbose_name_plural = "Review History"
 
 
+class CrushProfileAdminForm(forms.ModelForm):
+    """Admin form for ``CrushProfile`` that enforces the Event Identity
+    8-interest cap.
+
+    ``CrushProfileAdmin`` exposes ``interests_new`` via ``filter_horizontal``;
+    the default admin form has no cap, so staff could save 9+ interests — a
+    state ``CrushProfileEventIdentityForm`` later rejects on the member's next
+    save, forcing them to trim selections they never made. Mirror the member
+    form's cap here so the over-cap state can't be created in the first place.
+    """
+
+    MAX_INTERESTS = 8
+
+    class Meta:
+        model = CrushProfile
+        fields = "__all__"
+
+    def clean_interests_new(self):
+        interests = self.cleaned_data.get("interests_new")
+        if interests is not None and len(interests) > self.MAX_INTERESTS:
+            raise forms.ValidationError(
+                _("Select at most %(max)d interests (Event Identity cap).")
+                % {"max": self.MAX_INTERESTS}
+            )
+        return interests
+
+
 class CrushProfileAdmin(admin.ModelAdmin):
+    form = CrushProfileAdminForm
     # Kept to the 10 highest-signal columns so the changelist stays fast and
     # scannable. Everything removed is still one click away: location via
     # search, verification_method / is_active / language via list_filter,

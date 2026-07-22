@@ -271,6 +271,27 @@ def test_form_preserves_a_retired_but_selected_interest():
 
 
 @pytest.mark.django_db
+def test_admin_form_enforces_the_8_interest_cap():
+    """The admin's filter_horizontal widget must not let staff save 9+
+    interests_new (a state the member form later rejects)."""
+    from django.core.exceptions import ValidationError
+
+    from crush_lu.admin.profiles import CrushProfileAdminForm
+
+    active = Interest.objects.filter(is_active=True)
+    nine = list(active[:9])
+    eight = list(active[:8])
+
+    form = CrushProfileAdminForm()
+    form.cleaned_data = {"interests_new": nine}
+    with pytest.raises(ValidationError):
+        form.clean_interests_new()
+
+    form.cleaned_data = {"interests_new": eight}
+    assert form.clean_interests_new() == eight  # 8 is allowed
+
+
+@pytest.mark.django_db
 def test_form_does_not_offer_retired_interests_to_new_members():
     retired = Interest.objects.create(
         slug="retired-y", category="games", sort_order=901, label="RetiredY", is_active=False
