@@ -367,6 +367,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
     )
     search_fields = ("user__username", "user__email", "location", "bio", "phone_number")
     ordering = ["-created_at"]  # Most recent profiles first
+    filter_horizontal = ("interests_new",)
     readonly_fields = (
         "get_quick_status_summary",
         "get_user_account_info",
@@ -450,9 +451,24 @@ class CrushProfileAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "Profile Content",
+            "Event Identity (2026 redesign)",
+            {
+                "fields": ("interests_new", "ask_me_about", "event_vibe"),
+                "description": _(
+                    "Structured event-profile content that replaces the legacy "
+                    "free-text bio/interests below."
+                ),
+            },
+        ),
+        (
+            "Legacy bio & interests (deprecated)",
             {
                 "fields": ("bio", "interests"),
+                "classes": ("collapse",),
+                "description": _(
+                    "DEPRECATED (Event Identity redesign): retained during "
+                    "transition, coach-visible only. Do not add new content here."
+                ),
             },
         ),
         (

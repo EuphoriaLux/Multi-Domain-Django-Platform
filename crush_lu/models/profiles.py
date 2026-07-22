@@ -550,13 +550,20 @@ class CrushProfile(models.Model):
     )
 
     # Profile Content (Step 2 - Optional until completion)
+    # DEPRECATED (2026 Event Identity redesign): bio/interests are being
+    # replaced by the structured Event Identity fields below (interests_new,
+    # ask_me_about, event_vibe). The columns are retained during the transition
+    # — hidden from all member/attendee surfaces, coach-visible only — and are
+    # hard-deleted later (spec O6). Do not add new writers.
     bio = models.TextField(
-        max_length=500, blank=True, help_text=_("Tell us about yourself!")
+        max_length=500,
+        blank=True,
+        help_text=_("DEPRECATED (Event Identity redesign): legacy free-text bio, coach-visible only"),
     )
     interests = models.TextField(
         max_length=300,
         blank=True,
-        help_text=_("Your hobbies and interests (comma-separated)"),
+        help_text=_("DEPRECATED (Event Identity redesign): legacy free-text interests, coach-visible only"),
     )
     # Ideal Crush Preferences (optional)
     preferred_age_min = models.PositiveSmallIntegerField(
@@ -641,6 +648,39 @@ class CrushProfile(models.Model):
         ],
         default="en",
         help_text=_("Preferred language for emails and notifications"),
+    )
+
+    # --- Event Identity (2026 redesign) ------------------------------------
+    # Structured replacement for the free-text bio/interests fields above:
+    # "what people discover about you at events." See the Event Identity spec
+    # (docs/superpowers/specs/2026-07-21-crush-event-identity-redesign.md).
+    interests_new = models.ManyToManyField(
+        "crush_lu.Interest",
+        blank=True,
+        related_name="event_profiles",
+        help_text=_("Curated event interests (max 8) — replaces free-text interests"),
+    )
+    # Up to 3 Interest ids (a subset of interests_new) highlighted as
+    # "Ask me about…" conversation-starter chips on event slides / attendee cards.
+    ask_me_about = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=_("Up to 3 interest ids to highlight as conversation starters"),
+    )
+
+    EVENT_VIBE_CHOICES = [
+        ("dance_floor", _("First one on the dance floor")),
+        ("quiet_corner", _("Quiet corner conversations")),
+        ("meet_everyone", _("Here to meet everyone")),
+        ("dragged_along", _("Dragged along by friends")),
+        ("at_the_bar", _("I'll be at the bar — come say hi")),
+    ]
+    event_vibe = models.CharField(
+        max_length=20,
+        choices=EVENT_VIBE_CHOICES,
+        blank=True,
+        default="",
+        help_text=_("Your event vibe — one chip shown on event surfaces"),
     )
 
     # Event Languages (languages user can speak at in-person events)

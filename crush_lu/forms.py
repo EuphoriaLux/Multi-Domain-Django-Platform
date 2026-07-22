@@ -1,10 +1,11 @@
 from django import forms
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 from django.contrib.auth.password_validation import validate_password
 from django.utils.translation import gettext_lazy as _
 from allauth.account.forms import SignupForm
-from .models import CrushProfile, CrushCoach, ProfileSubmission, CoachSession, EventRegistration, JourneyGift, CallAttempt, EventFeedback
+from .models import CrushProfile, CrushCoach, ProfileSubmission, CoachSession, EventRegistration, JourneyGift, CallAttempt, EventFeedback, Interest
 from PIL import Image
 import os
 
@@ -1638,3 +1639,86 @@ class EventFeedbackForm(forms.ModelForm):
         if commit:
             instance.save()
         return instance
+
+
+class CrushProfileEventIdentityForm(forms.ModelForm):
+    """Structured "Your Event Identity" section (2026 redesign).
+
+    Replaces the free-text ``CrushProfileAboutForm``: interests come from the
+    curated ``Interest`` taxonomy, "Ask me about…" highlights a subset of them,
+    and ``event_vibe`` is a single chip. All optional (O2: nudge, no submission
+    gate). ``sought_qualities``/``astro_enabled``/``first_step_preference`` are
+    deliberately excluded — those are Crush Connect matching inputs read from the
+    membership, not event-profile data (spec §5.1).
+    """
+
+    MAX_INTERESTS = 8
+    MAX_ASK_ME_ABOUT = 3
+
+    interests_new = forms.ModelMultipleChoiceField(
+        queryset=Interest.objects.none(),  # real queryset set in __init__
+        required=False,
+        label=_("Your interests"),
+    )
+
+    class Meta:
+        model = CrushProfile
+        fields = ["interests_new", "ask_me_about", "event_vibe"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Choices = active interests ∪ the member's current selections. Including
+        # current selections means a retired interest (is_active=False) the member
+        # already picked is neither rejected nor silently dropped on their next
+        # save (spec §5.2) — the bug we must avoid from the active-only queryset in
+        # forms_crush_connect.ConnectLanguagesForm.
+        queryset = Interest.objects.filter(is_active=True)
+        if self.instance and self.instance.pk:
+            current_ids = list(
+                self.instance.interests_new.values_list("pk", flat=True)
+            )
+            if current_ids:
+                queryset = Interest.objects.filter(
+                    Q(is_active=True) | Q(pk__in=current_ids)
+                ).distinct()
+        self.fields["interests_new"].queryset = queryset
+
+    def clean_interests_new(self):
+        interests = self.cleaned_data.get("interests_new")
+        if interests is not None and len(interests) > self.MAX_INTERESTS:
+            raise forms.ValidationError(
+                _("Pick at most %(max)d interests.") % {"max": self.MAX_INTERESTS}
+            )
+        return interests
+
+    def clean_ask_me_about(self):
+        raw = self.cleaned_data.get("ask_me_about")
+        if not raw:
+            return []
+        if not isinstance(raw, list):
+            raise forms.ValidationError(_("Invalid conversation-starter selection."))
+        try:
+            ids = [int(x) for x in raw]
+        except (TypeError, ValueError):
+            raise forms.ValidationError(_("Invalid conversation-starter selection."))
+        if len(ids) > self.MAX_ASK_ME_ABOUT:
+            raise forms.ValidationError(
+                _("Pick at most %(max)d conversation starters.")
+                % {"max": self.MAX_ASK_ME_ABOUT}
+            )
+        return ids
+
+    def clean(self):
+        cleaned = super().clean()
+        interests = cleaned.get("interests_new")
+        ask = cleaned.get("ask_me_about") or []
+        # "Ask me about" must be a subset of the selected interests. Skip when
+        # interests_new itself failed validation (interests is None then).
+        if ask and interests is not None:
+            selected_ids = {interest.pk for interest in interests}
+            if not set(ask).issubset(selected_ids):
+                self.add_error(
+                    "ask_me_about",
+                    _("“Ask me about” items must be among your selected interests."),
+                )
+        return cleaned
