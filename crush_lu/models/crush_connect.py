@@ -565,9 +565,10 @@ class SparkPrompt(models.Model):
 
 class Interest(models.Model):
     """
-    A curated interest/hobby a member can attach to their Crush Connect
-    catalogue profile (mirrors ``Trait``/``SparkPrompt``).
+    A curated interest/hobby a member can attach to their profile.
 
+    Cross-product taxonomy (mirrors ``Trait``/``SparkPrompt``): shared by
+    ``CrushConnectMembership.interests`` and ``CrushProfile.interests_new``.
     Curated rather than free-text so the shared data needs no moderation,
     can't leak identifying details, and translates cleanly. ``label`` is
     translated via modeltranslation; set ``is_active=False`` to retire an
@@ -603,8 +604,8 @@ class Interest(models.Model):
 
     class Meta:
         ordering = ["category", "sort_order", "label"]
-        verbose_name = _("Connect Interest")
-        verbose_name_plural = _("Connect Interests")
+        verbose_name = _("Interest")
+        verbose_name_plural = _("Interests")
 
     def __str__(self):
         return self.label
