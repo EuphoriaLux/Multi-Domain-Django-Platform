@@ -55,8 +55,15 @@ def crush_connect_nav_visible(user):
         return False
     if user.is_staff:
         return True
-    membership = getattr(user, "crush_connect_membership", None)
-    if not (membership and membership.is_onboarded):
+    try:
+        membership = getattr(user, "crush_connect_membership", None)
+        if not (membership and membership.is_onboarded):
+            return False
+    except Exception:
+        # The membership reverse lookup runs a DB query during template
+        # rendering. A backend fault (DB error, or the broken async
+        # sync-executor) must not 500 the whole page from the nav — just
+        # hide the Connect link.
         return False
     return candidate_access_open()
 

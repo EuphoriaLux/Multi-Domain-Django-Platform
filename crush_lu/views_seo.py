@@ -7,11 +7,39 @@ This module provides views for:
 - Structured data helpers
 """
 
+import logging
+
 from django.http import HttpResponse
 from django.shortcuts import render
 from django.template.loader import render_to_string
 from django.views.decorators.cache import cache_page
 from django.views.decorators.http import require_GET
+
+logger = logging.getLogger(__name__)
+
+# Standalone, context-free 404 used only if the branded template fails to
+# render (crush_lu/404.html extends base.html, which runs the request context
+# processors; if one of those throws, Django would otherwise convert the failed
+# 404 render into a 500 — which is how missing routes like /favicon.ico were
+# surfacing as 500s). No external CSS, no context — always renders.
+_FALLBACK_404_HTML = (
+    '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
+    '<meta name="viewport" content="width=device-width, initial-scale=1">'
+    '<meta name="robots" content="noindex, follow">'
+    "<title>Page not found – Crush.lu</title><style>"
+    "body{margin:0;min-height:100vh;display:flex;align-items:center;"
+    "justify-content:center;background:#faf7fb;color:#2d2d2d;font-family:"
+    '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,'
+    "sans-serif;text-align:center;padding:1.5rem}.code{font-size:4.5rem;"
+    "font-weight:700;color:#9b59b6;margin:0}h1{font-size:1.5rem;"
+    "font-style:italic;margin:.5rem 0 0}p{color:#555;margin:.75rem 0 1.75rem}"
+    "a.home{display:inline-block;padding:.75rem 1.75rem;border-radius:.5rem;"
+    "background:#9b59b6;color:#fff;text-decoration:none;font-weight:600}"
+    '</style></head><body><div><p class="code">404</p>'
+    "<h1>We couldn&#39;t find that page</h1>"
+    "<p>The page you&#39;re looking for may have moved, or it never existed.</p>"
+    '<a class="home" href="/">Back to home</a></div></body></html>'
+)
 
 
 @require_GET
@@ -99,8 +127,21 @@ def custom_404(request, exception):
 
     Wired as ``handler404`` in ``azureproject/urls_crush.py`` only, so it is
     scoped to crush.lu — the other domains keep Django's default handler.
+
+    The branded template extends ``crush_lu/base.html`` and therefore runs the
+    request context processors. If one of those throws (a transient DB fault,
+    or the broken async sync-executor seen under load), Django would convert
+    the failed 404 render into a 500 — which is how missing routes like
+    ``/favicon.ico`` were surfacing as 500s. Fall back to a standalone,
+    context-free 404 so a not-found never becomes a server error.
     """
-    return render(request, "crush_lu/404.html", status=404)
+    try:
+        return render(request, "crush_lu/404.html", status=404)
+    except Exception:
+        logger.exception(
+            "custom_404: branded 404 render failed; serving minimal fallback"
+        )
+        return HttpResponse(_FALLBACK_404_HTML, status=404)
 
 
 def custom_500(request):
