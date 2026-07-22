@@ -43,6 +43,12 @@ _SAFE_NAV_DEFAULTS = {
     "profile_step_label": _("Get started"),
     "upcoming_events": [],
     "upcoming_events_count": 0,
+    # base.html branches on these instead of dereferencing user.crushprofile /
+    # user.crushcoach directly — those reverse lookups run a DB query during
+    # template rendering and re-raise under a broken backend (they are not
+    # silent_variable_failure), which would 500 the page even with this guard.
+    "nav_has_profile": False,
+    "nav_is_active_coach": False,
 }
 
 # Profile verification state → navbar progress indicator
@@ -183,6 +189,9 @@ def crush_user_context(request):
         profile_submission = None
         profile = CrushProfile.objects.filter(user=request.user).first()
         context["profile"] = profile
+        # Template-safe existence flag for base.html (see _SAFE_NAV_DEFAULTS):
+        # avoids a bare {% if user.crushprofile %} reverse lookup in the nav.
+        context["nav_has_profile"] = profile is not None
         if profile:
             verification_status = profile.verification_status
             context["profile_completion_status"] = (
@@ -269,8 +278,19 @@ def crush_user_context(request):
         context["upcoming_events"] = upcoming_registrations
         context["upcoming_events_count"] = len(upcoming_registrations)
 
+        # Coach flag drives the coach navigation branch in base.html. Compute
+        # it here (inside the guard) so the template never dereferences the
+        # crushcoach reverse relation directly — that lookup re-raises under a
+        # broken backend and would 500 the page even with this processor
+        # guarded. Resolve once and reuse (the reverse OneToOne caches on the
+        # instance, so this is a single query).
+        nav_is_active_coach = (
+            hasattr(request.user, "crushcoach") and request.user.crushcoach.is_active
+        )
+        context["nav_is_active_coach"] = nav_is_active_coach
+
         # Pending screening calls count for coaches
-        if hasattr(request.user, "crushcoach") and request.user.crushcoach.is_active:
+        if nav_is_active_coach:
             pending_screening_count = ProfileSubmission.objects.filter(
                 coach=request.user.crushcoach,
                 status__in=["pending", "recontact_coach"],

@@ -67,6 +67,11 @@ class CrushUserContextResilienceTests(TestCase):
             "profile_step_label",
             "upcoming_events",
             "upcoming_events_count",
+            # base.html branches on these instead of dereferencing the
+            # crushprofile/crushcoach reverse relations, so they must be safe
+            # too or the nav render would re-trigger the DB and 500.
+            "nav_has_profile",
+            "nav_is_active_coach",
         ):
             self.assertEqual(
                 context[key], _SAFE_NAV_DEFAULTS[key], msg=f"default missing for {key}"
@@ -81,6 +86,10 @@ class CrushUserContextResilienceTests(TestCase):
         self.assertEqual(context["connection_count"], 0)
         self.assertEqual(context["profile_completion_step"], 0)
         self.assertIn("upcoming_events", context)
+        # Template-safe nav flags are always resolved for authenticated users
+        # (this user has neither a profile nor a coach record).
+        self.assertFalse(context["nav_has_profile"])
+        self.assertFalse(context["nav_is_active_coach"])
 
     def test_anonymous_user_skips_the_block(self):
         request = self.factory.get("/en/")
