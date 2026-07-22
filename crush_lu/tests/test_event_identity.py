@@ -141,6 +141,23 @@ def test_execute_is_idempotent():
     assert set(p.interests_new.values_list("pk", flat=True)) == first
 
 
+@pytest.mark.django_db
+def test_repopulate_never_removes_member_added_interests():
+    """--repopulate merges inferred interests without wiping selections a member
+    made through the UI that have no legacy-text match."""
+    from crush_lu.models import Interest
+
+    p = _make_profile("repop@example.com", interests="yoga")
+    manual = Interest.objects.get(slug="chess")  # no "chess" in the legacy text
+    p.interests_new.add(manual)
+
+    _run("--repopulate", "--execute")
+
+    slugs = set(p.interests_new.values_list("slug", flat=True))
+    assert "chess" in slugs  # member's manual selection preserved
+    assert "yoga" in slugs  # inferred from legacy text, added alongside
+
+
 # ---------------------------------------------------------------------------
 # CrushProfileEventIdentityForm validators
 # ---------------------------------------------------------------------------

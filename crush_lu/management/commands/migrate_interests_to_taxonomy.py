@@ -196,7 +196,17 @@ class Command(BaseCommand):
 
             if execute:
                 with transaction.atomic():
-                    profile.interests_new.set(capped)
+                    # Non-destructive: only add inferred interests the profile
+                    # doesn't already have, up to the cap. This never removes a
+                    # selection a member made through the Event Identity UI, so
+                    # --repopulate (rerun after refining the keyword map) is safe.
+                    existing_ids = set(
+                        profile.interests_new.values_list("pk", flat=True)
+                    )
+                    room = MAX_INTERESTS - len(existing_ids)
+                    to_add = [i for i in capped if i.pk not in existing_ids][:room]
+                    if to_add:
+                        profile.interests_new.add(*to_add)
 
         # Acceptance metric (spec §14): the share of legacy-interest profiles
         # that end up with ≥1 taxonomy interest. Already-populated ("skipped")
