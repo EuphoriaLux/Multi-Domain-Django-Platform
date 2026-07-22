@@ -1,0 +1,270 @@
+{% load static i18n %}
+{% comment %}
+Merged "Your Event Identity" edit card (2026 redesign, spec §5.5): replaces the
+retired About You / Your Personality / Event Preferences partials. One autosaving
+form with sub-sections: vibe (qualities/defects), interests, "Ask me about…",
+event vibe, and event languages.
+{% endcomment %}
+
+{% if has_errors %}
+<div x-data="dismissible" x-show="show" x-transition class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg mb-4 flex items-center justify-between" role="alert">
+    <div class="flex items-center gap-2">
+        {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}
+        {% trans "Please correct the errors below." %}
+    </div>
+    <button @click="dismiss" type="button" class="text-red-500 hover:text-red-700" aria-label="{% trans "Dismiss" %}">
+        {% include "shared/icons/x-mark.html" with class="w-4 h-4" aria_hidden="true" %}
+    </button>
+</div>
+{% endif %}
+
+<div class="max-w-3xl mx-auto">
+    <form method="post"
+          id="editEventIdentityForm"
+          x-data="profileSectionAutosave"
+          data-section="event_identity"
+          data-save-url="{% url 'api_profile_settings_autosave' %}">
+        {% csrf_token %}
+
+        <div data-non-field-errors class="{% if not form.non_field_errors %}hidden {% endif %}bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg mb-4">
+            {% for error in form.non_field_errors %}
+                <p>{{ error }}</p>
+            {% endfor %}
+        </div>
+
+        <div class="flex items-center gap-2 mb-4 min-h-[1.5rem]">
+            <div x-show="showSaving" x-transition class="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
+                <span class="animate-spin inline-block w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full"></span>
+                <span>{% trans "Saving..." %}</span>
+            </div>
+            <div x-show="showSuccess" x-transition class="flex items-center gap-1 text-sm text-green-600">
+                <span>✓</span>
+                <span>{% trans "Saved" %}</span>
+            </div>
+            <div x-show="showError" x-transition class="flex items-center gap-1 text-sm text-red-600">
+                <span>✗</span>
+                <span>{% trans "Error saving. Please try again." %}</span>
+            </div>
+            <p x-show="showIdleMessage" class="text-gray-400 dark:text-gray-500 text-sm">{% trans "Changes are saved automatically." %}</p>
+        </div>
+
+        <div class="section-card mb-4">
+            <h5 class="section-title">
+                {% include "shared/icons/sparkles.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
+                {% trans "Your Event Identity" %}
+            </h5>
+            <p class="text-gray-500 dark:text-gray-400 text-sm mb-2">{% trans "This is what people will discover about you at our events — no long bio needed." %}</p>
+        </div>
+
+        <!-- Sub-section: Your vibe (qualities & defects) -->
+        <div class="section-card mb-4">
+            <h5 class="section-title">
+                {% include "shared/icons/sparkles.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
+                {% trans "Your vibe" %}
+            </h5>
+            <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">{% trans "Pick up to 5 qualities and up to 5 things you own up to." %}</p>
+
+            <!-- My Qualities -->
+            <div class="mb-6"
+                 x-data="traitSelector"
+                 data-max="5"
+                 data-accent="purple"
+                 data-initial="{{ selected_qualities_json }}">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                        {% trans "My Qualities" %}
+                    </label>
+                    <span class="text-sm font-semibold text-purple-600 dark:text-purple-400" x-text="counterText"></span>
+                </div>
+                {% for cat in qualities_grouped %}
+                <div class="mb-3">
+                    <div class="flex items-center gap-2 mb-1.5">
+                        {% include cat.ghost_include with class="w-5 h-5" %}
+                        <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{{ cat.label }}</span>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        {% for trait in cat.traits %}
+                        <button type="button"
+                                data-trait-id="{{ trait.pk }}"
+                                @click="handleClick"
+                                class="px-3.5 py-2 min-h-10 rounded-full text-sm font-medium border-2 transition-all duration-200
+                                       border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200">
+                            {{ trait.label }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+                <input type="hidden" name="qualities_ids" x-bind:value="hiddenValue">
+                <div data-error-for="qualities_ids" class="{% if not form.qualities_ids.errors %}hidden {% endif %}text-red-600 text-sm mt-1">{% if form.qualities_ids.errors %}{{ form.qualities_ids.errors.0 }}{% endif %}</div>
+            </div>
+
+            <!-- My Defects -->
+            <div class="mb-2"
+                 x-data="traitSelector"
+                 data-max="5"
+                 data-accent="pink"
+                 data-initial="{{ selected_defects_json }}">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                        {% trans "My Defects" %}
+                    </label>
+                    <span class="text-sm font-semibold text-pink-600 dark:text-pink-400" x-text="counterText"></span>
+                </div>
+                {% for cat in defects_grouped %}
+                <div class="mb-3">
+                    <div class="flex items-center gap-2 mb-1.5">
+                        {% include cat.ghost_include with class="w-5 h-5" %}
+                        <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{{ cat.label }}</span>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        {% for trait in cat.traits %}
+                        <button type="button"
+                                data-trait-id="{{ trait.pk }}"
+                                @click="handleClick"
+                                class="px-3.5 py-2 min-h-10 rounded-full text-sm font-medium border-2 transition-all duration-200
+                                       border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200">
+                            {{ trait.label }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+                <input type="hidden" name="defects_ids" x-bind:value="hiddenValue">
+                <div data-error-for="defects_ids" class="{% if not form.defects_ids.errors %}hidden {% endif %}text-red-600 text-sm mt-1">{% if form.defects_ids.errors %}{{ form.defects_ids.errors.0 }}{% endif %}</div>
+            </div>
+        </div>
+
+        <!-- Sub-section: Interests + Ask me about -->
+        <div class="section-card mb-4"
+             x-data="eventIdentity"
+             data-interest-max="8"
+             data-askme-max="3">
+            <h5 class="section-title">
+                {% include "shared/icons/star.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
+                {% trans "Your interests" %}
+            </h5>
+
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-gray-500 dark:text-gray-400 text-sm">{% trans "Pick up to 8 — these appear as chips at events." %}</p>
+                <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink"><span x-text="interestCount">{{ selected_interest_ids|length }}</span>/8</span>
+            </div>
+
+            {% regroup form.interests_new.field.queryset by get_category_display as interest_groups %}
+            {% for group in interest_groups %}
+            <div class="mb-3">
+                <div class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">{{ group.grouper }}</div>
+                <div class="flex flex-wrap gap-2">
+                    {% for interest in group.list %}
+                    <label class="cursor-pointer block">
+                        <input type="checkbox" name="interests_new" value="{{ interest.pk }}" class="peer hidden"
+                               @change="onInterestChange"
+                               {% if interest.pk in selected_interest_ids %}checked{% endif %}>
+                        <span class="connect-selectable connect-chip">
+                            {{ interest.label }}
+                        </span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+            <div data-error-for="interests_new" class="{% if not form.interests_new.errors %}hidden {% endif %}text-red-600 text-sm mt-1">{% if form.interests_new.errors %}{{ form.interests_new.errors.0 }}{% endif %}</div>
+
+            <!-- Ask me about… (subset of selected interests, max 3) -->
+            <div class="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+                <div class="flex items-center justify-between mb-1">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">{% trans "Ask me about…" %}</label>
+                    <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink"><span x-text="askMeCount">{{ ask_me_about_ids|length }}</span>/3</span>
+                </div>
+                <p class="text-gray-400 dark:text-gray-500 text-xs mb-3">{% trans "Highlight up to 3 of your interests as conversation starters." %}</p>
+
+                <p data-askme-empty class="{% if selected_interest_ids %}hidden {% endif %}text-gray-400 dark:text-gray-500 text-sm italic">{% trans "Select some interests above first." %}</p>
+
+                <div class="flex flex-wrap gap-2">
+                    {% for interest in form.interests_new.field.queryset %}
+                    <span data-askme-wrap data-interest-id="{{ interest.pk }}" class="{% if interest.pk not in selected_interest_ids %}hidden {% endif %}inline-block">
+                        <label class="cursor-pointer block">
+                            <input type="checkbox" name="ask_me_about" value="{{ interest.pk }}" class="peer hidden"
+                                   @change="onAskMeChange"
+                                   {% if interest.pk in ask_me_about_ids %}checked{% endif %}>
+                            <span class="connect-selectable connect-chip">
+                                {{ interest.label }}
+                            </span>
+                        </label>
+                    </span>
+                    {% endfor %}
+                </div>
+                <div data-error-for="ask_me_about" class="{% if not form.ask_me_about.errors %}hidden {% endif %}text-red-600 text-sm mt-1">{% if form.ask_me_about.errors %}{{ form.ask_me_about.errors.0 }}{% endif %}</div>
+            </div>
+        </div>
+
+        <!-- Sub-section: My event vibe (single choice) -->
+        <div class="section-card mb-4">
+            <h5 class="section-title">
+                {% include "shared/icons/musical-note.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
+                {% trans "My event vibe" %}
+            </h5>
+            <p class="text-gray-500 dark:text-gray-400 text-sm mb-3">{% trans "Pick the one that sounds most like you at an event." %}</p>
+            <div class="flex flex-wrap gap-2">
+                {% for value, label in form.event_vibe.field.choices %}
+                <label class="cursor-pointer block">
+                    <input type="radio" name="event_vibe" value="{{ value }}" class="peer hidden"
+                           {% if value == selected_event_vibe %}checked{% endif %}>
+                    <span class="connect-selectable connect-chip">
+                        {{ label }}
+                    </span>
+                </label>
+                {% endfor %}
+                <label class="cursor-pointer block">
+                    <input type="radio" name="event_vibe" value="" class="peer hidden"
+                           {% if not selected_event_vibe %}checked{% endif %}>
+                    <span class="connect-selectable connect-chip">
+                        {% trans "Skip for now" %}
+                    </span>
+                </label>
+            </div>
+            <div data-error-for="event_vibe" class="{% if not form.event_vibe.errors %}hidden {% endif %}text-red-600 text-sm mt-1">{% if form.event_vibe.errors %}{{ form.event_vibe.errors.0 }}{% endif %}</div>
+        </div>
+
+        <!-- Sub-section: Event languages -->
+        <div class="section-card mb-4">
+            <h5 class="section-title">
+                {% include "shared/icons/globe-alt.html" with class="w-5 h-5 tw-inline-block tw-align-text-bottom" %}
+                {% trans "How you'll talk at events" %}
+            </h5>
+            <p class="text-gray-500 dark:text-gray-400 text-sm mb-2">{% trans "Which languages can you speak at in-person events?" %}</p>
+            <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-lg p-3 mb-3">
+                <p class="text-sm text-amber-800 dark:text-amber-300 flex items-start gap-2">
+                    <svg class="w-4 h-4 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                    </svg>
+                    {% trans "You will only be able to sign up for events in your selected languages. Open Format events are available to everyone regardless of language selection." %}
+                </p>
+            </div>
+            <div class="flex flex-wrap gap-3">
+                {% for value, label in form.event_languages.field.choices %}
+                <label class="event-language-pill cursor-pointer">
+                    <input type="checkbox"
+                           name="{{ form.event_languages.html_name }}"
+                           value="{{ value }}"
+                           class="peer hidden"
+                           {% if value in profile.event_languages %}checked{% endif %}>
+                    <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200 transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 dark:peer-checked:bg-purple-900/30 peer-checked:text-purple-700 dark:peer-checked:text-purple-300 hover:border-purple-300">
+                        {% if value == 'en' %}🇬🇧{% elif value == 'de' %}🇩🇪{% elif value == 'fr' %}🇫🇷{% elif value == 'lu' %}🇱🇺{% endif %}
+                        {{ label }}
+                    </span>
+                </label>
+                {% endfor %}
+            </div>
+            <div data-error-for="event_languages" class="{% if not form.event_languages.errors %}hidden {% endif %}text-red-600 text-sm mt-2">{% if form.event_languages.errors %}{{ form.event_languages.errors.0 }}{% endif %}</div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons-container action-buttons-sticky">
+            <a href="{% url 'crush_lu:edit_profile' %}" class="btn-cancel">
+                {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %}
+                {% trans "Back" %}
+            </a>
+        </div>
+    </form>
+</div>

@@ -31,7 +31,7 @@
      data-initial-step="{% if current_step %}{{ current_step }}{% else %}1{% endif %}"
      data-phone-verified="{% if profile and profile.phone_verified %}true{% else %}false{% endif %}"
      data-is-editing="{{ is_editing|lower|default:'false' }}"
-     data-step-labels="{% trans 'Basic Info' %}|{% trans 'About You' %}|{% trans 'Photos' %}|{% trans 'Review' %}"
+     data-step-labels="{% trans 'Basic Info' %}|{% trans 'Event Identity' %}|{% trans 'Photos' %}|{% trans 'Review' %}"
      data-step-label-prefix="{% trans 'Section ' %}"
      data-step-label-of="{% trans ' of ' %}"
      data-step-label-sep="{% trans ' — ' %}"
@@ -112,7 +112,7 @@
                             <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                         </svg>
                     </div>
-                    <span class="text-xs sm:text-sm mt-1 text-center leading-tight min-h-[2rem] flex items-center" x-bind:class="step2TextClass">{% trans "About You" %}</span>
+                    <span class="text-xs sm:text-sm mt-1 text-center leading-tight min-h-[2rem] flex items-center" x-bind:class="step2TextClass">{% trans "Event Identity" %}</span>
                 </div>
 
                 <div class="w-8 sm:w-12 h-1 mx-1 mt-3 sm:mt-4 flex-shrink-0" x-bind:class="step2ConnectorClass"></div>
@@ -628,103 +628,135 @@
                  class="rounded-2xl border border-gray-100 bg-white p-6 dark:border-gray-700 dark:bg-gray-800 md:p-8">
 
                 <div class="mb-6">
-                    <h3 class="font-display text-2xl font-semibold italic leading-tight tracking-tight text-crush-dark dark:text-white">{% trans "About You" %}</h3>
-                    <p class="mt-1.5 text-[13px] leading-normal text-gray-500 dark:text-gray-400">{% trans "Share what makes you unique (optional)" %}</p>
+                    <h3 class="font-display text-2xl font-semibold italic leading-tight tracking-tight text-crush-dark dark:text-white">{% trans "Your Event Identity" %}</h3>
+                    <p class="mt-1.5 text-[13px] leading-normal text-gray-500 dark:text-gray-400">{% trans "This is what people will discover about you at our events — no long bio needed. (All optional.)" %}</p>
                 </div>
 
-                <!-- Bio -->
-                <div class="mb-6" x-data="charCounter" data-initial-count="{% if form.bio.value %}{{ form.bio.value|length }}{% elif profile and profile.bio %}{{ profile.bio|length }}{% else %}0{% endif %}" data-max-length="500">
-                    <label for="{{ form.bio.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                        {% include "shared/icons/chat-bubble-left.html" with class="w-5 h-5" %} {% trans "Bio" %}
-                        <span class="text-xs text-gray-400 font-normal ml-1">{% trans "Optional" %}</span>
-                    </label>
-                    <textarea name="bio"
-                              id="{{ form.bio.id_for_label }}"
-                              class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition resize-none"
-                              rows="4"
-                              maxlength="500"
-                              @input="updateCount"
-                              placeholder="{% trans "Tell us about yourself... What do you love? What makes you smile? (Optional)" %}">{% if form.bio.value %}{{ form.bio.value }}{% elif profile and profile.bio %}{{ profile.bio }}{% endif %}</textarea>
-                    <div class="text-right text-sm text-gray-400 dark:text-gray-500 mt-1">
-                        <span x-text="charCount"></span>/500 {% trans "characters" %}
-                    </div>
-                    {% if form.bio.errors %}
-                        <p class="text-sm text-red-600 mt-1">{{ form.bio.errors.0 }}</p>
-                    {% endif %}
-                </div>
-
-                <!-- Interest Categories -->
-                <div class="mb-6">
+                {# --- Vibe: qualities & defects --- #}
+                <div class="mb-8">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                        {% include "shared/icons/star.html" with class="w-5 h-5" %} {% trans "Interest Categories" %}
+                        {% include "shared/icons/sparkles.html" with class="w-5 h-5" %} {% trans "Your vibe" %}
                         <span class="text-xs text-gray-400 font-normal ml-1">{% trans "Optional" %}</span>
                     </label>
-                    <div class="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
-                        <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">{% trans "Select all that apply" %}</p>
-                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+
+                    <div class="mb-5"
+                         x-data="traitSelector"
+                         data-max="5"
+                         data-accent="purple"
+                         data-initial="{{ selected_qualities_json }}">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-gray-700 dark:text-gray-200">{% trans "My Qualities" %}</span>
+                            <span class="text-sm font-semibold text-purple-600 dark:text-purple-400" x-text="counterText"></span>
+                        </div>
+                        {% for cat in qualities_grouped %}
+                        <div class="mb-3">
+                            <div class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">{{ cat.label }}</div>
+                            <div class="flex flex-wrap gap-2">
+                                {% for trait in cat.traits %}
+                                <button type="button" data-trait-id="{{ trait.pk }}" @click="handleClick"
+                                        class="px-3.5 py-2 min-h-10 rounded-full text-sm font-medium border-2 transition-all duration-200 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200">
+                                    {{ trait.label }}
+                                </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                        <input type="hidden" name="qualities_ids" x-bind:value="hiddenValue">
+                    </div>
+
+                    <div x-data="traitSelector"
+                         data-max="5"
+                         data-accent="pink"
+                         data-initial="{{ selected_defects_json }}">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-gray-700 dark:text-gray-200">{% trans "My Defects" %}</span>
+                            <span class="text-sm font-semibold text-pink-600 dark:text-pink-400" x-text="counterText"></span>
+                        </div>
+                        {% for cat in defects_grouped %}
+                        <div class="mb-3">
+                            <div class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">{{ cat.label }}</div>
+                            <div class="flex flex-wrap gap-2">
+                                {% for trait in cat.traits %}
+                                <button type="button" data-trait-id="{{ trait.pk }}" @click="handleClick"
+                                        class="px-3.5 py-2 min-h-10 rounded-full text-sm font-medium border-2 transition-all duration-200 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200">
+                                    {{ trait.label }}
+                                </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                        <input type="hidden" name="defects_ids" x-bind:value="hiddenValue">
+                    </div>
+                </div>
+
+                {# --- Interests + Ask me about --- #}
+                <div class="mb-8" x-data="eventIdentity" data-interest-max="8" data-askme-max="3">
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                            {% include "shared/icons/star.html" with class="w-5 h-5" %} {% trans "Your interests" %}
+                        </label>
+                        <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink"><span x-text="interestCount">{{ event_identity_selected_ids|length }}</span>/8</span>
+                    </div>
+                    <p class="text-gray-400 dark:text-gray-500 text-xs mb-3">{% trans "Pick up to 8 — these appear as chips at events." %}</p>
+
+                    {% regroup event_identity_interests by get_category_display as interest_groups %}
+                    {% for group in interest_groups %}
+                    <div class="mb-3">
+                        <div class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">{{ group.grouper }}</div>
+                        <div class="flex flex-wrap gap-2">
+                            {% for interest in group.list %}
                             <label class="cursor-pointer block">
-                                <input type="checkbox" name="interest_category" value="sports" class="peer sr-only">
-                                <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 peer-focus-visible:ring-2 peer-focus-visible:ring-purple-500
-                                            border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30
-                                            peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
-                                    <span class="text-xl flex-shrink-0">⚽</span>
-                                    <span class="whitespace-nowrap text-xs">{% trans "Sports" %}</span>
-                                </div>
+                                <input type="checkbox" name="interests_new" value="{{ interest.pk }}" class="peer hidden"
+                                       @change="onInterestChange"
+                                       {% if interest.pk in event_identity_selected_ids %}checked{% endif %}>
+                                <span class="connect-selectable connect-chip">{{ interest.label }}</span>
                             </label>
-                            <label class="cursor-pointer block">
-                                <input type="checkbox" name="interest_category" value="arts" class="peer sr-only">
-                                <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 peer-focus-visible:ring-2 peer-focus-visible:ring-purple-500
-                                            border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30
-                                            peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
-                                    <span class="text-xl flex-shrink-0">🎨</span>
-                                    <span class="whitespace-nowrap text-xs">{% trans "Arts" %}</span>
-                                </div>
-                            </label>
-                            <label class="cursor-pointer block">
-                                <input type="checkbox" name="interest_category" value="food" class="peer sr-only">
-                                <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 peer-focus-visible:ring-2 peer-focus-visible:ring-purple-500
-                                            border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30
-                                            peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
-                                    <span class="text-xl flex-shrink-0">🍷</span>
-                                    <span class="whitespace-nowrap text-xs">{% trans "Food" %}</span>
-                                </div>
-                            </label>
-                            <label class="cursor-pointer block">
-                                <input type="checkbox" name="interest_category" value="outdoors" class="peer sr-only">
-                                <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 peer-focus-visible:ring-2 peer-focus-visible:ring-purple-500
-                                            border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30
-                                            peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
-                                    <span class="text-xl flex-shrink-0">🏔️</span>
-                                    <span class="whitespace-nowrap text-xs">{% trans "Outdoors" %}</span>
-                                </div>
-                            </label>
-                            <label class="cursor-pointer block">
-                                <input type="checkbox" name="interest_category" value="business" class="peer sr-only">
-                                <div class="w-full h-full min-h-[3.5rem] flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-medium border-2 transition-all duration-200 peer-focus-visible:ring-2 peer-focus-visible:ring-purple-500
-                                            border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30
-                                            peer-checked:border-purple-500 peer-checked:bg-purple-100 peer-checked:text-purple-700">
-                                    <span class="text-xl flex-shrink-0">💼</span>
-                                    <span class="whitespace-nowrap text-xs">{% trans "Business" %}</span>
-                                </div>
-                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                    <div class="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="block text-sm font-medium text-gray-700 dark:text-gray-200">{% trans "Ask me about…" %}</span>
+                            <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink"><span x-text="askMeCount">{{ event_identity_ask_me_about|length }}</span>/3</span>
+                        </div>
+                        <p class="text-gray-400 dark:text-gray-500 text-xs mb-3">{% trans "Highlight up to 3 of your interests as conversation starters." %}</p>
+                        <p data-askme-empty class="{% if event_identity_selected_ids %}hidden {% endif %}text-gray-400 dark:text-gray-500 text-sm italic">{% trans "Select some interests above first." %}</p>
+                        <div class="flex flex-wrap gap-2">
+                            {% for interest in event_identity_interests %}
+                            <span data-askme-wrap data-interest-id="{{ interest.pk }}" class="{% if interest.pk not in event_identity_selected_ids %}hidden {% endif %}inline-block">
+                                <label class="cursor-pointer block">
+                                    <input type="checkbox" name="ask_me_about" value="{{ interest.pk }}" class="peer hidden"
+                                           @change="onAskMeChange"
+                                           {% if interest.pk in event_identity_ask_me_about %}checked{% endif %}>
+                                    <span class="connect-selectable connect-chip">{{ interest.label }}</span>
+                                </label>
+                            </span>
+                            {% endfor %}
                         </div>
                     </div>
                 </div>
 
-                <!-- Custom Interests -->
-                <div class="mb-6" x-data="charCounter" data-initial-count="{% if form.interests.value %}{{ form.interests.value|length }}{% elif profile and profile.interests %}{{ profile.interests|length }}{% else %}0{% endif %}" data-max-length="300">
-                    <label for="{{ form.interests.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                        {% include "shared/icons/pencil.html" with class="w-5 h-5" %} {% trans "Or write your own interests" %}
+                {# --- My event vibe --- #}
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+                        {% include "shared/icons/musical-note.html" with class="w-5 h-5" %} {% trans "My event vibe" %}
+                        <span class="text-xs text-gray-400 font-normal ml-1">{% trans "Optional" %}</span>
                     </label>
-                    <textarea name="interests"
-                              id="{{ form.interests.id_for_label }}"
-                              class="w-full px-4 py-3 text-base border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition resize-none"
-                              rows="2"
-                              maxlength="300"
-                              @input="updateCount"
-                              placeholder="{% trans "e.g., hiking, photography, cooking..." %}">{% if form.interests.value %}{{ form.interests.value }}{% elif profile and profile.interests %}{{ profile.interests }}{% endif %}</textarea>
-                    <div class="text-right text-sm text-gray-400 dark:text-gray-500 mt-1">
-                        <span x-text="charCount"></span>/300 {% trans "characters" %}
+                    <div class="flex flex-wrap gap-2">
+                        {% for value, label in event_vibe_choices %}
+                        <label class="cursor-pointer block">
+                            <input type="radio" name="event_vibe" value="{{ value }}" class="peer hidden"
+                                   {% if value == event_identity_vibe %}checked{% endif %}>
+                            <span class="connect-selectable connect-chip">{{ label }}</span>
+                        </label>
+                        {% endfor %}
+                        <label class="cursor-pointer block">
+                            <input type="radio" name="event_vibe" value="" class="peer hidden"
+                                   {% if not event_identity_vibe %}checked{% endif %}>
+                            <span class="connect-selectable connect-chip">{% trans "Skip for now" %}</span>
+                        </label>
                     </div>
                 </div>
 
@@ -1071,13 +1103,15 @@
                             </div>
                         </div>
                     </div>
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 bg-purple-100 dark:bg-purple-900/40 rounded-full flex items-center justify-center">
-                            {% include "shared/icons/chat-bubble-left.html" with class="w-5 h-5 text-purple-600" %}
+                    <div class="flex items-start gap-3">
+                        <div class="w-8 h-8 bg-purple-100 dark:bg-purple-900/40 rounded-full flex items-center justify-center flex-shrink-0">
+                            {% include "shared/icons/sparkles.html" with class="w-5 h-5 text-purple-600" %}
                         </div>
                         <div class="min-w-0 flex-1">
-                            <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Bio" %}</span>
-                            <p class="font-medium dark:text-white" x-ref="reviewBio" data-empty="{% trans 'No bio yet (optional)' %}">{% if profile and profile.bio %}{{ profile.bio|truncatechars:140 }}{% else %}{% trans "No bio yet (optional)" %}{% endif %}</p>
+                            <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Your Event Identity" %}</span>
+                            <div class="flex flex-wrap gap-1.5 mt-1" x-ref="reviewInterests" data-empty="{% trans 'Nothing selected yet (optional)' %}">
+                                <span class="text-gray-400 dark:text-gray-500 italic text-sm">{% trans "Nothing selected yet (optional)" %}</span>
+                            </div>
                         </div>
                     </div>
                     <div class="flex items-center gap-3">

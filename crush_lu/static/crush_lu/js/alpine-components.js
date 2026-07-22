@@ -3977,7 +3977,7 @@ document.addEventListener("alpine:init", function () {
                 var reviewDob = this.$refs.reviewDob;
                 var reviewGender = this.$refs.reviewGender;
                 var reviewLocation = this.$refs.reviewLocation;
-                var reviewBio = this.$refs.reviewBio;
+                var reviewInterests = this.$refs.reviewInterests;
                 var reviewLanguages = this.$refs.reviewLanguages;
                 var reviewPhotos = this.$refs.reviewPhotos;
 
@@ -4005,13 +4005,38 @@ document.addEventListener("alpine:init", function () {
                         this.locationName || emptyLabel(reviewLocation);
                 }
 
-                if (reviewBio) {
-                    var bioEl = document.querySelector('[name="bio"]');
-                    var bio = bioEl ? bioEl.value.trim() : "";
-                    if (bio.length > 140) {
-                        bio = bio.slice(0, 139) + "…";
+                if (reviewInterests) {
+                    // Event Identity summary chips: the event vibe (if any) plus
+                    // the selected interest labels. Replaces the old bio excerpt.
+                    var chips = [];
+                    var vibeEl = document.querySelector('[name="event_vibe"]:checked');
+                    if (vibeEl && vibeEl.value) {
+                        var vibeSpan = vibeEl.nextElementSibling;
+                        if (vibeSpan) chips.push(vibeSpan.textContent.trim());
                     }
-                    reviewBio.textContent = bio || emptyLabel(reviewBio);
+                    document
+                        .querySelectorAll('[name="interests_new"]:checked')
+                        .forEach(function (box) {
+                            var span = box.nextElementSibling;
+                            if (span) chips.push(span.textContent.trim());
+                        });
+
+                    reviewInterests.textContent = "";
+                    if (chips.length === 0) {
+                        var em = document.createElement("span");
+                        em.className =
+                            "text-gray-400 dark:text-gray-500 italic text-sm";
+                        em.textContent = emptyLabel(reviewInterests);
+                        reviewInterests.appendChild(em);
+                    } else {
+                        chips.forEach(function (text) {
+                            var chip = document.createElement("span");
+                            chip.className =
+                                "inline-block px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300";
+                            chip.textContent = text;
+                            reviewInterests.appendChild(chip);
+                        });
+                    }
                 }
 
                 if (reviewLanguages) {
@@ -4176,14 +4201,32 @@ document.addEventListener("alpine:init", function () {
                 };
             },
 
-            // Collect Step 2 form data
+            // Collect Step 2 form data (Event Identity, 2026 redesign).
             collectStep2Data: function () {
-                var bioEl = document.querySelector('[name="bio"]');
-                var interestsEl = document.querySelector('[name="interests"]');
+                var interestsNew = [];
+                document
+                    .querySelectorAll('[name="interests_new"]:checked')
+                    .forEach(function (b) {
+                        interestsNew.push(b.value);
+                    });
+
+                var askMeAbout = [];
+                document
+                    .querySelectorAll('[name="ask_me_about"]:checked')
+                    .forEach(function (b) {
+                        askMeAbout.push(b.value);
+                    });
+
+                var vibeEl = document.querySelector('[name="event_vibe"]:checked');
+                var qualitiesEl = document.querySelector('[name="qualities_ids"]');
+                var defectsEl = document.querySelector('[name="defects_ids"]');
 
                 return {
-                    bio: bioEl ? bioEl.value : "",
-                    interests: interestsEl ? interestsEl.value : "",
+                    interests_new: interestsNew,
+                    ask_me_about: askMeAbout,
+                    event_vibe: vibeEl ? vibeEl.value : "",
+                    qualities_ids: qualitiesEl ? qualitiesEl.value : "",
+                    defects_ids: defectsEl ? defectsEl.value : "",
                 };
             },
 
@@ -13495,6 +13538,107 @@ document.addEventListener("alpine:init", function () {
 
             toggleSecondStory: function () {
                 this._showSecondStory = !this._showSecondStory;
+            },
+        };
+    });
+
+    // Event Identity edit section + wizard step 2 (2026 redesign): keeps the
+    // interest cap (max 8) and the "Ask me about…" cap (max 3) live, and gates
+    // the ask-me-about chips to the currently-selected interests. CSP-friendly:
+    // no expressions in markup, all logic here, queries via $root (the methods
+    // are invoked from child @change handlers where $el is the input itself).
+    Alpine.data("eventIdentity", function () {
+        return {
+            interestMax: 8,
+            askMeMax: 3,
+            interestCount: 0,
+            askMeCount: 0,
+
+            init: function () {
+                this.interestMax = parseInt(
+                    this.$root.getAttribute("data-interest-max") || "8",
+                    10,
+                );
+                this.askMeMax = parseInt(
+                    this.$root.getAttribute("data-askme-max") || "3",
+                    10,
+                );
+                this._syncInterests();
+                this._syncAskMe();
+            },
+
+            onInterestChange: function () {
+                // A deselected interest must not stay an "Ask me about" target.
+                var selected = {};
+                this.$root
+                    .querySelectorAll('input[name="interests_new"]')
+                    .forEach(function (b) {
+                        if (b.checked) selected[b.value] = true;
+                    });
+                this.$root
+                    .querySelectorAll('input[name="ask_me_about"]')
+                    .forEach(function (a) {
+                        if (!selected[a.value]) a.checked = false;
+                    });
+                this._syncInterests();
+                this._syncAskMe();
+            },
+
+            onAskMeChange: function () {
+                this._syncAskMe();
+            },
+
+            _syncInterests: function () {
+                var boxes = this.$root.querySelectorAll(
+                    'input[name="interests_new"]',
+                );
+                var checked = 0;
+                var selected = {};
+                boxes.forEach(function (b) {
+                    if (b.checked) {
+                        checked++;
+                        selected[b.value] = true;
+                    }
+                });
+                this.interestCount = checked;
+                var atCap = checked >= this.interestMax;
+                boxes.forEach(function (b) {
+                    b.disabled = atCap && !b.checked;
+                });
+                // Reveal ask-me-about chips only for the selected interests.
+                this.$root
+                    .querySelectorAll("[data-askme-wrap]")
+                    .forEach(function (wrap) {
+                        var id = wrap.getAttribute("data-interest-id");
+                        if (selected[id]) {
+                            wrap.classList.remove("hidden");
+                        } else {
+                            wrap.classList.add("hidden");
+                        }
+                    });
+                var emptyHint = this.$root.querySelector("[data-askme-empty]");
+                if (emptyHint) {
+                    if (checked > 0) {
+                        emptyHint.classList.add("hidden");
+                    } else {
+                        emptyHint.classList.remove("hidden");
+                    }
+                }
+            },
+
+            _syncAskMe: function () {
+                var boxes = this.$root.querySelectorAll(
+                    'input[name="ask_me_about"]',
+                );
+                var checked = 0;
+                boxes.forEach(function (b) {
+                    if (b.checked) checked++;
+                });
+                this.askMeCount = checked;
+                var atCap = checked >= this.askMeMax;
+                boxes.forEach(function (b) {
+                    b.disabled = atCap && !b.checked;
+                });
             },
         };
     });
