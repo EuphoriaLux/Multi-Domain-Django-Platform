@@ -244,7 +244,7 @@ class CrushConnectMembership(models.Model):
         help_text=_("Languages this member speaks (codes from CONNECT_LANGUAGE_CHOICES)"),
     )
     interests = models.ManyToManyField(
-        "crush_lu.ConnectInterest",
+        "crush_lu.Interest",
         blank=True,
         related_name="interested_members",
         help_text=_("Curated interests & hobbies (cap of 8 enforced in the wizard)"),
@@ -563,7 +563,7 @@ class SparkPrompt(models.Model):
         return self.text
 
 
-class ConnectInterest(models.Model):
+class Interest(models.Model):
     """
     A curated interest/hobby a member can attach to their Crush Connect
     catalogue profile (mirrors ``Trait``/``SparkPrompt``).

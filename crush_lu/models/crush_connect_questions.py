@@ -10,7 +10,7 @@ truth; a match needs both directions to clear the bar (the alignment logic lives
 in ``services.crush_connect``).
 
 Models:
-- ``ConnectQuestion``      — the catalogue (mirrors ``SparkPrompt`` + ``ConnectInterest``).
+- ``ConnectQuestion``      — the catalogue (mirrors ``SparkPrompt`` + ``Interest``).
 - ``ConnectQuestionWeek``  — the immutable per-ISO-week snapshot that drives rotation.
 - ``MemberGateQuestion``   — a member's 3 picks WITH their own truth answer.
 - ``ConnectQuestionAnswer``— a viewer's guess (the gate record + the aggregate stat).

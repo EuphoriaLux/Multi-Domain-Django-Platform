@@ -177,7 +177,7 @@ class CrushLuAdminSite(admin.AdminSite):
             'curiosityspark': {'order': 3, 'icon': '✨', 'group': 'Crush Connect'},
             'connectcoachpick': {'order': 4, 'icon': '🎯', 'group': 'Crush Connect'},
             'crushconnectwaitlist': {'order': 5, 'icon': '📋', 'group': 'Crush Connect'},
-            'connectinterest': {'order': 6, 'icon': '🏷️', 'group': 'Crush Connect'},
+            'interest': {'order': 6, 'icon': '🏷️', 'group': 'Crush Connect'},
             'sparkprompt': {'order': 7, 'icon': '💬', 'group': 'Crush Connect'},
             'connectquestionweek': {'order': 8, 'icon': '📆', 'group': 'Crush Connect'},  # weekly Q&A rotation
             'connectquestion': {'order': 9, 'icon': '❓', 'group': 'Crush Connect'},
