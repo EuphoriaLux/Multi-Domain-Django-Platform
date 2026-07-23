@@ -16,7 +16,10 @@ from crush_lu.notification_service import NotificationService, NotificationType
         # Suffix appears mid-string but the domain does not end with it:
         # must NOT be treated as a Google-managed account (CodeQL #188/#189).
         ("sa@x.iam.gserviceaccount.com.evil.tld", None),
-        ("sa@iam.gserviceaccount.com", ""),  # endswith but empty project id -> None
+        # Domain is exactly the suffix -> endswith True, empty id normalised to None.
+        ("sa@.iam.gserviceaccount.com", ""),
+        # Leading dot missing -> does not end with the suffix -> None (early exit).
+        ("sa@iam.gserviceaccount.com", None),
         # Malformed / non-Google inputs.
         ("sa@example.com", None),
         ("not-an-email", None),
