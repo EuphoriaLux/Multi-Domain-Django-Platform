@@ -100,6 +100,22 @@ _RAW_RULES = [
     (["koche"], ["cooking"]),
     (["handball"], ["ball-racket-sports"]),
     (["eishockey", "eis-hockey"], ["winter-sports"]),
+    # Luxembourgish spellings — the national language, absent from the first
+    # pass (DE/FR/EN only). These recur across the 2026-07-23 re-run's remaining
+    # unmatched set, always as an existing concept: liesen/liersen = lesen,
+    # lafen = laufen, spazéieren = spazieren, Déieren = Tiere, bastelen = basteln.
+    (["liesen", "liersen"], ["reading"]),
+    (["lafen"], ["running"]),
+    (["spazéieren", "spazeieren"], ["hiking"]),
+    (["déieren"], ["animals-pets"]),
+    (["bastelen"], ["diy-crafts"]),
+    # FR/PT/EN renderings of existing concepts, each from the same unmatched set.
+    (["piscine", "piscina", "natation"], ["swimming"]),
+    (["caminhada"], ["hiking"]),
+    (["literature", "littérature"], ["reading"]),
+    (["cake", "gâteau", "kuchen"], ["baking"]),
+    (["photoshoot"], ["photography"]),
+    (["cardio", "hiit"], ["fitness"]),
     # --- verbatim create-profile wizard category labels (spec §2) ---
     (["sports & fitness", "sport & fitness"], ["fitness"]),
     (["outdoors & travel"], ["hiking", "city-trips"]),

@@ -140,6 +140,37 @@ def test_regional_surface_forms_from_the_prod_corpus():
 
 
 @pytest.mark.django_db
+def test_luxembourgish_surface_forms():
+    """Luxembourgish spellings of existing concepts — the national language was
+    absent from the first pass. Real values from the 2026-07-23 prod re-run."""
+    cases = {
+        "Lafen, liesen, spazeieren": {"running", "reading", "hiking"},
+        "Natur, liesen, Déieren.": {"reading", "animals-pets"},
+        "Vespa fueren an drun bastelen": {"diy-crafts"},
+        "Piscine - Golf": {"swimming"},
+        "Cakes": {"baking"},
+    }
+    profiles = {
+        text: _make_profile(f"lu{i}@example.com", interests=text)
+        for i, text in enumerate(cases)
+    }
+    _run("--execute")
+    for text, expected in cases.items():
+        got = set(profiles[text].interests_new.values_list("slug", flat=True))
+        assert got == expected, f"{text!r} → {got}"
+
+
+@pytest.mark.django_db
+def test_added_surfaces_do_not_false_match_lookalikes():
+    """The new one-word surfaces must stay bounded — no substring bleed into
+    unrelated words."""
+    for text in ("cheesecake", "stranded", "cardiologist", "literate"):
+        p = _make_profile(f"lookalike-{text}@example.com", interests=text)
+        _run("--execute")
+        assert set(p.interests_new.values_list("slug", flat=True)) == set(), text
+
+
+@pytest.mark.django_db
 def test_unmatched_profile_gets_nothing():
     p = _make_profile("nomatch@example.com", interests="oil rig engineer")
     _run("--execute")
