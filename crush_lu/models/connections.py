@@ -337,10 +337,7 @@ class EventConnection(models.Model):
         Deactivated event coaches are never selected. Returns ``None`` when
         the event has no active coach so routing falls through to the pool.
         """
-        coaches = event.coaches.filter(is_active=True)
-        if not coaches.exists():
-            return None
-        return coaches.annotate(
+        return event.coaches.filter(is_active=True).annotate(
             open_leads=models.Count(
                 'eventconnection',
                 filter=models.Q(
@@ -349,7 +346,7 @@ class EventConnection(models.Model):
                     eventconnection__coach_call_completed_at__isnull=True,
                 ),
             )
-        ).order_by('open_leads', 'id').first()
+        ).order_by('open_leads', 'id').first()  # None when no active coach
 
     def assign_coach(self):
         """
@@ -364,8 +361,6 @@ class EventConnection(models.Model):
         2. an active coach from ``event.coaches`` (selection policy:
            least-loaded by open crush leads, else first by id);
         3. the active coach pool (first by id).
-
-        Optimized to fetch all related data in a single query using select_related.
         """
         requester_profile = CrushProfile.objects.select_related('user').get(user=self.requester)
 
