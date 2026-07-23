@@ -95,10 +95,14 @@ _RAW_RULES = [
     (["business & tech", "business and tech"], ["tech"]),
 ]
 
-# Pre-fold surface forms and compile a bounded matcher for each.
+# Pre-fold surface forms and compile a bounded matcher for each. The boundaries
+# are Unicode-aware (``\w``, not ``[a-z0-9]``): folding strips combining accents
+# but leaves standalone letters like ``ß`` intact, so an ASCII class would treat
+# them as separators — "Spaß" would match the "spa" surface form and wrongly
+# pick up spa-wellness on a German profile.
 _RULES = [
     (
-        [re.compile(r"(?<![a-z0-9])" + re.escape(_fold(s)) + r"(?![a-z0-9])") for s in surfaces],
+        [re.compile(r"(?<!\w)" + re.escape(_fold(s)) + r"(?!\w)") for s in surfaces],
         slugs,
     )
     for surfaces, slugs in _RAW_RULES

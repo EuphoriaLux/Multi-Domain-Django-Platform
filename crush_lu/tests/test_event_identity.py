@@ -82,6 +82,22 @@ def test_matches_are_ordered_by_position_within_a_token():
 
 
 @pytest.mark.django_db
+def test_standalone_non_ascii_letters_do_not_break_the_token_boundary():
+    """Folding strips combining accents but leaves ``ß`` standing, so an ASCII
+    boundary class would treat it as a separator: "Spaß" (German for fun) would
+    match the "spa" surface form and pick up spa-wellness."""
+    p = _make_profile("boundary@example.com", interests="Spaß")
+    _run("--execute")
+    assert set(p.interests_new.values_list("slug", flat=True)) == set()
+
+    # …while a ß inside a surface form of its own still matches, and so does
+    # the real "spa" surface.
+    q = _make_profile("boundary2@example.com", interests="Fußball, Spa & wellness")
+    _run("--execute")
+    assert set(q.interests_new.values_list("slug", flat=True)) == {"football", "spa"}
+
+
+@pytest.mark.django_db
 def test_unmatched_profile_gets_nothing():
     p = _make_profile("nomatch@example.com", interests="oil rig engineer")
     _run("--execute")
@@ -237,6 +253,24 @@ def test_form_rejects_more_than_3_ask_me_about():
     )
     form = CrushProfileEventIdentityForm(
         data={"interests_new": ids, "ask_me_about": ids, "event_vibe": ""}, instance=p
+    )
+    assert not form.is_valid()
+    assert "ask_me_about" in form.errors
+
+
+@pytest.mark.django_db
+def test_form_rejects_duplicate_ask_me_about():
+    """A repeated id passes both the count and subset checks, so it needs its
+    own guard — otherwise the same starter chip renders twice at an event."""
+    p = _make_profile("form6@example.com")
+    yoga = Interest.objects.get(slug="yoga")
+    form = CrushProfileEventIdentityForm(
+        data={
+            "interests_new": [yoga.pk],
+            "ask_me_about": [yoga.pk, yoga.pk],
+            "event_vibe": "",
+        },
+        instance=p,
     )
     assert not form.is_valid()
     assert "ask_me_about" in form.errors
