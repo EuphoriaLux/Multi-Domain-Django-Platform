@@ -28,7 +28,7 @@ from django.template.loader import render_to_string
 from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
 
-from crush_lu.models import CrushProfile, Interest
+from crush_lu.models import CrushProfile, Interest, Trait
 
 User = get_user_model()
 
@@ -263,6 +263,42 @@ class LegacyBioInterestsPartialTests(TestCase):
         html = render_to_string(self.PARTIAL, {"profile": profile})
         self.assertNotIn("Legacy bio", html)
         self.assertEqual(html.strip(), "")
+
+
+class EventIdentityPresentationPartialTests(TestCase):
+    """The presentation-slide block (spec §5.3 / §7 "same chip rendering"):
+    event vibe + the explicitly-chosen "Ask me about" starters + top qualities —
+    NOT the full interest list (Codex P2: don't bypass the member's selection)."""
+
+    PARTIAL = "crush_lu/partials/_event_identity_presentation.html"
+
+    def setUp(self):
+        self.starter = _make_interest("live-music", "Live music", "music", 1)
+        self.other = _make_interest("hiking", "Hiking", sort_order=2)
+        self.profile = _make_profile(event_vibe="dance_floor")
+        self.profile.interests_new.set([self.starter, self.other])
+        self.profile.ask_me_about = [self.starter.pk]
+        self.profile.save()
+        self.quality = Trait.objects.create(
+            slug="eidsurf-warm", label="Warm", trait_type="quality"
+        )
+        self.profile.qualities.set([self.quality])
+
+    def test_shows_vibe_starters_and_qualities_but_not_other_interests(self):
+        html = render_to_string(self.PARTIAL, {"profile": self.profile})
+        self.assertIn(str(self.profile.get_event_vibe_display()), html)  # vibe
+        self.assertIn("Live music", html)  # ask-me-about starter
+        self.assertIn("Warm", html)  # top quality
+        self.assertNotIn("Hiking", html)  # non-starter interest must NOT leak
+
+    def test_renders_nothing_when_no_presentation_content(self):
+        """Plain interests alone (no vibe / starters / qualities) render nothing —
+        the presentation surfaces never expose the full interest list."""
+        blank = _make_profile("blankpres@example.com")
+        blank.interests_new.set([self.other])
+        html = render_to_string(self.PARTIAL, {"profile": blank})
+        self.assertEqual(html.strip(), "")
+        self.assertNotIn("Hiking", html)
 
 
 class CheckinToastJsonTests(TestCase):

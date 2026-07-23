@@ -83,40 +83,9 @@
                     </div>
 
                     <!-- Event Identity (structured; replaces the free-text bio on the live slide, spec §5.3) -->
-                    {% with top_qualities=profile.qualities.all starters=profile.ask_me_about_interests %}
-                    {% if profile.event_vibe or starters or top_qualities %}
-                    <div class="max-w-lg mx-auto mb-4 flex flex-col items-center gap-3">
-                        {% if profile.event_vibe %}
-                        <span class="inline-flex items-center gap-1.5 px-4 py-2 text-base font-semibold bg-crush-pink/10 dark:bg-pink-900/30 text-crush-pink dark:text-pink-300 rounded-full">
-                            {% include "shared/icons/musical-note.html" with class="w-5 h-5" %}
-                            {{ profile.get_event_vibe_display }}
-                        </span>
-                        {% endif %}
-
-                        {% if starters %}
-                        <div class="text-center">
-                            <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">{% trans "Ask me about" %}</p>
-                            <div class="flex flex-wrap justify-center gap-2">
-                                {% for interest in starters %}
-                                <span class="inline-flex items-center gap-1 px-3.5 py-1.5 text-sm font-semibold bg-crush-purple/15 dark:bg-purple-900/40 text-crush-purple dark:text-purple-200 rounded-full ring-1 ring-crush-purple/30 dark:ring-purple-500/40">
-                                    {% include "shared/icons/star.html" with class="w-3.5 h-3.5" %}
-                                    {{ interest.label }}
-                                </span>
-                                {% endfor %}
-                            </div>
-                        </div>
-                        {% endif %}
-
-                        {% if top_qualities %}
-                        <div class="flex flex-wrap justify-center gap-2">
-                            {% for trait in top_qualities|slice:":5" %}
-                            <span class="inline-flex items-center px-3 py-1 text-sm bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full">{{ trait.label }}</span>
-                            {% endfor %}
-                        </div>
-                        {% endif %}
+                    <div class="mb-4">
+                        {% include "crush_lu/partials/_event_identity_presentation.html" with profile=profile %}
                     </div>
-                    {% endif %}
-                    {% endwith %}
 
                     <p class="text-gray-500 dark:text-gray-400">{% blocktrans with order=current_presentation.presentation_order total=total_presentations %}Presentation #{{ order }} of {{ total }}{% endblocktrans %}</p>
 

@@ -13,7 +13,6 @@ Include params (all optional except `profile`):
   hide_vibe   truthy to omit the event-vibe badge (compact cards pass this)
   hide_star   truthy to drop the ask-me-about star marker
   heading     small uppercase heading rendered above the chips
-  center      truthy to center the block (presentation screens pass this)
   empty_text  rendered when the profile has no Event Identity yet
               (nothing renders when omitted)
 
@@ -26,9 +25,9 @@ looks the same on every page that includes it, regardless of that page's CSS.
    whose only "identity" is a stale ask_me_about id, must fall through to
    empty_text rather than emit an empty heading/container. #}
 {% if interests or not hide_vibe and profile.event_vibe %}
-<div class="event-identity flex flex-col gap-2{% if center %} items-center{% endif %}">
+<div class="event-identity flex flex-col gap-2">
     {% if heading %}
-    <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500{% if center %} text-center{% endif %}">{{ heading }}</p>
+    <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{{ heading }}</p>
     {% endif %}
 
     {% if not hide_vibe and profile.event_vibe %}
@@ -41,7 +40,7 @@ looks the same on every page that includes it, regardless of that page's CSS.
     {% endif %}
 
     {% if interests %}
-    <div class="flex flex-wrap gap-1.5{% if center %} justify-center{% endif %}">
+    <div class="flex flex-wrap gap-1.5">
         {% if limit %}
         {% for interest in profile.event_interest_chips|slice:limit %}{% include "crush_lu/partials/_event_identity_chip.html" with interest=interest profile=profile hide_star=hide_star %}{% endfor %}
         {% else %}
