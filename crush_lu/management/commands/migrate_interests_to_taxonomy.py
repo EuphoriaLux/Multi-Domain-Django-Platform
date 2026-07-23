@@ -95,10 +95,14 @@ _RAW_RULES = [
     (["business & tech", "business and tech"], ["tech"]),
 ]
 
-# Pre-fold surface forms and compile a bounded matcher for each.
+# Pre-fold surface forms and compile a bounded matcher for each. The boundaries
+# are Unicode-aware (``\w``, not ``[a-z0-9]``): folding strips combining accents
+# but leaves standalone letters like ``ß`` intact, so an ASCII class would treat
+# them as separators — "Spaß" would match the "spa" surface form and wrongly
+# pick up spa-wellness on a German profile.
 _RULES = [
     (
-        [re.compile(r"(?<![a-z0-9])" + re.escape(_fold(s)) + r"(?![a-z0-9])") for s in surfaces],
+        [re.compile(r"(?<!\w)" + re.escape(_fold(s)) + r"(?!\w)") for s in surfaces],
         slugs,
     )
     for surfaces, slugs in _RAW_RULES
@@ -108,21 +112,32 @@ _SPLIT_RE = re.compile(r"[,;/\n|]+")
 
 
 def match_slugs(interests_text, sort_key):
-    """Return taxonomy slugs matched in ``interests_text``, in first-appearance
-    order. ``sort_key`` maps a slug to its ``(category, sort_order)`` so slugs
-    surfaced by the same token get a deterministic order (spec §8.2 tie-break)."""
+    """Return taxonomy slugs matched in ``interests_text`` in the order they
+    appear in the text. Tokens are consumed left-to-right, and within a token
+    matches are ordered by their character position — so ``"yoga and hiking"``
+    (no split delimiter) yields ``yoga`` before ``hiking`` rather than rule
+    order. Slugs surfaced at the same position (a multi-slug rule) fall back to
+    the taxonomy's ``(category, sort_order)`` tie-break (spec §8.2). This keeps
+    the >8 cap honest: it retains the interests that appear earliest."""
     ordered = []
     seen = set()
     for raw_token in _SPLIT_RE.split(interests_text or ""):
         folded = _fold(raw_token)
         if not folded:
             continue
+        # (position, tie-break, slug) for every rule that matches this token.
+        hits = []
         for matchers, slugs in _RULES:
-            if any(m.search(folded) for m in matchers):
-                for slug in sorted(slugs, key=lambda s: sort_key.get(s, (99, 9999))):
-                    if slug not in seen:
-                        seen.add(slug)
-                        ordered.append(slug)
+            matches = [m.search(folded) for m in matchers]
+            positions = [mo.start() for mo in matches if mo]
+            if positions:
+                pos = min(positions)
+                for slug in slugs:
+                    hits.append((pos, sort_key.get(slug, (99, 9999)), slug))
+        for _pos, _tiebreak, slug in sorted(hits):
+            if slug not in seen:
+                seen.add(slug)
+                ordered.append(slug)
     return ordered
 
 
@@ -185,14 +200,32 @@ class Command(BaseCommand):
 
             if execute:
                 with transaction.atomic():
-                    profile.interests_new.set(capped)
+                    # Non-destructive: only add inferred interests the profile
+                    # doesn't already have, up to the cap. This never removes a
+                    # selection a member made through the Event Identity UI, so
+                    # --repopulate (rerun after refining the keyword map) is safe.
+                    # Reuse the prefetched cache; clamp room at 0 so an already-
+                    # over-cap profile (reachable via the admin's unvalidated
+                    # filter_horizontal widget) gets nothing added, not a
+                    # negative-index slice.
+                    existing_ids = {i.pk for i in profile.interests_new.all()}
+                    room = max(0, MAX_INTERESTS - len(existing_ids))
+                    to_add = [i for i in capped if i.pk not in existing_ids][:room]
+                    if to_add:
+                        profile.interests_new.add(*to_add)
 
-        rate = (matched / total * 100) if total else 0.0
+        # Acceptance metric (spec §14): the share of legacy-interest profiles
+        # that end up with ≥1 taxonomy interest. Already-populated ("skipped")
+        # profiles succeeded on a prior run, so they count toward the rate —
+        # otherwise a dry-run after --execute would report a misleading 0%.
+        with_interest = matched + skipped
+        rate = (with_interest / total * 100) if total else 0.0
         mode = "EXECUTE" if execute else "DRY-RUN"
         self.stdout.write("")
         self.stdout.write(f"[{mode}] profiles with legacy interests : {total}")
-        self.stdout.write(f"          matched (≥1 taxonomy interest) : {matched}  ({rate:.1f}%)")
-        self.stdout.write(f"          unmatched                      : {unmatched}")
+        self.stdout.write(f"          with ≥1 taxonomy interest      : {with_interest}  ({rate:.1f}%)")
+        self.stdout.write(f"          newly matched this run         : {matched}")
+        self.stdout.write(f"          unmatched (no rule hit)        : {unmatched}")
         self.stdout.write(f"          skipped (already populated)    : {skipped}")
         self.stdout.write(f"          profiles with overflow (>8)    : {overflow_profiles}")
         self.stdout.write(f"          taxonomy interests assigned    : {assigned_total}")

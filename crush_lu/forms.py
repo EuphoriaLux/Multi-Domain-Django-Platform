@@ -1662,6 +1662,10 @@ class CrushProfileEventIdentityForm(forms.ModelForm):
             ids = [int(x) for x in raw]
         except (TypeError, ValueError):
             raise forms.ValidationError(_("Invalid conversation-starter selection."))
+        if len(set(ids)) != len(ids):
+            # The chip UI cannot produce a repeat, but a malformed payload can —
+            # and a duplicate id renders the same starter chip twice at events.
+            raise forms.ValidationError(_("Pick each conversation starter once."))
         if len(ids) > self.MAX_ASK_ME_ABOUT:
             raise forms.ValidationError(
                 _("Pick at most %(max)d conversation starters.")

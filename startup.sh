@@ -119,7 +119,13 @@ echo "✅ Migrations complete. Starting Gunicorn..."
 # Application Insights also captures requests via OpenTelemetry for full telemetry
 # Using AsyncioUvicornWorker to force asyncio event loop — uvloop's
 # run_in_executor breaks asgiref's CurrentThreadExecutor (django/channels#1959)
+# --max-requests recycles each worker after ~1000 requests (+0..100 jitter so
+# the 4 workers don't restart in lockstep). This bounds the blast radius of a
+# worker whose asgiref sync-executor gets wedged mid-uptime: instead of serving
+# 500s until a manual restart, it is retired and replaced automatically. The
+# UvicornWorker honors these via uvicorn's limit_max_requests.
 gunicorn --workers 4 --timeout 120 \
+    --max-requests 1000 --max-requests-jitter 100 \
     -k azureproject.worker.AsyncioUvicornWorker \
     --access-logfile '-' --access-logformat '%(h)s %(m)s %(U)s %(s)s %(D)sms' \
     --error-logfile '-' --bind=0.0.0.0:8000 \

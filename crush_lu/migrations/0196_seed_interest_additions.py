@@ -7,7 +7,9 @@ coverage to ~77% — the realistic ceiling — capturing the largest measured ga
 
 All rows fit the existing 8 ``Interest.Category`` choices. ``sort_order`` starts
 at 100 so the additions append after the original per-category rows (which use
-0..n) without renumbering them. Idempotent via ``update_or_create(slug=...)``.
+0..n) without renumbering them. Idempotent via ``get_or_create(slug=...)`` — a
+row that already exists (e.g. one an admin created, possibly retired) is left
+untouched: its category/labels/sort_order/is_active are never overwritten.
 """
 
 from django.db import migrations
@@ -35,7 +37,7 @@ SORT_ORDER_BASE = 100
 def seed_additions(apps, schema_editor):
     Interest = apps.get_model("crush_lu", "Interest")
     for offset, (slug, category, en, de, fr) in enumerate(ADDITIONS):
-        Interest.objects.update_or_create(
+        Interest.objects.get_or_create(
             slug=slug,
             defaults={
                 "category": category,
@@ -49,9 +51,11 @@ def seed_additions(apps, schema_editor):
         )
 
 
-def unseed_additions(apps, schema_editor):
-    Interest = apps.get_model("crush_lu", "Interest")
-    Interest.objects.filter(slug__in=[row[0] for row in ADDITIONS]).delete()
+# Reverse is intentionally a no-op: `get_or_create` doesn't record which rows it
+# created, so a blanket delete-by-slug on reverse would also remove a row an
+# admin created independently, or one members have since selected — cascading
+# away their `interests_new` M2M links. Leaving the seeded rows in place on
+# reverse is safe (they're inert curated data); prune them by hand if ever needed.
 
 
 class Migration(migrations.Migration):
@@ -60,5 +64,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(seed_additions, unseed_additions),
+        migrations.RunPython(seed_additions, migrations.RunPython.noop),
     ]
