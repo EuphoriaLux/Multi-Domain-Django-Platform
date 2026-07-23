@@ -358,11 +358,16 @@ class EventConnection(models.Model):
 
         1. the requester's assigned coach (approved ``ProfileSubmission``),
            if still active;
-        2. an active coach from ``event.coaches`` (selection policy:
+        2. the requester's permanent coach (``CrushProfile.assigned_coach``,
+           set at first event attendance or premium confirmation), if still
+           active — covers members with no approved submission;
+        3. an active coach from ``event.coaches`` (selection policy:
            least-loaded by open crush leads, else first by id);
-        3. the active coach pool (first by id).
+        4. the active coach pool (first by id).
         """
-        requester_profile = CrushProfile.objects.select_related('user').get(user=self.requester)
+        requester_profile = CrushProfile.objects.select_related(
+            'user', 'assigned_coach'
+        ).get(user=self.requester)
 
         # Get the approved submission for the requester with coach pre-fetched
         requester_submission = ProfileSubmission.objects.select_related('coach').filter(
@@ -377,6 +382,11 @@ class EventConnection(models.Model):
             and requester_submission.coach.is_active
         ):
             coach = requester_submission.coach
+
+        if coach is None:
+            permanent_coach = requester_profile.assigned_coach
+            if permanent_coach and permanent_coach.is_active:
+                coach = permanent_coach
 
         if coach is None:
             coach = self.select_event_coach(self.event)

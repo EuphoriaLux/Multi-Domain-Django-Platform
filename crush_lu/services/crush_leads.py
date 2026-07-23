@@ -39,9 +39,14 @@ def reminder_due(connection, now=None):
     True when an open crush lead is older than the 24h reminder offset and
     no reminder has been recorded yet (idempotency via ``reminder_sent_at``).
 
-    A completed call or a non-actionable status (decline/block) is never due.
+    A scheduled or completed call counts as touched, so it is never due;
+    a non-actionable status (decline/block) is never due either.
     """
-    if connection.coach_call_completed_at or connection.reminder_sent_at:
+    if (
+        connection.coach_call_completed_at
+        or connection.coach_call_scheduled_at
+        or connection.reminder_sent_at
+    ):
         return False
     if connection.flow != EventConnection.FLOW_CRUSH:
         return False

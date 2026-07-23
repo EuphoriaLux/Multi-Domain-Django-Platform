@@ -164,6 +164,16 @@ class CallBySlaTests(CrushLeadBaseTestCase):
         connection.status = 'declined'
         self.assertFalse(reminder_due(connection))
 
+    def test_reminder_not_due_when_call_scheduled(self):
+        """A scheduled call counts as touched — no 24h untouched reminder."""
+        connection = self.make_connection(flow=EventConnection.FLOW_CRUSH)
+        old = timezone.now() - timedelta(hours=25)
+        EventConnection.objects.filter(pk=connection.pk).update(requested_at=old)
+        connection.refresh_from_db()
+
+        connection.coach_call_scheduled_at = timezone.now() + timedelta(hours=12)
+        self.assertFalse(reminder_due(connection))
+
 
 class RoutingTierTests(CrushLeadBaseTestCase):
     """
@@ -195,6 +205,30 @@ class RoutingTierTests(CrushLeadBaseTestCase):
 
     def test_tier1_deactivated_assigned_coach_falls_through(self):
         self.approve_with_coach(self.assigned_coach)
+        self.assigned_coach.is_active = False
+        self.assigned_coach.save()
+        self.event.coaches.add(self.event_coach_1)
+
+        connection = self.make_connection()
+        connection.assign_coach()
+
+        self.assertEqual(connection.assigned_coach, self.event_coach_1)
+
+    def test_permanent_profile_coach_when_no_approved_submission(self):
+        """CrushProfile.assigned_coach (set at first event/premium) routes the
+        lead when there is no approved ProfileSubmission (Codex P1)."""
+        self.requester_profile.assigned_coach = self.assigned_coach
+        self.requester_profile.save()
+        self.event.coaches.add(self.event_coach_1)
+
+        connection = self.make_connection()
+        connection.assign_coach()
+
+        self.assertEqual(connection.assigned_coach, self.assigned_coach)
+
+    def test_deactivated_permanent_profile_coach_falls_through(self):
+        self.requester_profile.assigned_coach = self.assigned_coach
+        self.requester_profile.save()
         self.assigned_coach.is_active = False
         self.assigned_coach.save()
         self.event.coaches.add(self.event_coach_1)
