@@ -271,11 +271,10 @@
                             {% include "shared/icons/map-pin.html" with class="w-4 h-4" %}
                             {% if own_profile.city %}{{ own_profile.city }}{% else %}Luxembourg{% endif %}
                         </p>
-                        {% if own_profile.interests %}
-                            <p class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                                {% include "shared/icons/star.html" with class="w-4 h-4 text-yellow-500" %}
-                                {{ own_profile.interests|truncatewords:8 }}
-                            </p>
+                        {% if own_profile.interests_new.all %}
+                            <div class="mt-1">
+                                {% include "crush_lu/partials/_event_identity.html" with profile=own_profile limit=":3" hide_vibe=True %}
+                            </div>
                         {% endif %}
                     </div>
                 </div>
@@ -363,11 +362,10 @@
                                         {% if attendee.profile.city %}{{ attendee.profile.city }}{% else %}Luxembourg{% endif %}
                                     </p>
 
-                                    {% if attendee.profile.interests %}
-                                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-1">
-                                            {% include "shared/icons/star.html" with class="w-4 h-4 text-yellow-500" %}
-                                            {{ attendee.profile.interests|truncatewords:8 }}
-                                        </p>
+                                    {% if attendee.profile.interests_new.all %}
+                                        <div class="mb-3">
+                                            {% include "crush_lu/partials/_event_identity.html" with profile=attendee.profile limit=":3" hide_vibe=True %}
+                                        </div>
                                     {% endif %}
                                 {% endif %}
 

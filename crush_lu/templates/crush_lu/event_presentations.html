@@ -211,6 +211,14 @@
                             {{ current_presentation.user.crushprofile.display_name }}
                         </div>
 
+                        {% comment %}
+                        Event Identity (structured; replaces the free-text bio, spec §7) — same
+                        vibe + "Ask me about" starters + top qualities as the coach slide.
+                        {% endcomment %}
+                        <div class="my-3">
+                            {% include "crush_lu/partials/_event_identity_presentation.html" with profile=current_presentation.user.crushprofile %}
+                        </div>
+
                         <!-- 90 Second Timer -->
                         <div class="presentation-timer" id="timer">
                             90

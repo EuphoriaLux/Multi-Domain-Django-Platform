@@ -82,12 +82,10 @@
                         </div>
                     </div>
 
-                    <!-- Bio -->
-                    {% if profile.bio %}
-                    <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 mb-4 text-sm text-gray-700 dark:text-gray-300 max-w-lg mx-auto">
-                        <p class="mb-0 italic">"{{ profile.bio|truncatewords:50 }}"</p>
+                    <!-- Event Identity (structured; replaces the free-text bio on the live slide, spec §5.3) -->
+                    <div class="mb-4">
+                        {% include "crush_lu/partials/_event_identity_presentation.html" with profile=profile %}
                     </div>
-                    {% endif %}
 
                     <p class="text-gray-500 dark:text-gray-400">{% blocktrans with order=current_presentation.presentation_order total=total_presentations %}Presentation #{{ order }} of {{ total }}{% endblocktrans %}</p>
 

@@ -4329,7 +4329,7 @@ def coach_verification_channel(request):
 
     qs = ProfileSubmission.objects.filter(
         status="pending", coach__isnull=True
-    ).select_related("profile__user")
+    ).select_related("profile__user").prefetch_related("profile__interests_new")
 
     if filter_region:
         qs = qs.filter(profile__location__icontains=filter_region)

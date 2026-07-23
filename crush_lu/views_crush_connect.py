@@ -863,7 +863,13 @@ def crush_connect_home(request):
             # snapshotted must hide the card (mirrors get_eligible_pool).
             .exclude(Q(crushprofile__photo_1="") | Q(crushprofile__photo_1__isnull=True))
             .select_related("crushprofile", "crush_connect_membership")
-            .prefetch_related("crush_connect_membership__gate_questions__question")
+            .prefetch_related(
+                "crush_connect_membership__gate_questions__question",
+                # Drop-card fallback renders the event-profile Event Identity
+                # taxonomy when a member has no Connect interests — prefetch it so
+                # a multi-recipient Drop stays N+1-free (spec §7).
+                "crushprofile__interests_new",
+            )
             .all()
         )
 
@@ -1296,9 +1302,11 @@ def coach_connect_member(request, user_id: int):
         return redirect("crush_lu:coach_connect_member", user_id=member.pk)
 
     pool = list(
-        get_eligible_pool(member).select_related(
-            "crushprofile", "crush_connect_membership"
-        )[:60]
+        get_eligible_pool(member)
+        .select_related("crushprofile", "crush_connect_membership")
+        # Event Identity chips render per candidate card — prefetch the taxonomy
+        # M2M to keep the pool render N+1-free (spec §7).
+        .prefetch_related("crushprofile__interests_new")[:60]
     )
     already_picked_ids = set(
         ConnectCoachPick.objects.filter(member=member).values_list(

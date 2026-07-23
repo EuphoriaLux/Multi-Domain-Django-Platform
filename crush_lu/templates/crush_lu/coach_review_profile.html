@@ -158,23 +158,19 @@
                     </div>
                 </div>
 
-                {# Column 2: Bio, Interests & Traits #}
+                {# Column 2: Event Identity & Traits #}
                 <div class="space-y-2">
                     <p class="font-semibold text-purple-700 dark:text-purple-300 uppercase text-xs tracking-wide mb-2">{% trans "About" %}</p>
 
-                    {% if profile.bio %}
+                    {% if profile.has_event_identity %}
                         <div>
-                            <p class="font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Bio" %}</p>
-                            <p class="text-gray-600 dark:text-gray-300 text-xs leading-relaxed">{{ profile.bio }}</p>
+                            <p class="font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Event Identity" %}</p>
+                            {% include "crush_lu/partials/_event_identity.html" with profile=profile %}
                         </div>
                     {% endif %}
 
-                    {% if profile.interests %}
-                        <div class="mt-2">
-                            <p class="font-medium text-gray-700 dark:text-gray-200 mb-1">{% trans "Interests" %}</p>
-                            <p class="text-gray-600 dark:text-gray-300 text-xs">{{ profile.interests }}</p>
-                        </div>
-                    {% endif %}
+                    {# Legacy bio & interests (coach-only, collapsed; retained during transition) #}
+                    {% include "crush_lu/partials/_legacy_bio_interests.html" with profile=profile %}
 
                     {# Qualities (green pills) #}
                     {% if profile.qualities.all %}

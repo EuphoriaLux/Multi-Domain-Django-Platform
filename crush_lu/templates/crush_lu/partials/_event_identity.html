@@ -1,0 +1,57 @@
+{% load i18n %}
+{% comment %}
+Read-only "Event Identity" display (2026 redesign — spec §7).
+
+Structured replacement for the free-text bio/interests snippet that used to
+render on member-, attendee- and coach-facing surfaces: an event-vibe badge
+plus interest chips, with the member's "Ask me about…" conversation-starters
+sorted to the front and marked with a star.
+
+Include params (all optional except `profile`):
+  profile     a CrushProfile (required)
+  limit       a slice string like ":3" to cap the interest chips (default: all)
+  hide_vibe   truthy to omit the event-vibe badge (compact cards pass this)
+  hide_star   truthy to drop the ask-me-about star marker
+  heading     small uppercase heading rendered above the chips
+  empty_text  rendered when the profile has no Event Identity yet
+              (nothing renders when omitted)
+
+Chips are plain Tailwind utilities (not the `badge` component) so the block
+looks the same on every page that includes it, regardless of that page's CSS.
+{% endcomment %}
+{% with interests=profile.interests_new.all %}
+{% comment %}
+Self-guarding: render the container only when content will actually show for the
+given params. A vibe-only profile on a hide_vibe surface, or a profile whose only
+"identity" is a stale ask_me_about id, must fall through to empty_text rather than
+emit an empty heading/container.
+{% endcomment %}
+{% if interests or not hide_vibe and profile.event_vibe %}
+<div class="event-identity flex flex-col gap-2">
+    {% if heading %}
+    <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{{ heading }}</p>
+    {% endif %}
+
+    {% if not hide_vibe and profile.event_vibe %}
+    <div>
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-crush-pink/10 dark:bg-pink-900/30 text-crush-pink dark:text-pink-300 rounded-full">
+            {% include "shared/icons/musical-note.html" with class="w-3.5 h-3.5" %}
+            {{ profile.get_event_vibe_display }}
+        </span>
+    </div>
+    {% endif %}
+
+    {% if interests %}
+    <div class="flex flex-wrap gap-1.5">
+        {% if limit %}
+        {% for interest in profile.event_interest_chips|slice:limit %}{% include "crush_lu/partials/_event_identity_chip.html" with interest=interest profile=profile hide_star=hide_star %}{% endfor %}
+        {% else %}
+        {% for interest in profile.event_interest_chips %}{% include "crush_lu/partials/_event_identity_chip.html" with interest=interest profile=profile hide_star=hide_star %}{% endfor %}
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% elif empty_text %}
+<p class="text-sm text-gray-400 dark:text-gray-500 italic">{{ empty_text }}</p>
+{% endif %}
+{% endwith %}

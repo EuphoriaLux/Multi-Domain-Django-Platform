@@ -835,6 +835,69 @@ class CrushProfile(models.Model):
         """Alias for location field"""
         return self.location
 
+    # --- Event Identity display helpers (2026 redesign, spec §7) -----------
+    # Read-only accessors for the structured fields that replace the free-text
+    # bio/interests snippet on member/attendee/coach surfaces. All of these read
+    # ``interests_new`` through the relation manager, so a caller that renders
+    # them in a loop must ``prefetch_related("interests_new")`` (and callers do)
+    # to keep the display N+1-free.
+
+    @property
+    def ask_me_about_interests(self):
+        """The ``Interest`` objects flagged as conversation starters.
+
+        Returned in the member's declared ``ask_me_about`` order and restricted
+        to interests that are *still* selected, so a retired-but-kept or
+        de-selected id can never render a dangling chip (mirrors the form's
+        subset rule). See the Event Identity form's ``clean`` (forms.py).
+        """
+        ids = self.ask_me_about or []
+        if not ids:
+            return []
+        by_pk = {interest.pk: interest for interest in self.interests_new.all()}
+        return [by_pk[i] for i in ids if i in by_pk]
+
+    @property
+    def event_interest_chips(self):
+        """All selected interests, conversation-starters first.
+
+        Ask-me-about interests sort to the front (in declared order) so that a
+        truncated chip row — e.g. the attendee card's ``|slice:":3"`` — always
+        keeps the starters the member chose to highlight.
+        """
+        ask = self.ask_me_about or []
+        order = {pk: idx for idx, pk in enumerate(ask)}
+        ask_set = set(ask)
+        interests = list(self.interests_new.all())
+        highlighted = sorted(
+            (i for i in interests if i.pk in ask_set),
+            key=lambda i: order.get(i.pk, 0),
+        )
+        rest = [i for i in interests if i.pk not in ask_set]
+        return highlighted + rest
+
+    @property
+    def has_event_identity(self):
+        """True when there is *displayable* structured Event Identity content.
+
+        Only the vibe and selected interests count. ``ask_me_about`` is
+        deliberately excluded: it is a subset of ``interests_new`` when valid, so
+        it adds nothing here, and a stale id left after de-selection would
+        otherwise flag identity that resolves to zero chips — rendering an empty
+        heading/container on the surfaces that gate on this (see
+        ``ask_me_about_interests``).
+        """
+        return bool(self.event_vibe or list(self.interests_new.all()))
+
+    def checkin_interest_labels(self, limit=3):
+        """Up to ``limit`` taxonomy labels for the check-in toast (no free text).
+
+        Repurposes the toast's ``interests`` line to structured labels so event
+        staff still see a themed hint without the legacy free-text field ever
+        leaving the server (spec §7 / §13 JSON-producer coverage).
+        """
+        return [interest.label for interest in list(self.interests_new.all())[:limit]]
+
     def get_missing_fields(self):
         """
         Returns a list of missing required fields for profile completion.

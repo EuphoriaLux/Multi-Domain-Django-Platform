@@ -97,9 +97,9 @@
                 </div>
                 {% endif %}
                 {% endwith %}
-                {% if candidate.crushprofile.bio %}
-                <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{{ candidate.crushprofile.bio|truncatechars:140 }}</p>
-                {% endif %}
+                {# Event Identity (structured) + collapsed legacy bio & interests (coach-only) #}
+                {% include "crush_lu/partials/_event_identity.html" with profile=candidate.crushprofile limit=":4" %}
+                {% include "crush_lu/partials/_legacy_bio_interests.html" with profile=candidate.crushprofile %}
                 <div class="mt-auto pt-2">
                     {% if candidate.pk in already_picked_ids %}
                     <p class="text-xs font-medium text-gray-400 mb-0">{% trans "Already proposed to this member" %}</p>

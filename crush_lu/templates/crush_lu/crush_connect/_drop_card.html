@@ -91,7 +91,7 @@ Privacy contract (Crush Connect):
             </div>
         {% endif %}
 
-        {# Tag chips: languages + interests. Prefer the Connect membership data; fall back to the legacy profile fields for migrated members who haven't filled in the new wizard yet. Life/family details never appear on the card. #}
+        {# Tag chips: languages + interests. Prefer the Connect membership data; fall back to the event profile's Event Identity taxonomy for members who haven't filled in the Connect wizard yet. Life/family details never appear on the card. #}
         {% if target_membership.languages or target_membership.interests.all %}
             <div class="flex flex-wrap gap-2 pt-1">
                 {% for lang in target_membership.languages_display %}
@@ -104,7 +104,7 @@ Privacy contract (Crush Connect):
                     <span class="badge badge-primary">{{ interest.label }}</span>
                 {% endfor %}
             </div>
-        {% elif target_profile.event_languages or target_profile.interests %}
+        {% elif target_profile.event_languages or target_profile.interests_new.all %}
             <div class="flex flex-wrap gap-2 pt-1">
                 {% for lang in target_profile.event_languages %}
                     <span class="badge badge-info">
@@ -112,8 +112,8 @@ Privacy contract (Crush Connect):
                         {{ lang|upper }}
                     </span>
                 {% endfor %}
-                {% for interest in target_profile.interests|split_interests|slice:":3" %}
-                    <span class="badge badge-primary">{{ interest }}</span>
+                {% for interest in target_profile.event_interest_chips|slice:":3" %}
+                    <span class="badge badge-primary">{{ interest.label }}</span>
                 {% endfor %}
             </div>
         {% endif %}
