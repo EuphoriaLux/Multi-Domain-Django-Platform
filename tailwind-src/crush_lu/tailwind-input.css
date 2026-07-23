@@ -699,6 +699,9 @@ body.journey-bg {
     /* Using crush-navbar to avoid Bootstrap's .navbar class conflict */
     .crush-navbar {
         @apply from-crush-purple to-crush-pink bg-gradient-to-r shadow-sm;
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-left: env(safe-area-inset-left, 0px);
+        padding-right: env(safe-area-inset-right, 0px);
     }
 
     /* Authenticated users: hide desktop navbar on mobile, show on lg+ */
