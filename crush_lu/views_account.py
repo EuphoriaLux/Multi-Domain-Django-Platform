@@ -1264,10 +1264,10 @@ def export_user_data(request):
             "display_name": profile.display_name,
             "gender": profile.gender,
             "date_of_birth": str(profile.date_of_birth) if profile.date_of_birth else None,
-            "canton": profile.canton,
+            "canton": getattr(profile, "canton", None),
             "bio": profile.bio,
             "interests": profile.interests,
-            "status": profile.status,
+            "status": getattr(profile, "status", None),
             "created_at": profile.created_at.isoformat() if hasattr(profile, "created_at") and profile.created_at else None,
         }
 
@@ -1289,15 +1289,34 @@ def export_user_data(request):
         Q(requester=user) | Q(recipient=user)
     ).select_related("requester", "recipient", "event")
     if connections.exists():
-        data["connections"] = [
-            {
-                "event": conn.event.title if conn.event else None,
-                "connected_with": conn.recipient.email if conn.requester == user else conn.requester.email,
-                "status": conn.status,
-                "created_at": conn.created_at.isoformat() if hasattr(conn, "created_at") and conn.created_at else None,
-            }
-            for conn in connections
-        ]
+        # Privacy ("My Crush!", spec §5): a recipient's export must not name
+        # their secret admirer — incoming pre-`shared` crush rows are
+        # suppressed entirely. The requester's own export keeps their own
+        # outgoing declaration (data portability for what THEY did), but its
+        # status is normalized pre-`shared` so a coach-recorded decline or
+        # in-progress review never leaks through the payload.
+        data["connections"] = []
+        for conn in connections:
+            is_unshared_crush = (
+                conn.flow == EventConnection.FLOW_CRUSH
+                and conn.status != "shared"
+            )
+            if is_unshared_crush and conn.recipient_id == user.id:
+                continue
+            data["connections"].append(
+                {
+                    "event": conn.event.title if conn.event else None,
+                    "connected_with": (
+                        conn.recipient.email
+                        if conn.requester == user
+                        else conn.requester.email
+                    ),
+                    "status": (
+                        "with your coach" if is_unshared_crush else conn.status
+                    ),
+                    "created_at": conn.created_at.isoformat() if hasattr(conn, "created_at") and conn.created_at else None,
+                }
+            )
 
     # Messages
     sent_messages = ConnectionMessage.objects.filter(sender=user)

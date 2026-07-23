@@ -27,7 +27,12 @@
         </h1>
 
         {# Status badge #}
-        {% if connection.status == 'pending' %}
+        {% if crush_lead_neutral %}
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-pink-400/20 text-pink-100 border border-pink-400/30">
+                {% include "shared/icons/heart.html" with class="w-4 h-4" %}
+                {% trans "My Crush! — with your coach" %}
+            </span>
+        {% elif connection.status == 'pending' %}
             <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-yellow-400/20 text-yellow-100 border border-yellow-400/30">
                 {% include "shared/icons/clock.html" with class="w-4 h-4" %}
                 {% trans "Pending" %}
@@ -141,6 +146,39 @@
         {# ===== RIGHT COLUMN ===== #}
         <div class="lg:col-span-2 space-y-6">
 
+            {% if crush_lead_neutral %}
+            {% comment %}===== MY CRUSH! LEAD — neutral state =====
+               Byte-identical whether the lead is pending, mid-coach-workflow,
+               or silently declined: the crusher only ever sees "with your
+               coach" until the introduction completes (`shared`).{% endcomment %}
+            <div class="card-bordered p-6">
+                <h3 class="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                    {% include "shared/icons/heart.html" with class="w-5 h-5 text-pink-500" %}
+                    {% trans "My Crush! declared" %}
+                </h3>
+                <ul class="space-y-3 text-sm text-gray-600 dark:text-gray-300">
+                    <li class="flex items-start gap-2">
+                        {% include "shared/icons/shield-check.html" with class="w-5 h-5 text-pink-500 shrink-0" %}
+                        {% blocktrans with name=other_profile.display_name %}It's completely private — {{ name }} has not been notified and never will be unless your coach makes the introduction.{% endblocktrans %}
+                    </li>
+                    <li class="flex items-start gap-2">
+                        {% include "shared/icons/phone.html" with class="w-5 h-5 text-pink-500 shrink-0" %}
+                        {% trans "Your Crush Coach will call you within 48 hours to hear the story and plan the introduction." %}
+                    </li>
+                    <li class="flex items-start gap-2">
+                        {% include "shared/icons/sparkles.html" with class="w-5 h-5 text-pink-500 shrink-0" %}
+                        {% trans "Want your coach working for you every week? Ask about Crush Connect during your call." %}
+                    </li>
+                </ul>
+                {% if connection.requester_note %}
+                    <hr class="my-4 border-gray-200 dark:border-gray-700">
+                    <p class="text-sm text-gray-500 dark:text-gray-400 flex items-start gap-2">
+                        {% include "shared/icons/chat-bubble-left.html" with class="w-4 h-4 shrink-0 mt-0.5" %}
+                        <span>{% trans "What you told your coach:" %} “{{ connection.requester_note }}”</span>
+                    </p>
+                {% endif %}
+            </div>
+            {% else %}
             {# ===== SECTION C: Connection Timeline ===== #}
             <div class="card-bordered p-6">
                 <h3 class="font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
@@ -278,6 +316,7 @@
                     </div>
                 </div>
             {% endif %}
+            {% endif %}{# end not crush_lead_neutral #}
 
             {# ===== SECTION E: Consent Form ===== #}
             {% if user_needs_consent %}

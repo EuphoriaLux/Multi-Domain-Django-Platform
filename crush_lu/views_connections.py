@@ -8,9 +8,9 @@ from collections import OrderedDict
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
+from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
-from django.db import transaction
 from django.db.models import Q
 from django.views.decorators.http import require_http_methods
 import logging
@@ -30,9 +30,7 @@ from .models import (
 from .decorators import crush_login_required, ratelimit
 from .notification_service import (
     notify_new_message,
-    notify_new_connection,
     notify_connection_accepted,
-    notify_mutual_match,
 )
 
 # Max length for a single connection message. Single source of truth for the
@@ -100,15 +98,20 @@ def event_attendees(request, event_id):
         return redirect("crush_lu:my_connections")
 
     # Get other attendees (status='attended'), hiding anyone in a block pair
-    # with the viewer (symmetric — see services.blocking).
+    # with the viewer (symmetric — see services.blocking) and anyone hidden by
+    # a pending/approved encounter removal (§9.1: removal pairs mirror block
+    # semantics on the crush surfaces — neither flow is offered).
     from .services.blocking import blocked_user_ids
+    from .services.event_lobby import hidden_encounter_user_ids
 
     blocked_ids = blocked_user_ids(request.user)
+    hidden_ids = hidden_encounter_user_ids(request.user)
 
     attendees = (
         EventRegistration.objects.filter(event=event, status="attended")
         .exclude(user=request.user)
         .exclude(user_id__in=blocked_ids)
+        .exclude(user_id__in=hidden_ids)
         .select_related("user__crushprofile")
         # Event Identity chips render per attendee — prefetch the taxonomy M2M
         # so the card row stays N+1-free (spec §7).
@@ -125,11 +128,16 @@ def event_attendees(request, event_id):
             requester=request.user, event=event
         ).exclude(recipient_id__in=blocked_ids)
     }
+    # Received rows: pre-`shared` crush leads are private — the recipient must
+    # see nothing (no Accept/Decline card, no hint, no count) until the
+    # coach-facilitated introduction completes.
     received_connections = {
         c.requester_id: c
         for c in EventConnection.objects.filter(
             recipient=request.user, event=event
-        ).exclude(requester_id__in=blocked_ids)
+        )
+        .excluding_unshared_crushes()
+        .exclude(requester_id__in=blocked_ids)
     }
 
     # Spark feature is soft-removed; pre-fetch left at empty so any straggling
@@ -161,7 +169,15 @@ def event_attendees(request, event_id):
         is_two_sided = sent_conn is not None and recv_conn is not None
 
         if sent_conn is not None:
-            if sent_conn.status in active_statuses:
+            if (
+                sent_conn.flow == EventConnection.FLOW_CRUSH
+                and sent_conn.status != "shared"
+            ):
+                # Own "My Crush!" lead — neutral state regardless of the
+                # actual lead status (declines and coach progress stay
+                # invisible to the crusher; only `shared` is distinguishable).
+                connection_status = "crush_sent"
+            elif sent_conn.status in active_statuses:
                 # Both sides requested independently → distinct mutual_match badge.
                 # One-sided accept (recipient accepted our request) keeps the plain "mutual".
                 connection_status = "mutual_match" if is_two_sided else "mutual"
@@ -187,22 +203,39 @@ def event_attendees(request, event_id):
             }
         )
 
-    # Cross-gender connection limit info
-    user_gender = getattr(getattr(request.user, "crushprofile", None), "gender", "")
-    cross_gender_count = EventConnection.cross_gender_connection_count(
-        request.user, event
-    )
-    if event.max_cross_gender_connections > 0:
-        cross_gender_remaining = event.max_cross_gender_connections - cross_gender_count
-    else:
-        cross_gender_remaining = None  # unlimited
+    # "My Crush!" counter (O9): 1 crush per event per member, free and
+    # Connect alike, gender-independent. Supersedes the legacy cross-gender
+    # mechanic for new declarations — every declaration is now a crush lead.
+    from .services.crush_leads import crushes_remaining
 
-    # Add is_cross_gender flag to each attendee
-    for attendee in attendee_data:
-        att_gender = getattr(attendee["profile"], "gender", "") or ""
-        attendee["is_cross_gender"] = (
-            user_gender != att_gender or not user_gender or not att_gender
+    crushes_remaining_count = crushes_remaining(request.user, event)
+
+    # One pair, one flow (§9.1): pairs visible in the requester's open Event
+    # Lobby recap get the recap CTA instead of the My Crush! button. Computed
+    # once per event (not per attendee) — the decision inputs are set-valued.
+    from .services.event_lobby import (
+        PHASE_RECAP,
+        eligible_participations,
+        event_lobby_phase,
+        lobby_feature_enabled,
+        viewer_participation,
+    )
+
+    recap_eligible_ids = set()
+    if (
+        lobby_feature_enabled()
+        and event_lobby_phase(event) == PHASE_RECAP
+        and viewer_participation(request.user, event) is not None
+    ):
+        recap_eligible_ids = set(
+            eligible_participations(event).values_list("user_id", flat=True)
         )
+
+    for attendee in attendee_data:
+        # Removal pairs are already absent from the list (block semantics), so
+        # set membership is exactly "target present in the requester's recap
+        # roster" here.
+        attendee["recap_cta"] = attendee["user"].id in recap_eligible_ids
 
     # Group attendees by gender
     gender_order = ["F", "M", "NB", "O", "P", ""]
@@ -249,7 +282,7 @@ def event_attendees(request, event_id):
         "spark_deadline_active": False,
         "spark_deadline": None,
         "sparks_remaining": 0,
-        "cross_gender_remaining": cross_gender_remaining,
+        "crushes_remaining": crushes_remaining_count,
         "event_coaches": event_coaches,
         "own_profile": own_profile,
         "incoming_pending_count": incoming_pending_count,
@@ -294,14 +327,39 @@ def request_connection(request, event_id, user_id):
         messages.error(request, _("You cannot connect with this member."))
         return redirect("crush_lu:event_attendees", event_id=event_id)
 
-    # Check if connection already exists
+    # One pair, one flow (§9.1): pairs visible in the requester's open Event
+    # Lobby recap are redirected there instead of creating a crush lead —
+    # enforced in the write endpoint, not just the button, so direct POSTs
+    # can't bypass the invariant. Removal pairs get neither flow and are
+    # rejected with the same non-disclosing message as a block.
+    from .services.event_lobby import (
+        CRUSH_FLOW_REDIRECT,
+        CRUSH_FLOW_UNAVAILABLE,
+        crush_flow_decision,
+    )
+
+    flow_decision = crush_flow_decision(request.user, recipient, event)
+    if flow_decision == CRUSH_FLOW_REDIRECT:
+        messages.info(
+            request,
+            _("You'll find them in your event recap — confirm you met."),
+        )
+        return redirect("crush_lu:event_lobby", event_id=event_id)
+    if flow_decision == CRUSH_FLOW_UNAVAILABLE:
+        messages.error(request, _("You cannot connect with this member."))
+        return redirect("crush_lu:event_attendees", event_id=event_id)
+
+    # Directional duplicate guard (§7): only a SAME-direction row blocks a new
+    # declaration. A reverse row never does — reciprocal crushes create a
+    # second, independent lead — and its existence is never disclosed.
     existing = EventConnection.objects.filter(
-        Q(requester=request.user, recipient=recipient, event=event)
-        | Q(requester=recipient, recipient=request.user, event=event)
+        requester=request.user, recipient=recipient, event=event
     ).first()
 
     if existing:
-        messages.warning(request, _("Connection request already exists."))
+        messages.warning(
+            request, _("You've already declared your crush on this person.")
+        )
         return redirect("crush_lu:event_attendees", event_id=event_id)
 
     # Live overlap gate: no connection requests before the event ends
@@ -333,104 +391,50 @@ def request_connection(request, event_id, user_id):
             messages.error(request, _("Note is too long (max 300 characters)."))
             return redirect("crush_lu:event_attendees", event_id=event_id)
 
-        # Cross-gender connection limit check
-        req_gender = getattr(getattr(request.user, "crushprofile", None), "gender", "")
-        rec_gender = getattr(getattr(recipient, "crushprofile", None), "gender", "")
-        is_cross_gender = req_gender != rec_gender or not req_gender or not rec_gender
-        if is_cross_gender and event.max_cross_gender_connections > 0:
-            count = EventConnection.cross_gender_connection_count(request.user, event)
-            if count >= event.max_cross_gender_connections:
-                messages.error(
-                    request,
-                    _(
-                        "You have reached the maximum number of cross-gender connection requests for this event."
-                    ),
-                )
-                return redirect("crush_lu:event_attendees", event_id=event_id)
+        # Every post-event declaration is a "My Crush!" coach lead
+        # (flow='crush'). The legacy mutual auto-accept/auto-share branch is
+        # deliberately gone: a reciprocal declaration creates a second,
+        # independent lead routed to its own coach — no status change, no
+        # auto-consent, no member notification in either direction.
+        from django.db import IntegrityError
 
-        # Create connection request within atomic transaction for mutual detection
-        with transaction.atomic():
-            connection = EventConnection.objects.create(
+        from .services.crush_leads import (
+            CrushDeclarationLimitReached,
+            declare_crush,
+        )
+
+        try:
+            declare_crush(
                 requester=request.user,
                 recipient=recipient,
                 event=event,
-                requester_note=note,
+                requester_registration=requester_reg,
+                note=note,
             )
+        except CrushDeclarationLimitReached:
+            messages.error(
+                request,
+                _(
+                    "You've already declared your crush for this event. "
+                    "Your Crush Coach will call you within 48 hours to talk about it."
+                ),
+            )
+            return redirect("crush_lu:event_attendees", event_id=event_id)
+        except IntegrityError:
+            # Same-direction duplicate race — identical to the duplicate guard.
+            messages.warning(
+                request, _("You've already declared your crush on this person.")
+            )
+            return redirect("crush_lu:event_attendees", event_id=event_id)
 
-            # Check if this is mutual (recipient already requested requester)
-            reverse_connection = EventConnection.objects.filter(
-                requester=recipient, recipient=request.user, event=event
-            ).first()
-
-            if reverse_connection:
-                # Mutual interest!
-                if connection.is_same_gender:
-                    # Same-gender: skip coach review, auto-share
-                    connection.status = "shared"
-                    connection.requester_consents_to_share = True
-                    connection.recipient_consents_to_share = True
-                    connection.shared_at = timezone.now()
-                    connection.save()
-                    reverse_connection.status = "shared"
-                    reverse_connection.requester_consents_to_share = True
-                    reverse_connection.recipient_consents_to_share = True
-                    reverse_connection.shared_at = timezone.now()
-                    reverse_connection.save()
-                else:
-                    # Cross-gender: assign coach to facilitate
-                    connection.status = "accepted"
-                    connection.save()
-                    reverse_connection.status = "accepted"
-                    reverse_connection.save()
-
-                    connection.assign_coach()
-                    reverse_connection.assigned_coach = connection.assigned_coach
-                    reverse_connection.save()
-
-        # Notifications outside transaction to avoid blocking
-        if reverse_connection:
-            try:
-                notify_mutual_match(
-                    user=recipient,
-                    other_user=request.user,
-                    connection=connection,
-                    request=request,
-                )
-                notify_mutual_match(
-                    user=request.user,
-                    other_user=recipient,
-                    connection=reverse_connection,
-                    request=request,
-                )
-            except Exception as e:
-                logger.error(f"Failed to send mutual match notifications: {e}")
-
-            if connection.is_same_gender:
-                messages.success(
-                    request,
-                    _("Mutual connection! 🎉 Contact info is now shared."),
-                )
-            else:
-                messages.success(
-                    request,
-                    _(
-                        "Mutual connection! 🎉 A coach will help facilitate your introduction."
-                    ),
-                )
-        else:
-            # Notify recipient about the connection request
-            try:
-                notify_new_connection(
-                    recipient=recipient,
-                    connection=connection,
-                    requester=request.user,
-                    request=request,
-                )
-            except Exception as e:
-                logger.error(f"Failed to send connection request notification: {e}")
-
-            messages.success(request, _("Connection request sent!"))
-
+        messages.success(
+            request,
+            _(
+                "My Crush! declared 💕 It's completely private — they'll "
+                "never know unless your coach makes the introduction. "
+                "Your Crush Coach will call you within 48 hours to talk about it."
+            ),
+        )
         return redirect("crush_lu:event_attendees", event_id=event_id)
 
     context = {
@@ -487,17 +491,51 @@ def request_connection_inline(request, event_id, user_id):
             {"message": _("You cannot connect with this member.")},
         )
 
-    # Check if connection already exists
+    # One pair, one flow (§9.1) — enforced in the write endpoint, not just
+    # the button: direct POSTs for a recap-eligible pair redirect to the
+    # recap instead of creating a crush lead. Removal pairs get neither flow
+    # and are rejected with the same non-disclosing message as a block.
+    from .services.event_lobby import (
+        CRUSH_FLOW_REDIRECT,
+        CRUSH_FLOW_UNAVAILABLE,
+        crush_flow_decision,
+    )
+
+    flow_decision = crush_flow_decision(request.user, recipient, event)
+    if flow_decision == CRUSH_FLOW_REDIRECT:
+        if request.method == "POST":
+            # HTMX: client-side redirect into the recap.
+            return HttpResponse(
+                headers={
+                    "HX-Redirect": reverse(
+                        "crush_lu:event_lobby", kwargs={"event_id": event_id}
+                    )
+                }
+            )
+        messages.info(
+            request,
+            _("You'll find them in your event recap — confirm you met."),
+        )
+        return redirect("crush_lu:event_lobby", event_id=event_id)
+    if flow_decision == CRUSH_FLOW_UNAVAILABLE:
+        return render(
+            request,
+            "crush_lu/_htmx_error.html",
+            {"message": _("You cannot connect with this member.")},
+        )
+
+    # Directional duplicate guard (§7): only a SAME-direction row blocks;
+    # reciprocal declarations create a second, independent lead and a
+    # reverse row's existence is never disclosed.
     existing = EventConnection.objects.filter(
-        Q(requester=request.user, recipient=recipient, event=event)
-        | Q(requester=recipient, recipient=request.user, event=event)
+        requester=request.user, recipient=recipient, event=event
     ).first()
 
     if existing:
         return render(
             request,
             "crush_lu/_htmx_error.html",
-            {"message": "Connection request already exists."},
+            {"message": _("You've already declared your crush on this person.")},
         )
 
     # Live overlap gate: no connection requests before the event ends
@@ -521,99 +559,51 @@ def request_connection_inline(request, event_id, user_id):
             return render(
                 request,
                 "crush_lu/_htmx_error.html",
-                {"message": "Note is too long (max 300 characters)."},
+                {"message": _("Note is too long (max 300 characters).")},
             )
 
-        # Cross-gender connection limit check
-        req_gender = getattr(getattr(request.user, "crushprofile", None), "gender", "")
-        rec_gender = getattr(getattr(recipient, "crushprofile", None), "gender", "")
-        is_cross_gender = req_gender != rec_gender or not req_gender or not rec_gender
-        if is_cross_gender and event.max_cross_gender_connections > 0:
-            count = EventConnection.cross_gender_connection_count(request.user, event)
-            if count >= event.max_cross_gender_connections:
-                return render(
-                    request,
-                    "crush_lu/_htmx_error.html",
-                    {
-                        "message": "You have reached the maximum number of cross-gender connection requests for this event."
-                    },
-                )
+        # Every post-event declaration is a "My Crush!" coach lead
+        # (flow='crush'). The legacy mutual auto-accept/auto-share branch is
+        # deliberately gone: reciprocal declarations stay independent leads
+        # and no notification is sent in either direction.
+        from django.db import IntegrityError
 
-        # Create connection request within atomic transaction for mutual detection
-        with transaction.atomic():
-            connection = EventConnection.objects.create(
+        from .services.crush_leads import (
+            CrushDeclarationLimitReached,
+            declare_crush,
+        )
+
+        try:
+            declare_crush(
                 requester=request.user,
                 recipient=recipient,
                 event=event,
-                requester_note=note,
+                requester_registration=requester_reg,
+                note=note,
             )
-
-            # Check if this is mutual (recipient already requested requester)
-            reverse_connection = EventConnection.objects.filter(
-                requester=recipient, recipient=request.user, event=event
-            ).first()
-
-            is_mutual = False
-            if reverse_connection:
-                # Mutual interest!
-                if connection.is_same_gender:
-                    # Same-gender: skip coach review, auto-share
-                    connection.status = "shared"
-                    connection.requester_consents_to_share = True
-                    connection.recipient_consents_to_share = True
-                    connection.shared_at = timezone.now()
-                    connection.save()
-                    reverse_connection.status = "shared"
-                    reverse_connection.requester_consents_to_share = True
-                    reverse_connection.recipient_consents_to_share = True
-                    reverse_connection.shared_at = timezone.now()
-                    reverse_connection.save()
-                else:
-                    # Cross-gender: assign coach to facilitate
-                    connection.status = "accepted"
-                    connection.save()
-                    reverse_connection.status = "accepted"
-                    reverse_connection.save()
-
-                    connection.assign_coach()
-                    reverse_connection.assigned_coach = connection.assigned_coach
-                    reverse_connection.save()
-                is_mutual = True
-
-        # Notifications outside transaction to avoid blocking
-        if is_mutual:
-            try:
-                notify_mutual_match(
-                    user=recipient,
-                    other_user=request.user,
-                    connection=connection,
-                    request=request,
-                )
-                notify_mutual_match(
-                    user=request.user,
-                    other_user=recipient,
-                    connection=reverse_connection,
-                    request=request,
-                )
-            except Exception as e:
-                logger.error(f"Failed to send mutual match notifications: {e}")
-
-        if not is_mutual:
-            # Notify recipient about the connection request
-            try:
-                notify_new_connection(
-                    recipient=recipient,
-                    connection=connection,
-                    requester=request.user,
-                    request=request,
-                )
-            except Exception as e:
-                logger.error(f"Failed to send connection request notification: {e}")
+        except CrushDeclarationLimitReached:
+            return render(
+                request,
+                "crush_lu/_htmx_error.html",
+                {
+                    "message": _(
+                        "You've already declared your crush for this event. "
+                        "Your Crush Coach will call you within 48 hours to talk about it."
+                    )
+                },
+            )
+        except IntegrityError:
+            # Same-direction duplicate race — identical to the duplicate guard.
+            return render(
+                request,
+                "crush_lu/_htmx_error.html",
+                {"message": _("You've already declared your crush on this person.")},
+            )
 
         return render(
             request,
             "crush_lu/_connection_request_success.html",
-            {"recipient": recipient, "is_mutual": is_mutual},
+            {"recipient": recipient},
         )
 
     # GET: Show inline form
@@ -643,15 +633,24 @@ def connection_actions(request, event_id, user_id):
     ).first()
 
     if sent:
-        if sent.status in ["accepted", "coach_reviewing", "coach_approved", "shared"]:
+        if sent.flow == EventConnection.FLOW_CRUSH and sent.status != "shared":
+            # Own "My Crush!" lead — neutral state (see event_attendees).
+            connection_status = "crush_sent"
+        elif sent.status in ["accepted", "coach_reviewing", "coach_approved", "shared"]:
             connection_status = "mutual"
         else:
             connection_status = "sent"
 
-    # Check if target user sent a request to current user
-    received = EventConnection.objects.filter(
-        requester=target_user, recipient=request.user, event=event
-    ).first()
+    # Check if target user sent a request to current user. Pre-`shared` crush
+    # leads are private: for the recipient this endpoint must yield the
+    # byte-identical no-connection representation.
+    received = (
+        EventConnection.objects.filter(
+            requester=target_user, recipient=request.user, event=event
+        )
+        .excluding_unshared_crushes()
+        .first()
+    )
 
     if received:
         if received.status == "pending":
@@ -665,11 +664,22 @@ def connection_actions(request, event_id, user_id):
         ]:
             connection_status = "mutual"
 
-    # Build attendee object for template
+    # One pair, one flow (§9.1): recap-eligible pairs get the recap CTA
+    # instead of the My Crush! button (mirrors the attendees page).
+    from .services.event_lobby import (
+        CRUSH_FLOW_REDIRECT,
+        crush_flow_decision,
+    )
+    from .services.crush_leads import crushes_remaining
+
     attendee = {
         "user": target_user,
         "connection_status": connection_status,
         "connection_id": connection_id,
+        "recap_cta": (
+            crush_flow_decision(request.user, target_user, event)
+            == CRUSH_FLOW_REDIRECT
+        ),
     }
 
     return render(
@@ -678,6 +688,7 @@ def connection_actions(request, event_id, user_id):
         {
             "attendee": attendee,
             "event": event,
+            "crushes_remaining": crushes_remaining(request.user, event),
         },
     )
 
@@ -691,6 +702,23 @@ def respond_connection(request, connection_id, action):
     connection = get_object_or_404(
         EventConnection, id=connection_id, recipient=request.user
     )
+
+    # The recipient's response endpoint is closed for crush leads (§5):
+    # consent moves only through the coach. A guessed accept/decline URL
+    # no-ops neutrally — no status change, no consent flags, no
+    # notification, and the same non-disclosing message as a dead connection.
+    if (
+        connection.flow == EventConnection.FLOW_CRUSH
+        and connection.status != "shared"
+    ):
+        if request.headers.get("HX-Request"):
+            return render(
+                request,
+                "crush_lu/_htmx_error.html",
+                {"message": _("This connection is no longer available.")},
+            )
+        messages.error(request, _("This connection is no longer available."))
+        return redirect("crush_lu:my_connections")
 
     # Block guard: a block placed after the request arrived must stop the
     # pending → accepted transition (an old notification / known accept URL
@@ -874,17 +902,23 @@ def my_connections(request):
         .order_by("-requested_at")
     )
 
-    # Received requests (pending only)
+    # Received requests (pending only). Crush leads are private — they never
+    # appear in the recipient's inbox with an Accept/Decline card.
     received_pending = (
         EventConnection.objects.filter(recipient=request.user, status="pending")
+        .exclude(flow=EventConnection.FLOW_CRUSH)
         .exclude(requester_id__in=blocked_ids)
         .select_related("requester__crushprofile", "event")
         .order_by("-requested_at")
     )
 
-    # Active connections (accepted, coach_reviewing, coach_approved, shared)
+    # Active connections (accepted, coach_reviewing, coach_approved, shared).
+    # Pre-`shared` crush rows are excluded for BOTH sides: the recipient must
+    # see nothing, and the crusher's lead renders in Sent Requests below in
+    # its neutral "with your coach" state instead.
     active = (
         EventConnection.objects.active_for_user(request.user)
+        .excluding_unshared_crushes()
         .exclude(requester_id__in=blocked_ids)
         .exclude(recipient_id__in=blocked_ids)
         .select_related(
@@ -926,6 +960,16 @@ def connection_detail(request, connection_id):
     # Determine if current user is requester or recipient
     is_requester = connection.requester == request.user
 
+    # A crush lead is private until the introduction completes (`shared`):
+    # the recipient must not discover the row from any page, including a
+    # bookmarked or guessed detail URL — same 404 as a non-existent id.
+    crush_lead_neutral = (
+        connection.flow == EventConnection.FLOW_CRUSH
+        and connection.status != "shared"
+    )
+    if crush_lead_neutral and not is_requester:
+        raise Http404
+
     # Block guard: once either party blocks the other, the connection is dead.
     from .services.blocking import is_blocked_pair
 
@@ -935,6 +979,15 @@ def connection_detail(request, connection_id):
         return redirect("crush_lu:my_connections")
 
     if request.method == "POST":
+        # Crush leads: member-facing consent and chat stay closed in every
+        # pre-`shared` status — consent is given verbally to the coach and
+        # recorded coach-side (Phase D); there is no chat before the
+        # introduction (§7 messaging lock, enforced server-side).
+        if crush_lead_neutral:
+            return redirect(
+                "crush_lu:connection_detail", connection_id=connection_id
+            )
+
         # Handle consent
         if "consent" in request.POST:
             consent_value = request.POST.get("consent") == "yes"
@@ -1017,8 +1070,8 @@ def connection_detail(request, connection_id):
     # Get messages for this connection (exclude coach-hidden messages)
     thread_messages = _approved_messages(connection)
 
-    # Can the current user send messages?
-    can_message = connection.status in [
+    # Can the current user send messages? (Never on a pre-`shared` crush lead.)
+    can_message = not crush_lead_neutral and connection.status in [
         "accepted",
         "coach_reviewing",
         "coach_approved",
@@ -1027,7 +1080,7 @@ def connection_detail(request, connection_id):
 
     # Does the current user need to give consent?
     user_needs_consent = False
-    if connection.status == "coach_approved":
+    if not crush_lead_neutral and connection.status == "coach_approved":
         if is_requester and not connection.requester_consents_to_share:
             user_needs_consent = True
         elif not is_requester and not connection.recipient_consents_to_share:
@@ -1035,7 +1088,11 @@ def connection_detail(request, connection_id):
 
     # Has the current user already consented (waiting for the other)?
     user_already_consented = False
-    if connection.status == "coach_approved" and not user_needs_consent:
+    if (
+        not crush_lead_neutral
+        and connection.status == "coach_approved"
+        and not user_needs_consent
+    ):
         user_already_consented = True
 
     # WhatsApp number (clean phone for wa.me link, only when shared)
@@ -1054,6 +1111,10 @@ def connection_detail(request, connection_id):
         "user_needs_consent": user_needs_consent,
         "user_already_consented": user_already_consented,
         "whatsapp_number": whatsapp_number,
+        # Pre-`shared` crush lead: the requester sees only this neutral
+        # "with your coach" state — identical whether the lead is pending,
+        # mid-coach-workflow, or silently declined.
+        "crush_lead_neutral": crush_lead_neutral,
     }
     return render(request, "crush_lu/connection_detail.html", context)
 
@@ -1079,6 +1140,14 @@ def connection_messages(request, connection_id):
     other_user = connection.recipient if is_requester else connection.requester
 
     if connection.status == "declined" or is_blocked_pair(request.user, other_user):
+        return HttpResponse(status=286)
+
+    # Messaging locked for crush leads in every pre-`shared` status (§7) —
+    # enforced server-side, byte-identical to a dead connection.
+    if (
+        connection.flow == EventConnection.FLOW_CRUSH
+        and connection.status != "shared"
+    ):
         return HttpResponse(status=286)
 
     msgs = _approved_messages(connection)

@@ -370,11 +370,14 @@ def my_events(request):
 
     past.sort(key=lambda r: r.event.date_time, reverse=True)
 
-    # Count mutual matches per past attended event (single query, annotated)
+    # Count mutual matches per past attended event (single query, annotated).
+    # Mutual-derived metrics must not be flow-blind: pre-`shared` crush rows
+    # never count as a mutual match — the "1 mutual match" line would reveal
+    # a private reciprocal declaration the moment it lands.
     attended_event_ids = [r.event_id for r in past if r.status == "attended"]
     mutual_counts = {}
     if attended_event_ids:
-        connections = EventConnection.objects.annotate_is_mutual().filter(
+        connections = EventConnection.objects.annotate_is_visible_mutual().filter(
             event_id__in=attended_event_ids,
             requester=request.user,
         )

@@ -357,7 +357,9 @@ def dashboard(request):
         )
 
         # Get connection count (exclude blocked counterparts so a blocked
-        # `shared` pair doesn't keep inflating the dashboard badge).
+        # `shared` pair doesn't keep inflating the dashboard badge). Pre-`shared`
+        # crush leads are excluded too — a private crush must never move the
+        # recipient's counters, in coach_reviewing/coach_approved included.
         from django.db.models import Q as _Q
 
         from .services.blocking import blocked_user_ids
@@ -365,6 +367,7 @@ def dashboard(request):
         _blocked_ids = blocked_user_ids(request.user)
         connection_count = (
             EventConnection.objects.active_for_user(request.user)
+            .excluding_unshared_crushes()
             .exclude(
                 _Q(requester_id__in=_blocked_ids) | _Q(recipient_id__in=_blocked_ids)
             )

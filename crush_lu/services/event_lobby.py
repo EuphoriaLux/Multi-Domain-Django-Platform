@@ -264,6 +264,50 @@ def viewer_participation(user, event):
     ).first()
 
 
+# "My Crush!" one-pair-one-flow decisions (spec
+# 2026-07-21-crush-my-crush-post-event-flow §9.1, O7)
+CRUSH_FLOW_REDIRECT = "redirect"  # pair is recap-visible -> recap, not a crush
+CRUSH_FLOW_CRUSH = "crush"        # My Crush! applies (fallback)
+CRUSH_FLOW_UNAVAILABLE = "unavailable"  # neither flow (removal pair)
+
+
+def crush_flow_decision(requester, target, event, now=None) -> str:
+    """
+    One pair, one flow (§9.1): should a "My Crush!" declaration from
+    ``requester`` on ``target`` for ``event`` be redirected to the Event
+    Lobby recap instead?
+
+    The redirect criterion is the read-time recap roster, not participation
+    row existence:
+
+    - the lobby feature flag must be on and the recap window still open
+      (a pair can stay eligible after the fixed 48h recap closes while the
+      event's longer connection window is still running — My Crush is the
+      fallback then, and after a flag-off);
+    - the requester must currently pass the viewer gate (eligibility + own
+      participation), otherwise the redirect would dead-end in a locked
+      lobby — My Crush applies;
+    - the target must actually be present in the requester's recap roster,
+      i.e. currently eligible and not hidden by a pending/approved encounter
+      removal. A removal pair gets NEITHER flow — falling back to My Crush
+      would route a coach at someone who had the encounter removed, so the
+      pair is rejected without disclosing why (block semantics).
+
+    Blocked pairs are rejected by the callers before this runs.
+    """
+    if not lobby_feature_enabled():
+        return CRUSH_FLOW_CRUSH
+    if event_lobby_phase(event, now) != PHASE_RECAP:
+        return CRUSH_FLOW_CRUSH
+    if viewer_participation(requester, event) is None:
+        return CRUSH_FLOW_CRUSH
+    if target.pk in hidden_encounter_user_ids(requester):
+        return CRUSH_FLOW_UNAVAILABLE
+    if eligible_participations(event).filter(user=target).exists():
+        return CRUSH_FLOW_REDIRECT
+    return CRUSH_FLOW_CRUSH
+
+
 def _mutual_user_ids(user, event) -> set[int]:
     """User ids with an authorized mutual reveal with ``user`` for this event."""
     from crush_lu.models import EventMeetSignal
