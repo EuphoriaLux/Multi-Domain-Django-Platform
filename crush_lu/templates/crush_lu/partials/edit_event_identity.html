@@ -157,10 +157,10 @@ event vibe, and event languages.
                 <div class="flex flex-wrap gap-2">
                     {% for interest in group.list %}
                     <label class="cursor-pointer block">
-                        <input type="checkbox" name="interests_new" value="{{ interest.pk }}" class="peer hidden"
+                        <input type="checkbox" name="interests_new" value="{{ interest.pk }}" class="peer sr-only"
                                @change="onInterestChange"
                                {% if interest.pk in selected_interest_ids %}checked{% endif %}>
-                        <span class="connect-selectable connect-chip">
+                        <span class="connect-selectable connect-chip peer-focus-visible:ring-2 peer-focus-visible:ring-purple-500">
                             {{ interest.label }}
                         </span>
                     </label>
@@ -184,10 +184,10 @@ event vibe, and event languages.
                     {% for interest in form.interests_new.field.queryset %}
                     <span data-askme-wrap data-interest-id="{{ interest.pk }}" class="{% if interest.pk not in selected_interest_ids %}hidden {% endif %}inline-block">
                         <label class="cursor-pointer block">
-                            <input type="checkbox" name="ask_me_about" value="{{ interest.pk }}" class="peer hidden"
+                            <input type="checkbox" name="ask_me_about" value="{{ interest.pk }}" class="peer sr-only"
                                    @change="onAskMeChange"
                                    {% if interest.pk in ask_me_about_ids %}checked{% endif %}>
-                            <span class="connect-selectable connect-chip">
+                            <span class="connect-selectable connect-chip peer-focus-visible:ring-2 peer-focus-visible:ring-purple-500">
                                 {{ interest.label }}
                             </span>
                         </label>
@@ -208,17 +208,17 @@ event vibe, and event languages.
             <div class="flex flex-wrap gap-2">
                 {% for value, label in form.event_vibe.field.choices %}
                 <label class="cursor-pointer block">
-                    <input type="radio" name="event_vibe" value="{{ value }}" class="peer hidden"
+                    <input type="radio" name="event_vibe" value="{{ value }}" class="peer sr-only"
                            {% if value == selected_event_vibe %}checked{% endif %}>
-                    <span class="connect-selectable connect-chip">
+                    <span class="connect-selectable connect-chip peer-focus-visible:ring-2 peer-focus-visible:ring-purple-500">
                         {{ label }}
                     </span>
                 </label>
                 {% endfor %}
                 <label class="cursor-pointer block">
-                    <input type="radio" name="event_vibe" value="" class="peer hidden"
+                    <input type="radio" name="event_vibe" value="" class="peer sr-only"
                            {% if not selected_event_vibe %}checked{% endif %}>
-                    <span class="connect-selectable connect-chip">
+                    <span class="connect-selectable connect-chip peer-focus-visible:ring-2 peer-focus-visible:ring-purple-500">
                         {% trans "Skip for now" %}
                     </span>
                 </label>
@@ -247,9 +247,9 @@ event vibe, and event languages.
                     <input type="checkbox"
                            name="{{ form.event_languages.html_name }}"
                            value="{{ value }}"
-                           class="peer hidden"
+                           class="peer sr-only"
                            {% if value in profile.event_languages %}checked{% endif %}>
-                    <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200 transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 dark:peer-checked:bg-purple-900/30 peer-checked:text-purple-700 dark:peer-checked:text-purple-300 hover:border-purple-300">
+                    <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border-2 peer-focus-visible:ring-2 peer-focus-visible:ring-purple-500 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-200 transition-all peer-checked:border-purple-500 peer-checked:bg-purple-50 dark:peer-checked:bg-purple-900/30 peer-checked:text-purple-700 dark:peer-checked:text-purple-300 hover:border-purple-300">
                         {% if value == 'en' %}🇬🇧{% elif value == 'de' %}🇩🇪{% elif value == 'fr' %}🇫🇷{% elif value == 'lu' %}🇱🇺{% endif %}
                         {{ label }}
                     </span>
