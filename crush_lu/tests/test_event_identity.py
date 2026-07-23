@@ -98,6 +98,79 @@ def test_standalone_non_ascii_letters_do_not_break_the_token_boundary():
 
 
 @pytest.mark.django_db
+def test_plural_surface_forms_match():
+    """Members write plurals; the singular surface form must still match.
+    Measured on the 2026-07-23 production dry-run, this recovers ~19% of the
+    profiles that matched nothing."""
+    p = _make_profile("plural@example.com", interests="Randonnées et voyages")
+    _run("--execute")
+    assert set(p.interests_new.values_list("slug", flat=True)) == {
+        "hiking",
+        "city-trips",
+    }
+
+
+@pytest.mark.django_db
+def test_plural_tolerance_does_not_swallow_unrelated_words():
+    """The suffix is ``s?`` and not ``e?s?`` on purpose: the wider form matches
+    the same profiles but also reads "blue skies" as the "ski" surface form."""
+    p = _make_profile("skies@example.com", interests="blue skies")
+    _run("--execute")
+    assert set(p.interests_new.values_list("slug", flat=True)) == set()
+
+
+@pytest.mark.django_db
+def test_regional_surface_forms_from_the_prod_corpus():
+    """Real unmatched production values, each an unambiguous FR/DE/LU rendering
+    of a concept the taxonomy already carries."""
+    cases = {
+        "Sport": {"fitness"},
+        "Meng Kaatzen": {"animals-pets"},
+        "Sauna, Gärtneren": {"spa", "gardening"},
+        "Handball": {"ball-racket-sports"},
+    }
+    profiles = {
+        text: _make_profile(f"regional{i}@example.com", interests=text)
+        for i, text in enumerate(cases)
+    }
+    _run("--execute")
+    for text, expected in cases.items():
+        got = set(profiles[text].interests_new.values_list("slug", flat=True))
+        assert got == expected, f"{text!r} → {got}"
+
+
+@pytest.mark.django_db
+def test_luxembourgish_surface_forms():
+    """Luxembourgish spellings of existing concepts — the national language was
+    absent from the first pass. Real values from the 2026-07-23 prod re-run."""
+    cases = {
+        "Lafen, liesen, spazeieren": {"running", "reading", "hiking"},
+        "Natur, liesen, Déieren.": {"reading", "animals-pets"},
+        "Vespa fueren an drun bastelen": {"diy-crafts"},
+        "Piscine - Golf": {"swimming"},
+        "Cakes": {"baking"},
+    }
+    profiles = {
+        text: _make_profile(f"lu{i}@example.com", interests=text)
+        for i, text in enumerate(cases)
+    }
+    _run("--execute")
+    for text, expected in cases.items():
+        got = set(profiles[text].interests_new.values_list("slug", flat=True))
+        assert got == expected, f"{text!r} → {got}"
+
+
+@pytest.mark.django_db
+def test_added_surfaces_do_not_false_match_lookalikes():
+    """The new one-word surfaces must stay bounded — no substring bleed into
+    unrelated words."""
+    for text in ("cheesecake", "stranded", "cardiologist", "literate"):
+        p = _make_profile(f"lookalike-{text}@example.com", interests=text)
+        _run("--execute")
+        assert set(p.interests_new.values_list("slug", flat=True)) == set(), text
+
+
+@pytest.mark.django_db
 def test_unmatched_profile_gets_nothing():
     p = _make_profile("nomatch@example.com", interests="oil rig engineer")
     _run("--execute")
