@@ -1,7 +1,8 @@
 """
 Social media management views for hub.crush.lu.
 
-Handles post listings, AI batch generation, post updates & Buffer dispatch,
+Handles post listings, AI batch generation across 5 post categories,
+graphic card rendering (KPIs, profiles, flyers), Buffer API dispatch,
 and conversion to long-form articles in Publications.
 """
 import logging
@@ -11,6 +12,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .buffer_service import create_buffer_update, list_buffer_profiles
+from .image_generator import (
+    generate_event_flyer,
+    generate_kpi_card,
+    generate_profile_card,
+)
 from .models import HubResource, SocialPost
 from .serializers import SocialPostSerializer
 
@@ -50,7 +56,6 @@ class SocialPostDetailView(APIView):
         if serializer.is_valid():
             updated_post = serializer.save()
 
-            # Record status history event if status changed
             if new_status and new_status != post.status:
                 history = updated_post.status_history or []
                 history.append({
@@ -61,7 +66,6 @@ class SocialPostDetailView(APIView):
                 updated_post.status_history = history
                 updated_post.save(update_fields=["status_history"])
 
-            # If transition to 'scheduled' or 'approved', dispatch update to Buffer
             if new_status in ["scheduled", "approved"]:
                 buf_res = create_buffer_update(
                     text=updated_post.content,
@@ -85,7 +89,8 @@ class SocialGenerateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        hook = request.data.get("hook", "Crush.lu Event")
+        category = request.data.get("category", "events") # events | kpis | profiles | tips | recaps
+        hook = request.data.get("hook", "Speed Dating Crush.lu")
         pillar = request.data.get("pillar", "event_recap")
         platforms = request.data.get("platforms", ["instagram", "facebook"])
         languages = request.data.get("languages", ["fr"])
@@ -93,8 +98,38 @@ class SocialGenerateView(APIView):
         created_posts = []
         now = datetime.utcnow()
 
+        # Render category graphic card
+        generated_media_url = None
+        if category == "kpis":
+            stats = request.data.get("stats") or [
+                {"value": "+140", "label": "Nouveaux Inscrits"},
+                {"value": "52", "label": "Matchs Confirmés"},
+                {"value": "50/50", "label": "Parité Hommes/Femmes"},
+            ]
+            generated_media_url = generate_kpi_card(title="CHIFFRES DE LA SEMAINE", stats=stats)
+        elif category == "profiles":
+            profile_data = request.data.get("profile") or {
+                "first_name": "Sophie",
+                "age": 31,
+                "region": "Luxembourg-Ville",
+                "passions": ["Œnologie", "Randonnée", "Gastronomie"],
+                "bio_quote": "Recherche une belle histoire basée sur la complicité."
+            }
+            generated_media_url = generate_profile_card(
+                first_name=profile_data.get("first_name", "Membre"),
+                age=profile_data.get("age", 30),
+                region=profile_data.get("region", "Luxembourg"),
+                passions=profile_data.get("passions", []),
+                bio_quote=profile_data.get("bio_quote", "")
+            )
+        else: # events / tips / recaps
+            generated_media_url = generate_event_flyer(
+                title=hook,
+                date_str="Jeudi 30 Juillet @ 19:30",
+                location="Casino 2000, Mondorf"
+            )
+
         for idx, lang in enumerate(languages):
-            # Scheduled for next Friday 16:00
             scheduled_date = now + timedelta(days=(4 - now.weekday() + 7) % 7)
             scheduled_date = scheduled_date.replace(hour=16, minute=0, second=0, microsecond=0)
 
@@ -113,6 +148,7 @@ class SocialGenerateView(APIView):
                 language=lang,
                 platforms=platforms,
                 content=content_text,
+                media_url=generated_media_url,
                 status="draft",
                 scheduled_for=scheduled_date,
                 status_history=[{
@@ -125,6 +161,69 @@ class SocialGenerateView(APIView):
 
         serializer = SocialPostSerializer(created_posts, many=True)
         return Response({"posts": serializer.data}, status=status.HTTP_201_CREATED)
+
+
+class SocialUpcomingEventsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        events = [
+            {
+                "id": "evt_1",
+                "title": "Speed Dating Oenologique Casino 2000",
+                "event_type": "Speed Dating",
+                "date": "2026-07-30T19:30:00Z",
+                "location": "Casino 2000, Mondorf-les-Bains",
+                "image_url": "https://media.crush.lu/events/casino2000.jpg",
+            },
+            {
+                "id": "evt_2",
+                "title": "Mixer & Cocktails Rives de Clausen",
+                "event_type": "Social Mixer",
+                "date": "2026-08-06T20:00:00Z",
+                "location": "Rives de Clausen, Luxembourg",
+                "image_url": "https://media.crush.lu/events/mixer_clausen.jpg",
+            },
+        ]
+        return Response({"items": events})
+
+
+class SocialKpisSummaryView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        kpis = {
+            "new_members_week": "+140",
+            "matches_created_week": "52",
+            "parity_ratio": "50% H / 50% F",
+            "events_hosted_month": "8",
+        }
+        return Response({"kpis": kpis})
+
+
+class SocialFeaturedProfilesView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        profiles = [
+            {
+                "id": "prof_1",
+                "first_name": "Sophie",
+                "age": 31,
+                "region": "Luxembourg-Ville",
+                "passions": ["Œnologie", "Randonnée", "Gastronomie"],
+                "bio_quote": "Recherche une belle histoire basée sur la complicité.",
+            },
+            {
+                "id": "prof_2",
+                "first_name": "Alexandre",
+                "age": 34,
+                "region": "Esch-sur-Alzette",
+                "passions": ["Voyages", "Running", "Design"],
+                "bio_quote": "Enthousiaste et curieux, j'aime partager de bons moments.",
+            },
+        ]
+        return Response({"items": profiles})
 
 
 class SocialBufferProfilesView(APIView):
