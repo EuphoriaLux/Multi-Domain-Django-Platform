@@ -111,6 +111,27 @@ class DraftCsrfSanitizationTests(_SiteMixin, TestCase):
         response = self.client.get("/api/profile/draft/get/")
         self.assertEqual(response.json()["data"]["merged"]["bio"], "newer unsaved bio")
 
+    def test_empty_value_overwrites_a_prior_draft_value(self):
+        """Saves are merged per-key (draft_data[step].update). A cleared trait
+        field must be sent as "" so it overwrites — otherwise a deselected
+        quality/defect (whose <button> chip clears the x-bound hidden input)
+        would survive in the draft and resurrect on resume. The wizard's
+        gatherCurrentStepData sends qualities_ids/defects_ids even when empty;
+        this pins the server half of that contract."""
+
+        def save(value):
+            return self.client.post(
+                "/api/profile/draft/save/",
+                data=json.dumps({"step": 2, "data": {"qualities_ids": value}}),
+                content_type="application/json",
+            )
+
+        self.assertEqual(save("2,13").status_code, 200)
+        self.assertEqual(save("").status_code, 200)  # deselected all
+
+        profile = CrushProfile.objects.get(user=self.user)
+        self.assertEqual(profile.draft_data["step2"]["qualities_ids"], "")
+
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
 class DeletePhotoDraftTests(_SiteMixin, TestCase):

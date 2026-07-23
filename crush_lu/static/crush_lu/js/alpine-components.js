@@ -4881,8 +4881,18 @@ document.addEventListener("alpine:init", function () {
                         continue;
                     }
 
-                    // Only add non-empty values
-                    if (field.value !== "") {
+                    // Only add non-empty values, so a partial save doesn't
+                    // clobber another field. EXCEPT the trait CSV hidden inputs:
+                    // draft saves are merged server-side (draft_data[step].update),
+                    // so omitting an emptied qualities_ids/defects_ids would leave
+                    // its stale value behind — deselecting the last chip would then
+                    // resurrect the trait on resume. Their empty state must be sent
+                    // so the merge overwrites it.
+                    if (
+                        field.value !== "" ||
+                        key === "qualities_ids" ||
+                        key === "defects_ids"
+                    ) {
                         data[key] = field.value;
                     }
                 }
