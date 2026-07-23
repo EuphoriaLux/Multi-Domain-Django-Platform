@@ -117,6 +117,7 @@ CSRF_TRUSTED_ORIGINS += [
     "http://tableau.localhost:8000",
     "http://delegation.localhost:8000",
     "http://portal.localhost:8000",
+    "http://game.localhost:8000",
 ]
 
 # Application definition
@@ -135,6 +136,7 @@ INSTALLED_APPS = [
     # Order matters: crush_lu before entreprinder so its account/ templates take priority
     "core",  # Shared templates (cookie_banner, etc.) across all domains
     "crush_lu",  # Must be before entreprinder for account/ template override on crush.lu
+    "crush_empire",  # Crush Empire idle game (game.crush.lu) — depends on crush_lu's admin site
     "delegations",
     "vinsdelux",
     "entreprinder",  # Includes merged: matching, finops, vibe_coding
@@ -777,6 +779,42 @@ if DEBUG:
     SPA_CALLBACK_ALLOWED_RETURN_URLS |= {
         ("http", "localhost:3000", "/auth/callback"),
         ("http", "127.0.0.1:3000", "/auth/callback"),
+    }
+
+# Crush Empire (game.crush.lu) — the idle game with the scam-detection layer.
+CRUSH_EMPIRE_ENABLED = _env_bool("CRUSH_EMPIRE_ENABLED", default=False)
+
+# game.crush.lu cannot read crush.lu's session cookie. SESSION_COOKIE_DOMAIN is
+# deliberately unset (see production.py) because it is a *global* setting —
+# pinning it to '.crush.lu' would break auth on entreprinder.lu and
+# vinsdelux.com, which this same process serves. So the game host carries no
+# login UI: "Sign in" bounces to a handoff view on crush.lu that mints a
+# single-use code, and the game host trades it for a host-scoped session.
+#
+# Same mechanism as the hub SPA bridge (views_spa_auth.py), but it opens a
+# session rather than minting a JWT, and it must NOT require is_staff. That is
+# why it is a separate pair of views: the SPA bridge's is_staff gate protects
+# JWT issuance for the internal CRM and stays exactly as it is.
+_EMPIRE_CRUSH_ORIGIN = "http://crush.localhost:8000" if DEBUG else "https://crush.lu"
+_EMPIRE_GAME_ORIGIN = "http://game.localhost:8000" if DEBUG else "https://game.crush.lu"
+
+# The handoff deliberately does NOT live under /api/. CrushConsentMiddleware
+# prefix-exempts "/api/" (consent_middleware.py EXEMPT_PATHS), so a code minted
+# there would skip both the GDPR consent gate and the ban check — a banned
+# crush.lu user could still walk away with a game session. Mounted at /game/…
+# it is non-exempt, and consent + ban run before any code is issued.
+EMPIRE_HANDOFF_URL = f"{_EMPIRE_CRUSH_ORIGIN}/game/auth/handoff/"
+EMPIRE_RETURN_URL = f"{_EMPIRE_GAME_ORIGIN}/auth/callback/"
+
+# Exact (scheme, netloc, path) match — never prefix or startswith — to prevent
+# open-redirect code exfiltration. Mirrors SPA_CALLBACK_ALLOWED_RETURN_URLS.
+EMPIRE_CALLBACK_ALLOWED_RETURN_URLS = {
+    ("https", "game.crush.lu", "/auth/callback/"),
+    ("https", "test.game.crush.lu", "/auth/callback/"),
+}
+if DEBUG:
+    EMPIRE_CALLBACK_ALLOWED_RETURN_URLS |= {
+        ("http", "game.localhost:8000", "/auth/callback/"),
     }
 
 

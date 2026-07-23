@@ -1,0 +1,211 @@
+{% extends "crush_empire/base.html" %}
+{% load i18n static %}
+
+{% block title %}{% trans "Crush Empire" %}{% endblock %}
+
+{% block content %}
+{{ initial_state|json_script:"empire-state" }}
+{{ deck|json_script:"empire-deck" }}
+
+{# JS strings via json_script, NOT a data-i18n attribute. An apostrophe in a #}
+{# translation ("c'est", "l'application") closes a single-quoted attribute and #}
+{# silently truncates the JSON. See crush_empire/views_game.py:ui_strings. #}
+{{ ui_strings|json_script:"empire-i18n" }}
+
+<div id="empire" data-csrf="{{ csrf_token }}">
+
+  <div class="grid gap-4 lg:grid-cols-[1fr_1.25fr]">
+
+    {# ── Left: counter, deck, prestige, stats ───────────────────────────── #}
+    <div class="flex flex-col gap-4">
+
+      <section class="relative rounded-2xl border border-empire-line bg-empire-panel p-4 text-center">
+        {# Ambient 💘 rising while the auto-swipers work. Clipped to this band, #}
+        {# NOT the section — overflow-hidden there would clip swiped cards' fly-out. #}
+        <div id="hearts-layer" aria-hidden="true"
+             class="pointer-events-none absolute inset-x-0 top-0 h-28 overflow-hidden"></div>
+        <div class="text-3xl font-extrabold text-empire-pink2">
+          <span id="points">0</span> 💘
+        </div>
+        <div class="mt-0.5 text-sm text-empire-green">
+          +<span id="cps">0</span> <span data-t="perSec"></span>
+          &nbsp;·&nbsp; <span data-t="swipes"></span>: <span id="swipes">0</span>
+        </div>
+        <div class="mt-1 text-sm">
+          <span class="text-empire-gold"><span id="flags">0</span> 🚩</span>
+          <span class="text-empire-muted">
+            &nbsp;·&nbsp; {% trans "streak" %} <span id="streak">0</span>
+          </span>
+        </div>
+
+        {# The empire at work: owned auto-swipers, pulsing. Label lives outside #}
+        {# #empire-strip because JS rebuilds the strip's children wholesale. #}
+        <div id="empire-work" hidden class="mt-3">
+          <div class="text-[10px] font-bold uppercase tracking-widest text-empire-muted"
+               data-t="empireAtWork"></div>
+          <div id="empire-strip" aria-hidden="true"
+               class="mt-1 flex flex-wrap items-baseline justify-center gap-x-3 gap-y-1 text-lg"></div>
+        </div>
+
+        {# ACCOUNT COMPROMISED. Hidden unless the engine is actually throttled. #}
+        <div id="debuff" hidden
+             class="mt-3 rounded-xl border-2 border-empire-red bg-empire-red/10 px-3 py-2">
+          <div class="text-sm font-extrabold text-empire-red">
+            💀 <span data-t="compromised"></span>
+          </div>
+          <div class="mt-0.5 text-xs text-empire-muted">
+            <span id="debuff-remaining">0:00</span>
+          </div>
+          <button id="btn-clear-debuff" type="button"
+                  class="mt-1.5 rounded-full bg-empire-gold px-3 py-1 text-xs font-extrabold text-empire-bg disabled:opacity-40">
+          </button>
+        </div>
+
+        <div id="deck" class="relative mx-auto my-3 h-[360px] max-w-[300px]"></div>
+
+        <div class="flex items-center justify-center gap-3">
+          <button id="btn-nope" type="button" aria-label="{% trans "Nope" %}"
+                  class="flex h-14 w-14 items-center justify-center rounded-full border-2 border-empire-line bg-empire-panel2 text-2xl transition hover:border-empire-red hover:text-empire-red">✖</button>
+          <button id="btn-report" type="button" aria-label="{% trans "Report as a scam" %}"
+                  class="flex h-12 w-12 items-center justify-center rounded-full border-2 border-empire-line bg-empire-panel2 text-xl transition hover:border-empire-gold hover:text-empire-gold">🚩</button>
+          <button id="btn-like" type="button" aria-label="{% trans "Like" %}"
+                  class="flex h-14 w-14 items-center justify-center rounded-full border-2 border-empire-line bg-empire-panel2 text-2xl transition hover:border-empire-green hover:text-empire-green">💚</button>
+        </div>
+        <p class="mt-2 text-xs text-empire-muted">
+          {% trans "Drag the card, or tap the buttons" %}
+          ·&nbsp;→ {% trans "like" %} = +<span id="perlike">2</span>
+          ·&nbsp;← {% trans "nope" %} = +<span id="pernope">1</span>
+          ·&nbsp;↑ {% trans "report" %}
+        </p>
+        <p class="mt-1 text-xs italic text-empire-muted">
+          {% trans "Some of these profiles are lying to you. Report them — but reporting a real person costs your streak." %}
+        </p>
+      </section>
+
+      {# Tier 2: the card freezes into a timed puzzle. #}
+      <div id="spot" hidden
+           class="fixed inset-0 z-40 flex items-center justify-center bg-black/80 p-4">
+        <div class="w-full max-w-md rounded-2xl border-2 border-empire-gold bg-empire-panel p-5">
+          <div class="flex items-baseline justify-between">
+            <h3 class="text-base font-extrabold text-empire-gold" data-t="spotTitle"></h3>
+            <span id="spot-timer" class="font-mono text-sm text-empire-muted">0:15</span>
+          </div>
+          {# Cosmetic. The server decides when time ran out, from issued_at. #}
+          <div class="mt-1.5 h-1 overflow-hidden rounded-full bg-empire-line">
+            <div id="spot-bar" class="h-full w-full bg-empire-gold transition-[width] duration-200 ease-linear"></div>
+          </div>
+
+          <div class="mt-4 flex items-center gap-3">
+            <div id="spot-avatar" class="text-5xl"></div>
+            <div>
+              <div id="spot-name" class="font-extrabold"></div>
+              <div class="text-xs text-empire-muted" data-t="spotHint"></div>
+            </div>
+          </div>
+
+          <div id="spot-segments" class="mt-4 space-y-2"></div>
+
+          <div class="mt-4 flex gap-2">
+            <button id="spot-clear" type="button"
+                    class="flex-1 rounded-full border border-empire-line bg-empire-panel2 px-3 py-2 text-sm font-bold">
+            </button>
+            <button id="spot-report" type="button" disabled
+                    class="flex-1 rounded-full bg-empire-gold px-3 py-2 text-sm font-extrabold text-empire-bg disabled:opacity-40">
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {# The teaching moment: shown after every scam card is resolved. #}
+      <div id="reveal" hidden
+           class="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-4">
+        <div class="w-full max-w-sm rounded-2xl border border-empire-line bg-empire-panel p-5">
+
+          {# The unmasking. "Catfished" has been a pun this game never cashed in. #}
+          {# The face they showed you cracks down the middle and falls off; what #}
+          {# was underneath is, literally, a fish. #}
+          <div id="stage" hidden class="relative mx-auto mb-2 h-32 w-32">
+            <div id="stage-wave" class="unmask-wave"></div>
+            <div id="stage-fish" class="unmask-fish">🐟</div>
+            <div id="stage-shades" class="unmask-shades">🕶️</div>
+            <div id="stage-mask-l" class="unmask-half unmask-half-l"></div>
+            <div id="stage-mask-r" class="unmask-half unmask-half-r"></div>
+            <div id="stage-crack" class="unmask-crack"></div>
+            <div id="stage-stamp" class="unmask-stamp"></div>
+          </div>
+
+          <div id="reveal-title" class="text-lg font-extrabold"></div>
+          <div id="reveal-body" class="mt-2 space-y-2 text-sm text-empire-muted"></div>
+          <button id="reveal-close" type="button"
+                  class="mt-4 w-full rounded-full bg-empire-pink px-4 py-2 font-extrabold text-empire-bg"
+                  data-t="gotIt"></button>
+        </div>
+      </div>
+
+      <section class="rounded-2xl border border-empire-line bg-empire-panel p-4 text-center">
+        <h2 class="mb-2 text-xs font-bold uppercase tracking-widest text-empire-pink2">
+          {% trans "💍 Fall in Love (Prestige)" %}
+        </h2>
+        <div class="flex justify-between border-b border-dashed border-empire-line py-1 text-sm text-empire-muted">
+          <span>{% trans "Hearts earned" %}</span><span id="hearts">0</span>
+        </div>
+        <div class="flex justify-between border-b border-dashed border-empire-line py-1 text-sm text-empire-muted">
+          <span>{% trans "Love bonus" %}</span><span id="lovebonus">+0%</span>
+        </div>
+        <p class="my-2 text-xs text-empire-muted">
+          {% trans "Delete your account (dramatically) to earn Hearts 💖. Each Heart permanently boosts all production." %}
+        </p>
+        <button id="btn-prestige" type="button" disabled
+                class="rounded-full bg-empire-pink px-4 py-2.5 font-extrabold text-empire-bg disabled:cursor-not-allowed disabled:opacity-40">
+          {% trans "Fall in love" %} (+<span id="pending-hearts">0</span> 💖)
+        </button>
+      </section>
+
+      <section class="rounded-2xl border border-empire-line bg-empire-panel p-4">
+        <h2 class="mb-2 text-xs font-bold uppercase tracking-widest text-empire-pink2">
+          {% trans "📊 Stats" %}
+        </h2>
+        <div class="flex justify-between border-b border-dashed border-empire-line py-1 text-sm text-empire-muted">
+          <span>{% trans "Total 💘 earned" %}</span><span id="total-earned">0</span>
+        </div>
+        <div class="flex justify-between border-b border-dashed border-empire-line py-1 text-sm text-empire-muted">
+          <span>{% trans "Right swipes" %}</span><span id="likes">0</span>
+        </div>
+        <div class="flex justify-between border-b border-dashed border-empire-line py-1 text-sm text-empire-muted">
+          <span>{% trans "Left swipes" %}</span><span id="nopes">0</span>
+        </div>
+        <p class="mt-3 text-center text-xs text-empire-muted">
+          {% trans "Saved to your Crush.lu account, automatically." %}
+        </p>
+      </section>
+    </div>
+
+    {# ── Right: the shop ────────────────────────────────────────────────── #}
+    <section class="rounded-2xl border border-empire-line bg-empire-panel p-4">
+      <div class="mb-3 flex gap-2">
+        <button type="button" data-tab="gen"
+                class="tab flex-1 rounded-xl border border-empire-line bg-white/5 py-2 text-sm">
+          {% trans "💞 Auto-Swipers" %}
+        </button>
+        <button type="button" data-tab="up"
+                class="tab flex-1 rounded-xl border border-empire-line bg-white/5 py-2 text-sm">
+          {% trans "✨ Upgrades" %}
+        </button>
+        <button type="button" data-tab="safety"
+                class="tab flex-1 rounded-xl border border-empire-line bg-white/5 py-2 text-sm">
+          {% trans "🚩 Safety" %}
+        </button>
+      </div>
+      <div id="list-gen"></div>
+      <div id="list-up" hidden></div>
+      <div id="list-safety" hidden></div>
+    </section>
+  </div>
+</div>
+
+<div id="toast" class="pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-empire-pink bg-empire-panel2 px-4 py-2.5 text-center opacity-0 transition-opacity"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script defer src="{% static 'crush_empire/js/empire.js' %}"></script>
+{% endblock %}

@@ -18,6 +18,7 @@ from django.views.i18n import JavaScriptCatalog
 
 from .urls_shared import base_patterns, api_patterns
 from .views_spa_auth import spa_session_callback
+from .views_empire_auth import empire_auth_handoff
 from hub.views_whatsapp import WhatsAppWebhookView
 from crush_lu.admin import crush_admin_site
 from crush_lu.admin.user_segments import user_segments_dashboard, segment_detail
@@ -418,6 +419,14 @@ urlpatterns = [
     # where the allauth session cookie is set; mints a single-use code that
     # the SPA exchanges at api.crush.lu/api/token/exchange-code/.
     path('api/auth/spa-callback/', spa_session_callback, name='spa_session_callback'),
+
+    # Session handoff for Crush Empire (game.crush.lu). Mints a single-use code
+    # the game host trades for its own host-scoped session.
+    #
+    # NOT under /api/ on purpose: CrushConsentMiddleware prefix-exempts "/api/",
+    # so a code minted there would skip the GDPR consent gate and the ban check.
+    # Under /game/ the middleware runs before a code is ever issued.
+    path('game/auth/handoff/', empire_auth_handoff, name='empire_auth_handoff'),
 ]
 
 # Language-prefixed patterns (all user-facing pages)

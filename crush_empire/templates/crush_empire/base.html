@@ -1,0 +1,40 @@
+{% load i18n static %}<!doctype html>
+{% get_current_language as LANGUAGE_CODE %}
+<html lang="{{ LANGUAGE_CODE }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+    <title>{% block title %}{% trans "Crush Empire" %}{% endblock %}</title>
+    {# Not crush.lu's shell on purpose: this host must never be mistaken for the #}
+    {# real dating product. Own palette, own type, own everything. #}
+    <link rel="stylesheet" href="{% static 'crush_empire/css/tailwind.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="min-h-screen bg-empire-bg text-empire-text antialiased">
+    <header class="px-4 pt-5 pb-2 text-center">
+        <h1 class="text-2xl font-extrabold">
+            {% trans "Crush" %} <span class="text-empire-pink">{% trans "Empire" %}</span> 💘
+        </h1>
+        <p class="mt-1 text-xs italic text-empire-muted">
+            {% trans "The swipe game — by the app that refuses to make you swipe." %}
+        </p>
+    </header>
+
+    <main class="mx-auto w-full max-w-5xl px-4 pb-12">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="px-4 pb-8 text-center text-xs text-empire-muted">
+        {# Load-bearing, not decoration: a real dating platform is rendering fake #}
+        {# profiles, some of which are scams. Say so, on every page. #}
+        <p>{% trans "Every profile in this game is fictional. Nobody here is real." %}</p>
+        <p class="mt-1">
+            <a class="text-empire-pink underline" href="https://crush.lu?src=game" target="_blank" rel="noopener">
+                {% trans "Meet people for real on Crush.lu" %} →
+            </a>
+        </p>
+    </footer>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

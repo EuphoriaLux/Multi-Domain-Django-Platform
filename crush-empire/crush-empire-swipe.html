@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Crush Empire — the swipe game by the app that won't make you swipe</title>
+<style>
+  :root{
+    --bg:#1a0e1f; --panel:#2e1638; --panel2:#3a1c46;
+    --pink:#ff5c8a; --pink2:#ff87ac; --gold:#ffd166; --text:#ffe9f1;
+    --muted:#c79cba; --green:#7be3a3; --red:#ff6b6b; --line:#4a2456;
+  }
+  *{box-sizing:border-box}
+  html,body{overflow-x:hidden}
+  body{margin:0; font-family:"Segoe UI",system-ui,sans-serif; color:var(--text);
+    background:radial-gradient(1200px 600px at 50% -10%,#3a1440,var(--bg));
+    min-height:100vh; -webkit-user-select:none; user-select:none; touch-action:manipulation}
+  header{text-align:center; padding:16px 12px 4px}
+  header h1{margin:0; font-size:24px}
+  header h1 span{color:var(--pink)}
+  header .tag{color:var(--muted); font-size:12px; margin-top:2px; font-style:italic}
+  .wrap{max-width:1050px; margin:0 auto; padding:8px 14px 40px;
+    display:grid; grid-template-columns:1fr 1.25fr; gap:16px}
+  @media(max-width:860px){.wrap{grid-template-columns:1fr}}
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel2));
+    border:1px solid var(--line); border-radius:16px; padding:16px;
+    box-shadow:0 8px 30px rgba(0,0,0,.35)}
+  .counter{text-align:center}
+  .counter .big{font-size:34px; font-weight:800; color:var(--pink2)}
+  .counter .rate{color:var(--green); font-size:14px; margin-top:2px}
+
+  /* ---- swipe deck ---- */
+  .deck{position:relative; height:360px; margin:14px auto 6px; max-width:300px}
+  .swipecard{position:absolute; inset:0; border-radius:20px; overflow:hidden;
+    background:linear-gradient(180deg,#48214f,#2c1233); border:1px solid var(--line);
+    box-shadow:0 12px 30px rgba(0,0,0,.45); display:flex; flex-direction:column;
+    cursor:grab; will-change:transform}
+  .swipecard.dragging{cursor:grabbing; transition:none}
+  .swipecard .avatar{flex:1; display:flex; align-items:center; justify-content:center;
+    font-size:120px; background:radial-gradient(circle at 50% 35%,#5a2a63,#33163b)}
+  .swipecard .meta{padding:12px 14px; background:rgba(0,0,0,.25)}
+  .swipecard .nm{font-weight:800; font-size:19px}
+  .swipecard .nm small{font-weight:400; color:var(--muted); font-size:14px}
+  .swipecard .bio{font-size:13px; color:var(--pink2); margin-top:3px; min-height:34px}
+  .stamp{position:absolute; top:22px; font-size:26px; font-weight:900; padding:4px 12px;
+    border:4px solid; border-radius:10px; opacity:0; text-transform:uppercase; letter-spacing:1px}
+  .stamp.like{left:16px; color:var(--green); border-color:var(--green); transform:rotate(-16deg)}
+  .stamp.nope{right:16px; color:var(--red); border-color:var(--red); transform:rotate(16deg)}
+  /* funnel meta card */
+  .swipecard.meta-card .avatar{font-size:70px; background:linear-gradient(135deg,#ff5c8a,#ff9a3d); color:#fff;
+    flex-direction:column; text-align:center; padding:18px; gap:10px}
+  .swipecard.meta-card .avatar .mt{font-size:19px; font-weight:800; line-height:1.3}
+  .swipecard.meta-card .avatar .ms{font-size:13px; font-weight:500}
+  .swipecard.meta-card .cta{background:#fff; color:#c9426b; text-decoration:none; font-weight:800;
+    padding:9px 16px; border-radius:999px; font-size:14px}
+
+  .swipebtns{display:flex; gap:16px; justify-content:center; margin-top:8px}
+  .sbtn{width:60px; height:60px; border-radius:50%; border:2px solid var(--line);
+    background:var(--panel2); font-size:26px; cursor:pointer; display:flex;
+    align-items:center; justify-content:center; transition:.12s}
+  .sbtn.nope:hover{border-color:var(--red); color:var(--red)}
+  .sbtn.like:hover{border-color:var(--green); color:var(--green)}
+  .swipehint{text-align:center; color:var(--muted); font-size:12px; margin-top:8px}
+
+  h2{font-size:14px; text-transform:uppercase; letter-spacing:1px; color:var(--pink2); margin:2px 0 10px}
+  .item{display:flex; align-items:center; gap:12px; padding:10px 12px;
+    border:1px solid var(--line); border-radius:12px; margin-bottom:9px;
+    background:rgba(255,255,255,.03); cursor:pointer; transition:.12s}
+  .item:hover:not(.locked){border-color:var(--pink); background:rgba(255,92,138,.08)}
+  .item.locked{opacity:.45; cursor:not-allowed}
+  .item .emoji{font-size:28px; width:40px; text-align:center}
+  .item .info{flex:1}
+  .item .name{font-weight:700}
+  .item .desc{font-size:12px; color:var(--muted)}
+  .item .right{text-align:right; min-width:92px}
+  .item .cost{color:var(--gold); font-weight:700; font-size:14px}
+  .item .owned{font-size:12px; color:var(--muted)}
+  .item.affordable .cost{color:var(--green)}
+  .tabs{display:flex; gap:8px; margin-bottom:10px}
+  .tab{flex:1; text-align:center; padding:8px; border-radius:10px; cursor:pointer;
+    background:rgba(255,255,255,.04); border:1px solid var(--line); font-size:13px}
+  .tab.active{background:var(--pink); border-color:var(--pink); color:#3a0d20; font-weight:700}
+  .prestige{margin-top:12px; text-align:center}
+  .btn{background:var(--pink); color:#3a0d20; border:none; font-weight:800;
+    padding:10px 16px; border-radius:999px; cursor:pointer}
+  .btn.ghost{background:transparent; color:var(--muted); border:1px solid var(--line); font-weight:600}
+  .btn:disabled{opacity:.4; cursor:not-allowed}
+  .row{display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:10px}
+  .stat{display:flex; justify-content:space-between; font-size:13px; color:var(--muted);
+    padding:3px 0; border-bottom:1px dashed var(--line)}
+  .toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
+    background:var(--panel2); border:1px solid var(--pink); padding:10px 16px;
+    border-radius:12px; opacity:0; transition:.3s; z-index:60; max-width:90%; text-align:center}
+  .toast.show{opacity:1}
+  .float{position:fixed; pointer-events:none; font-weight:800; z-index:50;
+    animation:rise .8s ease-out forwards}
+  @keyframes rise{to{transform:translateY(-46px); opacity:0}}
+  .banner{margin-top:12px; text-align:center; background:linear-gradient(90deg,#ff5c8a,#ff9a3d);
+    border-radius:14px; padding:12px}
+  .banner a{display:inline-block; margin-top:6px; background:#fff; color:#c9426b;
+    text-decoration:none; font-weight:800; padding:8px 16px; border-radius:999px; font-size:14px}
+  .banner .fh{font-weight:800; color:#3a0d20}
+  footer{text-align:center; color:var(--muted); font-size:12px; padding:16px}
+  footer a{color:var(--pink2)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Crush <span>Empire</span> 💘</h1>
+  <div class="tag">The swipe game — by the app that refuses to make you swipe.</div>
+</header>
+
+<div class="wrap">
+  <!-- LEFT: deck + prestige -->
+  <div>
+    <div class="card counter">
+      <div class="big"><span id="points">0</span> 💘</div>
+      <div class="rate">+<span id="cps">0</span> / sec &nbsp;·&nbsp; swipes: <span id="swipes">0</span></div>
+
+      <div class="deck" id="deck"></div>
+      <div class="swipebtns">
+        <button class="sbtn nope" id="btnNope" title="Nope">✖</button>
+        <button class="sbtn like" id="btnLike" title="Like">💚</button>
+      </div>
+      <div class="swipehint">Drag the card, or tap the buttons · → like = +<span id="perlike">2</span> · ← nope = +1</div>
+    </div>
+
+    <div class="card prestige">
+      <h2>💍 Fall in Love (Prestige)</h2>
+      <div class="stat"><span>Hearts earned</span><span id="hearts">0</span></div>
+      <div class="stat"><span>Love bonus</span><span id="lovebonus">+0%</span></div>
+      <div style="font-size:12px;color:var(--muted);margin:8px 0">
+        Delete your account (dramatically) to earn <b>Hearts</b> 💖. Each Heart permanently boosts all production.
+      </div>
+      <button class="btn" id="prestigeBtn" disabled>Fall in love (+<span id="pendingHearts">0</span> 💖)</button>
+    </div>
+
+    <div class="card">
+      <h2>📊 Stats</h2>
+      <div class="stat"><span>Total 💘 earned</span><span id="totalEarned">0</span></div>
+      <div class="stat"><span>Right swipes</span><span id="likes">0</span></div>
+      <div class="stat"><span>Left swipes</span><span id="nopes">0</span></div>
+      <div class="row">
+        <button class="btn ghost" id="saveBtn">Save</button>
+        <button class="btn ghost" id="resetBtn">Hard reset</button>
+      </div>
+    </div>
+
+    <div class="banner">
+      <div class="fh">Bored of swiping yet? 😏</div>
+      <div style="color:#5a1730;font-size:13px">Good. Neither do we. Meet people for real.</div>
+      <a href="https://crush.lu" target="_blank" rel="noopener">Join Crush.lu →</a>
+    </div>
+  </div>
+
+  <!-- RIGHT: shop -->
+  <div class="card">
+    <div class="tabs">
+      <div class="tab active" data-tab="gen">💞 Auto-Swipers</div>
+      <div class="tab" data-tab="up">✨ Upgrades</div>
+    </div>
+    <div id="genList"></div>
+    <div id="upList" style="display:none"></div>
+  </div>
+</div>
+
+<footer>
+  Prototype · in the real build this saves to your Crush.lu account · <a href="https://crush.lu" target="_blank" rel="noopener">crush.lu</a>
+</footer>
+
+<script>
+// ---------- Content: fake profiles (the joke) ----------
+const PROFILES = [
+  {e:"🧔", n:"Marc", a:29, b:"Loves long walks… to the fridge."},
+  {e:"👩‍🦰", n:"Sofia", a:26, b:"Fluent in sarcasm and three dead languages."},
+  {e:"🧑‍🌾", n:"Luc", a:34, b:"Owns 14 plants. Two are still alive."},
+  {e:"💃", n:"Elena", a:31, b:"Will judge your Spotify Wrapped."},
+  {e:"🧑‍💻", n:"Ben", a:28, b:"Emotionally available 9am–9:03am."},
+  {e:"🦸", n:"Nadia", a:27, b:"Red flags, but make it aesthetic."},
+  {e:"🧑‍🍳", n:"Tom", a:33, b:"Makes one (1) very good pasta."},
+  {e:"👸", n:"Lea", a:24, b:"Looking for someone to ignore together."},
+  {e:"🧑‍🎤", n:"Rico", a:30, b:"Plays guitar. Only 'Wonderwall'."},
+  {e:"🕵️", n:"Mira", a:29, b:"Will find your ex's new haircut in 4 minutes."},
+  {e:"🧑‍🚀", n:"Jonas", a:32, b:"Ambitious. Also asleep by 9:30."},
+  {e:"🧜", n:"Chloé", a:25, b:"Water sign. Emotionally, a monsoon."},
+  {e:"🐶", n:"Bruno", a:35, b:"It's the dog's profile. He's a catch."},
+  {e:"🧑‍⚖️", n:"Anouk", a:28, b:"Wins every argument, including this one."},
+  {e:"🧑‍🔧", n:"Pit", a:37, b:"Can fix your car, not your feelings."},
+];
+const META = [
+  {mt:"Real people don't swipe.", ms:"That's kind of our whole thing.", cta:"See how Crush.lu works →"},
+  {mt:"Still swiping? 😅", ms:"On Crush.lu you'd have met someone by now.", cta:"Meet people for real →"},
+  {mt:"Plot twist:", ms:"the best match isn't in this deck. It's on Crush.lu.", cta:"Find yours →"},
+];
+
+// ---------- Economy ----------
+const GEN = [
+  {id:0, emoji:"👆", name:"Ghost Account",       base:15,        cps:0.1,  desc:"Swipes on its own, replies never"},
+  {id:1, emoji:"🤳", name:"Selfie Bot",          base:100,       cps:1,    desc:"Same pose, 40 times"},
+  {id:2, emoji:"💌", name:"Auto-Opener",         base:1100,      cps:8,    desc:"'hey :)' at industrial scale"},
+  {id:3, emoji:"🍸", name:"Speed-Swipe Night",   base:12000,     cps:47,   desc:"Ten thumbs an hour"},
+  {id:4, emoji:"💎", name:"Premium Boost",       base:130000,    cps:260,  desc:"Pay to be seen ignoring people"},
+  {id:5, emoji:"🤖", name:"AI Wingman",          base:1400000,   cps:1400, desc:"Never runs out of openers"},
+  {id:6, emoji:"🏛️", name:"Swipe Factory",      base:20000000,  cps:7800, desc:"Romance, but make it a spreadsheet"},
+  {id:7, emoji:"🚀", name:"Love Rocket",         base:330000000, cps:44000,desc:"Swipes across the galaxy"},
+];
+const UP = [
+  {id:0, emoji:"👍", name:"Confident Thumb",   cost:120,      type:"click", mult:2, desc:"Double points per swipe", req:{sw:10}},
+  {id:1, emoji:"💬", name:"Better Openers",    cost:1500,     type:"click", mult:2, desc:"Double points per swipe", req:{sw:50}},
+  {id:2, emoji:"🌹", name:"Grand Gestures",    cost:40000,    type:"click", mult:3, desc:"Triple points per swipe", req:{sw:150}},
+  {id:3, emoji:"🔥", name:"Viral Profiles",    cost:5000,     type:"global",mult:2, desc:"All auto-swipers x2",     req:{gen:1,n:10}},
+  {id:4, emoji:"🌟", name:"Golden Hour",       cost:250000,   type:"global",mult:2, desc:"All auto-swipers x2",     req:{gen:3,n:5}},
+  {id:5, emoji:"💞", name:"Perfect Chemistry", cost:9000000,  type:"global",mult:3, desc:"All auto-swipers x3",     req:{gen:4,n:10}},
+];
+
+// ---------- State ----------
+let S = {points:0, totalEarned:0, swipes:0, likes:0, nopes:0, hearts:0,
+  owned:GEN.map(()=>0), ups:[], started:Date.now()};
+
+function load(){ try{ const r=localStorage.getItem("crushEmpireSwipe");
+  if(r){ const d=JSON.parse(r); S=Object.assign(S,d);
+    if(!S.owned||S.owned.length!==GEN.length) S.owned=GEN.map((_,i)=>(S.owned&&S.owned[i])||0);
+    if(!S.ups)S.ups=[]; } }catch(e){} }
+function save(){ localStorage.setItem("crushEmpireSwipe", JSON.stringify(S)); }
+
+// ---------- Math ----------
+const GROWTH=1.15;
+const genCost=g=>Math.ceil(GEN[g].base*Math.pow(GROWTH,S.owned[g]));
+const heartBonus=()=>1+S.hearts*0.02;
+function globalMult(){let m=1; UP.forEach(u=>{if(u.type==="global"&&S.ups.includes(u.id))m*=u.mult;}); return m*heartBonus();}
+function clickMult(){let m=1; UP.forEach(u=>{if(u.type==="click"&&S.ups.includes(u.id))m*=u.mult;}); return m;}
+const perLike=()=>Math.max(1,Math.round(2*clickMult()*heartBonus()));
+const perNope=()=>Math.max(1,Math.round(1*heartBonus()));
+function cps(){let b=0; GEN.forEach(g=>b+=S.owned[g.id]*g.cps); return b*globalMult();}
+const pendingHearts=()=>Math.floor(Math.sqrt(S.totalEarned/1e6));
+
+function fmt(n){ n=Math.floor(n);
+  if(n<1000) return n.toString();
+  const names=["","K","M","B","T","Qa","Qi","Sx"]; let u=0,x=n;
+  while(x>=1000&&u<names.length-1){x/=1000;u++;}
+  return (x<10?x.toFixed(2):x<100?x.toFixed(1):Math.floor(x))+names[u];
+}
+
+// ---------- Actions ----------
+function addPoints(n){S.points+=n; S.totalEarned+=n;}
+function buyGen(g){const c=genCost(g); if(S.points>=c){S.points-=c;S.owned[g]++;render();}}
+function upUnlocked(u){ if(u.req.sw!==undefined)return S.swipes>=u.req.sw;
+  if(u.req.gen!==undefined)return S.owned[u.req.gen]>=u.req.n; return true; }
+function buyUp(i){const u=UP[i]; if(S.ups.includes(i)||!upUnlocked(u))return;
+  if(S.points>=u.cost){S.points-=u.cost;S.ups.push(i);toast(u.emoji+" "+u.name+" unlocked!");render();}}
+function doPrestige(){const g=pendingHearts(); if(g<1)return;
+  if(!confirm('"Delete" your account for '+g+' 💖 Hearts? Resets progress; each Heart permanently boosts production.'))return;
+  S.hearts+=g; S.points=0; S.totalEarned=0; S.owned=GEN.map(()=>0); S.ups=[];
+  toast("💍 You fell in love (with yourself). +"+g+" Hearts."); render(); save();}
+
+// ---------- Swipe deck ----------
+let swipeSinceMeta=0, currentCard=null, cardData=null;
+function pickCard(){
+  // every ~6-8 swipes surface a meta funnel card
+  if(swipeSinceMeta>=7){ swipeSinceMeta=0;
+    return {meta:META[Math.floor(Math.random()*META.length)]}; }
+  return {p:PROFILES[Math.floor(Math.random()*PROFILES.length)]};
+}
+function buildCard(){
+  const data=pickCard(); cardData=data;
+  const el=document.createElement("div"); el.className="swipecard"+(data.meta?" meta-card":"");
+  if(data.meta){
+    el.innerHTML=`<div class="avatar"><div class="mt">${data.meta.mt}</div>
+      <div class="ms">${data.meta.ms}</div>
+      <a class="cta" href="https://crush.lu?src=game" target="_blank" rel="noopener">${data.meta.cta}</a></div>
+      <div class="meta"><div class="nm">Crush.lu</div>
+      <div class="bio">Swipe either way to keep playing — no hard feelings.</div></div>
+      <div class="stamp like">Like</div><div class="stamp nope">Nope</div>`;
+  }else{
+    const p=data.p;
+    el.innerHTML=`<div class="avatar">${p.e}</div>
+      <div class="meta"><div class="nm">${p.n} <small>${p.a}</small></div>
+      <div class="bio">${p.b}</div></div>
+      <div class="stamp like">Like</div><div class="stamp nope">Nope</div>`;
+  }
+  document.getElementById("deck").appendChild(el);
+  currentCard=el; attachDrag(el);
+}
+function resolveSwipe(dir){ // dir: 1 like, -1 nope
+  const meta=cardData&&cardData.meta;
+  let gained;
+  if(dir>0){ gained=perLike(); S.likes++; } else { gained=perNope(); S.nopes++; }
+  addPoints(gained); S.swipes++; swipeSinceMeta++;
+  const r=currentCard.getBoundingClientRect();
+  floatText(r.left+r.width/2-20, r.top+40, "+"+fmt(gained)+" 💘", dir>0?"var(--green)":"var(--pink2)");
+  // fly card out
+  const el=currentCard;
+  el.style.transition="transform .35s ease, opacity .35s";
+  el.style.transform=`translateX(${dir*500}px) rotate(${dir*25}deg)`; el.style.opacity="0";
+  setTimeout(()=>el.remove(),340);
+  currentCard=null;
+  buildCard(); render();
+}
+function attachDrag(el){
+  let sx=0, sy=0, dx=0, down=false;
+  const like=el.querySelector(".stamp.like"), nope=el.querySelector(".stamp.nope");
+  const start=(x,y)=>{down=true;sx=x;sy=y;el.classList.add("dragging");};
+  const move=(x,y)=>{ if(!down)return; dx=x-sx; const dy=y-sy;
+    el.style.transform=`translate(${dx}px,${dy*0.25}px) rotate(${dx*0.06}deg)`;
+    const t=Math.min(Math.abs(dx)/120,1);
+    like.style.opacity=dx>0?t:0; nope.style.opacity=dx<0?t:0; };
+  const end=()=>{ if(!down)return; down=false; el.classList.remove("dragging");
+    if(Math.abs(dx)>110){ resolveSwipe(dx>0?1:-1); }
+    else{ el.style.transition="transform .2s"; el.style.transform=""; like.style.opacity=0; nope.style.opacity=0;
+      setTimeout(()=>el.style.transition="",200); } dx=0; };
+  el.addEventListener("mousedown",e=>start(e.clientX,e.clientY));
+  window.addEventListener("mousemove",e=>move(e.clientX,e.clientY));
+  window.addEventListener("mouseup",end);
+  el.addEventListener("touchstart",e=>{const t=e.touches[0];start(t.clientX,t.clientY);},{passive:true});
+  el.addEventListener("touchmove",e=>{const t=e.touches[0];move(t.clientX,t.clientY);},{passive:true});
+  el.addEventListener("touchend",end);
+}
+
+// ---------- Render ----------
+function render(){
+  document.getElementById("points").textContent=fmt(S.points);
+  document.getElementById("cps").textContent=fmt(cps());
+  document.getElementById("swipes").textContent=S.swipes;
+  document.getElementById("perlike").textContent=fmt(perLike());
+  document.getElementById("hearts").textContent=S.hearts;
+  document.getElementById("lovebonus").textContent="+"+(S.hearts*2)+"%";
+  document.getElementById("totalEarned").textContent=fmt(S.totalEarned);
+  document.getElementById("likes").textContent=S.likes;
+  document.getElementById("nopes").textContent=S.nopes;
+  const ph=pendingHearts();
+  document.getElementById("pendingHearts").textContent=ph;
+  document.getElementById("prestigeBtn").disabled=ph<1;
+
+  let gh="";
+  GEN.forEach(g=>{ const c=genCost(g.id);
+    const unlocked=g.id===0||S.owned[g.id-1]>0||S.owned[g.id]>0; if(!unlocked)return;
+    const aff=S.points>=c;
+    gh+=`<div class="item ${aff?'affordable':''}" onclick="buyGen(${g.id})">
+      <div class="emoji">${g.emoji}</div>
+      <div class="info"><div class="name">${g.name}</div>
+        <div class="desc">${g.desc} · +${fmt(g.cps)}/s</div></div>
+      <div class="right"><div class="cost">${fmt(c)} 💘</div>
+        <div class="owned">owned ${S.owned[g.id]}</div></div></div>`; });
+  document.getElementById("genList").innerHTML=gh;
+
+  let uh="";
+  UP.forEach(u=>{ if(S.ups.includes(u.id))return;
+    const un=upUnlocked(u); const aff=S.points>=u.cost&&un;
+    uh+=`<div class="item ${un?'':'locked'} ${aff?'affordable':''}" onclick="buyUp(${u.id})">
+      <div class="emoji">${u.emoji}</div>
+      <div class="info"><div class="name">${u.name}</div>
+        <div class="desc">${un?u.desc:'🔒 keep swiping to unlock'}</div></div>
+      <div class="right"><div class="cost">${fmt(u.cost)} 💘</div></div></div>`; });
+  if(!uh)uh=`<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">All upgrades bought — you absolute charmer 😏</div>`;
+  document.getElementById("upList").innerHTML=uh;
+}
+
+// ---------- Effects ----------
+function toast(m){const t=document.createElement("div");t.className="toast";t.textContent=m;
+  document.body.appendChild(t);requestAnimationFrame(()=>t.classList.add("show"));
+  setTimeout(()=>{t.classList.remove("show");setTimeout(()=>t.remove(),300)},2600);}
+function floatText(x,y,txt,color){const f=document.createElement("div");f.className="float";
+  f.textContent=txt;f.style.left=x+"px";f.style.top=y+"px";f.style.color=color||"var(--pink2)";
+  document.body.appendChild(f);setTimeout(()=>f.remove(),800);}
+
+// ---------- Events ----------
+document.getElementById("btnLike").addEventListener("click",()=>currentCard&&resolveSwipe(1));
+document.getElementById("btnNope").addEventListener("click",()=>currentCard&&resolveSwipe(-1));
+document.getElementById("prestigeBtn").addEventListener("click",doPrestige);
+document.getElementById("saveBtn").addEventListener("click",()=>{save();toast("💾 Saved locally (real build: to your account)");});
+document.getElementById("resetBtn").addEventListener("click",()=>{
+  if(confirm("Hard reset EVERYTHING including Hearts?")){ localStorage.removeItem("crushEmpireSwipe");
+    S={points:0,totalEarned:0,swipes:0,likes:0,nopes:0,hearts:0,owned:GEN.map(()=>0),ups:[],started:Date.now()};
+    render();}});
+document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active")); t.classList.add("active");
+  const tab=t.dataset.tab;
+  document.getElementById("genList").style.display=tab==="gen"?"block":"none";
+  document.getElementById("upList").style.display=tab==="up"?"block":"none"; }));
+window.addEventListener("keydown",e=>{ if(!currentCard)return;
+  if(e.key==="ArrowRight")resolveSwipe(1); if(e.key==="ArrowLeft")resolveSwipe(-1); });
+
+// ---------- Boot ----------
+load(); render(); buildCard();
+let last=Date.now();
+setInterval(()=>{const now=Date.now();const dt=(now-last)/1000;last=now;
+  addPoints(cps()*dt); render();},200);
+setInterval(save,15000);
+window.addEventListener("beforeunload",save);
+</script>
+</body>
+</html>
