@@ -4705,6 +4705,37 @@ document.addEventListener("alpine:init", function () {
                     }
                 }
 
+                // Re-hydrate the Event Identity sub-components: the generic loop
+                // above checked their boxes/updated hidden inputs, but those
+                // components ran init() before the draft arrived, so their
+                // counters, caps and chip visibility are stale until told.
+                var eventIdentityEl = form.querySelector('[x-data="eventIdentity"]');
+                if (eventIdentityEl) {
+                    eventIdentityEl.dispatchEvent(new CustomEvent("event-identity-restore"));
+                }
+                ["qualities_ids", "defects_ids"].forEach(function (fieldName) {
+                    var hidden = form.querySelector('[name="' + fieldName + '"]');
+                    var raw = self.draftData[fieldName];
+                    if (!hidden || raw === undefined || raw === null) {
+                        return;
+                    }
+                    var container = hidden.closest('[x-data]');
+                    if (!container) {
+                        return;
+                    }
+                    var ids = String(raw)
+                        .split(",")
+                        .map(function (x) {
+                            return parseInt(x, 10);
+                        })
+                        .filter(function (n) {
+                            return !isNaN(n);
+                        });
+                    container.dispatchEvent(
+                        new CustomEvent("trait-restore", { detail: { ids: ids } }),
+                    );
+                });
+
                 // Update the review display after populating fields so Step 4 (Review)
                 // shows the correct data when the page is refreshed mid-wizard.
                 setTimeout(function () {
@@ -4737,6 +4768,15 @@ document.addEventListener("alpine:init", function () {
                         self.saveDraft();
                     });
                 }
+
+                // Trait chips are <button>s, so they fire no input/change event —
+                // traitSelector dispatches "profile-autosave:trigger" instead
+                // (the edit card's profileSectionAutosave listens for it, but the
+                // wizard has no such component). Without this, a member who picks
+                // qualities/defects and leaves before Continue loses them.
+                form.addEventListener("profile-autosave:trigger", function () {
+                    self.saveDraft();
+                });
             },
 
             // Schedule auto-save with debounce (2 seconds)
@@ -12348,6 +12388,7 @@ document.addEventListener("alpine:init", function () {
             maxItems: 5,
 
             init: function () {
+                var self = this;
                 this.maxItems = parseInt(this.$el.getAttribute("data-max") || "5", 10);
                 var initialStr = this.$el.getAttribute("data-initial");
                 if (initialStr) {
@@ -12359,6 +12400,18 @@ document.addEventListener("alpine:init", function () {
                 }
                 // Apply initial visual state to all chip buttons
                 this._syncAllChips();
+                // Wizard draft restore: data-initial is server-rendered from the
+                // saved profile, which is empty for a draft that hasn't hit
+                // Continue yet. When the wizard re-hydrates, adopt the persisted
+                // ids so the chips (and the x-bound hidden input) match — without
+                // this the reactive hiddenValue would overwrite the restored value
+                // back to empty.
+                this.$el.addEventListener("trait-restore", function (e) {
+                    if (e.detail && Array.isArray(e.detail.ids)) {
+                        self.selected = e.detail.ids.slice();
+                        self._syncAllChips();
+                    }
+                });
             },
 
             get counterText() {
@@ -13555,6 +13608,7 @@ document.addEventListener("alpine:init", function () {
             askMeCount: 0,
 
             init: function () {
+                var self = this;
                 this.interestMax = parseInt(
                     this.$root.getAttribute("data-interest-max") || "8",
                     10,
@@ -13565,6 +13619,15 @@ document.addEventListener("alpine:init", function () {
                 );
                 this._syncInterests();
                 this._syncAskMe();
+                // Wizard drafts hydrate asynchronously, after this init has run
+                // (profileWizard.populateFieldsFromDraft programmatically checks
+                // the boxes without firing change events). Re-sync when it signals
+                // so restored counters, caps and "Ask me about" chip visibility
+                // are correct — mirrors the dobPicker/cantonMap restore pattern.
+                this.$root.addEventListener("event-identity-restore", function () {
+                    self._syncInterests();
+                    self._syncAskMe();
+                });
             },
 
             onInterestChange: function () {

@@ -1577,6 +1577,14 @@ class CrushProfileEventIdentityForm(forms.ModelForm):
         fields = ["interests_new", "ask_me_about", "event_vibe", "event_languages"]
 
     def __init__(self, *args, **kwargs):
+        # When True, event_languages must keep at least one selection. The field
+        # is optional by default so this one form can also serve the create
+        # wizard's step 2 (progressive fill, spec O2). The edit card for an
+        # already-approved member sets it True: an approved profile that clears
+        # every language would be silently locked out of all language-specific
+        # events (MeetupEvent.user_meets_language_requirement), and the
+        # submission-form gate never runs again for them.
+        self.require_event_languages = kwargs.pop("require_event_languages", False)
         super().__init__(*args, **kwargs)
         # Choices = active interests ∪ the member's current selections. Including
         # current selections means a retired interest (is_active=False) the member
@@ -1636,6 +1644,10 @@ class CrushProfileEventIdentityForm(forms.ModelForm):
     def clean_event_languages(self):
         """Store event_languages as a validated list for JSON serialization."""
         languages = self.cleaned_data.get("event_languages", []) or []
+        if self.require_event_languages and not languages:
+            raise forms.ValidationError(
+                _("Select at least one language you can speak at events.")
+            )
         valid_codes = {code for code, _label in CrushProfile.EVENT_LANGUAGE_CHOICES}
         for lang in languages:
             if lang not in valid_codes:

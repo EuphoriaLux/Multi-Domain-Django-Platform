@@ -355,6 +355,29 @@ class ProfileSettingsAutosaveTests(TestCase):
         self.assertEqual(values["ask_me_about"], [yoga.pk])
         self.assertEqual(values["event_vibe"], "quiet_corner")
 
+    def test_event_identity_autosave_rejects_clearing_all_languages(self):
+        """An approved member (autosave is approved-only) must not empty their
+        event languages — that silently locks them out of every
+        language-specific event. The value stays unchanged."""
+        response = self.client.post(
+            self.url,
+            data=json.dumps(
+                {
+                    "section": "event_identity",
+                    "interests_new": [],
+                    "ask_me_about": [],
+                    "event_vibe": "",
+                    "event_languages": [],
+                }
+            ),
+            content_type="application/json",
+            HTTP_HOST="crush.lu",
+        )
+
+        self.assertEqual(response.status_code, 400, response.content)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.event_languages, ["en"])  # unchanged
+
     def test_contact_autosave_rejects_invalid_location(self):
         """Invalid location sent to the contact section should be rejected."""
         response = self.client.post(

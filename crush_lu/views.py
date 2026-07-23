@@ -1113,7 +1113,14 @@ def _edit_section_event_identity(request, profile):
     """Handle the merged "Your Event Identity" section (vibe / interests /
     ask-me-about / event vibe / event languages)."""
     if request.method == "POST":
-        form = CrushProfileEventIdentityForm(request.POST, instance=profile)
+        # Approved members keep the ≥1-event-language guard here too (the non-JS
+        # fallback for the same card); incomplete members stay optional and are
+        # caught by the submission form instead.
+        form = CrushProfileEventIdentityForm(
+            request.POST,
+            instance=profile,
+            require_event_languages=profile.is_approved,
+        )
         if form.is_valid():
             updated_profile = form.save()
             from .matching import update_match_scores_for_user
@@ -1556,6 +1563,11 @@ def api_profile_settings_autosave(request):
             allowed_fields,
         )
         form = form_class(data, instance=profile)
+        if section == "event_identity":
+            # This endpoint is approved-only (checked above), so an approved
+            # member must not autosave an empty language list and lock
+            # themselves out of every language-specific event.
+            form.require_event_languages = True
         if form.is_valid():
             updated_profile = form.save()
             from .matching import update_match_scores_for_user

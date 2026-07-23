@@ -373,6 +373,41 @@ def test_form_does_not_offer_retired_interests_to_new_members():
     assert retired not in form.fields["interests_new"].queryset
 
 
+@pytest.mark.django_db
+def test_event_languages_optional_by_default_but_required_when_flagged():
+    """One form serves both the wizard (optional, spec O2) and the approved
+    member's edit card (must keep ≥1 language, or they lock themselves out of
+    every language-specific event)."""
+    p = _make_profile("lang@example.com")
+
+    # Default (wizard) context: clearing languages is allowed.
+    wizard = CrushProfileEventIdentityForm(
+        data={"interests_new": [], "ask_me_about": [], "event_vibe": "",
+              "event_languages": []},
+        instance=p,
+    )
+    assert wizard.is_valid(), wizard.errors
+
+    # Approved-card context: an empty language list is rejected…
+    card = CrushProfileEventIdentityForm(
+        data={"interests_new": [], "ask_me_about": [], "event_vibe": "",
+              "event_languages": []},
+        instance=p,
+        require_event_languages=True,
+    )
+    assert not card.is_valid()
+    assert "event_languages" in card.errors
+
+    # …but a non-empty one still passes.
+    ok = CrushProfileEventIdentityForm(
+        data={"interests_new": [], "ask_me_about": [], "event_vibe": "",
+              "event_languages": ["en"]},
+        instance=p,
+        require_event_languages=True,
+    )
+    assert ok.is_valid(), ok.errors
+
+
 # ---------------------------------------------------------------------------
 # Migration 0198: the ConnectInterest → Interest permission rename
 # ---------------------------------------------------------------------------
