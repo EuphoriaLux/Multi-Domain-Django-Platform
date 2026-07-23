@@ -16,6 +16,7 @@ from .blocking import (
     withdraw_active_coach_picks,
 )
 from .crush_connect import get_eligible_pool, get_or_create_daily_drop
+from .crush_leads import call_by, coach_action_queue, reminder_due
 from .graph_contacts import GraphContactsService, is_sync_enabled
 
 __all__ = [
@@ -23,6 +24,9 @@ __all__ = [
     'is_sync_enabled',
     'get_eligible_pool',
     'get_or_create_daily_drop',
+    'call_by',
+    'coach_action_queue',
+    'reminder_due',
     'block_exists_subquery',
     'blocked_user_ids',
     'is_blocked_pair',
