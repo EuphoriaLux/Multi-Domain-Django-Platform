@@ -293,6 +293,44 @@ def test_admin_form_enforces_the_8_interest_cap():
 
 
 @pytest.mark.django_db
+def test_admin_form_rejects_bad_ask_me_about_values():
+    """``ask_me_about`` is a raw JSON field in the admin — staff must not be
+    able to persist a value the member form would then reject."""
+    from django.core.exceptions import ValidationError
+
+    from crush_lu.admin.profiles import CrushProfileAdminForm
+
+    form = CrushProfileAdminForm()
+    for bad in ([1, 2, 3, 4], [1, 1], {"a": 1}, ["not-an-id"]):
+        form.cleaned_data = {"ask_me_about": bad}
+        with pytest.raises(ValidationError):
+            form.clean_ask_me_about()
+
+    form.cleaned_data = {"ask_me_about": [7, 9]}
+    assert form.clean_ask_me_about() == [7, 9]  # two distinct ids are fine
+
+
+@pytest.mark.django_db
+def test_admin_form_requires_ask_me_about_to_be_a_selected_interest():
+    from crush_lu.admin.profiles import CrushProfileAdminForm
+
+    yoga = Interest.objects.get(slug="yoga")
+    city = Interest.objects.get(slug="city-trips")
+
+    form = CrushProfileAdminForm()
+    form._errors = {}
+    form.cleaned_data = {"interests_new": [yoga], "ask_me_about": [city.pk]}
+    form.clean()
+    assert "ask_me_about" in form._errors  # not among the selected interests
+
+    form = CrushProfileAdminForm()
+    form._errors = {}
+    form.cleaned_data = {"interests_new": [yoga, city], "ask_me_about": [city.pk]}
+    form.clean()
+    assert not form._errors
+
+
+@pytest.mark.django_db
 def test_form_does_not_offer_retired_interests_to_new_members():
     retired = Interest.objects.create(
         slug="retired-y", category="games", sort_order=901, label="RetiredY", is_active=False

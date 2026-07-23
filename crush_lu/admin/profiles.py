@@ -292,17 +292,19 @@ class ProfileSubmissionProfileInline(admin.TabularInline):
 
 
 class CrushProfileAdminForm(forms.ModelForm):
-    """Admin form for ``CrushProfile`` that enforces the Event Identity
-    8-interest cap.
+    """Admin form for ``CrushProfile`` that enforces the Event Identity rules.
 
-    ``CrushProfileAdmin`` exposes ``interests_new`` via ``filter_horizontal``;
-    the default admin form has no cap, so staff could save 9+ interests — a
-    state ``CrushProfileEventIdentityForm`` later rejects on the member's next
-    save, forcing them to trim selections they never made. Mirror the member
-    form's cap here so the over-cap state can't be created in the first place.
+    ``CrushProfileAdmin`` exposes ``interests_new`` via ``filter_horizontal``
+    and ``ask_me_about`` as a raw JSON field; the default admin form caps
+    neither, so staff could save 9+ interests, or conversation starters that are
+    duplicated, non-existent, or outside ``interests_new`` — states
+    ``CrushProfileEventIdentityForm`` later rejects on the member's next save,
+    forcing them to trim selections they never made. Mirror the member form's
+    validators here so those states can't be created in the first place.
     """
 
     MAX_INTERESTS = 8
+    MAX_ASK_ME_ABOUT = 3
 
     class Meta:
         model = CrushProfile
@@ -316,6 +318,43 @@ class CrushProfileAdminForm(forms.ModelForm):
                 % {"max": self.MAX_INTERESTS}
             )
         return interests
+
+    def clean_ask_me_about(self):
+        raw = self.cleaned_data.get("ask_me_about")
+        if not raw:
+            return []
+        if not isinstance(raw, list):
+            raise forms.ValidationError(_("Invalid conversation-starter selection."))
+        try:
+            ids = [int(x) for x in raw]
+        except (TypeError, ValueError):
+            raise forms.ValidationError(_("Invalid conversation-starter selection."))
+        if len(set(ids)) != len(ids):
+            raise forms.ValidationError(_("Conversation starters must be distinct."))
+        if len(ids) > self.MAX_ASK_ME_ABOUT:
+            raise forms.ValidationError(
+                _("Select at most %(max)d conversation starters.")
+                % {"max": self.MAX_ASK_ME_ABOUT}
+            )
+        return ids
+
+    def clean(self):
+        cleaned = super().clean()
+        interests = cleaned.get("interests_new")
+        ask = cleaned.get("ask_me_about") or []
+        # Same subset rule as the member form: skip when interests_new itself
+        # failed validation (it is None then, not an empty queryset).
+        if ask and interests is not None:
+            selected_ids = {interest.pk for interest in interests}
+            if not set(ask).issubset(selected_ids):
+                self.add_error(
+                    "ask_me_about",
+                    _(
+                        "“Ask me about” items must be among the selected "
+                        "interests."
+                    ),
+                )
+        return cleaned
 
 
 class CrushProfileAdmin(admin.ModelAdmin):
