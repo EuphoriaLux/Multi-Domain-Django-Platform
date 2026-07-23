@@ -71,7 +71,7 @@
                                 <a href="{% url 'crush_lu:edit_profile' %}?section=event_identity" class="underline hover:text-amber-900 dark:hover:text-amber-100 transition-colors">
                                     {{ field.label }}
                                 </a>
-                            {% elif field.field in 'gender,date_of_birth,phone_number,location' %}
+                            {% elif field.field in 'gender,date_of_birth,phone_number,phone_verified,location' %}
                                 <a href="{% url 'crush_lu:edit_profile' %}?section=contact" class="underline hover:text-amber-900 dark:hover:text-amber-100 transition-colors">
                                     {{ field.label }}
                                 </a>

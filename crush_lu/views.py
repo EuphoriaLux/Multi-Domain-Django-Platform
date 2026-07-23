@@ -837,6 +837,15 @@ def create_profile(request):
 
             context = {
                 "form": form,
+                # Without the profile, _render_create_profile falls back to
+                # None: the Event Identity selections (sourced from the
+                # profile, not the bound form — they save through
+                # save-step2) come back empty and the journey stepper resets
+                # to step 1. A user who trips a validation error on the final
+                # submit would see their interests and vibe wiped from the
+                # wizard, and re-walking step 2 would then save that empty
+                # selection over the real one.
+                "profile": existing_profile,
                 "current_step": "step3",
                 "social_photos": get_all_social_photos(request.user),
             }

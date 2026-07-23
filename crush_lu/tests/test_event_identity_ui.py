@@ -100,6 +100,42 @@ class WizardStep2Tests(_SiteMixin, TestCase):
         self.assertEqual(profile.interests, "")
 
 
+    def test_invalid_submit_keeps_the_event_identity_selections(self):
+        """A validation error on the final wizard POST must re-render with the
+        member's Event Identity intact.
+
+        Those selections are context-sourced from the profile (they save
+        through save-step2, not through CrushProfileForm), so an error branch
+        that drops ``profile`` from the context renders every chip unselected —
+        and re-walking step 2 would then save that empty selection over the
+        real one. The stepper regresses to step 1 for the same reason.
+        """
+        from crush_lu.models import Interest
+
+        client, _user, profile = _member("invalid@example.com")
+        picks = list(Interest.objects.filter(is_active=True)[:3])
+        profile.interests_new.set(picks)
+        profile.ask_me_about = [picks[0].pk]
+        profile.event_vibe = "quiet_corner"
+        profile.save()
+
+        # Missing date_of_birth → CrushProfileForm is invalid.
+        resp = client.post(
+            reverse("crush_lu:create_profile"),
+            data={"phone_number": "+35212345678", "gender": "F"},
+            HTTP_HOST="crush.lu",
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            list(resp.context["event_identity_selected_ids"]),
+            [p.pk for p in picks],
+        )
+        self.assertEqual(resp.context["event_identity_ask_me_about"], [picks[0].pk])
+        self.assertEqual(resp.context["event_identity_vibe"], "quiet_corner")
+        # …and the journey stepper still reflects the real profile state.
+        self.assertEqual(resp.context["profile"], profile)
+
+
 @override_settings(**CRUSH_LU_URL_SETTINGS)
 class EditProfileEventIdentityCardTests(_SiteMixin, TestCase):
     def _approved(self, username, **kw):
