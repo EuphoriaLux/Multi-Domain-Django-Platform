@@ -35940,3 +35940,139 @@ msgstr "Présentez votre billet à l'entrée pour vous enregistrer."
 #: crush_lu/templates/crush_lu/includes/event_card.html
 msgid "Live now"
 msgstr "En direct"
+
+msgid "Your Event Identity"
+msgstr "Votre identité événement"
+
+msgid "Event Identity"
+msgstr "Identité événement"
+
+msgid "Your Event Identity was updated!"
+msgstr "Votre identité événement a été mise à jour !"
+
+msgid ""
+"This is what people will discover about you at our events — no long bio "
+"needed."
+msgstr ""
+"Voici ce que les gens découvriront de vous lors de nos événements — pas "
+"besoin de longue bio."
+
+msgid ""
+"This is what people will discover about you at our events — no long bio "
+"needed. (All optional.)"
+msgstr ""
+"Voici ce que les gens découvriront de vous lors de nos événements — pas "
+"besoin de longue bio. (Tout est facultatif.)"
+
+msgid ""
+"Vibe, interests & conversation starters — what people discover at events."
+msgstr ""
+"Ambiance, centres d'intérêt et amorces de conversation — ce que les gens "
+"découvrent de vous en événement."
+
+msgid "Your vibe"
+msgstr "Votre ambiance"
+
+msgid "Pick up to 5 qualities and up to 5 things you own up to."
+msgstr "Choisissez jusqu'à 5 qualités et jusqu'à 5 défauts que vous assumez."
+
+msgid "Your interests"
+msgstr "Vos centres d'intérêt"
+
+msgid "Pick up to 8 — these appear as chips at events."
+msgstr ""
+"Choisissez-en jusqu'à 8 — ils apparaîtront sous forme de badges lors des "
+"événements."
+
+msgid "Ask me about…"
+msgstr "Parlez-moi de…"
+
+msgid "Ask me about"
+msgstr "Parlez-moi de"
+
+msgid "Highlight up to 3 of your interests as conversation starters."
+msgstr ""
+"Mettez en avant jusqu'à 3 de vos centres d'intérêt comme amorces de "
+"conversation."
+
+msgid "Select some interests above first."
+msgstr "Sélectionnez d'abord quelques centres d'intérêt ci-dessus."
+
+msgid "Nothing selected yet (optional)"
+msgstr "Rien de sélectionné pour l'instant (facultatif)"
+
+msgid "My event vibe"
+msgstr "Mon ambiance en événement"
+
+msgid "Pick the one that sounds most like you at an event."
+msgstr "Choisissez celle qui vous ressemble le plus en événement."
+
+msgid "Skip for now"
+msgstr "Passer pour l'instant"
+
+msgid "Legacy bio & interests (pre-2026 redesign)"
+msgstr "Ancienne bio et intérêts (avant la refonte 2026)"
+
+msgid "Name visibility and age display"
+msgstr "Affichage du nom et de l'âge"
+
+msgid "Phone number & region"
+msgstr "Numéro de téléphone et région"
+
+msgid "First one on the dance floor"
+msgstr "Premier sur la piste de danse"
+
+msgid "Quiet corner conversations"
+msgstr "Conversations tranquilles dans un coin"
+
+msgid "Here to meet everyone"
+msgstr "Là pour rencontrer tout le monde"
+
+msgid "Dragged along by friends"
+msgstr "Traîné par des amis"
+
+msgid "Invalid conversation-starter selection."
+msgstr "Sélection d'amorces de conversation invalide."
+
+msgid "Pick each conversation starter once."
+msgstr "Choisissez chaque amorce de conversation une seule fois."
+
+msgid "Pick at most %(max)d conversation starters."
+msgstr "Choisissez au maximum %(max)d amorces de conversation."
+
+msgid "Select at least one language you can speak at events."
+msgstr ""
+"Sélectionnez au moins une langue que vous pouvez parler lors des événements."
+
+msgid "“Ask me about” items must be among your selected interests."
+msgstr ""
+"Les éléments « Parlez-moi de » doivent faire partie de vos centres d'intérêt"
+" sélectionnés."
+
+msgid "Curated event interests (max 8) — replaces free-text interests"
+msgstr ""
+"Centres d'intérêt d'événement sélectionnés (max. 8) — remplace les intérêts "
+"en texte libre"
+
+msgid "Up to 3 interest ids to highlight as conversation starters"
+msgstr ""
+"Jusqu'à 3 identifiants d'intérêts à mettre en avant comme amorces de "
+"conversation"
+
+msgid "Your event vibe — one chip shown on event surfaces"
+msgstr ""
+"Votre ambiance en événement — un badge affiché sur les pages d'événement"
+
+msgid ""
+"DEPRECATED (Event Identity redesign): legacy free-text bio, coach-visible "
+"only"
+msgstr ""
+"OBSOLÈTE (refonte Event Identity) : ancienne bio en texte libre, visible par"
+" les coachs uniquement"
+
+msgid ""
+"DEPRECATED (Event Identity redesign): legacy free-text interests, coach-"
+"visible only"
+msgstr ""
+"OBSOLÈTE (refonte Event Identity) : anciens intérêts en texte libre, "
+"visibles par les coachs uniquement"

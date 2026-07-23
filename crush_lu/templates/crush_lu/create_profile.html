@@ -706,10 +706,10 @@
                         <div class="flex flex-wrap gap-2">
                             {% for interest in group.list %}
                             <label class="cursor-pointer block">
-                                <input type="checkbox" name="interests_new" value="{{ interest.pk }}" class="peer hidden"
+                                <input type="checkbox" name="interests_new" value="{{ interest.pk }}" class="peer sr-only"
                                        @change="onInterestChange"
                                        {% if interest.pk in event_identity_selected_ids %}checked{% endif %}>
-                                <span class="connect-selectable connect-chip">{{ interest.label }}</span>
+                                <span class="connect-selectable connect-chip peer-focus-visible:ring-2 peer-focus-visible:ring-purple-500">{{ interest.label }}</span>
                             </label>
                             {% endfor %}
                         </div>
@@ -727,10 +727,10 @@
                             {% for interest in event_identity_interests %}
                             <span data-askme-wrap data-interest-id="{{ interest.pk }}" class="{% if interest.pk not in event_identity_selected_ids %}hidden {% endif %}inline-block">
                                 <label class="cursor-pointer block">
-                                    <input type="checkbox" name="ask_me_about" value="{{ interest.pk }}" class="peer hidden"
+                                    <input type="checkbox" name="ask_me_about" value="{{ interest.pk }}" class="peer sr-only"
                                            @change="onAskMeChange"
                                            {% if interest.pk in event_identity_ask_me_about %}checked{% endif %}>
-                                    <span class="connect-selectable connect-chip">{{ interest.label }}</span>
+                                    <span class="connect-selectable connect-chip peer-focus-visible:ring-2 peer-focus-visible:ring-purple-500">{{ interest.label }}</span>
                                 </label>
                             </span>
                             {% endfor %}
@@ -747,15 +747,15 @@
                     <div class="flex flex-wrap gap-2">
                         {% for value, label in event_vibe_choices %}
                         <label class="cursor-pointer block">
-                            <input type="radio" name="event_vibe" value="{{ value }}" class="peer hidden"
+                            <input type="radio" name="event_vibe" value="{{ value }}" class="peer sr-only"
                                    {% if value == event_identity_vibe %}checked{% endif %}>
-                            <span class="connect-selectable connect-chip">{{ label }}</span>
+                            <span class="connect-selectable connect-chip peer-focus-visible:ring-2 peer-focus-visible:ring-purple-500">{{ label }}</span>
                         </label>
                         {% endfor %}
                         <label class="cursor-pointer block">
-                            <input type="radio" name="event_vibe" value="" class="peer hidden"
+                            <input type="radio" name="event_vibe" value="" class="peer sr-only"
                                    {% if not event_identity_vibe %}checked{% endif %}>
-                            <span class="connect-selectable connect-chip">{% trans "Skip for now" %}</span>
+                            <span class="connect-selectable connect-chip peer-focus-visible:ring-2 peer-focus-visible:ring-purple-500">{% trans "Skip for now" %}</span>
                         </label>
                     </div>
                 </div>
