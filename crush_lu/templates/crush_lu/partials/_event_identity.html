@@ -20,10 +20,12 @@ Chips are plain Tailwind utilities (not the `badge` component) so the block
 looks the same on every page that includes it, regardless of that page's CSS.
 {% endcomment %}
 {% with interests=profile.interests_new.all %}
-{# Self-guarding: render the container only when content will actually show for
-   the given params. A vibe-only profile on a hide_vibe surface, or a profile
-   whose only "identity" is a stale ask_me_about id, must fall through to
-   empty_text rather than emit an empty heading/container. #}
+{% comment %}
+Self-guarding: render the container only when content will actually show for the
+given params. A vibe-only profile on a hide_vibe surface, or a profile whose only
+"identity" is a stale ask_me_about id, must fall through to empty_text rather than
+emit an empty heading/container.
+{% endcomment %}
 {% if interests or not hide_vibe and profile.event_vibe %}
 <div class="event-identity flex flex-col gap-2">
     {% if heading %}

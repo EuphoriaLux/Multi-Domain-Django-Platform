@@ -1163,17 +1163,20 @@ def test_drop_card_falls_back_to_profile_chips(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True
     _staff_client(client)
     target = _make_user(username="t2", gender="F")
-    # Membership has no languages/interests → fall back to the profile fields.
+    # Membership has no languages/interests → fall back to the event profile's
+    # Event Identity taxonomy (interests_new), not the retired free-text field
+    # (Event Identity redesign §7).
     p = target.crushprofile
     p.event_languages = ["en"]
-    p.interests = "hiking, cooking"
     p.save()
+    pks = _interest_pks(2)
+    p.interests_new.set(pks)
 
     resp = client.get(f"/en/dev/connect-card/{target.pk}/")
     assert resp.status_code == 200
     body = resp.content.decode()
     assert "EN" in body  # |upper fallback
-    assert "hiking" in body
+    assert Interest.objects.get(pk=pks[0]).label in body
 
 
 @pytest.mark.django_db

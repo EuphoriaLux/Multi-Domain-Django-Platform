@@ -113,12 +113,14 @@
                         </div>
                     {% endif %}
 
-                    {# Event Identity (structured; replaces free-text bio/interests — spec §7).
-                       Gated on shared status to preserve the pre-redesign privacy model:
-                       the legacy `interests` block rendered only once contact was shared
-                       (and the bio it also replaces is gone). Redesign of this surface's
-                       copy/mechanics is owned by the "My Crush!" spec; this phase only
-                       guarantees no free text renders here and no privacy regression. #}
+                    {% comment %}
+                    Event Identity (structured; replaces free-text bio/interests — spec §7).
+                    Gated on shared status to preserve the pre-redesign privacy model:
+                    the legacy `interests` block rendered only once contact was shared
+                    (and the bio it also replaces is gone). Redesign of this surface's
+                    copy/mechanics is owned by the "My Crush!" spec; this phase only
+                    guarantees no free text renders here and no privacy regression.
+                    {% endcomment %}
                     {% if connection.status == 'shared' and other_profile.has_event_identity %}
                         <hr class="my-3 border-gray-200 dark:border-gray-700">
                         {% include "crush_lu/partials/_event_identity.html" with profile=other_profile %}
