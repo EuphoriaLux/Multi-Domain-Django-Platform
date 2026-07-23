@@ -1109,8 +1109,14 @@
                         </div>
                         <div class="min-w-0 flex-1">
                             <span class="text-sm text-gray-500 dark:text-gray-400">{% trans "Your Event Identity" %}</span>
+                            {# Server-rendered so a direct resume on Review (wizard_step→4, updateReview never runs) still shows the saved chips; JS rebuilds the identical set from the checked boxes when it does run. #}
                             <div class="flex flex-wrap gap-1.5 mt-1" x-ref="reviewInterests" data-empty="{% trans 'Nothing selected yet (optional)' %}">
-                                <span class="text-gray-400 dark:text-gray-500 italic text-sm">{% trans "Nothing selected yet (optional)" %}</span>
+                                {% if event_identity_vibe or event_identity_selected_ids %}
+                                    {% for value, label in event_vibe_choices %}{% if value == event_identity_vibe %}<span class="inline-block px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">{{ label }}</span>{% endif %}{% endfor %}
+                                    {% for interest in event_identity_interests %}{% if interest.pk in event_identity_selected_ids %}<span class="inline-block px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">{{ interest.label }}</span>{% endif %}{% endfor %}
+                                {% else %}
+                                    <span class="text-gray-400 dark:text-gray-500 italic text-sm">{% trans "Nothing selected yet (optional)" %}</span>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
