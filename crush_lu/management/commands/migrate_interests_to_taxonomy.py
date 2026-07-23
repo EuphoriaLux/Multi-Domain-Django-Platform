@@ -87,6 +87,35 @@ _RAW_RULES = [
     (["tech", "technology", "technik", "coding", "programming", "informatique"], ["tech"]),
     (["water sports", "surfing", "kayak", "paddle", "wassersport"], ["water-sports"]),
     (["badminton", "squash", "padel", "table tennis", "ping pong", "volleyball", "basketball", "tennis"], ["ball-racket-sports"]),
+    # --- inflections & regional surface forms (from the 2026-07-23 prod
+    # dry-run's unmatched sample; each is an unambiguous FR/DE/LU rendering of
+    # a concept the taxonomy already has, never a new one) ---
+    (["sport"], ["fitness"]),
+    (["promenade", "walking", "montagne", "spazieren"], ["hiking"]),
+    (["voyager", "sightseeing"], ["city-trips"]),
+    (["katzen", "kaatzen", "hund", "hunde", "chien"], ["animals-pets"]),
+    (["gärtneren", "jardin"], ["gardening"]),
+    (["sauna"], ["spa"]),
+    (["tanze"], ["dancing"]),
+    (["koche"], ["cooking"]),
+    (["handball"], ["ball-racket-sports"]),
+    (["eishockey", "eis-hockey"], ["winter-sports"]),
+    # Luxembourgish spellings — the national language, absent from the first
+    # pass (DE/FR/EN only). These recur across the 2026-07-23 re-run's remaining
+    # unmatched set, always as an existing concept: liesen/liersen = lesen,
+    # lafen = laufen, spazéieren = spazieren, Déieren = Tiere, bastelen = basteln.
+    (["liesen", "liersen"], ["reading"]),
+    (["lafen"], ["running"]),
+    (["spazéieren", "spazeieren"], ["hiking"]),
+    (["déieren"], ["animals-pets"]),
+    (["bastelen"], ["diy-crafts"]),
+    # FR/PT/EN renderings of existing concepts, each from the same unmatched set.
+    (["piscine", "piscina", "natation"], ["swimming"]),
+    (["caminhada"], ["hiking"]),
+    (["literature", "littérature"], ["reading"]),
+    (["cake", "gâteau", "kuchen"], ["baking"]),
+    (["photoshoot"], ["photography"]),
+    (["cardio", "hiit"], ["fitness"]),
     # --- verbatim create-profile wizard category labels (spec §2) ---
     (["sports & fitness", "sport & fitness"], ["fitness"]),
     (["outdoors & travel"], ["hiking", "city-trips"]),
@@ -100,9 +129,15 @@ _RAW_RULES = [
 # but leaves standalone letters like ``ß`` intact, so an ASCII class would treat
 # them as separators — "Spaß" would match the "spa" surface form and wrongly
 # pick up spa-wellness on a German profile.
+#
+# A trailing ``s?`` absorbs plurals, which members write constantly:
+# "Randonnées", "voyages", "danses" all missed their singular surface form
+# before. Measured on the 2026-07-23 production dry-run's unmatched sample, this
+# alone recovers ~19% of them. Deliberately NOT ``e?s?`` — that matches the same
+# sample but also turns "blue skies" into winter-sports.
 _RULES = [
     (
-        [re.compile(r"(?<!\w)" + re.escape(_fold(s)) + r"(?!\w)") for s in surfaces],
+        [re.compile(r"(?<!\w)" + re.escape(_fold(s)) + r"s?(?!\w)") for s in surfaces],
         slugs,
     )
     for surfaces, slugs in _RAW_RULES
