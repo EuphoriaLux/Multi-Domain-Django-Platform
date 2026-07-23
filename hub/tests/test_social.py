@@ -1,0 +1,53 @@
+"""
+Unit tests for social media planning endpoints in hub app.
+"""
+from django.contrib.auth import get_user_model
+from django.test import TestCase
+from rest_framework.test import APIClient
+
+from hub.models import SocialPost
+
+User = get_user_model()
+
+
+class SocialMediaTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="coach_test", email="coach@crush.lu", password="password123"
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def test_create_and_list_social_posts(self):
+        post = SocialPost.objects.create(
+            user=self.user,
+            hook="Soirée Oenologique",
+            pillar="event_recap",
+            language="fr",
+            content="Dégustation d'exception ce jeudi !",
+            status="draft",
+        )
+
+        res = self.client.get("/hub/social/posts")
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("items", res.data)
+        self.assertEqual(len(res.data["items"]), 1)
+        self.assertEqual(res.data["items"][0]["hook"], "Soirée Oenologique")
+
+    def test_batch_generate_social_posts(self):
+        payload = {
+            "hook": "Lancement Crush Connect",
+            "pillar": "milestone",
+            "platforms": ["instagram", "facebook"],
+            "languages": ["fr", "en"],
+        }
+        res = self.client.post("/hub/social/generate", payload, format="json")
+        self.assertEqual(res.status_code, 201)
+        self.assertIn("posts", res.data)
+        self.assertEqual(len(res.data["posts"]), 2)
+
+    def test_buffer_profiles_list(self):
+        res = self.client.get("/hub/social/buffer-profiles")
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("items", res.data)
+        self.assertGreaterEqual(len(res.data["items"]), 1)

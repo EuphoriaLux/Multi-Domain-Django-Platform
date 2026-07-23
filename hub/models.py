@@ -178,3 +178,58 @@ class WhatsAppInboundMessage(models.Model):
 
     def __str__(self):
         return f"{self.from_number} ({self.message_type}) @ {self.received_at:%Y-%m-%d %H:%M}"
+
+
+class SocialPost(models.Model):
+    class Pillar(models.TextChoices):
+        EVENT_RECAP = "event_recap", "Event Recap"
+        DATING_TIP = "dating_tip", "Dating Tip"
+        MILESTONE = "milestone", "Milestone"
+        COMMUNITY = "community", "Community"
+        PROMO = "promo", "Promotion"
+
+    class Language(models.TextChoices):
+        FR = "fr", "French"
+        EN = "en", "English"
+        DE = "de", "German"
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        PENDING_REVIEW = "pending_review", "Pending Review"
+        APPROVED = "approved", "Approved"
+        SCHEDULED = "scheduled", "Scheduled"
+        PUBLISHED = "published", "Published"
+        FAILED = "failed", "Failed"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="hub_social_posts",
+    )
+    pillar = models.CharField(
+        max_length=32, choices=Pillar.choices, default=Pillar.EVENT_RECAP
+    )
+    language = models.CharField(
+        max_length=8, choices=Language.choices, default=Language.FR
+    )
+    platforms = models.JSONField(default=list, blank=True)
+    buffer_profile_ids = models.JSONField(default=list, blank=True)
+    hook = models.CharField(max_length=255, blank=True, default="")
+    content = models.TextField(blank=True, default="")
+    media_url = models.URLField(blank=True, null=True, default=None)
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.DRAFT
+    )
+    scheduled_for = models.DateTimeField(blank=True, null=True, default=None)
+    buffer_id = models.CharField(max_length=255, blank=True, default="")
+    article_id = models.CharField(max_length=255, blank=True, default="")
+    status_history = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"[{self.language.upper()}] {self.hook or self.content[:30]} ({self.status})"
+

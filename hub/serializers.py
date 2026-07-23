@@ -6,6 +6,7 @@ from .models import (
     HubTimelineEvent,
     WhatsAppInboundMessage,
     WhatsAppMessage,
+    SocialPost,
 )
 
 
@@ -76,6 +77,37 @@ class WhatsAppMessageSerializer(serializers.ModelSerializer):
 
     def get_wa_message_id(self, obj):
         return obj.wa_message_id or None
+
+
+class SocialPostSerializer(serializers.ModelSerializer):
+    id = serializers.CharField(read_only=True)
+    created_by = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SocialPost
+        fields = [
+            "id",
+            "created_by",
+            "pillar",
+            "language",
+            "platforms",
+            "buffer_profile_ids",
+            "hook",
+            "content",
+            "media_url",
+            "status",
+            "scheduled_for",
+            "buffer_id",
+            "article_id",
+            "status_history",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_by", "created_at", "updated_at"]
+
+    def get_created_by(self, obj):
+        return obj.user.get_username() if obj.user else "system"
+
 
 
 class WhatsAppInboundMessageSerializer(serializers.ModelSerializer):
