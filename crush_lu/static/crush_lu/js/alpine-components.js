@@ -12467,6 +12467,10 @@ document.addEventListener("alpine:init", function () {
                     var isSelected = self.selected.indexOf(traitId) > -1;
                     var isDisabled = isMax && !isSelected;
 
+                    // Toggle-button semantics for assistive tech (the chips are
+                    // <button type="button">, so aria-pressed carries the state).
+                    btn.setAttribute("aria-pressed", isSelected ? "true" : "false");
+
                     // Remove all state classes
                     btn.classList.remove(
                         "border-purple-500",
