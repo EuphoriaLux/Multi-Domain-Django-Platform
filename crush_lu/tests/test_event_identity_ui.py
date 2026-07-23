@@ -135,6 +135,42 @@ class WizardStep2Tests(_SiteMixin, TestCase):
         # …and the journey stepper still reflects the real profile state.
         self.assertEqual(resp.context["profile"], profile)
 
+    def test_review_renders_saved_event_identity_on_direct_resume(self):
+        """A member who finished steps 1–3 resumes straight on Review
+        (wizard_step→4), so the JS updateReview() never runs. The Review's
+        Event Identity chips must therefore be server-rendered — not left on the
+        "Nothing selected yet" fallback — from the profile's saved vibe/interests.
+        """
+        from crush_lu.models import Interest
+
+        # verification_status defaults to "incomplete"; every wizard_step gate is
+        # satisfied (phone verified, languages set) so wizard_step is None → 4.
+        # welcome/coach-intro seen so the outer journey guard (get_current_step
+        # >= 4) doesn't bounce the GET to onboarding_entry.
+        client, _user, profile = _member(
+            "resume@example.com",
+            welcome_seen_at=timezone.now(),
+            coach_intro_seen_at=timezone.now(),
+        )
+        self.assertIsNone(profile.wizard_step)  # ready → resumes on Review
+        picks = list(Interest.objects.filter(is_active=True)[:2])
+        profile.interests_new.set(picks)
+        profile.event_vibe = "quiet_corner"
+        profile.save()
+
+        resp = client.get(reverse("crush_lu:create_profile"), HTTP_HOST="crush.lu")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context["current_step"], 4)  # opened on Review
+
+        body = resp.content.decode()
+        review = body.split('x-ref="reviewInterests"', 1)[1].split("</div>", 1)[0]
+        # The saved vibe label and both interest labels are in the review block…
+        self.assertIn("Quiet corner conversations", review)
+        for interest in picks:
+            self.assertIn(interest.label, review)
+        # …and the empty-state span is not rendered (data-empty attr aside).
+        self.assertNotIn("italic text-sm", review)
+
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
 class EditProfileEventIdentityCardTests(_SiteMixin, TestCase):
