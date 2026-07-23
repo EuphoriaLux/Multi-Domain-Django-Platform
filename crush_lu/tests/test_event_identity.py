@@ -7,6 +7,7 @@ the slugs asserted below exist in the test DB.
 """
 
 from datetime import timedelta
+from importlib import import_module
 from io import StringIO
 
 import pytest
@@ -298,3 +299,67 @@ def test_form_does_not_offer_retired_interests_to_new_members():
     )
     form = CrushProfileEventIdentityForm()  # no instance → active choices only
     assert retired not in form.fields["interests_new"].queryset
+
+
+# ---------------------------------------------------------------------------
+# Migration 0198: the ConnectInterest → Interest permission rename
+# ---------------------------------------------------------------------------
+_NEW_CODENAMES = {"add_interest", "change_interest", "delete_interest", "view_interest"}
+
+
+def _seed_old_permissions(content_type):
+    """Put a group on the four pre-rename codenames, as an upgraded deployment
+    has them just before ``create_permissions`` mints the new ones."""
+    from django.contrib.auth.models import Group, Permission
+
+    Permission.objects.filter(content_type=content_type).delete()
+    perms = [
+        Permission.objects.create(
+            content_type=content_type,
+            codename=f"{action}_connectinterest",
+            name=f"Can {action}",
+        )
+        for action in ("add", "change", "delete", "view")
+    ]
+    group = Group.objects.create(name="interest-editors")
+    group.permissions.set(perms)
+    return group
+
+
+@pytest.mark.django_db
+def test_permission_rename_carries_group_grants():
+    """The normal path: 0194's injected ``RenameContentType`` already moved the
+    row to ``crush_lu/interest``, but the codenames are still the old ones."""
+    from django.apps import apps as global_apps
+    from django.contrib.contenttypes.models import ContentType
+
+    migration = import_module("crush_lu.migrations.0198_rename_interest_permissions")
+    ct = ContentType.objects.get_for_model(Interest)
+    group = _seed_old_permissions(ct)
+
+    migration.forwards(global_apps, None)
+
+    assert set(group.permissions.values_list("codename", flat=True)) == _NEW_CODENAMES
+
+
+@pytest.mark.django_db
+def test_permission_rename_falls_back_to_the_old_content_type_row():
+    """``RenameContentType`` bails out when a router excludes contenttypes and
+    reverts itself on ``IntegrityError`` — the row then still says
+    ``connectinterest``, and the grants must travel anyway."""
+    from django.apps import apps as global_apps
+    from django.contrib.contenttypes.models import ContentType
+
+    migration = import_module("crush_lu.migrations.0198_rename_interest_permissions")
+    try:
+        ContentType.objects.filter(app_label="crush_lu", model="interest").delete()
+        ContentType.objects.clear_cache()
+        ct = ContentType.objects.create(app_label="crush_lu", model="connectinterest")
+        group = _seed_old_permissions(ct)
+
+        migration.forwards(global_apps, None)
+
+        codenames = set(group.permissions.values_list("codename", flat=True))
+        assert codenames == _NEW_CODENAMES
+    finally:
+        ContentType.objects.clear_cache()

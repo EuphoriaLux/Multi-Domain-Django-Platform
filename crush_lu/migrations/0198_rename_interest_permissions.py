@@ -20,7 +20,16 @@ _CODENAMES = ["add", "change", "delete", "view"]
 def _rename(apps, old_model, new_model):
     Permission = apps.get_model("auth", "Permission")
     ContentType = apps.get_model("contenttypes", "ContentType")
-    ct = ContentType.objects.filter(app_label="crush_lu", model=new_model).first()
+    # ``RenameContentType`` — injected straight after 0194's ``RenameModel`` by
+    # the contenttypes ``pre_migrate`` hook — has normally already moved the row
+    # to ``new_model`` by the time this runs. It can leave the row under its old
+    # name in two cases: contenttypes excluded by a database router, or a stale
+    # target row making its save raise ``IntegrityError`` (it then reverts
+    # itself). The grants hang off that row either way, so fall back to it.
+    ct = (
+        ContentType.objects.filter(app_label="crush_lu", model=new_model).first()
+        or ContentType.objects.filter(app_label="crush_lu", model=old_model).first()
+    )
     if ct is None:
         return
     for action in _CODENAMES:
