@@ -194,9 +194,16 @@ def generate_event_flyer(title="Speed Dating Premium", date_str="Jeudi 30 Juille
 
 
 def _save_image_to_storage(img: Image.Image, prefix="graphic") -> str:
-    """Save PIL image to media storage and return public relative URL."""
+    """Save PIL image to media storage and return public absolute URL."""
     buffer = io.BytesIO()
     img.save(buffer, format="PNG")
     file_name = f"social/{prefix}_{os.urandom(4).hex()}.png"
     saved_path = default_storage.save(file_name, ContentFile(buffer.getvalue()))
-    return default_storage.url(saved_path)
+    media_url = default_storage.url(saved_path)
+
+    # If running locally and default_storage returns a relative path like /media/social/...
+    if media_url.startswith("/"):
+        backend_host = getattr(settings, "BACKEND_BASE_URL", "http://localhost:8000")
+        media_url = f"{backend_host.rstrip('/')}{media_url}"
+
+    return media_url
