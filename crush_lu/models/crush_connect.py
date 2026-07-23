@@ -244,7 +244,7 @@ class CrushConnectMembership(models.Model):
         help_text=_("Languages this member speaks (codes from CONNECT_LANGUAGE_CHOICES)"),
     )
     interests = models.ManyToManyField(
-        "crush_lu.ConnectInterest",
+        "crush_lu.Interest",
         blank=True,
         related_name="interested_members",
         help_text=_("Curated interests & hobbies (cap of 8 enforced in the wizard)"),
@@ -563,10 +563,11 @@ class SparkPrompt(models.Model):
         return self.text
 
 
-class ConnectInterest(models.Model):
+class Interest(models.Model):
     """
-    A curated interest/hobby a member can attach to their Crush Connect
-    catalogue profile (mirrors ``Trait``/``SparkPrompt``).
+    A curated interest/hobby, shared cross-product: Crush Connect catalogue
+    profiles and the classic event profile's Event Identity section both attach
+    it via M2M (mirrors ``Trait``/``SparkPrompt``).
 
     Curated rather than free-text so the shared data needs no moderation,
     can't leak identifying details, and translates cleanly. ``label`` is
@@ -603,8 +604,8 @@ class ConnectInterest(models.Model):
 
     class Meta:
         ordering = ["category", "sort_order", "label"]
-        verbose_name = _("Connect Interest")
-        verbose_name_plural = _("Connect Interests")
+        verbose_name = _("Interest")
+        verbose_name_plural = _("Interests")
 
     def __str__(self):
         return self.label

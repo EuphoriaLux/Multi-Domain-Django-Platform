@@ -301,7 +301,7 @@ class SparkPromptAdmin(admin.ModelAdmin):
     )
 
 
-class ConnectInterestAdmin(admin.ModelAdmin):
+class InterestAdmin(admin.ModelAdmin):
     list_display = ["label", "slug", "category", "is_active", "sort_order"]
     list_filter = ["category", "is_active"]
     list_editable = ["category", "is_active", "sort_order"]

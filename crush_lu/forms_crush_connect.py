@@ -14,7 +14,7 @@ from django.utils.translation import gettext_lazy as _
 
 from crush_lu.models import (
     CONNECT_LANGUAGE_CHOICES,
-    ConnectInterest,
+    Interest,
     CrushConnectMembership,
     CrushProfile,
     SparkPrompt,
@@ -128,7 +128,7 @@ class ConnectLanguagesForm(forms.ModelForm):
         error_messages={"required": _("Pick at least one language you speak.")},
     )
     interests = forms.ModelMultipleChoiceField(
-        queryset=ConnectInterest.objects.filter(is_active=True),
+        queryset=Interest.objects.filter(is_active=True),
         required=True,
         widget=forms.CheckboxSelectMultiple,
         label=_("Interests & hobbies"),

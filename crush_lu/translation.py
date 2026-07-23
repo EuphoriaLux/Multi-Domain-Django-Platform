@@ -17,7 +17,7 @@ from .models.event_polls import EventPoll, EventPollOption
 from .models.quiz import QuizRound, QuizQuestion
 from .models.crush_cache import CacheHunt, CacheStation, CacheChallenge
 from .models.changelog import PatchRelease, PatchNote
-from .models.crush_connect import ConnectInterest, SparkPrompt
+from .models.crush_connect import Interest, SparkPrompt
 from .models.crush_connect_questions import ConnectQuestion
 from .models.journey import (
     JourneyConfiguration,
@@ -176,7 +176,7 @@ class SparkPromptTranslationOptions(TranslationOptions):
     fields = ('text',)
 
 
-class ConnectInterestTranslationOptions(TranslationOptions):
+class InterestTranslationOptions(TranslationOptions):
     """Translatable label for Crush Connect curated interests."""
 
     fields = ('label',)
@@ -210,5 +210,5 @@ translator.register(CacheChallenge, CacheChallengeTranslationOptions)
 translator.register(PatchRelease, PatchReleaseTranslationOptions)
 translator.register(PatchNote, PatchNoteTranslationOptions)
 translator.register(SparkPrompt, SparkPromptTranslationOptions)
-translator.register(ConnectInterest, ConnectInterestTranslationOptions)
+translator.register(Interest, InterestTranslationOptions)
 translator.register(ConnectQuestion, ConnectQuestionTranslationOptions)

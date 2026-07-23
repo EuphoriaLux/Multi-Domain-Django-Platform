@@ -16,7 +16,7 @@ from django.utils import timezone
 pytestmark = pytest.mark.urls("azureproject.urls_crush")
 
 from crush_lu.models import (
-    ConnectInterest,
+    Interest,
     CrushConnectMembership,
     CrushProfile,
     Trait,
@@ -56,7 +56,7 @@ def _step_url(step):
 
 def _interest_pks(n):
     return list(
-        ConnectInterest.objects.filter(is_active=True).values_list("pk", flat=True)[:n]
+        Interest.objects.filter(is_active=True).values_list("pk", flat=True)[:n]
     )
 
 
@@ -1155,7 +1155,7 @@ def test_drop_card_shows_membership_chips(client, settings):
     assert resp.status_code == 200
     body = resp.content.decode()
     assert "Français" in body  # languages_display label
-    assert ConnectInterest.objects.get(pk=pks[0]).label in body
+    assert Interest.objects.get(pk=pks[0]).label in body
 
 
 @pytest.mark.django_db
@@ -1197,7 +1197,7 @@ def test_catalogue_status_shows_chips_and_edit_link(client, settings):
 
 @pytest.mark.django_db
 def test_admin_pages_load(client):
-    """The new fieldsets / ConnectInterest admin render without error."""
+    """The new fieldsets / Interest admin render without error."""
     admin_user = User.objects.create_superuser(
         username="root", email="root@example.com", password="x"
     )
@@ -1207,9 +1207,9 @@ def test_admin_pages_load(client):
     m = me.crush_connect_membership
     m.interests.set(_interest_pks(2))
 
-    # ConnectInterest changelist + add.
-    assert client.get("/crush-admin/crush_lu/connectinterest/").status_code == 200
-    assert client.get("/crush-admin/crush_lu/connectinterest/add/").status_code == 200
+    # Interest changelist + add.
+    assert client.get("/crush-admin/crush_lu/interest/").status_code == 200
+    assert client.get("/crush-admin/crush_lu/interest/add/").status_code == 200
     # Membership changelist + change form (exercises the new fieldsets).
     assert (
         client.get("/crush-admin/crush_lu/crushconnectmembership/").status_code == 200

@@ -41,7 +41,7 @@ from django.utils import timezone
 
 from crush_lu.models import CrushProfile, PremiumMembership, ProfileSubmission
 from crush_lu.models.crush_connect import (
-    ConnectInterest,
+    Interest,
     CrushConnectMembership,
     CrushConnectWaitlist,
     CuriositySpark,
@@ -425,7 +425,7 @@ class Command(BaseCommand):
         self._assign_gate_questions(membership, now)
         # The wizard also collects interests — give them a few so the profile
         # isn't empty (otherwise they look half-onboarded).
-        membership.interests.set(ConnectInterest.objects.order_by("?")[:3])
+        membership.interests.set(Interest.objects.order_by("?")[:3])
 
         # LuxID makes them catalogue-eligible. The receiver needs it too, so it
         # can appear in the sender's Drop and thus receive the pending Spark.
