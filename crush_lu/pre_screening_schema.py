@@ -64,9 +64,12 @@ PRE_SCREENING_SCHEMA: dict[str, Any] = {
                     "min_choices": 1,
                     "label": _("Languages you can comfortably speak at a social event"),
                     "profile_field": "event_languages",
-                    # event_languages is edited in the About section; the legacy
-                    # "preferences" (Ideal Crush) section has been retired.
-                    "edit_section": "about",
+                    # event_languages moved into the merged "Your Event Identity"
+                    # edit card (2026 redesign); the legacy "about" and
+                    # standalone "event_languages" sections were retired, so the
+                    # Edit link must target event_identity or it dead-ends on the
+                    # profile card list.
+                    "edit_section": "event_identity",
                     "choices": [
                         {"value": "en", "label": _("English")},
                         {"value": "fr", "label": _("French")},

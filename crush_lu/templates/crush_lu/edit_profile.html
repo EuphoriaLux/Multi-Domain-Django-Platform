@@ -27,7 +27,7 @@
 {% endpartialdef %}
 
 {% block title %}{% trans "Edit Your Profile - Crush.lu" %}{% endblock %}
-{% block mobile_page_title %}{% if section == 'photos' %}{% trans "Photos" %}{% elif section == 'about' %}{% trans "About You" %}{% elif section == 'traits' %}{% trans "Your Personality" %}{% elif section == 'contact' %}{% trans "Contact & Location" %}{% elif section == 'event_languages' %}{% trans "Event Preferences" %}{% elif section == 'privacy' %}{% trans "Privacy" %}{% elif section == 'account' %}{% trans "Account" %}{% elif section == 'about_crushlu' %}{% trans "About Crush.lu" %}{% else %}{% trans "Edit Profile" %}{% endif %}{% endblock %}
+{% block mobile_page_title %}{% if section == 'photos' %}{% trans "Photos" %}{% elif section == 'event_identity' %}{% trans "Your Event Identity" %}{% elif section == 'contact' %}{% trans "Contact & Location" %}{% elif section == 'privacy' %}{% trans "Privacy" %}{% elif section == 'account' %}{% trans "Account" %}{% elif section == 'about_crushlu' %}{% trans "About Crush.lu" %}{% else %}{% trans "Edit Profile" %}{% endif %}{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'crush_lu/css/components/profile-creation.css' %}">
@@ -68,15 +68,15 @@
                                     {{ field.label }}
                                 </a>
                             {% elif field.field == 'event_languages' %}
-                                <a href="{% url 'crush_lu:edit_profile' %}?section=event_languages" class="underline hover:text-amber-900 dark:hover:text-amber-100 transition-colors">
+                                <a href="{% url 'crush_lu:edit_profile' %}?section=event_identity" class="underline hover:text-amber-900 dark:hover:text-amber-100 transition-colors">
                                     {{ field.label }}
                                 </a>
-                            {% elif field.field in 'gender,date_of_birth,phone_number,location' %}
+                            {% elif field.field in 'gender,date_of_birth,phone_number,phone_verified,location' %}
                                 <a href="{% url 'crush_lu:edit_profile' %}?section=contact" class="underline hover:text-amber-900 dark:hover:text-amber-100 transition-colors">
                                     {{ field.label }}
                                 </a>
                             {% else %}
-                                <a href="{% url 'crush_lu:edit_profile' %}?section=about" class="underline hover:text-amber-900 dark:hover:text-amber-100 transition-colors">
+                                <a href="{% url 'crush_lu:edit_profile' %}?section=event_identity" class="underline hover:text-amber-900 dark:hover:text-amber-100 transition-colors">
                                     {{ field.label }}
                                 </a>
                             {% endif %}
@@ -122,34 +122,17 @@
                 <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
             </a>
 
-            {# About You #}
-            <a href="{% url 'crush_lu:edit_profile' %}?section=about"
+            {# Your Event Identity — merges About You / Your Personality / Event Preferences #}
+            <a href="{% url 'crush_lu:edit_profile' %}?section=event_identity"
                class="section-edit-card card-tappable">
                 <div class="flex items-center gap-3">
                     <div class="section-edit-card-icon bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
-                        {% include "shared/icons/pencil-square.html" with class="w-5 h-5" %}
-                    </div>
-                    <div>
-                        <div class="font-medium text-gray-900 dark:text-white">{% trans "About You" %}</div>
-                        <div class="text-sm text-gray-500 dark:text-gray-400">
-                            {% trans "Bio & interests" %}
-                        </div>
-                    </div>
-                </div>
-                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-            </a>
-
-            {# Your Personality #}
-            <a href="{% url 'crush_lu:edit_profile' %}?section=traits"
-               class="section-edit-card card-tappable">
-                <div class="flex items-center gap-3">
-                    <div class="section-edit-card-icon bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
                         {% include "shared/icons/sparkles.html" with class="w-5 h-5" %}
                     </div>
                     <div>
-                        <div class="font-medium text-gray-900 dark:text-white">{% trans "Your Personality" %}</div>
+                        <div class="font-medium text-gray-900 dark:text-white">{% trans "Your Event Identity" %}</div>
                         <div class="text-sm text-gray-500 dark:text-gray-400">
-                            {% trans "Qualities & defects" %}
+                            {% trans "Vibe, interests & conversation starters — what people discover at events." %}
                         </div>
                     </div>
                 </div>
@@ -167,23 +150,6 @@
                         <div class="font-medium text-gray-900 dark:text-white">{% trans "Contact & Location" %}</div>
                         <div class="text-sm text-gray-500 dark:text-gray-400">
                             {% trans "Phone number & region" %}
-                        </div>
-                    </div>
-                </div>
-                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-            </a>
-
-            {# Event Preferences #}
-            <a href="{% url 'crush_lu:edit_profile' %}?section=event_languages"
-               class="section-edit-card card-tappable">
-                <div class="flex items-center gap-3">
-                    <div class="section-edit-card-icon bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
-                        {% include "shared/icons/globe-alt.html" with class="w-5 h-5" %}
-                    </div>
-                    <div>
-                        <div class="font-medium text-gray-900 dark:text-white">{% trans "Event Preferences" %}</div>
-                        <div class="text-sm text-gray-500 dark:text-gray-400">
-                            {% trans "Languages spoken at events" %}
                         </div>
                     </div>
                 </div>
@@ -261,10 +227,10 @@
 
 <script src="{% static 'crush_lu/js/photo-preview.js' %}"></script>
 <script nonce="{{ csp_nonce }}">
-// Character counters with visual feedback
+// Character counters with visual feedback. bio/interests were removed by the
+// Event Identity redesign; this stays for any future counter-bearing section
+// and no-ops when the target elements are absent.
 function initCharacterCounters() {
-    initCounter('id_bio', 'bioCounter', 'bio-bar', 'bio-counter-container', 500);
-    initCounter('id_interests', 'interestsCounter', 'interests-bar', 'interests-counter-container', 300);
 }
 
 function initCounter(inputId, counterId, barId, containerId, maxLength) {

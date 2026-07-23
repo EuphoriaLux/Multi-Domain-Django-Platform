@@ -145,28 +145,10 @@ class CrushProfileForm(forms.ModelForm):
         help_text=_('Must be 18+ to join')
     )
 
-    # Override bio and interests to make them optional
-    bio = forms.CharField(
-        required=False,
-        max_length=500,
-        widget=forms.Textarea(attrs={
-            'rows': 4,
-            'placeholder': _('Tell us about yourself... What do you love? What makes you smile? (Optional)'),
-            'class': TAILWIND_TEXTAREA
-        }),
-        help_text=_('Share what makes you unique! (Optional, max 500 characters)')
-    )
-
-    interests = forms.CharField(
-        required=False,
-        max_length=300,
-        widget=forms.Textarea(attrs={
-            'rows': 3,
-            'placeholder': _('Or select categories below...'),
-            'class': TAILWIND_TEXTAREA
-        }),
-        help_text=_('Select interest categories below or write your own (Optional)')
-    )
+    # bio/interests DEPRECATED (2026 Event Identity redesign): the free-text
+    # bio/interests inputs were removed from this form. The structured Event
+    # Identity fields (interests_new, ask_me_about, event_vibe) replace them and
+    # are edited through CrushProfileEventIdentityForm. See spec §6.2/§8.3.
 
     # Override gender to make it required
     gender = forms.ChoiceField(
@@ -238,8 +220,6 @@ class CrushProfileForm(forms.ModelForm):
             'date_of_birth',
             'gender',
             'location',
-            'bio',
-            'interests',
             'photo_1',
             'photo_2',
             'photo_3',
@@ -575,110 +555,10 @@ class CrushProfileForm(forms.ModelForm):
         return instance
 
 
-class CrushProfileAboutForm(forms.ModelForm):
-    """Form to edit profile bio and interests"""
-    class Meta:
-        model = CrushProfile
-        fields = ['bio', 'interests']
-
-    bio = forms.CharField(
-        required=False,
-        max_length=500,
-        widget=forms.Textarea(attrs={
-            'rows': 4,
-            'placeholder': _('Tell us about yourself... What do you love? What makes you smile? (Optional)'),
-            'class': TAILWIND_TEXTAREA
-        }),
-        help_text=_('Share what makes you unique! (Optional, max 500 characters)')
-    )
-
-    interests = forms.CharField(
-        required=False,
-        max_length=300,
-        widget=forms.Textarea(attrs={
-            'rows': 3,
-            'placeholder': _('Or select categories below...'),
-            'class': TAILWIND_TEXTAREA
-        }),
-        help_text=_('Select interest categories below or write your own (Optional)')
-    )
-
-
-class CrushProfileTraitsForm(forms.ModelForm):
-    """Form to edit profile personality traits (qualities and defects)"""
-    qualities_ids = forms.CharField(
-        required=False,
-        widget=forms.HiddenInput(attrs={'id': 'id_qualities_ids'}),
-    )
-    defects_ids = forms.CharField(
-        required=False,
-        widget=forms.HiddenInput(attrs={'id': 'id_defects_ids'}),
-    )
-
-    class Meta:
-        model = CrushProfile
-        fields = []
-
-    MAX_TRAITS_PER_CATEGORY = 5
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if self.instance and self.instance.pk:
-            self.initial['qualities_ids'] = ','.join(
-                str(pk) for pk in self.instance.qualities.values_list('pk', flat=True)
-            )
-            self.initial['defects_ids'] = ','.join(
-                str(pk) for pk in self.instance.defects.values_list('pk', flat=True)
-            )
-
-    def _parse_trait_ids(self, field_name):
-        raw = self.cleaned_data.get(field_name, '')
-        if not raw or not raw.strip():
-            return []
-        try:
-            return [int(x.strip()) for x in raw.split(',') if x.strip()]
-        except (ValueError, TypeError):
-            raise forms.ValidationError(_("Invalid trait selection."))
-
-    def clean_qualities_ids(self):
-        ids = self._parse_trait_ids('qualities_ids')
-        if ids and len(ids) > self.MAX_TRAITS_PER_CATEGORY:
-            raise forms.ValidationError(
-                _("You can select at most %(max)d qualities."),
-                params={'max': self.MAX_TRAITS_PER_CATEGORY},
-            )
-        return ids
-
-    def clean_defects_ids(self):
-        ids = self._parse_trait_ids('defects_ids')
-        if ids and len(ids) > self.MAX_TRAITS_PER_CATEGORY:
-            raise forms.ValidationError(
-                _("You can select at most %(max)d defects."),
-                params={'max': self.MAX_TRAITS_PER_CATEGORY},
-            )
-        return ids
-
-    def save(self, commit=True):
-        instance = super().save(commit=commit)
-        if commit:
-            from .models import Trait
-            qualities_ids = self.cleaned_data.get('qualities_ids', [])
-            defects_ids = self.cleaned_data.get('defects_ids', [])
-
-            if qualities_ids:
-                instance.qualities.set(
-                    Trait.objects.filter(pk__in=qualities_ids, trait_type='quality')
-                )
-            else:
-                instance.qualities.clear()
-
-            if defects_ids:
-                instance.defects.set(
-                    Trait.objects.filter(pk__in=defects_ids, trait_type='defect')
-                )
-            else:
-                instance.defects.clear()
-        return instance
+# CrushProfileAboutForm (bio/interests) and CrushProfileTraitsForm (qualities/
+# defects) were retired by the 2026 Event Identity redesign (spec §8.3). The
+# free-text About write path is gone; qualities/defects editing is folded into
+# CrushProfileEventIdentityForm below.
 
 
 class CrushProfileContactForm(forms.ModelForm):
@@ -746,29 +626,9 @@ class CrushProfileContactForm(forms.ModelForm):
         return cleaned_data
 
 
-class CrushProfileEventPrefsForm(forms.ModelForm):
-    """Form to edit event language preferences"""
-    event_languages = forms.MultipleChoiceField(
-        choices=CrushProfile.EVENT_LANGUAGE_CHOICES,
-        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'}),
-        required=True,
-        label=_('Languages for Events'),
-        help_text=_('Select the languages you can speak at events. You will only be able to sign up for events in your selected languages (except Open Format events).'),
-        error_messages={
-            'required': _('Please select at least one event language.'),
-        }
-    )
-
-    class Meta:
-        model = CrushProfile
-        fields = ['event_languages']
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if self.instance and self.instance.pk and self.instance.event_languages:
-            self.initial['event_languages'] = self.instance.event_languages
-
-    clean_event_languages = CrushProfileForm.clean_event_languages
+# CrushProfileEventPrefsForm (standalone event_languages editor) was retired by
+# the 2026 Event Identity redesign (spec §5.4/§8.3): event_languages is now a
+# sub-section of CrushProfileEventIdentityForm below.
 
 
 class ProfileReviewForm(forms.ModelForm):
@@ -1642,30 +1502,89 @@ class EventFeedbackForm(forms.ModelForm):
 
 
 class CrushProfileEventIdentityForm(forms.ModelForm):
-    """Structured "Your Event Identity" section (2026 redesign).
+    """The full structured "Your Event Identity" edit section (2026 redesign).
 
-    Replaces the free-text ``CrushProfileAboutForm``: interests come from the
-    curated ``Interest`` taxonomy, "Ask me about…" highlights a subset of them,
-    and ``event_vibe`` is a single chip. All optional (O2: nudge, no submission
-    gate). ``sought_qualities``/``astro_enabled``/``first_step_preference`` are
+    One form drives the whole card (spec §5, §8.3):
+
+    * ``qualities`` / ``defects`` — the personality "vibe" chips, submitted as
+      comma-separated ids through ``qualities_ids`` / ``defects_ids`` (the same
+      hidden-field pattern the retired ``CrushProfileTraitsForm`` used).
+    * ``interests_new`` — curated ``Interest`` taxonomy (max 8).
+    * ``ask_me_about`` — up to 3 conversation-starter chips, a subset of the
+      selected interests.
+    * ``event_vibe`` — a single chip.
+    * ``event_languages`` — the languages a member speaks at events (moved here
+      from the dissolved "Event Preferences" section, spec §5.4).
+
+    All fields are optional (O2: nudge, no submission gate); the hard "≥1 event
+    language" gate stays on the submission form ``CrushProfileForm``.
+    ``sought_qualities``/``astro_enabled``/``first_step_preference`` are
     deliberately excluded — those are Crush Connect matching inputs read from the
     membership, not event-profile data (spec §5.1).
+
+    The ``ask_me_about``/``interests_new``/``event_languages`` widgets use
+    multi-value inputs so the values round-trip through the autosave contract
+    (``_merge_autosave_payload`` builds a ``QueryDict`` and multi-value widgets
+    read it with ``getlist``).
     """
 
     MAX_INTERESTS = 8
     MAX_ASK_ME_ABOUT = 3
+    MAX_TRAITS_PER_CATEGORY = 5
 
     interests_new = forms.ModelMultipleChoiceField(
         queryset=Interest.objects.none(),  # real queryset set in __init__
         required=False,
+        widget=forms.CheckboxSelectMultiple,
         label=_("Your interests"),
+    )
+    # Rendered as chips in the template; MultipleHiddenInput's value_from_datadict
+    # uses getlist so a list of ids survives the QueryDict autosave round-trip.
+    ask_me_about = forms.JSONField(
+        required=False,
+        widget=forms.MultipleHiddenInput,
+        label=_("Ask me about…"),
+    )
+    event_vibe = forms.ChoiceField(
+        choices=CrushProfile.EVENT_VIBE_CHOICES,
+        required=False,
+        widget=forms.RadioSelect,
+        label=_("My event vibe"),
+    )
+    event_languages = forms.MultipleChoiceField(
+        choices=CrushProfile.EVENT_LANGUAGE_CHOICES,
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
+        required=False,
+        label=_("Languages for Events"),
+        help_text=_(
+            "Select the languages you can speak at events. You will only be able "
+            "to sign up for events in your selected languages (except Open Format "
+            "events)."
+        ),
+    )
+    # Trait selection fields (submitted as comma-separated IDs from Alpine.js).
+    qualities_ids = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={"id": "id_qualities_ids"}),
+    )
+    defects_ids = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={"id": "id_defects_ids"}),
     )
 
     class Meta:
         model = CrushProfile
-        fields = ["interests_new", "ask_me_about", "event_vibe"]
+        fields = ["interests_new", "ask_me_about", "event_vibe", "event_languages"]
 
     def __init__(self, *args, **kwargs):
+        # When True, event_languages must keep at least one selection. The field
+        # is optional by default so this one form can also serve the create
+        # wizard's step 2 (progressive fill, spec O2). The edit card for an
+        # already-approved member sets it True: an approved profile that clears
+        # every language would be silently locked out of all language-specific
+        # events (MeetupEvent.user_meets_language_requirement), and the
+        # submission-form gate never runs again for them.
+        self.require_event_languages = kwargs.pop("require_event_languages", False)
         super().__init__(*args, **kwargs)
         # Choices = active interests ∪ the member's current selections. Including
         # current selections means a retired interest (is_active=False) the member
@@ -1682,6 +1601,60 @@ class CrushProfileEventIdentityForm(forms.ModelForm):
                     Q(is_active=True) | Q(pk__in=current_ids)
                 ).distinct()
         self.fields["interests_new"].queryset = queryset
+
+        # Seed the trait id + event-language initials from the instance so the
+        # template renders the current selection.
+        if self.instance and self.instance.pk:
+            self.initial["qualities_ids"] = ",".join(
+                str(pk) for pk in self.instance.qualities.values_list("pk", flat=True)
+            )
+            self.initial["defects_ids"] = ",".join(
+                str(pk) for pk in self.instance.defects.values_list("pk", flat=True)
+            )
+            if self.instance.event_languages:
+                self.initial["event_languages"] = self.instance.event_languages
+
+    def _parse_trait_ids(self, field_name):
+        raw = self.cleaned_data.get(field_name, "")
+        if not raw or not raw.strip():
+            return []
+        try:
+            return [int(x.strip()) for x in raw.split(",") if x.strip()]
+        except (ValueError, TypeError):
+            raise forms.ValidationError(_("Invalid trait selection."))
+
+    def clean_qualities_ids(self):
+        ids = self._parse_trait_ids("qualities_ids")
+        if ids and len(ids) > self.MAX_TRAITS_PER_CATEGORY:
+            raise forms.ValidationError(
+                _("You can select at most %(max)d qualities."),
+                params={"max": self.MAX_TRAITS_PER_CATEGORY},
+            )
+        return ids
+
+    def clean_defects_ids(self):
+        ids = self._parse_trait_ids("defects_ids")
+        if ids and len(ids) > self.MAX_TRAITS_PER_CATEGORY:
+            raise forms.ValidationError(
+                _("You can select at most %(max)d defects."),
+                params={"max": self.MAX_TRAITS_PER_CATEGORY},
+            )
+        return ids
+
+    def clean_event_languages(self):
+        """Store event_languages as a validated list for JSON serialization."""
+        languages = self.cleaned_data.get("event_languages", []) or []
+        if self.require_event_languages and not languages:
+            raise forms.ValidationError(
+                _("Select at least one language you can speak at events.")
+            )
+        valid_codes = {code for code, _label in CrushProfile.EVENT_LANGUAGE_CHOICES}
+        for lang in languages:
+            if lang not in valid_codes:
+                raise forms.ValidationError(
+                    _("Invalid language selection: %(lang)s"), params={"lang": lang}
+                )
+        return list(languages)
 
     def clean_interests_new(self):
         interests = self.cleaned_data.get("interests_new")
@@ -1726,3 +1699,29 @@ class CrushProfileEventIdentityForm(forms.ModelForm):
                     _("“Ask me about” items must be among your selected interests."),
                 )
         return cleaned
+
+    def save(self, commit=True):
+        """Save the structured Event Identity fields, incl. trait M2M sets."""
+        from .models import Trait
+
+        instance = super().save(commit=commit)
+
+        if commit:
+            qualities_ids = self.cleaned_data.get("qualities_ids", [])
+            defects_ids = self.cleaned_data.get("defects_ids", [])
+
+            if qualities_ids:
+                instance.qualities.set(
+                    Trait.objects.filter(pk__in=qualities_ids, trait_type="quality")
+                )
+            else:
+                instance.qualities.clear()
+
+            if defects_ids:
+                instance.defects.set(
+                    Trait.objects.filter(pk__in=defects_ids, trait_type="defect")
+                )
+            else:
+                instance.defects.clear()
+
+        return instance

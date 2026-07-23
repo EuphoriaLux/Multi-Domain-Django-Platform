@@ -53,10 +53,8 @@ from .models import (
 )
 from .forms import (
     CrushProfileForm,
-    CrushProfileAboutForm,
-    CrushProfileTraitsForm,
     CrushProfileContactForm,
-    CrushProfileEventPrefsForm,
+    CrushProfileEventIdentityForm,
 )
 from .decorators import crush_login_required, ratelimit
 from . import onboarding
@@ -536,6 +534,47 @@ def _render_create_profile(request, context):
         "profile_gender_choices",
         CrushProfile.GENDER_CHOICES,
     )
+
+    # Event Identity (wizard step 2, 2026 redesign): interest taxonomy, vibe
+    # chips and event-vibe choices. Selections come from the profile when it
+    # already exists (resume / revision), else empty.
+    from django.db.models import Q
+    from .models import Trait, Interest
+
+    interests_qs = Interest.objects.filter(is_active=True)
+    selected_interest_ids = []
+    ask_me_about_ids = []
+    selected_event_vibe = ""
+    selected_qualities = []
+    selected_defects = []
+    if profile is not None and profile.pk:
+        current_ids = list(profile.interests_new.values_list("pk", flat=True))
+        if current_ids:
+            interests_qs = Interest.objects.filter(
+                Q(is_active=True) | Q(pk__in=current_ids)
+            ).distinct()
+        selected_interest_ids = current_ids
+        ask_me_about_ids = list(profile.ask_me_about or [])
+        selected_event_vibe = profile.event_vibe or ""
+        selected_qualities = list(profile.qualities.values_list("pk", flat=True))
+        selected_defects = list(profile.defects.values_list("pk", flat=True))
+
+    context.setdefault("event_identity_interests", interests_qs)
+    context.setdefault("event_identity_selected_ids", selected_interest_ids)
+    context.setdefault("event_identity_ask_me_about", ask_me_about_ids)
+    context.setdefault("event_identity_vibe", selected_event_vibe)
+    context.setdefault("event_vibe_choices", CrushProfile.EVENT_VIBE_CHOICES)
+    context.setdefault(
+        "qualities_grouped",
+        _group_traits_by_category(list(Trait.objects.filter(trait_type="quality"))),
+    )
+    context.setdefault(
+        "defects_grouped",
+        _group_traits_by_category(list(Trait.objects.filter(trait_type="defect"))),
+    )
+    context.setdefault("selected_qualities_json", json.dumps(selected_qualities))
+    context.setdefault("selected_defects_json", json.dumps(selected_defects))
+
     return render(request, "crush_lu/create_profile.html", context)
 
 
@@ -798,6 +837,15 @@ def create_profile(request):
 
             context = {
                 "form": form,
+                # Without the profile, _render_create_profile falls back to
+                # None: the Event Identity selections (sourced from the
+                # profile, not the bound form — they save through
+                # save-step2) come back empty and the journey stepper resets
+                # to step 1. A user who trips a validation error on the final
+                # submit would see their interests and vibe wiped from the
+                # wizard, and re-walking step 2 would then save that empty
+                # selection over the real one.
+                "profile": existing_profile,
                 "current_step": "step3",
                 "social_photos": get_all_social_photos(request.user),
             }
@@ -893,34 +941,26 @@ def _render_edit_profile_form(request):
     section = request.GET.get("section", "")
     valid_sections = (
         "photos",
-        "about",
+        "event_identity",
         "privacy",
         "account",
         "about_crushlu",
-        "traits",
         "contact",
-        "event_languages",
     )
 
     # --- Section: Photos ---
     if section == "photos":
         return _edit_section_photos(request, profile)
 
-    # --- Section: About (bio, interests) ---
-    if section == "about":
-        return _edit_section_about(request, profile)
-
-    # --- Section: Traits (qualities, defects) ---
-    if section == "traits":
-        return _edit_section_traits(request, profile)
+    # --- Section: Your Event Identity (vibe, interests, ask-me-about,
+    #     event vibe, event languages) — merges the retired About You /
+    #     Your Personality / Event Preferences cards (spec §5.5). ---
+    if section == "event_identity":
+        return _edit_section_event_identity(request, profile)
 
     # --- Section: Contact & Location ---
     if section == "contact":
         return _edit_section_contact(request, profile)
-
-    # --- Section: Event Languages ---
-    if section == "event_languages":
-        return _edit_section_event_languages(request, profile)
 
     # The "Ideal Crush" preferences section has moved to the opt-in Crush
     # Connect onboarding (crush_lu:crush_connect_profile_edit) so members who
@@ -993,6 +1033,9 @@ def _normalize_form_errors(errors):
 
 
 def _get_profile_form_initial_data(profile):
+    # bio/interests are intentionally absent: the free-text write path was
+    # retired by the Event Identity redesign (spec §6.2). The structured
+    # replacements below round-trip through the "event_identity" autosave section.
     return {
         "phone_number": profile.phone_number or "",
         "date_of_birth": (
@@ -1000,8 +1043,6 @@ def _get_profile_form_initial_data(profile):
         ),
         "gender": profile.gender or "",
         "location": profile.location or "",
-        "bio": profile.bio or "",
-        "interests": profile.interests or "",
         "event_languages": list(profile.event_languages or []),
         "qualities_ids": ",".join(
             str(pk) for pk in profile.qualities.values_list("pk", flat=True)
@@ -1009,6 +1050,11 @@ def _get_profile_form_initial_data(profile):
         "defects_ids": ",".join(
             str(pk) for pk in profile.defects.values_list("pk", flat=True)
         ),
+        "interests_new": [
+            str(pk) for pk in profile.interests_new.values_list("pk", flat=True)
+        ],
+        "ask_me_about": [str(x) for x in (profile.ask_me_about or [])],
+        "event_vibe": profile.event_vibe or "",
         "show_full_name": bool(profile.show_full_name),
         "show_exact_age": bool(profile.show_exact_age),
     }
@@ -1031,94 +1077,74 @@ def _merge_autosave_payload(base_data, payload, allowed_fields):
     return qd
 
 
-def _render_about_section(request, profile, form=None):
-    if form is None:
-        form = CrushProfileAboutForm(instance=profile)
-
-    return {
-        "form": form,
-        "profile": profile,
-        "section": "about",
-    }
-
-
-def _edit_section_about(request, profile):
-    """Handle about section editing (bio, interests)."""
-    if request.method == "POST":
-        form = CrushProfileAboutForm(request.POST, instance=profile)
-        if form.is_valid():
-            updated_profile = form.save()
-            from .matching import update_match_scores_for_user
-
-            transaction.on_commit(lambda: update_match_scores_for_user(request.user))
-            if request.htmx:
-                context = _render_about_section(request, updated_profile)
-                return render(request, "crush_lu/partials/edit_about.html", context)
-            messages.success(request, _("Profile bio and interests updated successfully!"))
-            return redirect("crush_lu:edit_profile")
-        else:
-            if request.htmx:
-                context = _render_about_section(request, profile, form=form)
-                context["has_errors"] = True
-                return render(request, "crush_lu/partials/edit_about.html", context)
-    else:
-        form = CrushProfileAboutForm(instance=profile)
-
-    context = _render_about_section(request, profile, form=form)
-    template = "crush_lu/partials/edit_about.html"
-    if request.htmx:
-        return render(request, template, context)
-    return render(
-        request, "crush_lu/edit_profile.html", {**context, "section_template": template}
-    )
-
-
-def _render_traits_section(request, profile, form=None):
+def _render_event_identity_section(request, profile, form=None):
+    """Context for the merged "Your Event Identity" edit card (spec §5.5)."""
     from .models import Trait
-    qualities_list = list(Trait.objects.filter(trait_type="quality"))
-    defects_list = list(Trait.objects.filter(trait_type="defect"))
-    qualities_grouped = _group_traits_by_category(qualities_list)
-    defects_grouped = _group_traits_by_category(defects_list)
+
+    qualities_grouped = _group_traits_by_category(
+        list(Trait.objects.filter(trait_type="quality"))
+    )
+    defects_grouped = _group_traits_by_category(
+        list(Trait.objects.filter(trait_type="defect"))
+    )
     selected_qualities = list(profile.qualities.values_list("pk", flat=True))
     selected_defects = list(profile.defects.values_list("pk", flat=True))
 
     if form is None:
-        form = CrushProfileTraitsForm(instance=profile)
+        form = CrushProfileEventIdentityForm(instance=profile)
 
     return {
         "form": form,
         "profile": profile,
-        "section": "traits",
+        "section": "event_identity",
         "qualities_grouped": qualities_grouped,
         "defects_grouped": defects_grouped,
         "selected_qualities_json": json.dumps(selected_qualities),
         "selected_defects_json": json.dumps(selected_defects),
+        "selected_interest_ids": list(
+            profile.interests_new.values_list("pk", flat=True)
+        ),
+        "ask_me_about_ids": list(profile.ask_me_about or []),
+        "selected_event_vibe": profile.event_vibe or "",
     }
 
 
-def _edit_section_traits(request, profile):
-    """Handle qualities and defects section editing."""
+def _edit_section_event_identity(request, profile):
+    """Handle the merged "Your Event Identity" section (vibe / interests /
+    ask-me-about / event vibe / event languages)."""
     if request.method == "POST":
-        form = CrushProfileTraitsForm(request.POST, instance=profile)
+        # Approved members keep the ≥1-event-language guard here too (the non-JS
+        # fallback for the same card); incomplete members stay optional and are
+        # caught by the submission form instead.
+        form = CrushProfileEventIdentityForm(
+            request.POST,
+            instance=profile,
+            require_event_languages=profile.is_approved,
+        )
         if form.is_valid():
             updated_profile = form.save()
             from .matching import update_match_scores_for_user
+
             transaction.on_commit(lambda: update_match_scores_for_user(request.user))
             if request.htmx:
-                context = _render_traits_section(request, updated_profile)
-                return render(request, "crush_lu/partials/edit_traits.html", context)
-            messages.success(request, _("Personality traits updated successfully!"))
+                context = _render_event_identity_section(request, updated_profile)
+                return render(
+                    request, "crush_lu/partials/edit_event_identity.html", context
+                )
+            messages.success(request, _("Your Event Identity was updated!"))
             return redirect("crush_lu:edit_profile")
         else:
             if request.htmx:
-                context = _render_traits_section(request, profile, form=form)
+                context = _render_event_identity_section(request, profile, form=form)
                 context["has_errors"] = True
-                return render(request, "crush_lu/partials/edit_traits.html", context)
+                return render(
+                    request, "crush_lu/partials/edit_event_identity.html", context
+                )
     else:
-        form = CrushProfileTraitsForm(instance=profile)
+        form = CrushProfileEventIdentityForm(instance=profile)
 
-    context = _render_traits_section(request, profile, form=form)
-    template = "crush_lu/partials/edit_traits.html"
+    context = _render_event_identity_section(request, profile, form=form)
+    template = "crush_lu/partials/edit_event_identity.html"
     if request.htmx:
         return render(request, template, context)
     return render(
@@ -1160,47 +1186,6 @@ def _edit_section_contact(request, profile):
 
     context = _render_contact_section(request, profile, form=form)
     template = "crush_lu/partials/edit_contact.html"
-    if request.htmx:
-        return render(request, template, context)
-    return render(
-        request, "crush_lu/edit_profile.html", {**context, "section_template": template}
-    )
-
-
-def _render_event_languages_section(request, profile, form=None):
-    if form is None:
-        form = CrushProfileEventPrefsForm(instance=profile)
-
-    return {
-        "form": form,
-        "profile": profile,
-        "section": "event_languages",
-    }
-
-
-def _edit_section_event_languages(request, profile):
-    """Handle event language preferences editing."""
-    if request.method == "POST":
-        form = CrushProfileEventPrefsForm(request.POST, instance=profile)
-        if form.is_valid():
-            updated_profile = form.save()
-            from .matching import update_match_scores_for_user
-            transaction.on_commit(lambda: update_match_scores_for_user(request.user))
-            if request.htmx:
-                context = _render_event_languages_section(request, updated_profile)
-                return render(request, "crush_lu/partials/edit_event_languages.html", context)
-            messages.success(request, _("Event preferences updated successfully!"))
-            return redirect("crush_lu:edit_profile")
-        else:
-            if request.htmx:
-                context = _render_event_languages_section(request, profile, form=form)
-                context["has_errors"] = True
-                return render(request, "crush_lu/partials/edit_event_languages.html", context)
-    else:
-        form = CrushProfileEventPrefsForm(instance=profile)
-
-    context = _render_event_languages_section(request, profile, form=form)
-    template = "crush_lu/partials/edit_event_languages.html"
     if request.htmx:
         return render(request, template, context)
     return render(
@@ -1505,15 +1490,18 @@ def _edit_sub_account_danger(request, profile):
 
 
 def _profile_autosave_values(profile):
-    """Build a serializable snapshot of all editable profile fields for autosave responses."""
+    """Build a serializable snapshot of editable profile fields for autosave
+    responses. bio/interests are intentionally absent — the free-text write path
+    was retired by the Event Identity redesign (spec §6.2)."""
     return {
-        "bio": profile.bio or "",
-        "interests": profile.interests or "",
         "phone_number": profile.phone_number or "",
         "location": profile.location or "",
         "event_languages": list(profile.event_languages or []),
         "qualities_ids": list(profile.qualities.values_list("pk", flat=True)),
         "defects_ids": list(profile.defects.values_list("pk", flat=True)),
+        "interests_new": list(profile.interests_new.values_list("pk", flat=True)),
+        "ask_me_about": list(profile.ask_me_about or []),
+        "event_vibe": profile.event_vibe or "",
     }
 
 
@@ -1545,16 +1533,25 @@ def api_profile_settings_autosave(request):
     section = payload.get("section", "")
 
     # --- Map each section to its specialised form + allowed fields ---
+    # The "about" (bio/interests), "traits", and "event_languages" sections were
+    # merged into "event_identity" by the 2026 redesign (spec §6.2/§8.3). A
+    # direct {"section": "about", ...} POST now falls through to "Invalid
+    # section." below and writes nothing.
     _section_config = {
-        "about": (CrushProfileAboutForm, {"bio", "interests"}),
-        "traits": (CrushProfileTraitsForm, {"qualities_ids", "defects_ids"}),
+        "event_identity": (
+            CrushProfileEventIdentityForm,
+            {
+                "interests_new",
+                "ask_me_about",
+                "event_vibe",
+                "qualities_ids",
+                "defects_ids",
+                "event_languages",
+            },
+        ),
         "contact": (
             CrushProfileContactForm,
             {"phone_number", "date_of_birth", "gender", "location"},
-        ),
-        "event_languages": (
-            CrushProfileEventPrefsForm,
-            {"event_languages"},
         ),
     }
 
@@ -1566,6 +1563,11 @@ def api_profile_settings_autosave(request):
             allowed_fields,
         )
         form = form_class(data, instance=profile)
+        if section == "event_identity":
+            # This endpoint is approved-only (checked above), so an approved
+            # member must not autosave an empty language list and lock
+            # themselves out of every language-specific event.
+            form.require_event_languages = True
         if form.is_valid():
             updated_profile = form.save()
             from .matching import update_match_scores_for_user
