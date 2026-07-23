@@ -144,6 +144,39 @@ class TestConnectionIDOR(SiteTestMixin, TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
+    def test_event_identity_hidden_until_contact_shared(self):
+        """The recipient's structured Event Identity (interest chips) must not
+        render on the connection detail until status == 'shared'. It replaces the
+        legacy free-text `interests` block, which was gated the same way — showing
+        it earlier would be a privacy regression (Event Identity redesign §7)."""
+        from crush_lu.models import Interest
+
+        other = self.user_a.crushprofile  # requester B views recipient A
+        interest = Interest.objects.create(
+            slug='idor-salsa', label='Salsa dancing', category='music',
+            sort_order=1, is_active=True,
+        )
+        other.interests_new.set([interest])
+        other.event_vibe = 'dance_floor'
+        other.save()
+
+        self.client.login(username='userb@test.com', password='testpass123')
+        url = reverse('crush_lu:connection_detail', kwargs={
+            'connection_id': self.connection.id
+        })
+
+        # Accepted but not yet shared → no Event Identity leaks.
+        self.connection.status = 'accepted'
+        self.connection.save()
+        body = self.client.get(url).content.decode()
+        self.assertNotIn('Salsa dancing', body)
+
+        # Contact shared → the structured Event Identity is now visible.
+        self.connection.status = 'shared'
+        self.connection.save()
+        body = self.client.get(url).content.decode()
+        self.assertIn('Salsa dancing', body)
+
     def test_user_c_cannot_send_message_on_connection(self):
         """User C cannot send messages on a connection between A and B."""
         self.connection.status = 'accepted'
