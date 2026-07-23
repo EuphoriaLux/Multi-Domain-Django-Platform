@@ -1296,9 +1296,11 @@ def coach_connect_member(request, user_id: int):
         return redirect("crush_lu:coach_connect_member", user_id=member.pk)
 
     pool = list(
-        get_eligible_pool(member).select_related(
-            "crushprofile", "crush_connect_membership"
-        )[:60]
+        get_eligible_pool(member)
+        .select_related("crushprofile", "crush_connect_membership")
+        # Event Identity chips render per candidate card — prefetch the taxonomy
+        # M2M to keep the pool render N+1-free (spec §7).
+        .prefetch_related("crushprofile__interests_new")[:60]
     )
     already_picked_ids = set(
         ConnectCoachPick.objects.filter(member=member).values_list(

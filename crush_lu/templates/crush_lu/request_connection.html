@@ -29,11 +29,9 @@
                 <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-1">{{ recipient.crushprofile.display_name }}</h3>
                 <p class="text-gray-500 dark:text-gray-400 mb-4">{{ recipient.crushprofile.age_display }}</p>
 
-                {% if recipient.crushprofile.interests %}
-                    <div class="mb-2">
-                        <span class="text-sm text-gray-500 dark:text-gray-400">
-                            {% include "shared/icons/star.html" with class="w-5 h-5" %} {{ recipient.crushprofile.interests }}
-                        </span>
+                {% if recipient.crushprofile.has_event_identity %}
+                    <div class="mb-2 flex justify-center">
+                        {% include "crush_lu/partials/_event_identity.html" with profile=recipient.crushprofile limit=":4" hide_vibe=True %}
                     </div>
                 {% endif %}
             </div>

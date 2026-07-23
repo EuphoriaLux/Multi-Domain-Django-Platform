@@ -54,7 +54,7 @@
                 <dd class="col-span-2">{{ target_profile.event_languages|join:", "|default:"—" }}</dd>
 
                 <dt class="font-medium text-gray-500">{% trans "Interests" %}</dt>
-                <dd class="col-span-2">{{ target_profile.interests|default:"—" }}</dd>
+                <dd class="col-span-2">{% for interest in target_profile.event_interest_chips %}{{ interest.label }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</dd>
             </dl>
         </aside>
     </div>

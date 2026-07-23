@@ -211,6 +211,11 @@
                             {{ current_presentation.user.crushprofile.display_name }}
                         </div>
 
+                        {# Event Identity chips (structured; replaces the free-text bio, spec §7) #}
+                        <div class="my-3">
+                            {% include "crush_lu/partials/_event_identity.html" with profile=current_presentation.user.crushprofile limit=":6" center=True %}
+                        </div>
+
                         <!-- 90 Second Timer -->
                         <div class="presentation-timer" id="timer">
                             90

@@ -1,0 +1,39 @@
+{% load i18n crush_media %}
+{% comment %}
+Collapsed, coach-only "Legacy bio & interests" block (2026 Event Identity
+redesign — spec §6.4). The free-text `bio`/`interests` columns are retained
+until the O6 hard-delete and stay visible to coaches (never to members or
+attendees) during the transition — this is the *only* remaining surface for
+free-text interests that the migration could not map to the taxonomy.
+
+>>> This is the single template whitelisted by the CI grep guard
+    (test_event_identity_surface_guard) to reference `profile.bio` /
+    `profile.interests`. Do not render these columns anywhere else. <<<
+
+Param: profile (a CrushProfile). Renders nothing when both columns are empty.
+{% endcomment %}
+{% if profile.bio or profile.interests %}
+<details class="mt-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+    <summary class="cursor-pointer select-none px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+        {% trans "Legacy bio & interests (pre-2026 redesign)" %}
+    </summary>
+    <div class="px-3 pb-3 pt-1 space-y-2">
+        {% if profile.bio %}
+        <div>
+            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">{% trans "Bio" %}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-300">{{ profile.bio }}</p>
+        </div>
+        {% endif %}
+        {% if profile.interests %}
+        <div>
+            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">{% trans "Interests" %}</p>
+            <div class="flex flex-wrap gap-1.5">
+                {% for tag in profile.interests|split_interests %}
+                <span class="inline-flex items-center px-2 py-0.5 text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full">{{ tag }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</details>
+{% endif %}

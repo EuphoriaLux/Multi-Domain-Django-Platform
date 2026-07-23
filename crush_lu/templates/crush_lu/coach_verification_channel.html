@@ -141,12 +141,12 @@
                             </span>
                             {% endif %}
                         </div>
-                        {# Bio snippet #}
-                        {% if p.bio %}
-                        <p class="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 mb-2 italic">“{{ p.bio|truncatechars:180 }}”</p>
-                        {% else %}
-                        <p class="text-xs text-gray-400 dark:text-gray-500 italic mb-2">{% trans "No bio provided" %}</p>
-                        {% endif %}
+                        {# Event Identity (structured) + collapsed legacy bio & interests (coach-only) #}
+                        {% trans "No event identity yet" as no_event_identity_text %}
+                        <div class="mb-2">
+                            {% include "crush_lu/partials/_event_identity.html" with profile=p limit=":6" empty_text=no_event_identity_text %}
+                            {% include "crush_lu/partials/_legacy_bio_interests.html" with profile=p %}
+                        </div>
                         {# Meta chips row — waiting + languages #}
                         <div class="flex items-center gap-2 flex-wrap">
                             {% if sub.is_urgent %}

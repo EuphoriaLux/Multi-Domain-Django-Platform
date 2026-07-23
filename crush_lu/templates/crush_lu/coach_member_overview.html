@@ -231,25 +231,16 @@
             </div>
         </div>
 
-        <!-- Bio -->
-        {% if profile.bio %}
+        <!-- Event Identity (structured; replaces free-text bio/interests) -->
+        {% if profile.has_event_identity %}
             <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-                <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">{% trans "Bio" %}</h4>
-                <p class="text-sm text-gray-700 dark:text-gray-300">{{ profile.bio }}</p>
+                <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">{% trans "Event Identity" %}</h4>
+                {% include "crush_lu/partials/_event_identity.html" with profile=profile %}
             </div>
         {% endif %}
 
-        <!-- Interests -->
-        {% if profile.interests %}
-            <div class="mt-3">
-                <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">{% trans "Interests" %}</h4>
-                <div class="flex flex-wrap gap-1.5">
-                    {% for tag in profile.interests|split_interests %}
-                        <span class="inline-flex items-center px-2.5 py-1 text-xs font-medium bg-crush-purple/10 dark:bg-purple-900/30 text-crush-purple dark:text-purple-300 rounded-full">{{ tag }}</span>
-                    {% endfor %}
-                </div>
-            </div>
-        {% endif %}
+        <!-- Legacy bio & interests (coach-only, collapsed; retained during transition) -->
+        {% include "crush_lu/partials/_legacy_bio_interests.html" with profile=profile %}
 
         <!-- Personality Traits -->
         {% if qualities or defects or sought_qualities %}

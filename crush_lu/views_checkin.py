@@ -424,7 +424,10 @@ def _get_profile_data(registration):
         "is_approved": profile.is_approved,
         "user_id": registration.user_id,
         "location": profile.location or "",
-        "interests": profile.interests or "",
+        # Structured taxonomy labels replace the retired free-text interests
+        # (Event Identity redesign §7): the check-in toast never ships the
+        # legacy free-text field to event staff again.
+        "interests": ", ".join(profile.checkin_interest_labels()),
     }
     if profile.photo_1:
         data["photo_url"] = reverse(

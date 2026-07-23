@@ -110,6 +110,9 @@ def event_attendees(request, event_id):
         .exclude(user=request.user)
         .exclude(user_id__in=blocked_ids)
         .select_related("user__crushprofile")
+        # Event Identity chips render per attendee — prefetch the taxonomy M2M
+        # so the card row stays N+1-free (spec §7).
+        .prefetch_related("user__crushprofile__interests_new")
     )
 
     # Pre-fetch all connections for this user+event into dicts for O(1) lookups
