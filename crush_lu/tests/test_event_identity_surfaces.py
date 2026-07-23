@@ -155,6 +155,16 @@ class EventIdentityModelHelperTests(TestCase):
         empty.save()
         self.assertTrue(empty.has_event_identity)  # vibe alone counts
 
+    def test_has_event_identity_ignores_stale_ask_me_about(self):
+        """A dangling ask_me_about id (no vibe, no selected interests) resolves to
+        zero chips, so it must NOT flag identity — else surfaces render an empty
+        heading/container."""
+        stale = _make_profile("stale@example.com")
+        stale.ask_me_about = [self.hiking.pk]  # never selected on this profile
+        stale.save()
+        self.assertEqual(stale.ask_me_about_interests, [])
+        self.assertFalse(stale.has_event_identity)
+
     def test_checkin_interest_labels_are_capped_and_structured(self):
         labels = self.profile.checkin_interest_labels(limit=2)
         self.assertEqual(len(labels), 2)
@@ -203,6 +213,34 @@ class EventIdentityDisplayPartialTests(TestCase):
         self.assertIn("Nothing yet", html)
         html_no_fallback = render_to_string(self.PARTIAL, {"profile": empty})
         self.assertNotIn("event-identity", html_no_fallback)
+
+    def test_vibe_only_profile_renders_no_empty_container_when_vibe_hidden(self):
+        """A hide_vibe surface must not emit an empty container for a profile
+        whose only identity is a vibe (Codex P2: container with no chips)."""
+        vibe_only = _make_profile("vibeonly@example.com", event_vibe="at_the_bar")
+        html = render_to_string(
+            self.PARTIAL,
+            {"profile": vibe_only, "hide_vibe": True, "empty_text": "Nothing yet"},
+        )
+        self.assertNotIn("event-identity", html)  # no empty container
+        self.assertIn("Nothing yet", html)  # falls through to empty_text
+        # Shown (not hidden), the same profile renders the vibe badge.
+        shown = render_to_string(self.PARTIAL, {"profile": vibe_only})
+        self.assertIn("event-identity", shown)
+
+    def test_stale_ask_me_about_renders_no_empty_container(self):
+        """A profile whose only identity is a dangling ask_me_about id renders
+        nothing but empty_text — never an empty heading/container."""
+        stale = _make_profile("stale2@example.com")
+        stale.ask_me_about = [self.hiking.pk]  # never selected
+        stale.save()
+        html = render_to_string(
+            self.PARTIAL,
+            {"profile": stale, "heading": "Event Identity", "empty_text": "None"},
+        )
+        self.assertNotIn("event-identity", html)
+        self.assertNotIn("Event Identity", html)  # no dangling heading
+        self.assertIn("None", html)
 
 
 class LegacyBioInterestsPartialTests(TestCase):

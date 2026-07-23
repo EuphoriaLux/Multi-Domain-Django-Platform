@@ -878,12 +878,16 @@ class CrushProfile(models.Model):
 
     @property
     def has_event_identity(self):
-        """True when any structured Event Identity content is set to display."""
-        return bool(
-            self.event_vibe
-            or (self.ask_me_about or [])
-            or list(self.interests_new.all())
-        )
+        """True when there is *displayable* structured Event Identity content.
+
+        Only the vibe and selected interests count. ``ask_me_about`` is
+        deliberately excluded: it is a subset of ``interests_new`` when valid, so
+        it adds nothing here, and a stale id left after de-selection would
+        otherwise flag identity that resolves to zero chips — rendering an empty
+        heading/container on the surfaces that gate on this (see
+        ``ask_me_about_interests``).
+        """
+        return bool(self.event_vibe or list(self.interests_new.all()))
 
     def checkin_interest_labels(self, limit=3):
         """Up to ``limit`` taxonomy labels for the check-in toast (no free text).

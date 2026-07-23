@@ -29,7 +29,7 @@
                 <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-1">{{ recipient.crushprofile.display_name }}</h3>
                 <p class="text-gray-500 dark:text-gray-400 mb-4">{{ recipient.crushprofile.age_display }}</p>
 
-                {% if recipient.crushprofile.has_event_identity %}
+                {% if recipient.crushprofile.interests_new.all %}
                     <div class="mb-2 flex justify-center">
                         {% include "crush_lu/partials/_event_identity.html" with profile=recipient.crushprofile limit=":4" hide_vibe=True %}
                     </div>

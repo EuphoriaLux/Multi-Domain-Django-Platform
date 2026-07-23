@@ -20,7 +20,12 @@ Include params (all optional except `profile`):
 Chips are plain Tailwind utilities (not the `badge` component) so the block
 looks the same on every page that includes it, regardless of that page's CSS.
 {% endcomment %}
-{% if profile.has_event_identity %}
+{% with interests=profile.interests_new.all %}
+{# Self-guarding: render the container only when content will actually show for
+   the given params. A vibe-only profile on a hide_vibe surface, or a profile
+   whose only "identity" is a stale ask_me_about id, must fall through to
+   empty_text rather than emit an empty heading/container. #}
+{% if interests or not hide_vibe and profile.event_vibe %}
 <div class="event-identity flex flex-col gap-2{% if center %} items-center{% endif %}">
     {% if heading %}
     <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500{% if center %} text-center{% endif %}">{{ heading }}</p>
@@ -35,7 +40,7 @@ looks the same on every page that includes it, regardless of that page's CSS.
     </div>
     {% endif %}
 
-    {% if profile.interests_new.all %}
+    {% if interests %}
     <div class="flex flex-wrap gap-1.5{% if center %} justify-center{% endif %}">
         {% if limit %}
         {% for interest in profile.event_interest_chips|slice:limit %}{% include "crush_lu/partials/_event_identity_chip.html" with interest=interest profile=profile hide_star=hide_star %}{% endfor %}
@@ -48,3 +53,4 @@ looks the same on every page that includes it, regardless of that page's CSS.
 {% elif empty_text %}
 <p class="text-sm text-gray-400 dark:text-gray-500 italic">{{ empty_text }}</p>
 {% endif %}
+{% endwith %}

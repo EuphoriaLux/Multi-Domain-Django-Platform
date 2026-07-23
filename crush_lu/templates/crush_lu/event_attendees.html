@@ -271,7 +271,7 @@
                             {% include "shared/icons/map-pin.html" with class="w-4 h-4" %}
                             {% if own_profile.city %}{{ own_profile.city }}{% else %}Luxembourg{% endif %}
                         </p>
-                        {% if own_profile.has_event_identity %}
+                        {% if own_profile.interests_new.all %}
                             <div class="mt-1">
                                 {% include "crush_lu/partials/_event_identity.html" with profile=own_profile limit=":3" hide_vibe=True %}
                             </div>
@@ -362,7 +362,7 @@
                                         {% if attendee.profile.city %}{{ attendee.profile.city }}{% else %}Luxembourg{% endif %}
                                     </p>
 
-                                    {% if attendee.profile.has_event_identity %}
+                                    {% if attendee.profile.interests_new.all %}
                                         <div class="mb-3">
                                             {% include "crush_lu/partials/_event_identity.html" with profile=attendee.profile limit=":3" hide_vibe=True %}
                                         </div>
