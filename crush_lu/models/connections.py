@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils.translation import gettext_lazy as _
@@ -7,6 +9,34 @@ from .profiles import CrushCoach, CrushProfile, ProfileSubmission
 
 class EventConnectionQuerySet(models.QuerySet):
     """Custom QuerySet for EventConnection with performance optimizations."""
+
+    def crush_leads(self):
+        """Only rows declared through the "My Crush!" flow (never legacy rows)."""
+        return self.filter(flow=EventConnection.FLOW_CRUSH)
+
+    def open_crush_leads(self):
+        """
+        Crush leads still requiring coach work.
+
+        Live actionable statuses only: a decline (coach-recorded or member
+        block) silently cancels the lead, and a lead whose call is completed
+        no longer needs a queue row or reminder.
+        """
+        return self.crush_leads().filter(
+            status__in=EventConnection.OPEN_LEAD_STATUSES,
+            coach_call_completed_at__isnull=True,
+        )
+
+    def crush_leads_for_coach(self, coach):
+        """
+        Coach action queue: this coach's open crush leads, oldest first.
+
+        Ordering by ``requested_at`` is ordering by "call by" — the SLA is a
+        fixed offset from the declaration timestamp.
+        """
+        return self.open_crush_leads().filter(
+            assigned_coach=coach,
+        ).order_by('requested_at', 'id')
 
     def for_user(self, user):
         """Connections where user is requester or recipient."""
@@ -80,6 +110,15 @@ class EventConnectionManager(models.Manager):
     def annotate_is_mutual(self):
         return self.get_queryset().annotate_is_mutual()
 
+    def crush_leads(self):
+        return self.get_queryset().crush_leads()
+
+    def open_crush_leads(self):
+        return self.get_queryset().open_crush_leads()
+
+    def crush_leads_for_coach(self, coach):
+        return self.get_queryset().crush_leads_for_coach(coach)
+
 
 class EventConnection(models.Model):
     """Post-event connection requests between attendees"""
@@ -93,6 +132,30 @@ class EventConnection(models.Model):
         ('shared', 'Contact Info Shared'),
     ]
 
+    # "My Crush!" post-event flow (spec 2026-07-21-crush-my-crush-post-event-flow §7)
+    FLOW_LEGACY = 'legacy'
+    FLOW_CRUSH = 'crush'
+    FLOW_CHOICES = [
+        (FLOW_LEGACY, 'Legacy connection request'),
+        (FLOW_CRUSH, 'My Crush! coach lead'),
+    ]
+
+    # Statuses in which a crush lead still requires coach action. A member
+    # block or coach-recorded decline flips a lead to ``declined`` without
+    # touching call/reminder fields, so queue and reminder machinery must
+    # key off this list, not only off the call fields.
+    OPEN_LEAD_STATUSES = ('pending', 'coach_reviewing', 'coach_approved')
+
+    # Coach-call SLA for crush leads (spec §6/O8: call within 48h).
+    CRUSH_LEAD_CALL_SLA = timedelta(hours=48)
+
+    CALL_OUTCOME_CHOICES = [
+        ('completed', _('Call completed')),
+        ('no_answer', _('No answer')),
+        ('rescheduled', _('Rescheduled')),
+        ('unreachable', _('Unreachable')),
+    ]
+
     # Who wants to connect
     requester = models.ForeignKey(User, on_delete=models.CASCADE, related_name='connection_requests_sent')
     # Who they want to connect with
@@ -102,6 +165,17 @@ class EventConnection(models.Model):
 
     # Connection details
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    flow = models.CharField(
+        max_length=10,
+        choices=FLOW_CHOICES,
+        default=FLOW_LEGACY,
+        db_index=True,
+        help_text=_(
+            "Post-event flow this row belongs to. Historical rows stay "
+            "'legacy' (no backfill); only explicit 'My Crush!' declarations "
+            "become crush coach leads."
+        ),
+    )
     requester_note = models.TextField(
         max_length=300,
         blank=True,
@@ -137,6 +211,31 @@ class EventConnection(models.Model):
     responded_at = models.DateTimeField(null=True, blank=True)
     coach_approved_at = models.DateTimeField(null=True, blank=True)
     shared_at = models.DateTimeField(null=True, blank=True)
+
+    # "My Crush!" coach-call tracking (spec §7 — additive, nullable; only
+    # meaningful for flow='crush' rows)
+    coach_call_scheduled_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text=_("When the coach call with the requester is scheduled"),
+    )
+    coach_call_completed_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text=_("When the coach call with the requester was completed"),
+    )
+    call_outcome = models.CharField(
+        max_length=20,
+        choices=CALL_OUTCOME_CHOICES,
+        null=True,
+        blank=True,
+        help_text=_("Outcome of the coach call"),
+    )
+    reminder_sent_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text=_(
+            "Idempotency record for the 24h untouched-lead reminder — "
+            "repeated timer delivery must never double-remind."
+        ),
+    )
 
     objects = EventConnectionManager()
 
@@ -217,9 +316,54 @@ class EventConnection(models.Model):
             and self.status == 'coach_approved'
         )
 
+    @property
+    def call_by(self):
+        """
+        "Call by" deadline for a crush lead (spec §6/O8: 48h SLA).
+
+        ``None`` for legacy rows and for rows without a declaration
+        timestamp — the SLA only exists for crush leads.
+        """
+        if self.flow != self.FLOW_CRUSH or not self.requested_at:
+            return None
+        return self.requested_at + self.CRUSH_LEAD_CALL_SLA
+
+    @classmethod
+    def select_event_coach(cls, event):
+        """
+        Selection policy among an event's coaches (spec §7/O11).
+
+        Deterministic: least-loaded by open crush leads, else first by id.
+        Deactivated event coaches are never selected. Returns ``None`` when
+        the event has no active coach so routing falls through to the pool.
+        """
+        coaches = event.coaches.filter(is_active=True)
+        if not coaches.exists():
+            return None
+        return coaches.annotate(
+            open_leads=models.Count(
+                'eventconnection',
+                filter=models.Q(
+                    eventconnection__flow=cls.FLOW_CRUSH,
+                    eventconnection__status__in=cls.OPEN_LEAD_STATUSES,
+                    eventconnection__coach_call_completed_at__isnull=True,
+                ),
+            )
+        ).order_by('open_leads', 'id').first()
+
     def assign_coach(self):
         """
         Assign a coach to facilitate this connection.
+
+        Routing tiers (spec §5/§7) — every tier requires an active coach, so
+        a stale assignment or deactivated event coach falls through instead
+        of stranding the lead:
+
+        1. the requester's assigned coach (approved ``ProfileSubmission``),
+           if still active;
+        2. an active coach from ``event.coaches`` (selection policy:
+           least-loaded by open crush leads, else first by id);
+        3. the active coach pool (first by id).
 
         Optimized to fetch all related data in a single query using select_related.
         """
@@ -231,12 +375,22 @@ class EventConnection(models.Model):
             status='approved'
         ).first()
 
-        if requester_submission and requester_submission.coach:
-            self.assigned_coach = requester_submission.coach
-        else:
-            # Fall back to any active coach
-            self.assigned_coach = CrushCoach.objects.filter(is_active=True).first()
+        coach = None
+        if (
+            requester_submission
+            and requester_submission.coach
+            and requester_submission.coach.is_active
+        ):
+            coach = requester_submission.coach
 
+        if coach is None:
+            coach = self.select_event_coach(self.event)
+
+        if coach is None:
+            # Fall back to the active coach pool (deterministic order)
+            coach = CrushCoach.objects.filter(is_active=True).order_by('id').first()
+
+        self.assigned_coach = coach
         self.save()
 
 
