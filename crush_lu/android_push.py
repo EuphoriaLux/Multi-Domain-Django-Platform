@@ -11,6 +11,25 @@ logger = logging.getLogger(__name__)
 
 FCM_SCOPES = ["https://www.googleapis.com/auth/firebase.messaging"]
 
+# Suffix on every Google-managed service-account email:
+#   <name>@<project-id>.iam.gserviceaccount.com
+_GSA_EMAIL_SUFFIX = ".iam.gserviceaccount.com"
+
+
+def _derive_project_id_from_email(service_account_email):
+    """Extract the GCP project id embedded in a service-account email.
+
+    Uses an anchored suffix check (``endswith``) rather than a substring
+    match so a crafted domain such as ``x.iam.gserviceaccount.com.evil.tld``
+    cannot masquerade as a Google-managed account and leak the wrong id.
+    """
+    if not service_account_email or "@" not in service_account_email:
+        return None
+    domain = service_account_email.split("@", 1)[1]
+    if domain.endswith(_GSA_EMAIL_SUFFIX):
+        return domain[: -len(_GSA_EMAIL_SUFFIX)] or None
+    return None
+
 
 def get_fcm_credentials():
     """
@@ -40,10 +59,8 @@ def get_fcm_credentials():
                 private_key = private_key.replace("\\n", "\n")
             credentials_info["private_key"] = private_key
             project_id = getattr(settings, "FIREBASE_PROJECT_ID", None)
-            if not project_id and "@" in service_account_email:
-                domain = service_account_email.split("@")[1]
-                if ".iam.gserviceaccount.com" in domain:
-                    project_id = domain.split(".iam.gserviceaccount.com")[0]
+            if not project_id:
+                project_id = _derive_project_id_from_email(service_account_email)
             try:
                 credentials = service_account.Credentials.from_service_account_info(
                     credentials_info, scopes=FCM_SCOPES
@@ -64,10 +81,8 @@ def get_fcm_credentials():
                     
                     credentials_info["private_key"] = content
                     project_id = getattr(settings, "FIREBASE_PROJECT_ID", None)
-                    if not project_id and "@" in service_account_email:
-                        domain = service_account_email.split("@")[1]
-                        if ".iam.gserviceaccount.com" in domain:
-                            project_id = domain.split(".iam.gserviceaccount.com")[0]
+                    if not project_id:
+                        project_id = _derive_project_id_from_email(service_account_email)
                     credentials = service_account.Credentials.from_service_account_info(
                         credentials_info, scopes=FCM_SCOPES
                     )

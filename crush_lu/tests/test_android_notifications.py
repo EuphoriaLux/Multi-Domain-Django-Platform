@@ -3,7 +3,37 @@ from unittest.mock import patch, MagicMock
 import pytest
 from django.contrib.auth.models import User
 from crush_lu.models import AndroidAppDevice
+from crush_lu.android_push import _derive_project_id_from_email
 from crush_lu.notification_service import NotificationService, NotificationType
+
+
+@pytest.mark.parametrize(
+    "email,expected",
+    [
+        # Legitimate Google-managed service-account emails.
+        ("fcm-sa@my-project.iam.gserviceaccount.com", "my-project"),
+        ("sa@crush-123456.iam.gserviceaccount.com", "crush-123456"),
+        # Suffix appears mid-string but the domain does not end with it:
+        # must NOT be treated as a Google-managed account (CodeQL #188/#189).
+        ("sa@x.iam.gserviceaccount.com.evil.tld", None),
+        # Domain is exactly the suffix -> endswith True, empty id normalised to None.
+        ("sa@.iam.gserviceaccount.com", ""),
+        # Leading dot missing -> does not end with the suffix -> None (early exit).
+        ("sa@iam.gserviceaccount.com", None),
+        # Malformed / non-Google inputs.
+        ("sa@example.com", None),
+        ("not-an-email", None),
+        ("", None),
+        (None, None),
+    ],
+)
+def test_derive_project_id_from_email(email, expected):
+    result = _derive_project_id_from_email(email)
+    if expected == "":
+        # Empty extracted id is normalised to None.
+        assert result is None
+    else:
+        assert result == expected
 
 
 @pytest.fixture
