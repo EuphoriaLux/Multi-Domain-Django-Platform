@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from .events import MeetupEvent
 from .profiles import CrushCoach, CrushProfile, ProfileSubmission
@@ -88,6 +89,58 @@ class EventConnectionQuerySet(models.QuerySet):
             is_mutual_annotated=Exists(mutual_subquery)
         )
 
+    def visible_to_coach(self, coach):
+        """
+        Hide other coaches' crush leads from shared coach surfaces.
+
+        The ``requester_note`` is promised to the routed Crush Coach alone
+        ("only they will read this"), so a pre-``shared`` lead routed to a
+        *different* coach is excluded outright — a coach who is not the
+        routed coach must not learn the crusher/recipient pair either.
+
+        Unrouted pool leads (``assigned_coach IS NULL``) stay visible so
+        they remain claimable, and legacy rows keep their existing
+        all-coaches visibility.
+
+        A lead whose routed coach was since **deactivated** counts as
+        unassigned here on purpose. ``coach_required`` bars that coach from
+        every coach view, so hiding the row from everyone else would strand
+        it — unworkable, invisible, and silently missing its 48h SLA.
+        Keying the exclusion on ``assigned_coach__is_active`` lets another
+        coach see and claim it instead.
+        """
+        return self.exclude(
+            models.Q(flow=EventConnection.FLOW_CRUSH)
+            & ~models.Q(status='shared')
+            & models.Q(assigned_coach__is_active=True)
+            & ~models.Q(assigned_coach=coach)
+        )
+
+    def annotate_is_mutual_crush(self):
+        """
+        Flag leads whose counterpart independently declared a crush too.
+
+        Reciprocal crush leads stay two separate rows routed on their own
+        requesters (§5), so they can belong to different coaches and must
+        never be merged. Flagging them lets both coaches prioritise the pair
+        and coordinate the introduction — it discloses only that a
+        reciprocal lead exists, never the other side's ``requester_note``.
+
+        Unlike ``annotate_is_mutual``, the reverse row must itself be a live
+        crush lead: a legacy row, or a lead already declined, is not a mutual
+        crush.
+        """
+        from django.db.models import Exists, OuterRef
+
+        reciprocal = EventConnection.objects.filter(
+            requester=OuterRef('recipient'),
+            recipient=OuterRef('requester'),
+            event=OuterRef('event'),
+            flow=EventConnection.FLOW_CRUSH,
+        ).exclude(status='declined')
+
+        return self.annotate(is_mutual_crush_annotated=Exists(reciprocal))
+
 
 class EventConnectionManager(models.Manager):
     """Custom manager for EventConnection."""
@@ -109,6 +162,12 @@ class EventConnectionManager(models.Manager):
 
     def annotate_is_mutual(self):
         return self.get_queryset().annotate_is_mutual()
+
+    def annotate_is_mutual_crush(self):
+        return self.get_queryset().annotate_is_mutual_crush()
+
+    def visible_to_coach(self, coach):
+        return self.get_queryset().visible_to_coach(coach)
 
     def crush_leads(self):
         return self.get_queryset().crush_leads()
@@ -138,6 +197,16 @@ class EventConnection(models.Model):
     FLOW_CHOICES = [
         (FLOW_LEGACY, 'Legacy connection request'),
         (FLOW_CRUSH, 'My Crush! coach lead'),
+    ]
+
+    # Recipient's answer, recorded by their own coach through the constrained
+    # co-coach task actions — never by the recipient directly (they are never
+    # shown the lead).
+    RECIPIENT_RESPONSE_CONSENTED = 'consented'
+    RECIPIENT_RESPONSE_DECLINED = 'declined'
+    RECIPIENT_RESPONSE_CHOICES = [
+        (RECIPIENT_RESPONSE_CONSENTED, 'Recipient consented to the introduction'),
+        (RECIPIENT_RESPONSE_DECLINED, 'Recipient declined the introduction'),
     ]
 
     # Statuses in which a crush lead still requires coach action. A member
@@ -237,6 +306,46 @@ class EventConnection(models.Model):
         ),
     )
 
+    # Recipient-side co-coach work item (spec §5). When the recipient has
+    # their own active coach, the §4 promise "contacting the crush's coach"
+    # becomes a tracked task rather than an informal hand-off. The co-coach
+    # never opens the lead itself — these fields are the whole surface they
+    # write through.
+    recipient_coach = models.ForeignKey(
+        CrushCoach,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='crush_cocoach_leads',
+        help_text=_(
+            "The recipient's own coach, when different from the routed "
+            "coach — owns the recipient-side outreach task."
+        ),
+    )
+    recipient_outreach_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text=_("When the co-coach recorded reaching out to the recipient"),
+    )
+    recipient_response = models.CharField(
+        max_length=20,
+        choices=RECIPIENT_RESPONSE_CHOICES,
+        null=True,
+        blank=True,
+        help_text=_("Recipient's answer, as recorded by their own coach"),
+    )
+    recipient_response_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text=_("When the recipient's answer was recorded"),
+    )
+    system_actions = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=_(
+            "Append-only audit trail of narrow coach writes (actor + "
+            "timestamp), so the co-coach path is reconstructable."
+        ),
+    )
+
     objects = EventConnectionManager()
 
     class Meta:
@@ -250,6 +359,69 @@ class EventConnection(models.Model):
 
     def __str__(self):
         return f"{self.requester.username} → {self.recipient.username} ({self.event.title})"
+
+    def log_system_action(self, type_: str, actor: str = "system", **details):
+        """Append an audit entry to ``system_actions``.
+
+        Mirrors ``ProfileSubmission.log_system_action``: write-back rather
+        than in-place mutation, because Django does not persist JSONField
+        mutations made in place. The caller saves the parent with
+        ``update_fields=[..., 'system_actions']``.
+        """
+        entry = {
+            "type": type_,
+            "at": timezone.now().isoformat(),
+            "actor": actor,
+        }
+        if details:
+            entry["details"] = details
+        actions = list(self.system_actions or [])
+        actions.append(entry)
+        self.system_actions = actions
+        return entry
+
+    def assign_recipient_coach(self):
+        """
+        Route the recipient-side outreach task (spec §5).
+
+        Set only when the recipient has their own *active* coach who is not
+        the routed coach — otherwise the routed coach performs both halves of
+        the outreach directly and no co-coach task exists. Mirrors
+        ``assign_coach``'s tiers on the recipient: approved submission coach
+        first, then the profile's permanent coach.
+
+        Returns the assigned co-coach, or ``None``.
+        """
+        if self.flow != self.FLOW_CRUSH:
+            return None
+
+        recipient_profile = CrushProfile.objects.select_related(
+            'assigned_coach'
+        ).filter(user=self.recipient).first()
+        if recipient_profile is None:
+            return None
+
+        submission = ProfileSubmission.objects.select_related('coach').filter(
+            profile=recipient_profile, status='approved'
+        ).first()
+
+        coach = None
+        if submission and submission.coach and submission.coach.is_active:
+            coach = submission.coach
+        elif (
+            recipient_profile.assigned_coach
+            and recipient_profile.assigned_coach.is_active
+        ):
+            coach = recipient_profile.assigned_coach
+
+        # Same coach on both sides: one person covers both halves, so there is
+        # no hand-off to track and no second surface to authorize.
+        if coach is None or coach == self.assigned_coach:
+            return None
+
+        self.recipient_coach = coach
+        self.save(update_fields=['recipient_coach'])
+        return coach
 
     @property
     def is_mutual(self):
@@ -397,6 +569,12 @@ class EventConnection(models.Model):
 
         self.assigned_coach = coach
         self.save()
+
+        # Route the recipient half too, so the "we'll contact their coach"
+        # promise is a tracked task from the moment the lead exists rather
+        # than an informal hand-off. No-op for legacy rows and whenever both
+        # sides share a coach.
+        self.assign_recipient_coach()
 
 
 class ConnectionMessage(models.Model):

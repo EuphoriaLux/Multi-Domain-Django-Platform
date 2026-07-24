@@ -15,12 +15,23 @@ from .push_notifications import user_language_context
 
 logger = logging.getLogger(__name__)
 
+# Per-device Web Push timeout. Kept well under the 60s Azure Function budget
+# so a serial sweep of several devices still fits inside one invocation.
+PUSH_TIMEOUT_SECONDS = 10
+
 
 def send_coach_push_notification(
-    coach, title, body, url="/", tag="coach-notification", icon=None, badge=None
+    coach,
+    title,
+    body,
+    url="/",
+    tag="coach-notification",
+    icon=None,
+    badge=None,
+    subscriptions=None,
 ):
     """
-    Send a push notification to all of a coach's subscribed devices.
+    Send a push notification to a coach's subscribed devices.
 
     Args:
         coach: CrushCoach object
@@ -30,6 +41,12 @@ def send_coach_push_notification(
         tag: Notification tag for grouping (default: 'coach-notification')
         icon: Icon URL (default: Crush.lu logo)
         badge: Badge icon URL (default: Crush.lu badge)
+        subscriptions: optional pre-filtered CoachPushSubscription queryset.
+            Callers that gate on a per-device preference (e.g.
+            ``notify_screening_reminders``) MUST pass their filtered
+            queryset — otherwise this re-queries every enabled device and
+            delivers to the ones where the coach muted that category.
+            Defaults to all enabled subscriptions.
 
     Returns:
         dict: {
@@ -39,17 +56,25 @@ def send_coach_push_notification(
         }
     """
 
-    # Validate VAPID configuration
+    # Validate VAPID configuration.
+    # `misconfigured` distinguishes a config error from "nobody opted in":
+    # both produce zero sends, but a caller that records delivery (the crush
+    # lead reminder) must retry a config error rather than treat it as an
+    # opt-out and permanently consume the notification.
     if not hasattr(settings, "VAPID_PRIVATE_KEY") or not settings.VAPID_PRIVATE_KEY:
         logger.error("VAPID_PRIVATE_KEY not configured in settings")
-        return {"success": 0, "failed": 0, "total": 0}
+        return {"success": 0, "failed": 0, "total": 0, "misconfigured": True}
 
     if not hasattr(settings, "VAPID_PUBLIC_KEY") or not settings.VAPID_PUBLIC_KEY:
         logger.error("VAPID_PUBLIC_KEY not configured in settings")
-        return {"success": 0, "failed": 0, "total": 0}
+        return {"success": 0, "failed": 0, "total": 0, "misconfigured": True}
 
-    # Get all active subscriptions for this coach
-    subscriptions = CoachPushSubscription.objects.filter(coach=coach, enabled=True)
+    # Get the target subscriptions: the caller's pre-filtered set when given,
+    # else every enabled device for this coach.
+    if subscriptions is None:
+        subscriptions = CoachPushSubscription.objects.filter(
+            coach=coach, enabled=True
+        )
 
     if not subscriptions.exists():
         logger.info(f"No active push subscriptions for coach {coach.user.username}")
@@ -87,6 +112,11 @@ def send_coach_push_notification(
                 data=json.dumps(payload),
                 vapid_private_key=settings.VAPID_PRIVATE_KEY,
                 vapid_claims={"sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"},
+                # pywebpush defaults to no timeout. A stalled push endpoint
+                # would then hang the caller indefinitely — for the crush
+                # lead sweep that means holding a row lock until the Azure
+                # Function's own 60s timeout kills the request.
+                timeout=PUSH_TIMEOUT_SECONDS,
             )
 
             # Mark success
@@ -388,6 +418,59 @@ def notify_coach_screening_reminder(coach, submission):
         body=body,
         url=url,
         tag=f"screening-reminder-{submission.id}",
+    )
+
+
+def notify_coach_crush_lead_reminder(coach, connection):
+    """
+    Remind a coach about a "My Crush!" lead they haven't touched in 24h.
+
+    The member was promised a call within 48h (spec §6/O8), so this fires at
+    the halfway mark while there is still time to make it.
+
+    Rides the ``notify_screening_reminders`` channel rather than adding a new
+    flag: from the coach's side this is the same kind of signal — a call they
+    owe someone — and a coach who muted call reminders meant to mute this too.
+
+    Coach-facing only, and the routed coach already sees this lead, so naming
+    the crusher discloses nothing new to them. The ``requester_note`` is
+    deliberately left out: push payloads surface on a lock screen.
+
+    Args:
+        coach: CrushCoach the lead is routed to
+        connection: the ``flow='crush'`` EventConnection
+    """
+    subscriptions = CoachPushSubscription.objects.filter(
+        coach=coach, enabled=True, notify_screening_reminders=True
+    )
+
+    if not subscriptions.exists():
+        logger.info(
+            f"Coach {coach.user.username} has call reminder notifications disabled"
+        )
+        return {"success": 0, "failed": 0, "total": 0}
+
+    requester = connection.requester
+    user_name = requester.first_name or requester.username
+
+    with user_language_context(coach.user):
+        title = _("My Crush! call still open")
+        body = _("%(name)s is waiting for your call — half the 48h is gone.") % {
+            "name": user_name
+        }
+        url = reverse("crush_lu:coach_connection_review", args=[connection.id])
+
+    return send_coach_push_notification(
+        coach=coach,
+        title=title,
+        body=body,
+        url=url,
+        tag=f"crush-lead-reminder-{connection.id}",
+        # Deliver only to the devices that opted into call reminders — the
+        # body carries the requester's name onto a lock screen, so a device
+        # where the coach muted this category must not receive it just
+        # because another device is still opted in.
+        subscriptions=subscriptions,
     )
 
 

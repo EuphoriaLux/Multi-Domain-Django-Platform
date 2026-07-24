@@ -197,8 +197,8 @@
                                     {% endfor %}
                                 </div>
 
-                                <!-- Note preview -->
-                                {% if conn.requester_note %}
+                                <!-- Note preview (crush notes: routed coach only) -->
+                                {% if conn.requester_note and conn.show_requester_note %}
                                     <p class="mt-2 text-xs text-gray-500 dark:text-gray-400 italic truncate">"{{ conn.requester_note|truncatechars:80 }}"</p>
                                 {% endif %}
                             </div>

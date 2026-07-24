@@ -4,6 +4,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.utils.translation import gettext_lazy as _
 from django.db import transaction
 from django.db.models import (
@@ -19,7 +20,7 @@ from django.db.models import (
     DurationField,
 )
 from django.db.models import prefetch_related_objects
-from django.http import JsonResponse, HttpResponse
+from django.http import Http404, JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
 import json
 import logging
@@ -480,10 +481,14 @@ def coach_action_queue(request):
         )
 
     # --- Connections awaiting coach review (assigned to this coach OR unassigned) ---
+    # Crush leads are excluded here and queued separately below: they are
+    # actionable from `pending` (no recipient acceptance step exists) and are
+    # SLA-tracked against `call_by` rather than request age.
     pending_connections = (
         EventConnection.objects.filter(
             status__in=["accepted", "coach_reviewing"],
         )
+        .exclude(flow=EventConnection.FLOW_CRUSH)
         .filter(Q(assigned_coach=coach) | Q(assigned_coach__isnull=True))
         .select_related("requester", "recipient", "event")
         .order_by("requested_at")
@@ -518,6 +523,99 @@ def coach_action_queue(request):
             }
         )
 
+    # --- "My Crush!" leads routed to this coach (§5/§7) ---
+    # The member is told their Crush Coach calls within 48h, so an open lead
+    # has to reach the inbox from `pending` onwards. Urgency is measured
+    # against the `call_by` SLA, not request age. A mutual crush (the
+    # counterpart independently declared too) is flagged and prioritised so
+    # the two routed coaches can coordinate — the reciprocal lead itself
+    # stays independent and is never opened from here.
+    crush_leads = (
+        EventConnection.objects.crush_leads_for_coach(coach)
+        .annotate_is_mutual_crush()
+        .select_related("requester", "recipient", "event")
+    )
+    for lead in crush_leads:
+        call_by = lead.call_by
+        hours_left = (call_by - now).total_seconds() / 3600
+        if hours_left <= 0:
+            state = "breach"
+        elif hours_left <= 6:
+            state = "urgent"
+        elif hours_left <= 24:
+            state = "warning"
+        else:
+            state = "ok"
+        is_mutual_crush = bool(getattr(lead, "is_mutual_crush_annotated", False))
+        requester_name = lead.requester.get_full_name() or lead.requester.username
+        items.append(
+            {
+                "kind": "crush_lead",
+                # Coach-facing: the crusher's own coach makes the call, so the
+                # pair is named here — this queue is already routed-coach-only.
+                "title": requester_name,
+                "subtitle": (
+                    _("Mutual crush! call — %(event)s")
+                    if is_mutual_crush
+                    else _("My Crush! call — %(event)s")
+                )
+                % {"event": lead.event.title},
+                "deadline": call_by,
+                "sla_state": state,
+                # A mutual pair jumps one bucket: both members are waiting on
+                # a coach, so the introduction is the highest-value call.
+                "priority": max(
+                    0, state_priority.get(state, 5) - (1 if is_mutual_crush else 0)
+                ),
+                "is_mutual_crush": is_mutual_crush,
+                "url_name": "crush_lu:coach_connection_review",
+                "url_kwargs": {"connection_id": lead.id},
+                "submitted_at": lead.requested_at,
+            }
+        )
+
+    # --- Recipient-side co-coach outreach tasks (§5) ---
+    # Recipient-scoped only: the crusher is never named here, and the task
+    # links to its own constrained surface, never to the lead.
+    outreach_tasks = (
+        EventConnection.objects.filter(
+            flow=EventConnection.FLOW_CRUSH,
+            recipient_coach=coach,
+            recipient_response__isnull=True,
+            status__in=EventConnection.OPEN_LEAD_STATUSES,
+        )
+        .select_related("recipient", "event")
+        .order_by("requested_at", "id")
+    )
+    for task in outreach_tasks:
+        # The recipient half shares the lead's 48h SLA — both halves have to
+        # be done before an introduction can happen.
+        call_by = task.call_by
+        hours_left = (call_by - now).total_seconds() / 3600 if call_by else 48
+        if hours_left <= 0:
+            state = "breach"
+        elif hours_left <= 6:
+            state = "urgent"
+        elif hours_left <= 24:
+            state = "warning"
+        else:
+            state = "ok"
+        recipient_name = task.recipient.get_full_name() or task.recipient.username
+        items.append(
+            {
+                "kind": "crush_outreach",
+                "title": recipient_name,
+                "subtitle": _("Recipient outreach — %(event)s")
+                % {"event": task.event.title},
+                "deadline": call_by,
+                "sla_state": state,
+                "priority": state_priority.get(state, 5),
+                "url_name": "crush_lu:coach_crush_outreach_task",
+                "url_kwargs": {"connection_id": task.id},
+                "submitted_at": task.requested_at,
+            }
+        )
+
     # Most urgent first; tie-break by oldest submission
     items.sort(key=lambda i: (i["priority"], i["submitted_at"]))
 
@@ -525,6 +623,9 @@ def coach_action_queue(request):
         "profile": sum(1 for i in items if i["kind"] == "profile"),
         "screening": sum(1 for i in items if i["kind"] == "screening"),
         "connection": sum(1 for i in items if i["kind"] == "connection"),
+        "crush_lead": sum(1 for i in items if i["kind"] == "crush_lead"),
+        "crush_outreach": sum(1 for i in items if i["kind"] == "crush_outreach"),
+        "mutual_crush": sum(1 for i in items if i.get("is_mutual_crush")),
         "total": len(items),
         "urgent_or_worse": sum(
             1 for i in items if i["sla_state"] in ("escalated", "breach", "urgent")
@@ -2880,9 +2981,20 @@ def coach_member_overview(request, user_id):
         .order_by("-event__date_time")
     )
 
-    # Connections made
+    # Connections made. A pre-`shared` crush lead is visible only to its
+    # routed coach: this page renders both directions including the incoming
+    # requester's name, so without the filter an unrelated coach — or the
+    # recipient's own co-coach, before the two coaches have agreed the
+    # introduction is happening — would learn the crusher's identity here.
+    # Unrouted pool leads stay hidden too; this is a member record, not a
+    # triage surface. `shared` rows are a completed introduction.
     connections = (
         EventConnection.objects.filter(Q(requester=member) | Q(recipient=member))
+        .exclude(
+            Q(flow=EventConnection.FLOW_CRUSH)
+            & ~Q(status="shared")
+            & ~Q(assigned_coach=request.coach)
+        )
         .select_related("event", "requester", "recipient")
         .order_by("-requested_at")[:10]
     )
@@ -3638,13 +3750,21 @@ def coach_connections(request):
     if status_filter not in valid_statuses:
         status_filter = "needs_review"
 
-    # Base queryset: connections assigned to this coach (or all for now)
-    connections_qs = EventConnection.objects.select_related(
-        "requester__crushprofile",
-        "recipient__crushprofile",
-        "event",
-        "assigned_coach__user",
-    ).order_by("-requested_at")
+    # Base queryset: legacy connections stay visible to every coach, but a
+    # pre-`shared` crush lead is coach-private — only the routed coach (or
+    # any coach, while it is still an unrouted pool row) may see the pair
+    # and its `requester_note`. Without this the routed-coach queue and the
+    # detail guard are moot: this page renders both identities and the note.
+    connections_qs = (
+        EventConnection.objects.select_related(
+            "requester__crushprofile",
+            "recipient__crushprofile",
+            "event",
+            "assigned_coach__user",
+        )
+        .visible_to_coach(coach)
+        .order_by("-requested_at")
+    )
 
     # Status filter
     if status_filter == "pending":
@@ -3680,8 +3800,15 @@ def coach_connections(request):
 
     # Use mutual annotation to avoid N+1 queries, then push mutual matches to the
     # top of the list so coaches triage the most actionable rows first.
-    connections_qs = connections_qs.annotate_is_mutual().order_by(
-        "-is_mutual_annotated", "-requested_at"
+    # Both annotations are computed: the legacy one is flow-blind, so on a
+    # crush row it would render "Mutual match" for a reciprocal declaration
+    # that has since been declined — telling the coach the recipient had once
+    # declared a crush, after that lead closed. Crush rows use the flow-aware
+    # flag instead (live reciprocal crush leads only).
+    connections_qs = (
+        connections_qs.annotate_is_mutual()
+        .annotate_is_mutual_crush()
+        .order_by("-is_mutual_annotated", "-requested_at")
     )
 
     # Paginate
@@ -3696,6 +3823,21 @@ def coach_connections(request):
         conn.stages = _compute_connection_stages(conn)
         conn.requester_display_name = _profile_display_name(conn.requester)
         conn.recipient_display_name = _profile_display_name(conn.recipient)
+        # The crush note is written for the routed coach only. Unrouted pool
+        # leads stay listed so they can be claimed, but their note preview is
+        # withheld until a coach actually owns the lead.
+        # No `shared` exception: the note was written under "only your Crush
+        # Coach will read this". Completing the introduction changes who may
+        # see the *pair*, not who may read the note.
+        conn.show_requester_note = (
+            conn.flow != EventConnection.FLOW_CRUSH
+            or conn.assigned_coach_id == coach.id
+        )
+        # Flow-aware mutual flag for crush rows (see the annotation above).
+        if conn.flow == EventConnection.FLOW_CRUSH:
+            conn.is_mutual_annotated = getattr(
+                conn, "is_mutual_crush_annotated", False
+            )
 
     # Batch-fetch the onboarding coach per user (the coach who approved their
     # ProfileSubmission). Surfaced next to each avatar so the reviewing coach
@@ -3791,6 +3933,28 @@ def coach_connection_review(request, connection_id):
         id=connection_id,
     )
 
+    # Crush leads authorize on GET as well as POST: the ownership check below
+    # only blocks writes, so without this any coach — including the
+    # recipient's own co-coach, whose whole task is built to withhold the
+    # crusher's identity — could open this page and read the coach-only
+    # `requester_note`. Same 404 as a non-existent id: the response must not
+    # confirm the lead exists.
+    # A deactivated routed coach counts as unassigned: they are barred from
+    # every coach view by `coach_required`, so enforcing their ownership here
+    # would leave the lead unworkable by anyone — see `visible_to_coach`.
+    routed_coach = connection.assigned_coach
+    routed_elsewhere = (
+        routed_coach is not None
+        and routed_coach.is_active
+        and routed_coach.id != coach.id
+    )
+    if (
+        connection.flow == EventConnection.FLOW_CRUSH
+        and connection.status != "shared"
+        and routed_elsewhere
+    ):
+        raise Http404
+
     # Get messages for this connection
     connection_messages = connection.messages.select_related("sender").order_by(
         "sent_at"
@@ -3802,6 +3966,19 @@ def coach_connection_review(request, connection_id):
         recipient=connection.requester,
         event=connection.event,
     ).first()
+
+    # Reciprocal "My Crush!" declarations are two independent leads, each
+    # routed on its own requester (§5) — so they can belong to different
+    # coaches. Writing through to the reverse row here would hijack the other
+    # coach's lead and promote it to a consent-open status before that coach
+    # had made their own call. Mutual pairs are *flagged* to both coaches
+    # (see `is_mutual_crush` below), never merged. A crush row on either side
+    # is enough to break the coupling.
+    couple_reverse = (
+        reverse_connection is not None
+        and connection.flow != EventConnection.FLOW_CRUSH
+        and reverse_connection.flow != EventConnection.FLOW_CRUSH
+    )
 
     if request.method == "POST":
         action = request.POST.get("action")
@@ -3821,7 +3998,7 @@ def coach_connection_review(request, connection_id):
                     connection.status = "coach_reviewing"
                     connection.assigned_coach = coach
                     connection.save(update_fields=["status", "assigned_coach"])
-                    if reverse_connection and reverse_connection.status == "accepted":
+                    if couple_reverse and reverse_connection.status == "accepted":
                         reverse_connection.status = "coach_reviewing"
                         reverse_connection.assigned_coach = coach
                         reverse_connection.save(
@@ -3862,7 +4039,7 @@ def coach_connection_review(request, connection_id):
                 )
 
                 # Also approve the reverse connection if it exists
-                if reverse_connection and reverse_connection.status in [
+                if couple_reverse and reverse_connection.status in [
                     "accepted",
                     "coach_reviewing",
                 ]:
@@ -3892,14 +4069,141 @@ def coach_connection_review(request, connection_id):
             return redirect("crush_lu:coach_connections")
 
         elif action == "claim":
+            # Claim is deliberately exempt from the ownership check above, so
+            # without this guard it is an ownership takeover: any coach could
+            # POST `claim` on an already-routed row. For a crush lead that is
+            # also a privacy hole — a `shared` lead is openable by any coach,
+            # and claiming it flips `show_requester_note`, handing over the
+            # note the routed coach was promised sole sight of.
+            # An inactive routed coach still counts as unassigned — that is
+            # exactly the stale-lead recovery path this view offers.
+            if connection.assigned_coach and connection.assigned_coach.is_active:
+                messages.error(
+                    request, _("This connection is assigned to another coach.")
+                )
+                return redirect("crush_lu:coach_connections")
+
             # Claim unassigned connection
             with transaction.atomic():
                 connection.assigned_coach = coach
                 connection.save(update_fields=["assigned_coach"])
-                if reverse_connection:
+                if couple_reverse:
                     reverse_connection.assigned_coach = coach
                     reverse_connection.save(update_fields=["assigned_coach"])
             messages.success(request, _("Connection claimed."))
+
+        # --- "My Crush!" lead workspace (spec §7) -------------------------
+        # A crush lead has no recipient-acceptance step, so it never reaches
+        # `accepted` and the legacy start/approve controls above never apply.
+        # These are also the only writers of the call-tracking fields the
+        # queue and the 24h reminder key off — without them a worked lead
+        # stays "untouched" forever, keeps getting reminded, and never leaves
+        # `open_crush_leads()`.
+        elif action.startswith("crush_"):
+            if connection.flow != EventConnection.FLOW_CRUSH:
+                messages.error(request, _("Not a My Crush! lead."))
+                return redirect(
+                    "crush_lu:coach_connection_review", connection_id=connection.id
+                )
+
+            actor = f"coach:{coach.user.username}"
+            now = timezone.now()
+
+            if action == "crush_start_review":
+                # `pending` is the normal starting state here — waiting for
+                # `accepted` would wait forever.
+                if connection.status == "pending":
+                    connection.status = "coach_reviewing"
+                    connection.assigned_coach = coach
+                    connection.log_system_action("crush_start_review", actor=actor)
+                    connection.save(
+                        update_fields=["status", "assigned_coach", "system_actions"]
+                    )
+                    messages.success(request, _("Lead is now under your review."))
+                else:
+                    messages.info(request, _("This lead is already under review."))
+
+            elif action == "crush_schedule_call":
+                raw = request.POST.get("scheduled_at", "").strip()
+                scheduled = parse_datetime(raw) if raw else None
+                if scheduled is None:
+                    messages.error(request, _("Enter a valid date and time."))
+                else:
+                    if timezone.is_naive(scheduled):
+                        scheduled = timezone.make_aware(scheduled)
+                    connection.coach_call_scheduled_at = scheduled
+                    connection.log_system_action(
+                        "crush_call_scheduled",
+                        actor=actor,
+                        scheduled_at=scheduled.isoformat(),
+                    )
+                    connection.save(
+                        update_fields=["coach_call_scheduled_at", "system_actions"]
+                    )
+                    messages.success(request, _("Call scheduled."))
+
+            elif action == "crush_complete_call":
+                outcome = request.POST.get("call_outcome", "")
+                valid = {c[0] for c in EventConnection.CALL_OUTCOME_CHOICES}
+                if outcome not in valid:
+                    messages.error(request, _("Choose a call outcome."))
+                else:
+                    connection.call_outcome = outcome
+                    fields = ["call_outcome", "system_actions"]
+                    # Only a genuinely completed call closes the SLA. A
+                    # no-answer / unreachable lead stays open and keeps its
+                    # queue row — that is the point of tracking the outcome.
+                    if outcome == "completed":
+                        connection.coach_call_completed_at = now
+                        fields.append("coach_call_completed_at")
+                    else:
+                        # Re-arm the reminder so an unreachable member gets
+                        # chased again rather than silently dropped.
+                        connection.reminder_sent_at = None
+                        fields.append("reminder_sent_at")
+                    connection.log_system_action(
+                        "crush_call_logged", actor=actor, outcome=outcome
+                    )
+                    connection.save(update_fields=fields)
+                    messages.success(request, _("Call outcome recorded."))
+
+            elif action == "crush_record_consent":
+                # The crusher consents verbally on the call — the member-side
+                # consent form is closed for crush leads (§7), so the routed
+                # coach is the only one who can record it.
+                consented = request.POST.get("consent") == "yes"
+                connection.requester_consents_to_share = consented
+                connection.log_system_action(
+                    "crush_requester_consent", actor=actor, consented=consented
+                )
+                connection.save(
+                    update_fields=["requester_consents_to_share", "system_actions"]
+                )
+                messages.success(request, _("Consent recorded."))
+
+            elif action == "crush_share":
+                if connection.can_share_contacts:
+                    connection.status = "shared"
+                    connection.shared_at = now
+                    connection.log_system_action("crush_shared", actor=actor)
+                    connection.save(
+                        update_fields=["status", "shared_at", "system_actions"]
+                    )
+                    messages.success(
+                        request, _("Introduction made — contacts shared.")
+                    )
+                else:
+                    messages.error(
+                        request,
+                        _(
+                            "Both members must consent and the lead must be "
+                            "approved before sharing."
+                        ),
+                    )
+
+            return redirect(
+                "crush_lu:coach_connection_review", connection_id=connection.id
+            )
 
         elif action == "send_message":
             # Coach sends a facilitation message
@@ -3931,6 +4235,18 @@ def coach_connection_review(request, connection_id):
         "coach_approved",
     ) or (connection.status == "accepted" and connection.assigned_coach)
 
+    # The crush workspace replaces the legacy accept/approve controls, which
+    # can never fire for a lead that starts at `pending` and has no recipient
+    # acceptance step.
+    is_crush_lead = connection.flow == EventConnection.FLOW_CRUSH
+    # Unrouted, or routed to a coach who has since been deactivated: the lead
+    # needs an owner before any of the workspace actions will pass the POST
+    # ownership guard, and the legacy Claim block never renders for a crush
+    # lead (it is gated on `accepted`).
+    lead_needs_claim = is_crush_lead and (
+        connection.assigned_coach is None or not connection.assigned_coach.is_active
+    )
+
     # Coach intro starter templates from site config (with sensible defaults)
     from .models import CrushSiteConfig
 
@@ -3959,7 +4275,27 @@ def coach_connection_review(request, connection_id):
         "recipient_profile": recipient_profile,
         "connection_messages": connection_messages,
         "is_mutual": reverse_connection is not None,
+        # Same gate as the list preview: an unrouted pool lead stays openable
+        # so it can be triaged and claimed, but its note opens only once a
+        # coach owns it. Routed-to-someone-else already 404'd above.
+        "show_requester_note": (
+            connection.flow != EventConnection.FLOW_CRUSH
+            or connection.assigned_coach_id == coach.id
+        ),
+        # A reciprocal crush is flagged so both routed coaches can coordinate
+        # the introduction. The other lead stays independent — this exposes
+        # only that it exists, never its `requester_note`.
+        "is_mutual_crush": (
+            connection.flow == EventConnection.FLOW_CRUSH
+            and reverse_connection is not None
+            and reverse_connection.flow == EventConnection.FLOW_CRUSH
+            and reverse_connection.status != "declined"
+        ),
         "show_facilitation": show_facilitation,
+        "is_crush_lead": is_crush_lead,
+        "lead_needs_claim": lead_needs_claim,
+        "call_outcome_choices": EventConnection.CALL_OUTCOME_CHOICES,
+        "can_share_now": connection.can_share_contacts,
         "intro_templates": intro_templates_for_picker,
     }
     return render(request, "crush_lu/coach_connection_review.html", context)
@@ -4468,4 +4804,204 @@ def api_coach_claim_submission(request):
             "message": str(_("Profile claimed successfully")),
             "submission_id": submission.id,
         }
+    )
+
+
+# =========================================================================
+# "My Crush!" recipient-side co-coach task (spec §5)
+# =========================================================================
+
+@coach_required
+@require_http_methods(["GET", "POST"])
+def coach_crush_outreach_task(request, connection_id):
+    """
+    The recipient's own coach works their half of a crush lead here.
+
+    This exists because the flow would otherwise deadlock: the §7 consent
+    actions live on `coach_connection_review`, which the privacy model
+    forbids the co-coach from opening, so they would have no auditable way
+    to record the recipient's answer.
+
+    What this surface deliberately never shows:
+      * the crusher's identity — the recipient's coach reaches out about
+        "someone from <event>", and learns who only once the coaches agree
+        the introduction is happening (i.e. after consent, when the routed
+        coach runs the introduction);
+      * the crusher's `requester_note` — that stays with the routed coach.
+
+    Exactly three writes, each a narrow audited update to the lead:
+    record outreach made, record recipient consent, record recipient
+    decline. Recording consent notifies the routed coach, whose `share`
+    action completes the introduction.
+    """
+    coach = request.coach
+
+    # Object-level authorization: only the co-coach routed to the recipient
+    # half. Same 404 as a non-existent id — the response must not confirm a
+    # lead exists for a coach with no business here.
+    connection = get_object_or_404(
+        EventConnection.objects.select_related("recipient", "event", "assigned_coach"),
+        id=connection_id,
+        flow=EventConnection.FLOW_CRUSH,
+        recipient_coach=coach,
+    )
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+        now = timezone.now()
+        actor = f"cocoach:{coach.user.username}"
+
+        # A lead that already left the open statuses is dead — the member
+        # blocked the pair, or the routed coach declined it. The queue drops
+        # it, but a bookmarked page or a stale tab can still POST here, and
+        # recording consent on a cancelled pair would corrupt the consent and
+        # audit state and tell the routed coach to go ahead and introduce.
+        if connection.status not in EventConnection.OPEN_LEAD_STATUSES:
+            messages.info(request, _("This lead is closed."))
+            return redirect(
+                "crush_lu:coach_crush_outreach_task", connection_id=connection.id
+            )
+
+        if action == "record_outreach":
+            # Same lock-and-re-read as the response branch below: this appends
+            # to `system_actions`, and writing the whole JSON field from an
+            # instance loaded before the transaction can clobber an audit
+            # entry the response branch committed in between — leaving the
+            # business fields correct but the append-only trail missing a row.
+            with transaction.atomic():
+                connection = (
+                    EventConnection.objects.select_for_update()
+                    .select_related("recipient", "event", "assigned_coach")
+                    .get(pk=connection.pk)
+                )
+                # Re-check the status against the freshly locked row, not the
+                # instance read at request entry: the routed coach could have
+                # declined the lead in between, and outreach must not be
+                # timestamped onto an already-closed lead.
+                if (
+                    connection.recipient_outreach_at is None
+                    and connection.status in EventConnection.OPEN_LEAD_STATUSES
+                ):
+                    connection.recipient_outreach_at = now
+                    connection.log_system_action(
+                        "recipient_outreach",
+                        actor=actor,
+                        event_id=connection.event_id,
+                    )
+                    connection.save(
+                        update_fields=["recipient_outreach_at", "system_actions"]
+                    )
+            messages.success(request, _("Outreach recorded."))
+
+        elif action in ("record_consent", "record_decline"):
+            consented = action == "record_consent"
+            recorded = False
+            with transaction.atomic():
+                # Lock and re-read: two concurrent submissions could both
+                # observe recipient_response=None and both pass the guard,
+                # leaving contradictory state (a 'consented' response on a
+                # row another request just set to 'declined') and clobbering
+                # each other's append to the audit list.
+                connection = (
+                    EventConnection.objects.select_for_update()
+                    .select_related("recipient", "event", "assigned_coach")
+                    .get(pk=connection.pk)
+                )
+                if (
+                    connection.recipient_response is None
+                    and connection.status in EventConnection.OPEN_LEAD_STATUSES
+                ):
+                    recorded = True
+                    connection.recipient_response = (
+                        EventConnection.RECIPIENT_RESPONSE_CONSENTED
+                        if consented
+                        else EventConnection.RECIPIENT_RESPONSE_DECLINED
+                    )
+                    connection.recipient_response_at = now
+                    # The §7 consent flag is what the routed coach's `share`
+                    # action reads, so the co-coach's recorded answer has to
+                    # land there too — the recipient never sees a consent
+                    # form of their own.
+                    connection.recipient_consents_to_share = consented
+                    connection.log_system_action(
+                        "recipient_consent" if consented else "recipient_decline",
+                        actor=actor,
+                        event_id=connection.event_id,
+                    )
+                    update_fields = [
+                        "recipient_response",
+                        "recipient_response_at",
+                        "recipient_consents_to_share",
+                        "system_actions",
+                    ]
+                    if connection.recipient_outreach_at is None:
+                        # An answer implies the outreach happened — the
+                        # co-coach can only have one by speaking to them. The
+                        # buttons allow answering without pressing "Mark
+                        # done" first, and the task then leaves the inbox, so
+                        # without this the SLA and audit trail would record
+                        # an answer with no outreach ever made.
+                        connection.recipient_outreach_at = now
+                        connection.log_system_action(
+                            "recipient_outreach", actor=actor, inferred=True
+                        )
+                        update_fields.append("recipient_outreach_at")
+                    if not consented:
+                        # A decline ends the lead: no introduction happens,
+                        # and the crusher is never told it was refused.
+                        connection.status = "declined"
+                        update_fields.append("status")
+                    connection.save(update_fields=update_fields)
+
+            if recorded:
+                if consented and connection.assigned_coach:
+                    try:
+                        from django.urls import reverse
+
+                        from .coach_notifications import notify_coach_system_alert
+
+                        notify_coach_system_alert(
+                            connection.assigned_coach,
+                            _("Recipient consented"),
+                            _("Their coach recorded consent — you can introduce."),
+                            url=reverse(
+                                "crush_lu:coach_connection_review",
+                                args=[connection.id],
+                            ),
+                        )
+                    except Exception:  # noqa: BLE001
+                        # The recorded consent is the source of truth; a push
+                        # failure must not roll it back or 500 the coach.
+                        logger.exception(
+                            "[crush_outreach] consent notify failed for lead %s",
+                            connection.pk,
+                        )
+                messages.success(
+                    request,
+                    _("Consent recorded.") if consented else _("Decline recorded."),
+                )
+            else:
+                # The answer is final by design, so a stale page, a
+                # double-click, or the losing side of a concurrent submission
+                # must not report a correction that never happened — the
+                # routed coach acts on this either way.
+                messages.info(
+                    request,
+                    _("This answer was already recorded and cannot be changed."),
+                )
+
+        return redirect("crush_lu:coach_crush_outreach_task", connection_id=connection.id)
+
+    return render(
+        request,
+        "crush_lu/coach_crush_outreach_task.html",
+        {
+            "coach": coach,
+            "connection": connection,
+            "recipient": connection.recipient,
+            "event": connection.event,
+            "lead_open": connection.status in EventConnection.OPEN_LEAD_STATUSES,
+            "outreach_done": connection.recipient_outreach_at is not None,
+            "response": connection.recipient_response,
+        },
     )

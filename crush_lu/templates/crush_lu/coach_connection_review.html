@@ -1,4 +1,4 @@
-{% extends 'crush_lu/base.html' %}
+﻿{% extends 'crush_lu/base.html' %}
 {% load i18n crush_media %}
 
 {% block title %}{% trans "Review Connection" %} - {% trans "Coach" %} - Crush.lu{% endblock %}
@@ -43,7 +43,13 @@
 
             <!-- Connection Status -->
             <div class="text-center px-4">
-                {% if is_mutual %}
+                {% if is_mutual_crush %}
+                    <div class="w-12 h-12 rounded-full bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center mx-auto mb-2">
+                        {% include "shared/icons/heart.html" with class="w-6 h-6 text-pink-600 dark:text-pink-400" %}
+                    </div>
+                    <p class="text-sm font-semibold text-pink-600 dark:text-pink-400">{% trans "Mutual crush!" %}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "They declared too — coordinate with their coach before introducing." %}</p>
+                {% elif is_mutual %}
                     <div class="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto mb-2">
                         {% include "shared/icons/heart.html" with class="w-6 h-6 text-green-600 dark:text-green-400" %}
                     </div>
@@ -112,7 +118,9 @@
             <h4 class="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-3">
                 {% blocktrans with name=connection.requester.first_name %}{{ name }}'s Note{% endblocktrans %}
             </h4>
-            {% if connection.requester_note %}
+            {% if not show_requester_note %}
+                <p class="text-gray-400 dark:text-gray-500 text-sm italic">{% trans "Claim this lead to read the note." %}</p>
+            {% elif connection.requester_note %}
                 <p class="text-gray-600 dark:text-gray-400 text-sm bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 italic">"{{ connection.requester_note }}"</p>
             {% else %}
                 <p class="text-gray-400 dark:text-gray-500 text-sm italic">{% trans "No note provided." %}</p>
@@ -187,6 +195,133 @@
         </div>
     {% endif %}
 
+    {% comment %}"My Crush!" lead workspace (spec §7).
+
+    The legacy Claim / Start Review block above is gated on `accepted`, which
+    a crush lead never reaches — there is no recipient acceptance step. These
+    are also the only controls that write the call-tracking fields the queue
+    and the 24h reminder key off.{% endcomment %}
+    {% if is_crush_lead %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5 mb-6">
+        <h3 class="font-semibold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
+            {% include "shared/icons/heart.html" with class="w-5 h-5 text-pink-500" %}
+            {% trans "My Crush! lead" %}
+        </h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            {% blocktrans with d=connection.call_by|date:"DATETIME_FORMAT" %}Call by {{ d }}.{% endblocktrans %}
+        </p>
+
+        {# Step 0 — unowned, or its routed coach was deactivated #}
+        {% if lead_needs_claim %}
+            <div class="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4 mb-4">
+                <p class="text-sm font-medium text-amber-800 dark:text-amber-300 mb-1">{% trans "This lead has no active coach" %}</p>
+                <p class="text-xs text-amber-700 dark:text-amber-400 mb-3">{% trans "Claim it to take ownership — the member is still waiting for their call." %}</p>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="claim">
+                    <button type="submit" class="btn-crush-solid btn-sm">{% trans "Claim this lead" %}</button>
+                </form>
+            </div>
+        {% endif %}
+
+        {# Step 1 — take the lead #}
+        {% if connection.status == 'pending' %}
+            <form method="post" class="mb-4">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="crush_start_review">
+                <button type="submit" class="btn-crush-solid">{% trans "Start review" %}</button>
+            </form>
+        {% endif %}
+
+        {# Step 2 — the call #}
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mb-4">
+            <h4 class="font-medium text-sm text-gray-700 dark:text-gray-300 mb-3">{% trans "The call" %}</h4>
+
+            {% if connection.coach_call_completed_at %}
+                <p class="text-sm text-green-600 dark:text-green-400 mb-3">
+                    {% blocktrans with d=connection.coach_call_completed_at|date:"DATETIME_FORMAT" %}Completed {{ d }}.{% endblocktrans %}
+                </p>
+            {% else %}
+                {% if connection.coach_call_scheduled_at %}
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                        {% blocktrans with d=connection.coach_call_scheduled_at|date:"DATETIME_FORMAT" %}Scheduled for {{ d }}.{% endblocktrans %}
+                    </p>
+                {% endif %}
+                <form method="post" class="flex flex-wrap items-end gap-3 mb-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="crush_schedule_call">
+                    <div>
+                        <label for="scheduled_at" class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Schedule the call" %}</label>
+                        <input type="datetime-local" id="scheduled_at" name="scheduled_at" class="form-input text-sm">
+                    </div>
+                    <button type="submit" class="btn-crush-outline btn-sm">{% trans "Save" %}</button>
+                </form>
+            {% endif %}
+
+            <form method="post" class="flex flex-wrap items-end gap-3">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="crush_complete_call">
+                <div>
+                    <label for="call_outcome" class="block text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Log the outcome" %}</label>
+                    <select id="call_outcome" name="call_outcome" class="form-select text-sm">
+                        {% for value, label in call_outcome_choices %}
+                            <option value="{{ value }}" {% if connection.call_outcome == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn-crush-outline btn-sm">{% trans "Record" %}</button>
+            </form>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mt-2 mb-0">
+                {% trans "Only “Call completed” closes the 48h SLA — anything else keeps the lead in your queue and re-arms the reminder." %}
+            </p>
+        </div>
+
+        {# Step 3 — consent, recorded by the coach on both sides #}
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+            <h4 class="font-medium text-sm text-gray-700 dark:text-gray-300 mb-3">{% trans "Consent" %}</h4>
+            <dl class="text-sm space-y-2 mb-3">
+                <div class="flex justify-between gap-4">
+                    <dt class="text-gray-500 dark:text-gray-400">{% trans "Requester (your call)" %}</dt>
+                    <dd class="font-medium {% if connection.requester_consents_to_share %}text-green-600 dark:text-green-400{% else %}text-gray-400 dark:text-gray-500{% endif %}">
+                        {% if connection.requester_consents_to_share %}{% trans "Yes" %}{% else %}{% trans "Not recorded" %}{% endif %}
+                    </dd>
+                </div>
+                <div class="flex justify-between gap-4">
+                    <dt class="text-gray-500 dark:text-gray-400">{% trans "Recipient (their coach)" %}</dt>
+                    <dd class="font-medium {% if connection.recipient_consents_to_share %}text-green-600 dark:text-green-400{% else %}text-gray-400 dark:text-gray-500{% endif %}">
+                        {% if connection.recipient_consents_to_share %}{% trans "Yes" %}{% else %}{% trans "Not recorded" %}{% endif %}
+                    </dd>
+                </div>
+            </dl>
+
+            {% if not connection.requester_consents_to_share %}
+                <form method="post" class="mb-3">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="crush_record_consent">
+                    <input type="hidden" name="consent" value="yes">
+                    <button type="submit" class="btn-crush-outline btn-sm">{% trans "They consented on the call" %}</button>
+                </form>
+            {% endif %}
+
+            {% if connection.status != 'shared' %}
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="crush_share">
+                    <button type="submit" class="btn-crush-solid" {% if not can_share_now %}disabled{% endif %}>
+                        {% trans "Make the introduction" %}
+                    </button>
+                </form>
+                {% if not can_share_now %}
+                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-2 mb-0">
+                        {% trans "Needs both consents and an approved lead." %}
+                    </p>
+                {% endif %}
+            {% else %}
+                <p class="text-sm text-green-600 dark:text-green-400 mb-0">{% trans "Contacts shared — the introduction is done." %}</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
     <!-- Coach Notes & Introduction Form -->
     {% if show_facilitation %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5 mb-6">
