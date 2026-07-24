@@ -391,6 +391,54 @@ def notify_coach_screening_reminder(coach, submission):
     )
 
 
+def notify_coach_crush_lead_reminder(coach, connection):
+    """
+    Remind a coach about a "My Crush!" lead they haven't touched in 24h.
+
+    The member was promised a call within 48h (spec §6/O8), so this fires at
+    the halfway mark while there is still time to make it.
+
+    Rides the ``notify_screening_reminders`` channel rather than adding a new
+    flag: from the coach's side this is the same kind of signal — a call they
+    owe someone — and a coach who muted call reminders meant to mute this too.
+
+    Coach-facing only, and the routed coach already sees this lead, so naming
+    the crusher discloses nothing new to them. The ``requester_note`` is
+    deliberately left out: push payloads surface on a lock screen.
+
+    Args:
+        coach: CrushCoach the lead is routed to
+        connection: the ``flow='crush'`` EventConnection
+    """
+    subscriptions = CoachPushSubscription.objects.filter(
+        coach=coach, enabled=True, notify_screening_reminders=True
+    )
+
+    if not subscriptions.exists():
+        logger.info(
+            f"Coach {coach.user.username} has call reminder notifications disabled"
+        )
+        return {"success": 0, "failed": 0, "total": 0}
+
+    requester = connection.requester
+    user_name = requester.first_name or requester.username
+
+    with user_language_context(coach.user):
+        title = _("My Crush! call still open")
+        body = _("%(name)s is waiting for your call — half the 48h is gone.") % {
+            "name": user_name
+        }
+        url = reverse("crush_lu:coach_connection_review", args=[connection.id])
+
+    return send_coach_push_notification(
+        coach=coach,
+        title=title,
+        body=body,
+        url=url,
+        tag=f"crush-lead-reminder-{connection.id}",
+    )
+
+
 def notify_coach_system_alert(coach, title, message, url="/coach/dashboard/"):
     """
     Send a system/admin alert to a coach.

@@ -213,3 +213,54 @@ def pre_screening_invites(request):
     return JsonResponse(
         {"ok": True, "took_ms": took_ms}, status=202
     )
+
+
+# -------------------------------------------------------------------------
+# "My Crush!" 24h untouched-lead reminders (spec §6/O8)
+# -------------------------------------------------------------------------
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def crush_lead_reminders(request):
+    """POST /api/admin/crush-lead-reminders/
+
+    Remind each routed coach about crush leads they have not touched in 24h,
+    halfway through the 48h call SLA the member was promised.
+
+    The sweep itself lives in ``crush_lu.services.crush_leads`` so it stays
+    usable from a dev shell via ``manage.py send_crush_lead_reminders``.
+    Idempotent: ``reminder_sent_at`` is both the filter and the record, and
+    it is written in the same savepoint as the notification — so repeated
+    timer delivery produces exactly one reminder per lead, and a failed
+    notification leaves the lead eligible for the next sweep.
+    """
+    if not _authenticate_admin_request(request):
+        return _unauthorized(request)
+
+    from crush_lu.services.crush_leads import sweep_lead_reminders
+
+    started = timezone.now()
+    try:
+        result = sweep_lead_reminders(now=started)
+    except Exception:  # noqa: BLE001
+        # CodeQL: never echo the raw exception to the caller (stack traces /
+        # internal paths). Fully captured in logs by logger.exception.
+        logger.exception("[crush_lead_reminders] Unhandled error")
+        return JsonResponse({"error": "internal_error"}, status=500)
+
+    took_ms = int((timezone.now() - started).total_seconds() * 1000)
+    logger.info(
+        "[crush_lead_reminders] sent=%d failed=%d took_ms=%d",
+        result["sent"],
+        result["failed"],
+        took_ms,
+    )
+    return JsonResponse(
+        {
+            "sent": result["sent"],
+            "failed": result["failed"],
+            "took_ms": took_ms,
+            "timestamp": started.isoformat(),
+        },
+        status=202,
+    )

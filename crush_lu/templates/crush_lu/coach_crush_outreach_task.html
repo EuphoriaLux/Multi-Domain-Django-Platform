@@ -1,0 +1,114 @@
+{% extends "crush_lu/base.html" %}
+{% load i18n %}
+
+{% comment %}Recipient-side co-coach task (spec §5).
+
+Deliberately renders NEITHER the crusher's identity NOR their
+`requester_note`: the recipient's coach reaches out about "someone from
+<event>" and learns who only once both coaches agree the introduction is
+happening. Everything on this page is recipient-scoped.{% endcomment %}
+
+{% block title %}{% trans "Recipient outreach" %} — Crush.lu{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-6">
+
+    <div class="mb-6">
+        <a href="{% url 'crush_lu:coach_action_queue' %}" class="text-sm text-crush-purple hover:underline">
+            &larr; {% trans "Back to inbox" %}
+        </a>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white mt-2">{% trans "Recipient outreach" %}</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            {% trans "Your member was named in a My Crush! declaration. Reach out to them and record their answer here." %}
+        </p>
+    </div>
+
+    <div class="card-bordered p-6 mb-6">
+        <h2 class="font-semibold text-gray-900 dark:text-white mb-4">{% trans "Your member" %}</h2>
+        <dl class="space-y-3 text-sm">
+            <div class="flex justify-between gap-4">
+                <dt class="text-gray-500 dark:text-gray-400">{% trans "Member" %}</dt>
+                <dd class="font-medium text-gray-900 dark:text-white text-right">
+                    <a href="{% url 'crush_lu:coach_member_overview' user_id=recipient.id %}" class="text-crush-purple hover:underline">
+                        {{ recipient.get_full_name|default:recipient.username }}
+                    </a>
+                </dd>
+            </div>
+            <div class="flex justify-between gap-4">
+                <dt class="text-gray-500 dark:text-gray-400">{% trans "Event" %}</dt>
+                <dd class="font-medium text-gray-900 dark:text-white text-right">{{ event.title }}</dd>
+            </div>
+            <div class="flex justify-between gap-4">
+                <dt class="text-gray-500 dark:text-gray-400">{% trans "Requesting coach" %}</dt>
+                <dd class="font-medium text-gray-900 dark:text-white text-right">
+                    {% if connection.assigned_coach %}
+                        {{ connection.assigned_coach.user.get_full_name|default:connection.assigned_coach.user.username }}
+                    {% else %}
+                        {% trans "Unassigned" %}
+                    {% endif %}
+                </dd>
+            </div>
+        </dl>
+
+        <div class="mt-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/40 text-xs text-gray-500 dark:text-gray-400 flex items-start gap-2">
+            {% include "shared/icons/shield-check.html" with class="w-4 h-4 shrink-0 mt-0.5" %}
+            <span>{% trans "You will learn who declared once both coaches agree the introduction is going ahead. Speak about \"someone from this event\" until then." %}</span>
+        </div>
+    </div>
+
+    <div class="card-bordered p-6">
+        <h2 class="font-semibold text-gray-900 dark:text-white mb-4">{% trans "Record your outreach" %}</h2>
+
+        {# Step 1 — outreach made #}
+        <div class="flex items-center justify-between gap-4 py-3 border-b border-gray-200 dark:border-gray-700">
+            <div>
+                <p class="text-sm font-medium text-gray-900 dark:text-white mb-0">{% trans "Reached out to member" %}</p>
+                {% if outreach_done %}
+                    <p class="text-xs text-green-600 dark:text-green-400 mb-0">{{ connection.recipient_outreach_at|date:"DATETIME_FORMAT" }}</p>
+                {% else %}
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{% trans "Not recorded yet" %}</p>
+                {% endif %}
+            </div>
+            {% if not outreach_done %}
+                <form method="post" class="shrink-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="record_outreach">
+                    <button type="submit" class="btn-crush-secondary px-3 py-1.5 text-sm">{% trans "Mark done" %}</button>
+                </form>
+            {% else %}
+                <span class="shrink-0 text-green-600 dark:text-green-400">{% include "shared/icons/check.html" with class="w-5 h-5" %}</span>
+            {% endif %}
+        </div>
+
+        {# Step 2 — their answer #}
+        <div class="pt-4">
+            <p class="text-sm font-medium text-gray-900 dark:text-white mb-2">{% trans "Their answer" %}</p>
+            {% if response == 'consented' %}
+                <p class="text-sm text-green-600 dark:text-green-400">
+                    {% include "shared/icons/check.html" with class="w-4 h-4 inline" %}
+                    {% blocktrans with d=connection.recipient_response_at|date:"DATETIME_FORMAT" %}Consented on {{ d }} — the requesting coach has been notified and will handle the introduction.{% endblocktrans %}
+                </p>
+            {% elif response == 'declined' %}
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                    {% blocktrans with d=connection.recipient_response_at|date:"DATETIME_FORMAT" %}Declined on {{ d }}. Nothing further happens, and the other member is never told they were refused.{% endblocktrans %}
+                </p>
+            {% else %}
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">{% trans "Recording an answer is final — it closes your half of this lead." %}</p>
+                <div class="flex flex-wrap gap-3">
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="record_consent">
+                        <button type="submit" class="btn-crush-primary px-4 py-2 text-sm">{% trans "They said yes" %}</button>
+                    </form>
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="record_decline">
+                        <button type="submit" class="btn-crush-secondary px-4 py-2 text-sm">{% trans "They said no" %}</button>
+                    </form>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}

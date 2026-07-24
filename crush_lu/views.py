@@ -165,6 +165,7 @@ from .views_coach import (  # noqa: F401
     coach_verification_history,
     coach_connections,
     coach_connection_review,
+    coach_crush_outreach_task,
     coach_profiles,
     coach_team_stats,
     coach_verification_channel,

@@ -19,7 +19,7 @@
 </div>
 
 {# Counts strip #}
-<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
         <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">{% trans "Total" %}</p>
         <p class="text-2xl font-bold dark:text-white">{{ counts.total }}</p>
@@ -35,6 +35,13 @@
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
         <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">{% trans "Connections" %}</p>
         <p class="text-2xl font-bold dark:text-white">{{ counts.connection }}</p>
+    </div>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
+        <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">{% trans "Crush calls" %}</p>
+        <p class="text-2xl font-bold dark:text-white">{{ counts.crush_lead }}</p>
+        {% if counts.mutual_crush %}
+            <p class="text-xs font-medium text-pink-600 dark:text-pink-400 mt-1">{% blocktrans count counter=counts.mutual_crush %}{{ counter }} mutual{% plural %}{{ counter }} mutual{% endblocktrans %}</p>
+        {% endif %}
     </div>
 </div>
 
@@ -80,8 +87,14 @@
                         <a href="{% url 'crush_lu:coach_review_profile' submission_id=item.url_kwargs.submission_id %}" class="text-crush-purple hover:underline">{{ item.title }}</a>
                     {% elif item.kind == 'screening' %}
                         <a href="{% url 'crush_lu:coach_review_profile' submission_id=item.url_kwargs.submission_id %}" class="text-crush-purple hover:underline">{{ item.title }}</a>
+                    {% elif item.kind == 'crush_outreach' %}
+                        {# Co-coach: its own constrained surface, never the lead #}
+                        <a href="{% url 'crush_lu:coach_crush_outreach_task' connection_id=item.url_kwargs.connection_id %}" class="text-crush-purple hover:underline">{{ item.title }}</a>
                     {% else %}
                         <a href="{% url 'crush_lu:coach_connection_review' connection_id=item.url_kwargs.connection_id %}" class="text-crush-purple hover:underline">{{ item.title }}</a>
+                    {% endif %}
+                    {% if item.is_mutual_crush %}
+                        <span class="ml-1 align-middle inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300">{% trans "Mutual" %}</span>
                     {% endif %}
                 </p>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mb-0 truncate">
@@ -102,6 +115,10 @@
             {# Action #}
             {% if item.kind == 'profile' or item.kind == 'screening' %}
             <a href="{% url 'crush_lu:coach_review_profile' submission_id=item.url_kwargs.submission_id %}" class="flex-shrink-0 inline-flex items-center justify-center gap-1 px-3 py-1.5 text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                {% trans "Open" %}
+            </a>
+            {% elif item.kind == 'crush_outreach' %}
+            <a href="{% url 'crush_lu:coach_crush_outreach_task' connection_id=item.url_kwargs.connection_id %}" class="flex-shrink-0 inline-flex items-center justify-center gap-1 px-3 py-1.5 text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
                 {% trans "Open" %}
             </a>
             {% else %}

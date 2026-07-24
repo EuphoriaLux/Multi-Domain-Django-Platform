@@ -4,14 +4,18 @@
 Spec: docs/superpowers/specs/2026-07-21-crush-my-crush-post-event-flow.md
 Phase B — lead model: §7 call-tracking fields, routing tier, coach action
 queue integration.
-
-Service/queryset level only. The lead queue UI, the 24h reminder sweep, and
-notifications are Phase D; member surfaces are Phase C.
+Phase D — the 24h untouched-lead reminder sweep (§6/O8) and its coach
+notification; member surfaces are Phase C.
 """
 
+import logging
+
+from django.db import transaction
 from django.utils import timezone
 
 from crush_lu.models.connections import EventConnection
+
+logger = logging.getLogger(__name__)
 
 # 24h untouched-lead reminder offset (spec §6/O8). The sweep itself and its
 # scheduler wiring are Phase D; this constant keeps the offset in one place.
@@ -56,3 +60,81 @@ def reminder_due(connection, now=None):
         return False
     now = now or timezone.now()
     return now >= connection.requested_at + REMINDER_AFTER
+
+
+def reminder_candidates(now=None):
+    """
+    Open crush leads whose 24h reminder is due, as a queryset.
+
+    Mirrors ``reminder_due`` in SQL so the sweep does not have to walk every
+    lead in Python. ``open_crush_leads()`` already restricts to
+    ``flow='crush'``, ``OPEN_LEAD_STATUSES`` and an incomplete call — so a
+    lead flipped to ``declined`` by a member block or a coach decline drops
+    out here rather than being reminded about.
+    """
+    now = now or timezone.now()
+    return (
+        EventConnection.objects.open_crush_leads()
+        .filter(
+            requested_at__lte=now - REMINDER_AFTER,
+            reminder_sent_at__isnull=True,
+            coach_call_scheduled_at__isnull=True,
+            assigned_coach__isnull=False,
+            assigned_coach__is_active=True,
+        )
+        .select_related("assigned_coach__user", "requester", "event")
+        .order_by("requested_at", "id")
+    )
+
+
+def sweep_lead_reminders(now=None, notify=None):
+    """
+    Send the 24h untouched-lead reminder to each routed coach (spec §6/O8).
+
+    Idempotent by construction: ``reminder_sent_at`` is both the filter and
+    the record, and it is written inside the same savepoint that fires the
+    notification — so a failed notification rolls the stamp back and the
+    lead stays eligible for the next sweep instead of being silently
+    swallowed. Delivering the timer twice therefore produces exactly one
+    reminder per lead.
+
+    Rows are locked with ``skip_locked`` so two overlapping timer deliveries
+    divide the work instead of blocking or double-sending.
+
+    ``notify`` is injectable for tests; it defaults to the coach push
+    notification helper.
+    """
+    now = now or timezone.now()
+    if notify is None:
+        from crush_lu.coach_notifications import notify_coach_crush_lead_reminder
+
+        notify = notify_coach_crush_lead_reminder
+
+    sent = 0
+    failed = 0
+    with transaction.atomic():
+        locked_ids = list(
+            EventConnection.objects.filter(
+                pk__in=reminder_candidates(now).values("pk")
+            )
+            .select_for_update(skip_locked=True)
+            .values_list("pk", flat=True)
+        )
+        leads = EventConnection.objects.filter(pk__in=locked_ids).select_related(
+            "assigned_coach__user", "requester", "event"
+        )
+        for lead in leads:
+            try:
+                with transaction.atomic():
+                    lead.reminder_sent_at = now
+                    lead.save(update_fields=["reminder_sent_at"])
+                    notify(lead.assigned_coach, lead)
+                sent += 1
+            except Exception:  # noqa: BLE001
+                logger.exception(
+                    "[crush_lead_reminders] Failed on lead %s", lead.pk
+                )
+                failed += 1
+
+    logger.info("[crush_lead_reminders] sent=%d failed=%d", sent, failed)
+    return {"sent": sent, "failed": failed}
