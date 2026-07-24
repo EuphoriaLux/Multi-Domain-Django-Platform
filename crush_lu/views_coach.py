@@ -4029,6 +4029,14 @@ def coach_connection_review(request, connection_id):
         "is_mutual": reverse_connection is not None,
         "show_facilitation": show_facilitation,
         "intro_templates": intro_templates_for_picker,
+        # Same gate as the list preview: an unrouted pool lead stays openable
+        # so it can be triaged and claimed, but its note opens only once a
+        # coach owns it. Routed-to-someone-else already 404'd above.
+        "show_requester_note": (
+            connection.flow != EventConnection.FLOW_CRUSH
+            or connection.status == "shared"
+            or connection.assigned_coach_id == coach.id
+        ),
     }
     return render(request, "crush_lu/coach_connection_review.html", context)
 

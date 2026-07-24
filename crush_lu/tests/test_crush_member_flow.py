@@ -933,3 +933,70 @@ class TestCoachLeadPrivacy:
             response = member_client.get(url)
             assert response.status_code == 200
             assert b"I could not stop smiling." not in response.content
+
+    def test_unclaimed_pool_lead_withholds_the_note_on_both_surfaces(self, client):
+        """Triage-before-claim: an unrouted lead stays listed and openable so
+        any coach can claim it, but its note opens only once owned — the list
+        and the detail page must agree."""
+        triager = _make_coach("triager@example.com")
+        crusher = _plain("clp_pool_a", gender="M")
+        target = _plain("clp_pool_b", gender="F")
+        event = _ended_event()
+        _attend(crusher, event)
+        _attend(target, event)
+        lead = EventConnection.objects.create(
+            requester=crusher,
+            recipient=target,
+            event=event,
+            flow=EventConnection.FLOW_CRUSH,
+            requester_note="Pool lead note.",
+        )
+        assert lead.assigned_coach is None
+        _login(client, triager.user)
+
+        listing = client.get(
+            reverse("crush_lu:coach_connections"), {"status": "all"}
+        )
+        review = client.get(
+            reverse(
+                "crush_lu:coach_connection_review",
+                kwargs={"connection_id": lead.pk},
+            )
+        )
+
+        # Listed and openable so it can be claimed...
+        assert listing.status_code == 200
+        assert review.status_code == 200
+        # ...but the note itself stays shut on both surfaces.
+        assert b"Pool lead note." not in listing.content
+        assert b"Pool lead note." not in review.content
+        assert b"Claim this lead to read the note." in review.content
+
+    def test_claiming_coach_then_reads_the_pool_lead_note(self, client):
+        """The withholding is claim-gated, not permanent."""
+        claimer = _make_coach("claimer@example.com")
+        crusher = _plain("clp_clm_a", gender="M")
+        target = _plain("clp_clm_b", gender="F")
+        event = _ended_event()
+        _attend(crusher, event)
+        _attend(target, event)
+        lead = EventConnection.objects.create(
+            requester=crusher,
+            recipient=target,
+            event=event,
+            flow=EventConnection.FLOW_CRUSH,
+            requester_note="Pool lead note.",
+        )
+        lead.assigned_coach = claimer
+        lead.save(update_fields=["assigned_coach"])
+        _login(client, claimer.user)
+
+        review = client.get(
+            reverse(
+                "crush_lu:coach_connection_review",
+                kwargs={"connection_id": lead.pk},
+            )
+        )
+
+        assert review.status_code == 200
+        assert b"Pool lead note." in review.content
