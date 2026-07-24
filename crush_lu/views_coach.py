@@ -3826,9 +3826,11 @@ def coach_connections(request):
         # The crush note is written for the routed coach only. Unrouted pool
         # leads stay listed so they can be claimed, but their note preview is
         # withheld until a coach actually owns the lead.
+        # No `shared` exception: the note was written under "only your Crush
+        # Coach will read this". Completing the introduction changes who may
+        # see the *pair*, not who may read the note.
         conn.show_requester_note = (
             conn.flow != EventConnection.FLOW_CRUSH
-            or conn.status == "shared"
             or conn.assigned_coach_id == coach.id
         )
         # Flow-aware mutual flag for crush rows (see the annotation above).
@@ -4067,6 +4069,20 @@ def coach_connection_review(request, connection_id):
             return redirect("crush_lu:coach_connections")
 
         elif action == "claim":
+            # Claim is deliberately exempt from the ownership check above, so
+            # without this guard it is an ownership takeover: any coach could
+            # POST `claim` on an already-routed row. For a crush lead that is
+            # also a privacy hole — a `shared` lead is openable by any coach,
+            # and claiming it flips `show_requester_note`, handing over the
+            # note the routed coach was promised sole sight of.
+            # An inactive routed coach still counts as unassigned — that is
+            # exactly the stale-lead recovery path this view offers.
+            if connection.assigned_coach and connection.assigned_coach.is_active:
+                messages.error(
+                    request, _("This connection is assigned to another coach.")
+                )
+                return redirect("crush_lu:coach_connections")
+
             # Claim unassigned connection
             with transaction.atomic():
                 connection.assigned_coach = coach
@@ -4264,7 +4280,6 @@ def coach_connection_review(request, connection_id):
         # coach owns it. Routed-to-someone-else already 404'd above.
         "show_requester_note": (
             connection.flow != EventConnection.FLOW_CRUSH
-            or connection.status == "shared"
             or connection.assigned_coach_id == coach.id
         ),
         # A reciprocal crush is flagged so both routed coaches can coordinate
@@ -4859,7 +4874,14 @@ def coach_crush_outreach_task(request, connection_id):
                     .select_related("recipient", "event", "assigned_coach")
                     .get(pk=connection.pk)
                 )
-                if connection.recipient_outreach_at is None:
+                # Re-check the status against the freshly locked row, not the
+                # instance read at request entry: the routed coach could have
+                # declined the lead in between, and outreach must not be
+                # timestamped onto an already-closed lead.
+                if (
+                    connection.recipient_outreach_at is None
+                    and connection.status in EventConnection.OPEN_LEAD_STATUSES
+                ):
                     connection.recipient_outreach_at = now
                     connection.log_system_action(
                         "recipient_outreach",

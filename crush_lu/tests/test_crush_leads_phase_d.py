@@ -1276,3 +1276,94 @@ class TestCodexRound2Robustness:
             c for c in response.context["page_obj"].object_list if c.pk == lead.pk
         )
         assert row.is_mutual_annotated is True
+
+
+class TestClaimCannotTakeOverALead:
+    """`claim` is exempt from the ownership check, and a `shared` crush lead
+    is openable by any coach — so without a guard, clicking Claim hands over
+    the note the routed coach was promised sole sight of."""
+
+    def _assigned(self, status="shared", active=True):
+        routed = _make_coach("cl_routed@example.com", is_active=active)
+        requester, _ = _make_user("cl_req@example.com", "M")
+        recipient, _ = _make_user("cl_rec@example.com", "F")
+        lead = _lead(
+            requester, recipient, _make_event(), routed,
+            status=status, requester_note="Takeover note.",
+        )
+        return routed, lead
+
+    def _url(self, lead):
+        return reverse(
+            "crush_lu:coach_connection_review", kwargs={"connection_id": lead.pk}
+        )
+
+    def test_claim_is_refused_on_a_lead_with_an_active_coach(self):
+        routed, lead = self._assigned()
+        thief = _make_coach("cl_thief@example.com")
+        client = Client()
+        _login(client, thief.user)
+
+        client.post(self._url(lead), {"action": "claim"})
+
+        lead.refresh_from_db()
+        assert lead.assigned_coach == routed
+
+    def test_a_refused_claim_does_not_expose_the_note(self):
+        _, lead = self._assigned()
+        thief = _make_coach("cl_thief2@example.com")
+        client = Client()
+        _login(client, thief.user)
+
+        client.post(self._url(lead), {"action": "claim"})
+        response = client.get(self._url(lead))
+
+        assert b"Takeover note." not in response.content
+
+    def test_a_stale_lead_can_still_be_claimed(self):
+        """The stale-coach recovery path depends on claim working when the
+        routed coach is inactive."""
+        _, lead = self._assigned(status="pending", active=False)
+        rescuer = _make_coach("cl_rescuer@example.com")
+        client = Client()
+        _login(client, rescuer.user)
+
+        client.post(self._url(lead), {"action": "claim"})
+
+        lead.refresh_from_db()
+        assert lead.assigned_coach == rescuer
+
+
+class TestOutreachRaceOnAClosingLead:
+    """Bot review follow-up: `record_outreach` re-fetched under the lock but
+    checked status against the instance read at request entry."""
+
+    def test_outreach_is_not_stamped_onto_a_lead_closed_under_it(self):
+        routed = _make_coach("or_routed@example.com")
+        cocoach = _make_coach("or_cocoach@example.com")
+        requester, req_p = _make_user("or_req@example.com", "M")
+        recipient, rec_p = _make_user("or_rec@example.com", "F")
+        req_p.assigned_coach = routed
+        req_p.save(update_fields=["assigned_coach"])
+        rec_p.assigned_coach = cocoach
+        rec_p.save(update_fields=["assigned_coach"])
+        lead = _lead(requester, recipient, _make_event())
+        lead.assign_coach()
+        lead.refresh_from_db()
+
+        # Stand in for the concurrent decline: the row is closed in the DB
+        # while the co-coach's request already holds a stale open instance.
+        EventConnection.objects.filter(pk=lead.pk).update(status="declined")
+
+        client = Client()
+        _login(client, cocoach.user)
+        client.post(
+            reverse(
+                "crush_lu:coach_crush_outreach_task",
+                kwargs={"connection_id": lead.pk},
+            ),
+            {"action": "record_outreach"},
+        )
+
+        lead.refresh_from_db()
+        assert lead.recipient_outreach_at is None
