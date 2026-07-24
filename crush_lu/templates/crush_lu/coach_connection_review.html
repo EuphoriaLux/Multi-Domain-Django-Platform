@@ -151,6 +151,68 @@
         </div>
     </div>
 
+    <!-- My Crush! call tracking — the lead's own action surface -->
+    {% if show_call_tracking %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5 mb-6 border border-crush-purple/30">
+        <div class="flex items-start justify-between gap-3 mb-3">
+            <div>
+                <h4 class="font-semibold dark:text-white">{% trans "My Crush! call" %}</h4>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    {% blocktrans with name=connection.requester.first_name %}Call {{ name }} about their declaration, then record what happened.{% endblocktrans %}
+                </p>
+            </div>
+            {% if connection.call_by %}
+            <span class="shrink-0 text-xs font-medium px-2.5 py-1 rounded-full bg-crush-purple/10 text-crush-purple dark:text-crush-pink">
+                {% blocktrans with deadline=connection.call_by %}Call by {{ deadline }}{% endblocktrans %}
+            </span>
+            {% endif %}
+        </div>
+
+        {% if connection.call_outcome %}
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+            {% trans "Last recorded outcome:" %} <strong>{{ connection.get_call_outcome_display }}</strong>
+            {% if connection.coach_call_scheduled_at %}
+                &middot; {% blocktrans with scheduled=connection.coach_call_scheduled_at %}next call {{ scheduled }}{% endblocktrans %}
+            {% endif %}
+        </p>
+        {% endif %}
+
+        <form method="post" class="space-y-3">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="record_call">
+            <div>
+                <label for="call_outcome" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{% trans "Outcome" %}</label>
+                <select id="call_outcome" name="call_outcome" required
+                        class="w-full sm:w-auto px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
+                    <option value="">{% trans "Choose an outcome…" %}</option>
+                    {% for value, label in call_outcome_choices %}
+                        <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="call_scheduled_at" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {% trans "Next call (optional — ignored when the call is completed)" %}
+                </label>
+                <input type="datetime-local" id="call_scheduled_at" name="call_scheduled_at"
+                       class="w-full sm:w-auto px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg">
+            </div>
+            <button type="submit" class="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium bg-crush-purple text-white hover:bg-crush-purple/90 rounded-lg transition-colors">
+                {% trans "Record call" %}
+            </button>
+            <p class="text-xs text-gray-400 dark:text-gray-500">
+                {% trans "“Call completed” closes the 48h SLA and removes this lead from your queue. Any other outcome keeps it there." %}
+            </p>
+        </form>
+    </div>
+    {% elif connection.flow == 'crush' and connection.coach_call_completed_at %}
+    <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4 mb-6">
+        <p class="text-sm text-green-800 dark:text-green-300">
+            {% blocktrans with when=connection.coach_call_completed_at outcome=connection.get_call_outcome_display %}Coach call recorded {{ when }} — {{ outcome }}.{% endblocktrans %}
+        </p>
+    </div>
+    {% endif %}
+
     <!-- Coach Action: Start Review / Claim -->
     {% if connection.status == 'accepted' and not connection.assigned_coach %}
         <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-5 mb-6">
