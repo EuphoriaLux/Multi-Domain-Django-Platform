@@ -1280,3 +1280,153 @@ class TestCodexRound2:
 
         assert "HX-Redirect" in response
         assert response.status_code != 302
+
+
+class TestCoachCallRecording:
+    """The member is promised a call within 48h; the coach needs somewhere to
+    write down that it happened, or the lead accrues SLA breach forever."""
+
+    def _routed_lead(self, coach):
+        crusher = _plain("call_a", gender="M")
+        target = _plain("call_b", gender="F")
+        event = _ended_event()
+        _attend(crusher, event)
+        _attend(target, event)
+        return EventConnection.objects.create(
+            requester=crusher,
+            recipient=target,
+            event=event,
+            flow=EventConnection.FLOW_CRUSH,
+            assigned_coach=coach,
+            requester_note="Call me about this.",
+        )
+
+    def _review_url(self, lead):
+        return reverse(
+            "crush_lu:coach_connection_review",
+            kwargs={"connection_id": lead.pk},
+        )
+
+    def test_pending_lead_offers_the_call_form(self, client):
+        """The queue links here from `pending`, where none of the legacy
+        accepted/reviewing controls render."""
+        coach = _make_coach("call_coach1@example.com")
+        lead = self._routed_lead(coach)
+        assert lead.status == "pending"
+        _login(client, coach.user)
+
+        response = client.get(self._review_url(lead))
+
+        assert response.status_code == 200
+        assert response.context["show_call_tracking"] is True
+        assert b'value="record_call"' in response.content
+
+    def test_completed_call_leaves_the_queue_and_the_reminder_sweep(
+        self, client
+    ):
+        from crush_lu.services.crush_leads import reminder_due
+
+        coach = _make_coach("call_coach2@example.com")
+        lead = self._routed_lead(coach)
+        _login(client, coach.user)
+
+        response = client.post(
+            self._review_url(lead),
+            {"action": "record_call", "call_outcome": "completed"},
+        )
+
+        assert response.status_code == 302
+        lead.refresh_from_db()
+        assert lead.call_outcome == "completed"
+        assert lead.coach_call_completed_at is not None
+        assert lead not in EventConnection.objects.open_crush_leads()
+        assert reminder_due(lead) is False
+
+        queue = client.get(reverse("crush_lu:coach_action_queue"))
+        assert queue.context["counts"].get("crush_lead", 0) == 0
+
+    def test_unsuccessful_attempt_keeps_the_lead_in_the_queue(self, client):
+        """A call that didn't happen is still owed — recording "no answer"
+        must not silently close the SLA."""
+        coach = _make_coach("call_coach3@example.com")
+        lead = self._routed_lead(coach)
+        _login(client, coach.user)
+
+        client.post(
+            self._review_url(lead),
+            {"action": "record_call", "call_outcome": "no_answer"},
+        )
+
+        lead.refresh_from_db()
+        assert lead.call_outcome == "no_answer"
+        assert lead.coach_call_completed_at is None
+        assert lead in EventConnection.objects.open_crush_leads()
+
+    def test_reschedule_records_the_next_call_time(self, client):
+        from crush_lu.services.crush_leads import reminder_due
+
+        coach = _make_coach("call_coach4@example.com")
+        lead = self._routed_lead(coach)
+        _login(client, coach.user)
+
+        client.post(
+            self._review_url(lead),
+            {
+                "action": "record_call",
+                "call_outcome": "rescheduled",
+                "call_scheduled_at": "2026-08-01T14:30",
+            },
+        )
+
+        lead.refresh_from_db()
+        assert lead.call_outcome == "rescheduled"
+        assert lead.coach_call_scheduled_at is not None
+        assert lead.coach_call_scheduled_at.date().isoformat() == "2026-08-01"
+        # A scheduled call counts as touched: no 24h nag on top of it.
+        assert reminder_due(lead) is False
+
+    def test_invalid_outcome_writes_nothing(self, client):
+        coach = _make_coach("call_coach5@example.com")
+        lead = self._routed_lead(coach)
+        _login(client, coach.user)
+
+        client.post(
+            self._review_url(lead),
+            {"action": "record_call", "call_outcome": "definitely_not_valid"},
+        )
+
+        lead.refresh_from_db()
+        assert lead.call_outcome is None
+        assert lead.coach_call_completed_at is None
+
+    def test_other_coach_cannot_record_the_call(self, client):
+        coach = _make_coach("call_coach6@example.com")
+        other = _make_coach("call_other6@example.com")
+        lead = self._routed_lead(coach)
+        _login(client, other.user)
+
+        response = client.post(
+            self._review_url(lead),
+            {"action": "record_call", "call_outcome": "completed"},
+        )
+
+        assert response.status_code == 404
+        lead.refresh_from_db()
+        assert lead.coach_call_completed_at is None
+
+    def test_legacy_connection_has_no_call_to_record(self, client):
+        coach = _make_coach("call_coach7@example.com")
+        lead = self._routed_lead(coach)
+        lead.flow = EventConnection.FLOW_LEGACY
+        lead.save(update_fields=["flow"])
+        _login(client, coach.user)
+
+        review = client.get(self._review_url(lead))
+        client.post(
+            self._review_url(lead),
+            {"action": "record_call", "call_outcome": "completed"},
+        )
+
+        assert review.context["show_call_tracking"] is False
+        lead.refresh_from_db()
+        assert lead.coach_call_completed_at is None

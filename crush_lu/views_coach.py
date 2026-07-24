@@ -4,6 +4,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.utils.translation import gettext_lazy as _
 from django.db import transaction
 from django.db.models import (
@@ -3922,6 +3923,57 @@ def coach_connection_review(request, connection_id):
                         )
                 messages.success(request, _("Connection is now under your review."))
 
+        elif action == "record_call":
+            # "My Crush!" coach call (spec §7). Nothing in production wrote
+            # the call fields, so a lead never left `open_crush_leads()` — it
+            # sat in the queue this PR's own inbox change put it in, accruing
+            # SLA breach forever. Crush leads only: a legacy connection has no
+            # call to record.
+            if connection.flow != EventConnection.FLOW_CRUSH:
+                messages.error(request, _("This is not a My Crush! lead."))
+                return redirect(
+                    "crush_lu:coach_connection_review", connection_id=connection_id
+                )
+
+            outcome = request.POST.get("call_outcome", "").strip()
+            valid_outcomes = {c[0] for c in EventConnection.CALL_OUTCOME_CHOICES}
+            if outcome not in valid_outcomes:
+                messages.error(request, _("Choose a call outcome."))
+                return redirect(
+                    "crush_lu:coach_connection_review", connection_id=connection_id
+                )
+
+            connection.call_outcome = outcome
+            connection.assigned_coach = coach
+            update_fields = ["call_outcome", "assigned_coach"]
+
+            if outcome == "completed":
+                # The call happened: the lead has had its coach contact, so it
+                # leaves the queue and the reminder sweep (both key off
+                # `coach_call_completed_at`).
+                connection.coach_call_completed_at = timezone.now()
+                update_fields.append("coach_call_completed_at")
+                success_message = _("Call recorded. This lead has left your queue.")
+            else:
+                # No answer / unreachable / rescheduled: the call is still
+                # owed, so the lead deliberately stays in the queue. A
+                # reschedule stamps the new time, which also counts as
+                # "touched" for the 24h reminder.
+                scheduled_for = parse_datetime(
+                    request.POST.get("call_scheduled_at", "").strip()
+                )
+                if scheduled_for is not None:
+                    if timezone.is_naive(scheduled_for):
+                        scheduled_for = timezone.make_aware(scheduled_for)
+                    connection.coach_call_scheduled_at = scheduled_for
+                    update_fields.append("coach_call_scheduled_at")
+                success_message = _(
+                    "Call attempt recorded. The lead stays in your queue."
+                )
+
+            connection.save(update_fields=update_fields)
+            messages.success(request, success_message)
+
         elif action == "save_notes":
             # Save coach notes and introduction without changing status
             connection.coach_notes = request.POST.get("coach_notes", "").strip()
@@ -4062,6 +4114,16 @@ def coach_connection_review(request, connection_id):
             connection.flow != EventConnection.FLOW_CRUSH
             or connection.assigned_coach_id == coach.id
         ),
+        # Call tracking is the crush lead's own action surface: the queue
+        # links here from `pending` onward, where none of the legacy
+        # accepted/reviewing controls render. Shown to the routed coach only,
+        # and only while the call is still owed.
+        "show_call_tracking": (
+            connection.flow == EventConnection.FLOW_CRUSH
+            and connection.assigned_coach_id == coach.id
+            and connection.coach_call_completed_at is None
+        ),
+        "call_outcome_choices": EventConnection.CALL_OUTCOME_CHOICES,
     }
     return render(request, "crush_lu/coach_connection_review.html", context)
 
