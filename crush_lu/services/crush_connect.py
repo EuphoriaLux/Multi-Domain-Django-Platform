@@ -109,16 +109,22 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
     inactivity_cutoff = timezone.now() - timedelta(days=CONNECT_INACTIVITY_WINDOW_DAYS)
 
     # Pairs with an existing EventConnection are excluded from each other's
-    # pools — but a pre-`shared` crush lead is private: it must not change
-    # anything the recipient can observe (an open Coach's Pick of the
-    # requester vanishing would betray the secret declaration). The normal
-    # any-connection exclusion applies from `shared`, when the pair is
-    # knowingly connected.
+    # pools. The pre-`shared` crush exemption is **directional**, because the
+    # privacy reason only exists on one side:
+    #
+    #  - incoming (someone declared on `user`): secret. Excluding the crusher
+    #    would make an open Coach's Pick of them vanish, betraying the
+    #    declaration — so the row is ignored and the pool is unchanged.
+    #  - outgoing (`user` declared on the candidate): already known to them.
+    #    Ignoring it would leave a Coach's Pick for their own crush live and
+    #    acceptable, running a parallel Connect journey against the same
+    #    person while the lead is open. It excludes like any other connection.
     existing_connection_subq = EventConnection.objects.filter(
         Q(requester=user, recipient=OuterRef("pk"))
-        | Q(requester=OuterRef("pk"), recipient=user)
-    ).exclude(
-        Q(flow=EventConnection.FLOW_CRUSH) & ~Q(status="shared")
+        | (
+            Q(requester=OuterRef("pk"), recipient=user)
+            & ~(Q(flow=EventConnection.FLOW_CRUSH) & ~Q(status="shared"))
+        )
     )
 
     # LuxID is mandatory for the candidate catalogue. SocialAccount is the

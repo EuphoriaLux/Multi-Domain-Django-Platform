@@ -503,8 +503,14 @@ def request_connection_inline(request, event_id, user_id):
 
     flow_decision = crush_flow_decision(request.user, recipient, event)
     if flow_decision == CRUSH_FLOW_REDIRECT:
-        if request.method == "POST":
-            # HTMX: client-side redirect into the recap.
+        # Also keyed on HX-Request, not the method alone: the button issues an
+        # `hx-get` too, and a stale attendee page reaches this branch when the
+        # pair became recap-eligible after render. A plain 302 there is
+        # followed by the XHR, and HTMX swaps the whole lobby document into
+        # the card's `#connection-actions-*` target instead of navigating.
+        # POST keeps emitting the header unconditionally — this widens the
+        # HTMX path rather than narrowing it.
+        if request.method == "POST" or request.headers.get("HX-Request"):
             return HttpResponse(
                 headers={
                     "HX-Redirect": reverse(
@@ -1139,15 +1145,24 @@ def connection_messages(request, connection_id):
     is_requester = connection.requester == request.user
     other_user = connection.recipient if is_requester else connection.requester
 
+    # The recipient of a private crush must not learn the row exists — and a
+    # 286 here would tell them, because an unrelated id 404s. This endpoint is
+    # a GET with no rate limit, so the difference is enumerable: walk the ids
+    # and every 286 marks a hidden admirer. Same 404 as `connection_detail`.
+    crush_lead_neutral = (
+        connection.flow == EventConnection.FLOW_CRUSH
+        and connection.status != "shared"
+    )
+    if crush_lead_neutral and not is_requester:
+        raise Http404
+
     if connection.status == "declined" or is_blocked_pair(request.user, other_user):
         return HttpResponse(status=286)
 
     # Messaging locked for crush leads in every pre-`shared` status (§7) —
-    # enforced server-side, byte-identical to a dead connection.
-    if (
-        connection.flow == EventConnection.FLOW_CRUSH
-        and connection.status != "shared"
-    ):
+    # enforced server-side, byte-identical to a dead connection. The
+    # requester keeps 286 so their own poll stops cleanly.
+    if crush_lead_neutral:
         return HttpResponse(status=286)
 
     msgs = _approved_messages(connection)

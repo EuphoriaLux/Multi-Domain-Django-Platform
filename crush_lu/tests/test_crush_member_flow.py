@@ -1000,3 +1000,283 @@ class TestCoachLeadPrivacy:
 
         assert review.status_code == 200
         assert b"Pool lead note." in review.content
+
+
+class TestCodexRound2:
+    """Second Codex round on this PR."""
+
+    # --- P1: `shared` must not open the note to every coach ---
+
+    def test_shared_crush_note_stays_with_the_routed_coach(self, client):
+        """The note was written under "only your Crush Coach will read this".
+        Completing the introduction changes who may see the pair, not who may
+        read the note."""
+        routed = _make_coach("r2_routed@example.com")
+        stranger = _make_coach("r2_stranger@example.com")
+        crusher = _plain("r2_ca", gender="M")
+        target = _plain("r2_cb", gender="F")
+        event = _ended_event()
+        _attend(crusher, event)
+        _attend(target, event)
+        lead = EventConnection.objects.create(
+            requester=crusher,
+            recipient=target,
+            event=event,
+            flow=EventConnection.FLOW_CRUSH,
+            requester_note="Shared-state note.",
+            assigned_coach=routed,
+            status="shared",
+        )
+        _login(client, stranger.user)
+
+        listing = client.get(
+            reverse("crush_lu:coach_connections"), {"status": "all"}
+        )
+        review = client.get(
+            reverse(
+                "crush_lu:coach_connection_review",
+                kwargs={"connection_id": lead.pk},
+            )
+        )
+
+        # The completed introduction is still visible as a row...
+        assert listing.status_code == 200
+        assert review.status_code == 200
+        # ...but the note is not.
+        assert b"Shared-state note." not in listing.content
+        assert b"Shared-state note." not in review.content
+
+    def test_routed_coach_keeps_the_note_after_shared(self, client):
+        routed = _make_coach("r2_routed2@example.com")
+        crusher = _plain("r2_ka", gender="M")
+        target = _plain("r2_kb", gender="F")
+        event = _ended_event()
+        _attend(crusher, event)
+        _attend(target, event)
+        EventConnection.objects.create(
+            requester=crusher, recipient=target, event=event,
+            flow=EventConnection.FLOW_CRUSH, requester_note="Shared-state note.",
+            assigned_coach=routed, status="shared",
+        )
+        _login(client, routed.user)
+
+        listing = client.get(
+            reverse("crush_lu:coach_connections"), {"status": "all"}
+        )
+
+        assert b"Shared-state note." in listing.content
+
+    # --- P1: member overview discloses the pair ---
+
+    def test_member_overview_hides_the_pair_from_an_unrelated_coach(self, client):
+        routed = _make_coach("r2_mo_routed@example.com")
+        stranger = _make_coach("r2_mo_stranger@example.com")
+        crusher = _plain("r2_moa", gender="M")
+        target = _plain("r2_mob", gender="F")
+        event = _ended_event()
+        _attend(crusher, event)
+        _attend(target, event)
+        EventConnection.objects.create(
+            requester=crusher, recipient=target, event=event,
+            flow=EventConnection.FLOW_CRUSH, assigned_coach=routed,
+        )
+        _login(client, stranger.user)
+
+        response = client.get(
+            reverse("crush_lu:coach_member_overview", kwargs={"user_id": target.pk})
+        )
+
+        assert response.status_code == 200
+        assert crusher.username.encode() not in response.content
+
+    # --- P1: reciprocal leads must stay independent ---
+
+    def test_approve_does_not_hijack_the_other_coachs_lead(self, client):
+        coach_a = _make_coach("r2_ind_a@example.com")
+        coach_b = _make_coach("r2_ind_b@example.com")
+        user_a = _plain("r2_ia", gender="M")
+        user_b = _plain("r2_ib", gender="F")
+        event = _ended_event()
+        _attend(user_a, event)
+        _attend(user_b, event)
+        lead_ab = EventConnection.objects.create(
+            requester=user_a, recipient=user_b, event=event,
+            flow=EventConnection.FLOW_CRUSH, assigned_coach=coach_a,
+            status="accepted",
+        )
+        lead_ba = EventConnection.objects.create(
+            requester=user_b, recipient=user_a, event=event,
+            flow=EventConnection.FLOW_CRUSH, assigned_coach=coach_b,
+            status="accepted",
+        )
+        _login(client, coach_a.user)
+
+        client.post(
+            reverse(
+                "crush_lu:coach_connection_review",
+                kwargs={"connection_id": lead_ab.pk},
+            ),
+            {"action": "approve"},
+        )
+
+        lead_ab.refresh_from_db()
+        lead_ba.refresh_from_db()
+        assert lead_ab.status == "coach_approved"
+        assert lead_ba.status == "accepted"
+        assert lead_ba.assigned_coach == coach_b
+        assert lead_ba.coach_approved_at is None
+
+    # --- P1: recipient must not enumerate hidden crushes ---
+
+    def test_recipient_polling_a_hidden_crush_gets_404(self, client):
+        """A 286 here is a tell: an unrelated id 404s, so walking the ids
+        would mark every hidden admirer. No rate limit on this GET."""
+        crusher = _plain("r2_pa", gender="M")
+        target = _plain("r2_pb", gender="F")
+        event = _ended_event()
+        _attend(crusher, event)
+        _attend(target, event)
+        lead = EventConnection.objects.create(
+            requester=crusher, recipient=target, event=event,
+            flow=EventConnection.FLOW_CRUSH,
+        )
+        _login(client, target)
+
+        response = client.get(
+            reverse(
+                "crush_lu:connection_messages",
+                kwargs={"connection_id": lead.pk},
+            )
+        )
+
+        assert response.status_code == 404
+
+    def test_requester_polling_their_own_crush_still_gets_286(self, client):
+        """The requester's own poll must still stop cleanly."""
+        crusher = _plain("r2_qa", gender="M")
+        target = _plain("r2_qb", gender="F")
+        event = _ended_event()
+        _attend(crusher, event)
+        _attend(target, event)
+        lead = EventConnection.objects.create(
+            requester=crusher, recipient=target, event=event,
+            flow=EventConnection.FLOW_CRUSH,
+        )
+        _login(client, crusher)
+
+        response = client.get(
+            reverse(
+                "crush_lu:connection_messages",
+                kwargs={"connection_id": lead.pk},
+            )
+        )
+
+        assert response.status_code == 286
+
+    # --- P1: the export must not fingerprint a hidden row ---
+
+    def test_export_omits_the_connections_key_entirely_for_a_hidden_only_row(
+        self, client
+    ):
+        """An empty array where a no-connection member gets no key at all is
+        itself the disclosure."""
+        crusher = _plain("r2_ea", gender="M")
+        target = _plain("r2_eb", gender="F")
+        event = _ended_event()
+        _attend(crusher, event)
+        _attend(target, event)
+        EventConnection.objects.create(
+            requester=crusher, recipient=target, event=event,
+            flow=EventConnection.FLOW_CRUSH,
+        )
+        _login(client, target)
+
+        response = client.get(reverse("crush_lu:export_user_data"))
+        payload = json.loads(response.content)
+
+        assert "connections" not in payload
+
+    def test_export_still_lists_a_visible_connection(self, client):
+        requester = _plain("r2_va", gender="M")
+        target = _plain("r2_vb", gender="F")
+        event = _ended_event()
+        _attend(requester, event)
+        _attend(target, event)
+        EventConnection.objects.create(
+            requester=requester, recipient=target, event=event,
+            flow=EventConnection.FLOW_LEGACY, status="accepted",
+        )
+        _login(client, target)
+
+        payload = json.loads(client.get(reverse("crush_lu:export_user_data")).content)
+
+        assert len(payload["connections"]) == 1
+
+    # --- P2: mutual totals must exclude the forward crush row ---
+
+    def test_an_unshared_crush_is_not_a_mutual_match_on_my_events(self, client):
+        """`annotate_is_visible_mutual` screens only the reverse subquery, so
+        a legacy reverse would otherwise flip the forward crush row."""
+        user_a = _plain("r2_ma", gender="M")
+        user_b = _plain("r2_mb", gender="F")
+        event = _ended_event()
+        _attend(user_a, event)
+        _attend(user_b, event)
+        EventConnection.objects.create(
+            requester=user_a, recipient=user_b, event=event,
+            flow=EventConnection.FLOW_CRUSH,
+        )
+        EventConnection.objects.create(
+            requester=user_b, recipient=user_a, event=event,
+            flow=EventConnection.FLOW_LEGACY, status="accepted",
+        )
+        _login(client, user_a)
+
+        response = client.get(reverse("crush_lu:my_events"))
+
+        assert response.status_code == 200
+        cards = {
+            c["event"].pk: c["mutual_matches"]
+            for c in response.context["past_registrations"]
+        }
+        assert cards[event.pk] == 0
+
+    # --- P2: the attendees hint no longer promises an instant match ---
+
+    def test_the_interest_hint_does_not_promise_an_instant_match(self, client):
+        viewer = _plain("r2_ha", gender="M")
+        admirer = _plain("r2_hb", gender="F")
+        event = _ended_event()
+        _attend(viewer, event)
+        _attend(admirer, event)
+        EventConnection.objects.create(
+            requester=admirer, recipient=viewer, event=event,
+            flow=EventConnection.FLOW_LEGACY, status="pending",
+        )
+        _login(client, viewer)
+
+        response = client.get(
+            reverse("crush_lu:event_attendees", kwargs={"event_id": event.pk})
+        )
+
+        assert b"match instantly" not in response.content
+
+    # --- P2: HTMX GET needs HX-Redirect too ---
+
+    def test_an_htmx_get_into_a_recap_pair_uses_hx_redirect(self, client):
+        """A plain 302 is followed by the XHR, and HTMX swaps the whole lobby
+        document into the card instead of navigating."""
+        user_a = _make_member("r2_xa", gender="M")
+        user_b = _make_member("r2_xb", gender="F")
+        event = _make_event()
+        _join(user_a, event)
+        _join(user_b, event)
+        _end_event(event)
+        _login(client, user_a)
+
+        response = client.get(
+            _inline_url(event, user_b), HTTP_HX_REQUEST="true"
+        )
+
+        assert "HX-Redirect" in response
+        assert response.status_code != 302
