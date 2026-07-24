@@ -14,6 +14,40 @@ class EventConnectionQuerySet(models.QuerySet):
         """Only rows declared through the "My Crush!" flow (never legacy rows)."""
         return self.filter(flow=EventConnection.FLOW_CRUSH)
 
+    def excluding_unshared_crushes(self):
+        """
+        Hide pre-``shared`` crush rows from member-facing surfaces.
+
+        A crush declaration is private: until the coach-facilitated
+        introduction completes (``shared``), the row is invisible to the
+        recipient on every surface (inbox, badges, aggregates, exports) and
+        renders only as a neutral "with your coach" lead to the requester.
+        """
+        return self.exclude(
+            models.Q(flow=EventConnection.FLOW_CRUSH)
+            & ~models.Q(status='shared')
+        )
+
+    def visible_to_coach(self, coach):
+        """
+        Hide other coaches' crush leads from shared coach surfaces.
+
+        The ``requester_note`` is promised to the routed Crush Coach alone
+        ("only they will read this"), so a pre-``shared`` lead routed to a
+        *different* coach is excluded outright — a coach who is not the
+        routed coach must not learn the crusher/recipient pair either.
+
+        Unrouted pool leads (``assigned_coach IS NULL``) stay visible so
+        they remain claimable, and legacy rows keep their existing
+        all-coaches visibility.
+        """
+        return self.exclude(
+            models.Q(flow=EventConnection.FLOW_CRUSH)
+            & ~models.Q(status='shared')
+            & models.Q(assigned_coach__isnull=False)
+            & ~models.Q(assigned_coach=coach)
+        )
+
     def open_crush_leads(self):
         """
         Crush leads still requiring coach work.
@@ -88,6 +122,31 @@ class EventConnectionQuerySet(models.QuerySet):
             is_mutual_annotated=Exists(mutual_subquery)
         )
 
+    def annotate_is_visible_mutual(self):
+        """
+        Like ``annotate_is_mutual``, but mutual-derived member metrics must
+        never confirm a private crush: pre-``shared`` ``flow=crush`` reverse
+        rows do not count as a mutual match (spec §5 — flow-blind reverse-row
+        existence leaks a private declaration the moment it lands).
+        """
+        from django.db.models import Exists, OuterRef
+
+        mutual_subquery = (
+            EventConnection.objects.filter(
+                requester=OuterRef('recipient'),
+                recipient=OuterRef('requester'),
+                event=OuterRef('event')
+            )
+            .exclude(
+                models.Q(flow=EventConnection.FLOW_CRUSH)
+                & ~models.Q(status='shared')
+            )
+        )
+
+        return self.annotate(
+            is_mutual_annotated=Exists(mutual_subquery)
+        )
+
 
 class EventConnectionManager(models.Manager):
     """Custom manager for EventConnection."""
@@ -109,6 +168,15 @@ class EventConnectionManager(models.Manager):
 
     def annotate_is_mutual(self):
         return self.get_queryset().annotate_is_mutual()
+
+    def annotate_is_visible_mutual(self):
+        return self.get_queryset().annotate_is_visible_mutual()
+
+    def excluding_unshared_crushes(self):
+        return self.get_queryset().excluding_unshared_crushes()
+
+    def visible_to_coach(self, coach):
+        return self.get_queryset().visible_to_coach(coach)
 
     def crush_leads(self):
         return self.get_queryset().crush_leads()
@@ -148,6 +216,12 @@ class EventConnection(models.Model):
 
     # Coach-call SLA for crush leads (spec §6/O8: call within 48h).
     CRUSH_LEAD_CALL_SLA = timedelta(hours=48)
+
+    # Per-event crush limit (spec §6/O9): 1 crush per event per member, for
+    # free AND Connect members alike — scarcity protects signal quality and
+    # bounds coach load. Enforced gender-independently via
+    # ``crush_declaration_count`` under a per-(requester, event) lock.
+    MAX_CRUSHES_PER_EVENT = 1
 
     CALL_OUTCOME_CHOICES = [
         ('completed', _('Call completed')),
@@ -293,6 +367,21 @@ class EventConnection(models.Model):
             if user_gender != rec_gender or not user_gender or not rec_gender:
                 count += 1
         return count
+
+    @classmethod
+    def crush_declaration_count(cls, user, event):
+        """
+        Gender-independent crush counter (spec §5/§7, O9).
+
+        Counts ALL "My Crush!" declarations by ``user`` for ``event``,
+        regardless of gender pair or lead status — a declined lead still
+        consumed coach time, so it still counts against the per-event limit.
+        The legacy ``cross_gender_connection_count`` cannot serve as the
+        capacity bound (it skips same-gender pairs) and is not reused here.
+        """
+        return cls.objects.filter(
+            requester=user, event=event, flow=cls.FLOW_CRUSH
+        ).count()
 
     @property
     def is_same_gender(self):

@@ -8,7 +8,12 @@
 
 {% partialdef connection_actions %}
 <div id="connection-actions-{{ attendee.user.id }}" role="status" aria-live="polite">
-    {% if attendee.connection_status == 'sent' %}
+    {% if attendee.connection_status == 'crush_sent' %}
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 text-sm font-semibold bg-pink-100 dark:bg-pink-900/30 text-pink-800 dark:text-pink-300 rounded-full">
+            {% include "shared/icons/heart.html" with class="w-3 h-3" %}
+            {% trans "Crush declared — your coach will call you" %}
+        </span>
+    {% elif attendee.connection_status == 'sent' %}
         <span class="inline-flex items-center gap-1 px-2.5 py-1 text-sm font-semibold bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded-full">
             {% include "shared/icons/check-circle.html" with class="w-3 h-3" %}
             {% trans "Request Sent" %}
@@ -58,21 +63,29 @@
                 {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
                 {% trans "Try Crush Connect" %}
             </a>
-        {% elif attendee.is_cross_gender and cross_gender_remaining is not None and cross_gender_remaining <= 0 %}
+        {% elif attendee.recap_cta %}
+            {# One pair, one flow (§9.1): this pair is in the open Event Recap — no My Crush! button. #}
+            <a href="{% url 'crush_lu:event_lobby' event.id %}"
+               class="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-crush-purple to-crush-pink hover:opacity-90 rounded-lg transition-opacity">
+                {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
+                {% trans "Find them in your event recap" %}
+            </a>
+        {% elif crushes_remaining <= 0 %}
             <span class="inline-flex items-center gap-1 px-2.5 py-1 text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-full">
-                {% trans "Connection limit reached" %}
+                {% trans "Crush used for this event" %}
             </span>
         {% else %}
             <button hx-get="{% url 'crush_lu:request_connection_inline' event.id attendee.user.id %}"
                     hx-target="#connection-actions-{{ attendee.user.id }}"
                     hx-swap="outerHTML"
+                    title="{% trans 'Who caught your eye?' %}"
                     class="btn-crush-primary inline-flex items-center justify-center gap-2 px-4 py-2.5">
                 <span class="htmx-indicator">
                     {% include "shared/icons/loading.html" with class="w-4 h-4 animate-spin" %}
                 </span>
                 <span class="htmx-hide-on-request inline-flex items-center gap-1">
                     {% include "shared/icons/heart.html" with class="w-4 h-4" %}
-                    {% trans "Request Connection" %}
+                    {% trans "My Crush!" %}
                 </span>
             </button>
         {% endif %}
@@ -172,13 +185,13 @@
     {% endif %}
 
     <!-- Instructions -->
-    <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300 rounded-lg p-4 mb-6">
+    <div class="bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-700 text-pink-800 dark:text-pink-300 rounded-lg p-4 mb-6">
         <h5 class="font-semibold mb-2 flex items-center gap-2">
-            {% include "shared/icons/information-circle.html" with class="w-5 h-5" %}
-            {% trans "How It Works" %}
+            {% include "shared/icons/heart.html" with class="w-5 h-5" %}
+            {% trans "My Crush! — How It Works" %}
         </h5>
         <p class="mb-0">
-            {% trans "Select people you'd like to stay in touch with. If they also select you (mutual interest!), a Crush Coach will help facilitate your introduction and guide you through sharing contact information." %}
+            {% trans "Who caught your eye? Declare your crush — it's completely private and they'll never be notified. Your Crush Coach will call you within 48 hours to hear the story and personally arrange the introduction." %}
         </p>
     </div>
 
@@ -195,7 +208,7 @@
                         {% blocktrans count count=incoming_pending_count %}Someone here wants to connect with you{% plural %}{{ count }} people here want to connect with you{% endblocktrans %}
                     </h5>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mb-0">
-                        {% trans "Browse the room and tap “Request Connection” on anyone who caught your eye. If they're already on your side, it becomes a match instantly." %}
+                        {% trans "Browse the room and tap “My Crush!” on anyone who caught your eye. It stays private — your Crush Coach calls you within 48 hours to talk it through." %}
                     </p>
                 </div>
             </div>
@@ -213,30 +226,28 @@
     </div>
     {% endif %}
 
-    <!-- Cross-gender connection limit info -->
-    {% if cross_gender_remaining is not None %}
-    <div class="border rounded-lg p-4 mb-6 {% if cross_gender_remaining > 0 %}bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-700{% else %}bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700{% endif %}">
+    <!-- My Crush! per-event counter -->
+    <div class="border rounded-lg p-4 mb-6 {% if crushes_remaining > 0 %}bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-700{% else %}bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700{% endif %}">
         <div class="flex items-start gap-3">
-            {% if cross_gender_remaining > 0 %}
+            {% if crushes_remaining > 0 %}
                 {% include "shared/icons/heart.html" with class="w-5 h-5 text-crush-purple dark:text-purple-400 shrink-0 mt-0.5" %}
                 <div>
-                    <h5 class="font-semibold text-purple-800 dark:text-purple-300 mb-1">{% trans "Cross-gender connection limit" %}</h5>
+                    <h5 class="font-semibold text-purple-800 dark:text-purple-300 mb-1">{% trans "One crush per event" %}</h5>
                     <p class="text-sm text-purple-700 dark:text-purple-400 mb-0">
-                        {% blocktrans count remaining=cross_gender_remaining %}You have <strong>{{ remaining }}</strong> cross-gender connection request remaining for this event. Same-gender connections are unlimited.{% plural %}You have <strong>{{ remaining }}</strong> cross-gender connection requests remaining for this event. Same-gender connections are unlimited.{% endblocktrans %}
+                        {% blocktrans count remaining=crushes_remaining %}You can declare <strong>{{ remaining }}</strong> crush at this event. Choose wisely — your coach will call you about it.{% plural %}You can declare <strong>{{ remaining }}</strong> crushes at this event. Choose wisely — your coach will call you about them.{% endblocktrans %}
                     </p>
                 </div>
             {% else %}
                 {% include "shared/icons/information-circle.html" with class="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" %}
                 <div>
-                    <h5 class="font-semibold text-amber-800 dark:text-amber-300 mb-1">{% trans "Cross-gender connection limit reached" %}</h5>
+                    <h5 class="font-semibold text-amber-800 dark:text-amber-300 mb-1">{% trans "Crush declared for this event" %}</h5>
                     <p class="text-sm text-amber-700 dark:text-amber-400 mb-0">
-                        {% trans "You have used all your cross-gender connection requests for this event. You can still connect with attendees of the same gender." %}
+                        {% trans "You've used your crush for this event. Your Crush Coach will call you within 48 hours to talk about it." %}
                     </p>
                 </div>
             {% endif %}
         </div>
     </div>
-    {% endif %}
 
     <!-- How Others See You -->
     {% if own_profile %}

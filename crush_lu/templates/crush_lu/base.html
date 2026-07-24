@@ -362,11 +362,12 @@
                                 </div>
                             </div>
 
-                            <!-- My Crush Dropdown (personal dating profile) -->
+                            <!-- My Dating Profile Dropdown (personal dating profile; renamed from
+                                 "My Crush" — the member-facing post-event feature owns that name, O10) -->
                             <div class="dropdown" @click.away="closeMyCrush">
                                 <button type="button" @click="toggleMyCrush" class="nav-link" aria-haspopup="true" x-bind:aria-expanded="myCrushAriaExpanded">
                                     {% include "shared/icons/heart.html" with class="w-4 h-4" %}
-                                    <span>{% trans "My Crush" %}</span>
+                                    <span>{% trans "My Dating Profile" %}</span>
                                     {% if pending_requests_count > 0 or actionable_sparks_count > 0 %}
                                         <span class="badge badge-danger">{{ pending_requests_count|add:actionable_sparks_count }}</span>
                                     {% endif %}
@@ -893,9 +894,10 @@
                                 {% trans "Edit Coach Profile" %}
                             </a>
 
-                            {# My Crush Section #}
+                            {% comment %}My Dating Profile Section (renamed from "My Crush" — O10; the
+                               member-facing post-event feature keeps the "My Crush!" name){% endcomment %}
                             <div class="border-t border-white/20 my-2"></div>
-                            <span class="px-4 py-1 text-xs font-semibold uppercase tracking-wider text-white/60">{% trans "My Profile" %}</span>
+                            <span class="px-4 py-1 text-xs font-semibold uppercase tracking-wider text-white/60">{% trans "My Dating Profile" %}</span>
                             <a class="nav-link block" href="{% url 'crush_lu:dashboard' %}">
                                 {% include "shared/icons/home.html" with class="w-4 h-4 inline mr-2" %}
                                 {% trans "My Dashboard" %}

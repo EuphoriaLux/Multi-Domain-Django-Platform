@@ -125,12 +125,16 @@ def crush_user_context(request):
         # Connection count for badge. Excludes blocked counterparts — a `shared`
         # connection isn't terminated on block (contact was already exchanged),
         # so without this it would keep inflating the active count while
-        # my_connections hides it.
+        # my_connections hides it. Pre-`shared` crush leads are private: the
+        # recipient's badge must not increment the moment a crush is declared
+        # (or when the coach starts review), and the crusher's lead is not a
+        # connection yet — it renders as a neutral lead, not a connection.
         connection_count = (
             EventConnection.objects.filter(
                 Q(requester=request.user) | Q(recipient=request.user),
                 status__in=["accepted", "coach_reviewing", "coach_approved", "shared"],
             )
+            .excluding_unshared_crushes()
             .exclude(Q(requester_id__in=blocked_ids) | Q(recipient_id__in=blocked_ids))
             .count()
         )
@@ -138,8 +142,10 @@ def crush_user_context(request):
         # Pending connection requests (received). Exclude blocked requesters so
         # the nav/dashboard badge can't advertise a request the page itself hides
         # (defence-in-depth; blocking also declines the underlying connection).
+        # Crush leads are never pending-visible to the recipient.
         pending_requests_count = (
             EventConnection.objects.filter(recipient=request.user, status="pending")
+            .exclude(flow=EventConnection.FLOW_CRUSH)
             .exclude(requester_id__in=blocked_ids)
             .count()
         )

@@ -112,7 +112,9 @@
             <h4 class="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-3">
                 {% blocktrans with name=connection.requester.first_name %}{{ name }}'s Note{% endblocktrans %}
             </h4>
-            {% if connection.requester_note %}
+            {% if not show_requester_note %}
+                <p class="text-gray-400 dark:text-gray-500 text-sm italic">{% trans "Claim this lead to read the note." %}</p>
+            {% elif connection.requester_note %}
                 <p class="text-gray-600 dark:text-gray-400 text-sm bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 italic">"{{ connection.requester_note }}"</p>
             {% else %}
                 <p class="text-gray-400 dark:text-gray-500 text-sm italic">{% trans "No note provided." %}</p>
