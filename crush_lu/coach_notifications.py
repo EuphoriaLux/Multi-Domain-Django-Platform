@@ -15,6 +15,10 @@ from .push_notifications import user_language_context
 
 logger = logging.getLogger(__name__)
 
+# Per-device Web Push timeout. Kept well under the 60s Azure Function budget
+# so a serial sweep of several devices still fits inside one invocation.
+PUSH_TIMEOUT_SECONDS = 10
+
 
 def send_coach_push_notification(
     coach,
@@ -52,14 +56,18 @@ def send_coach_push_notification(
         }
     """
 
-    # Validate VAPID configuration
+    # Validate VAPID configuration.
+    # `misconfigured` distinguishes a config error from "nobody opted in":
+    # both produce zero sends, but a caller that records delivery (the crush
+    # lead reminder) must retry a config error rather than treat it as an
+    # opt-out and permanently consume the notification.
     if not hasattr(settings, "VAPID_PRIVATE_KEY") or not settings.VAPID_PRIVATE_KEY:
         logger.error("VAPID_PRIVATE_KEY not configured in settings")
-        return {"success": 0, "failed": 0, "total": 0}
+        return {"success": 0, "failed": 0, "total": 0, "misconfigured": True}
 
     if not hasattr(settings, "VAPID_PUBLIC_KEY") or not settings.VAPID_PUBLIC_KEY:
         logger.error("VAPID_PUBLIC_KEY not configured in settings")
-        return {"success": 0, "failed": 0, "total": 0}
+        return {"success": 0, "failed": 0, "total": 0, "misconfigured": True}
 
     # Get the target subscriptions: the caller's pre-filtered set when given,
     # else every enabled device for this coach.
@@ -104,6 +112,11 @@ def send_coach_push_notification(
                 data=json.dumps(payload),
                 vapid_private_key=settings.VAPID_PRIVATE_KEY,
                 vapid_claims={"sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"},
+                # pywebpush defaults to no timeout. A stalled push endpoint
+                # would then hang the caller indefinitely — for the crush
+                # lead sweep that means holding a row lock until the Azure
+                # Function's own 60s timeout kills the request.
+                timeout=PUSH_TIMEOUT_SECONDS,
             )
 
             # Mark success

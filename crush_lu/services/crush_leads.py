@@ -104,15 +104,24 @@ def _delivery_failed(result) -> bool:
     this channel, and retrying hourly forever would never deliver. Only a
     real attempt that produced no success counts.
 
+    A missing-VAPID config error has the *same* zero-total shape as an
+    opt-out, so it is flagged explicitly by the push helper — otherwise
+    every reminder falling due during the outage would be silently consumed.
+
     A non-dict result (an injected notifier) has no contract to check, so it
     is treated as delivered — such notifiers signal failure by raising.
     """
     if not isinstance(result, dict):
         return False
+    if result.get("misconfigured"):
+        return True
     return result.get("total", 0) > 0 and result.get("success", 0) == 0
 
 
-def sweep_lead_reminders(now=None, notify=None):
+REMINDER_BATCH_LIMIT = 200
+
+
+def sweep_lead_reminders(now=None, notify=None, limit=REMINDER_BATCH_LIMIT):
     """
     Send the 24h untouched-lead reminder to each routed coach (spec §6/O8).
 
@@ -126,6 +135,15 @@ def sweep_lead_reminders(now=None, notify=None):
     Rows are locked with ``skip_locked`` so two overlapping timer deliveries
     divide the work instead of blocking or double-sending.
 
+    **One transaction per lead, not one for the sweep.** Web Push is a
+    network call inside the savepoint, and ``pywebpush`` defaults to no
+    timeout while the Azure Function caller gives up at 60s. Holding every
+    candidate's row lock across the whole serial run would let one stalled
+    endpoint block them all until the request is killed — and a rollback at
+    that point would lose the stamps of reminders already delivered, so the
+    next sweep would send them again. Each lead is therefore locked, sent
+    and committed on its own, and the batch is bounded by ``limit``.
+
     ``notify`` is injectable for tests; it defaults to the coach push
     notification helper.
     """
@@ -137,34 +155,52 @@ def sweep_lead_reminders(now=None, notify=None):
 
     sent = 0
     failed = 0
-    with transaction.atomic():
-        locked_ids = list(
-            EventConnection.objects.filter(
-                pk__in=reminder_candidates(now).values("pk")
-            )
-            .select_for_update(skip_locked=True)
-            .values_list("pk", flat=True)
+    # Bounded: an hourly timer only has to drain what accumulated in an hour,
+    # and a backlog spike must not turn one invocation into a 60s timeout.
+    candidate_ids = list(
+        reminder_candidates(now).values_list("pk", flat=True)[: limit + 1]
+    )
+    truncated = len(candidate_ids) > limit
+    if truncated:
+        candidate_ids = candidate_ids[:limit]
+        # Never let a cap read as "swept everything" — the next hourly run
+        # picks up the rest, but a persistent backlog needs to be visible.
+        logger.warning(
+            "[crush_lead_reminders] batch capped at %d; more leads are due",
+            limit,
         )
-        leads = EventConnection.objects.filter(pk__in=locked_ids).select_related(
-            "assigned_coach__user", "requester", "event"
-        )
-        for lead in leads:
-            try:
-                with transaction.atomic():
-                    lead.reminder_sent_at = now
-                    lead.save(update_fields=["reminder_sent_at"])
-                    if _delivery_failed(notify(lead.assigned_coach, lead)):
-                        # Inside the savepoint, so the stamp rolls back and
-                        # the lead stays eligible for the next sweep.
-                        raise ReminderDeliveryFailed(
-                            f"no successful push for lead {lead.pk}"
-                        )
-                sent += 1
-            except Exception:  # noqa: BLE001
-                logger.exception(
-                    "[crush_lead_reminders] Failed on lead %s", lead.pk
-                )
-                failed += 1
 
-    logger.info("[crush_lead_reminders] sent=%d failed=%d", sent, failed)
-    return {"sent": sent, "failed": failed}
+    for lead_id in candidate_ids:
+        try:
+            with transaction.atomic():
+                lead = (
+                    EventConnection.objects.select_for_update(skip_locked=True)
+                    .select_related("assigned_coach__user", "requester", "event")
+                    .filter(pk=lead_id)
+                    .first()
+                )
+                # Locked by a concurrent sweep, or no longer eligible because
+                # the coach acted between the scan and now — either way it is
+                # not ours to send.
+                if lead is None or lead.reminder_sent_at is not None:
+                    continue
+                lead.reminder_sent_at = now
+                lead.save(update_fields=["reminder_sent_at"])
+                if _delivery_failed(notify(lead.assigned_coach, lead)):
+                    # Inside the transaction, so the stamp rolls back and the
+                    # lead stays eligible for the next sweep.
+                    raise ReminderDeliveryFailed(
+                        f"no successful push for lead {lead_id}"
+                    )
+            sent += 1
+        except Exception:  # noqa: BLE001
+            failed += 1
+            logger.exception("[crush_lead_reminders] Failed on lead %s", lead_id)
+
+    logger.info(
+        "[crush_lead_reminders] sent=%d failed=%d truncated=%s",
+        sent,
+        failed,
+        truncated,
+    )
+    return {"sent": sent, "failed": failed, "truncated": truncated}

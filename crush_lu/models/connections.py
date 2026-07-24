@@ -101,11 +101,18 @@ class EventConnectionQuerySet(models.QuerySet):
         Unrouted pool leads (``assigned_coach IS NULL``) stay visible so
         they remain claimable, and legacy rows keep their existing
         all-coaches visibility.
+
+        A lead whose routed coach was since **deactivated** counts as
+        unassigned here on purpose. ``coach_required`` bars that coach from
+        every coach view, so hiding the row from everyone else would strand
+        it — unworkable, invisible, and silently missing its 48h SLA.
+        Keying the exclusion on ``assigned_coach__is_active`` lets another
+        coach see and claim it instead.
         """
         return self.exclude(
             models.Q(flow=EventConnection.FLOW_CRUSH)
             & ~models.Q(status='shared')
-            & models.Q(assigned_coach__isnull=False)
+            & models.Q(assigned_coach__is_active=True)
             & ~models.Q(assigned_coach=coach)
         )
 

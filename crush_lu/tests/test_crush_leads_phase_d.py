@@ -286,7 +286,7 @@ class TestReminderSweep:
         result = sweep_lead_reminders(notify=lambda c, l: calls.append((c, l)))
 
         lead.refresh_from_db()
-        assert result == {"sent": 1, "failed": 0}
+        assert (result["sent"], result["failed"]) == (1, 0)
         assert calls == [(coach, lead)] or calls[0][1].pk == lead.pk
         assert lead.reminder_sent_at is not None
 
@@ -350,7 +350,7 @@ class TestReminderSweep:
         result = sweep_lead_reminders(notify=boom)
 
         lead.refresh_from_db()
-        assert result == {"sent": 0, "failed": 1}
+        assert (result["sent"], result["failed"]) == (0, 1)
         assert lead.reminder_sent_at is None
         assert reminder_candidates().filter(pk=lead.pk).exists()
 
@@ -453,7 +453,12 @@ class TestCoCoachOutreachTask:
         assert lead.recipient_consents_to_share is True
         assert lead.recipient_response_at is not None
         assert lead.status != "declined"
-        assert [a["type"] for a in lead.system_actions] == ["recipient_consent"]
+        # An answer implies the outreach happened, so it is back-filled and
+        # audited as inferred — both entries are expected here.
+        assert [a["type"] for a in lead.system_actions] == [
+            "recipient_consent",
+            "recipient_outreach",
+        ]
 
     def test_decline_ends_the_lead(self):
         _, cocoach, lead = self._routed_pair()
@@ -482,8 +487,12 @@ class TestCoCoachOutreachTask:
             EventConnection.RECIPIENT_RESPONSE_CONSENTED
         )
         assert lead.status != "declined"
-        # ...and only the real write is audited.
-        assert [a["type"] for a in lead.system_actions] == ["recipient_consent"]
+        # ...and the rejected second POST adds nothing: only the accepted
+        # answer plus its inferred outreach are audited.
+        assert [a["type"] for a in lead.system_actions] == [
+            "recipient_consent",
+            "recipient_outreach",
+        ]
 
     def test_a_rejected_correction_says_so_instead_of_claiming_success(self):
         """A stale page or double-click must not tell the coach their
@@ -762,7 +771,7 @@ class TestCodexRound1Fixes:
         )
 
         lead.refresh_from_db()
-        assert result == {"sent": 0, "failed": 1}
+        assert (result["sent"], result["failed"]) == (0, 1)
         assert lead.reminder_sent_at is None
         assert reminder_candidates().filter(pk=lead.pk).exists()
 
@@ -775,7 +784,7 @@ class TestCodexRound1Fixes:
         )
 
         lead.refresh_from_db()
-        assert result == {"sent": 1, "failed": 0}
+        assert (result["sent"], result["failed"]) == (1, 0)
         assert lead.reminder_sent_at is not None
 
     def test_a_partially_delivered_push_counts_as_sent(self):
@@ -786,7 +795,7 @@ class TestCodexRound1Fixes:
         )
 
         lead.refresh_from_db()
-        assert result == {"sent": 1, "failed": 0}
+        assert (result["sent"], result["failed"]) == (1, 0)
         assert lead.reminder_sent_at is not None
 
     # --- P1: reminders must respect the per-device preference ---
@@ -908,3 +917,362 @@ class TestCodexRound1Fixes:
         assert b"btn-crush-secondary" not in content
         assert b"btn-crush-solid" in content
         assert b"btn-crush-outline" in content
+
+
+class TestCrushLeadWorkspace:
+    """Codex round 2 on this PR: a routed coach could see a lead but never
+    work it, so nothing ever left the queue."""
+
+    def _lead(self, status="pending"):
+        coach = _make_coach("ws_coach@example.com")
+        requester, _ = _make_user("ws_req@example.com", "M")
+        recipient, _ = _make_user("ws_rec@example.com", "F")
+        lead = _lead(requester, recipient, _make_event(), coach, status=status)
+        return coach, lead
+
+    def _url(self, lead):
+        return reverse(
+            "crush_lu:coach_connection_review", kwargs={"connection_id": lead.pk}
+        )
+
+    def test_a_pending_lead_can_enter_review(self):
+        """`pending` is the normal starting state — the legacy control only
+        fires from `accepted`, which a crush lead never reaches."""
+        coach, lead = self._lead()
+        client = Client()
+        _login(client, coach.user)
+
+        client.post(self._url(lead), {"action": "crush_start_review"})
+
+        lead.refresh_from_db()
+        assert lead.status == "coach_reviewing"
+        assert [a["type"] for a in lead.system_actions] == ["crush_start_review"]
+
+    def test_completing_the_call_removes_the_lead_from_the_queue(self):
+        """`coach_call_completed_at` is what open_crush_leads() keys off — if
+        nothing writes it, a worked lead is queued and reminded forever."""
+        coach, lead = self._lead(status="coach_reviewing")
+        client = Client()
+        _login(client, coach.user)
+        assert EventConnection.objects.open_crush_leads().filter(pk=lead.pk).exists()
+
+        client.post(
+            self._url(lead),
+            {"action": "crush_complete_call", "call_outcome": "completed"},
+        )
+
+        lead.refresh_from_db()
+        assert lead.coach_call_completed_at is not None
+        assert lead.call_outcome == "completed"
+        assert not EventConnection.objects.open_crush_leads().filter(
+            pk=lead.pk
+        ).exists()
+
+    def test_an_unreachable_call_keeps_the_lead_open_and_rearms_the_reminder(self):
+        coach, lead = self._lead(status="coach_reviewing")
+        lead.reminder_sent_at = timezone.now()
+        lead.save(update_fields=["reminder_sent_at"])
+        client = Client()
+        _login(client, coach.user)
+
+        client.post(
+            self._url(lead),
+            {"action": "crush_complete_call", "call_outcome": "no_answer"},
+        )
+
+        lead.refresh_from_db()
+        assert lead.coach_call_completed_at is None
+        assert lead.reminder_sent_at is None
+        assert EventConnection.objects.open_crush_leads().filter(pk=lead.pk).exists()
+
+    def test_an_invalid_outcome_is_rejected(self):
+        coach, lead = self._lead(status="coach_reviewing")
+        client = Client()
+        _login(client, coach.user)
+
+        client.post(
+            self._url(lead),
+            {"action": "crush_complete_call", "call_outcome": "nonsense"},
+        )
+
+        lead.refresh_from_db()
+        assert lead.call_outcome is None
+
+    def test_scheduling_a_call_records_the_time(self):
+        coach, lead = self._lead(status="coach_reviewing")
+        client = Client()
+        _login(client, coach.user)
+
+        client.post(
+            self._url(lead),
+            {"action": "crush_schedule_call", "scheduled_at": "2026-08-01T14:30"},
+        )
+
+        lead.refresh_from_db()
+        assert lead.coach_call_scheduled_at is not None
+        # The form posts a naive local datetime; it is localised on save and
+        # stored as UTC, so compare in local time.
+        local = timezone.localtime(lead.coach_call_scheduled_at)
+        assert (local.hour, local.minute) == (14, 30)
+
+    def test_the_coach_records_requester_consent(self):
+        """The member-side consent form is closed for crush leads, so the
+        routed coach is the only one who can record it."""
+        coach, lead = self._lead(status="coach_reviewing")
+        client = Client()
+        _login(client, coach.user)
+
+        client.post(
+            self._url(lead), {"action": "crush_record_consent", "consent": "yes"}
+        )
+
+        lead.refresh_from_db()
+        assert lead.requester_consents_to_share is True
+
+    def test_share_is_refused_until_both_sides_consented(self):
+        coach, lead = self._lead(status="coach_approved")
+        lead.requester_consents_to_share = True
+        lead.save(update_fields=["requester_consents_to_share"])
+        client = Client()
+        _login(client, coach.user)
+
+        client.post(self._url(lead), {"action": "crush_share"})
+
+        lead.refresh_from_db()
+        assert lead.status == "coach_approved"
+
+    def test_the_full_workflow_reaches_shared_through_the_ui(self):
+        """§13: the advertised flow must complete without a test reaching
+        into the model — the earlier version set these fields directly and
+        masked the fact that no control existed."""
+        coach, lead = self._lead()
+        client = Client()
+        _login(client, coach.user)
+
+        client.post(self._url(lead), {"action": "crush_start_review"})
+        client.post(
+            self._url(lead),
+            {"action": "crush_complete_call", "call_outcome": "completed"},
+        )
+        client.post(
+            self._url(lead), {"action": "crush_record_consent", "consent": "yes"}
+        )
+        # The recipient half arrives via the co-coach task; approve is the
+        # existing legacy control and works for crush rows unchanged.
+        lead.refresh_from_db()
+        lead.recipient_consents_to_share = True
+        lead.save(update_fields=["recipient_consents_to_share"])
+        client.post(self._url(lead), {"action": "approve"})
+        client.post(self._url(lead), {"action": "crush_share"})
+
+        lead.refresh_from_db()
+        assert lead.status == "shared"
+        assert lead.shared_at is not None
+        types = [a["type"] for a in lead.system_actions]
+        assert "crush_start_review" in types
+        assert "crush_call_logged" in types
+        assert "crush_requester_consent" in types
+        assert "crush_shared" in types
+
+    def test_a_legacy_row_rejects_the_crush_actions(self):
+        coach = _make_coach("ws_legacy@example.com")
+        requester, _ = _make_user("ws_lreq@example.com", "M")
+        recipient, _ = _make_user("ws_lrec@example.com", "F")
+        legacy = _lead(
+            requester, recipient, _make_event(), coach,
+            status="pending", flow=EventConnection.FLOW_LEGACY,
+        )
+        client = Client()
+        _login(client, coach.user)
+
+        client.post(self._url(legacy), {"action": "crush_start_review"})
+
+        legacy.refresh_from_db()
+        assert legacy.status == "pending"
+
+
+class TestStaleCoachRecovery:
+    """A lead routed to a coach who is later deactivated must not be
+    stranded: that coach is barred from every coach view."""
+
+    def _stranded(self):
+        gone = _make_coach("stale_gone@example.com")
+        active = _make_coach("stale_active@example.com")
+        requester, _ = _make_user("stale_req@example.com", "M")
+        recipient, _ = _make_user("stale_rec@example.com", "F")
+        lead = _lead(requester, recipient, _make_event(), gone)
+        gone.is_active = False
+        gone.save(update_fields=["is_active"])
+        return active, lead
+
+    def test_another_coach_can_see_and_open_a_stranded_lead(self):
+        active, lead = self._stranded()
+        client = Client()
+        _login(client, active.user)
+
+        listing = client.get(
+            reverse("crush_lu:coach_connections"), {"status": "all"}
+        )
+        review = client.get(
+            reverse(
+                "crush_lu:coach_connection_review",
+                kwargs={"connection_id": lead.pk},
+            )
+        )
+
+        assert listing.status_code == 200
+        assert review.status_code == 200
+        assert review.context["lead_needs_claim"] is True
+
+    def test_another_coach_can_claim_and_then_work_it(self):
+        active, lead = self._stranded()
+        client = Client()
+        _login(client, active.user)
+        url = reverse(
+            "crush_lu:coach_connection_review", kwargs={"connection_id": lead.pk}
+        )
+
+        client.post(url, {"action": "claim"})
+        client.post(url, {"action": "crush_start_review"})
+
+        lead.refresh_from_db()
+        assert lead.assigned_coach == active
+        assert lead.status == "coach_reviewing"
+
+    def test_an_actively_routed_lead_still_404s_for_others(self):
+        """The relaxation is only for *inactive* coaches."""
+        routed = _make_coach("stale_routed@example.com")
+        other = _make_coach("stale_other@example.com")
+        requester, _ = _make_user("stale_ra@example.com", "M")
+        recipient, _ = _make_user("stale_rb@example.com", "F")
+        lead = _lead(requester, recipient, _make_event(), routed)
+        client = Client()
+        _login(client, other.user)
+
+        response = client.get(
+            reverse(
+                "crush_lu:coach_connection_review",
+                kwargs={"connection_id": lead.pk},
+            )
+        )
+
+        assert response.status_code == 404
+
+
+class TestCodexRound2Robustness:
+    """The remaining P2s from the same round."""
+
+    def test_an_answer_without_outreach_still_records_outreach(self):
+        """The buttons allow answering before "Mark done", and the task then
+        leaves the inbox — the SLA must not claim no outreach happened."""
+        routed = _make_coach("rb_routed@example.com")
+        cocoach = _make_coach("rb_cocoach@example.com")
+        requester, req_p = _make_user("rb_req@example.com", "M")
+        recipient, rec_p = _make_user("rb_rec@example.com", "F")
+        req_p.assigned_coach = routed
+        req_p.save(update_fields=["assigned_coach"])
+        rec_p.assigned_coach = cocoach
+        rec_p.save(update_fields=["assigned_coach"])
+        lead = _lead(requester, recipient, _make_event())
+        lead.assign_coach()
+        lead.refresh_from_db()
+        client = Client()
+        _login(client, cocoach.user)
+
+        client.post(
+            reverse(
+                "crush_lu:coach_crush_outreach_task",
+                kwargs={"connection_id": lead.pk},
+            ),
+            {"action": "record_consent"},
+        )
+
+        lead.refresh_from_db()
+        assert lead.recipient_response is not None
+        assert lead.recipient_outreach_at is not None
+        types = [a["type"] for a in lead.system_actions]
+        assert "recipient_outreach" in types
+        assert "recipient_consent" in types
+
+    def test_missing_vapid_config_is_a_failure_not_an_opt_out(self):
+        """A config error has the same zero-total shape as "nobody opted in",
+        so without the flag every reminder due during the outage is
+        permanently consumed."""
+        coach = _make_coach("rb_vapid@example.com")
+        requester, _ = _make_user("rb_va@example.com", "M")
+        recipient, _ = _make_user("rb_vb@example.com", "F")
+        lead = _lead(requester, recipient, _make_event(), coach)
+        EventConnection.objects.filter(pk=lead.pk).update(
+            requested_at=timezone.now() - REMINDER_AFTER - timedelta(minutes=5)
+        )
+
+        result = sweep_lead_reminders(
+            notify=lambda c, ln: {
+                "success": 0, "failed": 0, "total": 0, "misconfigured": True
+            }
+        )
+
+        lead.refresh_from_db()
+        assert (result["sent"], result["failed"]) == (0, 1)
+        assert lead.reminder_sent_at is None
+        assert reminder_candidates().filter(pk=lead.pk).exists()
+
+    def test_the_sweep_is_bounded_and_reports_truncation(self):
+        """One stalled endpoint must not hold every row lock for the whole
+        run, and a cap must never read as "swept everything"."""
+        coach = _make_coach("rb_batch@example.com")
+        event = _make_event()
+        for i in range(3):
+            requester, _ = _make_user(f"rb_ba{i}@example.com", "M")
+            recipient, _ = _make_user(f"rb_bb{i}@example.com", "F")
+            lead = _lead(requester, recipient, event, coach)
+            EventConnection.objects.filter(pk=lead.pk).update(
+                requested_at=timezone.now() - REMINDER_AFTER - timedelta(minutes=5)
+            )
+
+        result = sweep_lead_reminders(notify=lambda c, ln: None, limit=2)
+
+        assert result["sent"] == 2
+        assert result["truncated"] is True
+        # The remainder is still eligible for the next run.
+        assert reminder_candidates().count() == 1
+
+    def test_a_declined_reciprocal_is_not_shown_as_a_mutual_match(self):
+        """The legacy flow-blind annotation would tell the coach the
+        recipient had declared a crush, after that lead closed."""
+        coach = _make_coach("rb_mut@example.com")
+        user_a, _ = _make_user("rb_ma@example.com", "M")
+        user_b, _ = _make_user("rb_mb@example.com", "F")
+        event = _make_event()
+        lead = _lead(user_a, user_b, event, coach)
+        _lead(user_b, user_a, event, coach, status="declined")
+        client = Client()
+        _login(client, coach.user)
+
+        response = client.get(
+            reverse("crush_lu:coach_connections"), {"status": "all"}
+        )
+
+        row = next(
+            c for c in response.context["page_obj"].object_list if c.pk == lead.pk
+        )
+        assert row.is_mutual_annotated is False
+
+    def test_a_live_reciprocal_crush_is_still_shown_as_mutual(self):
+        coach = _make_coach("rb_mut2@example.com")
+        user_a, _ = _make_user("rb_m2a@example.com", "M")
+        user_b, _ = _make_user("rb_m2b@example.com", "F")
+        event = _make_event()
+        lead = _lead(user_a, user_b, event, coach)
+        _lead(user_b, user_a, event, coach)
+        client = Client()
+        _login(client, coach.user)
+
+        response = client.get(
+            reverse("crush_lu:coach_connections"), {"status": "all"}
+        )
+
+        row = next(
+            c for c in response.context["page_obj"].object_list if c.pk == lead.pk
+        )
+        assert row.is_mutual_annotated is True
