@@ -19,7 +19,7 @@
 </div>
 
 {# Counts strip #}
-<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
         <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">{% trans "Total" %}</p>
         <p class="text-2xl font-bold dark:text-white">{{ counts.total }}</p>
@@ -42,6 +42,10 @@
         {% if counts.mutual_crush %}
             <p class="text-xs font-medium text-pink-600 dark:text-pink-400 mt-1">{% blocktrans count counter=counts.mutual_crush %}{{ counter }} mutual{% plural %}{{ counter }} mutual{% endblocktrans %}</p>
         {% endif %}
+    </div>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
+        <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">{% trans "Outreach" %}</p>
+        <p class="text-2xl font-bold dark:text-white">{{ counts.crush_outreach }}</p>
     </div>
 </div>
 

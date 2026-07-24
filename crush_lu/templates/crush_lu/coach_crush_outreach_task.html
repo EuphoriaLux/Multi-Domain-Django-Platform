@@ -59,6 +59,13 @@ happening. Everything on this page is recipient-scoped.{% endcomment %}
     <div class="card-bordered p-6">
         <h2 class="font-semibold text-gray-900 dark:text-white mb-4">{% trans "Record your outreach" %}</h2>
 
+        {% if not lead_open %}
+            <p class="text-sm text-gray-500 dark:text-gray-400 flex items-start gap-2 mb-0">
+                {% include "shared/icons/shield-check.html" with class="w-4 h-4 shrink-0 mt-0.5" %}
+                <span>{% trans "This lead is closed — nothing further is needed from you." %}</span>
+            </p>
+        {% else %}
+
         {# Step 1 — outreach made #}
         <div class="flex items-center justify-between gap-4 py-3 border-b border-gray-200 dark:border-gray-700">
             <div>
@@ -73,7 +80,7 @@ happening. Everything on this page is recipient-scoped.{% endcomment %}
                 <form method="post" class="shrink-0">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="record_outreach">
-                    <button type="submit" class="btn-crush-secondary px-3 py-1.5 text-sm">{% trans "Mark done" %}</button>
+                    <button type="submit" class="btn-crush-outline btn-sm">{% trans "Mark done" %}</button>
                 </form>
             {% else %}
                 <span class="shrink-0 text-green-600 dark:text-green-400">{% include "shared/icons/check.html" with class="w-5 h-5" %}</span>
@@ -98,16 +105,18 @@ happening. Everything on this page is recipient-scoped.{% endcomment %}
                     <form method="post">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="record_consent">
-                        <button type="submit" class="btn-crush-primary px-4 py-2 text-sm">{% trans "They said yes" %}</button>
+                        <button type="submit" class="btn-crush-solid">{% trans "They said yes" %}</button>
                     </form>
                     <form method="post">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="record_decline">
-                        <button type="submit" class="btn-crush-secondary px-4 py-2 text-sm">{% trans "They said no" %}</button>
+                        <button type="submit" class="btn-crush-outline">{% trans "They said no" %}</button>
                     </form>
                 </div>
             {% endif %}
         </div>
+
+        {% endif %}{# end lead_open #}
     </div>
 
 </div>

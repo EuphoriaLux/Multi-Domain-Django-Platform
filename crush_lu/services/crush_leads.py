@@ -87,6 +87,31 @@ def reminder_candidates(now=None):
     )
 
 
+class ReminderDeliveryFailed(Exception):
+    """Push delivery reported no successful send — retry on the next sweep."""
+
+
+def _delivery_failed(result) -> bool:
+    """
+    Did a push-notification result represent a real delivery failure?
+
+    ``send_coach_push_notification`` swallows per-device exceptions and
+    reports them in its return value, so an unraised failure would otherwise
+    let the sweep commit ``reminder_sent_at`` and drop the lead from every
+    later sweep — the coach would simply never be reminded.
+
+    "No opted-in device" (``total == 0``) is NOT a failure: the coach muted
+    this channel, and retrying hourly forever would never deliver. Only a
+    real attempt that produced no success counts.
+
+    A non-dict result (an injected notifier) has no contract to check, so it
+    is treated as delivered — such notifiers signal failure by raising.
+    """
+    if not isinstance(result, dict):
+        return False
+    return result.get("total", 0) > 0 and result.get("success", 0) == 0
+
+
 def sweep_lead_reminders(now=None, notify=None):
     """
     Send the 24h untouched-lead reminder to each routed coach (spec §6/O8).
@@ -128,7 +153,12 @@ def sweep_lead_reminders(now=None, notify=None):
                 with transaction.atomic():
                     lead.reminder_sent_at = now
                     lead.save(update_fields=["reminder_sent_at"])
-                    notify(lead.assigned_coach, lead)
+                    if _delivery_failed(notify(lead.assigned_coach, lead)):
+                        # Inside the savepoint, so the stamp rolls back and
+                        # the lead stays eligible for the next sweep.
+                        raise ReminderDeliveryFailed(
+                            f"no successful push for lead {lead.pk}"
+                        )
                 sent += 1
             except Exception:  # noqa: BLE001
                 logger.exception(

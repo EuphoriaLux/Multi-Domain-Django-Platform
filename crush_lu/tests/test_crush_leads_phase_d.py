@@ -667,3 +667,244 @@ class TestReminderCommand:
         out = StringIO()
         call_command("send_crush_lead_reminders", "--dry-run", stdout=out)
         assert "No crush leads are due" in out.getvalue()
+
+
+class TestCodexRound1Fixes:
+    """Findings from the Codex review of this PR."""
+
+    # --- P1: the global coach connection list leaked crush leads ---
+
+    def _listed_lead(self):
+        routed = _make_coach("cx_routed@example.com")
+        crusher, _ = _make_user("cx_crusher@example.com", "M")
+        target, _ = _make_user("cx_target@example.com", "F")
+        lead = _lead(
+            crusher, target, _make_event(), routed,
+            requester_note="Codex round note.",
+        )
+        return routed, crusher, lead
+
+    def _list_url(self):
+        return reverse("crush_lu:coach_connections")
+
+    def test_unrelated_coach_sees_no_crush_row_on_the_connections_page(self):
+        """The routed-coach queue and the detail guard are moot if this page
+        still renders every lead with its note."""
+        _, crusher, _ = self._listed_lead()
+        stranger = _make_coach("cx_stranger@example.com")
+        client = Client()
+        _login(client, stranger.user)
+
+        response = client.get(self._list_url(), {"status": "all"})
+
+        assert response.status_code == 200
+        assert b"Codex round note." not in response.content
+        assert crusher.username.encode() not in response.content
+
+    def test_routed_coach_still_sees_their_lead_and_note(self):
+        routed, crusher, _ = self._listed_lead()
+        client = Client()
+        _login(client, routed.user)
+
+        response = client.get(self._list_url(), {"status": "all"})
+
+        assert b"Codex round note." in response.content
+
+    # --- P2: an unrouted pool lead exposed its note on the detail page ---
+
+    def test_pool_lead_withholds_the_note_on_both_surfaces(self):
+        triager = _make_coach("cx_triager@example.com")
+        crusher, _ = _make_user("cx_pa@example.com", "M")
+        target, _ = _make_user("cx_pb@example.com", "F")
+        lead = _lead(
+            crusher, target, _make_event(), requester_note="Pool note."
+        )
+        assert lead.assigned_coach is None
+        client = Client()
+        _login(client, triager.user)
+
+        listing = client.get(self._list_url(), {"status": "all"})
+        review = client.get(
+            reverse(
+                "crush_lu:coach_connection_review",
+                kwargs={"connection_id": lead.pk},
+            )
+        )
+
+        # Listed and openable so it stays claimable...
+        assert listing.status_code == 200
+        assert review.status_code == 200
+        # ...but the note is shut on both until a coach owns it.
+        assert b"Pool note." not in listing.content
+        assert b"Pool note." not in review.content
+
+    # --- P1: a failed push must not consume the reminder ---
+
+    def _overdue_lead(self):
+        coach = _make_coach("cx_rem@example.com")
+        requester, _ = _make_user("cx_remr@example.com", "M")
+        recipient, _ = _make_user("cx_remp@example.com", "F")
+        lead = _lead(requester, recipient, _make_event(), coach)
+        EventConnection.objects.filter(pk=lead.pk).update(
+            requested_at=timezone.now() - REMINDER_AFTER - timedelta(minutes=5)
+        )
+        lead.refresh_from_db()
+        return lead
+
+    def test_a_push_that_reports_failure_without_raising_is_a_failure(self):
+        """send_coach_push_notification swallows delivery errors and reports
+        them in its return value — the sweep has to read it, or the lead is
+        stamped and never reminded again."""
+        lead = self._overdue_lead()
+
+        result = sweep_lead_reminders(
+            notify=lambda c, ln: {"success": 0, "failed": 2, "total": 2}
+        )
+
+        lead.refresh_from_db()
+        assert result == {"sent": 0, "failed": 1}
+        assert lead.reminder_sent_at is None
+        assert reminder_candidates().filter(pk=lead.pk).exists()
+
+    def test_a_coach_with_no_opted_in_device_is_not_retried_forever(self):
+        """total == 0 is an opt-out, not a delivery failure."""
+        lead = self._overdue_lead()
+
+        result = sweep_lead_reminders(
+            notify=lambda c, ln: {"success": 0, "failed": 0, "total": 0}
+        )
+
+        lead.refresh_from_db()
+        assert result == {"sent": 1, "failed": 0}
+        assert lead.reminder_sent_at is not None
+
+    def test_a_partially_delivered_push_counts_as_sent(self):
+        lead = self._overdue_lead()
+
+        result = sweep_lead_reminders(
+            notify=lambda c, ln: {"success": 1, "failed": 1, "total": 2}
+        )
+
+        lead.refresh_from_db()
+        assert result == {"sent": 1, "failed": 0}
+        assert lead.reminder_sent_at is not None
+
+    # --- P1: reminders must respect the per-device preference ---
+
+    def test_reminder_targets_only_opted_in_devices(self, monkeypatch):
+        """A device where the coach muted call reminders must not receive
+        this — the body puts the requester's name on a lock screen."""
+        from crush_lu import coach_notifications
+        from crush_lu.models import CoachPushSubscription
+
+        lead = self._overdue_lead()
+        coach = lead.assigned_coach
+        opted_in = CoachPushSubscription.objects.create(
+            coach=coach,
+            endpoint="https://push.example/opted-in",
+            p256dh_key="k1",
+            auth_key="a1",
+            enabled=True,
+            notify_screening_reminders=True,
+        )
+        CoachPushSubscription.objects.create(
+            coach=coach,
+            endpoint="https://push.example/muted",
+            p256dh_key="k2",
+            auth_key="a2",
+            enabled=True,
+            notify_screening_reminders=False,
+        )
+
+        captured = {}
+
+        def fake_send(coach, title, body, url="/", tag="", subscriptions=None, **kw):
+            captured["endpoints"] = sorted(s.endpoint for s in subscriptions)
+            return {"success": 1, "failed": 0, "total": 1}
+
+        monkeypatch.setattr(
+            coach_notifications, "send_coach_push_notification", fake_send
+        )
+
+        coach_notifications.notify_coach_crush_lead_reminder(coach, lead)
+
+        assert captured["endpoints"] == [opted_in.endpoint]
+
+    # --- P1: co-coach writes after the lead closes ---
+
+    def _cocoach_lead(self):
+        routed = _make_coach("cx_cc_routed@example.com")
+        cocoach = _make_coach("cx_cc_other@example.com")
+        requester, req_profile = _make_user("cx_ccreq@example.com", "M")
+        recipient, rec_profile = _make_user("cx_ccrec@example.com", "F")
+        req_profile.assigned_coach = routed
+        req_profile.save(update_fields=["assigned_coach"])
+        rec_profile.assigned_coach = cocoach
+        rec_profile.save(update_fields=["assigned_coach"])
+        lead = _lead(requester, recipient, _make_event())
+        lead.assign_coach()
+        lead.refresh_from_db()
+        return cocoach, lead
+
+    def _task_url(self, lead):
+        return reverse(
+            "crush_lu:coach_crush_outreach_task",
+            kwargs={"connection_id": lead.pk},
+        )
+
+    def test_a_closed_lead_rejects_a_direct_consent_post(self):
+        """A member block or a routed-coach decline closes the lead; a
+        bookmarked POST must not resurrect it and tell the routed coach to
+        introduce a cancelled pair."""
+        cocoach, lead = self._cocoach_lead()
+        lead.status = "declined"
+        lead.save(update_fields=["status"])
+        client = Client()
+        _login(client, cocoach.user)
+
+        client.post(self._task_url(lead), {"action": "record_consent"})
+
+        lead.refresh_from_db()
+        assert lead.recipient_response is None
+        assert lead.recipient_consents_to_share is False
+        assert lead.system_actions == []
+
+    def test_a_closed_lead_rejects_a_direct_outreach_post(self):
+        cocoach, lead = self._cocoach_lead()
+        lead.status = "declined"
+        lead.save(update_fields=["status"])
+        client = Client()
+        _login(client, cocoach.user)
+
+        client.post(self._task_url(lead), {"action": "record_outreach"})
+
+        lead.refresh_from_db()
+        assert lead.recipient_outreach_at is None
+
+    def test_a_closed_lead_hides_its_actions(self):
+        cocoach, lead = self._cocoach_lead()
+        lead.status = "declined"
+        lead.save(update_fields=["status"])
+        client = Client()
+        _login(client, cocoach.user)
+
+        response = client.get(self._task_url(lead))
+
+        assert response.status_code == 200
+        assert response.context["lead_open"] is False
+        assert b"They said yes" not in response.content
+
+    # --- UI: the outreach controls must be visible in light mode ---
+
+    def test_outreach_controls_use_canonical_button_classes(self):
+        cocoach, lead = self._cocoach_lead()
+        client = Client()
+        _login(client, cocoach.user)
+
+        content = client.get(self._task_url(lead)).content
+
+        # `.btn-crush-secondary` is not a sanctioned variant (STYLE.md) and
+        # renders white-on-white on this light card.
+        assert b"btn-crush-secondary" not in content
+        assert b"btn-crush-solid" in content
+        assert b"btn-crush-outline" in content

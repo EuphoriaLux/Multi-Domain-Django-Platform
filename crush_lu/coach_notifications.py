@@ -17,10 +17,17 @@ logger = logging.getLogger(__name__)
 
 
 def send_coach_push_notification(
-    coach, title, body, url="/", tag="coach-notification", icon=None, badge=None
+    coach,
+    title,
+    body,
+    url="/",
+    tag="coach-notification",
+    icon=None,
+    badge=None,
+    subscriptions=None,
 ):
     """
-    Send a push notification to all of a coach's subscribed devices.
+    Send a push notification to a coach's subscribed devices.
 
     Args:
         coach: CrushCoach object
@@ -30,6 +37,12 @@ def send_coach_push_notification(
         tag: Notification tag for grouping (default: 'coach-notification')
         icon: Icon URL (default: Crush.lu logo)
         badge: Badge icon URL (default: Crush.lu badge)
+        subscriptions: optional pre-filtered CoachPushSubscription queryset.
+            Callers that gate on a per-device preference (e.g.
+            ``notify_screening_reminders``) MUST pass their filtered
+            queryset — otherwise this re-queries every enabled device and
+            delivers to the ones where the coach muted that category.
+            Defaults to all enabled subscriptions.
 
     Returns:
         dict: {
@@ -48,8 +61,12 @@ def send_coach_push_notification(
         logger.error("VAPID_PUBLIC_KEY not configured in settings")
         return {"success": 0, "failed": 0, "total": 0}
 
-    # Get all active subscriptions for this coach
-    subscriptions = CoachPushSubscription.objects.filter(coach=coach, enabled=True)
+    # Get the target subscriptions: the caller's pre-filtered set when given,
+    # else every enabled device for this coach.
+    if subscriptions is None:
+        subscriptions = CoachPushSubscription.objects.filter(
+            coach=coach, enabled=True
+        )
 
     if not subscriptions.exists():
         logger.info(f"No active push subscriptions for coach {coach.user.username}")
@@ -436,6 +453,11 @@ def notify_coach_crush_lead_reminder(coach, connection):
         body=body,
         url=url,
         tag=f"crush-lead-reminder-{connection.id}",
+        # Deliver only to the devices that opted into call reminders — the
+        # body carries the requester's name onto a lock screen, so a device
+        # where the coach muted this category must not receive it just
+        # because another device is still opted in.
+        subscriptions=subscriptions,
     )
 
 

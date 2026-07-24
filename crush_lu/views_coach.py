@@ -3749,13 +3749,21 @@ def coach_connections(request):
     if status_filter not in valid_statuses:
         status_filter = "needs_review"
 
-    # Base queryset: connections assigned to this coach (or all for now)
-    connections_qs = EventConnection.objects.select_related(
-        "requester__crushprofile",
-        "recipient__crushprofile",
-        "event",
-        "assigned_coach__user",
-    ).order_by("-requested_at")
+    # Base queryset: legacy connections stay visible to every coach, but a
+    # pre-`shared` crush lead is coach-private — only the routed coach (or
+    # any coach, while it is still an unrouted pool row) may see the pair
+    # and its `requester_note`. Without this the routed-coach queue and the
+    # detail guard are moot: this page renders both identities and the note.
+    connections_qs = (
+        EventConnection.objects.select_related(
+            "requester__crushprofile",
+            "recipient__crushprofile",
+            "event",
+            "assigned_coach__user",
+        )
+        .visible_to_coach(coach)
+        .order_by("-requested_at")
+    )
 
     # Status filter
     if status_filter == "pending":
@@ -3807,6 +3815,14 @@ def coach_connections(request):
         conn.stages = _compute_connection_stages(conn)
         conn.requester_display_name = _profile_display_name(conn.requester)
         conn.recipient_display_name = _profile_display_name(conn.recipient)
+        # The crush note is written for the routed coach only. Unrouted pool
+        # leads stay listed so they can be claimed, but their note preview is
+        # withheld until a coach actually owns the lead.
+        conn.show_requester_note = (
+            conn.flow != EventConnection.FLOW_CRUSH
+            or conn.status == "shared"
+            or conn.assigned_coach_id == coach.id
+        )
 
     # Batch-fetch the onboarding coach per user (the coach who approved their
     # ProfileSubmission). Surfaced next to each avatar so the reviewing coach
@@ -4097,6 +4113,14 @@ def coach_connection_review(request, connection_id):
         "recipient_profile": recipient_profile,
         "connection_messages": connection_messages,
         "is_mutual": reverse_connection is not None,
+        # Same gate as the list preview: an unrouted pool lead stays openable
+        # so it can be triaged and claimed, but its note opens only once a
+        # coach owns it. Routed-to-someone-else already 404'd above.
+        "show_requester_note": (
+            connection.flow != EventConnection.FLOW_CRUSH
+            or connection.status == "shared"
+            or connection.assigned_coach_id == coach.id
+        ),
         # A reciprocal crush is flagged so both routed coaches can coordinate
         # the introduction. The other lead stays independent — this exposes
         # only that it exists, never its `requester_note`.
@@ -4662,6 +4686,17 @@ def coach_crush_outreach_task(request, connection_id):
         now = timezone.now()
         actor = f"cocoach:{coach.user.username}"
 
+        # A lead that already left the open statuses is dead — the member
+        # blocked the pair, or the routed coach declined it. The queue drops
+        # it, but a bookmarked page or a stale tab can still POST here, and
+        # recording consent on a cancelled pair would corrupt the consent and
+        # audit state and tell the routed coach to go ahead and introduce.
+        if connection.status not in EventConnection.OPEN_LEAD_STATUSES:
+            messages.info(request, _("This lead is closed."))
+            return redirect(
+                "crush_lu:coach_crush_outreach_task", connection_id=connection.id
+            )
+
         if action == "record_outreach":
             if connection.recipient_outreach_at is None:
                 connection.recipient_outreach_at = now
@@ -4675,8 +4710,23 @@ def coach_crush_outreach_task(request, connection_id):
 
         elif action in ("record_consent", "record_decline"):
             consented = action == "record_consent"
-            if connection.recipient_response is None:
-                with transaction.atomic():
+            recorded = False
+            with transaction.atomic():
+                # Lock and re-read: two concurrent submissions could both
+                # observe recipient_response=None and both pass the guard,
+                # leaving contradictory state (a 'consented' response on a
+                # row another request just set to 'declined') and clobbering
+                # each other's append to the audit list.
+                connection = (
+                    EventConnection.objects.select_for_update()
+                    .select_related("recipient", "event", "assigned_coach")
+                    .get(pk=connection.pk)
+                )
+                if (
+                    connection.recipient_response is None
+                    and connection.status in EventConnection.OPEN_LEAD_STATUSES
+                ):
+                    recorded = True
                     connection.recipient_response = (
                         EventConnection.RECIPIENT_RESPONSE_CONSENTED
                         if consented
@@ -4706,6 +4756,7 @@ def coach_crush_outreach_task(request, connection_id):
                         update_fields.append("status")
                     connection.save(update_fields=update_fields)
 
+            if recorded:
                 if consented and connection.assigned_coach:
                     try:
                         from django.urls import reverse
@@ -4733,9 +4784,10 @@ def coach_crush_outreach_task(request, connection_id):
                     _("Consent recorded.") if consented else _("Decline recorded."),
                 )
             else:
-                # The answer is final by design, so a stale page or a
-                # double-click must not report a correction that never
-                # happened — the routed coach acts on this either way.
+                # The answer is final by design, so a stale page, a
+                # double-click, or the losing side of a concurrent submission
+                # must not report a correction that never happened — the
+                # routed coach acts on this either way.
                 messages.info(
                     request,
                     _("This answer was already recorded and cannot be changed."),
@@ -4751,6 +4803,7 @@ def coach_crush_outreach_task(request, connection_id):
             "connection": connection,
             "recipient": connection.recipient,
             "event": connection.event,
+            "lead_open": connection.status in EventConnection.OPEN_LEAD_STATUSES,
             "outreach_done": connection.recipient_outreach_at is not None,
             "response": connection.recipient_response,
         },
