@@ -499,6 +499,58 @@ class TestOnePairOneFlow:
         assert "HX-Redirect" not in response
         assert not EventConnection.objects.filter(event=event).exists()
 
+    def test_removal_pair_gets_neither_flow_when_recap_closed(self, client):
+        """The pair-level removal check is independent of the recap phase: a
+        phase failure must not fall back to My Crush for a hidden pair
+        (§9.1 — only phase/feature failures fall back)."""
+        user_a = _make_member("pf_g", gender="M")
+        user_b = _make_member("pf_h", gender="F")
+        event = _make_event()
+        _join(user_a, event)
+        _join(user_b, event)
+        _end_event(event, hours_ago=49)  # recap closed
+        event.connection_window_hours = 168  # crush window still open
+        event.save(update_fields=["connection_window_hours"])
+        low, high = ConfirmedEncounter.canonical_pair(user_a, user_b)
+        ConfirmedEncounter.objects.create(
+            user_low=low, user_high=high, status="removal_pending"
+        )
+        _login(client, user_a)
+
+        response = client.post(_declare_url(event, user_b), {"note": ""})
+        assert response.status_code == 302
+        assert response.url != _lobby_url(event)
+        assert not EventConnection.objects.filter(event=event).exists()
+
+        response = client.post(_inline_url(event, user_b), {"note": ""})
+        assert "HX-Redirect" not in response
+        assert not EventConnection.objects.filter(event=event).exists()
+
+    def test_removal_pair_gets_neither_flow_when_lobby_flag_off(
+        self, client, settings
+    ):
+        """A flag-off must not fall back to My Crush for a removal pair."""
+        settings.CRUSH_EVENT_LOBBY_ENABLED = False
+        user_a = _make_member("pf_i", gender="M")
+        user_b = _make_member("pf_j", gender="F")
+        event = _ended_event()
+        _attend(user_a, event)
+        _attend(user_b, event)
+        low, high = ConfirmedEncounter.canonical_pair(user_a, user_b)
+        ConfirmedEncounter.objects.create(
+            user_low=low, user_high=high, status="removed"
+        )
+        _login(client, user_a)
+
+        response = client.post(_declare_url(event, user_b), {"note": ""})
+        assert response.status_code == 302
+        assert response.url != _lobby_url(event)
+        assert not EventConnection.objects.filter(event=event).exists()
+
+        response = client.post(_inline_url(event, user_b), {"note": ""})
+        assert "HX-Redirect" not in response
+        assert not EventConnection.objects.filter(event=event).exists()
+
 
 class TestRecipientPrivacy:
     """§5/§13: a crush is private until the coach-facilitated introduction."""

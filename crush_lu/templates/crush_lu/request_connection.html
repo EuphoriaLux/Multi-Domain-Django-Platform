@@ -71,7 +71,7 @@
 
                     <div class="flex flex-col gap-3">
                         <button type="submit"
-                                onclick="return confirm('{% trans "Declare your crush? It stays completely private and cannot be undone. Your Crush Coach will call you within 48 hours to talk about it." %}');"
+                                onclick="return confirm('{% filter escapejs %}{% trans "Declare your crush? It stays completely private and cannot be undone. Your Crush Coach will call you within 48 hours to talk about it." %}{% endfilter %}');"
                                 class="btn-crush-primary w-full py-3 text-lg font-semibold">
                             {% include "shared/icons/heart.html" with class="w-5 h-5" %} {% trans "Declare My Crush!" %}
                         </button>
