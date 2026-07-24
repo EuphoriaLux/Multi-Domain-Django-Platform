@@ -482,6 +482,24 @@ class TestCoCoachOutreachTask:
             EventConnection.RECIPIENT_RESPONSE_CONSENTED
         )
         assert lead.status != "declined"
+        # ...and only the real write is audited.
+        assert [a["type"] for a in lead.system_actions] == ["recipient_consent"]
+
+    def test_a_rejected_correction_says_so_instead_of_claiming_success(self):
+        """A stale page or double-click must not tell the coach their
+        correction landed — the routed coach acts on this answer."""
+        _, cocoach, lead = self._routed_pair()
+        client = Client()
+        _login(client, cocoach.user)
+        client.post(self._url(lead), {"action": "record_consent"})
+
+        response = client.post(
+            self._url(lead), {"action": "record_decline"}, follow=True
+        )
+
+        notes = [str(m) for m in response.context["messages"]]
+        assert any("already recorded" in m for m in notes)
+        assert not any("Decline recorded" in m for m in notes)
 
     def test_the_task_appears_in_the_cocoach_inbox_only(self, client):
         routed, cocoach, lead = self._routed_pair()

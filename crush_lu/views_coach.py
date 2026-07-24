@@ -4728,10 +4728,18 @@ def coach_crush_outreach_task(request, connection_id):
                             "[crush_outreach] consent notify failed for lead %s",
                             connection.pk,
                         )
-            messages.success(
-                request,
-                _("Consent recorded.") if consented else _("Decline recorded."),
-            )
+                messages.success(
+                    request,
+                    _("Consent recorded.") if consented else _("Decline recorded."),
+                )
+            else:
+                # The answer is final by design, so a stale page or a
+                # double-click must not report a correction that never
+                # happened — the routed coach acts on this either way.
+                messages.info(
+                    request,
+                    _("This answer was already recorded and cannot be changed."),
+                )
 
         return redirect("crush_lu:coach_crush_outreach_task", connection_id=connection.id)
 
