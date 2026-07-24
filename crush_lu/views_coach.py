@@ -4868,6 +4868,7 @@ def coach_crush_outreach_task(request, connection_id):
             # instance loaded before the transaction can clobber an audit
             # entry the response branch committed in between — leaving the
             # business fields correct but the append-only trail missing a row.
+            closed_under_lock = False
             with transaction.atomic():
                 connection = (
                     EventConnection.objects.select_for_update()
@@ -4878,10 +4879,9 @@ def coach_crush_outreach_task(request, connection_id):
                 # instance read at request entry: the routed coach could have
                 # declined the lead in between, and outreach must not be
                 # timestamped onto an already-closed lead.
-                if (
-                    connection.recipient_outreach_at is None
-                    and connection.status in EventConnection.OPEN_LEAD_STATUSES
-                ):
+                if connection.status not in EventConnection.OPEN_LEAD_STATUSES:
+                    closed_under_lock = True
+                elif connection.recipient_outreach_at is None:
                     connection.recipient_outreach_at = now
                     connection.log_system_action(
                         "recipient_outreach",
@@ -4891,11 +4891,21 @@ def coach_crush_outreach_task(request, connection_id):
                     connection.save(
                         update_fields=["recipient_outreach_at", "system_actions"]
                     )
-            messages.success(request, _("Outreach recorded."))
+            if closed_under_lock:
+                # The write was skipped because the lead closed while this
+                # request waited on the row lock — reporting "recorded" would
+                # tell the co-coach an outreach the SLA has no record of did
+                # land. Re-recording an outreach on a *live* lead is still a
+                # true no-op, so that case keeps the success message: it is
+                # accurate about the resulting state.
+                messages.info(request, _("This lead is closed."))
+            else:
+                messages.success(request, _("Outreach recorded."))
 
         elif action in ("record_consent", "record_decline"):
             consented = action == "record_consent"
             recorded = False
+            closed_under_lock = False
             with transaction.atomic():
                 # Lock and re-read: two concurrent submissions could both
                 # observe recipient_response=None and both pass the guard,
@@ -4907,10 +4917,9 @@ def coach_crush_outreach_task(request, connection_id):
                     .select_related("recipient", "event", "assigned_coach")
                     .get(pk=connection.pk)
                 )
-                if (
-                    connection.recipient_response is None
-                    and connection.status in EventConnection.OPEN_LEAD_STATUSES
-                ):
+                if connection.status not in EventConnection.OPEN_LEAD_STATUSES:
+                    closed_under_lock = True
+                elif connection.recipient_response is None:
                     recorded = True
                     connection.recipient_response = (
                         EventConnection.RECIPIENT_RESPONSE_CONSENTED
@@ -4980,6 +4989,12 @@ def coach_crush_outreach_task(request, connection_id):
                     request,
                     _("Consent recorded.") if consented else _("Decline recorded."),
                 )
+            elif closed_under_lock:
+                # No answer was recorded here — the lead closed while this
+                # request waited on the row lock. Saying the answer "was
+                # already recorded" would send the co-coach looking for a
+                # decision nobody made.
+                messages.info(request, _("This lead is closed."))
             else:
                 # The answer is final by design, so a stale page, a
                 # double-click, or the losing side of a concurrent submission
