@@ -198,7 +198,12 @@
                             <div>
                                 <h4 class="font-medium text-gray-900 dark:text-white">{% trans "Connection Requested" %}</h4>
                                 <small class="text-gray-500 dark:text-gray-400">{{ connection.requested_at|date:"DATETIME_FORMAT" }}</small>
-                                {% if connection.requester_note %}
+                                {% comment %}A crush note was written for the
+                                   coach alone ("never your crush"). That
+                                   promise outlives the introduction, so it
+                                   stays redacted here even once the lead
+                                   reaches `shared`.{% endcomment %}
+                                {% if connection.requester_note and connection.flow != 'crush' %}
                                     <p class="text-sm mt-1 text-gray-600 dark:text-gray-300 flex items-center gap-1">
                                         {% include "shared/icons/chat-bubble-left.html" with class="w-4 h-4 shrink-0" %}
                                         "{{ connection.requester_note }}"

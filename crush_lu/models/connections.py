@@ -28,6 +28,26 @@ class EventConnectionQuerySet(models.QuerySet):
             & ~models.Q(status='shared')
         )
 
+    def visible_to_coach(self, coach):
+        """
+        Hide other coaches' crush leads from shared coach surfaces.
+
+        The ``requester_note`` is promised to the routed Crush Coach alone
+        ("only they will read this"), so a pre-``shared`` lead routed to a
+        *different* coach is excluded outright — a coach who is not the
+        routed coach must not learn the crusher/recipient pair either.
+
+        Unrouted pool leads (``assigned_coach IS NULL``) stay visible so
+        they remain claimable, and legacy rows keep their existing
+        all-coaches visibility.
+        """
+        return self.exclude(
+            models.Q(flow=EventConnection.FLOW_CRUSH)
+            & ~models.Q(status='shared')
+            & models.Q(assigned_coach__isnull=False)
+            & ~models.Q(assigned_coach=coach)
+        )
+
     def open_crush_leads(self):
         """
         Crush leads still requiring coach work.
@@ -154,6 +174,9 @@ class EventConnectionManager(models.Manager):
 
     def excluding_unshared_crushes(self):
         return self.get_queryset().excluding_unshared_crushes()
+
+    def visible_to_coach(self, coach):
+        return self.get_queryset().visible_to_coach(coach)
 
     def crush_leads(self):
         return self.get_queryset().crush_leads()

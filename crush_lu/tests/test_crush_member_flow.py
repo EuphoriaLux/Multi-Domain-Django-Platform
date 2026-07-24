@@ -797,3 +797,139 @@ class TestCoachNavRename:
         assert response.status_code == 200
         assert response.content.count(b"My Dating Profile") >= 2
         assert b"<span>My Crush</span>" not in response.content
+
+
+class TestCoachLeadPrivacy:
+    """The `requester_note` is promised to the routed Crush Coach alone, and
+    Phase C is what first puts member-written notes on those coach surfaces."""
+
+    def _routed_lead(self, coach, note="I could not stop smiling."):
+        """A declared crush lead deterministically routed to ``coach``."""
+        crusher = _plain("clp_a", gender="M")
+        target = _plain("clp_b", gender="F")
+        crusher.crushprofile.assigned_coach = coach
+        crusher.crushprofile.save(update_fields=["assigned_coach"])
+        event = _ended_event()
+        _attend(crusher, event)
+        _attend(target, event)
+        client = Client()
+        _login(client, crusher)
+        client.post(_declare_url(event, target), {"note": note})
+        lead = EventConnection.objects.get(event=event, requester=crusher)
+        assert lead.assigned_coach == coach
+        return lead
+
+    def test_non_routed_coach_sees_neither_the_pair_nor_the_note(self, client):
+        """A second coach must not learn the pair exists from the list view."""
+        routed = _make_coach("routed1@example.com")
+        other = _make_coach("other1@example.com")
+        lead = self._routed_lead(routed)
+        _login(client, other.user)
+
+        response = client.get(
+            reverse("crush_lu:coach_connections"), {"status": "all"}
+        )
+
+        assert response.status_code == 200
+        assert b"I could not stop smiling." not in response.content
+        assert lead.requester.username.encode() not in response.content
+
+    def test_non_routed_coach_gets_404_on_review_get(self, client):
+        """Authorization applies to GET, not just POST — and the 404 must not
+        disclose that the lead exists."""
+        routed = _make_coach("routed2@example.com")
+        other = _make_coach("other2@example.com")
+        lead = self._routed_lead(routed)
+        _login(client, other.user)
+
+        response = client.get(
+            reverse(
+                "crush_lu:coach_connection_review",
+                kwargs={"connection_id": lead.pk},
+            )
+        )
+
+        assert response.status_code == 404
+
+    def test_routed_coach_still_sees_the_lead_and_its_note(self, client):
+        routed = _make_coach("routed3@example.com")
+        lead = self._routed_lead(routed)
+        _login(client, routed.user)
+
+        listing = client.get(
+            reverse("crush_lu:coach_connections"), {"status": "all"}
+        )
+        review = client.get(
+            reverse(
+                "crush_lu:coach_connection_review",
+                kwargs={"connection_id": lead.pk},
+            )
+        )
+
+        assert listing.status_code == 200
+        assert b"I could not stop smiling." in listing.content
+        assert review.status_code == 200
+        assert b"I could not stop smiling." in review.content
+
+    def test_pending_lead_reaches_the_routed_coach_inbox(self, client):
+        """The member is promised a call within 48h, so a `pending` lead has
+        to appear in the coach action queue with its `call_by` deadline."""
+        routed = _make_coach("routed4@example.com")
+        lead = self._routed_lead(routed)
+        assert lead.status == "pending"
+        _login(client, routed.user)
+
+        response = client.get(reverse("crush_lu:coach_action_queue"))
+
+        assert response.status_code == 200
+        assert response.context["counts"]["crush_lead"] == 1
+        entries = [
+            i for i in response.context["items"] if i["kind"] == "crush_lead"
+        ]
+        assert len(entries) == 1
+        assert entries[0]["deadline"] == lead.call_by
+        assert entries[0]["url_kwargs"] == {"connection_id": lead.pk}
+
+    def test_other_coach_inbox_stays_empty(self, client):
+        routed = _make_coach("routed5@example.com")
+        other = _make_coach("other5@example.com")
+        self._routed_lead(routed)
+        _login(client, other.user)
+
+        response = client.get(reverse("crush_lu:coach_action_queue"))
+
+        assert response.status_code == 200
+        assert response.context["counts"]["crush_lead"] == 0
+
+    def test_lead_is_queued_once_not_twice(self, client):
+        """The legacy connection branch excludes crush rows, so a lead that
+        reaches `coach_reviewing` must not appear under both kinds."""
+        routed = _make_coach("routed6@example.com")
+        lead = self._routed_lead(routed)
+        lead.status = "coach_reviewing"
+        lead.save(update_fields=["status"])
+        _login(client, routed.user)
+
+        response = client.get(reverse("crush_lu:coach_action_queue"))
+
+        items = response.context["items"]
+        assert [i["kind"] for i in items].count("crush_lead") == 1
+        assert [i["kind"] for i in items].count("connection") == 0
+
+    def test_note_stays_coach_only_for_both_members_after_shared(self, client):
+        """The promise was "never your crush" — it outlives the introduction,
+        so the note stays redacted on the member detail page at `shared`."""
+        routed = _make_coach("routed7@example.com")
+        lead = self._routed_lead(routed)
+        lead.status = "shared"
+        lead.save(update_fields=["status"])
+        url = reverse(
+            "crush_lu:connection_detail", kwargs={"connection_id": lead.pk}
+        )
+
+        for member in (lead.requester, lead.recipient):
+            member_client = Client()
+            _login(member_client, member)
+            response = member_client.get(url)
+            assert response.status_code == 200
+            assert b"I could not stop smiling." not in response.content

@@ -19,7 +19,7 @@ from django.db.models import (
     DurationField,
 )
 from django.db.models import prefetch_related_objects
-from django.http import JsonResponse, HttpResponse
+from django.http import Http404, JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
 import json
 import logging
@@ -480,10 +480,14 @@ def coach_action_queue(request):
         )
 
     # --- Connections awaiting coach review (assigned to this coach OR unassigned) ---
+    # Crush leads are excluded here and queued separately below: they are
+    # actionable from `pending` (no recipient acceptance step exists) and are
+    # SLA-tracked against `call_by` rather than request age.
     pending_connections = (
         EventConnection.objects.filter(
             status__in=["accepted", "coach_reviewing"],
         )
+        .exclude(flow=EventConnection.FLOW_CRUSH)
         .filter(Q(assigned_coach=coach) | Q(assigned_coach__isnull=True))
         .select_related("requester", "recipient", "event")
         .order_by("requested_at")
@@ -518,6 +522,42 @@ def coach_action_queue(request):
             }
         )
 
+    # --- "My Crush!" leads routed to this coach (§5/§7) ---
+    # The member is told their Crush Coach calls within 48h, so an open lead
+    # has to reach the inbox from `pending` onwards. Urgency is measured
+    # against the `call_by` SLA, not request age.
+    crush_leads = EventConnection.objects.crush_leads_for_coach(
+        coach
+    ).select_related("requester", "recipient", "event")
+    for lead in crush_leads:
+        call_by = lead.call_by
+        hours_left = (call_by - now).total_seconds() / 3600
+        if hours_left <= 0:
+            state = "breach"
+        elif hours_left <= 6:
+            state = "urgent"
+        elif hours_left <= 24:
+            state = "warning"
+        else:
+            state = "ok"
+        requester_name = lead.requester.get_full_name() or lead.requester.username
+        items.append(
+            {
+                "kind": "crush_lead",
+                # Coach-facing: the crusher's own coach makes the call, so the
+                # pair is named here — this queue is already routed-coach-only.
+                "title": requester_name,
+                "subtitle": _("My Crush! call — %(event)s")
+                % {"event": lead.event.title},
+                "deadline": call_by,
+                "sla_state": state,
+                "priority": state_priority.get(state, 5),
+                "url_name": "crush_lu:coach_connection_review",
+                "url_kwargs": {"connection_id": lead.id},
+                "submitted_at": lead.requested_at,
+            }
+        )
+
     # Most urgent first; tie-break by oldest submission
     items.sort(key=lambda i: (i["priority"], i["submitted_at"]))
 
@@ -525,6 +565,7 @@ def coach_action_queue(request):
         "profile": sum(1 for i in items if i["kind"] == "profile"),
         "screening": sum(1 for i in items if i["kind"] == "screening"),
         "connection": sum(1 for i in items if i["kind"] == "connection"),
+        "crush_lead": sum(1 for i in items if i["kind"] == "crush_lead"),
         "total": len(items),
         "urgent_or_worse": sum(
             1 for i in items if i["sla_state"] in ("escalated", "breach", "urgent")
@@ -3638,13 +3679,20 @@ def coach_connections(request):
     if status_filter not in valid_statuses:
         status_filter = "needs_review"
 
-    # Base queryset: connections assigned to this coach (or all for now)
-    connections_qs = EventConnection.objects.select_related(
-        "requester__crushprofile",
-        "recipient__crushprofile",
-        "event",
-        "assigned_coach__user",
-    ).order_by("-requested_at")
+    # Base queryset: legacy connections stay visible to every coach, but a
+    # pre-`shared` crush lead is coach-private — only the routed coach (or
+    # any coach, while it is still an unrouted pool row) may see the pair
+    # and its `requester_note`.
+    connections_qs = (
+        EventConnection.objects.select_related(
+            "requester__crushprofile",
+            "recipient__crushprofile",
+            "event",
+            "assigned_coach__user",
+        )
+        .visible_to_coach(coach)
+        .order_by("-requested_at")
+    )
 
     # Status filter
     if status_filter == "pending":
@@ -3696,6 +3744,14 @@ def coach_connections(request):
         conn.stages = _compute_connection_stages(conn)
         conn.requester_display_name = _profile_display_name(conn.requester)
         conn.recipient_display_name = _profile_display_name(conn.recipient)
+        # The crush note is written for the routed coach only. Unrouted pool
+        # leads stay listed so they can be claimed, but their note preview is
+        # withheld until a coach actually owns the lead.
+        conn.show_requester_note = (
+            conn.flow != EventConnection.FLOW_CRUSH
+            or conn.status == "shared"
+            or conn.assigned_coach_id == coach.id
+        )
 
     # Batch-fetch the onboarding coach per user (the coach who approved their
     # ProfileSubmission). Surfaced next to each avatar so the reviewing coach
@@ -3790,6 +3846,18 @@ def coach_connection_review(request, connection_id):
         ),
         id=connection_id,
     )
+
+    # Crush leads authorize on GET as well as POST: the ownership check below
+    # only blocks writes, so without this a non-routed coach could still open
+    # the detail page and read the coach-only `requester_note`. Same 404 as a
+    # non-existent id — the response must not confirm the lead exists.
+    if (
+        connection.flow == EventConnection.FLOW_CRUSH
+        and connection.status != "shared"
+        and connection.assigned_coach_id is not None
+        and connection.assigned_coach_id != coach.id
+    ):
+        raise Http404
 
     # Get messages for this connection
     connection_messages = connection.messages.select_related("sender").order_by(
