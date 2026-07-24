@@ -3985,6 +3985,20 @@ def coach_connection_review(request, connection_id):
             return redirect("crush_lu:coach_connections")
 
         elif action == "claim":
+            # Claim is deliberately exempt from the ownership check above, so
+            # without this guard it is an ownership takeover: any coach could
+            # POST `claim` on an already-routed row. For a crush lead that is
+            # also a privacy hole — a `shared` lead is openable by any coach,
+            # and claiming it flips `show_requester_note`, handing over the
+            # note the routed coach was promised sole sight of.
+            # An inactive routed coach still counts as unassigned: they are
+            # locked out of every coach view, so the lead needs a new owner.
+            if connection.assigned_coach and connection.assigned_coach.is_active:
+                messages.error(
+                    request, _("This connection is assigned to another coach.")
+                )
+                return redirect("crush_lu:coach_connections")
+
             # Claim unassigned connection
             with transaction.atomic():
                 connection.assigned_coach = coach

@@ -1280,3 +1280,93 @@ class TestCodexRound2:
 
         assert "HX-Redirect" in response
         assert response.status_code != 302
+
+
+class TestClaimCannotTakeOverALead:
+    """A `shared` crush lead is openable by any coach, and `claim` is exempt
+    from the ownership check — so without a guard, clicking Claim hands over
+    the note the routed coach was promised sole sight of."""
+
+    def _shared_lead(self):
+        routed = _make_coach("clm_routed@example.com")
+        crusher = _plain("clm_a", gender="M")
+        target = _plain("clm_b", gender="F")
+        event = _ended_event()
+        _attend(crusher, event)
+        _attend(target, event)
+        lead = EventConnection.objects.create(
+            requester=crusher,
+            recipient=target,
+            event=event,
+            flow=EventConnection.FLOW_CRUSH,
+            requester_note="Takeover note.",
+            assigned_coach=routed,
+            status="shared",
+        )
+        return routed, lead
+
+    def _url(self, lead):
+        return reverse(
+            "crush_lu:coach_connection_review", kwargs={"connection_id": lead.pk}
+        )
+
+    def test_claim_is_refused_on_an_assigned_lead(self, client):
+        routed, lead = self._shared_lead()
+        thief = _make_coach("clm_thief@example.com")
+        _login(client, thief.user)
+
+        client.post(self._url(lead), {"action": "claim"})
+
+        lead.refresh_from_db()
+        assert lead.assigned_coach == routed
+
+    def test_a_refused_claim_does_not_expose_the_note(self, client):
+        routed, lead = self._shared_lead()
+        thief = _make_coach("clm_thief2@example.com")
+        _login(client, thief.user)
+
+        client.post(self._url(lead), {"action": "claim"})
+        response = client.get(self._url(lead))
+
+        assert b"Takeover note." not in response.content
+
+    def test_an_unassigned_lead_can_still_be_claimed(self, client):
+        """The guard must not break normal pool triage."""
+        taker = _make_coach("clm_taker@example.com")
+        crusher = _plain("clm_ua", gender="M")
+        target = _plain("clm_ub", gender="F")
+        event = _ended_event()
+        _attend(crusher, event)
+        _attend(target, event)
+        lead = EventConnection.objects.create(
+            requester=crusher, recipient=target, event=event,
+            flow=EventConnection.FLOW_CRUSH,
+        )
+        _login(client, taker.user)
+
+        client.post(self._url(lead), {"action": "claim"})
+
+        lead.refresh_from_db()
+        assert lead.assigned_coach == taker
+
+    def test_a_legacy_connection_is_protected_too(self, client):
+        """Pre-existing takeover, same guard — a coach should not silently
+        reassign another coach's connection."""
+        routed = _make_coach("clm_lroute@example.com")
+        thief = _make_coach("clm_lthief@example.com")
+        requester = _plain("clm_la", gender="M")
+        target = _plain("clm_lb", gender="F")
+        event = _ended_event()
+        _attend(requester, event)
+        _attend(target, event)
+        legacy = EventConnection.objects.create(
+            requester=requester, recipient=target, event=event,
+            flow=EventConnection.FLOW_LEGACY, status="accepted",
+            assigned_coach=routed,
+        )
+        _login(client, thief.user)
+
+        client.post(self._url(legacy), {"action": "claim"})
+
+        legacy.refresh_from_db()
+        assert legacy.assigned_coach == routed
