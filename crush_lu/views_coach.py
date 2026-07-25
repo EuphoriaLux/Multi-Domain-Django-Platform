@@ -5042,7 +5042,7 @@ def coach_crush_outreach_task(request, connection_id):
             closed_under_lock = False
             with transaction.atomic():
                 connection = (
-                    EventConnection.objects.select_for_update()
+                    EventConnection.objects.select_for_update(of=("self",))
                     .select_related("recipient", "event", "assigned_coach")
                     .get(pk=connection.pk)
                 )
@@ -5084,7 +5084,7 @@ def coach_crush_outreach_task(request, connection_id):
                 # row another request just set to 'declined') and clobbering
                 # each other's append to the audit list.
                 connection = (
-                    EventConnection.objects.select_for_update()
+                    EventConnection.objects.select_for_update(of=("self",))
                     .select_related("recipient", "event", "assigned_coach")
                     .get(pk=connection.pk)
                 )

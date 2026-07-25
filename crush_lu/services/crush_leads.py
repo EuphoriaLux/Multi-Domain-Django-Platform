@@ -207,7 +207,7 @@ def sweep_lead_reminders(
         try:
             with transaction.atomic():
                 lead = (
-                    EventConnection.objects.select_for_update(skip_locked=True)
+                    EventConnection.objects.select_for_update(of=("self",), skip_locked=True)
                     .select_related("assigned_coach__user", "requester", "event")
                     .filter(pk=lead_id)
                     .first()
