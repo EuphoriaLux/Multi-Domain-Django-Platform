@@ -165,34 +165,7 @@
                 🧭 {% trans "Enable compass" %}
             </button>
 
-            <div class="mt-3 flex justify-center gap-2 flex-wrap">
-                <button type="button" x-on:click="playGpsChime"
-                        class="btn-crush-outline btn-sm"
-                        title="{% trans 'Test GPS arrival sound' %}">
-                    🔊 {% trans "Test Sound" %}
-                </button>
-            </div>
             <p class="mt-3 text-xs text-gray-500 dark:text-gray-400" x-text="gpsStatus"></p>
-
-            {# Developer / Testing Compass Simulator Toolbar #}
-            <div class="mt-4 p-3 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-xs text-center space-y-2">
-                <div class="font-semibold text-purple-900 dark:text-purple-200 flex items-center justify-center gap-1">
-                    🧭 <span>Compass Debug Simulator</span>
-                </div>
-                <div class="flex items-center justify-center gap-1.5 flex-wrap">
-                    <span class="text-gray-500 dark:text-gray-400">Heading:</span>
-                    <button type="button" x-on:click="setHeading0" class="px-2 py-1 rounded bg-white dark:bg-gray-800 border border-purple-300 dark:border-purple-700 shadow-xs hover:bg-purple-100 dark:hover:bg-purple-900 font-mono text-purple-900 dark:text-purple-200">0° N</button>
-                    <button type="button" x-on:click="setHeading90" class="px-2 py-1 rounded bg-white dark:bg-gray-800 border border-purple-300 dark:border-purple-700 shadow-xs hover:bg-purple-100 dark:hover:bg-purple-900 font-mono text-purple-900 dark:text-purple-200">90° E</button>
-                    <button type="button" x-on:click="setHeading180" class="px-2 py-1 rounded bg-white dark:bg-gray-800 border border-purple-300 dark:border-purple-700 shadow-xs hover:bg-purple-100 dark:hover:bg-purple-900 font-mono text-purple-900 dark:text-purple-200">180° S</button>
-                    <button type="button" x-on:click="setHeading270" class="px-2 py-1 rounded bg-white dark:bg-gray-800 border border-purple-300 dark:border-purple-700 shadow-xs hover:bg-purple-100 dark:hover:bg-purple-900 font-mono text-purple-900 dark:text-purple-200">270° W</button>
-                </div>
-                <div class="flex items-center justify-center gap-1.5 flex-wrap">
-                    <span class="text-gray-500 dark:text-gray-400">Screen Mode:</span>
-                    <button type="button" x-on:click="setScreen0" :class="screen0Class" class="px-2 py-1 rounded border border-purple-300 dark:border-purple-700 font-mono transition-all">Portrait 0°</button>
-                    <button type="button" x-on:click="setScreen90" :class="screen90Class" class="px-2 py-1 rounded border border-purple-300 dark:border-purple-700 font-mono transition-all">Landscape R 90°</button>
-                    <button type="button" x-on:click="setScreen270" :class="screen270Class" class="px-2 py-1 rounded border border-purple-300 dark:border-purple-700 font-mono transition-all">Landscape L 270°</button>
-                </div>
-            </div>
             <div class="mt-3 rounded-xl bg-amber-50 dark:bg-amber-900/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200 text-left"
                  x-show="gpsDenied" x-cloak>
                 {% trans "Location is blocked. Allow location access for this site in your browser settings, or let a teammate with GPS lead the way." %}
