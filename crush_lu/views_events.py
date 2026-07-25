@@ -370,13 +370,26 @@ def my_events(request):
 
     past.sort(key=lambda r: r.event.date_time, reverse=True)
 
-    # Count mutual matches per past attended event (single query, annotated)
+    # Count mutual matches per past attended event (single query, annotated).
+    # Mutual-derived metrics must not be flow-blind: pre-`shared` crush rows
+    # never count as a mutual match — the "1 mutual match" line would reveal
+    # a private reciprocal declaration the moment it lands.
     attended_event_ids = [r.event_id for r in past if r.status == "attended"]
     mutual_counts = {}
     if attended_event_ids:
-        connections = EventConnection.objects.annotate_is_mutual().filter(
-            event_id__in=attended_event_ids,
-            requester=request.user,
+        # The FORWARD row must be filtered too, not just the reverse subquery:
+        # `annotate_is_visible_mutual` only screens candidate reverse rows, so
+        # the user's own unshared outgoing crush would still be iterated, and a
+        # visible legacy reverse from the counterpart would flip
+        # `is_mutual_annotated` — reporting a mutual match before the crush is
+        # shared. Mirrors the recap-email calculation.
+        connections = (
+            EventConnection.objects.annotate_is_visible_mutual()
+            .excluding_unshared_crushes()
+            .filter(
+                event_id__in=attended_event_ids,
+                requester=request.user,
+            )
         )
         for conn in connections:
             if conn.is_mutual_annotated:

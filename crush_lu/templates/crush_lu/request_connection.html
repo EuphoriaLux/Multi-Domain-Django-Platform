@@ -1,14 +1,14 @@
 {% extends 'crush_lu/base.html' %}
 {% load static i18n crush_media %}
 
-{% block title %}{% trans "Request Connection" %}{% endblock %}
+{% block title %}{% trans "My Crush!" %}{% endblock %}
 
 {% block content %}
 <div class="py-10">
     <div class="max-w-lg mx-auto">
         <!-- Header -->
         <div class="text-center mb-6">
-            <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-3">{% trans "Request Connection 💕" %}</h1>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-3">{% trans "My Crush! 💘" %}</h1>
             <p class="text-gray-500 dark:text-gray-400">{{ event.title }}</p>
         </div>
 
@@ -37,13 +37,12 @@
             </div>
         </div>
 
-        <!-- Connection Request Form -->
+        <!-- Declaration Form -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
             <div class="p-6">
-                <h5 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">{% trans "Add a note (optional)" %}</h5>
+                <h5 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">{% trans "Tell your coach what happened (optional)" %}</h5>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                    {% blocktrans with name=recipient.crushprofile.display_name %}Help {{ name }} remember your conversation!{% endblocktrans %}
-                    {% trans "This will be visible to your Crush Coach." %}
+                    {% trans "Only your Crush Coach will read this — never your crush." %}
                 </p>
 
                 <form method="post">
@@ -56,22 +55,25 @@
                                   name="note"
                                   rows="4"
                                   placeholder="{% trans "We talked about hiking in Mullerthal..." %}"
-                                  maxlength="500"></textarea>
-                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{% trans "Optional - helps jog their memory" %}</p>
+                                  maxlength="300"></textarea>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{% trans "Optional — it helps your coach make a great introduction" %}</p>
                     </div>
 
-                    <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
-                        <h6 class="font-medium text-blue-800 dark:text-blue-200 mb-2">{% include "shared/icons/information-circle.html" with class="w-5 h-5" %} {% trans "What happens next?" %}</h6>
-                        <ul class="text-sm text-blue-700 dark:text-blue-300 space-y-1 list-disc list-inside">
-                            <li>{% blocktrans with name=recipient.crushprofile.display_name %}{{ name }} will be notified of your request{% endblocktrans %}</li>
-                            <li>{% trans "If they accept (or already requested you!), a Crush Coach will facilitate" %}</li>
-                            <li>{% trans "You'll both need to consent before contact info is shared" %}</li>
+                    <div class="bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-800 rounded-lg p-4 mb-6">
+                        <h6 class="font-medium text-pink-800 dark:text-pink-200 mb-2 flex items-center gap-1">{% include "shared/icons/heart.html" with class="w-5 h-5" %} {% trans "What happens next?" %}</h6>
+                        <ul class="text-sm text-pink-700 dark:text-pink-300 space-y-1 list-disc list-inside">
+                            <li>{% trans "Your crush stays completely private — they are never notified" %}</li>
+                            <li>{% trans "Your Crush Coach will call you within 48 hours to talk about it" %}</li>
+                            <li>{% trans "Your coach personally arranges the introduction if it makes sense" %}</li>
+                            <li>{% trans "Curious how this works every week? Ask your coach about Crush Connect on the call" %}</li>
                         </ul>
                     </div>
 
                     <div class="flex flex-col gap-3">
-                        <button type="submit" class="btn-crush-primary w-full py-3 text-lg font-semibold">
-                            {% include "shared/icons/heart.html" with class="w-5 h-5" %} {% trans "Send Connection Request" %}
+                        <button type="submit"
+                                onclick="return confirm('{% filter escapejs %}{% trans "Declare your crush? It stays completely private and cannot be undone. Your Crush Coach will call you within 48 hours to talk about it." %}{% endfilter %}');"
+                                class="btn-crush-primary w-full py-3 text-lg font-semibold">
+                            {% include "shared/icons/heart.html" with class="w-5 h-5" %} {% trans "Declare My Crush!" %}
                         </button>
                         <a href="{% url 'crush_lu:event_attendees' event.id %}"
                            class="w-full py-3 px-6 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-center font-medium transition-colors">

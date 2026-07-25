@@ -909,17 +909,25 @@ def send_event_recap(registration, request=None):
     user = registration.user
     event = registration.event
 
-    # Compute counts. Use annotate_is_mutual to avoid N+1.
-    outgoing_qs = EventConnection.objects.filter(event=event, requester=user).exclude(
-        status="declined"
+    # Compute counts. Use annotate_is_visible_mutual to avoid N+1 — and to
+    # keep mutual-derived metrics flow-aware: pre-`shared` crush rows are
+    # excluded from the outgoing/mutual calculation (the "two-way interest"
+    # line must never confirm a private reciprocal) and from the incoming
+    # waiting count (one more channel that would announce a private crush).
+    outgoing_qs = (
+        EventConnection.objects.filter(event=event, requester=user)
+        .exclude(status="declined")
+        .excluding_unshared_crushes()
     )
-    outgoing_qs = outgoing_qs.annotate_is_mutual()
+    outgoing_qs = outgoing_qs.annotate_is_visible_mutual()
     outgoing_count = outgoing_qs.count()
     mutual_match_count = sum(1 for c in outgoing_qs if c.is_mutual_annotated)
 
-    incoming_count = EventConnection.objects.filter(
-        event=event, recipient=user, status="pending"
-    ).count()
+    incoming_count = (
+        EventConnection.objects.filter(event=event, recipient=user, status="pending")
+        .excluding_unshared_crushes()
+        .count()
+    )
 
     has_action = mutual_match_count > 0 or incoming_count > 0
 
