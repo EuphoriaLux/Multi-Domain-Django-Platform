@@ -4515,6 +4515,14 @@ def coach_connection_review(request, connection_id):
         "call_outcome_choices": EventConnection.CALL_OUTCOME_CHOICES,
         "can_share_now": connection.can_share_contacts,
         "intro_templates": intro_templates_for_picker,
+        # Same gate as the list preview: an unrouted pool lead stays openable
+        # so it can be triaged and claimed, but its note opens only once a
+        # coach owns it. Routed-to-someone-else already 404'd above, and
+        # there is no `shared` exception — see the list view.
+        "show_requester_note": (
+            connection.flow != EventConnection.FLOW_CRUSH
+            or connection.assigned_coach_id == coach.id
+        ),
     }
     return render(request, "crush_lu/coach_connection_review.html", context)
 

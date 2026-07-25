@@ -2358,3 +2358,77 @@ def test_experience_cta_is_state_aware(client, settings):
     _login_eligible(client, receiver)
     body = client.get(EXPERIENCE_URL.format(slug="coach-pick")).content.decode()
     assert "See this week&#x27;s pick" in body or "See this week's pick" in body
+
+
+# ---------------------------------------------------------------------------
+# "My Crush!" pool interaction — the pre-`shared` exemption is DIRECTIONAL
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_pool_still_excludes_a_candidate_the_user_declared_on():
+    """An OUTGOING crush is already known to the requester, so it excludes
+    like any other connection. Ignoring it would leave a Coach's Pick for
+    their own crush live and acceptable — a parallel Connect journey against
+    the same person while the lead is open."""
+    from crush_lu.models import EventConnection
+
+    me = _make_user(username="crusher", preferred_genders=["F", "M"])
+    target = _make_user(username="crush_target", gender="F")
+    _mark_attended(me)
+    _mark_attended(target)
+    assert target in get_eligible_pool(me)
+
+    EventConnection.objects.create(
+        requester=me,
+        recipient=target,
+        event=_make_event(title="Declaration event"),
+        flow=EventConnection.FLOW_CRUSH,
+    )
+
+    assert target not in get_eligible_pool(me)
+
+
+@pytest.mark.django_db
+def test_pool_ignores_an_incoming_crush_so_the_secret_holds():
+    """From the RECIPIENT's side the row must change nothing observable —
+    an open Coach's Pick of the crusher vanishing would betray the secret."""
+    from crush_lu.models import EventConnection
+
+    admirer = _make_user(username="admirer")
+    me = _make_user(username="admired", gender="F", preferred_genders=["M"])
+    _mark_attended(admirer)
+    _mark_attended(me)
+    assert admirer in get_eligible_pool(me)
+
+    EventConnection.objects.create(
+        requester=admirer,
+        recipient=me,
+        event=_make_event(title="Secret declaration event"),
+        flow=EventConnection.FLOW_CRUSH,
+    )
+
+    assert admirer in get_eligible_pool(me)
+
+
+@pytest.mark.django_db
+def test_pool_excludes_a_shared_crush_in_both_directions():
+    """From `shared` the pair is knowingly connected, so the normal
+    any-connection exclusion applies again on both sides."""
+    from crush_lu.models import EventConnection
+
+    admirer = _make_user(username="shared_admirer")
+    me = _make_user(username="shared_admired", gender="F", preferred_genders=["M"])
+    _mark_attended(admirer)
+    _mark_attended(me)
+
+    EventConnection.objects.create(
+        requester=admirer,
+        recipient=me,
+        event=_make_event(title="Shared event"),
+        flow=EventConnection.FLOW_CRUSH,
+        status="shared",
+    )
+
+    assert admirer not in get_eligible_pool(me)
+    assert me not in get_eligible_pool(admirer)
