@@ -197,3 +197,5 @@ Rule: logged-in surfaces → **hub** (it self-routes); guest surfaces → teaser
 - **Banned vocabulary:** "beta", "tester", "waitlist" (Connect context),
   "Story" (deprecated mechanic), "people you've met at events" (stale claim —
   Connect is online-first).
+- **Navbar & Navigation Naming Rule (O10):** "My Crush!" is strictly reserved for the member-facing post-event declaration feature. The coach navbar dropdown for personal dating profile management is named "My Dating Profile" (`base.html:365` desktop, `base.html:896` mobile).
+

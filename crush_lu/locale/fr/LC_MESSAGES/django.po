@@ -36076,3 +36076,6 @@ msgid ""
 msgstr ""
 "OBSOLÈTE (refonte Event Identity) : anciens intérêts en texte libre, "
 "visibles par les coachs uniquement"
+
+msgid "My Dating Profile"
+msgstr "Mon profil de rencontre"

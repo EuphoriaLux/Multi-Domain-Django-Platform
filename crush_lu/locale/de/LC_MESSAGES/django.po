@@ -35938,3 +35938,6 @@ msgid ""
 msgstr ""
 "VERALTET (Event-Identity-Redesign): alte Freitext-Interessen, nur für "
 "Coaches sichtbar"
+
+msgid "My Dating Profile"
+msgstr "Mein Dating-Profil"
