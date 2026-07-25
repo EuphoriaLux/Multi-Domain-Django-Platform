@@ -674,18 +674,22 @@ def connection_actions(request, event_id, user_id):
     # instead of the My Crush! button (mirrors the attendees page).
     from .services.event_lobby import (
         CRUSH_FLOW_REDIRECT,
+        CRUSH_FLOW_UNAVAILABLE,
         crush_flow_decision,
     )
     from .services.crush_leads import crushes_remaining
 
+    flow_decision = crush_flow_decision(request.user, target_user, event)
     attendee = {
         "user": target_user,
         "connection_status": connection_status,
         "connection_id": connection_id,
-        "recap_cta": (
-            crush_flow_decision(request.user, target_user, event)
-            == CRUSH_FLOW_REDIRECT
-        ),
+        "recap_cta": flow_decision == CRUSH_FLOW_REDIRECT,
+        # One pair, one flow (§9.1): an encounter-removal pair is neither
+        # recap nor crush. Hiding this state from the partial lets it fall
+        # through to the My Crush! button, which the write endpoint would
+        # then reject — the card must not offer an action it can't deliver.
+        "crush_unavailable": flow_decision == CRUSH_FLOW_UNAVAILABLE,
     }
 
     return render(
@@ -712,19 +716,15 @@ def respond_connection(request, connection_id, action):
     # The recipient's response endpoint is closed for crush leads (§5):
     # consent moves only through the coach. A guessed accept/decline URL
     # no-ops neutrally — no status change, no consent flags, no
-    # notification, and the same non-disclosing message as a dead connection.
+    # notification. We return the same 404 that get_object_or_404 produces
+    # for an unknown ID, so a recipient probing connection IDs cannot
+    # distinguish "a crush lead exists" from "no such connection" — both
+    # look identical to the genuine 404 they get for an ID that is not theirs.
     if (
         connection.flow == EventConnection.FLOW_CRUSH
         and connection.status != "shared"
     ):
-        if request.headers.get("HX-Request"):
-            return render(
-                request,
-                "crush_lu/_htmx_error.html",
-                {"message": _("This connection is no longer available.")},
-            )
-        messages.error(request, _("This connection is no longer available."))
-        return redirect("crush_lu:my_connections")
+        raise Http404("No connection found.")
 
     # Block guard: a block placed after the request arrived must stop the
     # pending → accepted transition (an old notification / known accept URL

@@ -628,7 +628,13 @@ class TestRecipientPrivacy:
         assert counters() == (0, 0)
 
     def test_respond_connection_closed_for_crush_rows(self, client):
-        """Direct POSTs to accept/decline a crush lead no-op neutrally."""
+        """Direct POSTs to accept/decline a crush lead 404 neutrally.
+
+        A guessed accept/decline URL returns the same 404 that
+        get_object_or_404 produces for an unknown ID, so a recipient
+        probing connection IDs cannot distinguish "a crush lead exists"
+        from "no such connection" (P1 privacy — Codex round 5).
+        """
         _crusher, target, _event, lead = self._declared()
         _login(client, target)
 
@@ -639,7 +645,7 @@ class TestRecipientPrivacy:
                     kwargs={"connection_id": lead.pk, "action": action},
                 )
             )
-            assert response.status_code == 302
+            assert response.status_code == 404
             lead.refresh_from_db()
             assert lead.status == "pending"
             assert lead.requester_consents_to_share is False
