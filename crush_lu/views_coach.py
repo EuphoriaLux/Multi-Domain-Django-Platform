@@ -3974,11 +3974,24 @@ def coach_connection_review(request, connection_id):
     # had made their own call. Mutual pairs are *flagged* to both coaches
     # (see `is_mutual_crush` below), never merged. A crush row on either side
     # is enough to break the coupling.
-    couple_reverse = (
+    legacy_pair = (
         reverse_connection is not None
         and connection.flow != EventConnection.FLOW_CRUSH
         and reverse_connection.flow != EventConnection.FLOW_CRUSH
     )
+    # A legacy pair whose reverse row already belongs to a *different* active
+    # coach is not ours to write through to. `couple_reverse` gates nothing but
+    # write-through (`start_review`, `approve`, `claim`), so excluding that case
+    # here closes all three at once: otherwise refusing the takeover at claim
+    # time only moves it, since approving this row reassigns the reverse and
+    # promotes it to `coach_approved` under the other coach's feet.
+    reverse_owned_elsewhere = bool(
+        legacy_pair
+        and reverse_connection.assigned_coach
+        and reverse_connection.assigned_coach.is_active
+        and reverse_connection.assigned_coach_id != coach.id
+    )
+    couple_reverse = legacy_pair and not reverse_owned_elsewhere
 
     if request.method == "POST":
         action = request.POST.get("action")
@@ -4137,7 +4150,10 @@ def coach_connection_review(request, connection_id):
                 # from deadlocking — without it the two transactions take the
                 # same two locks in opposite orders.
                 pks = [connection.pk]
-                if couple_reverse:
+                if legacy_pair:
+                    # `legacy_pair`, not `couple_reverse`: a reverse row owned
+                    # elsewhere is exactly the one this branch has to see, so
+                    # it can refuse rather than half-claim the pair.
                     pks.append(reverse_connection.pk)
                 # `of=("self",)` locks the connection rows only: `assigned_coach`
                 # is nullable, so `select_related` puts it on the nullable side
@@ -4154,24 +4170,38 @@ def coach_connection_review(request, connection_id):
                     .order_by("pk")
                 }
                 locked = rows[connection.pk]
-                if locked.assigned_coach and locked.assigned_coach.is_active:
-                    claimed = locked.assigned_coach_id == coach.id
+                locked_reverse = (
+                    rows.get(reverse_connection.pk) if legacy_pair else None
+                )
+
+                def _owned_by_another(row):
+                    return bool(
+                        row is not None
+                        and row.assigned_coach
+                        and row.assigned_coach.is_active
+                        and row.assigned_coach_id != coach.id
+                    )
+
+                # A coupled pair is claimed as a unit or not at all. Assigning
+                # this row while the reverse belongs to an active coach looks
+                # safe here, but `start_review` and `approve` still write
+                # through to the reverse row — so the takeover this guard
+                # exists to prevent would just happen one action later, and
+                # two coaches would have started outreach on the same pair by
+                # then. The pair is not stranded: its existing owner can still
+                # claim this side themselves.
+                if _owned_by_another(locked) or _owned_by_another(locked_reverse):
+                    claimed = False
                 else:
                     claimed = True
-                    locked.assigned_coach = coach
-                    locked.save(update_fields=["assigned_coach"])
-                    if couple_reverse:
-                        locked_reverse = rows.get(reverse_connection.pk)
-                        # Re-checked under its own lock: the other side may
-                        # have been claimed while this request waited, and
-                        # taking it from that coach is the takeover this
-                        # branch is meant to prevent.
-                        if locked_reverse is not None and not (
-                            locked_reverse.assigned_coach
-                            and locked_reverse.assigned_coach.is_active
-                        ):
-                            locked_reverse.assigned_coach = coach
-                            locked_reverse.save(update_fields=["assigned_coach"])
+                    if locked.assigned_coach_id != coach.id:
+                        locked.assigned_coach = coach
+                        locked.save(update_fields=["assigned_coach"])
+                    if locked_reverse is not None and (
+                        locked_reverse.assigned_coach_id != coach.id
+                    ):
+                        locked_reverse.assigned_coach = coach
+                        locked_reverse.save(update_fields=["assigned_coach"])
                     connection = locked
             if claimed:
                 messages.success(request, _("Connection claimed."))

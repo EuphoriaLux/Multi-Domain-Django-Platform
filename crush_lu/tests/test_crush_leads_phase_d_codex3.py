@@ -1362,8 +1362,74 @@ class TestCoupledClaimLocksBothRows:
         _login(client, first.user)
         client.post(_review_url(fwd), {"action": "claim"})
 
+        rev.refresh_from_db()
+        # Blind-writing the coupled row would have handed it to `first`.
+        assert rev.assigned_coach == second
+        # See TestCoupledClaimIsAllOrNothing for the forward row: leaving it
+        # claimed here would only defer the takeover to `approve`.
+
+
+class TestCoupledClaimIsAllOrNothing:
+    """Codex round 6: assigning this row while the coupled reverse belongs to
+    an active coach looks safe at claim time, but `start_review`/`approve`
+    still write through to the reverse — so the takeover just lands one action
+    later, after two coaches have both started outreach."""
+
+    def _legacy_mutual_pair(self):
+        first = _make_coach("r6_cp_first@example.com")
+        second = _make_coach("r6_cp_second@example.com")
+        user_a, _ = _make_user("r6_cp_a@example.com", "M")
+        user_b, _ = _make_user("r6_cp_b@example.com", "F")
+        event = _make_event()
+        fwd = _lead(
+            user_a, user_b, event,
+            status="accepted", flow=EventConnection.FLOW_LEGACY,
+        )
+        rev = _lead(
+            user_b, user_a, event,
+            status="accepted", flow=EventConnection.FLOW_LEGACY,
+        )
+        return first, second, fwd, rev
+
+    def test_an_owned_reverse_row_refuses_the_whole_claim(self):
+        first, second, fwd, rev = self._legacy_mutual_pair()
+        EventConnection.objects.filter(pk=rev.pk).update(assigned_coach=second)
+        client = Client()
+        _login(client, first.user)
+
+        response = client.post(_review_url(fwd), {"action": "claim"}, follow=True)
+
         fwd.refresh_from_db()
         rev.refresh_from_db()
-        assert fwd.assigned_coach == first
-        # Blind-writing the coupled row would have handed it to `first`.
+        # Neither half moves — a half-claimed pair is the bug.
+        assert fwd.assigned_coach is None
+        assert rev.assigned_coach == second
+        assert any("another coach" in m for m in _notes(response))
+
+    def test_the_refusal_also_blocks_the_later_takeover(self):
+        """The actual damage: with the claim refused, `approve`'s write-through
+        can no longer hand the reverse row to the wrong coach."""
+        first, second, fwd, rev = self._legacy_mutual_pair()
+        EventConnection.objects.filter(pk=rev.pk).update(assigned_coach=second)
+        client = Client()
+        _login(client, first.user)
+
+        client.post(_review_url(fwd), {"action": "claim"})
+        client.post(_review_url(fwd), {"action": "approve"})
+
+        rev.refresh_from_db()
+        assert rev.assigned_coach == second
+
+    def test_the_existing_owner_can_still_claim_the_other_half(self):
+        """Refusing must not strand the pair — its owner can complete it."""
+        _, second, fwd, rev = self._legacy_mutual_pair()
+        EventConnection.objects.filter(pk=rev.pk).update(assigned_coach=second)
+        client = Client()
+        _login(client, second.user)
+
+        client.post(_review_url(fwd), {"action": "claim"})
+
+        fwd.refresh_from_db()
+        rev.refresh_from_db()
+        assert fwd.assigned_coach == second
         assert rev.assigned_coach == second
