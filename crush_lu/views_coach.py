@@ -3993,6 +3993,50 @@ def coach_connection_review(request, connection_id):
     )
     couple_reverse = legacy_pair and not reverse_owned_elsewhere
 
+    def _owned_by_another(row):
+        return bool(
+            row is not None
+            and row.assigned_coach
+            and row.assigned_coach.is_active
+            and row.assigned_coach_id != coach.id
+        )
+
+    def _lock_pair():
+        """
+        Lock this row and its coupled reverse, and re-derive ownership from
+        the locked reads.
+
+        `couple_reverse` above is decided from the objects fetched at request
+        entry. That is the right decision on possibly-stale data: between that
+        read and the write, another coach's `claim` can commit and take both
+        rows of a legacy pair. Writing from the entry objects would then
+        silently overwrite them — the same "two coaches own it" failure the
+        claim path was hardened against, reached from `start_review` or
+        `approve` instead.
+
+        Returns ``(locked, locked_reverse, couple_ok, blocked)``. `pk` order
+        keeps two requests taking the same two locks in the same order, so
+        they queue instead of deadlocking.
+        """
+        pks = [connection.pk]
+        if legacy_pair:
+            pks.append(reverse_connection.pk)
+        rows = {
+            row.pk: row
+            for row in EventConnection.objects.select_for_update(of=("self",))
+            .select_related("assigned_coach")
+            .filter(pk__in=pks)
+            .order_by("pk")
+        }
+        locked_row = rows[connection.pk]
+        locked_rev = rows.get(reverse_connection.pk) if legacy_pair else None
+        return (
+            locked_row,
+            locked_rev,
+            legacy_pair and not _owned_by_another(locked_rev),
+            _owned_by_another(locked_row) or _owned_by_another(locked_rev),
+        )
+
     if request.method == "POST":
         action = request.POST.get("action")
 
@@ -4008,15 +4052,26 @@ def coach_connection_review(request, connection_id):
             # Coach starts reviewing - transition from accepted to coach_reviewing
             if connection.status == "accepted":
                 with transaction.atomic():
-                    connection.status = "coach_reviewing"
-                    connection.assigned_coach = coach
-                    connection.save(update_fields=["status", "assigned_coach"])
-                    if couple_reverse and reverse_connection.status == "accepted":
-                        reverse_connection.status = "coach_reviewing"
-                        reverse_connection.assigned_coach = coach
-                        reverse_connection.save(
-                            update_fields=["status", "assigned_coach"]
+                    locked, locked_reverse, couple_ok, blocked = _lock_pair()
+                    if blocked:
+                        messages.error(
+                            request,
+                            _("This connection is assigned to another coach."),
                         )
+                        return redirect("crush_lu:coach_connections")
+                    # Re-checked on the locked row: the status can have moved
+                    # since request entry too.
+                    if locked.status == "accepted":
+                        locked.status = "coach_reviewing"
+                        locked.assigned_coach = coach
+                        locked.save(update_fields=["status", "assigned_coach"])
+                        if couple_ok and locked_reverse.status == "accepted":
+                            locked_reverse.status = "coach_reviewing"
+                            locked_reverse.assigned_coach = coach
+                            locked_reverse.save(
+                                update_fields=["status", "assigned_coach"]
+                            )
+                        connection = locked
                 messages.success(request, _("Connection is now under your review."))
 
         elif action == "save_notes":
@@ -4057,28 +4112,34 @@ def coach_connection_review(request, connection_id):
 
             # Approve the connection - move to coach_approved
             with transaction.atomic():
-                # Re-read under the lock: the decline this guard defends
-                # against can land between the check above and the write.
-                if connection.flow == EventConnection.FLOW_CRUSH:
-                    locked = (
-                        EventConnection.objects.select_for_update()
-                        .only("id", "status")
-                        .get(pk=connection.pk)
+                # Lock both rows and re-derive ownership: the decline this
+                # guard defends against, and a competing claim on either half
+                # of a legacy pair, can both land between the checks above and
+                # the writes below. The pair lock covers legacy rows too — the
+                # old crush-only re-read left every coupled pair unlocked.
+                locked, locked_reverse, couple_ok, blocked = _lock_pair()
+                if blocked:
+                    messages.error(
+                        request, _("This connection is assigned to another coach.")
                     )
-                    if locked.status in ("declined", "shared"):
-                        messages.info(request, _("This lead is closed."))
-                        return redirect(
-                            "crush_lu:coach_connection_review",
-                            connection_id=connection.id,
-                        )
-                connection.coach_notes = request.POST.get("coach_notes", "").strip()
-                connection.coach_introduction = request.POST.get(
+                    return redirect("crush_lu:coach_connections")
+                if locked.flow == EventConnection.FLOW_CRUSH and locked.status in (
+                    "declined",
+                    "shared",
+                ):
+                    messages.info(request, _("This lead is closed."))
+                    return redirect(
+                        "crush_lu:coach_connection_review",
+                        connection_id=connection.id,
+                    )
+                locked.coach_notes = request.POST.get("coach_notes", "").strip()
+                locked.coach_introduction = request.POST.get(
                     "coach_introduction", ""
                 ).strip()
-                connection.status = "coach_approved"
-                connection.assigned_coach = coach
-                connection.coach_approved_at = timezone.now()
-                connection.save(
+                locked.status = "coach_approved"
+                locked.assigned_coach = coach
+                locked.coach_approved_at = timezone.now()
+                locked.save(
                     update_fields=[
                         "coach_notes",
                         "coach_introduction",
@@ -4089,18 +4150,16 @@ def coach_connection_review(request, connection_id):
                 )
 
                 # Also approve the reverse connection if it exists
-                if couple_reverse and reverse_connection.status in [
+                if couple_ok and locked_reverse.status in [
                     "accepted",
                     "coach_reviewing",
                 ]:
-                    reverse_connection.status = "coach_approved"
-                    reverse_connection.assigned_coach = coach
-                    reverse_connection.coach_approved_at = timezone.now()
-                    reverse_connection.coach_notes = connection.coach_notes
-                    reverse_connection.coach_introduction = (
-                        connection.coach_introduction
-                    )
-                    reverse_connection.save(
+                    locked_reverse.status = "coach_approved"
+                    locked_reverse.assigned_coach = coach
+                    locked_reverse.coach_approved_at = timezone.now()
+                    locked_reverse.coach_notes = locked.coach_notes
+                    locked_reverse.coach_introduction = locked.coach_introduction
+                    locked_reverse.save(
                         update_fields=[
                             "status",
                             "assigned_coach",
@@ -4109,6 +4168,7 @@ def coach_connection_review(request, connection_id):
                             "coach_introduction",
                         ]
                     )
+                connection = locked
 
             messages.success(
                 request,
@@ -4141,58 +4201,15 @@ def coach_connection_review(request, connection_id):
             # revalidate against the fresh row before assigning.
             claimed = False
             with transaction.atomic():
-                # Both rows of a coupled pair are locked here, in primary-key
-                # order. Locking only this row and then blind-writing the
-                # reverse one would reproduce the very bug this guard exists
-                # to stop, one row over: two coaches claiming opposite sides
-                # of the same mutual pair would each lock a different row and
-                # overwrite the other's. Ordering by pk is what keeps that
-                # from deadlocking — without it the two transactions take the
-                # same two locks in opposite orders.
-                pks = [connection.pk]
-                if legacy_pair:
-                    # `legacy_pair`, not `couple_reverse`: a reverse row owned
-                    # elsewhere is exactly the one this branch has to see, so
-                    # it can refuse rather than half-claim the pair.
-                    pks.append(reverse_connection.pk)
-                # `of=("self",)` locks the connection rows only: `assigned_coach`
-                # is nullable, so `select_related` puts it on the nullable side
-                # of an outer join, which PostgreSQL refuses to lock (see the
-                # same note in `views_checkin`). SQLite ignores locking
-                # entirely, so this is invisible to the test suite.
-                rows = {
-                    row.pk: row
-                    for row in EventConnection.objects.select_for_update(
-                        of=("self",)
-                    )
-                    .select_related("assigned_coach")
-                    .filter(pk__in=pks)
-                    .order_by("pk")
-                }
-                locked = rows[connection.pk]
-                locked_reverse = (
-                    rows.get(reverse_connection.pk) if legacy_pair else None
-                )
-
-                def _owned_by_another(row):
-                    return bool(
-                        row is not None
-                        and row.assigned_coach
-                        and row.assigned_coach.is_active
-                        and row.assigned_coach_id != coach.id
-                    )
-
                 # A coupled pair is claimed as a unit or not at all. Assigning
                 # this row while the reverse belongs to an active coach looks
-                # safe here, but `start_review` and `approve` still write
-                # through to the reverse row — so the takeover this guard
-                # exists to prevent would just happen one action later, and
-                # two coaches would have started outreach on the same pair by
-                # then. The pair is not stranded: its existing owner can still
-                # claim this side themselves.
-                if _owned_by_another(locked) or _owned_by_another(locked_reverse):
-                    claimed = False
-                else:
+                # safe, but `start_review` and `approve` write through to the
+                # reverse row too — so the takeover this guard exists to stop
+                # would just happen one action later, after two coaches had
+                # started outreach. The pair is not stranded: its existing
+                # owner can still claim this side themselves.
+                locked, locked_reverse, _couple_ok, blocked = _lock_pair()
+                if not blocked:
                     claimed = True
                     if locked.assigned_coach_id != coach.id:
                         locked.assigned_coach = coach

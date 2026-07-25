@@ -38,6 +38,7 @@ from crush_lu.models import (
     MeetupEvent,
     UserDataConsent,
 )
+from crush_lu import views_coach as crush_lu_views
 from crush_lu.services import crush_leads
 from crush_lu.services.crush_leads import REMINDER_AFTER, sweep_lead_reminders
 
@@ -1433,3 +1434,111 @@ class TestCoupledClaimIsAllOrNothing:
         rev.refresh_from_db()
         assert fwd.assigned_coach == second
         assert rev.assigned_coach == second
+
+
+class TestLegacyPairWritesRevalidateUnderLock:
+    """claude[bot] on `b8a5fbd`: round 6 fixed the *decision* — `couple_reverse`
+    is derived correctly — but `start_review` and `approve` still wrote from
+    the request-entry objects with no lock. A claim committing in that window
+    was silently overwritten, which is the same "two coaches own it" failure
+    the claim path had just been hardened against, reached from elsewhere."""
+
+    def _legacy_pair(self):
+        first = _make_coach("r7_first@example.com")
+        second = _make_coach("r7_second@example.com")
+        user_a, _ = _make_user("r7_a@example.com", "M")
+        user_b, _ = _make_user("r7_b@example.com", "F")
+        event = _make_event()
+        fwd = _lead(
+            user_a, user_b, event,
+            status="accepted", flow=EventConnection.FLOW_LEGACY,
+        )
+        rev = _lead(
+            user_b, user_a, event,
+            status="accepted", flow=EventConnection.FLOW_LEGACY,
+        )
+        return first, second, fwd, rev
+
+    def _post_with_claim_landing_midflight(self, actor, fwd, rev, winner, action):
+        """Run `action` from a request that read both rows as unowned, with
+        `winner`'s claim committing before the write — the window the lock
+        closes. Mutating before the request would be caught by the entry read
+        and prove nothing."""
+        stale = EventConnection.objects.select_related("assigned_coach").get(pk=fwd.pk)
+        original = crush_lu_views.get_object_or_404
+        client = Client()
+        _login(client, actor.user)
+        fired = []
+
+        def _fetch(*args, **kwargs):
+            # One-shot. Firing on the followed redirect too would re-apply the
+            # claim *after* the write under test and make the assertion pass
+            # no matter what the view did — the test would be measuring its
+            # own mock.
+            if fired:
+                return original(*args, **kwargs)
+            fired.append(True)
+            EventConnection.objects.filter(pk__in=[fwd.pk, rev.pk]).update(
+                assigned_coach=winner
+            )
+            return stale
+
+        with mock.patch.object(crush_lu_views, "get_object_or_404", _fetch):
+            return client.post(
+                _review_url(fwd), {"action": action, "coach_notes": "x"}, follow=True
+            )
+
+    def test_start_review_does_not_overwrite_a_claim_that_landed_midflight(self):
+        first, second, fwd, rev = self._legacy_pair()
+
+        self._post_with_claim_landing_midflight(
+            first, fwd, rev, winner=second, action="start_review"
+        )
+
+        fwd.refresh_from_db()
+        rev.refresh_from_db()
+        assert fwd.assigned_coach == second
+        assert rev.assigned_coach == second
+
+    def test_approve_does_not_overwrite_a_claim_that_landed_midflight(self):
+        first, second, fwd, rev = self._legacy_pair()
+
+        self._post_with_claim_landing_midflight(
+            first, fwd, rev, winner=second, action="approve"
+        )
+
+        fwd.refresh_from_db()
+        rev.refresh_from_db()
+        assert fwd.assigned_coach == second
+        assert rev.assigned_coach == second
+        # ...and the status must not have moved either.
+        assert fwd.status == "accepted"
+
+    def test_an_uncontested_start_review_still_couples_the_pair(self):
+        """Positive control — the lock must not break the normal path."""
+        first, _, fwd, rev = self._legacy_pair()
+        client = Client()
+        _login(client, first.user)
+
+        client.post(_review_url(fwd), {"action": "start_review"})
+
+        fwd.refresh_from_db()
+        rev.refresh_from_db()
+        assert fwd.status == "coach_reviewing"
+        assert rev.status == "coach_reviewing"
+        assert rev.assigned_coach == first
+
+    def test_an_uncontested_approve_still_couples_the_pair(self):
+        first, _, fwd, rev = self._legacy_pair()
+        client = Client()
+        _login(client, first.user)
+
+        client.post(
+            _review_url(fwd), {"action": "approve", "coach_notes": "notes"}
+        )
+
+        fwd.refresh_from_db()
+        rev.refresh_from_db()
+        assert fwd.status == "coach_approved"
+        assert rev.status == "coach_approved"
+        assert rev.coach_notes == "notes"
