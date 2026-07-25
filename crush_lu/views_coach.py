@@ -3579,29 +3579,41 @@ def _profile_display_name(user):
     return user.first_name or user.username
 
 
+def _stale_owner_recoverable(conn):
+    """Whether a *deactivated* routed coach should count as unassigned.
+
+    Normally they do: ``coach_required`` locks a deactivated coach out of every
+    coach view, so keeping the row theirs would strand it — unworkable,
+    invisible, and silently missing its 48h SLA. Letting another coach see and
+    claim it is the recovery path.
+
+    But recovery only makes sense while there is work left to recover. On a
+    closed crush lead (`shared`, `declined`) there is none, so the fallthrough
+    stops being recovery and becomes pure disclosure — of the pair on the
+    detail page, and of `requester_note` once a claim flips
+    `show_requester_note`. A cancelled crush stays private.
+
+    Legacy rows keep unconditional recovery: they carry no coach-private note.
+    """
+    return (
+        conn.flow != EventConnection.FLOW_CRUSH
+        or conn.status in EventConnection.OPEN_LEAD_STATUSES
+    )
+
+
 def _claim_blocked(conn):
     """Whether ``claim`` must be refused on ``conn``.
 
-    An active routed coach owns the row outright. A *deactivated* routed coach
-    normally counts as unassigned — ``coach_required`` locks them out of every
-    coach view, so the lead would otherwise be stranded, and this is the
-    stale-lead recovery path the view offers.
-
-    That recovery is withheld on a closed crush lead. `shared` and `declined`
-    leave no coach work to recover, so a claim there does nothing except flip
-    `show_requester_note` for the claimer — handing over a note promised to
-    the routed coach alone, on a lead that is already finished or cancelled.
-    Legacy rows are unaffected: they carry no coach-private note.
+    An active routed coach owns the row outright; a deactivated one counts as
+    unassigned only while the lead is still recoverable (see
+    ``_stale_owner_recoverable``).
     """
     routed = conn.assigned_coach
     if routed is None:
         return False
     if routed.is_active:
         return True
-    return (
-        conn.flow == EventConnection.FLOW_CRUSH
-        and conn.status not in EventConnection.OPEN_LEAD_STATUSES
-    )
+    return not _stale_owner_recoverable(conn)
 
 
 def _compute_connection_next_action(conn, current_coach):
@@ -3967,11 +3979,18 @@ def coach_connection_review(request, connection_id):
     # A deactivated routed coach counts as unassigned: they are barred from
     # every coach view by `coach_required`, so enforcing their ownership here
     # would leave the lead unworkable by anyone — see `visible_to_coach`.
+    # A deactivated routed coach counts as unassigned only while the lead is
+    # still recoverable. On a `declined` lead there is nothing to recover, so
+    # without that qualifier the guard falls through and hands any active coach
+    # the full detail page — both identities, photos, ages, and consent state —
+    # for a crush that was cancelled. `_stale_owner_recoverable` is the same
+    # rule `claim` enforces; the two must not disagree, or the page that
+    # refuses the claim still renders what the claim was after.
     routed_coach = connection.assigned_coach
     routed_elsewhere = (
         routed_coach is not None
-        and routed_coach.is_active
         and routed_coach.id != coach.id
+        and (routed_coach.is_active or not _stale_owner_recoverable(connection))
     )
     if (
         connection.flow == EventConnection.FLOW_CRUSH

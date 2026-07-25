@@ -1839,3 +1839,67 @@ class TestCodexRound6Fixes:
             response = Client().post(reverse("api_admin_crush_lead_reminders"))
 
         assert response.status_code == 401
+
+
+class TestCodexRound7Fix:
+    """Round 7 P1: the closed-lead narrowing landed on `claim` but not on the
+    GET guard, so the page that refused the claim still rendered what the
+    claim was after."""
+
+    def _declined_stale(self, status="declined"):
+        routed = _make_coach("r7_routed@example.com", is_active=False)
+        requester, _p = _make_user("r7_req@example.com", "M")
+        recipient, _p2 = _make_user("r7_rec@example.com", "F")
+        lead = _lead(
+            requester, recipient, _make_event(), routed,
+            status=status, requester_note="Cancelled crush note.",
+        )
+        return routed, lead
+
+    def _url(self, lead):
+        return reverse(
+            "crush_lu:coach_connection_review", kwargs={"connection_id": lead.pk}
+        )
+
+    def test_a_declined_stale_lead_is_404_for_an_unrelated_coach(self):
+        _routed, lead = self._declined_stale()
+        stranger = _make_coach("r7_stranger@example.com")
+        client = Client()
+        _login(client, stranger.user)
+
+        assert client.get(self._url(lead)).status_code == 404
+
+    def test_the_declined_pair_is_not_rendered(self):
+        _routed, lead = self._declined_stale()
+        stranger = _make_coach("r7_stranger2@example.com")
+        client = Client()
+        _login(client, stranger.user)
+
+        content = client.get(self._url(lead)).content
+
+        assert b"Cancelled crush note." not in content
+        assert lead.requester.username.encode() not in content
+
+    def test_an_open_stale_lead_stays_recoverable(self):
+        """The narrowing must not break stale-lead recovery: an *open* lead
+        with a deactivated coach still has to be openable and claimable, or it
+        is stranded with nobody able to see it."""
+        _routed, lead = self._declined_stale(status="pending")
+        rescuer = _make_coach("r7_rescuer@example.com")
+        client = Client()
+        _login(client, rescuer.user)
+
+        assert client.get(self._url(lead)).status_code == 200
+        client.post(self._url(lead), {"action": "claim"})
+        lead.refresh_from_db()
+        assert lead.assigned_coach == rescuer
+
+    def test_a_shared_lead_stays_openable(self):
+        """A completed introduction is not private in the same way — this
+        narrowing must not change that."""
+        _routed, lead = self._declined_stale(status="shared")
+        other = _make_coach("r7_other@example.com")
+        client = Client()
+        _login(client, other.user)
+
+        assert client.get(self._url(lead)).status_code == 200
