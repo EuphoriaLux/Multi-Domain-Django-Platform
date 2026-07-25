@@ -4060,8 +4060,11 @@ def coach_connection_review(request, connection_id):
                         )
                         return redirect("crush_lu:coach_connections")
                     # Re-checked on the locked row: the status can have moved
-                    # since request entry too.
-                    if locked.status == "accepted":
+                    # since request entry too — the recipient declining is not
+                    # a coach action and does not touch `assigned_coach`, so
+                    # it slips past the ownership check above.
+                    started = locked.status == "accepted"
+                    if started:
                         locked.status = "coach_reviewing"
                         locked.assigned_coach = coach
                         locked.save(update_fields=["status", "assigned_coach"])
@@ -4072,7 +4075,18 @@ def coach_connection_review(request, connection_id):
                                 update_fields=["status", "assigned_coach"]
                             )
                         connection = locked
-                messages.success(request, _("Connection is now under your review."))
+                # Reporting outside the re-check would tell the coach their
+                # review had started on a connection that closed under them
+                # and was never written — the same misleading-success shape
+                # already fixed on the co-coach surface twice in this branch.
+                if started:
+                    messages.success(
+                        request, _("Connection is now under your review.")
+                    )
+                else:
+                    messages.info(
+                        request, _("This connection is no longer awaiting review.")
+                    )
 
         elif action == "save_notes":
             # Save coach notes and introduction without changing status

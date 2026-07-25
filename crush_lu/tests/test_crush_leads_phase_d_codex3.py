@@ -1542,3 +1542,74 @@ class TestLegacyPairWritesRevalidateUnderLock:
         assert fwd.status == "coach_approved"
         assert rev.status == "coach_approved"
         assert rev.coach_notes == "notes"
+
+
+class TestStartReviewReportsWhatActuallyHappened:
+    """claude[bot] on `1a55437`: the post-lock status re-check I added could
+    skip the write while the success message still fired. Reachable with no
+    coach race at all — the recipient declining is not a coach action and does
+    not touch `assigned_coach`, so it slips past the ownership guard."""
+
+    def _accepted_pair(self):
+        coach = _make_coach("r8_coach@example.com")
+        user_a, _ = _make_user("r8_a@example.com", "M")
+        user_b, _ = _make_user("r8_b@example.com", "F")
+        conn = _lead(
+            user_a, user_b, _make_event(),
+            status="accepted", flow=EventConnection.FLOW_LEGACY,
+        )
+        return coach, conn
+
+    def _post_with_decline_landing_midflight(self, coach, conn):
+        stale = EventConnection.objects.select_related("assigned_coach").get(
+            pk=conn.pk
+        )
+        original = crush_lu_views.get_object_or_404
+        client = Client()
+        _login(client, coach.user)
+        fired = []
+
+        def _fetch(*args, **kwargs):
+            if fired:
+                return original(*args, **kwargs)
+            fired.append(True)
+            # The recipient declines between the entry read and the lock.
+            EventConnection.objects.filter(pk=conn.pk).update(status="declined")
+            return stale
+
+        with mock.patch.object(crush_lu_views, "get_object_or_404", _fetch):
+            return client.post(
+                _review_url(conn), {"action": "start_review"}, follow=True
+            )
+
+    def test_a_skipped_write_is_not_reported_as_success(self):
+        coach, conn = self._accepted_pair()
+
+        response = self._post_with_decline_landing_midflight(coach, conn)
+
+        conn.refresh_from_db()
+        assert conn.status == "declined"
+        notes = _notes(response)
+        assert not any("now under your review" in m for m in notes)
+        assert any("no longer awaiting review" in m for m in notes)
+
+    def test_the_skipped_write_leaves_no_trace(self):
+        coach, conn = self._accepted_pair()
+
+        self._post_with_decline_landing_midflight(coach, conn)
+
+        conn.refresh_from_db()
+        assert conn.assigned_coach is None
+
+    def test_a_real_start_review_still_reports_success(self):
+        coach, conn = self._accepted_pair()
+        client = Client()
+        _login(client, coach.user)
+
+        response = client.post(
+            _review_url(conn), {"action": "start_review"}, follow=True
+        )
+
+        conn.refresh_from_db()
+        assert conn.status == "coach_reviewing"
+        assert any("now under your review" in m for m in _notes(response))
