@@ -167,12 +167,21 @@ def sweep_lead_reminders(
     coach push notification helper and a monotonic clock.
     """
     now = now or timezone.now()
+    clock = clock or time.monotonic
+    started = clock()
     if notify is None:
         from crush_lu.coach_notifications import notify_coach_crush_lead_reminder
 
-        notify = notify_coach_crush_lead_reminder
-    clock = clock or time.monotonic
-    started = clock()
+        # Bound each notification by the sweep's own budget: between-lead
+        # checks cannot stop a single multi-device `notify()` from overrunning
+        # the caller's 60s timeout on its own — the deadline has to reach
+        # inside the device loop.
+        sweep_deadline = started + time_budget
+
+        def notify(coach, lead):  # noqa: A001 — matches the injectable's name
+            return notify_coach_crush_lead_reminder(
+                coach, lead, deadline=sweep_deadline, clock=clock
+            )
 
     sent = 0
     failed = 0

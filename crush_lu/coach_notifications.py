@@ -6,6 +6,7 @@ Completely separate from user notifications to avoid conflicts.
 
 import json
 import logging
+import time
 from django.conf import settings
 from django.urls import reverse
 from django.utils.translation import gettext as _
@@ -29,6 +30,8 @@ def send_coach_push_notification(
     icon=None,
     badge=None,
     subscriptions=None,
+    deadline=None,
+    clock=None,
 ):
     """
     Send a push notification to a coach's subscribed devices.
@@ -47,6 +50,15 @@ def send_coach_push_notification(
             queryset — otherwise this re-queries every enabled device and
             delivers to the ones where the coach muted that category.
             Defaults to all enabled subscriptions.
+        deadline: optional monotonic timestamp after which no further device
+            deliveries are started. The crush lead sweep passes its caller's
+            time budget here: each device allows up to
+            ``PUSH_TIMEOUT_SECONDS``, so without it a coach with several
+            stalled endpoints can hold a row lock well past the Azure
+            Function's 60s timeout — and a rollback at that point could undo
+            a push that already reached another device. The per-device
+            timeout is also clamped to the remaining budget.
+        clock: monotonic clock used with ``deadline``; injectable for tests.
 
     Returns:
         dict: {
@@ -93,9 +105,29 @@ def send_coach_push_notification(
     # Track results
     success_count = 0
     failed_count = 0
+    budget_exhausted = False
+    if deadline is not None:
+        clock = clock or time.monotonic
 
     # Send to each subscription
     for subscription in subscriptions:
+        if deadline is not None:
+            remaining = deadline - clock()
+            if remaining <= 0:
+                # Out of the caller's budget: stop starting deliveries so a
+                # stalled device cannot hold a caller-held lock past its
+                # timeout. Unattempted devices are simply not counted — the
+                # sweep re-tries the lead on its next run when nothing got
+                # through.
+                budget_exhausted = True
+                logger.warning(
+                    f"Coach push deadline exhausted for {coach.user.username}; "
+                    "remaining devices skipped"
+                )
+                break
+            device_timeout = min(PUSH_TIMEOUT_SECONDS, remaining)
+        else:
+            device_timeout = PUSH_TIMEOUT_SECONDS
         try:
             # Prepare subscription info for pywebpush
             subscription_info = {
@@ -116,7 +148,7 @@ def send_coach_push_notification(
                 # would then hang the caller indefinitely — for the crush
                 # lead sweep that means holding a row lock until the Azure
                 # Function's own 60s timeout kills the request.
-                timeout=PUSH_TIMEOUT_SECONDS,
+                timeout=device_timeout,
             )
 
             # Mark success
@@ -149,7 +181,12 @@ def send_coach_push_notification(
     return {
         "success": success_count,
         "failed": failed_count,
+        # Total targeted devices, not attempted ones: a budget-exhausted run
+        # that delivered nothing must read as a delivery failure (total > 0,
+        # success == 0) so the sweep rolls its stamp back and retries the
+        # lead — never as "nobody opted in", which would consume it.
         "total": subscriptions.count(),
+        "budget_exhausted": budget_exhausted,
     }
 
 
@@ -421,7 +458,7 @@ def notify_coach_screening_reminder(coach, submission):
     )
 
 
-def notify_coach_crush_lead_reminder(coach, connection):
+def notify_coach_crush_lead_reminder(coach, connection, deadline=None, clock=None):
     """
     Remind a coach about a "My Crush!" lead they haven't touched in 24h.
 
@@ -439,6 +476,10 @@ def notify_coach_crush_lead_reminder(coach, connection):
     Args:
         coach: CrushCoach the lead is routed to
         connection: the ``flow='crush'`` EventConnection
+        deadline: optional monotonic timestamp bounding the whole device
+            loop; the sweep passes its own budget through so one multi-device
+            coach cannot overrun the Azure Function's 60s caller timeout.
+        clock: monotonic clock used with ``deadline``; injectable for tests.
     """
     subscriptions = CoachPushSubscription.objects.filter(
         coach=coach, enabled=True, notify_screening_reminders=True
@@ -471,6 +512,8 @@ def notify_coach_crush_lead_reminder(coach, connection):
         # where the coach muted this category must not receive it just
         # because another device is still opted in.
         subscriptions=subscriptions,
+        deadline=deadline,
+        clock=clock,
     )
 
 

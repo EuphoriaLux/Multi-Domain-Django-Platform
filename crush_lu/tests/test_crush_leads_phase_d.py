@@ -1426,3 +1426,220 @@ class TestOutreachRaceOnAClosingLead:
         assert any("closed" in m for m in notes)
         assert not any("already recorded" in m for m in notes)
         assert not any("Consent recorded" in m for m in notes)
+
+
+class TestCodexRound4Fixes:
+    """Codex round 4: the requester decline closes the lead, a non-completed
+    outcome clears the obsolete schedule, terminal leads stay terminal,
+    competing claims serialize, the detail page stops calling a declined
+    reciprocal "Mutual", and the sweep deadline reaches inside the
+    device-delivery loop."""
+
+    def _review_url(self, lead):
+        return reverse(
+            "crush_lu:coach_connection_review", kwargs={"connection_id": lead.pk}
+        )
+
+    def test_a_requester_decline_closes_the_lead_and_drops_the_outreach_task(self):
+        """consent=no used to only flip a flag: the lead stayed open and the
+        co-coach could still contact the recipient about an introduction the
+        requester had already refused."""
+        routed = _make_coach("r4_routed@example.com")
+        cocoach = _make_coach("r4_cocoach@example.com")
+        requester, _ = _make_user("r4_req@example.com", "M")
+        recipient, _ = _make_user("r4_rec@example.com", "F")
+        lead = _lead(
+            requester, recipient, _make_event(), routed, status="coach_reviewing"
+        )
+        lead.recipient_coach = cocoach
+        lead.save(update_fields=["recipient_coach"])
+        outreach_open = EventConnection.objects.filter(
+            flow=EventConnection.FLOW_CRUSH,
+            recipient_coach=cocoach,
+            recipient_response__isnull=True,
+            status__in=EventConnection.OPEN_LEAD_STATUSES,
+        )
+        assert outreach_open.filter(pk=lead.pk).exists()
+
+        client = Client()
+        _login(client, routed.user)
+        client.post(
+            self._review_url(lead),
+            {"action": "crush_record_consent", "consent": "no"},
+        )
+
+        lead.refresh_from_db()
+        assert lead.status == "declined"
+        assert lead.requester_consents_to_share is False
+        assert "crush_requester_decline" in [
+            a["type"] for a in lead.system_actions
+        ]
+        # The co-coach's task filters OPEN_LEAD_STATUSES, so it is gone —
+        # the recipient is never contacted, and never told why.
+        assert not outreach_open.filter(pk=lead.pk).exists()
+        assert not EventConnection.objects.open_crush_leads().filter(
+            pk=lead.pk
+        ).exists()
+
+    def test_a_non_completed_outcome_clears_the_obsolete_schedule(self):
+        """A scheduled call that ends as no_answer kept its timestamp, and
+        both reminder predicates treat any scheduled row as touched — so the
+        re-armed reminder could never fire and the workspace showed an
+        appointment that already happened."""
+        coach = _make_coach("r4_sched@example.com")
+        requester, _ = _make_user("r4_sa@example.com", "M")
+        recipient, _ = _make_user("r4_sb@example.com", "F")
+        lead = _lead(
+            requester, recipient, _make_event(), coach, status="coach_reviewing"
+        )
+        lead.coach_call_scheduled_at = timezone.now() - timedelta(hours=1)
+        lead.reminder_sent_at = timezone.now()
+        lead.save(update_fields=["coach_call_scheduled_at", "reminder_sent_at"])
+
+        client = Client()
+        _login(client, coach.user)
+        client.post(
+            self._review_url(lead),
+            {"action": "crush_complete_call", "call_outcome": "no_answer"},
+        )
+
+        lead.refresh_from_db()
+        assert lead.coach_call_scheduled_at is None
+        assert lead.coach_call_completed_at is None
+        assert lead.reminder_sent_at is None
+        # And the re-arm is real: once the lead is old enough, the sweep can
+        # actually pick it up again.
+        EventConnection.objects.filter(pk=lead.pk).update(
+            requested_at=timezone.now() - REMINDER_AFTER - timedelta(minutes=5)
+        )
+        assert reminder_candidates().filter(pk=lead.pk).exists()
+
+    def test_approve_cannot_reopen_a_shared_lead(self):
+        """The terminal guard rejected only `declined`, so a stale
+        facilitation form could flip a shared lead back to coach_approved —
+        hiding the contacts again while shared_at stayed set."""
+        coach = _make_coach("r4_term@example.com")
+        requester, _ = _make_user("r4_ta@example.com", "M")
+        recipient, _ = _make_user("r4_tb@example.com", "F")
+        lead = _lead(
+            requester, recipient, _make_event(), coach, status="shared"
+        )
+        lead.shared_at = timezone.now()
+        lead.save(update_fields=["shared_at"])
+
+        client = Client()
+        _login(client, coach.user)
+        client.post(self._review_url(lead), {"action": "approve"})
+
+        lead.refresh_from_db()
+        assert lead.status == "shared"
+
+    def test_a_competing_claim_loses_instead_of_replacing_the_owner(self):
+        """Two coaches can pass the entry guard against the same stale
+        instance; only the locked re-read decides who gets the lead."""
+        owner = _make_coach("r4_owner@example.com")
+        challenger = _make_coach("r4_chal@example.com")
+        requester, _ = _make_user("r4_ca@example.com", "M")
+        recipient, _ = _make_user("r4_cb@example.com", "F")
+        lead = _lead(requester, recipient, _make_event())
+        stale = EventConnection.objects.select_related(
+            "requester__crushprofile",
+            "recipient__crushprofile",
+            "event",
+            "assigned_coach__user",
+        ).get(pk=lead.pk)
+        # The challenger holds the stale unassigned instance; the owner's
+        # claim lands first in the database.
+        EventConnection.objects.filter(pk=lead.pk).update(assigned_coach=owner)
+
+        client = Client()
+        _login(client, challenger.user)
+        with mock.patch(
+            "crush_lu.views_coach.get_object_or_404", return_value=stale
+        ):
+            response = client.post(
+                self._review_url(lead), {"action": "claim"}, follow=True
+            )
+
+        lead.refresh_from_db()
+        assert lead.assigned_coach == owner
+        notes = [str(m) for m in response.context["messages"]]
+        assert any("assigned to another coach" in m for m in notes)
+
+    def test_the_detail_page_does_not_call_a_declined_reciprocal_mutual(self):
+        """`is_mutual` is flow-blind and stays true for any reverse row, so
+        the detail page kept showing the green "Mutual" state after the
+        reciprocal crush was declined. The list was fixed; the detail page
+        now reads mutual status only from the live crush predicate."""
+        coach = _make_coach("r4_mut@example.com")
+        user_a, _ = _make_user("r4_ma@example.com", "M")
+        user_b, _ = _make_user("r4_mb@example.com", "F")
+        event = _make_event()
+        lead = _lead(user_a, user_b, event, coach)
+        _lead(user_b, user_a, event, coach, status="declined")
+
+        client = Client()
+        _login(client, coach.user)
+        response = client.get(self._review_url(lead))
+
+        content = response.content.decode()
+        assert response.context["is_mutual_crush"] is False
+        assert ">Mutual<" not in content
+        assert "One-way" in content
+
+    def test_the_push_loop_stops_at_the_sweep_deadline(self, monkeypatch):
+        """One coach with several stalled devices could hold the row lock
+        past the Function's 60s timeout — seven devices at 10s each — and a
+        mid-loop kill could roll back a push another device already got. The
+        deadline now reaches inside the device loop, and an exhausted run
+        reads as a delivery failure so the sweep retries the lead."""
+        import time
+
+        from django.test import override_settings
+
+        from crush_lu import coach_notifications
+        from crush_lu.models import CoachPushSubscription
+
+        coach = _make_coach("r4_push@example.com")
+        for i in range(3):
+            CoachPushSubscription.objects.create(
+                coach=coach,
+                endpoint=f"https://push.example/r4-{i}",
+                p256dh_key=f"k{i}",
+                auth_key=f"a{i}",
+                enabled=True,
+                notify_screening_reminders=True,
+            )
+        calls = []
+        monkeypatch.setattr(
+            coach_notifications, "webpush", lambda **kw: calls.append(kw)
+        )
+
+        with override_settings(
+            VAPID_PRIVATE_KEY="pk",
+            VAPID_PUBLIC_KEY="pub",
+            VAPID_ADMIN_EMAIL="admin@example.com",
+        ):
+            result = coach_notifications.send_coach_push_notification(
+                coach,
+                "title",
+                "body",
+                deadline=time.monotonic() - 1,  # already exhausted
+            )
+            assert calls == []
+            assert result["budget_exhausted"] is True
+            # Not "nobody opted in": total > 0 with no success is a failure,
+            # so the sweep rolls its stamp back instead of consuming it.
+            assert result["total"] == 3
+            assert result["success"] == 0
+
+            # With budget left, every device is attempted as before.
+            ok = coach_notifications.send_coach_push_notification(
+                coach,
+                "title",
+                "body",
+                deadline=time.monotonic() + 30,
+            )
+            assert len(calls) == 3
+            assert ok["budget_exhausted"] is False
+            assert ok["success"] == 3
