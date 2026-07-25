@@ -165,12 +165,20 @@ def _delivery_failed(result) -> bool:
     opt-out, so it is flagged explicitly by the push helper — otherwise
     every reminder falling due during the outage would be silently consumed.
 
+    A run cut short by the deadline with nothing delivered is a failure too:
+    the coach's devices were never reached, so the stamp must roll back and
+    leave the lead for the next sweep. If *some* device did get it, the
+    reminder was delivered and the stamp stands — re-sending the rest an hour
+    later would just notify the same coach twice.
+
     A non-dict result (an injected notifier) has no contract to check, so it
     is treated as delivered — such notifiers signal failure by raising.
     """
     if not isinstance(result, dict):
         return False
     if result.get("misconfigured"):
+        return True
+    if result.get("deadline_exceeded") and result.get("success", 0) == 0:
         return True
     return result.get("total", 0) > 0 and result.get("success", 0) == 0
 
@@ -285,7 +293,20 @@ def sweep_lead_reminders(
                     continue
                 lead.reminder_sent_at = now
                 lead.save(update_fields=["reminder_sent_at"])
-                if _delivery_failed(notify(lead.assigned_coach, lead)):
+                # The per-lead budget check above only runs *between* leads,
+                # so without a deadline inside the call a coach with several
+                # stalled devices could spend the whole sweep here — serial
+                # pushes at PUSH_TIMEOUT_SECONDS each, holding this row lock,
+                # past the Function's own timeout. The notifier clamps each
+                # push to what is left and stops when it is gone.
+                if _delivery_failed(
+                    notify(
+                        lead.assigned_coach,
+                        lead,
+                        deadline=started + time_budget,
+                        clock=clock,
+                    )
+                ):
                     # Inside the transaction, so the stamp rolls back and the
                     # lead stays eligible for the next sweep.
                     raise ReminderDeliveryFailed(

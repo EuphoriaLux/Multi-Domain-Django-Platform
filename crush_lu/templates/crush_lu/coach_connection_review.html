@@ -311,12 +311,23 @@
             </dl>
 
             {% if not connection.requester_consents_to_share %}
-                <form method="post" class="mb-3">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="crush_record_consent">
-                    <input type="hidden" name="consent" value="yes">
-                    <button type="submit" class="btn-crush-outline btn-sm">{% trans "They consented on the call" %}</button>
-                </form>
+                <div class="flex flex-wrap gap-2 mb-3">
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="crush_record_consent">
+                        <input type="hidden" name="consent" value="yes">
+                        <button type="submit" class="btn-crush-outline btn-sm">{% trans "They consented on the call" %}</button>
+                    </form>
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="crush_record_consent">
+                        <input type="hidden" name="consent" value="no">
+                        <button type="submit" class="btn-crush-outline btn-sm">{% trans "They changed their mind" %}</button>
+                    </form>
+                </div>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mb-3">
+                    {% trans "Withdrawing closes the lead — nobody contacts the recipient." %}
+                </p>
             {% endif %}
 
             {% comment %}

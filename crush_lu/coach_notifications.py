@@ -6,6 +6,7 @@ Completely separate from user notifications to avoid conflicts.
 
 import json
 import logging
+import time
 from django.conf import settings
 from django.urls import reverse
 from django.utils.translation import gettext as _
@@ -29,6 +30,8 @@ def send_coach_push_notification(
     icon=None,
     badge=None,
     subscriptions=None,
+    deadline=None,
+    clock=None,
 ):
     """
     Send a push notification to a coach's subscribed devices.
@@ -47,14 +50,24 @@ def send_coach_push_notification(
             queryset — otherwise this re-queries every enabled device and
             delivers to the ones where the coach muted that category.
             Defaults to all enabled subscriptions.
+        deadline: optional absolute ``clock()`` value by which this call must
+            return. Devices are sent to serially with a per-push timeout, so
+            a coach with several stalled endpoints can otherwise take
+            ``devices x PUSH_TIMEOUT_SECONDS`` — enough to blow a caller's
+            whole budget inside a single call. With a deadline set, each
+            push's timeout is clamped to the time left and the loop stops
+            once it is spent, reporting ``deadline_exceeded``.
+        clock: monotonic clock for ``deadline``, injectable for tests.
 
     Returns:
         dict: {
             'success': int,  # Number of successful sends
             'failed': int,   # Number of failed sends
-            'total': int     # Total subscriptions attempted
+            'total': int,    # Total subscriptions attempted
+            'deadline_exceeded': bool,  # only when the deadline cut it short
         }
     """
+    clock = clock or time.monotonic
 
     # Validate VAPID configuration.
     # `misconfigured` distinguishes a config error from "nobody opted in":
@@ -93,9 +106,29 @@ def send_coach_push_notification(
     # Track results
     success_count = 0
     failed_count = 0
+    attempted = 0
+    deadline_exceeded = False
 
     # Send to each subscription
     for subscription in subscriptions:
+        push_timeout = PUSH_TIMEOUT_SECONDS
+        if deadline is not None:
+            remaining = deadline - clock()
+            if remaining <= 0:
+                # Out of time before this device. Stop rather than start
+                # another push the caller has no budget left to wait for —
+                # the untried devices are reported, not silently dropped.
+                deadline_exceeded = True
+                logger.warning(
+                    "[push] deadline reached for coach %s after %d device(s); "
+                    "%d not attempted",
+                    coach.user.username,
+                    attempted,
+                    len(subscriptions) - attempted,
+                )
+                break
+            push_timeout = max(1, min(PUSH_TIMEOUT_SECONDS, int(remaining)))
+        attempted += 1
         try:
             # Prepare subscription info for pywebpush
             subscription_info = {
@@ -115,8 +148,9 @@ def send_coach_push_notification(
                 # pywebpush defaults to no timeout. A stalled push endpoint
                 # would then hang the caller indefinitely — for the crush
                 # lead sweep that means holding a row lock until the Azure
-                # Function's own 60s timeout kills the request.
-                timeout=PUSH_TIMEOUT_SECONDS,
+                # Function's own 60s timeout kills the request. Clamped to
+                # the caller's remaining budget when one was given.
+                timeout=push_timeout,
             )
 
             # Mark success
@@ -146,11 +180,17 @@ def send_coach_push_notification(
             )
             failed_count += 1
 
-    return {
+    result = {
         "success": success_count,
         "failed": failed_count,
-        "total": subscriptions.count(),
+        # Devices actually attempted, not the queryset size: a deadline can
+        # cut the loop short, and a caller deciding whether delivery failed
+        # must not read untried devices as attempted-and-failed.
+        "total": attempted,
     }
+    if deadline_exceeded:
+        result["deadline_exceeded"] = True
+    return result
 
 
 def send_coach_push_to_subscription(
@@ -421,7 +461,7 @@ def notify_coach_screening_reminder(coach, submission):
     )
 
 
-def notify_coach_crush_lead_reminder(coach, connection):
+def notify_coach_crush_lead_reminder(coach, connection, deadline=None, clock=None):
     """
     Remind a coach about a "My Crush!" lead they haven't touched in 24h.
 
@@ -466,6 +506,11 @@ def notify_coach_crush_lead_reminder(coach, connection):
         body=body,
         url=url,
         tag=f"crush-lead-reminder-{connection.id}",
+        # The sweep holds this lead's row lock for the whole call, so a coach
+        # with several stalled devices must not be able to spend the sweep's
+        # entire budget here.
+        deadline=deadline,
+        clock=clock,
         # Deliver only to the devices that opted into call reminders — the
         # body carries the requester's name onto a lock screen, so a device
         # where the coach muted this category must not receive it just

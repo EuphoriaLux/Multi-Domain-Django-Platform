@@ -284,7 +284,7 @@ class TestReminderSweep:
         coach, lead = self._overdue_lead()
         calls = []
 
-        result = sweep_lead_reminders(notify=lambda c, l: calls.append((c, l)))
+        result = sweep_lead_reminders(notify=lambda c, l, **_kw: calls.append((c, l)))
 
         lead.refresh_from_db()
         assert (result["sent"], result["failed"]) == (1, 0)
@@ -295,7 +295,7 @@ class TestReminderSweep:
         """Two timer deliveries produce exactly one reminder."""
         _, lead = self._overdue_lead()
         calls = []
-        notify = lambda c, l: calls.append(l.pk)  # noqa: E731
+        notify = lambda c, l, **_kw: calls.append(l.pk)  # noqa: E731
 
         sweep_lead_reminders(notify=notify)
         second = sweep_lead_reminders(notify=notify)
@@ -768,7 +768,7 @@ class TestCodexRound1Fixes:
         lead = self._overdue_lead()
 
         result = sweep_lead_reminders(
-            notify=lambda c, ln: {"success": 0, "failed": 2, "total": 2}
+            notify=lambda c, ln, **_kw: {"success": 0, "failed": 2, "total": 2}
         )
 
         lead.refresh_from_db()
@@ -781,7 +781,7 @@ class TestCodexRound1Fixes:
         lead = self._overdue_lead()
 
         result = sweep_lead_reminders(
-            notify=lambda c, ln: {"success": 0, "failed": 0, "total": 0}
+            notify=lambda c, ln, **_kw: {"success": 0, "failed": 0, "total": 0}
         )
 
         lead.refresh_from_db()
@@ -792,7 +792,7 @@ class TestCodexRound1Fixes:
         lead = self._overdue_lead()
 
         result = sweep_lead_reminders(
-            notify=lambda c, ln: {"success": 1, "failed": 1, "total": 2}
+            notify=lambda c, ln, **_kw: {"success": 1, "failed": 1, "total": 2}
         )
 
         lead.refresh_from_db()
@@ -1208,7 +1208,7 @@ class TestCodexRound2Robustness:
         )
 
         result = sweep_lead_reminders(
-            notify=lambda c, ln: {
+            notify=lambda c, ln, **_kw: {
                 "success": 0, "failed": 0, "total": 0, "misconfigured": True
             }
         )
@@ -1231,7 +1231,7 @@ class TestCodexRound2Robustness:
                 requested_at=timezone.now() - REMINDER_AFTER - timedelta(minutes=5)
             )
 
-        result = sweep_lead_reminders(notify=lambda c, ln: None, limit=2)
+        result = sweep_lead_reminders(notify=lambda c, ln, **_kw: None, limit=2)
 
         assert result["sent"] == 2
         assert result["truncated"] is True

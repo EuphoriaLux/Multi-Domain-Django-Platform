@@ -27,7 +27,7 @@ from unittest import mock
 
 import pytest
 from django.contrib.auth import get_user_model
-from django.test import Client
+from django.test import Client, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -635,7 +635,7 @@ class TestSweepRechecksEligibilityUnderTheLock:
         ``reminder_candidates()`` and prove nothing about the re-check."""
         sent = []
 
-        def notify(coach, lead):
+        def notify(coach, lead, **_kw):
             sent.append(lead.pk)
             return {"success": 1, "failed": 0, "total": 1}
 
@@ -723,7 +723,7 @@ class TestSweepFitsTheCallersTimeBudget:
         ticks = iter([0, 0, 10, 20, 30, 40, 50, 60, 70])
         sent = []
 
-        def notify(coach, lead):
+        def notify(coach, lead, **_kw):
             sent.append(lead.pk)
             return {"success": 1, "failed": 0, "total": 1}
 
@@ -740,7 +740,7 @@ class TestSweepFitsTheCallersTimeBudget:
         ticks = iter([0, 0, 10, 20, 30, 40, 50, 60, 70])
 
         sweep_lead_reminders(
-            notify=lambda c, l: {"success": 1, "failed": 0, "total": 1},
+            notify=lambda c, l, **_kw: {"success": 1, "failed": 0, "total": 1},
             time_budget=25,
             clock=lambda: next(ticks),
         )
@@ -756,9 +756,416 @@ class TestSweepFitsTheCallersTimeBudget:
         _, leads = self._due_leads(3)
 
         result = sweep_lead_reminders(
-            notify=lambda c, l: {"success": 1, "failed": 0, "total": 1},
+            notify=lambda c, l, **_kw: {"success": 1, "failed": 0, "total": 1},
             clock=lambda: 0,
         )
 
         assert result["sent"] == len(leads)
         assert result["truncated"] is False
+
+
+# =========================================================================
+# Codex round 4 — six findings on the round-3 fixes themselves
+# =========================================================================
+
+
+class TestRequesterDeclineClosesTheLead:
+    """P1: `consent=no` stored the false flag and nothing else, so the lead
+    stayed open and the co-coach still had a task — the recipient would be
+    approached about a crush its own author had withdrawn."""
+
+    def _pair_with_cocoach(self):
+        routed = _make_coach("r4_routed@example.com")
+        cocoach = _make_coach("r4_cocoach@example.com")
+        requester, req_p = _make_user("r4_req@example.com", "M")
+        recipient, rec_p = _make_user("r4_rec@example.com", "F")
+        req_p.assigned_coach = routed
+        req_p.save(update_fields=["assigned_coach"])
+        rec_p.assigned_coach = cocoach
+        rec_p.save(update_fields=["assigned_coach"])
+        lead = _lead(requester, recipient, _make_event(), status="coach_reviewing")
+        lead.assign_coach()
+        lead.refresh_from_db()
+        return routed, cocoach, lead
+
+    def test_a_withdrawn_crush_closes_the_lead(self):
+        routed, _, lead = self._pair_with_cocoach()
+        client = Client()
+        _login(client, routed.user)
+
+        client.post(
+            _review_url(lead), {"action": "crush_record_consent", "consent": "no"}
+        )
+
+        lead.refresh_from_db()
+        assert lead.requester_consents_to_share is False
+        assert lead.status == "declined"
+
+    def test_the_cocoach_task_disappears(self):
+        """The point of closing it: nobody contacts the recipient about a
+        crush that no longer exists."""
+        routed, cocoach, lead = self._pair_with_cocoach()
+        queue_url = reverse("crush_lu:coach_action_queue")
+        cocoach_client = Client()
+        _login(cocoach_client, cocoach.user)
+        assert b"Recipient outreach" in cocoach_client.get(queue_url).content
+
+        client = Client()
+        _login(client, routed.user)
+        client.post(
+            _review_url(lead), {"action": "crush_record_consent", "consent": "no"}
+        )
+
+        assert b"Recipient outreach" not in cocoach_client.get(queue_url).content
+
+    def test_the_withdrawal_is_offered_and_audited(self):
+        routed, _, lead = self._pair_with_cocoach()
+        client = Client()
+        _login(client, routed.user)
+
+        assert b'value="no"' in client.get(_review_url(lead)).content
+        client.post(
+            _review_url(lead), {"action": "crush_record_consent", "consent": "no"}
+        )
+
+        lead.refresh_from_db()
+        consent = [
+            a for a in lead.system_actions if a["type"] == "crush_requester_consent"
+        ]
+        assert consent and consent[0]["details"]["consented"] is False
+
+    def test_consenting_still_leaves_the_lead_open(self):
+        routed, _, lead = self._pair_with_cocoach()
+        client = Client()
+        _login(client, routed.user)
+
+        client.post(
+            _review_url(lead), {"action": "crush_record_consent", "consent": "yes"}
+        )
+
+        lead.refresh_from_db()
+        assert lead.requester_consents_to_share is True
+        assert lead.status == "coach_reviewing"
+
+
+class TestSharedLeadsAreTerminal:
+    """P2: the terminal guard rejected only `declined`, so a stale
+    facilitation form could drop an introduced pair back to `coach_approved`
+    while `shared_at` stayed set."""
+
+    def _shared_lead(self):
+        routed = _make_coach("r4_shared_coach@example.com")
+        requester, req_p = _make_user("r4_shared_req@example.com", "M")
+        recipient, _ = _make_user("r4_shared_rec@example.com", "F")
+        req_p.assigned_coach = routed
+        req_p.save(update_fields=["assigned_coach"])
+        lead = _lead(
+            requester,
+            recipient,
+            _make_event(),
+            routed,
+            status="shared",
+            shared_at=timezone.now(),
+        )
+        return routed, lead
+
+    def test_approve_cannot_un_share_an_introduced_pair(self):
+        routed, lead = self._shared_lead()
+        client = Client()
+        _login(client, routed.user)
+
+        response = client.post(_review_url(lead), {"action": "approve"}, follow=True)
+
+        lead.refresh_from_db()
+        assert lead.status == "shared"
+        assert lead.shared_at is not None
+        assert any("closed" in m for m in _notes(response))
+
+    def test_a_legacy_shared_row_keeps_its_old_behaviour(self):
+        routed, lead = self._shared_lead()
+        lead.flow = EventConnection.FLOW_LEGACY
+        lead.save(update_fields=["flow"])
+        client = Client()
+        _login(client, routed.user)
+
+        client.post(_review_url(lead), {"action": "approve"})
+
+        lead.refresh_from_db()
+        assert lead.status == "coach_approved"
+
+
+class TestRearmingAlsoClearsTheSchedule:
+    """P2: `reminder_due()` and `reminder_candidates()` both treat *any*
+    scheduled call as touched, so clearing only `reminder_sent_at` promised a
+    retry that could never fire."""
+
+    def _scheduled_lead(self):
+        coach = _make_coach("r4_sched_coach@example.com")
+        requester, req_p = _make_user("r4_sched_req@example.com", "M")
+        recipient, _ = _make_user("r4_sched_rec@example.com", "F")
+        req_p.assigned_coach = coach
+        req_p.save(update_fields=["assigned_coach"])
+        lead = _lead(
+            requester, recipient, _make_event(), coach, status="coach_reviewing"
+        )
+        EventConnection.objects.filter(pk=lead.pk).update(
+            requested_at=timezone.now() - REMINDER_AFTER - timedelta(hours=1)
+        )
+        lead.refresh_from_db()
+        return coach, lead
+
+    def test_a_failed_call_clears_its_appointment(self):
+        coach, lead = self._scheduled_lead()
+        client = Client()
+        _login(client, coach.user)
+        client.post(
+            _review_url(lead),
+            {"action": "crush_schedule_call", "scheduled_at": "2030-01-01T10:00"},
+        )
+        lead.refresh_from_db()
+        assert lead.coach_call_scheduled_at is not None
+
+        client.post(
+            _review_url(lead),
+            {"action": "crush_complete_call", "call_outcome": "no_answer"},
+        )
+
+        lead.refresh_from_db()
+        assert lead.coach_call_scheduled_at is None
+
+    def test_the_rearmed_reminder_can_actually_fire(self):
+        """The whole point of the re-arm — with the stale schedule left in
+        place the lead was excluded from every future sweep."""
+        coach, lead = self._scheduled_lead()
+        client = Client()
+        _login(client, coach.user)
+        client.post(
+            _review_url(lead),
+            {"action": "crush_schedule_call", "scheduled_at": "2030-01-01T10:00"},
+        )
+        client.post(
+            _review_url(lead),
+            {"action": "crush_complete_call", "call_outcome": "unreachable"},
+        )
+
+        assert crush_leads.reminder_candidates().filter(pk=lead.pk).exists()
+
+    def test_a_completed_call_keeps_its_appointment(self):
+        coach, lead = self._scheduled_lead()
+        client = Client()
+        _login(client, coach.user)
+        client.post(
+            _review_url(lead),
+            {"action": "crush_schedule_call", "scheduled_at": "2030-01-01T10:00"},
+        )
+
+        client.post(
+            _review_url(lead),
+            {"action": "crush_complete_call", "call_outcome": "completed"},
+        )
+
+        lead.refresh_from_db()
+        assert lead.coach_call_scheduled_at is not None
+        assert lead.coach_call_completed_at is not None
+
+
+class TestClaimsAreSerialized:
+    """P2: both racing coaches passed the ownership guard against their own
+    pre-lock instance, so the second save silently replaced the first owner
+    while both were told they had claimed it."""
+
+    def _pool_lead(self):
+        first = _make_coach("r4_claim_first@example.com")
+        second = _make_coach("r4_claim_second@example.com")
+        requester, _ = _make_user("r4_claim_req@example.com", "M")
+        recipient, _ = _make_user("r4_claim_rec@example.com", "F")
+        lead = _lead(requester, recipient, _make_event())
+        return first, second, lead
+
+    def test_the_loser_of_a_race_is_told_it_lost(self):
+        first, second, lead = self._pool_lead()
+        # The instance this request read at entry, before the other claim
+        # committed — the window the lock closes.
+        stale = EventConnection.objects.select_related("assigned_coach").get(
+            pk=lead.pk
+        )
+        EventConnection.objects.filter(pk=lead.pk).update(assigned_coach=first)
+
+        client = Client()
+        _login(client, second.user)
+        with mock.patch(
+            "crush_lu.views_coach.get_object_or_404", return_value=stale
+        ):
+            response = client.post(
+                _review_url(lead), {"action": "claim"}, follow=True
+            )
+
+        lead.refresh_from_db()
+        assert lead.assigned_coach == first
+        assert any("another coach" in m for m in _notes(response))
+        assert not any("claimed" in m for m in _notes(response))
+
+    def test_an_uncontested_claim_still_succeeds(self):
+        _, second, lead = self._pool_lead()
+        client = Client()
+        _login(client, second.user)
+
+        response = client.post(_review_url(lead), {"action": "claim"}, follow=True)
+
+        lead.refresh_from_db()
+        assert lead.assigned_coach == second
+        assert any("claimed" in m for m in _notes(response))
+
+    def test_claiming_an_already_owned_lead_never_reassigns_it(self):
+        """The outer guard rejects any actively-owned row, including your
+        own — pre-existing behaviour, asserted here only to pin down that the
+        lock cannot hand a lead to a second owner."""
+        first, _, lead = self._pool_lead()
+        EventConnection.objects.filter(pk=lead.pk).update(assigned_coach=first)
+        client = Client()
+        _login(client, first.user)
+
+        client.post(_review_url(lead), {"action": "claim"}, follow=True)
+
+        lead.refresh_from_db()
+        assert lead.assigned_coach == first
+
+
+class TestDeclinedReciprocalIsNotShownAsMutual:
+    """P2: the detail page fell back to the flow-blind `is_mutual`, so a
+    declined reciprocal still lit the generic badge — telling the routed coach
+    the recipient had once declared, after that lead closed."""
+
+    def _lead_with_declined_reciprocal(self):
+        coach = _make_coach("r4_mut_coach@example.com")
+        user_a, prof_a = _make_user("r4_mut_a@example.com", "M")
+        user_b, _ = _make_user("r4_mut_b@example.com", "F")
+        prof_a.assigned_coach = coach
+        prof_a.save(update_fields=["assigned_coach"])
+        event = _make_event()
+        lead = _lead(user_a, user_b, event, coach, status="coach_reviewing")
+        _lead(user_b, user_a, event, coach, status="declined")
+        return coach, lead
+
+    def test_the_detail_page_shows_no_mutual_badge(self):
+        coach, lead = self._lead_with_declined_reciprocal()
+        client = Client()
+        _login(client, coach.user)
+
+        body = client.get(_review_url(lead)).content.decode()
+
+        assert "Mutual crush!" not in body
+        assert ">Mutual<" not in body
+        assert "One-way" in body
+
+    def test_a_live_reciprocal_still_flags_mutual(self):
+        """Positive control — suppressing the leak must not hide a real
+        mutual pair, which both coaches need to coordinate on."""
+        coach = _make_coach("r4_mut2_coach@example.com")
+        user_a, prof_a = _make_user("r4_mut2_a@example.com", "M")
+        user_b, _ = _make_user("r4_mut2_b@example.com", "F")
+        prof_a.assigned_coach = coach
+        prof_a.save(update_fields=["assigned_coach"])
+        event = _make_event()
+        lead = _lead(user_a, user_b, event, coach, status="coach_reviewing")
+        _lead(user_b, user_a, event, coach)
+        client = Client()
+        _login(client, coach.user)
+
+        body = client.get(_review_url(lead)).content.decode()
+
+        assert "Mutual crush!" in body
+
+    def test_a_legacy_row_keeps_the_generic_badge(self):
+        coach = _make_coach("r4_mut3_coach@example.com")
+        user_a, prof_a = _make_user("r4_mut3_a@example.com", "M")
+        user_b, _ = _make_user("r4_mut3_b@example.com", "F")
+        prof_a.assigned_coach = coach
+        prof_a.save(update_fields=["assigned_coach"])
+        event = _make_event()
+        lead = _lead(
+            user_a, user_b, event, coach,
+            status="coach_reviewing", flow=EventConnection.FLOW_LEGACY,
+        )
+        _lead(
+            user_b, user_a, event, coach,
+            status="declined", flow=EventConnection.FLOW_LEGACY,
+        )
+        client = Client()
+        _login(client, coach.user)
+
+        body = client.get(_review_url(lead)).content.decode()
+
+        assert ">Mutual<" in body
+
+
+class TestOneNotifyCallCannotSpendTheWholeBudget:
+    """P2: the budget was only inspected *between* leads, so a coach with
+    several stalled devices could hold a row lock for devices x 10s — past the
+    Function's own 60s timeout — before the sweep looked at the clock again."""
+
+    def _coach_with_devices(self, count):
+        from crush_lu.models import CoachPushSubscription
+
+        coach = _make_coach("r4_dev_coach@example.com")
+        for i in range(count):
+            CoachPushSubscription.objects.create(
+                coach=coach,
+                endpoint=f"https://push.example.com/{i}",
+                p256dh_key="k" * 32,
+                auth_key="a" * 16,
+                enabled=True,
+                notify_screening_reminders=True,
+            )
+        return coach
+
+    @override_settings(
+        VAPID_PRIVATE_KEY="test-private",
+        VAPID_PUBLIC_KEY="test-public",
+        VAPID_ADMIN_EMAIL="ops@example.com",
+    )
+    def test_the_device_loop_stops_when_the_deadline_passes(self):
+        from crush_lu.coach_notifications import send_coach_push_notification
+
+        coach = self._coach_with_devices(7)
+        # Each device "takes" 10s against a 25s deadline.
+        ticks = iter([0] + [10 * i for i in range(1, 20)])
+
+        result = send_coach_push_notification(
+            coach, "t", "b", deadline=25, clock=lambda: next(ticks)
+        )
+
+        assert result.get("deadline_exceeded") is True
+        # Untried devices are not counted as attempted-and-failed.
+        assert result["total"] < 7
+
+    @override_settings(
+        VAPID_PRIVATE_KEY="test-private",
+        VAPID_PUBLIC_KEY="test-public",
+        VAPID_ADMIN_EMAIL="ops@example.com",
+    )
+    def test_a_call_inside_its_deadline_reports_no_exceedance(self):
+        from crush_lu.coach_notifications import send_coach_push_notification
+
+        coach = self._coach_with_devices(2)
+
+        result = send_coach_push_notification(
+            coach, "t", "b", deadline=100, clock=lambda: 0
+        )
+
+        assert "deadline_exceeded" not in result
+        assert result["total"] == 2
+
+    def test_a_deadline_cut_with_no_delivery_is_a_failure(self):
+        """So the stamp rolls back and the lead stays eligible, rather than
+        being permanently consumed by an outage."""
+        assert crush_leads._delivery_failed(
+            {"success": 0, "failed": 0, "total": 0, "deadline_exceeded": True}
+        )
+
+    def test_a_partial_delivery_before_the_cut_still_counts_as_sent(self):
+        """One device got it — re-sending an hour later would notify the same
+        coach twice for the same lead."""
+        assert not crush_leads._delivery_failed(
+            {"success": 1, "failed": 0, "total": 1, "deadline_exceeded": True}
+        )

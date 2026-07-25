@@ -4026,11 +4026,16 @@ def coach_connection_review(request, connection_id):
             # cancelled lead and leave it contradicting itself — a `declined`
             # recipient_response sitting on an approved row, with the
             # introduction one consent away from happening anyway.
-            # Deliberately narrow: only `declined` is terminal here. `accepted`
-            # is not a closed state, and legacy rows keep their old behaviour.
-            if (
-                connection.flow == EventConnection.FLOW_CRUSH
-                and connection.status == "declined"
+            # `shared` is terminal for the opposite reason: the introduction
+            # already happened. Re-approving would drop the row back to
+            # `coach_approved` while leaving `shared_at` set — hiding the
+            # contacts and the thread from two members who have already been
+            # introduced, and leaving the lifecycle self-contradictory.
+            # Still deliberately narrow: `accepted` is not a closed state, and
+            # legacy rows keep their old behaviour.
+            if connection.flow == EventConnection.FLOW_CRUSH and connection.status in (
+                "declined",
+                "shared",
             ):
                 messages.info(request, _("This lead is closed."))
                 return redirect(
@@ -4047,7 +4052,7 @@ def coach_connection_review(request, connection_id):
                         .only("id", "status")
                         .get(pk=connection.pk)
                     )
-                    if locked.status == "declined":
+                    if locked.status in ("declined", "shared"):
                         messages.info(request, _("This lead is closed."))
                         return redirect(
                             "crush_lu:coach_connection_review",
@@ -4115,14 +4120,36 @@ def coach_connection_review(request, connection_id):
                 )
                 return redirect("crush_lu:coach_connections")
 
-            # Claim unassigned connection
+            # Claim unassigned connection. The guard above reads the instance
+            # loaded at request entry, so two coaches racing for the same pool
+            # lead can both pass it; without a lock the second save silently
+            # replaces the first owner and *both* are told they claimed it —
+            # so both start the outreach while only one is recorded. Lock and
+            # revalidate against the fresh row before assigning.
+            claimed = False
             with transaction.atomic():
-                connection.assigned_coach = coach
-                connection.save(update_fields=["assigned_coach"])
-                if couple_reverse:
-                    reverse_connection.assigned_coach = coach
-                    reverse_connection.save(update_fields=["assigned_coach"])
-            messages.success(request, _("Connection claimed."))
+                locked = (
+                    EventConnection.objects.select_for_update()
+                    .select_related("assigned_coach")
+                    .get(pk=connection.pk)
+                )
+                if locked.assigned_coach and locked.assigned_coach.is_active:
+                    claimed = locked.assigned_coach_id == coach.id
+                else:
+                    claimed = True
+                    locked.assigned_coach = coach
+                    locked.save(update_fields=["assigned_coach"])
+                    if couple_reverse:
+                        reverse_connection.assigned_coach = coach
+                        reverse_connection.save(update_fields=["assigned_coach"])
+                    connection = locked
+            if claimed:
+                messages.success(request, _("Connection claimed."))
+            else:
+                messages.error(
+                    request, _("This connection is assigned to another coach.")
+                )
+                return redirect("crush_lu:coach_connections")
 
         # --- "My Crush!" lead workspace (spec §7) -------------------------
         # A crush lead has no recipient-acceptance step, so it never reaches
@@ -4242,6 +4269,15 @@ def coach_connection_review(request, connection_id):
                             # chased again rather than silently dropped.
                             connection.reminder_sent_at = None
                             fields.append("reminder_sent_at")
+                            # ...and drop the appointment that just failed.
+                            # Both `reminder_due()` and `reminder_candidates()`
+                            # treat *any* scheduled call as "already touched",
+                            # so leaving the old timestamp would defeat the
+                            # re-arm above — the chase could never fire — while
+                            # the workspace kept showing an appointment that
+                            # has already come and gone.
+                            connection.coach_call_scheduled_at = None
+                            fields.append("coach_call_scheduled_at")
                         connection.log_system_action(
                             "crush_call_logged", actor=actor, outcome=outcome
                         )
@@ -4254,13 +4290,26 @@ def coach_connection_review(request, connection_id):
                     # coach is the only one who can record it.
                     consented = request.POST.get("consent") == "yes"
                     connection.requester_consents_to_share = consented
+                    fields = ["requester_consents_to_share", "system_actions"]
                     connection.log_system_action(
                         "crush_requester_consent", actor=actor, consented=consented
                     )
-                    connection.save(
-                        update_fields=["requester_consents_to_share", "system_actions"]
+                    if not consented:
+                        # The crusher changed their mind on the call: there is
+                        # no introduction to make, so the lead is over. Storing
+                        # only the false flag would leave it open — and leave
+                        # the recipient-outreach task in the co-coach's inbox,
+                        # so the recipient would be approached about a crush
+                        # its author has already withdrawn.
+                        connection.status = "declined"
+                        fields.append("status")
+                    connection.save(update_fields=fields)
+                    messages.success(
+                        request,
+                        _("Consent recorded.")
+                        if consented
+                        else _("Recorded — the lead is closed."),
                     )
-                    messages.success(request, _("Consent recorded."))
 
                 elif action == "crush_record_recipient_consent":
                     # No live co-coach means no co-coach task exists, and the
@@ -4433,7 +4482,16 @@ def coach_connection_review(request, connection_id):
         "requester_profile": requester_profile,
         "recipient_profile": recipient_profile,
         "connection_messages": connection_messages,
-        "is_mutual": reverse_connection is not None,
+        # Flow-blind: true for *any* reverse row. On a crush lead that is a
+        # disclosure — a reciprocal crush the recipient has since had declined
+        # would still light up the generic "Mutual" badge, telling the routed
+        # coach they once declared after that lead closed. The list surface was
+        # fixed for this in `05d8bf4`; the detail page fell back to this value.
+        # Crush rows get their answer from `is_mutual_crush` alone.
+        "is_mutual": (
+            reverse_connection is not None
+            and connection.flow != EventConnection.FLOW_CRUSH
+        ),
         # Same gate as the list preview: an unrouted pool lead stays openable
         # so it can be triaged and claimed, but its note opens only once a
         # coach owns it. Routed-to-someone-else already 404'd above.
