@@ -69,13 +69,15 @@ def declare_crush(*, requester, recipient, event, requester_registration, note="
             flow=EventConnection.FLOW_CRUSH,
             requester_note=note,
         )
-        # Route the lead (assigned coach -> event coach -> pool). A member
-        # without a CrushProfile leaves the lead in the pool for Phase D
-        # queue triage rather than failing the declaration.
-        from crush_lu.models.profiles import CrushProfile
-
-        if CrushProfile.objects.filter(user=requester).exists():
-            connection.assign_coach()
+        # Route the lead (assigned coach -> event coach -> pool). This used to
+        # be skipped for a requester with no CrushProfile, to dodge a crash in
+        # `assign_coach`. But an event with `profile_requirement='none'` lets a
+        # profile-less user register and attend, so that path is reachable —
+        # and skipping it left the lead with no coach at all: invisible to
+        # every action queue and to the reminder sweep, which filters on an
+        # assigned coach, while the confirmation promised a call within 48h.
+        # `assign_coach` now skips its profile-dependent tiers instead.
+        connection.assign_coach()
     return connection
 
 
@@ -271,7 +273,13 @@ def sweep_lead_reminders(
         try:
             with transaction.atomic():
                 lead = (
-                    EventConnection.objects.select_for_update(skip_locked=True)
+                    # `of=("self",)`: `assigned_coach` is nullable, so
+                    # select_related joins it as the nullable side of an outer
+                    # join, which PostgreSQL will not lock. Only the lead row
+                    # needs locking anyway.
+                    EventConnection.objects.select_for_update(
+                        skip_locked=True, of=("self",)
+                    )
                     .select_related("assigned_coach__user", "requester", "event")
                     .filter(pk=lead_id)
                     .first()

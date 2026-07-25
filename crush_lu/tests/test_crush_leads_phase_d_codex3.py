@@ -1169,3 +1169,201 @@ class TestOneNotifyCallCannotSpendTheWholeBudget:
         assert not crush_leads._delivery_failed(
             {"success": 1, "failed": 0, "total": 1, "deadline_exceeded": True}
         )
+
+
+# =========================================================================
+# Codex round 5 / claude[bot] on #686
+# =========================================================================
+
+
+class TestWithdrawalStaysAvailableAfterConsent:
+    """P1: the withdrawal control was nested inside `if not
+    requester_consents_to_share`, so it vanished the moment consent was
+    recorded — and the wait on the recipient can run for days."""
+
+    def _consented_lead(self):
+        coach = _make_coach("r5_wd_coach@example.com")
+        requester, req_p = _make_user("r5_wd_req@example.com", "M")
+        recipient, _ = _make_user("r5_wd_rec@example.com", "F")
+        req_p.assigned_coach = coach
+        req_p.save(update_fields=["assigned_coach"])
+        lead = _lead(
+            requester,
+            recipient,
+            _make_event(),
+            coach,
+            status="coach_reviewing",
+            requester_consents_to_share=True,
+        )
+        return coach, lead
+
+    def test_the_control_is_still_rendered_once_consent_is_recorded(self):
+        coach, lead = self._consented_lead()
+        client = Client()
+        _login(client, coach.user)
+
+        body = client.get(_review_url(lead)).content.decode()
+
+        assert "They changed their mind" in body
+        # The affirmative is spent — offering it again would be noise.
+        assert "They consented on the call" not in body
+
+    def test_a_late_withdrawal_closes_the_lead_and_clears_consent(self):
+        coach, lead = self._consented_lead()
+        client = Client()
+        _login(client, coach.user)
+
+        client.post(
+            _review_url(lead), {"action": "crush_record_consent", "consent": "no"}
+        )
+
+        lead.refresh_from_db()
+        assert lead.requester_consents_to_share is False
+        assert lead.status == "declined"
+
+    def test_the_withdrawn_lead_can_no_longer_be_shared(self):
+        """The point: a stale `True` consent flag left the lead approvable and
+        shareable after the requester had said no."""
+        coach, lead = self._consented_lead()
+        lead.recipient_consents_to_share = True
+        lead.status = "coach_approved"
+        lead.save(update_fields=["recipient_consents_to_share", "status"])
+        client = Client()
+        _login(client, coach.user)
+
+        client.post(
+            _review_url(lead), {"action": "crush_record_consent", "consent": "no"}
+        )
+        client.post(_review_url(lead), {"action": "crush_share"})
+
+        lead.refresh_from_db()
+        assert lead.status == "declined"
+        assert lead.can_share_contacts is False
+
+
+class TestProfilelessRequesterStillGetsACoach:
+    """P1: an event with `profile_requirement='none'` has no branch in
+    `event_register`, so a profile-less user registers and attends — and
+    `declare_crush` then skipped routing entirely, leaving the lead absent
+    from every queue and from the sweep while promising a 48h call."""
+
+    def _declare_without_profile(self):
+        from crush_lu.models import EventRegistration
+        from crush_lu.services.crush_leads import declare_crush
+
+        coach = _make_coach("r5_np_coach@example.com")
+        requester = User.objects.create_user(
+            username="r5_np_req@example.com",
+            email="r5_np_req@example.com",
+            password="testpass123",
+        )
+        assert not CrushProfile.objects.filter(user=requester).exists()
+        recipient, _ = _make_user("r5_np_rec@example.com", "F")
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            user=requester, event=event, status="attended"
+        )
+        lead = declare_crush(
+            requester=requester,
+            recipient=recipient,
+            event=event,
+            requester_registration=registration,
+            note="hello",
+        )
+        lead.refresh_from_db()
+        return coach, lead
+
+    def test_the_lead_is_routed_to_the_pool_coach(self):
+        coach, lead = self._declare_without_profile()
+        assert lead.assigned_coach == coach
+
+    def test_the_lead_reaches_that_coachs_action_queue(self):
+        coach, lead = self._declare_without_profile()
+        assert EventConnection.objects.crush_leads_for_coach(coach).filter(
+            pk=lead.pk
+        ).exists()
+
+    def test_the_lead_is_eligible_for_the_reminder_sweep(self):
+        """`reminder_candidates()` filters on an assigned, active coach — an
+        unrouted lead is silently excluded from every future sweep."""
+        _, lead = self._declare_without_profile()
+        EventConnection.objects.filter(pk=lead.pk).update(
+            requested_at=timezone.now() - REMINDER_AFTER - timedelta(hours=1)
+        )
+        assert crush_leads.reminder_candidates().filter(pk=lead.pk).exists()
+
+    def test_a_requester_with_a_profile_still_routes_by_their_own_coach(self):
+        """Positive control — the profile-dependent tiers must still win."""
+        from crush_lu.models import EventRegistration
+        from crush_lu.services.crush_leads import declare_crush
+
+        _make_coach("r5_pool@example.com")  # pool tier, lower priority
+        own = _make_coach("r5_own@example.com")
+        requester, req_p = _make_user("r5_wp_req@example.com", "M")
+        recipient, _ = _make_user("r5_wp_rec@example.com", "F")
+        req_p.assigned_coach = own
+        req_p.save(update_fields=["assigned_coach"])
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            user=requester, event=event, status="attended"
+        )
+
+        lead = declare_crush(
+            requester=requester,
+            recipient=recipient,
+            event=event,
+            requester_registration=registration,
+            note="",
+        )
+
+        lead.refresh_from_db()
+        assert lead.assigned_coach == own
+
+
+class TestCoupledClaimLocksBothRows:
+    """claude[bot] on #686: the claim fix locked the primary row but wrote the
+    coupled reverse row from the pre-transaction copy — the same "both coaches
+    own it" bug, one row over, plus an AB-BA deadlock risk on Postgres."""
+
+    def _legacy_mutual_pair(self):
+        first = _make_coach("r5_cp_first@example.com")
+        second = _make_coach("r5_cp_second@example.com")
+        user_a, _ = _make_user("r5_cp_a@example.com", "M")
+        user_b, _ = _make_user("r5_cp_b@example.com", "F")
+        event = _make_event()
+        fwd = _lead(
+            user_a, user_b, event,
+            status="accepted", flow=EventConnection.FLOW_LEGACY,
+        )
+        rev = _lead(
+            user_b, user_a, event,
+            status="accepted", flow=EventConnection.FLOW_LEGACY,
+        )
+        return first, second, fwd, rev
+
+    def test_an_uncontested_coupled_claim_takes_both_rows(self):
+        first, _, fwd, rev = self._legacy_mutual_pair()
+        client = Client()
+        _login(client, first.user)
+
+        client.post(_review_url(fwd), {"action": "claim"})
+
+        fwd.refresh_from_db()
+        rev.refresh_from_db()
+        assert fwd.assigned_coach == first
+        assert rev.assigned_coach == first
+
+    def test_the_reverse_row_is_not_taken_from_another_coach(self):
+        first, second, fwd, rev = self._legacy_mutual_pair()
+        # The other side was claimed while this request was in flight.
+        EventConnection.objects.filter(pk=rev.pk).update(assigned_coach=second)
+
+        client = Client()
+        _login(client, first.user)
+        client.post(_review_url(fwd), {"action": "claim"})
+
+        fwd.refresh_from_db()
+        rev.refresh_from_db()
+        assert fwd.assigned_coach == first
+        # Blind-writing the coupled row would have handed it to `first`.
+        assert rev.assigned_coach == second

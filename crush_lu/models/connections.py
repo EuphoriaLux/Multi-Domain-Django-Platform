@@ -620,29 +620,37 @@ class EventConnection(models.Model):
         3. an active coach from ``event.coaches`` (selection policy:
            least-loaded by open crush leads, else first by id);
         4. the active coach pool (first by id).
+
+        A requester with no ``CrushProfile`` skips the first two tiers rather
+        than failing: an event with ``profile_requirement='none'`` has no
+        branch in ``event_register``, so a profile-less attendee registers,
+        attends and can declare. Raising here (or skipping the call) would
+        leave that lead unrouted — absent from every coach queue and from the
+        reminder sweep, which requires an assigned coach — while the member
+        has been promised a call within 48h. Tiers 3 and 4 need no profile.
         """
         requester_profile = CrushProfile.objects.select_related(
             'user', 'assigned_coach'
-        ).get(user=self.requester)
-
-        # Get the approved submission for the requester with coach pre-fetched
-        requester_submission = ProfileSubmission.objects.select_related('coach').filter(
-            profile=requester_profile,
-            status='approved'
-        ).first()
+        ).filter(user=self.requester).first()
 
         coach = None
-        if (
-            requester_submission
-            and requester_submission.coach
-            and requester_submission.coach.is_active
-        ):
-            coach = requester_submission.coach
+        if requester_profile is not None:
+            # Get the approved submission for the requester, coach pre-fetched
+            requester_submission = ProfileSubmission.objects.select_related(
+                'coach'
+            ).filter(profile=requester_profile, status='approved').first()
 
-        if coach is None:
-            permanent_coach = requester_profile.assigned_coach
-            if permanent_coach and permanent_coach.is_active:
-                coach = permanent_coach
+            if (
+                requester_submission
+                and requester_submission.coach
+                and requester_submission.coach.is_active
+            ):
+                coach = requester_submission.coach
+
+            if coach is None:
+                permanent_coach = requester_profile.assigned_coach
+                if permanent_coach and permanent_coach.is_active:
+                    coach = permanent_coach
 
         if coach is None:
             coach = self.select_event_coach(self.event)

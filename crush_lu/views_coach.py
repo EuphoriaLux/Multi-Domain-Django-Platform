@@ -4128,11 +4128,32 @@ def coach_connection_review(request, connection_id):
             # revalidate against the fresh row before assigning.
             claimed = False
             with transaction.atomic():
-                locked = (
-                    EventConnection.objects.select_for_update()
+                # Both rows of a coupled pair are locked here, in primary-key
+                # order. Locking only this row and then blind-writing the
+                # reverse one would reproduce the very bug this guard exists
+                # to stop, one row over: two coaches claiming opposite sides
+                # of the same mutual pair would each lock a different row and
+                # overwrite the other's. Ordering by pk is what keeps that
+                # from deadlocking — without it the two transactions take the
+                # same two locks in opposite orders.
+                pks = [connection.pk]
+                if couple_reverse:
+                    pks.append(reverse_connection.pk)
+                # `of=("self",)` locks the connection rows only: `assigned_coach`
+                # is nullable, so `select_related` puts it on the nullable side
+                # of an outer join, which PostgreSQL refuses to lock (see the
+                # same note in `views_checkin`). SQLite ignores locking
+                # entirely, so this is invisible to the test suite.
+                rows = {
+                    row.pk: row
+                    for row in EventConnection.objects.select_for_update(
+                        of=("self",)
+                    )
                     .select_related("assigned_coach")
-                    .get(pk=connection.pk)
-                )
+                    .filter(pk__in=pks)
+                    .order_by("pk")
+                }
+                locked = rows[connection.pk]
                 if locked.assigned_coach and locked.assigned_coach.is_active:
                     claimed = locked.assigned_coach_id == coach.id
                 else:
@@ -4140,8 +4161,17 @@ def coach_connection_review(request, connection_id):
                     locked.assigned_coach = coach
                     locked.save(update_fields=["assigned_coach"])
                     if couple_reverse:
-                        reverse_connection.assigned_coach = coach
-                        reverse_connection.save(update_fields=["assigned_coach"])
+                        locked_reverse = rows.get(reverse_connection.pk)
+                        # Re-checked under its own lock: the other side may
+                        # have been claimed while this request waited, and
+                        # taking it from that coach is the takeover this
+                        # branch is meant to prevent.
+                        if locked_reverse is not None and not (
+                            locked_reverse.assigned_coach
+                            and locked_reverse.assigned_coach.is_active
+                        ):
+                            locked_reverse.assigned_coach = coach
+                            locked_reverse.save(update_fields=["assigned_coach"])
                     connection = locked
             if claimed:
                 messages.success(request, _("Connection claimed."))
@@ -4189,7 +4219,12 @@ def coach_connection_review(request, connection_id):
             # lock, the same way both co-coach branches do.
             with transaction.atomic():
                 connection = (
-                    EventConnection.objects.select_for_update()
+                    # `of=("self",)`: `assigned_coach`/`recipient_coach` are
+                    # nullable, so select_related puts them on the nullable
+                    # side of an outer join — PostgreSQL refuses to lock that,
+                    # and SQLite silently ignores locking, so the test suite
+                    # cannot see the difference.
+                    EventConnection.objects.select_for_update(of=("self",))
                     .select_related(
                         "requester", "recipient", "event", "assigned_coach",
                         "recipient_coach",
@@ -5100,7 +5135,7 @@ def coach_crush_outreach_task(request, connection_id):
             closed_under_lock = False
             with transaction.atomic():
                 connection = (
-                    EventConnection.objects.select_for_update()
+                    EventConnection.objects.select_for_update(of=("self",))
                     .select_related("recipient", "event", "assigned_coach")
                     .get(pk=connection.pk)
                 )
@@ -5142,7 +5177,7 @@ def coach_crush_outreach_task(request, connection_id):
                 # row another request just set to 'declined') and clobbering
                 # each other's append to the audit list.
                 connection = (
-                    EventConnection.objects.select_for_update()
+                    EventConnection.objects.select_for_update(of=("self",))
                     .select_related("recipient", "event", "assigned_coach")
                     .get(pk=connection.pk)
                 )

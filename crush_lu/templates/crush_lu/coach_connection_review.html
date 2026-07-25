@@ -310,25 +310,33 @@
                 </div>
             </dl>
 
-            {% if not connection.requester_consents_to_share %}
-                <div class="flex flex-wrap gap-2 mb-3">
+            {% comment %}
+            Consent and withdrawal are gated separately. Recording "yes" is
+            only meaningful while consent is unrecorded, but a withdrawal can
+            arrive at any point before the introduction — the wait on the
+            recipient can run for days, and hiding the control once consent is
+            recorded would leave a coach who has just been told "actually,
+            don't" with no way to act on it while the lead stays shareable.
+            {% endcomment %}
+            <div class="flex flex-wrap gap-2 mb-3">
+                {% if not connection.requester_consents_to_share %}
                     <form method="post">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="crush_record_consent">
                         <input type="hidden" name="consent" value="yes">
                         <button type="submit" class="btn-crush-outline btn-sm">{% trans "They consented on the call" %}</button>
                     </form>
-                    <form method="post">
-                        {% csrf_token %}
-                        <input type="hidden" name="action" value="crush_record_consent">
-                        <input type="hidden" name="consent" value="no">
-                        <button type="submit" class="btn-crush-outline btn-sm">{% trans "They changed their mind" %}</button>
-                    </form>
-                </div>
-                <p class="text-xs text-gray-400 dark:text-gray-500 mb-3">
-                    {% trans "Withdrawing closes the lead — nobody contacts the recipient." %}
-                </p>
-            {% endif %}
+                {% endif %}
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="crush_record_consent">
+                    <input type="hidden" name="consent" value="no">
+                    <button type="submit" class="btn-crush-outline btn-sm">{% trans "They changed their mind" %}</button>
+                </form>
+            </div>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mb-3">
+                {% trans "Withdrawing closes the lead — nobody contacts the recipient." %}
+            </p>
 
             {% comment %}
             No live co-coach means nobody else can ever write the recipient's
