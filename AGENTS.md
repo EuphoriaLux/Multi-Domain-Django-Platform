@@ -1,6 +1,12 @@
 # AGENTS.md
 
-This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
+This file provides guidance to AI coding agents (Gemini, Claude Code, Codex, Kimi) when working with code in this repository.
+
+## Git Worktree Protocol
+- **Check Worktrees First**: Before starting any task or running git commands, execute `git worktree list` to discover active feature worktrees (`C:\GitHub\worktrees\...`, `.codex/worktrees\...`, `.gemini/antigravity/worktrees\...`).
+- **Explicit Execution Path**: Always execute commands and edits inside the specific worktree directory for that feature branch (e.g. using `git -C <worktree-path>`).
+- **Root Protection**: Do not edit files in the root repository (`C:\GitHub\Multi-Domain-Django-Platform`) if that feature or branch is currently checked out in an active worktree.
+- **Cleanup**: Prune completed worktrees with `git worktree remove <path>` and `git worktree prune` after PR merge.
 
 ## What this is
 
