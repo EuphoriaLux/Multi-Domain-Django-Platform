@@ -2066,3 +2066,115 @@ class TestAcceptedIsNotClosed:
         rescuer = _make_coach("acc_rescuer2@example.com")
 
         assert lead in EventConnection.objects.visible_to_coach(rescuer)
+
+
+class TestCodexRound9Fixes:
+    """Round 9: three P2s on the routed-coach workspace."""
+
+    def _lead_for(self, coach=None, status="pending"):
+        requester, _p = _make_user("r9_req@example.com", "M")
+        recipient, _p2 = _make_user("r9_rec@example.com", "F")
+        return _lead(
+            requester, recipient, _make_event(), coach, status=status
+        )
+
+    def _url(self, lead):
+        return reverse(
+            "crush_lu:coach_connection_review", kwargs={"connection_id": lead.pk}
+        )
+
+    # --- P2: a malformed consent POST must not close the lead ---
+
+    @pytest.mark.parametrize("payload", [{}, {"consent": ""}, {"consent": "maybe"}])
+    def test_a_malformed_consent_post_does_not_decline_the_lead(self, payload):
+        coach = _make_coach("r9_consent@example.com")
+        lead = self._lead_for(coach, status="coach_reviewing")
+        client = Client()
+        _login(client, coach.user)
+
+        client.post(
+            self._url(lead), {"action": "crush_record_consent", **payload}
+        )
+
+        lead.refresh_from_db()
+        assert lead.status == "coach_reviewing"
+        assert lead.requester_consents_to_share is False
+        assert lead.system_actions == []
+
+    def test_an_explicit_no_still_declines(self):
+        """The validation must not break the real refusal path."""
+        coach = _make_coach("r9_no@example.com")
+        lead = self._lead_for(coach, status="coach_reviewing")
+        client = Client()
+        _login(client, coach.user)
+
+        client.post(
+            self._url(lead), {"action": "crush_record_consent", "consent": "no"}
+        )
+
+        lead.refresh_from_db()
+        assert lead.status == "declined"
+
+    def test_an_explicit_yes_still_records_consent(self):
+        coach = _make_coach("r9_yes@example.com")
+        lead = self._lead_for(coach, status="coach_reviewing")
+        client = Client()
+        _login(client, coach.user)
+
+        client.post(
+            self._url(lead), {"action": "crush_record_consent", "consent": "yes"}
+        )
+
+        lead.refresh_from_db()
+        assert lead.requester_consents_to_share is True
+        assert lead.status == "coach_reviewing"
+
+    # --- P2: start_review must not adopt a lead claimed in the lock window ---
+
+    def test_start_review_refuses_a_lead_claimed_in_the_lock_window(self, monkeypatch):
+        """`crush_start_review` is exempt from the unassigned check so it can
+        adopt a pool lead, which makes it the one action that could reassign a
+        row another coach claimed while this request waited on the lock.
+
+        The interleaving has to be simulated: simply pre-assigning the lead
+        would be caught by the review-view GET guard long before the lock, so
+        that version of the test passes with or without the fix. Here the
+        request-entry read sees the lead unassigned — as it genuinely would —
+        and the competing claim lands immediately after, so only the locked
+        re-read can catch it."""
+        from crush_lu import views_coach
+
+        owner = _make_coach("r9_owner@example.com")
+        latecomer = _make_coach("r9_late@example.com")
+        lead = self._lead_for(None, status="pending")
+
+        real_get = views_coach.get_object_or_404
+
+        def claim_after_entry_read(*args, **kwargs):
+            obj = real_get(*args, **kwargs)
+            # The other coach's claim commits here: after this request read the
+            # row, before it takes the lock.
+            EventConnection.objects.filter(pk=lead.pk).update(assigned_coach=owner)
+            return obj
+
+        monkeypatch.setattr(views_coach, "get_object_or_404", claim_after_entry_read)
+
+        client = Client()
+        _login(client, latecomer.user)
+        client.post(self._url(lead), {"action": "crush_start_review"})
+
+        lead.refresh_from_db()
+        assert lead.assigned_coach == owner
+        assert lead.status == "pending"
+
+    def test_start_review_still_adopts_a_genuinely_unassigned_lead(self):
+        coach = _make_coach("r9_adopter@example.com")
+        lead = self._lead_for(None, status="pending")
+        client = Client()
+        _login(client, coach.user)
+
+        client.post(self._url(lead), {"action": "crush_start_review"})
+
+        lead.refresh_from_db()
+        assert lead.assigned_coach == coach
+        assert lead.status == "coach_reviewing"

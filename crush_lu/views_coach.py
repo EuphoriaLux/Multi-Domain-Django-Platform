@@ -4261,6 +4261,25 @@ def coach_connection_review(request, connection_id):
                         connection_id=connection.id,
                     )
 
+                # The unassigned check above ran on the instance read at request
+                # entry, and `crush_start_review` is exempt from it precisely so
+                # it can adopt a pool lead. Another coach can claim that lead in
+                # the window before this request wins the row lock, so without a
+                # re-check the start-review would quietly reassign it — leaving
+                # both coaches told they own it and both beginning the promised
+                # outreach. The locked row is the only trustworthy owner.
+                if (
+                    connection.assigned_coach is not None
+                    and connection.assigned_coach_id != coach.id
+                ):
+                    messages.error(
+                        request, _("This connection is assigned to another coach.")
+                    )
+                    return redirect(
+                        "crush_lu:coach_connection_review",
+                        connection_id=connection.id,
+                    )
+
                 if action == "crush_start_review":
                     # `pending` is the normal starting state here — waiting for
                     # `accepted` would wait forever.
@@ -4342,7 +4361,21 @@ def coach_connection_review(request, connection_id):
                     # The crusher consents verbally on the call — the member-side
                     # consent form is closed for crush leads (§7), so the routed
                     # coach is the only one who can record it.
-                    consented = request.POST.get("consent") == "yes"
+                    # Validate rather than treating anything-but-yes as a
+                    # refusal: the "no" branch closes the lead irreversibly, so
+                    # a truncated form or a client regression that drops the
+                    # field would cancel a live introduction that nobody
+                    # declined.
+                    raw_consent = (request.POST.get("consent") or "").strip().lower()
+                    if raw_consent not in ("yes", "no"):
+                        messages.error(
+                            request, _("Record the answer as either yes or no.")
+                        )
+                        return redirect(
+                            "crush_lu:coach_connection_review",
+                            connection_id=connection.id,
+                        )
+                    consented = raw_consent == "yes"
                     connection.requester_consents_to_share = consented
                     fields = ["requester_consents_to_share", "system_actions"]
                     if consented:
@@ -5267,20 +5300,25 @@ def coach_crush_outreach_task(request, connection_id):
                         # lost without a trace. Resolve the strings eagerly,
                         # under the routed coach's language rather than the
                         # co-coach's active one — this push is for them.
+                        # `reverse()` belongs inside the context too: these URLs
+                        # carry an i18n language prefix, so building it outside
+                        # sends the routed coach a notification written in their
+                        # language pointing at a page in the co-coach's.
                         with user_language_context(routed_coach.user):
                             alert_title = str(_("Recipient consented"))
                             alert_message = str(
                                 _("Their coach recorded consent — you can introduce.")
+                            )
+                            alert_url = reverse(
+                                "crush_lu:coach_connection_review",
+                                args=[connection.id],
                             )
 
                         notify_coach_system_alert(
                             routed_coach,
                             alert_title,
                             alert_message,
-                            url=reverse(
-                                "crush_lu:coach_connection_review",
-                                args=[connection.id],
-                            ),
+                            url=alert_url,
                         )
                     except Exception:  # noqa: BLE001
                         # The recorded consent is the source of truth; a push
