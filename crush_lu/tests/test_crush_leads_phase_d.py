@@ -2129,6 +2129,73 @@ class TestCodexRound9Fixes:
         assert lead.requester_consents_to_share is True
         assert lead.status == "coach_reviewing"
 
+    # --- The same validation on the routed coach's recipient-consent branch ---
+
+    def _no_cocoach_lead(self):
+        """Routed coach records the recipient's answer too — `recipient_coach`
+        is None when both sides share a coach, so no co-coach task exists."""
+        coach = _make_coach("r9_solo@example.com")
+        requester, req_p = _make_user("r9_solo_req@example.com", "M")
+        recipient, rec_p = _make_user("r9_solo_rec@example.com", "F")
+        for profile in (req_p, rec_p):
+            profile.assigned_coach = coach
+            profile.save(update_fields=["assigned_coach"])
+        lead = _lead(requester, recipient, _make_event())
+        lead.assign_coach()
+        lead.refresh_from_db()
+        assert lead.recipient_coach is None
+        lead.status = "coach_reviewing"
+        lead.save(update_fields=["status"])
+        return coach, lead
+
+    @pytest.mark.parametrize("payload", [{}, {"consent": ""}, {"consent": "maybe"}])
+    def test_a_malformed_recipient_consent_post_does_not_decline(self, payload):
+        """The sibling branch shares the terminal-refusal shape, so it needs
+        the same validation — writing `recipient_response` is one-shot and the
+        decline closes the lead without ever telling the crusher."""
+        coach, lead = self._no_cocoach_lead()
+        client = Client()
+        _login(client, coach.user)
+
+        client.post(
+            self._url(lead),
+            {"action": "crush_record_recipient_consent", **payload},
+        )
+
+        lead.refresh_from_db()
+        assert lead.recipient_response is None
+        assert lead.recipient_consents_to_share is False
+        assert lead.status == "coach_reviewing"
+
+    def test_an_explicit_recipient_no_still_declines(self):
+        coach, lead = self._no_cocoach_lead()
+        client = Client()
+        _login(client, coach.user)
+
+        client.post(
+            self._url(lead),
+            {"action": "crush_record_recipient_consent", "consent": "no"},
+        )
+
+        lead.refresh_from_db()
+        assert lead.recipient_response == "declined"
+        assert lead.status == "declined"
+
+    def test_an_explicit_recipient_yes_still_records_consent(self):
+        coach, lead = self._no_cocoach_lead()
+        client = Client()
+        _login(client, coach.user)
+
+        client.post(
+            self._url(lead),
+            {"action": "crush_record_recipient_consent", "consent": "yes"},
+        )
+
+        lead.refresh_from_db()
+        assert lead.recipient_response == "consented"
+        assert lead.recipient_consents_to_share is True
+        assert lead.status == "coach_reviewing"
+
     # --- P2: start_review must not adopt a lead claimed in the lock window ---
 
     def test_start_review_refuses_a_lead_claimed_in_the_lock_window(self, monkeypatch):

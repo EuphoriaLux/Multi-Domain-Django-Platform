@@ -3605,6 +3605,22 @@ def _stale_owner_recoverable(conn):
     )
 
 
+def _consent_answer(request):
+    """Parse a coach-recorded yes/no consent answer, or ``None`` if malformed.
+
+    Both consent actions used ``POST.get("consent") == "yes"``, which reads a
+    missing or unexpected value as a *refusal* — and both refusal paths are
+    terminal: they close the lead, and the crusher is never told. A truncated
+    form or a client regression could therefore cancel a live introduction
+    nobody declined. One helper so the two branches cannot drift apart, which
+    is exactly how the recipient-side branch was missed the first time.
+    """
+    raw = (request.POST.get("consent") or "").strip().lower()
+    if raw not in ("yes", "no"):
+        return None
+    return raw == "yes"
+
+
 def _claim_blocked(conn):
     """Whether ``claim`` must be refused on ``conn``.
 
@@ -4361,13 +4377,10 @@ def coach_connection_review(request, connection_id):
                     # The crusher consents verbally on the call — the member-side
                     # consent form is closed for crush leads (§7), so the routed
                     # coach is the only one who can record it.
-                    # Validate rather than treating anything-but-yes as a
-                    # refusal: the "no" branch closes the lead irreversibly, so
-                    # a truncated form or a client regression that drops the
-                    # field would cancel a live introduction that nobody
-                    # declined.
-                    raw_consent = (request.POST.get("consent") or "").strip().lower()
-                    if raw_consent not in ("yes", "no"):
+                    # Validated rather than read as "anything but yes means
+                    # no": the refusal branch closes the lead irreversibly.
+                    consented = _consent_answer(request)
+                    if consented is None:
                         messages.error(
                             request, _("Record the answer as either yes or no.")
                         )
@@ -4375,7 +4388,6 @@ def coach_connection_review(request, connection_id):
                             "crush_lu:coach_connection_review",
                             connection_id=connection.id,
                         )
-                    consented = raw_consent == "yes"
                     connection.requester_consents_to_share = consented
                     fields = ["requester_consents_to_share", "system_actions"]
                     if consented:
@@ -4421,8 +4433,16 @@ def coach_connection_review(request, connection_id):
                             request,
                             _("This answer was already recorded and cannot be changed."),
                         )
+                    elif _consent_answer(request) is None:
+                        # Same validation as `crush_record_consent`: this
+                        # branch's refusal is equally terminal — it writes
+                        # `recipient_response`, which is one-shot, and closes
+                        # the lead without ever telling the crusher.
+                        messages.error(
+                            request, _("Record the answer as either yes or no.")
+                        )
                     else:
-                        consented = request.POST.get("consent") == "yes"
+                        consented = _consent_answer(request)
                         connection.recipient_response = (
                             EventConnection.RECIPIENT_RESPONSE_CONSENTED
                             if consented
