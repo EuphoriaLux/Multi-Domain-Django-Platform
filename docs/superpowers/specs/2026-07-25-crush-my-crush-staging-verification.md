@@ -38,6 +38,14 @@ hourly at :45, via `POST /api/admin/crush-lead-reminders/`.
       stopped it — but both have to be right before a single reminder goes out.
       Note it is independent of `HYBRID_COACH_SYSTEM_ENABLED`: the other
       maintenance timers being live does not turn this on.
+- [ ] **`CRUSH_LEAD_REMINDERS_ENABLED` is pinned slot-sticky.** It is listed in
+      `infra/resources.bicep` next to `HYBRID_COACH_SYSTEM_ENABLED`, but that
+      file carries a standing warning not to deploy it as-is (its
+      `appSettingNames` list is out of sync with the live resource), so pin it
+      with the CLI instead:
+      `az webapp config appsettings set -g <rg> -n <app> --slot staging --settings CRUSH_LEAD_REMINDERS_ENABLED=True --slot-settings CRUSH_LEAD_REMINDERS_ENABLED`
+      Unpinned, the staging→production swap exchanges it — turning reminders on
+      in production before sign-off, or off again after release.
 - [ ] A real reminder push **arrives on a real device**, and its body does not
       contain the `requester_note` (it is deliberately kept out of the payload
       — push surfaces on a lock screen).

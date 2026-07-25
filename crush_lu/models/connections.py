@@ -119,15 +119,29 @@ class EventConnectionQuerySet(models.QuerySet):
         A lead whose routed coach was since **deactivated** counts as
         unassigned here on purpose. ``coach_required`` bars that coach from
         every coach view, so hiding the row from everyone else would strand
-        it — unworkable, invisible, and silently missing its 48h SLA.
-        Keying the exclusion on ``assigned_coach__is_active`` lets another
-        coach see and claim it instead.
+        it — unworkable, invisible, and silently missing its 48h SLA. Letting
+        another coach see and claim it is the recovery path.
+
+        That recovery stops at a **closed** lead, mirroring
+        ``_stale_owner_recoverable`` in ``views_coach``: a ``declined`` crush
+        has no work left to recover, so the fallthrough would only disclose a
+        cancelled pair. No current caller can reach that combination — the
+        list page's status filters never include ``declined`` — but the same
+        split between this queryset and the view-layer guard has already
+        drifted apart once, so the rule is stated in both places rather than
+        relied on to stay unreachable.
         """
         return self.exclude(
             models.Q(flow=EventConnection.FLOW_CRUSH)
             & ~models.Q(status='shared')
-            & models.Q(assigned_coach__is_active=True)
+            # Explicit, because the OR below no longer implies it: an
+            # unrouted pool lead must stay visible so it can be claimed.
+            & models.Q(assigned_coach__isnull=False)
             & ~models.Q(assigned_coach=coach)
+            & (
+                models.Q(assigned_coach__is_active=True)
+                | models.Q(status__in=EventConnection.CLOSED_LEAD_STATUSES)
+            )
         )
 
     def annotate_is_mutual_crush(self):
@@ -259,6 +273,16 @@ class EventConnection(models.Model):
     # touching call/reminder fields, so queue and reminder machinery must
     # key off this list, not only off the call fields.
     OPEN_LEAD_STATUSES = ('pending', 'coach_reviewing', 'coach_approved')
+
+    # Statuses in which a crush lead is *finished* — the introduction happened
+    # or the lead was cancelled — so no coach work remains to recover.
+    #
+    # Deliberately not the complement of ``OPEN_LEAD_STATUSES``: ``accepted``
+    # is in neither list. It is a live, workable state (``start_review`` moves
+    # it to ``coach_reviewing``) that simply does not carry queue/reminder
+    # obligations, so treating "not open" as "closed" would strand those rows —
+    # unclaimable and 404 to everyone.
+    CLOSED_LEAD_STATUSES = ('declined', 'shared')
 
     # Coach-call SLA for crush leads (spec §6/O8: call within 48h).
     CRUSH_LEAD_CALL_SLA = timedelta(hours=48)

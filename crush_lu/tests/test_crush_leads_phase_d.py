@@ -1903,3 +1903,166 @@ class TestCodexRound7Fix:
         _login(client, other.user)
 
         assert client.get(self._url(lead)).status_code == 200
+
+
+class TestVisibleToCoachMatchesTheViewGuard:
+    """Bot review follow-up to round 7: `visible_to_coach` carried the same
+    unqualified `is_active` pattern the GET guard had. No current caller can
+    reach the bad combination — the list page's status filters never include
+    `declined` — so these pin the queryset directly."""
+
+    def _stale(self, status):
+        routed = _make_coach(f"vtc_routed_{status}@example.com", is_active=False)
+        requester, _p = _make_user(f"vtc_req_{status}@example.com", "M")
+        recipient, _p2 = _make_user(f"vtc_rec_{status}@example.com", "F")
+        return routed, _lead(
+            requester, recipient, _make_event(), routed, status=status
+        )
+
+    def test_a_declined_stale_lead_is_hidden_from_other_coaches(self):
+        _routed, lead = self._stale("declined")
+        stranger = _make_coach("vtc_stranger@example.com")
+
+        visible = EventConnection.objects.visible_to_coach(stranger)
+
+        assert lead not in visible
+
+    def test_an_open_stale_lead_stays_visible_for_recovery(self):
+        _routed, lead = self._stale("pending")
+        rescuer = _make_coach("vtc_rescuer@example.com")
+
+        assert lead in EventConnection.objects.visible_to_coach(rescuer)
+
+    def test_an_unrouted_pool_lead_stays_visible(self):
+        """The added `assigned_coach__isnull=False` must not hide these —
+        an unrouted lead has to stay claimable."""
+        requester, _p = _make_user("vtc_pool_req@example.com", "M")
+        recipient, _p2 = _make_user("vtc_pool_rec@example.com", "F")
+        pool = _lead(requester, recipient, _make_event(), status="pending")
+        any_coach = _make_coach("vtc_any@example.com")
+
+        assert pool.assigned_coach is None
+        assert pool in EventConnection.objects.visible_to_coach(any_coach)
+
+    def test_the_routed_coach_still_sees_their_own_closed_lead(self):
+        routed, lead = self._stale("declined")
+        # Reactivated: the owner must never lose sight of their own row.
+        routed.is_active = True
+        routed.save(update_fields=["is_active"])
+
+        assert lead in EventConnection.objects.visible_to_coach(routed)
+
+
+class TestCodexRound8UnroutedClosedLead:
+    """Round 8 P1: the closed-lead rule keyed off the routed coach, so the
+    null-owner branch fell through — a pool lead the blocking service flipped
+    to `declined` before anyone claimed it stayed open to every coach."""
+
+    def _pool(self, status):
+        requester, _p = _make_user(f"r8_req_{status}@example.com", "M")
+        recipient, _p2 = _make_user(f"r8_rec_{status}@example.com", "F")
+        lead = _lead(
+            requester, recipient, _make_event(),
+            status=status, requester_note="Unclaimed crush note.",
+        )
+        assert lead.assigned_coach is None
+        return lead
+
+    def _url(self, lead):
+        return reverse(
+            "crush_lu:coach_connection_review", kwargs={"connection_id": lead.pk}
+        )
+
+    def test_a_declined_pool_lead_is_404(self):
+        lead = self._pool("declined")
+        coach = _make_coach("r8_any@example.com")
+        client = Client()
+        _login(client, coach.user)
+
+        assert client.get(self._url(lead)).status_code == 404
+
+    def test_a_declined_pool_lead_cannot_be_claimed(self):
+        lead = self._pool("declined")
+        coach = _make_coach("r8_claimer@example.com")
+        client = Client()
+        _login(client, coach.user)
+
+        client.post(self._url(lead), {"action": "claim"})
+
+        lead.refresh_from_db()
+        assert lead.assigned_coach is None
+
+    def test_an_open_pool_lead_stays_claimable(self):
+        """Pool triage must keep working — an unrouted *open* lead is the
+        whole reason the null-owner branch exists."""
+        lead = self._pool("pending")
+        coach = _make_coach("r8_triager@example.com")
+        client = Client()
+        _login(client, coach.user)
+
+        assert client.get(self._url(lead)).status_code == 200
+        client.post(self._url(lead), {"action": "claim"})
+        lead.refresh_from_db()
+        assert lead.assigned_coach == coach
+
+    def test_the_routed_coach_still_reaches_their_own_declined_lead(self):
+        """The guard must not shut the owner out of a lead they closed."""
+        routed = _make_coach("r8_owner@example.com")
+        requester, _p = _make_user("r8_owner_req@example.com", "M")
+        recipient, _p2 = _make_user("r8_owner_rec@example.com", "F")
+        lead = _lead(
+            requester, recipient, _make_event(), routed, status="declined",
+        )
+        client = Client()
+        _login(client, routed.user)
+
+        assert client.get(self._url(lead)).status_code == 200
+
+
+class TestAcceptedIsNotClosed:
+    """`accepted` is in neither OPEN_LEAD_STATUSES nor CLOSED_LEAD_STATUSES:
+    it is live and workable, just without queue/reminder obligations. An
+    earlier cut of the closed-lead rule read "not open" as "closed" and
+    stranded these rows — unclaimable and 404 to everyone."""
+
+    def _accepted(self, coach=None):
+        requester, _p = _make_user("acc_req@example.com", "M")
+        recipient, _p2 = _make_user("acc_rec@example.com", "F")
+        return _lead(
+            requester, recipient, _make_event(), coach, status="accepted"
+        )
+
+    def _url(self, lead):
+        return reverse(
+            "crush_lu:coach_connection_review", kwargs={"connection_id": lead.pk}
+        )
+
+    def test_an_unrouted_accepted_lead_is_still_claimable(self):
+        lead = self._accepted()
+        coach = _make_coach("acc_claimer@example.com")
+        client = Client()
+        _login(client, coach.user)
+
+        assert client.get(self._url(lead)).status_code == 200
+        client.post(self._url(lead), {"action": "claim"})
+        lead.refresh_from_db()
+        assert lead.assigned_coach == coach
+
+    def test_an_accepted_lead_with_a_stale_coach_is_still_recoverable(self):
+        stale = _make_coach("acc_stale@example.com", is_active=False)
+        lead = self._accepted(stale)
+        rescuer = _make_coach("acc_rescuer@example.com")
+        client = Client()
+        _login(client, rescuer.user)
+
+        assert client.get(self._url(lead)).status_code == 200
+        client.post(self._url(lead), {"action": "claim"})
+        lead.refresh_from_db()
+        assert lead.assigned_coach == rescuer
+
+    def test_an_accepted_lead_stays_listed_for_recovery(self):
+        stale = _make_coach("acc_stale2@example.com", is_active=False)
+        lead = self._accepted(stale)
+        rescuer = _make_coach("acc_rescuer2@example.com")
+
+        assert lead in EventConnection.objects.visible_to_coach(rescuer)
