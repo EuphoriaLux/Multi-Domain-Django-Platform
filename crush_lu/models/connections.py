@@ -489,6 +489,24 @@ class EventConnection(models.Model):
         )
 
     @property
+    def has_active_recipient_coach(self):
+        """
+        Is there a live co-coach to work the recipient half of this lead?
+
+        ``assign_recipient_coach`` leaves ``recipient_coach`` null whenever
+        both sides share a coach or the recipient has no active coach of
+        their own — by design, because the routed coach then performs both
+        halves of the outreach. A co-coach who is *later deactivated* leaves
+        the same situation behind a non-null column: ``coach_required`` bars
+        them from every coach view, so the task is theirs and unreachable.
+
+        Both cases must therefore read the same, or the recipient's answer
+        has no writer at all and ``can_share_contacts`` can never become
+        true — the lead would sit at ``coach_approved`` forever.
+        """
+        return self.recipient_coach is not None and self.recipient_coach.is_active
+
+    @property
     def call_by(self):
         """
         "Call by" deadline for a crush lead (spec §6/O8: 48h SLA).

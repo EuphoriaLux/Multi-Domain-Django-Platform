@@ -9,6 +9,7 @@ notification; member surfaces are Phase C.
 """
 
 import logging
+import time
 
 from django.db import transaction
 from django.utils import timezone
@@ -120,8 +121,24 @@ def _delivery_failed(result) -> bool:
 
 REMINDER_BATCH_LIMIT = 200
 
+# Wall-clock budget for one sweep. The `CrushLeadReminders` timer calls this
+# through `_call_admin_endpoint`, which gives up at 60s, and each lead can
+# make several serial Web Push calls at up to `PUSH_TIMEOUT` each — so the
+# count cap alone does not bound the run: a handful of stalled endpoints can
+# burn the caller's whole budget, and the Django request would then keep
+# going until gunicorn kills it at 120s, leaving most of the batch late with
+# nothing to show for it. Stop early instead and let the next hourly run take
+# the rest, the same way the count cap does.
+REMINDER_TIME_BUDGET = 45.0
 
-def sweep_lead_reminders(now=None, notify=None, limit=REMINDER_BATCH_LIMIT):
+
+def sweep_lead_reminders(
+    now=None,
+    notify=None,
+    limit=REMINDER_BATCH_LIMIT,
+    time_budget=REMINDER_TIME_BUDGET,
+    clock=None,
+):
     """
     Send the 24h untouched-lead reminder to each routed coach (spec §6/O8).
 
@@ -142,16 +159,20 @@ def sweep_lead_reminders(now=None, notify=None, limit=REMINDER_BATCH_LIMIT):
     endpoint block them all until the request is killed — and a rollback at
     that point would lose the stamps of reminders already delivered, so the
     next sweep would send them again. Each lead is therefore locked, sent
-    and committed on its own, and the batch is bounded by ``limit``.
+    and committed on its own, and the batch is bounded by ``limit`` *and* by
+    ``time_budget`` — see ``REMINDER_TIME_BUDGET`` for why a count alone does
+    not fit inside the caller's timeout.
 
-    ``notify`` is injectable for tests; it defaults to the coach push
-    notification helper.
+    ``notify`` and ``clock`` are injectable for tests; they default to the
+    coach push notification helper and a monotonic clock.
     """
     now = now or timezone.now()
     if notify is None:
         from crush_lu.coach_notifications import notify_coach_crush_lead_reminder
 
         notify = notify_coach_crush_lead_reminder
+    clock = clock or time.monotonic
+    started = clock()
 
     sent = 0
     failed = 0
@@ -170,7 +191,19 @@ def sweep_lead_reminders(now=None, notify=None, limit=REMINDER_BATCH_LIMIT):
             limit,
         )
 
-    for lead_id in candidate_ids:
+    for index, lead_id in enumerate(candidate_ids):
+        if clock() - started >= time_budget:
+            # Out of time, not out of work: the remaining leads keep their
+            # null `reminder_sent_at` and are picked up by the next run.
+            truncated = True
+            logger.warning(
+                "[crush_lead_reminders] time budget %.0fs exhausted after "
+                "%d of %d leads; more are due",
+                time_budget,
+                index,
+                len(candidate_ids),
+            )
+            break
         try:
             with transaction.atomic():
                 lead = (
@@ -181,8 +214,18 @@ def sweep_lead_reminders(now=None, notify=None, limit=REMINDER_BATCH_LIMIT):
                 )
                 # Locked by a concurrent sweep, or no longer eligible because
                 # the coach acted between the scan and now — either way it is
-                # not ours to send.
-                if lead is None or lead.reminder_sent_at is not None:
+                # not ours to send. Re-apply the *whole* predicate, not just
+                # the stamp: a call scheduled or completed in that window, or
+                # a decline, makes the lead ineligible too, and sending anyway
+                # would put a stale reminder naming the requester on a lock
+                # screen and consume the stamp for a lead nobody owes a call.
+                if lead is None or not reminder_due(lead, now):
+                    continue
+                # `reminder_due` covers the lead's own state; the routed
+                # coach is the other half of `reminder_candidates`, and a
+                # deactivation in the same window would leave nobody to
+                # notify.
+                if lead.assigned_coach is None or not lead.assigned_coach.is_active:
                     continue
                 lead.reminder_sent_at = now
                 lead.save(update_fields=["reminder_sent_at"])
