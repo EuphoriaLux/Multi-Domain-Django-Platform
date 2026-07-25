@@ -15,6 +15,7 @@ Covers (Phase D scope):
 Run with: pytest crush_lu/tests/test_crush_leads_phase_d.py -v
 """
 from datetime import date, timedelta
+from unittest import mock
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -1338,7 +1339,7 @@ class TestOutreachRaceOnAClosingLead:
     """Bot review follow-up: `record_outreach` re-fetched under the lock but
     checked status against the instance read at request entry."""
 
-    def test_outreach_is_not_stamped_onto_a_lead_closed_under_it(self):
+    def _pair(self):
         routed = _make_coach("or_routed@example.com")
         cocoach = _make_coach("or_cocoach@example.com")
         requester, req_p = _make_user("or_req@example.com", "M")
@@ -1350,20 +1351,78 @@ class TestOutreachRaceOnAClosingLead:
         lead = _lead(requester, recipient, _make_event())
         lead.assign_coach()
         lead.refresh_from_db()
+        return cocoach, lead
 
-        # Stand in for the concurrent decline: the row is closed in the DB
-        # while the co-coach's request already holds a stale open instance.
+    def _url(self, lead):
+        return reverse(
+            "crush_lu:coach_crush_outreach_task",
+            kwargs={"connection_id": lead.pk},
+        )
+
+    def test_outreach_is_not_stamped_onto_a_lead_closed_under_it(self):
+        cocoach, lead = self._pair()
+
+        # Closed before the request starts, so this is caught by the entry
+        # pre-check rather than the locked re-read — the genuine race is
+        # covered by the stale-instance test below.
         EventConnection.objects.filter(pk=lead.pk).update(status="declined")
 
         client = Client()
         _login(client, cocoach.user)
-        client.post(
-            reverse(
-                "crush_lu:coach_crush_outreach_task",
-                kwargs={"connection_id": lead.pk},
-            ),
-            {"action": "record_outreach"},
-        )
+        client.post(self._url(lead), {"action": "record_outreach"})
 
         lead.refresh_from_db()
         assert lead.recipient_outreach_at is None
+
+    def _post_with_a_stale_open_instance(self, cocoach, lead, action):
+        """Drive a POST whose request-entry read saw the lead open while the
+        row closed before the lock — the only window in which the in-lock
+        status re-check does any work the entry pre-check hasn't already."""
+        stale = EventConnection.objects.select_related(
+            "recipient", "event", "assigned_coach"
+        ).get(pk=lead.pk)
+        EventConnection.objects.filter(pk=lead.pk).update(status="declined")
+
+        client = Client()
+        _login(client, cocoach.user)
+        with mock.patch(
+            "crush_lu.views_coach.get_object_or_404", return_value=stale
+        ):
+            return client.post(self._url(lead), {"action": action}, follow=True)
+
+    def test_the_locked_recheck_catches_a_lead_that_closes_mid_request(self):
+        cocoach, lead = self._pair()
+
+        self._post_with_a_stale_open_instance(cocoach, lead, "record_outreach")
+
+        lead.refresh_from_db()
+        assert lead.recipient_outreach_at is None
+        assert lead.system_actions == []
+
+    def test_outreach_on_a_lead_closing_mid_request_does_not_claim_success(self):
+        """The write is correctly skipped, so the co-coach must not read
+        "Outreach recorded." — an SLA with no record of it would disagree."""
+        cocoach, lead = self._pair()
+
+        response = self._post_with_a_stale_open_instance(
+            cocoach, lead, "record_outreach"
+        )
+
+        notes = [str(m) for m in response.context["messages"]]
+        assert any("closed" in m for m in notes)
+        assert not any("Outreach recorded" in m for m in notes)
+
+    def test_an_answer_on_a_lead_closing_mid_request_says_it_closed(self):
+        """Not "already recorded" — no answer was recorded, by anyone."""
+        cocoach, lead = self._pair()
+
+        response = self._post_with_a_stale_open_instance(
+            cocoach, lead, "record_consent"
+        )
+
+        lead.refresh_from_db()
+        assert lead.recipient_response is None
+        notes = [str(m) for m in response.context["messages"]]
+        assert any("closed" in m for m in notes)
+        assert not any("already recorded" in m for m in notes)
+        assert not any("Consent recorded" in m for m in notes)

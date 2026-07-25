@@ -224,6 +224,20 @@
             </div>
         {% endif %}
 
+        {% if not lead_open %}
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-0">
+                {% trans "This lead is closed — no further action is possible." %}
+            </p>
+        {% elif lead_needs_claim %}
+            {% comment %}
+            Everything below writes to the lead, and the server refuses a
+            workspace write on a lead nobody owns. Rendering the controls
+            next to the claim prompt only invites a rejected POST.
+            {% endcomment %}
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-0">
+                {% trans "Claim this lead to start working it." %}
+            </p>
+        {% else %}
         {# Step 1 — take the lead #}
         {% if connection.status == 'pending' %}
             <form method="post" class="mb-4">
@@ -287,7 +301,9 @@
                     </dd>
                 </div>
                 <div class="flex justify-between gap-4">
-                    <dt class="text-gray-500 dark:text-gray-400">{% trans "Recipient (their coach)" %}</dt>
+                    <dt class="text-gray-500 dark:text-gray-400">
+                        {% if records_recipient_answer %}{% trans "Recipient (your call too)" %}{% else %}{% trans "Recipient (their coach)" %}{% endif %}
+                    </dt>
                     <dd class="font-medium {% if connection.recipient_consents_to_share %}text-green-600 dark:text-green-400{% else %}text-gray-400 dark:text-gray-500{% endif %}">
                         {% if connection.recipient_consents_to_share %}{% trans "Yes" %}{% else %}{% trans "Not recorded" %}{% endif %}
                     </dd>
@@ -301,6 +317,36 @@
                     <input type="hidden" name="consent" value="yes">
                     <button type="submit" class="btn-crush-outline btn-sm">{% trans "They consented on the call" %}</button>
                 </form>
+            {% endif %}
+
+            {% comment %}
+            No live co-coach means nobody else can ever write the recipient's
+            answer, and without it the lead can never reach `shared`.
+            {% endcomment %}
+            {% if records_recipient_answer %}
+                {% if recipient_answer %}
+                    <p class="text-xs text-gray-400 dark:text-gray-500 mb-3">
+                        {% trans "Recipient's answer is recorded and final." %}
+                    </p>
+                {% else %}
+                    <p class="text-xs text-gray-400 dark:text-gray-500 mb-2">
+                        {% trans "No separate coach covers the recipient, so you reach out to them and record their answer here." %}
+                    </p>
+                    <div class="flex flex-wrap gap-2 mb-3">
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="crush_record_recipient_consent">
+                            <input type="hidden" name="consent" value="yes">
+                            <button type="submit" class="btn-crush-solid btn-sm">{% trans "They said yes" %}</button>
+                        </form>
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="crush_record_recipient_consent">
+                            <input type="hidden" name="consent" value="no">
+                            <button type="submit" class="btn-crush-outline btn-sm">{% trans "They said no" %}</button>
+                        </form>
+                    </div>
+                {% endif %}
             {% endif %}
 
             {% if connection.status != 'shared' %}
@@ -320,6 +366,7 @@
                 <p class="text-sm text-green-600 dark:text-green-400 mb-0">{% trans "Contacts shared — the introduction is done." %}</p>
             {% endif %}
         </div>
+        {% endif %}
     </div>
     {% endif %}
     <!-- Coach Notes & Introduction Form -->
@@ -404,6 +451,13 @@
     {% endif %}
 
     <!-- Coach Message -->
+    {% comment %}
+    A crush lead has no thread before the introduction (§7): the two members
+    have not been told about each other yet. The server refuses `send_message`
+    on a pre-`shared` crush row, so rendering the form here would only offer a
+    control that cannot work.
+    {% endcomment %}
+    {% if show_conversation %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5 mb-6">
         <h4 class="font-semibold dark:text-white mb-4">{% trans "Conversation" %}</h4>
 
@@ -446,6 +500,7 @@
         </form>
         {% endif %}
     </div>
+    {% endif %}
 
     <!-- Timeline -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-5">

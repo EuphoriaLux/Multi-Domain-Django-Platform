@@ -4019,8 +4019,40 @@ def coach_connection_review(request, connection_id):
             messages.success(request, _("Notes saved."))
 
         elif action == "approve":
+            # A declined crush lead is over: the co-coach recorded the
+            # recipient's refusal, or a member blocked the pair. This handler
+            # sets `coach_approved` unconditionally, so without the guard a
+            # routed coach holding a page from before the decline can reopen a
+            # cancelled lead and leave it contradicting itself — a `declined`
+            # recipient_response sitting on an approved row, with the
+            # introduction one consent away from happening anyway.
+            # Deliberately narrow: only `declined` is terminal here. `accepted`
+            # is not a closed state, and legacy rows keep their old behaviour.
+            if (
+                connection.flow == EventConnection.FLOW_CRUSH
+                and connection.status == "declined"
+            ):
+                messages.info(request, _("This lead is closed."))
+                return redirect(
+                    "crush_lu:coach_connection_review", connection_id=connection.id
+                )
+
             # Approve the connection - move to coach_approved
             with transaction.atomic():
+                # Re-read under the lock: the decline this guard defends
+                # against can land between the check above and the write.
+                if connection.flow == EventConnection.FLOW_CRUSH:
+                    locked = (
+                        EventConnection.objects.select_for_update()
+                        .only("id", "status")
+                        .get(pk=connection.pk)
+                    )
+                    if locked.status == "declined":
+                        messages.info(request, _("This lead is closed."))
+                        return redirect(
+                            "crush_lu:coach_connection_review",
+                            connection_id=connection.id,
+                        )
                 connection.coach_notes = request.POST.get("coach_notes", "").strip()
                 connection.coach_introduction = request.POST.get(
                     "coach_introduction", ""
@@ -4106,106 +4138,233 @@ def coach_connection_review(request, connection_id):
                     "crush_lu:coach_connection_review", connection_id=connection.id
                 )
 
+            # An unrouted pool lead passes the ownership check above, because
+            # that only rejects a row assigned to *someone else*. Opening and
+            # claiming one is deliberate (it is how a lead gets triaged), but
+            # every other write needs an owner: otherwise any active coach can
+            # mark an unowned lead's call completed — dropping it out of
+            # `open_crush_leads()` while it still belongs to nobody — or move
+            # its consent and audit state without taking responsibility for it.
+            if action != "crush_start_review" and connection.assigned_coach is None:
+                messages.error(request, _("Claim this lead before working it."))
+                return redirect(
+                    "crush_lu:coach_connection_review", connection_id=connection.id
+                )
+
             actor = f"coach:{coach.user.username}"
             now = timezone.now()
 
-            if action == "crush_start_review":
-                # `pending` is the normal starting state here — waiting for
-                # `accepted` would wait forever.
-                if connection.status == "pending":
-                    connection.status = "coach_reviewing"
-                    connection.assigned_coach = coach
-                    connection.log_system_action("crush_start_review", actor=actor)
-                    connection.save(
-                        update_fields=["status", "assigned_coach", "system_actions"]
+            # Every branch below appends to `system_actions` and saves the
+            # whole JSON field. Reading it from the instance loaded at request
+            # entry would overwrite an entry the co-coach's surface committed
+            # in between — the business fields survive, the append-only trail
+            # does not. Lock and re-read once here and dispatch inside the
+            # lock, the same way both co-coach branches do.
+            with transaction.atomic():
+                connection = (
+                    EventConnection.objects.select_for_update()
+                    .select_related(
+                        "requester", "recipient", "event", "assigned_coach",
+                        "recipient_coach",
                     )
-                    messages.success(request, _("Lead is now under your review."))
-                else:
-                    messages.info(request, _("This lead is already under review."))
+                    .get(pk=connection.pk)
+                )
 
-            elif action == "crush_schedule_call":
-                raw = request.POST.get("scheduled_at", "").strip()
-                scheduled = parse_datetime(raw) if raw else None
-                if scheduled is None:
-                    messages.error(request, _("Enter a valid date and time."))
-                else:
-                    if timezone.is_naive(scheduled):
-                        scheduled = timezone.make_aware(scheduled)
-                    connection.coach_call_scheduled_at = scheduled
-                    connection.log_system_action(
-                        "crush_call_scheduled",
-                        actor=actor,
-                        scheduled_at=scheduled.isoformat(),
+                # A lead the co-coach declined, or a member blocked, is over.
+                # Without this a stale workspace page could log a call or move
+                # the consent state of a cancelled pair.
+                if connection.status not in EventConnection.OPEN_LEAD_STATUSES:
+                    messages.info(request, _("This lead is closed."))
+                    return redirect(
+                        "crush_lu:coach_connection_review",
+                        connection_id=connection.id,
                     )
-                    connection.save(
-                        update_fields=["coach_call_scheduled_at", "system_actions"]
-                    )
-                    messages.success(request, _("Call scheduled."))
 
-            elif action == "crush_complete_call":
-                outcome = request.POST.get("call_outcome", "")
-                valid = {c[0] for c in EventConnection.CALL_OUTCOME_CHOICES}
-                if outcome not in valid:
-                    messages.error(request, _("Choose a call outcome."))
-                else:
-                    connection.call_outcome = outcome
-                    fields = ["call_outcome", "system_actions"]
-                    # Only a genuinely completed call closes the SLA. A
-                    # no-answer / unreachable lead stays open and keeps its
-                    # queue row — that is the point of tracking the outcome.
-                    if outcome == "completed":
-                        connection.coach_call_completed_at = now
-                        fields.append("coach_call_completed_at")
+                if action == "crush_start_review":
+                    # `pending` is the normal starting state here — waiting for
+                    # `accepted` would wait forever.
+                    if connection.status == "pending":
+                        connection.status = "coach_reviewing"
+                        connection.assigned_coach = coach
+                        connection.log_system_action("crush_start_review", actor=actor)
+                        connection.save(
+                            update_fields=["status", "assigned_coach", "system_actions"]
+                        )
+                        messages.success(request, _("Lead is now under your review."))
                     else:
-                        # Re-arm the reminder so an unreachable member gets
-                        # chased again rather than silently dropped.
-                        connection.reminder_sent_at = None
-                        fields.append("reminder_sent_at")
+                        messages.info(request, _("This lead is already under review."))
+
+                elif action == "crush_schedule_call":
+                    raw = request.POST.get("scheduled_at", "").strip()
+                    scheduled = parse_datetime(raw) if raw else None
+                    if scheduled is None:
+                        messages.error(request, _("Enter a valid date and time."))
+                    else:
+                        if timezone.is_naive(scheduled):
+                            scheduled = timezone.make_aware(scheduled)
+                        connection.coach_call_scheduled_at = scheduled
+                        connection.log_system_action(
+                            "crush_call_scheduled",
+                            actor=actor,
+                            scheduled_at=scheduled.isoformat(),
+                        )
+                        connection.save(
+                            update_fields=["coach_call_scheduled_at", "system_actions"]
+                        )
+                        messages.success(request, _("Call scheduled."))
+
+                elif action == "crush_complete_call":
+                    outcome = request.POST.get("call_outcome", "")
+                    valid = {c[0] for c in EventConnection.CALL_OUTCOME_CHOICES}
+                    if outcome not in valid:
+                        messages.error(request, _("Choose a call outcome."))
+                    else:
+                        connection.call_outcome = outcome
+                        fields = [
+                            "call_outcome",
+                            "coach_call_completed_at",
+                            "system_actions",
+                        ]
+                        # Only a genuinely completed call closes the SLA. A
+                        # no-answer / unreachable lead stays open and keeps its
+                        # queue row — that is the point of tracking the outcome.
+                        if outcome == "completed":
+                            connection.coach_call_completed_at = now
+                        else:
+                            # Correcting a completed call to a non-completed
+                            # outcome has to withdraw the completion too. Left
+                            # set, the lead reads as completed, stays out of
+                            # `open_crush_leads()` and off the queue — so the
+                            # re-armed reminder below would never fire either,
+                            # and the correction would quietly lose the lead.
+                            connection.coach_call_completed_at = None
+                            # Re-arm the reminder so an unreachable member gets
+                            # chased again rather than silently dropped.
+                            connection.reminder_sent_at = None
+                            fields.append("reminder_sent_at")
+                        connection.log_system_action(
+                            "crush_call_logged", actor=actor, outcome=outcome
+                        )
+                        connection.save(update_fields=fields)
+                        messages.success(request, _("Call outcome recorded."))
+
+                elif action == "crush_record_consent":
+                    # The crusher consents verbally on the call — the member-side
+                    # consent form is closed for crush leads (§7), so the routed
+                    # coach is the only one who can record it.
+                    consented = request.POST.get("consent") == "yes"
+                    connection.requester_consents_to_share = consented
                     connection.log_system_action(
-                        "crush_call_logged", actor=actor, outcome=outcome
+                        "crush_requester_consent", actor=actor, consented=consented
                     )
-                    connection.save(update_fields=fields)
-                    messages.success(request, _("Call outcome recorded."))
-
-            elif action == "crush_record_consent":
-                # The crusher consents verbally on the call — the member-side
-                # consent form is closed for crush leads (§7), so the routed
-                # coach is the only one who can record it.
-                consented = request.POST.get("consent") == "yes"
-                connection.requester_consents_to_share = consented
-                connection.log_system_action(
-                    "crush_requester_consent", actor=actor, consented=consented
-                )
-                connection.save(
-                    update_fields=["requester_consents_to_share", "system_actions"]
-                )
-                messages.success(request, _("Consent recorded."))
-
-            elif action == "crush_share":
-                if connection.can_share_contacts:
-                    connection.status = "shared"
-                    connection.shared_at = now
-                    connection.log_system_action("crush_shared", actor=actor)
                     connection.save(
-                        update_fields=["status", "shared_at", "system_actions"]
+                        update_fields=["requester_consents_to_share", "system_actions"]
                     )
-                    messages.success(
-                        request, _("Introduction made — contacts shared.")
-                    )
-                else:
-                    messages.error(
-                        request,
-                        _(
-                            "Both members must consent and the lead must be "
-                            "approved before sharing."
-                        ),
-                    )
+                    messages.success(request, _("Consent recorded."))
+
+                elif action == "crush_record_recipient_consent":
+                    # No live co-coach means no co-coach task exists, and the
+                    # recipient has no consent form of their own — so without
+                    # this nothing could ever write `recipient_consents_to_share`
+                    # and `can_share_contacts` would stay false forever, leaving
+                    # the lead stuck at `coach_approved`. The routed coach makes
+                    # both calls in that case, which is exactly what
+                    # `assign_recipient_coach` returning None already assumes.
+                    if connection.has_active_recipient_coach:
+                        messages.error(
+                            request,
+                            _("The recipient's own coach records their answer."),
+                        )
+                    elif connection.recipient_response is not None:
+                        messages.info(
+                            request,
+                            _("This answer was already recorded and cannot be changed."),
+                        )
+                    else:
+                        consented = request.POST.get("consent") == "yes"
+                        connection.recipient_response = (
+                            EventConnection.RECIPIENT_RESPONSE_CONSENTED
+                            if consented
+                            else EventConnection.RECIPIENT_RESPONSE_DECLINED
+                        )
+                        connection.recipient_response_at = now
+                        connection.recipient_consents_to_share = consented
+                        fields = [
+                            "recipient_response",
+                            "recipient_response_at",
+                            "recipient_consents_to_share",
+                            "system_actions",
+                        ]
+                        connection.log_system_action(
+                            "recipient_consent" if consented else "recipient_decline",
+                            actor=actor,
+                            by_routed_coach=True,
+                        )
+                        if connection.recipient_outreach_at is None:
+                            # Same back-fill the co-coach surface does: an
+                            # answer can only exist because someone spoke to
+                            # them, so the SLA must not read as never contacted.
+                            connection.recipient_outreach_at = now
+                            connection.log_system_action(
+                                "recipient_outreach", actor=actor, inferred=True
+                            )
+                            fields.append("recipient_outreach_at")
+                        if not consented:
+                            # A decline ends the lead, and the crusher is never
+                            # told they were refused.
+                            connection.status = "declined"
+                            fields.append("status")
+                        connection.save(update_fields=fields)
+                        messages.success(
+                            request,
+                            _("Recipient consent recorded.")
+                            if consented
+                            else _("Recipient decline recorded."),
+                        )
+
+                elif action == "crush_share":
+                    if connection.can_share_contacts:
+                        connection.status = "shared"
+                        connection.shared_at = now
+                        connection.log_system_action("crush_shared", actor=actor)
+                        connection.save(
+                            update_fields=["status", "shared_at", "system_actions"]
+                        )
+                        messages.success(
+                            request, _("Introduction made — contacts shared.")
+                        )
+                    else:
+                        messages.error(
+                            request,
+                            _(
+                                "Both members must consent and the lead must be "
+                                "approved before sharing."
+                            ),
+                        )
 
             return redirect(
                 "crush_lu:coach_connection_review", connection_id=connection.id
             )
 
         elif action == "send_message":
+            # No chat exists on a crush lead before the introduction (§7):
+            # the two members have not been told about each other yet, and
+            # `shared` is the moment that changes. Any action not starting
+            # with `crush_` falls through to here, so the invariant has to
+            # hold server-side rather than by the member surfaces declining
+            # to render a thread.
+            if (
+                connection.flow == EventConnection.FLOW_CRUSH
+                and connection.status != "shared"
+            ):
+                messages.error(
+                    request,
+                    _("Messages open once the introduction has been made."),
+                )
+                return redirect(
+                    "crush_lu:coach_connection_review", connection_id=connection.id
+                )
+
             # Coach sends a facilitation message
             message_text = request.POST.get("message", "").strip()
             if message_text and len(message_text) <= 500:
@@ -4294,6 +4453,18 @@ def coach_connection_review(request, connection_id):
         "show_facilitation": show_facilitation,
         "is_crush_lead": is_crush_lead,
         "lead_needs_claim": lead_needs_claim,
+        "lead_open": connection.status in EventConnection.OPEN_LEAD_STATUSES,
+        # With no live co-coach there is no co-coach task, and the recipient
+        # has no consent form of their own — so this coach records both
+        # answers or the lead can never reach `shared`.
+        "records_recipient_answer": (
+            is_crush_lead and not connection.has_active_recipient_coach
+        ),
+        "recipient_answer": connection.recipient_response,
+        # A crush lead has no thread until the introduction is made (§7).
+        "show_conversation": (
+            not is_crush_lead or connection.status == "shared"
+        ),
         "call_outcome_choices": EventConnection.CALL_OUTCOME_CHOICES,
         "can_share_now": connection.can_share_contacts,
         "intro_templates": intro_templates_for_picker,
@@ -4868,6 +5039,7 @@ def coach_crush_outreach_task(request, connection_id):
             # instance loaded before the transaction can clobber an audit
             # entry the response branch committed in between — leaving the
             # business fields correct but the append-only trail missing a row.
+            closed_under_lock = False
             with transaction.atomic():
                 connection = (
                     EventConnection.objects.select_for_update()
@@ -4878,10 +5050,9 @@ def coach_crush_outreach_task(request, connection_id):
                 # instance read at request entry: the routed coach could have
                 # declined the lead in between, and outreach must not be
                 # timestamped onto an already-closed lead.
-                if (
-                    connection.recipient_outreach_at is None
-                    and connection.status in EventConnection.OPEN_LEAD_STATUSES
-                ):
+                if connection.status not in EventConnection.OPEN_LEAD_STATUSES:
+                    closed_under_lock = True
+                elif connection.recipient_outreach_at is None:
                     connection.recipient_outreach_at = now
                     connection.log_system_action(
                         "recipient_outreach",
@@ -4891,11 +5062,21 @@ def coach_crush_outreach_task(request, connection_id):
                     connection.save(
                         update_fields=["recipient_outreach_at", "system_actions"]
                     )
-            messages.success(request, _("Outreach recorded."))
+            if closed_under_lock:
+                # The write was skipped because the lead closed while this
+                # request waited on the row lock — reporting "recorded" would
+                # tell the co-coach an outreach the SLA has no record of did
+                # land. Re-recording an outreach on a *live* lead is still a
+                # true no-op, so that case keeps the success message: it is
+                # accurate about the resulting state.
+                messages.info(request, _("This lead is closed."))
+            else:
+                messages.success(request, _("Outreach recorded."))
 
         elif action in ("record_consent", "record_decline"):
             consented = action == "record_consent"
             recorded = False
+            closed_under_lock = False
             with transaction.atomic():
                 # Lock and re-read: two concurrent submissions could both
                 # observe recipient_response=None and both pass the guard,
@@ -4907,10 +5088,9 @@ def coach_crush_outreach_task(request, connection_id):
                     .select_related("recipient", "event", "assigned_coach")
                     .get(pk=connection.pk)
                 )
-                if (
-                    connection.recipient_response is None
-                    and connection.status in EventConnection.OPEN_LEAD_STATUSES
-                ):
+                if connection.status not in EventConnection.OPEN_LEAD_STATUSES:
+                    closed_under_lock = True
+                elif connection.recipient_response is None:
                     recorded = True
                     connection.recipient_response = (
                         EventConnection.RECIPIENT_RESPONSE_CONSENTED
@@ -4980,6 +5160,12 @@ def coach_crush_outreach_task(request, connection_id):
                     request,
                     _("Consent recorded.") if consented else _("Decline recorded."),
                 )
+            elif closed_under_lock:
+                # No answer was recorded here — the lead closed while this
+                # request waited on the row lock. Saying the answer "was
+                # already recorded" would send the co-coach looking for a
+                # decision nobody made.
+                messages.info(request, _("This lead is closed."))
             else:
                 # The answer is final by design, so a stale page, a
                 # double-click, or the losing side of a concurrent submission
