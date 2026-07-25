@@ -4049,7 +4049,12 @@ def coach_connection_review(request, connection_id):
     )
 
     if request.method == "POST":
-        action = request.POST.get("action")
+        # Defaulted, not left as None: the crush branch below dispatches on
+        # `action.startswith("crush_")`, which raises AttributeError on a POST
+        # with no `action` field — turning a harmless malformed submission
+        # into a 500. Every other branch compares by equality, so "" simply
+        # falls through to the no-op tail.
+        action = request.POST.get("action") or ""
 
         # Ownership check: only the assigned coach (or unassigned) can act
         if action != "claim":

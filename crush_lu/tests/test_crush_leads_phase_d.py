@@ -2245,3 +2245,32 @@ class TestCodexRound9Fixes:
         lead.refresh_from_db()
         assert lead.assigned_coach == coach
         assert lead.status == "coach_reviewing"
+
+
+class TestCodexRound10ActionDispatch:
+    """Round 10 P2: the crush branch dispatches on `action.startswith(...)`,
+    so a POST with no `action` field raised AttributeError — a malformed
+    submission became a 500 rather than a no-op."""
+
+    def test_a_post_without_an_action_does_not_500(self):
+        coach = _make_coach("r10_coach@example.com")
+        requester, _p = _make_user("r10_req@example.com", "M")
+        recipient, _p2 = _make_user("r10_rec@example.com", "F")
+        lead = _lead(
+            requester, recipient, _make_event(), coach, status="coach_reviewing"
+        )
+        client = Client()
+        _login(client, coach.user)
+
+        response = client.post(
+            reverse(
+                "crush_lu:coach_connection_review",
+                kwargs={"connection_id": lead.pk},
+            ),
+            {},
+        )
+
+        assert response.status_code in (200, 302)
+        lead.refresh_from_db()
+        assert lead.status == "coach_reviewing"
+        assert lead.system_actions == []
