@@ -5228,11 +5228,28 @@ def coach_crush_outreach_task(request, connection_id):
                         from django.urls import reverse
 
                         from .coach_notifications import notify_coach_system_alert
+                        from .push_notifications import user_language_context
+
+                        routed_coach = connection.assigned_coach
+                        # `_` here is `gettext_lazy`, and the push payload goes
+                        # through `json.dumps` — a lazy proxy raises
+                        # `TypeError: not JSON serializable` *inside* the
+                        # per-device loop, where it is caught and counted as a
+                        # delivery failure. The send then returns normally, so
+                        # the handler below never fires and the notification is
+                        # lost without a trace. Resolve the strings eagerly,
+                        # under the routed coach's language rather than the
+                        # co-coach's active one — this push is for them.
+                        with user_language_context(routed_coach.user):
+                            alert_title = str(_("Recipient consented"))
+                            alert_message = str(
+                                _("Their coach recorded consent — you can introduce.")
+                            )
 
                         notify_coach_system_alert(
-                            connection.assigned_coach,
-                            _("Recipient consented"),
-                            _("Their coach recorded consent — you can introduce."),
+                            routed_coach,
+                            alert_title,
+                            alert_message,
                             url=reverse(
                                 "crush_lu:coach_connection_review",
                                 args=[connection.id],

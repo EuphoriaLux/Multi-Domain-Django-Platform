@@ -31,6 +31,13 @@ hourly at :45, via `POST /api/admin/crush-lead-reminders/`.
       App. Unset logs an error and no-ops, so the 24h reminder would silently
       never fire — and nothing else in the system would notice. This is the
       single highest-value check on the page.
+- [ ] **`CRUSH_LEAD_REMINDERS_ENABLED=True` on the Django app.** The feature
+      gate defaults to off, so the endpoint answers
+      `200 {"skipped": true}` and no reminder is sent until it is set. Unlike
+      the URL var above this one *is* visible — the response says which flag
+      stopped it — but both have to be right before a single reminder goes out.
+      Note it is independent of `HYBRID_COACH_SYSTEM_ENABLED`: the other
+      maintenance timers being live does not turn this on.
 - [ ] A real reminder push **arrives on a real device**, and its body does not
       contain the `requester_note` (it is deliberately kept out of the payload
       — push surfaces on a lock screen).

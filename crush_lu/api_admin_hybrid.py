@@ -237,6 +237,22 @@ def crush_lead_reminders(request):
     if not _authenticate_admin_request(request):
         return _unauthorized(request)
 
+    # Feature gate (spec §10). Its own switch rather than
+    # HYBRID_COACH_SYSTEM_ENABLED: this timer shares a function app with the
+    # other maintenance jobs, so without it the only ways to stage or stop the
+    # reminder flow are turning off every hybrid job or unsetting
+    # DJANGO_CRUSH_LEAD_REMINDERS_URL — and that one no-ops silently.
+    # `manage.py send_crush_lead_reminders` stays ungated: it is the manual,
+    # explicitly-invoked path, not the scheduler.
+    if not getattr(settings, "CRUSH_LEAD_REMINDERS_ENABLED", False):
+        logger.info(
+            "[crush_lead_reminders] CRUSH_LEAD_REMINDERS_ENABLED=False — skipping"
+        )
+        return JsonResponse(
+            {"skipped": True, "reason": "CRUSH_LEAD_REMINDERS_ENABLED=False"},
+            status=200,
+        )
+
     from crush_lu.services.crush_leads import sweep_lead_reminders
 
     started = timezone.now()

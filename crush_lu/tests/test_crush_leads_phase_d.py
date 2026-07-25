@@ -1728,3 +1728,114 @@ class TestCodexRound4Fixes:
             assert len(calls) == 3
             assert ok["budget_exhausted"] is False
             assert ok["success"] == 3
+
+
+class TestCodexRound6Fixes:
+    """Findings from the sixth Codex round, against `0620c16`."""
+
+    # --- P1: the consent push was silently lost to a lazy-string payload ---
+
+    def _cocoach_lead(self):
+        routed = _make_coach("r6_routed@example.com")
+        cocoach = _make_coach("r6_cocoach@example.com")
+        requester, req_profile = _make_user("r6_req@example.com", "M")
+        recipient, rec_profile = _make_user("r6_rec@example.com", "F")
+        req_profile.assigned_coach = routed
+        req_profile.save(update_fields=["assigned_coach"])
+        rec_profile.assigned_coach = cocoach
+        rec_profile.save(update_fields=["assigned_coach"])
+        lead = _lead(requester, recipient, _make_event())
+        lead.assign_coach()
+        lead.refresh_from_db()
+        return routed, cocoach, lead
+
+    def test_the_consent_push_actually_serializes(self, monkeypatch):
+        """`views_coach` imports `_` as `gettext_lazy`, so the title and body
+        reached `json.dumps` as `__proxy__` objects. That raises *inside* the
+        per-device loop, where it is caught and counted as a delivery failure
+        — the send returns normally, the caller's handler never fires, and the
+        routed coach is never told consent was recorded."""
+        import json
+
+        from django.test import override_settings
+
+        from crush_lu import coach_notifications
+        from crush_lu.models import CoachPushSubscription
+
+        routed, cocoach, lead = self._cocoach_lead()
+        CoachPushSubscription.objects.create(
+            coach=routed,
+            endpoint="https://push.example/r6-consent",
+            p256dh_key="k1",
+            auth_key="a1",
+            enabled=True,
+            notify_system_alerts=True,
+        )
+        sent = []
+        monkeypatch.setattr(
+            coach_notifications, "webpush", lambda **kw: sent.append(kw)
+        )
+
+        client = Client()
+        _login(client, cocoach.user)
+        with override_settings(
+            VAPID_PRIVATE_KEY="pk",
+            VAPID_PUBLIC_KEY="pub",
+            VAPID_ADMIN_EMAIL="admin@example.com",
+        ):
+            client.post(
+                reverse(
+                    "crush_lu:coach_crush_outreach_task",
+                    kwargs={"connection_id": lead.pk},
+                ),
+                {"action": "record_consent"},
+            )
+
+        assert len(sent) == 1, "the consent push never reached a device"
+        payload = json.loads(sent[0]["data"])
+        assert payload["title"] == "Recipient consented"
+        # The crusher is not named: this lands on a lock screen.
+        assert lead.requester.username not in payload["body"]
+
+    # --- P2: the reminder sweep endpoint had no feature gate (spec §10) ---
+
+    def _post_sweep(self, client):
+        from django.test import override_settings
+
+        with override_settings(ADMIN_API_KEY="test-admin-key"):
+            return client.post(
+                reverse("api_admin_crush_lead_reminders"),
+                HTTP_AUTHORIZATION="Bearer test-admin-key",
+            )
+
+    def test_the_sweep_endpoint_is_off_by_default(self):
+        """Default-off: enabling the function app's other timers must not
+        start delivering reminders on its own."""
+        from django.test import override_settings
+
+        with override_settings(CRUSH_LEAD_REMINDERS_ENABLED=False):
+            response = self._post_sweep(Client())
+
+        assert response.status_code == 200
+        assert response.json()["skipped"] is True
+
+    def test_the_sweep_runs_once_enabled(self):
+        from django.test import override_settings
+
+        with override_settings(CRUSH_LEAD_REMINDERS_ENABLED=True):
+            response = self._post_sweep(Client())
+
+        assert response.status_code == 202
+        assert "sent" in response.json()
+
+    def test_the_gate_does_not_bypass_authentication(self):
+        """The gate sits after the auth check: an unauthenticated caller must
+        still get 401, not a 200 that reveals the flag's state."""
+        from django.test import override_settings
+
+        with override_settings(
+            CRUSH_LEAD_REMINDERS_ENABLED=False, ADMIN_API_KEY="test-admin-key"
+        ):
+            response = Client().post(reverse("api_admin_crush_lead_reminders"))
+
+        assert response.status_code == 401
