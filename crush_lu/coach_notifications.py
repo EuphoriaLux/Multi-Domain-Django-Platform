@@ -538,8 +538,16 @@ def notify_coach_system_alert(coach, title, message, url="/coach/dashboard/"):
         )
         return {"success": 0, "failed": 0, "total": 0}
 
+    # Pass the filtered queryset through: without it the send re-queries every
+    # enabled device, so one device opting in delivers the alert to the ones
+    # where the coach muted system alerts.
     return send_coach_push_notification(
-        coach=coach, title=title, body=message, url=url, tag="system-alert"
+        coach=coach,
+        title=title,
+        body=message,
+        url=url,
+        tag="system-alert",
+        subscriptions=subscriptions,
     )
 
 

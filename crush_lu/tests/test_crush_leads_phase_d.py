@@ -840,6 +840,46 @@ class TestCodexRound1Fixes:
 
         assert captured["endpoints"] == [opted_in.endpoint]
 
+    def test_system_alert_targets_only_opted_in_devices(self, monkeypatch):
+        """Bot review: the consent notification this phase adds rides
+        `notify_coach_system_alert`, which gated on the per-device preference
+        but then let the send re-query every enabled device — so one device
+        opting in delivered to the muted ones too."""
+        from crush_lu import coach_notifications
+        from crush_lu.models import CoachPushSubscription
+
+        coach = _make_coach("sa_pref@example.com")
+        opted_in = CoachPushSubscription.objects.create(
+            coach=coach,
+            endpoint="https://push.example/alerts-on",
+            p256dh_key="k1",
+            auth_key="a1",
+            enabled=True,
+            notify_system_alerts=True,
+        )
+        CoachPushSubscription.objects.create(
+            coach=coach,
+            endpoint="https://push.example/alerts-muted",
+            p256dh_key="k2",
+            auth_key="a2",
+            enabled=True,
+            notify_system_alerts=False,
+        )
+
+        captured = {}
+
+        def fake_send(coach, title, body, url="/", tag="", subscriptions=None, **kw):
+            captured["endpoints"] = sorted(s.endpoint for s in subscriptions)
+            return {"success": 1, "failed": 0, "total": 1}
+
+        monkeypatch.setattr(
+            coach_notifications, "send_coach_push_notification", fake_send
+        )
+
+        coach_notifications.notify_coach_system_alert(coach, "T", "B")
+
+        assert captured["endpoints"] == [opted_in.endpoint]
+
     # --- P1: co-coach writes after the lead closes ---
 
     def _cocoach_lead(self):
@@ -1333,6 +1373,51 @@ class TestClaimCannotTakeOverALead:
 
         lead.refresh_from_db()
         assert lead.assigned_coach == rescuer
+
+    @pytest.mark.parametrize("status", ["shared", "declined"])
+    def test_a_closed_lead_is_not_claimable_via_the_stale_owner_path(self, status):
+        """Bot review: the inactive-owner fallthrough is recovery, and a
+        `shared` or `declined` lead has nothing left to recover — claiming it
+        only flips `show_requester_note` for the claimer."""
+        routed, lead = self._assigned(status=status, active=False)
+        thief = _make_coach(f"cl_closed_{status}@example.com")
+        client = Client()
+        _login(client, thief.user)
+
+        client.post(self._url(lead), {"action": "claim"})
+
+        lead.refresh_from_db()
+        assert lead.assigned_coach == routed
+
+    def test_a_closed_stale_lead_does_not_expose_the_note(self):
+        _, lead = self._assigned(status="shared", active=False)
+        thief = _make_coach("cl_closed_note@example.com")
+        client = Client()
+        _login(client, thief.user)
+
+        client.post(self._url(lead), {"action": "claim"})
+        response = client.get(self._url(lead))
+
+        assert b"Takeover note." not in response.content
+
+    def test_a_legacy_row_keeps_unconditional_stale_owner_recovery(self):
+        """The restriction is crush-only: legacy rows carry no coach-private
+        note, and narrowing their recovery would strand them."""
+        routed = _make_coach("cl_legacy_routed@example.com", is_active=False)
+        requester, _p = _make_user("cl_legacy_req@example.com", "M")
+        recipient, _p2 = _make_user("cl_legacy_rec@example.com", "F")
+        legacy = _lead(
+            requester, recipient, _make_event(), routed,
+            status="shared", flow=EventConnection.FLOW_LEGACY,
+        )
+        rescuer = _make_coach("cl_legacy_rescuer@example.com")
+        client = Client()
+        _login(client, rescuer.user)
+
+        client.post(self._url(legacy), {"action": "claim"})
+
+        legacy.refresh_from_db()
+        assert legacy.assigned_coach == rescuer
 
 
 class TestOutreachRaceOnAClosingLead:

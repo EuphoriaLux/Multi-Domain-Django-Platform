@@ -3579,6 +3579,31 @@ def _profile_display_name(user):
     return user.first_name or user.username
 
 
+def _claim_blocked(conn):
+    """Whether ``claim`` must be refused on ``conn``.
+
+    An active routed coach owns the row outright. A *deactivated* routed coach
+    normally counts as unassigned — ``coach_required`` locks them out of every
+    coach view, so the lead would otherwise be stranded, and this is the
+    stale-lead recovery path the view offers.
+
+    That recovery is withheld on a closed crush lead. `shared` and `declined`
+    leave no coach work to recover, so a claim there does nothing except flip
+    `show_requester_note` for the claimer — handing over a note promised to
+    the routed coach alone, on a lead that is already finished or cancelled.
+    Legacy rows are unaffected: they carry no coach-private note.
+    """
+    routed = conn.assigned_coach
+    if routed is None:
+        return False
+    if routed.is_active:
+        return True
+    return (
+        conn.flow == EventConnection.FLOW_CRUSH
+        and conn.status not in EventConnection.OPEN_LEAD_STATUSES
+    )
+
+
 def _compute_connection_next_action(conn, current_coach):
     """Plain-language summary of who needs to act next on a connection.
 
@@ -4113,8 +4138,13 @@ def coach_connection_review(request, connection_id):
             # and claiming it flips `show_requester_note`, handing over the
             # note the routed coach was promised sole sight of.
             # An inactive routed coach still counts as unassigned — that is
-            # exactly the stale-lead recovery path this view offers.
-            if connection.assigned_coach and connection.assigned_coach.is_active:
+            # exactly the stale-lead recovery path this view offers. But only
+            # while the lead is still *open*: on a `shared` or `declined` crush
+            # lead there is no recovery work left, so the fallthrough would be
+            # pure disclosure — the claim flips `show_requester_note` and hands
+            # the note over on a completed or cancelled lead. Legacy rows keep
+            # the unconditional stale-owner recovery they have always had.
+            if _claim_blocked(connection):
                 messages.error(
                     request, _("This connection is assigned to another coach.")
                 )
@@ -4127,12 +4157,16 @@ def coach_connection_review(request, connection_id):
                 # the re-check both claims report success while the last save
                 # silently replaces the first coach — both then begin the
                 # promised outreach on a lead only one of them owns.
+                # `status` and `flow` are re-read too: the routed coach can
+                # close the lead in the same window, which would otherwise
+                # turn a legitimate stale-owner claim into that same
+                # disclosure on a just-closed lead.
                 locked = (
                     EventConnection.objects.select_for_update()
-                    .only("id", "assigned_coach")
+                    .only("id", "assigned_coach", "status", "flow")
                     .get(pk=connection.pk)
                 )
-                if locked.assigned_coach and locked.assigned_coach.is_active:
+                if _claim_blocked(locked):
                     messages.error(
                         request, _("This connection is assigned to another coach.")
                     )
