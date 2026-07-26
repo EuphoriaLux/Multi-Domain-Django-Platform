@@ -548,6 +548,9 @@ urlpatterns = [
     # Coach connection management
     path('coach/connections/', views.coach_connections, name='coach_connections'),
     path('coach/connections/<int:connection_id>/', views.coach_connection_review, name='coach_connection_review'),
+    # Recipient-side co-coach task: its own constrained surface, because the
+    # co-coach must never open the lead itself (spec §5).
+    path('coach/crush-outreach/<int:connection_id>/', views.coach_crush_outreach_task, name='coach_crush_outreach_task'),
 
     # Coach member overview & assignment
     path('coach/member/<int:user_id>/', views.coach_member_overview, name='coach_member_overview'),

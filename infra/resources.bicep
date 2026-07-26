@@ -424,6 +424,11 @@ resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
       'PREMIUM_REDIRECTS_TO_BETA'
       'HYBRID_COACH_SYSTEM_ENABLED'
       'PRE_SCREENING_ENABLED'
+      // "My Crush!" 24h reminder sweep. Sticky for the same reason as the two
+      // above: staging enables it to verify, and an unpinned flag is exchanged
+      // on swap — either switching reminders on in production before it was
+      // signed off, or switching them off after release.
+      'CRUSH_LEAD_REMINDERS_ENABLED'
       // Analytics - only production should track GA4
       'GA4_CRUSH_LU'
       'GA4_POWERUP'

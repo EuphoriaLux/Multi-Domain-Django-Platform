@@ -20,6 +20,10 @@ Environment Variables Required:
     - DJANGO_WEEKLY_KPIS_URL: e.g. https://crush.lu/api/admin/weekly-kpis/
     - DJANGO_ROTATE_CONNECT_QUESTIONS_URL: e.g. https://crush.lu/api/admin/rotate-connect-questions/
     - DJANGO_CAMPAIGN_DISPATCH_URL: e.g. https://crush.lu/api/admin/campaigns/dispatch/
+    - DJANGO_CRUSH_LEAD_REMINDERS_URL: e.g. https://crush.lu/api/admin/crush-lead-reminders/
+      (OPS: like every URL here it must be set manually on the Function App —
+      an unset var logs an error and no-ops, so the 24h reminder silently
+      never fires.)
     - ADMIN_API_KEY: Bearer token shared with the Django ADMIN_API_KEY setting
     - HYBRID_MAINTENANCE_ENABLED: Should be 'true' in production; anything
       else skips both triggers (safe-default: functions are deployed disabled
@@ -247,3 +251,30 @@ def gdpr_retention(timer: func.TimerRequest) -> None:
         logging.warning("GdprRetention: timer past due at %s", ts)
     logging.info("GdprRetention: starting at %s", ts)
     _call_admin_endpoint("GdprRetention", "DJANGO_GDPR_RETENTION_URL")
+
+
+@app.function_name(name="CrushLeadReminders")
+@app.timer_trigger(
+    schedule="0 45 * * * *",  # Hourly at :45 (clear of invites :00/:10 and SLA :15)
+    arg_name="timer",
+    run_on_startup=False,
+    use_monitor=True,
+)
+def crush_lead_reminders(timer: func.TimerRequest) -> None:
+    """Remind coaches about untouched "My Crush!" leads at the 24h mark.
+
+    A member who declares a crush is promised a coach call within 48h, so
+    this fires halfway through while there is still a day to make it.
+
+    Hourly rather than daily: the SLA is measured per lead from its own
+    declaration time, so a daily pass would leave a lead up to 23h late.
+
+    Idempotent per lead: reminder_sent_at is both the filter and the record
+    on the Django side, so a retried or catch-up invocation never
+    double-reminds.
+    """
+    ts = datetime.utcnow().isoformat()
+    if timer.past_due:
+        logging.warning("CrushLeadReminders: timer past due at %s", ts)
+    logging.info("CrushLeadReminders: starting at %s", ts)
+    _call_admin_endpoint("CrushLeadReminders", "DJANGO_CRUSH_LEAD_REMINDERS_URL")
