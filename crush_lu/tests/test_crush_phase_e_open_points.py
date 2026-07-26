@@ -15,6 +15,7 @@ Spec: docs/superpowers/specs/2026-07-21-crush-my-crush-post-event-flow.md
 
 Run with: pytest crush_lu/tests/test_crush_phase_e_open_points.py -v
 """
+import json
 from datetime import date, timedelta
 from io import StringIO
 from unittest import mock
@@ -41,6 +42,13 @@ from crush_lu.services import crush_leads
 from crush_lu.services.crush_leads import REMINDER_AFTER, sweep_lead_reminders
 
 User = get_user_model()
+
+# Real-shaped Web Push key material: a 65-byte uncompressed P-256 point and a
+# 16-byte auth secret, base64url. `"k"`/`"a"` placeholders are now rejected by
+# `subscription_key_fault` before the send, so a test using them would exercise
+# the key-fault path while claiming to test transport handling.
+VALID_P256DH = "BAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8"
+VALID_AUTH = "AAECAwQFBgcICQoLDA0ODw"
 
 pytestmark = [pytest.mark.django_db, pytest.mark.urls("azureproject.urls_crush")]
 
@@ -487,8 +495,8 @@ class TestClaimThenSend:
         return CoachPushSubscription.objects.create(
             coach=coach,
             endpoint="https://push.example.com/dead-endpoint",
-            p256dh_key="k",
-            auth_key="a",
+            p256dh_key=VALID_P256DH,
+            auth_key=VALID_AUTH,
         )
 
     def test_device_health_writes_survive_a_delivery_failure(self):
@@ -1131,8 +1139,8 @@ class TestTransportFailuresCountAgainstDeviceHealth:
         subscription = CoachPushSubscription.objects.create(
             coach=coach,
             endpoint="https://push.example.com/hung",
-            p256dh_key="k",
-            auth_key="a",
+            p256dh_key=VALID_P256DH,
+            auth_key=VALID_AUTH,
         )
         return coach, subscription
 
@@ -1449,3 +1457,131 @@ class TestTheClaimAuditAppendUsesTheLockedRow:
         lead.refresh_from_db()
         assert lead.assigned_coach_id == cocoach.pk
         assert lead.recipient_coach_id is None
+
+
+class TestUnusableKeyMaterialCountsAgainstTheDevice:
+    """P2, and the round-4 fix overshooting: splitting global faults out of the
+    device-health branch also excluded *device-specific* key faults, because
+    `pywebpush` reports those by exception type too — `p256dh="%%%"` surfaces as
+    a bare `IndexError`. Such a subscription can never work, so skipping
+    `mark_failure()` left it enabled forever, retried every sweep, never
+    reaching the five-failure cleanup: the exact slow drain O14 removed."""
+
+    def _device(self, name, p256dh=VALID_P256DH, auth=VALID_AUTH):
+        coach = _make_coach(name)
+        return coach, CoachPushSubscription.objects.create(
+            coach=coach,
+            endpoint="https://push.example.com/x",
+            p256dh_key=p256dh,
+            auth_key=auth,
+        )
+
+    def _send(self, coach):
+        from crush_lu import coach_notifications
+
+        with mock.patch.object(
+            coach_notifications.settings, "VAPID_PRIVATE_KEY", "x", create=True
+        ), mock.patch.object(
+            coach_notifications.settings, "VAPID_PUBLIC_KEY", "y", create=True
+        ), mock.patch.object(
+            coach_notifications.settings,
+            "VAPID_ADMIN_EMAIL",
+            "a@example.com",
+            create=True,
+        ):
+            return coach_notifications.send_coach_push_notification(
+                coach, "title", "body"
+            )
+
+    def test_garbage_p256dh_is_blamed_on_the_device(self):
+        """The specific value Codex named. It raises `IndexError` from inside
+        the encryption code — neither a `WebPushException` nor a transport
+        error — so exception-type sorting put it in the "not the device's
+        fault" branch."""
+        coach, subscription = self._device("pe_keys_a@example.com", p256dh="%%%")
+
+        result = self._send(coach)
+
+        subscription.refresh_from_db()
+        assert subscription.failure_count == 1
+        assert result["failed"] == 1
+
+    def test_garbage_auth_is_blamed_on_the_device(self):
+        coach, subscription = self._device("pe_keys_c@example.com", auth="%%%")
+
+        self._send(coach)
+
+        subscription.refresh_from_db()
+        assert subscription.failure_count == 1
+
+    def test_decodable_material_is_left_to_the_send(self):
+        """The guard is deliberately narrow. A short-but-decodable p256dh
+        already raises `WebPushException`, which already marks device health —
+        so catching it here would be redundant, and the length rule needed to
+        catch it would reject stored rows that a real send might handle. That
+        over-reach was caught by a pre-existing test, not by review."""
+        from crush_lu.coach_notifications import subscription_key_fault
+
+        assert subscription_key_fault("AAAA", VALID_AUTH) is None
+        assert subscription_key_fault("k0", "a0") is None
+
+    def test_empty_material_is_blamed_on_the_device(self):
+        coach, subscription = self._device("pe_keys_e@example.com", p256dh="")
+
+        self._send(coach)
+
+        subscription.refresh_from_db()
+        assert subscription.failure_count == 1
+
+    def test_five_sweeps_clean_up_an_unusable_device(self):
+        """The cleanup that was unreachable — the point of the finding."""
+        coach, subscription = self._device("pe_keys_d@example.com", p256dh="%%%")
+
+        for _ in range(5):
+            self._send(coach)
+
+        assert not CoachPushSubscription.objects.filter(pk=subscription.pk).exists()
+
+    def test_valid_material_is_not_short_circuited(self):
+        """Positive control — the guard must not swallow usable devices. With
+        valid keys the send reaches the network and fails there, which is the
+        transport path, not the key path."""
+        from crush_lu.coach_notifications import subscription_key_fault
+
+        assert subscription_key_fault(VALID_P256DH, VALID_AUTH) is None
+
+
+class TestSubscribeRejectsUnusableKeys:
+    """Present is not usable. The endpoint checked only that the fields exist,
+    so a buggy client could store material that can never encrypt a push."""
+
+    def _post(self, coach, p256dh, auth):
+        client = Client()
+        _login(client, coach.user)
+        return client.post(
+            reverse("api_coach_subscribe_push"),
+            data=json.dumps(
+                {
+                    "endpoint": "https://push.example.com/new",
+                    "keys": {"p256dh": p256dh, "auth": auth},
+                }
+            ),
+            content_type="application/json",
+        )
+
+    def test_garbage_keys_are_rejected(self):
+        coach = _make_coach("pe_sub_a@example.com")
+
+        response = self._post(coach, "%%%", VALID_AUTH)
+
+        assert response.status_code == 400
+        assert not CoachPushSubscription.objects.filter(coach=coach).exists()
+
+    def test_valid_keys_are_accepted(self):
+        """Positive control — the check must not reject real subscriptions."""
+        coach = _make_coach("pe_sub_b@example.com")
+
+        response = self._post(coach, VALID_P256DH, VALID_AUTH)
+
+        assert response.status_code == 200
+        assert CoachPushSubscription.objects.filter(coach=coach).exists()

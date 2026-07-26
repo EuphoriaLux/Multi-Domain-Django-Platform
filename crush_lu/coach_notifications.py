@@ -4,6 +4,8 @@ Handles Web Push API notifications for Crush Coaches.
 Completely separate from user notifications to avoid conflicts.
 """
 
+import base64
+import binascii
 import json
 import logging
 import time
@@ -21,6 +23,49 @@ logger = logging.getLogger(__name__)
 # Per-device Web Push timeout. Kept well under the 60s Azure Function budget
 # so a serial sweep of several devices still fits inside one invocation.
 PUSH_TIMEOUT_SECONDS = 10
+
+
+def subscription_key_fault(p256dh, auth):
+    """Why this key material can never encrypt a push, or ``None`` if it might.
+
+    Deliberately narrow: **only** empty or non-base64 material. That is exactly
+    the gap and no wider.
+
+    Measured rather than assumed, because the failure modes do not sort by
+    exception type. Against `pywebpush`:
+
+      * `p256dh="%%%"`  -> bare ``IndexError`` from inside the encryption code
+      * `p256dh="AAAA"` -> ``WebPushException``   (already marks device health)
+      * `auth="%%%"`    -> ``WebPushException``   (already marks device health)
+
+    Only the first escapes both existing handlers, so only the first needs
+    catching here. An earlier version of this check also required p256dh to
+    decode to exactly 65 bytes and auth to 16 — true of every real browser
+    subscription, but the subscribe endpoint has never enforced it, and a rule
+    that strict would have started failing any stored row that did not match
+    and deleted it after five sweeps. A pre-existing test caught that. Rejecting
+    a *working* device is a far worse outcome than the retry loop being fixed,
+    so the length rule is gone and anything decodable is left to the send.
+
+    Used in two places so they cannot disagree: the subscribe endpoint rejects
+    unusable material outright, and the sender counts an already-stored bad row
+    against device health so it reaches the five-failure cleanup instead of
+    being retried forever.
+    """
+    for name, raw in (("p256dh", p256dh), ("auth", auth)):
+        value = (raw or "").strip()
+        if not value:
+            return f"{name} is empty"
+        # `validate=True` matters: the default *silently discards* characters
+        # outside the alphabet, so `"%%%"` decodes to b"" without error and
+        # this check would pass the very input it exists to catch. That is how
+        # the first version of this function shipped, and a test caught it.
+        translated = value.replace("-", "+").replace("_", "/")
+        try:
+            base64.b64decode(translated + "=" * (-len(translated) % 4), validate=True)
+        except (binascii.Error, ValueError):
+            return f"{name} is not valid base64"
+    return None
 
 
 def send_coach_push_notification(
@@ -130,6 +175,24 @@ def send_coach_push_notification(
             device_timeout = min(PUSH_TIMEOUT_SECONDS, remaining)
         else:
             device_timeout = PUSH_TIMEOUT_SECONDS
+        # A device whose stored keys cannot encrypt anything is broken in a way
+        # only re-subscribing fixes, so it counts against device health and
+        # reaches the five-failure cleanup. Detected here rather than in the
+        # handlers below: the exceptions this produces are indistinguishable
+        # from a *global* VAPID fault by type, and blaming every device for
+        # that would delete them all.
+        key_fault = subscription_key_fault(
+            subscription.p256dh_key, subscription.auth_key
+        )
+        if key_fault:
+            logger.warning(
+                f"Unusable coach push keys for {coach.user.username} "
+                f"({subscription.device_name}): {key_fault}"
+            )
+            subscription.mark_failure()
+            failed_count += 1
+            continue
+
         try:
             # Prepare subscription info for pywebpush
             subscription_info = {
@@ -207,6 +270,10 @@ def send_coach_push_notification(
             # config typo into unrecoverable data loss that fixing the key
             # would not undo. The presence checks above catch an *unset* key;
             # they cannot catch an invalid one.
+            #
+            # Device-specific key faults do not reach here — they are caught
+            # by `subscription_key_fault` above, by inspection, so "unusable
+            # device" and "unusable config" cannot be confused for each other.
             #
             # The lead still retries: `failed_count` makes the result read as a
             # delivery failure, so the sweep releases its claim.
