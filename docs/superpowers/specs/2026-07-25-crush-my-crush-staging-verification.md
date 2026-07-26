@@ -27,10 +27,31 @@ The sweep (`crush_lu/services/crush_leads.py`) is driven by the
 `CrushLeadReminders` timer on the `crush-hybrid-maintenance` Function App,
 hourly at :45, via `POST /api/admin/crush-lead-reminders/`.
 
+- [ ] **`HYBRID_MAINTENANCE_ENABLED="true"` on the Function App.** Checked
+      *before* everything else in `_call_admin_endpoint()`
+      (`azure-functions/hybrid-maintenance/function_app.py:64-68`) — if it is
+      absent or not the literal string `true`, the function returns without
+      reading the URL or calling Django at all. A freshly created or
+      deliberately quiesced staging Function App fails here with every other
+      setting on this page correct.
 - [ ] **`DJANGO_CRUSH_LEAD_REMINDERS_URL` is actually set** on the Function
       App. Unset logs an error and no-ops, so the 24h reminder would silently
-      never fire — and nothing else in the system would notice. This is the
-      single highest-value check on the page.
+      never fire — and nothing else in the system would notice.
+- [ ] **`ADMIN_API_KEY` set on the Function App and matching Django's.**
+      *Missing* and *wrong* fail differently, and only one is quiet. Missing
+      hits the same silent early return as the two above. **Mismatched does
+      not**: Django answers 401, `raise_for_status()` raises, and
+      `_call_admin_endpoint()` logs the error and re-raises
+      (`function_app.py:86,101-103`), so Azure marks the invocation **failed**.
+      If the key is wrong you have a failed Function invocation to look at —
+      check there first rather than assuming another silent skip.
+
+      Listed in the order `_call_admin_endpoint()` checks them — each is an
+      early return, so with several unset only the first is logged.
+      These three plus the flag below are **all** required. Only the flag is
+      observable from the Django side; the first three fail inside the Function
+      App, where the app cannot tell a misconfigured timer from one that never
+      ran. Check the Function's own logs, not just Django's.
 - [ ] **`CRUSH_LEAD_REMINDERS_ENABLED=True` on the Django app.** The feature
       gate defaults to off, so the endpoint answers
       `200 {"skipped": true}` and no reminder is sent until it is set. Unlike
@@ -43,7 +64,11 @@ hourly at :45, via `POST /api/admin/crush-lead-reminders/`.
       file carries a standing warning not to deploy it as-is (its
       `appSettingNames` list is out of sync with the live resource), so pin it
       with the CLI instead:
-      `az webapp config appsettings set -g <rg> -n <app> --slot staging --settings CRUSH_LEAD_REMINDERS_ENABLED=True --slot-settings CRUSH_LEAD_REMINDERS_ENABLED`
+      ```
+      az webapp config appsettings set -g <rg> -n <app> --slot staging \
+        --settings CRUSH_LEAD_REMINDERS_ENABLED=True \
+        --slot-settings CRUSH_LEAD_REMINDERS_ENABLED
+      ```
       Unpinned, the staging→production swap exchanges it — turning reminders on
       in production before sign-off, or off again after release.
 - [ ] A real reminder push **arrives on a real device**, and its body does not
@@ -103,8 +128,13 @@ and lock). None has been observed with two real requests.
 
 ## UI (Phase E scope, listed here so it is not lost)
 
-- [ ] Coach surfaces in **DE and FR** — all Phase D strings are wrapped but
-      the catalogues have not been extracted.
+- [ ] Coach surfaces in **DE and FR**. Not purely an extraction job: most
+      Phase D strings are wrapped and the catalogues simply have not been
+      extracted, but `RECIPIENT_RESPONSE_CHOICES`
+      (`crush_lu/models/connections.py:266-269`) holds its labels as raw
+      English, so `makemessages` skips them and
+      `get_recipient_response_display()` stays English in both languages
+      regardless. **Wrap those in code before or with the extraction run.**
 - [ ] **Dark mode and light mode** on the outreach task and the lead
       workspace. A white-on-white button already shipped once in this phase
       and was only caught by review.
@@ -115,10 +145,29 @@ and lock). None has been observed with two real requests.
 
 Recorded so a future reader does not mistake these for oversights:
 
-- **A constrained triage surface for unrouted leads.** Routing tier 4 catches
+~~- **A constrained triage surface for unrouted leads.** Routing tier 4 catches
   any active coach, so a lead is unrouted only when the platform has zero
-  active coaches. If staging ever produces an unrouted lead with active
-  coaches present, that reachability argument is wrong — reopen it.
-- **Reverting a `shared` lead via the legacy `approve` action.** The terminal
-  guard covers `declined` only. No review round raised it; noted in case
-  staging shows it matters.
+  active coaches.~~ **This was wrong — it belongs in the build, not here.**
+  The rationale missed that `profile_requirement="none"` events let
+  `event_register` proceed with `profile = None` (`views_events.py:916-920`),
+  and `request_connection` gates the *requester* on attendance only. A
+  profile-less attendee of an open event therefore declares normally,
+  `declare_crush()` skips routing for them, and the lead is unrouted **with
+  active coaches present**. It stays visible and claimable on the connections
+  page's **Pending** tab, but it is absent from the SLA-tracked inbox
+  (`crush_leads_for_coach()` filters `assigned_coach = me`) and from the
+  reminder sweep (`reminder_candidates()` filters
+  `assigned_coach__isnull=False`) — so nothing gives it a "call by" clock or
+  chases it, and the default `needs_review` tab does not show it. Tracked as
+  row 5 / option 3 of O12 in the spec, scoped there as wiring an existing pool
+  row into the inbox and sweep rather than building discovery from scratch.
+  Kept visible rather than deleted because the flawed
+  reachability argument was accepted twice in review before anyone read
+  `profile_requirement`'s full choice list.
+~~- **Reverting a `shared` lead via the legacy `approve` action.** The terminal
+  guard covers `declined` only.~~ **No longer true — fixed before merge.** The
+  guard now reads `status in ("declined", "shared")`, both before taking the
+  lock and again on the locked re-read, so a stale workspace cannot walk a
+  completed introduction back to `coach_approved` while `shared_at` stays
+  populated. Struck rather than deleted so anyone who read the earlier version
+  can see it was closed, not dropped.
