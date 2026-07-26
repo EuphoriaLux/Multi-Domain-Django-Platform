@@ -95,6 +95,21 @@ hourly at :45, via `POST /api/admin/crush-lead-reminders/`.
       devices — a config typo turned into data loss that fixing the key would
       not undo. The helper deliberately marks health only for
       `requests` transport errors for exactly this reason.
+- [ ] **Unusable key material is rejected at registration, and cleaned up if
+      already stored.** Two halves, because the fault can arrive either way:
+      - POST to `/api/coach/push/subscribe/` with a garbage `p256dh` (`"%%%"`)
+        and confirm a **400** with no row created. The endpoint used to check
+        only that the key fields were *present*, so a buggy client could store
+        material that can never encrypt anything.
+      - Hand-write a subscription row with the same garbage key, run the sweep
+        five times, and confirm it is **deleted** rather than retried. Before
+        this it stayed enabled forever, consuming an attempt every hour.
+
+      Distinct from the VAPID item above, which is a *global* config fault
+      where no device may be blamed. This one is per-device and the device
+      *is* at fault — the two are deliberately handled on opposite sides, and
+      the boundary between them has been wrong in both directions during
+      review, so check them as a pair rather than in isolation.
 - [ ] **A hung endpoint's `failure_count` actually increases.** Point a
       subscription at an address that accepts the connection and never
       responds. The push raises a *timeout*, not a `WebPushException`, so it

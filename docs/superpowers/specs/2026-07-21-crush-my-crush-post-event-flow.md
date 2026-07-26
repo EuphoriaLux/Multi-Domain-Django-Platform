@@ -19,7 +19,7 @@ prerequisites below; and someone walks the staging checklist.
 SQLite; the concurrency guarantees in particular are proven only against
 simulated races, never against Postgres row locking, and no reminder has been
 delivered to a real device. See
-`2026-07-25-crush-my-crush-staging-verification.md` — 26 checks, none ticked.
+`2026-07-25-crush-my-crush-staging-verification.md` — 27 checks, none ticked.
 
 **Scope of this document:** planning and decision record. It no longer
 describes unbuilt work for Phases A–D; treat §5/§7 as the spec the shipped
