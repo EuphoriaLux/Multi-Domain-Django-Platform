@@ -34,13 +34,15 @@ hourly at :45, via `POST /api/admin/crush-lead-reminders/`.
       reading the URL or calling Django at all. A freshly created or
       deliberately quiesced staging Function App fails here with every other
       setting on this page correct.
-- [ ] **`ADMIN_API_KEY` set on the Function App and matching Django's.** Also
-      checked inside the function; a mismatch surfaces as a 401 the timer
-      swallows.
 - [ ] **`DJANGO_CRUSH_LEAD_REMINDERS_URL` is actually set** on the Function
       App. Unset logs an error and no-ops, so the 24h reminder would silently
       never fire — and nothing else in the system would notice.
+- [ ] **`ADMIN_API_KEY` set on the Function App and matching Django's.** Also
+      checked inside the function; a mismatch surfaces as a 401 the timer
+      swallows.
 
+      Listed in the order `_call_admin_endpoint()` checks them — each is an
+      early return, so with several unset only the first is logged.
       These three plus the flag below are **all** required. Only the flag is
       observable from the Django side; the first three fail inside the Function
       App, where the app cannot tell a misconfigured timer from one that never

@@ -633,11 +633,15 @@ that segment. Out of scope here.
      (`azure-functions/hybrid-maintenance/function_app.py:64-68`), so a new or
      disabled staging Function App returns before it ever reads the URL —
      every other setting can be perfect and nothing fires.
-  2. `ADMIN_API_KEY` set on the Function App **and matching** Django's.
-  3. `DJANGO_CRUSH_LEAD_REMINDERS_URL` on the Function App.
+  2. `DJANGO_CRUSH_LEAD_REMINDERS_URL` on the Function App.
+  3. `ADMIN_API_KEY` set on the Function App **and matching** Django's.
   4. `CRUSH_LEAD_REMINDERS_ENABLED=True` on the Django app, pinned slot-sticky
      **via the CLI**, since `infra/resources.bicep` carries a standing warning
      against deploying it as-is.
+
+  Listed in the order the code checks them, because each is an early return —
+  with several unset the Function logs only the *first* failure, so this is the
+  order an operator will actually meet them in.
 
   Only (4) is visible from the Django side — it answers `200 {"skipped": true}`
   and says which flag stopped it. (1) logs at INFO and (2)/(3) log errors, all
