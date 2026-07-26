@@ -6,6 +6,7 @@ Completely separate from user notifications to avoid conflicts.
 
 import json
 import logging
+import time
 from django.conf import settings
 from django.urls import reverse
 from django.utils.translation import gettext as _
@@ -15,12 +16,25 @@ from .push_notifications import user_language_context
 
 logger = logging.getLogger(__name__)
 
+# Per-device Web Push timeout. Kept well under the 60s Azure Function budget
+# so a serial sweep of several devices still fits inside one invocation.
+PUSH_TIMEOUT_SECONDS = 10
+
 
 def send_coach_push_notification(
-    coach, title, body, url="/", tag="coach-notification", icon=None, badge=None
+    coach,
+    title,
+    body,
+    url="/",
+    tag="coach-notification",
+    icon=None,
+    badge=None,
+    subscriptions=None,
+    deadline=None,
+    clock=None,
 ):
     """
-    Send a push notification to all of a coach's subscribed devices.
+    Send a push notification to a coach's subscribed devices.
 
     Args:
         coach: CrushCoach object
@@ -30,6 +44,21 @@ def send_coach_push_notification(
         tag: Notification tag for grouping (default: 'coach-notification')
         icon: Icon URL (default: Crush.lu logo)
         badge: Badge icon URL (default: Crush.lu badge)
+        subscriptions: optional pre-filtered CoachPushSubscription queryset.
+            Callers that gate on a per-device preference (e.g.
+            ``notify_screening_reminders``) MUST pass their filtered
+            queryset — otherwise this re-queries every enabled device and
+            delivers to the ones where the coach muted that category.
+            Defaults to all enabled subscriptions.
+        deadline: optional monotonic timestamp after which no further device
+            deliveries are started. The crush lead sweep passes its caller's
+            time budget here: each device allows up to
+            ``PUSH_TIMEOUT_SECONDS``, so without it a coach with several
+            stalled endpoints can hold a row lock well past the Azure
+            Function's 60s timeout — and a rollback at that point could undo
+            a push that already reached another device. The per-device
+            timeout is also clamped to the remaining budget.
+        clock: monotonic clock used with ``deadline``; injectable for tests.
 
     Returns:
         dict: {
@@ -39,17 +68,25 @@ def send_coach_push_notification(
         }
     """
 
-    # Validate VAPID configuration
+    # Validate VAPID configuration.
+    # `misconfigured` distinguishes a config error from "nobody opted in":
+    # both produce zero sends, but a caller that records delivery (the crush
+    # lead reminder) must retry a config error rather than treat it as an
+    # opt-out and permanently consume the notification.
     if not hasattr(settings, "VAPID_PRIVATE_KEY") or not settings.VAPID_PRIVATE_KEY:
         logger.error("VAPID_PRIVATE_KEY not configured in settings")
-        return {"success": 0, "failed": 0, "total": 0}
+        return {"success": 0, "failed": 0, "total": 0, "misconfigured": True}
 
     if not hasattr(settings, "VAPID_PUBLIC_KEY") or not settings.VAPID_PUBLIC_KEY:
         logger.error("VAPID_PUBLIC_KEY not configured in settings")
-        return {"success": 0, "failed": 0, "total": 0}
+        return {"success": 0, "failed": 0, "total": 0, "misconfigured": True}
 
-    # Get all active subscriptions for this coach
-    subscriptions = CoachPushSubscription.objects.filter(coach=coach, enabled=True)
+    # Get the target subscriptions: the caller's pre-filtered set when given,
+    # else every enabled device for this coach.
+    if subscriptions is None:
+        subscriptions = CoachPushSubscription.objects.filter(
+            coach=coach, enabled=True
+        )
 
     if not subscriptions.exists():
         logger.info(f"No active push subscriptions for coach {coach.user.username}")
@@ -68,9 +105,29 @@ def send_coach_push_notification(
     # Track results
     success_count = 0
     failed_count = 0
+    budget_exhausted = False
+    if deadline is not None:
+        clock = clock or time.monotonic
 
     # Send to each subscription
     for subscription in subscriptions:
+        if deadline is not None:
+            remaining = deadline - clock()
+            if remaining <= 0:
+                # Out of the caller's budget: stop starting deliveries so a
+                # stalled device cannot hold a caller-held lock past its
+                # timeout. Unattempted devices are simply not counted — the
+                # sweep re-tries the lead on its next run when nothing got
+                # through.
+                budget_exhausted = True
+                logger.warning(
+                    f"Coach push deadline exhausted for {coach.user.username}; "
+                    "remaining devices skipped"
+                )
+                break
+            device_timeout = min(PUSH_TIMEOUT_SECONDS, remaining)
+        else:
+            device_timeout = PUSH_TIMEOUT_SECONDS
         try:
             # Prepare subscription info for pywebpush
             subscription_info = {
@@ -87,6 +144,11 @@ def send_coach_push_notification(
                 data=json.dumps(payload),
                 vapid_private_key=settings.VAPID_PRIVATE_KEY,
                 vapid_claims={"sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"},
+                # pywebpush defaults to no timeout. A stalled push endpoint
+                # would then hang the caller indefinitely — for the crush
+                # lead sweep that means holding a row lock until the Azure
+                # Function's own 60s timeout kills the request.
+                timeout=device_timeout,
             )
 
             # Mark success
@@ -119,7 +181,12 @@ def send_coach_push_notification(
     return {
         "success": success_count,
         "failed": failed_count,
+        # Total targeted devices, not attempted ones: a budget-exhausted run
+        # that delivered nothing must read as a delivery failure (total > 0,
+        # success == 0) so the sweep rolls its stamp back and retries the
+        # lead — never as "nobody opted in", which would consume it.
         "total": subscriptions.count(),
+        "budget_exhausted": budget_exhausted,
     }
 
 
@@ -391,6 +458,65 @@ def notify_coach_screening_reminder(coach, submission):
     )
 
 
+def notify_coach_crush_lead_reminder(coach, connection, deadline=None, clock=None):
+    """
+    Remind a coach about a "My Crush!" lead they haven't touched in 24h.
+
+    The member was promised a call within 48h (spec §6/O8), so this fires at
+    the halfway mark while there is still time to make it.
+
+    Rides the ``notify_screening_reminders`` channel rather than adding a new
+    flag: from the coach's side this is the same kind of signal — a call they
+    owe someone — and a coach who muted call reminders meant to mute this too.
+
+    Coach-facing only, and the routed coach already sees this lead, so naming
+    the crusher discloses nothing new to them. The ``requester_note`` is
+    deliberately left out: push payloads surface on a lock screen.
+
+    Args:
+        coach: CrushCoach the lead is routed to
+        connection: the ``flow='crush'`` EventConnection
+        deadline: optional monotonic timestamp bounding the whole device
+            loop; the sweep passes its own budget through so one multi-device
+            coach cannot overrun the Azure Function's 60s caller timeout.
+        clock: monotonic clock used with ``deadline``; injectable for tests.
+    """
+    subscriptions = CoachPushSubscription.objects.filter(
+        coach=coach, enabled=True, notify_screening_reminders=True
+    )
+
+    if not subscriptions.exists():
+        logger.info(
+            f"Coach {coach.user.username} has call reminder notifications disabled"
+        )
+        return {"success": 0, "failed": 0, "total": 0}
+
+    requester = connection.requester
+    user_name = requester.first_name or requester.username
+
+    with user_language_context(coach.user):
+        title = _("My Crush! call still open")
+        body = _("%(name)s is waiting for your call — half the 48h is gone.") % {
+            "name": user_name
+        }
+        url = reverse("crush_lu:coach_connection_review", args=[connection.id])
+
+    return send_coach_push_notification(
+        coach=coach,
+        title=title,
+        body=body,
+        url=url,
+        tag=f"crush-lead-reminder-{connection.id}",
+        # Deliver only to the devices that opted into call reminders — the
+        # body carries the requester's name onto a lock screen, so a device
+        # where the coach muted this category must not receive it just
+        # because another device is still opted in.
+        subscriptions=subscriptions,
+        deadline=deadline,
+        clock=clock,
+    )
+
+
 def notify_coach_system_alert(coach, title, message, url="/coach/dashboard/"):
     """
     Send a system/admin alert to a coach.
@@ -412,8 +538,16 @@ def notify_coach_system_alert(coach, title, message, url="/coach/dashboard/"):
         )
         return {"success": 0, "failed": 0, "total": 0}
 
+    # Pass the filtered queryset through: without it the send re-queries every
+    # enabled device, so one device opting in delivers the alert to the ones
+    # where the coach muted system alerts.
     return send_coach_push_notification(
-        coach=coach, title=title, body=message, url=url, tag="system-alert"
+        coach=coach,
+        title=title,
+        body=message,
+        url=url,
+        tag="system-alert",
+        subscriptions=subscriptions,
     )
 
 
