@@ -1110,3 +1110,219 @@ class TestBackfillLeavesPoolLeadsAlone:
 
         lead.refresh_from_db()
         assert lead.recipient_coach_id == theirs.pk
+
+
+# ---------------------------------------------------------------------------
+# Codex round 3 on #690
+# ---------------------------------------------------------------------------
+
+
+class TestTransportFailuresCountAgainstDeviceHealth:
+    """P2: `webpush()` raises `WebPushException` for protocol errors, but a hung
+    endpoint surfaces as a *timeout*, which took the helper's catch-all branch
+    — and that branch recorded no device health at all. The exact device O14
+    exists to clean up therefore stayed at `failure_count == 0` forever, never
+    auto-deleted, burning its full timeout out of every hourly sweep."""
+
+    def _coach_with_device(self, name="pe_health@example.com"):
+        coach = _make_coach(name)
+        subscription = CoachPushSubscription.objects.create(
+            coach=coach,
+            endpoint="https://push.example.com/hung",
+            p256dh_key="k",
+            auth_key="a",
+        )
+        return coach, subscription
+
+    def _send(self, coach, exc):
+        from crush_lu import coach_notifications
+
+        with mock.patch.object(
+            coach_notifications, "webpush", side_effect=exc
+        ), mock.patch.object(
+            coach_notifications.settings, "VAPID_PRIVATE_KEY", "x", create=True
+        ), mock.patch.object(
+            coach_notifications.settings, "VAPID_PUBLIC_KEY", "y", create=True
+        ), mock.patch.object(
+            coach_notifications.settings,
+            "VAPID_ADMIN_EMAIL",
+            "a@example.com",
+            create=True,
+        ):
+            return coach_notifications.send_coach_push_notification(
+                coach, "title", "body"
+            )
+
+    def test_a_transport_timeout_marks_the_device(self):
+        coach, subscription = self._coach_with_device()
+
+        result = self._send(coach, TimeoutError("endpoint never responded"))
+
+        subscription.refresh_from_db()
+        assert subscription.failure_count == 1
+        assert result["failed"] == 1
+        assert result["success"] == 0
+
+    def test_five_consecutive_timeouts_delete_the_device(self):
+        """The auto-delete O14 is meant to restore. Without the catch-all
+        branch recording health this endpoint lived forever."""
+        coach, subscription = self._coach_with_device("pe_health_b@example.com")
+
+        for _ in range(5):
+            self._send(coach, TimeoutError("endpoint never responded"))
+
+        assert not CoachPushSubscription.objects.filter(pk=subscription.pk).exists()
+
+    def test_the_result_still_reads_as_a_delivery_failure(self):
+        """The sweep keys off `total > 0 and success == 0` to release its
+        claim — marking device health must not change that shape."""
+        coach, _subscription = self._coach_with_device("pe_health_c@example.com")
+
+        result = self._send(coach, TimeoutError("endpoint never responded"))
+
+        assert result["total"] > 0
+        assert result["success"] == 0
+
+
+class TestClaimingALeadYouCoCoach:
+    """P2: a Phase D lead routed to A with `recipient_coach = B` returns to the
+    pool when A is deactivated — and B sees it there like every other coach. B
+    claiming it used to leave B on both halves, the state
+    `assign_recipient_coach()` refuses to create."""
+
+    def _orphaned_lead(self, suffix="a"):
+        gone = _make_coach(f"pe_both_gone_{suffix}@example.com", is_active=False)
+        cocoach = _make_coach(f"pe_both_co_{suffix}@example.com")
+        requester, _ = _make_user(f"pe_both_req_{suffix}@example.com", "M")
+        recipient, _ = _make_user(f"pe_both_rec_{suffix}@example.com", "F")
+        lead = _lead(requester, recipient, _make_event(), gone)
+        lead.recipient_coach = cocoach
+        lead.save(update_fields=["recipient_coach"])
+        return cocoach, lead
+
+    def _claim(self, coach, lead):
+        client = Client()
+        _login(client, coach.user)
+        return client.post(
+            reverse(
+                "crush_lu:coach_connection_review",
+                kwargs={"connection_id": lead.pk},
+            ),
+            {"action": "crush_start_review"},
+        )
+
+    def test_the_lead_reaches_its_co_coachs_pool(self):
+        """Premise check — without this the rest is unreachable."""
+        cocoach, lead = self._orphaned_lead()
+
+        assert _pool_ids(_queue(cocoach)) == [lead.pk]
+
+    def test_claiming_it_clears_the_co_coach_side(self):
+        cocoach, lead = self._orphaned_lead("b")
+
+        self._claim(cocoach, lead)
+
+        lead.refresh_from_db()
+        assert lead.assigned_coach_id == cocoach.pk
+        assert lead.recipient_coach_id is None
+        assert lead.has_active_recipient_coach is False
+
+    def test_the_clearing_is_recorded_in_the_audit_trail(self):
+        """A silently vanishing `recipient_coach` reads like a lost write."""
+        cocoach, lead = self._orphaned_lead("c")
+
+        self._claim(cocoach, lead)
+
+        lead.refresh_from_db()
+        types = [a["type"] for a in lead.system_actions]
+        assert "crush_recipient_coach_cleared_on_claim" in types
+        assert "crush_start_review" in types
+
+    def test_the_coach_does_not_also_get_an_outreach_task(self):
+        """The visible symptom: one lead appearing twice in one inbox, once as
+        a call and once as a task addressed to yourself."""
+        cocoach, lead = self._orphaned_lead("d")
+
+        self._claim(cocoach, lead)
+
+        items = _queue(cocoach).context["items"]
+        kinds = [
+            i["kind"]
+            for i in items
+            if i["url_kwargs"].get("connection_id") == lead.pk
+        ]
+        assert kinds == ["crush_lead"]
+
+    def test_a_different_coach_claiming_leaves_the_co_coach_in_place(self):
+        """Positive control — the clearing must be scoped to the claimer, not
+        applied to every claim."""
+        cocoach, lead = self._orphaned_lead("e")
+        someone_else = _make_coach("pe_both_other@example.com")
+
+        self._claim(someone_else, lead)
+
+        lead.refresh_from_db()
+        assert lead.assigned_coach_id == someone_else.pk
+        assert lead.recipient_coach_id == cocoach.pk
+
+
+class TestAnInactiveOwnerLeadCanActuallyBeClaimed:
+    """The pool section surfaces leads whose routed coach was deactivated and
+    links them to the review page — but `crush_start_review`'s guard was a bare
+    null-owner check, so those rows refused the claim. Surfacing a lead and then
+    refusing to let anyone take it is a dead end, not a recovery path."""
+
+    def _orphaned_lead(self, suffix="a", status="pending"):
+        gone = _make_coach(f"pe_reclaim_gone_{suffix}@example.com", is_active=False)
+        requester, _ = _make_user(f"pe_reclaim_req_{suffix}@example.com", "M")
+        recipient, _ = _make_user(f"pe_reclaim_rec_{suffix}@example.com", "F")
+        lead = _lead(requester, recipient, _make_event(), gone, status=status)
+        return gone, lead
+
+    def _claim(self, coach, lead):
+        client = Client()
+        _login(client, coach.user)
+        return client.post(
+            reverse(
+                "crush_lu:coach_connection_review",
+                kwargs={"connection_id": lead.pk},
+            ),
+            {"action": "crush_start_review"},
+            follow=True,
+        )
+
+    def test_a_coach_can_adopt_a_stranded_lead(self):
+        _gone, lead = self._orphaned_lead()
+        rescuer = _make_coach("pe_reclaim_rescuer@example.com")
+
+        self._claim(rescuer, lead)
+
+        lead.refresh_from_db()
+        assert lead.assigned_coach_id == rescuer.pk
+        assert lead.status == "coach_reviewing"
+
+    def test_an_actively_owned_lead_still_cannot_be_taken(self):
+        """Positive control on the other side — relaxing the guard must not
+        open ownership takeover of a live lead."""
+        owner = _make_coach("pe_reclaim_owner@example.com")
+        requester, _ = _make_user("pe_reclaim_req_b@example.com", "M")
+        recipient, _ = _make_user("pe_reclaim_rec_b@example.com", "F")
+        lead = _lead(requester, recipient, _make_event(), owner)
+        thief = _make_coach("pe_reclaim_thief@example.com")
+
+        self._claim(thief, lead)
+
+        lead.refresh_from_db()
+        assert lead.assigned_coach_id == owner.pk
+        assert lead.status == "pending"
+
+    def test_a_closed_stranded_lead_is_not_claimable(self):
+        """`_stale_owner_recoverable`'s rule: on a closed crush lead there is
+        no work to recover, so the fallthrough would be pure disclosure."""
+        _gone, lead = self._orphaned_lead("c", status="declined")
+        rescuer = _make_coach("pe_reclaim_rescuer_c@example.com")
+
+        self._claim(rescuer, lead)
+
+        lead.refresh_from_db()
+        assert lead.assigned_coach_id != rescuer.pk

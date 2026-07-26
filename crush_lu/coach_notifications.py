@@ -172,10 +172,26 @@ def send_coach_push_notification(
             failed_count += 1
 
         except Exception as e:
-            # Catch-all for unexpected errors
+            # Catch-all for unexpected errors — most importantly *transport*
+            # failures. `webpush()` raises `WebPushException` for protocol-level
+            # errors, but a hung or unreachable endpoint surfaces as a requests
+            # timeout, which lands here instead.
+            #
+            # That is the exact device O14 exists to clean up, so this branch
+            # has to record health too. Without the `mark_failure()` below a
+            # permanently stalled endpoint stayed at `failure_count == 0`,
+            # never reached the five-failure auto-delete, and burned its full
+            # `PUSH_TIMEOUT_SECONDS` out of the sweep's budget every hour
+            # forever — the same slow drain the claim-then-send restructure was
+            # meant to stop, just reached by a different exception type.
+            #
+            # Safe for genuinely transient errors: `mark_success()` resets
+            # `failure_count` to 0, so a device has to fail five times *in a
+            # row* to be dropped.
             logger.error(
                 f"Unexpected error sending coach push to {coach.user.username}: {e}"
             )
+            subscription.mark_failure()
             failed_count += 1
 
     return {

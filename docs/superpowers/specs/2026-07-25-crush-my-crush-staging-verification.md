@@ -85,6 +85,15 @@ hourly at :45, via `POST /api/admin/crush-lead-reminders/`.
       (`reminder_sent_at` back to null) and the lead is still eligible on the
       next run. Both paths return a
       zero-total result; only a flag separates them.
+- [ ] **A hung endpoint's `failure_count` actually increases.** Point a
+      subscription at an address that accepts the connection and never
+      responds. The push raises a *timeout*, not a `WebPushException`, so it
+      takes the helper's catch-all branch — which until this branch recorded
+      no device health at all, leaving the endpoint at `failure_count == 0`
+      forever, never auto-deleted, and burning its full `PUSH_TIMEOUT_SECONDS`
+      out of every hourly sweep. Confirm the count climbs and that the
+      subscription is deleted on the fifth consecutive failure. Distinct from
+      the 410 case below, which was always handled.
 - [ ] **Delivery failure releases the claim** with the real push helper, not an
       injected one. This is the exact shape that fooled the first fix. Since
       O14 the sweep no longer *rolls back* — it commits the stamp as a claim,
@@ -123,17 +132,28 @@ and lock). None has been observed with two real requests.
       ("this lead is closed", not "already recorded").
 - [ ] `record_outreach` on a lead closing underneath it neither stamps the
       field nor reports success.
-- [ ] **A coach acting during a slow push does not get reminded about the work
-      they just did.** O14 releases the row lock before the send, so the coach
-      action handlers — which lock the same row — no longer queue behind the
-      reminder transaction. An unlocked re-read just before the send narrows
-      that window but cannot close it; closing it means holding the lock across
-      the network call, which is the bug O14 removed. Schedule a call against a
-      lead whose push is deliberately slow (a hung endpoint) and confirm the
-      reminder is cancelled and the claim handed back. **This is the one race
-      here that is expected to be reachable in production**, not merely
-      theoretical — it is bounded by push duration, and the loser is a coach
-      seeing one stale notification, not corrupted data.
+- [ ] **A coach acting between the claim and the send cancels the reminder.**
+      O14 releases the row lock before the push, so the coach action handlers —
+      which lock the same row — no longer queue behind the reminder
+      transaction. `_claim_still_owed()` re-reads the row immediately before
+      `notify()`; schedule a call in *that* window and confirm the reminder is
+      cancelled and the claim handed back.
+
+      **Be precise about the window, or this check fails for the wrong
+      reason.** The re-read happens *before* the push starts. There is no
+      further check once the request is in flight, so an action taken during a
+      deliberately-hung push **will not cancel it** — the stale reminder goes
+      out and the claim is kept. That is the known residual window, not a
+      defect: closing it means holding the row lock across the network call,
+      which is the bug O14 removed. An earlier version of this check asked for
+      a cancellation during the in-flight push, which the code cannot do and
+      which would have failed sign-off for a behaviour that is working as
+      designed.
+
+      **This is the one race here expected to be genuinely reachable in
+      production**, not merely theoretical — it is bounded by push duration,
+      and the loser is a coach seeing one stale notification, not corrupted
+      data.
 - [ ] Postgres row locking behaves as assumed throughout — the suite runs on
       SQLite, so `select_for_update` is effectively a no-op there.
 

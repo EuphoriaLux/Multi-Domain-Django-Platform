@@ -4121,8 +4121,21 @@ def coach_connection_review(request, connection_id):
         # falls through to the no-op tail.
         action = request.POST.get("action") or ""
 
-        # Ownership check: only the assigned coach (or unassigned) can act
-        if action != "claim":
+        # Ownership check: only the assigned coach (or unassigned) can act.
+        #
+        # `crush_start_review` joins `claim` in the exemption, and for the same
+        # reason: it is the *other* way to adopt a lead nobody is working. The
+        # inner guard it hits instead applies `_claim_blocked`, which is
+        # stricter than this one — it still refuses an actively-owned lead, and
+        # refuses a closed one even when the owner is deactivated.
+        #
+        # Without the exemption a lead whose routed coach was deactivated is a
+        # dead end: `_stale_owner_recoverable` lets any coach *open* it, the
+        # pool section now puts it in every coach's inbox linking here, and
+        # then this check — which only asks whether an owner exists, not
+        # whether they are active — refuses the claim. Surfacing work nobody is
+        # permitted to take is worse than not surfacing it.
+        if action not in ("claim", "crush_start_review"):
             if connection.assigned_coach and connection.assigned_coach != coach:
                 messages.error(
                     request, _("This connection is assigned to another coach.")
@@ -4285,7 +4298,20 @@ def coach_connection_review(request, connection_id):
                     )
                     return redirect("crush_lu:coach_connections")
                 connection.assigned_coach = coach
-                connection.save(update_fields=["assigned_coach"])
+                claim_fields = ["assigned_coach"]
+                # Same reconciliation as `crush_start_review`: claiming a lead
+                # you are already the co-coach of would put you on both halves.
+                # Reachable here too — this is the other door into the same
+                # room, and the pool section feeds both.
+                if connection.recipient_coach_id == coach.id:
+                    connection.recipient_coach = None
+                    connection.log_system_action(
+                        "crush_recipient_coach_cleared_on_claim",
+                        actor=coach.user.username,
+                        reason="claimer was also the recipient coach",
+                    )
+                    claim_fields += ["recipient_coach", "system_actions"]
+                connection.save(update_fields=claim_fields)
                 if couple_reverse:
                     reverse_connection.assigned_coach = coach
                     reverse_connection.save(update_fields=["assigned_coach"])
@@ -4354,9 +4380,19 @@ def coach_connection_review(request, connection_id):
                 # re-check the start-review would quietly reassign it — leaving
                 # both coaches told they own it and both beginning the promised
                 # outreach. The locked row is the only trustworthy owner.
-                if (
-                    connection.assigned_coach is not None
-                    and connection.assigned_coach_id != coach.id
+                #
+                # Uses the same rule as the `claim` action rather than a bare
+                # null check. A lead whose routed coach was *deactivated* has a
+                # non-null owner but is stranded, and the pool section now puts
+                # exactly those leads in every coach's inbox — linking here. A
+                # null-owner check would surface them and then refuse the
+                # claim, which is a dead end rather than a recovery path.
+                # `_claim_blocked` already encodes when that fallthrough is
+                # legitimate (open leads only; a closed one is pure
+                # disclosure), and the status guard above has already returned
+                # for closed leads anyway.
+                if connection.assigned_coach_id != coach.id and _claim_blocked(
+                    connection
                 ):
                     messages.error(
                         request, _("This connection is assigned to another coach.")
@@ -4372,10 +4408,33 @@ def coach_connection_review(request, connection_id):
                     if connection.status == "pending":
                         connection.status = "coach_reviewing"
                         connection.assigned_coach = coach
+                        fields = ["status", "assigned_coach", "system_actions"]
+                        # Claiming a lead you are already the co-coach of would
+                        # otherwise put you on both halves. Reachable since the
+                        # pool section shipped: a Phase D lead routed to A with
+                        # `recipient_coach = B` returns to the pool when A is
+                        # deactivated, and B sees it there like everyone else.
+                        #
+                        # One person on both halves is the state
+                        # `assign_recipient_coach()` refuses to create — it
+                        # produces an owned call *and* a co-coach outreach task
+                        # addressed to the same person, while
+                        # `has_active_recipient_coach` disables the routed
+                        # workspace's own recipient-answer controls in favour of
+                        # that task. Clearing the co-coach side restores the
+                        # supported "one coach covers both halves"
+                        # configuration; the audit entry records that it was the
+                        # claim that did it, not a lost write.
+                        if connection.recipient_coach_id == coach.id:
+                            connection.recipient_coach = None
+                            connection.log_system_action(
+                                "crush_recipient_coach_cleared_on_claim",
+                                actor=actor,
+                                reason="claimer was also the recipient coach",
+                            )
+                            fields.append("recipient_coach")
                         connection.log_system_action("crush_start_review", actor=actor)
-                        connection.save(
-                            update_fields=["status", "assigned_coach", "system_actions"]
-                        )
+                        connection.save(update_fields=fields)
                         messages.success(request, _("Lead is now under your review."))
                     else:
                         messages.info(request, _("This lead is already under review."))
