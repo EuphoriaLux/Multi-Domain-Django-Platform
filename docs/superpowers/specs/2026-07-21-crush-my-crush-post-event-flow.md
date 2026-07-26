@@ -625,11 +625,24 @@ that segment. Out of scope here.
   * **`recipient_coach` backfill for pre-Phase-D leads — see O13.**
   * **Reminder-sweep subscription health — see O14.**
 
-  **Ops prerequisites before the 24h reminder can fire at all** (both, not
-  either): `DJANGO_CRUSH_LEAD_REMINDERS_URL` on the `crush-hybrid-maintenance`
-  Function App, and `CRUSH_LEAD_REMINDERS_ENABLED=True` on the Django app —
-  pinned slot-sticky **via the CLI**, since `infra/resources.bicep` carries a
-  standing warning against deploying it as-is. Full checklist in
+  **Ops prerequisites before the 24h reminder can fire at all — four, not
+  two.** An earlier draft here listed only the last two:
+
+  1. `HYBRID_MAINTENANCE_ENABLED="true"` on the Function App. Checked *first*
+     in the shared `_call_admin_endpoint()`
+     (`azure-functions/hybrid-maintenance/function_app.py:64-68`), so a new or
+     disabled staging Function App returns before it ever reads the URL —
+     every other setting can be perfect and nothing fires.
+  2. `ADMIN_API_KEY` set on the Function App **and matching** Django's.
+  3. `DJANGO_CRUSH_LEAD_REMINDERS_URL` on the Function App.
+  4. `CRUSH_LEAD_REMINDERS_ENABLED=True` on the Django app, pinned slot-sticky
+     **via the CLI**, since `infra/resources.bicep` carries a standing warning
+     against deploying it as-is.
+
+  Only (4) is visible from the Django side — it answers `200 {"skipped": true}`
+  and says which flag stopped it. (1) logs at INFO and (2)/(3) log errors, all
+  inside the Function, so from the app's perspective a misconfigured timer is
+  indistinguishable from one that never ran. Full checklist in
   `docs/superpowers/specs/2026-07-25-crush-my-crush-staging-verification.md`.
 
 **Sequencing dependency:** the §8 member surfaces (`request_connection`,
@@ -671,15 +684,47 @@ Three implementable options, each fixing a different subset:
 2. **An independent recipient-outreach reminder track** — new
    `recipient_reminder_sent_at`, second sweep branch. Fixes row 4.
 3. **A pool bucket in the inbox** for unrouted and stale-owner leads. Fixes
-   row 5.
+   row 5. **Do this one first** — see below; it is the only one of the three
+   with a path that loses a real member's declaration outright, and it is
+   independent of the queue-semantics question the other two turn on.
 
-On row 5's priority: the reported trigger is `declare_crush()` skipping routing
-for a requester with no `CrushProfile`, but `event_register` requires a profile
-on **both** branches, so that path is unreachable — and `assign_coach()` tier 4
-is `CrushCoach.objects.filter(is_active=True).order_by('id').first()`, i.e. any
-active coach. A lead is therefore unrouted only when the platform has **zero
-active coaches**, at which point an empty pool queue has nobody to render it
-to. Treat it as the lowest of the three, not the P1 it was filed as.
+**Row 5 is reachable, and its P1 stands.** An earlier version of this
+paragraph argued the opposite — that `event_register` requires a `CrushProfile`
+on every branch, so a profile-less requester could never declare, leaving
+`assign_coach()` tier 4 (`filter(is_active=True).first()`, i.e. any active
+coach) as the only way to be unrouted, which needs zero active coaches
+platform-wide. **That argument is wrong** and the correction matters, because
+it was the sole basis for downgrading the priority.
+
+`profile_requirement` has six values (`events.py:165`), and `event_register`
+handles `completed` / `approved` / `coach_assigned` / `unverified` /
+`profile_exists` each with their own `CrushProfile.DoesNotExist` redirect — but
+falls through to an `else` for **`none`** ("No profile required") that
+tolerates a missing profile outright:
+
+```python
+else:                                   # views_events.py:916-920
+    try:
+        profile = CrushProfile.objects.get(user=request.user)
+    except CrushProfile.DoesNotExist:
+        profile = None                  # registration proceeds
+```
+
+`request_connection` then gates the **requester** on attendance only — the
+`get_object_or_404(CrushProfile, …)` there resolves the *recipient*, not the
+declarer — so a profile-less attendee of an open event reaches `declare_crush()`
+normally, and `declare_crush()` deliberately skips `assign_coach()` for them.
+The lead is unrouted **with active coaches present**, and with no pool bucket it
+appears in nobody's inbox: `crush_leads_for_coach()` filters `assigned_coach =
+me`, the reminder sweep rejects null owners, and `coach_connections` defaults to
+`needs_review`, which excludes `pending`. A real member declaration silently
+misses the promised 48-hour call.
+
+Two things worth taking from how this was missed: the flawed argument had been
+stated and accepted twice in review before anyone checked
+`profile_requirement`'s full choice list, and a second automated reviewer
+independently "verified" it — by confirming the two branches it named while not
+noticing there were six. Agreement between reviewers is not verification.
 
 ## 11. Decision points
 
@@ -697,7 +742,7 @@ rows here that still need an answer.
 | O10   | Resolve "My Crush" naming collision with the coach navbar dropdown. | **Rename the coach dropdown to "My Dating Profile"** in both nav locations (`base.html:365` desktop, `base.html:896` mobile); member feature keeps "My Crush!". Record in `docs/products/crush-connect.md` §9. |
 | O11   | Lead routing when the crusher has no assigned coach.           | **Reuse `MeetupEvent.coaches`** (`events.py:257`) as the middle tier — the association already exists; only the selection policy among an event's coaches is net-new (§7). Then the coach-pool queue. Until built, `assign_coach()` falls back to any active coach. |
 | O12   | **What is a coach's inbox a list of?** (Phase E blocker)       | See §10.1 below — this needs a decision before the symptoms are worth patching. |
-| O13   | Backfill `recipient_coach` for leads declared before Phase D.  | **A `manage.py` reconciliation command**, not a data migration. `assign_recipient_coach()` is a model method; historical models in a migration do not carry it, and re-implementing the four routing tiers inside `0201` duplicates logic that will drift. A command is idempotent, re-runnable, uses the real model, and runs right after deploy. Check first whether production has any pre-Phase-D crush leads — if #681 had not deployed, the backfill set is empty. |
+| O13   | Backfill `recipient_coach` for leads declared before Phase D.  | **A `manage.py` reconciliation command**, not a data migration. `assign_recipient_coach()` is a model method; historical models in a migration do not carry it, so re-implementing it in `0201` duplicates logic that will drift. A command is idempotent, re-runnable, uses the real model, and runs right after deploy. **Do not re-derive the rule by analogy with `assign_coach()`** — an earlier draft here said "the four routing tiers", which is the *requester* side. The recipient side is deliberately narrower (`connections.py:462-495`): only two tiers, the approved-submission coach then the profile's permanent coach, both requiring `is_active`; and it returns `None` — leaving `recipient_coach` null on purpose — when the result is the routed coach or there is no coach at all, because then one person covers both halves and there is no hand-off to track. Assigning event or pool coaches recipient-side would manufacture co-coach tasks that should not exist and disable the routed coach's own recipient-answer controls. Check first whether production has any pre-Phase-D crush leads — if #681 had not deployed, the backfill set is empty. |
 | O14   | Reminder sweep: subscription-health writes roll back with the lead stamp. | `mark_failure()` and the 410 `delete()` sit inside the sweep's `transaction.atomic()`, so a delivery failure rolls them back with `reminder_sent_at`. A permanently broken endpoint therefore never reaches its five-failure auto-delete and is retried hourly forever. **Recommended: claim-then-send** — commit the stamp as a claim, send outside the transaction, release the stamp in a second short transaction on failure. Trades away the "a crashed sweep re-sends" guarantee (a process dying between claim and release drops that one reminder) for durable health bookkeeping. Alternatives: re-apply the health writes after rollback (preserves the guarantee, more moving parts), or leave it (log noise and a slow drain, not a correctness bug). |
 
 ## 12. Non-goals

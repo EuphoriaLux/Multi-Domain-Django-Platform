@@ -27,10 +27,24 @@ The sweep (`crush_lu/services/crush_leads.py`) is driven by the
 `CrushLeadReminders` timer on the `crush-hybrid-maintenance` Function App,
 hourly at :45, via `POST /api/admin/crush-lead-reminders/`.
 
+- [ ] **`HYBRID_MAINTENANCE_ENABLED="true"` on the Function App.** Checked
+      *before* everything else in `_call_admin_endpoint()`
+      (`azure-functions/hybrid-maintenance/function_app.py:64-68`) — if it is
+      absent or not the literal string `true`, the function returns without
+      reading the URL or calling Django at all. A freshly created or
+      deliberately quiesced staging Function App fails here with every other
+      setting on this page correct.
+- [ ] **`ADMIN_API_KEY` set on the Function App and matching Django's.** Also
+      checked inside the function; a mismatch surfaces as a 401 the timer
+      swallows.
 - [ ] **`DJANGO_CRUSH_LEAD_REMINDERS_URL` is actually set** on the Function
       App. Unset logs an error and no-ops, so the 24h reminder would silently
-      never fire — and nothing else in the system would notice. This is the
-      single highest-value check on the page.
+      never fire — and nothing else in the system would notice.
+
+      These three plus the flag below are **all** required. Only the flag is
+      observable from the Django side; the first three fail inside the Function
+      App, where the app cannot tell a misconfigured timer from one that never
+      ran. Check the Function's own logs, not just Django's.
 - [ ] **`CRUSH_LEAD_REMINDERS_ENABLED=True` on the Django app.** The feature
       gate defaults to off, so the endpoint answers
       `200 {"skipped": true}` and no reminder is sent until it is set. Unlike
@@ -115,10 +129,19 @@ and lock). None has been observed with two real requests.
 
 Recorded so a future reader does not mistake these for oversights:
 
-- **A constrained triage surface for unrouted leads.** Routing tier 4 catches
+~~- **A constrained triage surface for unrouted leads.** Routing tier 4 catches
   any active coach, so a lead is unrouted only when the platform has zero
-  active coaches. If staging ever produces an unrouted lead with active
-  coaches present, that reachability argument is wrong — reopen it.
+  active coaches.~~ **This was wrong — it belongs in the build, not here.**
+  The rationale missed that `profile_requirement="none"` events let
+  `event_register` proceed with `profile = None` (`views_events.py:916-920`),
+  and `request_connection` gates the *requester* on attendance only. A
+  profile-less attendee of an open event therefore declares normally,
+  `declare_crush()` skips routing for them, and the lead is unrouted **with
+  active coaches present** — landing in no inbox, no reminder sweep, and behind
+  a connections page that defaults to `needs_review`. Tracked as row 5 / option
+  3 of O12 in the spec. Kept visible rather than deleted because the flawed
+  reachability argument was accepted twice in review before anyone read
+  `profile_requirement`'s full choice list.
 ~~- **Reverting a `shared` lead via the legacy `approve` action.** The terminal
   guard covers `declined` only.~~ **No longer true — fixed before merge.** The
   guard now reads `status in ("declined", "shared")`, both before taking the
