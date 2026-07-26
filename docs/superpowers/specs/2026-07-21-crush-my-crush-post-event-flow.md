@@ -107,7 +107,7 @@ conversion moment that exists, without a paywall screen.
    machine.** The state machine survives; the *reveal semantics* around it
    do not.
 
-## 5. Mechanics (as built)
+## 5. Mechanics (as built, with one exception marked inline)
 
 * **Declaration:** post-event named attendees list (unchanged gating: attended
   + connection window open). Confirmation dialog: irreversible, sets the
@@ -134,8 +134,13 @@ conversion moment that exists, without a paywall screen.
   co-coach task** — recipient identity, event, and requesting coach only,
   **never the crusher's `requester_note`** (that stays with the routed coach)
   and not the crusher's identity until the coaches agree the intro is
-  happening. Recipient outreach gets its own tracking timestamp so the SLA
-  covers both halves. If the recipient has no active coach, the routed coach
+  happening. Recipient outreach gets its own tracking timestamp
+  (`recipient_outreach_at`) — but note this is the **one part of §5 that is
+  not fully as-built**: the timestamp exists and is written, so the recipient
+  half is *recorded*, yet nothing reminds the co-coach against it. There is no
+  `recipient_reminder_sent_at` and the sweep has a single track keyed on the
+  routed coach, so the recipient half can breach its 48h without anyone being
+  chased. Deferred under O12 (§10.1, option 2). If the recipient has no active coach, the routed coach
   performs the outreach directly. **The task carries its own constrained
   actions** — without them the flow deadlocks: the §7 consent actions live
   on the lead review view, which the privacy model forbids the co-coach
@@ -589,9 +594,12 @@ that segment. Out of scope here.
 
 ## 10. Delivery
 
-* **Phase A — capacity gate:** the §6 estimate — **measured 2026-07-22**,
-  pending Tom's review. Sets O8 and O9; re-verify at build time if event
-  cadence or attendance has shifted.
+* **Phase A — capacity gate:** the §6 estimate — **measured 2026-07-22**.
+  Sets O8 and O9; re-verify at build time if event cadence or attendance has
+  shifted. Phases B–D were built on these numbers, so the status header treats
+  O-cap as settled *in practice*; an earlier version of this line still read
+  "pending Tom's review", which contradicted that. If the review genuinely has
+  not happened, what re-opens is O8/O9, not this phase.
 
 * **Phase B — lead model:** §7 call-tracking fields, routing tier, coach action
   queue integration, tests.
@@ -617,10 +625,15 @@ that segment. Out of scope here.
     entry above: as of the merge, **neither the `de` nor the `fr` catalog
     contains a single Phase D coach string** — `Recipient outreach`,
     `Recipient consented`, `My Crush! call still open`, the outreach-task page,
-    the reminder body, and the consent-validation errors are all absent. Every
-    string is properly wrapped, so this is a `makemessages` run plus native
-    DE/FR authoring — but it is the bulk of the outstanding work, not a
-    footnote. #687 covers only the O10 glossary/`My Dating Profile` slice.
+    the reminder body, and the consent-validation errors are all absent. Nearly every
+    string is wrapped, so this is largely a `makemessages` run plus native
+    DE/FR authoring — but **not entirely**. `RECIPIENT_RESPONSE_CHOICES`
+    (`connections.py:266-269`) holds its labels as raw English
+    (`'Recipient consented to the introduction'`), so `makemessages` will not
+    extract them and `get_recipient_response_display()` stays English in DE/FR
+    however complete the catalogs are. Wrapping those is a **code** change that
+    has to land before or with the extraction. This is the bulk of the
+    outstanding work, not a footnote. #687 covers only the O10 glossary/`My Dating Profile` slice.
   * **The coach inbox query model — see O12.** Five separate review findings
     reduce to one design question; it is the first thing to settle, because it
     changes what the queue and the SLA mean.
@@ -664,9 +677,28 @@ are genuinely independent.
 ### 10.1 O12 — what is a coach's inbox a list of?
 
 Phase D's review surfaced five findings that look independent and are not. All
-five are consequences of one line: `open_crush_leads()` keys both the coach
-queue and the reminder sweep off **`assigned_coach = me` and
-`coach_call_completed_at IS NULL`**.
+five trace to **two consumer-side filters layered on one shared base** — and
+getting that split right matters, because an earlier version of this section
+attributed both to `open_crush_leads()`, which does not carry the owner
+constraint at all:
+
+```python
+# connections.py:32-43 — the shared base. No owner filter here.
+open_crush_leads()      -> status__in=OPEN_LEAD_STATUSES,
+                           coach_call_completed_at__isnull=True
+
+# connections.py:45-54 — the inbox adds the owner constraint.
+crush_leads_for_coach() -> open_crush_leads().filter(assigned_coach=coach)
+
+# crush_leads.py:135-142 — the sweep independently demands a non-null,
+# active owner.
+reminder_candidates()   -> assigned_coach__isnull=False, …
+```
+
+Changing the base alone fixes none of this: the pool bucket needs
+`crush_leads_for_coach()` to stop being owner-exact, and co-coach reminders need
+`reminder_candidates()` to grow a second track. What the base *does* own is
+`coach_call_completed_at`, which is what ends queue membership in rows 1-3.
 
 | Symptom reported | What it actually is |
 | --- | --- |
