@@ -821,6 +821,25 @@ holds. What remains uncovered is a coach who does not open their inbox at all;
 they get no push about a pool lead. If that gap is worth closing, decide the
 addressee question above first.
 
+**A second, smaller gap the pool section exposed — `crush_start_review` does
+not route the recipient side.** Claiming a pool lead sets `assigned_coach` and
+nothing else; `assign_recipient_coach()` is never called, so a lead that
+enters the world unrouted keeps `recipient_coach = NULL` for its whole life
+and the claiming coach performs both halves. That is a *supported*
+configuration (it is the same shape as "the recipient's coach is the routed
+coach", which #685 made workable), so this is not a defect — but it does mean
+the co-coach hand-off never happens for pool leads, however many active
+coaches the recipient has.
+
+Deliberately left alone here. Calling `assign_recipient_coach()` on claim
+would change behaviour on every pool claim and needs its own decision about
+whether a coach who volunteers for a lead should then have half of it taken
+away. Recorded so the next reader does not mistake it for an oversight — and
+because it is why the O13 backfill **excludes pool leads**: stamping a
+`recipient_coach` on an ownerless row, then letting that same coach claim it
+from the pool, would put one person on both halves and break the invariant
+outright.
+
 Two things worth taking from how this was missed: the flawed argument had been
 stated and accepted twice in review before anyone checked
 `profile_requirement`'s full choice list, and a second automated reviewer

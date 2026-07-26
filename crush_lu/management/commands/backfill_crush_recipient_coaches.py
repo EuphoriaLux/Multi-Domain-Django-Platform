@@ -24,10 +24,11 @@ there is no coach at all. In that case one person covers both halves, there is
 no hand-off to track, and the routed coach's own recipient-answer controls
 stay enabled. Manufacturing a co-coach here would break both.
 
-Scope: open crush leads with no recipient coach and no recorded recipient
-answer — the set where a hand-off could still happen. A closed or
-already-answered lead has no outreach task to create, so assigning it a
-co-coach would only add a name nobody acts on.
+Scope: open crush leads with an **active routed coach**, no recipient coach and
+no recorded recipient answer — the set where a hand-off could still happen. A
+closed or already-answered lead has no outreach task to create, so assigning it
+a co-coach would only add a name nobody acts on. Unclaimed pool leads are
+excluded for a sharper reason: see the comment on ``_candidates``.
 
 Idempotent and re-runnable: a lead that already has a coach is not in the
 queryset, and a lead the rule declines to route stays null and is simply
@@ -69,6 +70,27 @@ class Command(BaseCommand):
                 recipient_coach__isnull=True,
                 recipient_response__isnull=True,
                 status__in=EventConnection.OPEN_LEAD_STATUSES,
+                # Routed leads only. An unclaimed pool lead has no routed coach
+                # yet, so the question `assign_recipient_coach()` answers —
+                # "is the recipient's coach the same person as the routed
+                # coach?" — has no answer for it, and the method's `coach ==
+                # self.assigned_coach` test compares against None and always
+                # says no.
+                #
+                # Answering it anyway is actively harmful now that the pool is
+                # surfaced in the inbox: this would stamp `recipient_coach = X`
+                # on an ownerless lead, the pool would then invite X to claim
+                # it, and `crush_start_review` sets `assigned_coach` without
+                # touching `recipient_coach` — leaving X on both halves. That
+                # is the exact invariant the method exists to protect, and it
+                # would also disable the routed coach's own recipient-answer
+                # controls in favour of a co-coach task addressed to themselves.
+                #
+                # Leaving these null is correct, not a gap: a claimed pool lead
+                # with no `recipient_coach` is the supported "one coach covers
+                # both halves" configuration.
+                assigned_coach__isnull=False,
+                assigned_coach__is_active=True,
             )
             .select_related("recipient", "assigned_coach__user", "event")
             .order_by("requested_at", "id")

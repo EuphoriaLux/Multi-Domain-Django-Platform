@@ -652,9 +652,9 @@ class TestCoachActionsRacingTheSend:
         # point that is provably after the claim commit and before the send.
         original = crush_leads._claim_still_owed
 
-        def racing_check(lead_id, stamp):
+        def racing_check(lead_id, stamp, coach_id):
             action(lead)
-            return original(lead_id, stamp)
+            return original(lead_id, stamp, coach_id)
 
         with mock.patch.object(crush_leads, "_claim_still_owed", racing_check):
             result = crush_leads.sweep_lead_reminders(notify=notify)
@@ -876,3 +876,237 @@ class TestMutualCountIsScopedToOwnedCalls:
 
         assert counts["crush_lead"] == 1
         assert counts["mutual_crush"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Codex round 2 on #690 — three more P2 findings
+# ---------------------------------------------------------------------------
+
+
+class TestAClaimIsNeverStranded:
+    """P2: once the claim commits, every exit from the loop has to deliver or
+    hand it back. The re-check and the release both run under the outer
+    handler, so a transient database error in either used to leave
+    `reminder_sent_at` populated with nothing sent — and since
+    `reminder_candidates` filters on that column being null, the lead was then
+    excluded from every future sweep. One member's reminder, lost silently and
+    permanently."""
+
+    def _due_lead(self):
+        coach = _make_coach("pe_strand_coach@example.com")
+        requester, req_p = _make_user("pe_strand_req@example.com", "M")
+        recipient, _ = _make_user("pe_strand_rec@example.com", "F")
+        req_p.assigned_coach = coach
+        req_p.save(update_fields=["assigned_coach"])
+        lead = _lead(requester, recipient, _make_event(), coach)
+        EventConnection.objects.filter(pk=lead.pk).update(
+            requested_at=timezone.now() - REMINDER_AFTER - timedelta(hours=1)
+        )
+        lead.refresh_from_db()
+        return coach, lead
+
+    def test_a_raising_recheck_still_releases_the_claim(self):
+        _coach, lead = self._due_lead()
+
+        def boom(lead_id, stamp, coach_id):
+            raise RuntimeError("transient database error")
+
+        with mock.patch.object(crush_leads, "_claim_still_owed", boom):
+            result = crush_leads.sweep_lead_reminders(
+                notify=lambda c, l: {"success": 1, "failed": 0, "total": 1}
+            )
+
+        lead.refresh_from_db()
+        assert lead.reminder_sent_at is None, (
+            "a stranded stamp excludes this lead from every future sweep"
+        )
+        assert result["failed"] == 1
+
+    def test_a_raising_release_does_not_abort_the_rest_of_the_batch(self):
+        """The recovery attempt is best-effort and must not mask the original
+        error or take the other leads down with it."""
+        _coach, _lead_row = self._due_lead()
+
+        def boom(lead_id, stamp, coach_id):
+            raise RuntimeError("transient database error")
+
+        def boom_release(lead_id, stamp):
+            raise RuntimeError("still unwell")
+
+        with mock.patch.object(crush_leads, "_claim_still_owed", boom), \
+                mock.patch.object(crush_leads, "_release_claim", boom_release):
+            result = crush_leads.sweep_lead_reminders(
+                notify=lambda c, l: {"success": 1, "failed": 0, "total": 1}
+            )
+
+        # It gave up on this lead rather than propagating.
+        assert result["failed"] == 1
+        assert result["sent"] == 0
+
+    def test_a_delivered_reminder_keeps_its_stamp(self):
+        """Positive control — the recovery path must not clear the record of a
+        reminder that actually went out."""
+        _coach, lead = self._due_lead()
+
+        result = crush_leads.sweep_lead_reminders(
+            notify=lambda c, l: {"success": 1, "failed": 0, "total": 1}
+        )
+
+        lead.refresh_from_db()
+        assert lead.reminder_sent_at is not None
+        assert result["sent"] == 1
+
+
+class TestTheReminderGoesToTheCurrentOwner:
+    """P2: `_claim_still_owed` required *an* active owner, not *the* captured
+    one. A reassignment between claim and send passed that test while
+    `notify()` still held the old coach — so the reminder, which names the
+    crusher, went to someone who no longer owns the lead, and the stamp was
+    consumed so the real owner never got one."""
+
+    def _due_lead(self):
+        coach = _make_coach("pe_owner_coach@example.com")
+        requester, req_p = _make_user("pe_owner_req@example.com", "M")
+        recipient, _ = _make_user("pe_owner_rec@example.com", "F")
+        req_p.assigned_coach = coach
+        req_p.save(update_fields=["assigned_coach"])
+        lead = _lead(requester, recipient, _make_event(), coach)
+        EventConnection.objects.filter(pk=lead.pk).update(
+            requested_at=timezone.now() - REMINDER_AFTER - timedelta(hours=1)
+        )
+        lead.refresh_from_db()
+        return coach, lead
+
+    def test_a_reassignment_mid_send_cancels_rather_than_misdelivers(self):
+        _old_coach, lead = self._due_lead()
+        new_coach = _make_coach("pe_owner_new@example.com")
+        notified = []
+
+        original = crush_leads._claim_still_owed
+
+        def racing_check(lead_id, stamp, coach_id):
+            EventConnection.objects.filter(pk=lead_id).update(
+                assigned_coach=new_coach
+            )
+            return original(lead_id, stamp, coach_id)
+
+        def notify(coach, l):
+            notified.append(coach.pk)
+            return {"success": 1, "failed": 0, "total": 1}
+
+        with mock.patch.object(crush_leads, "_claim_still_owed", racing_check):
+            result = crush_leads.sweep_lead_reminders(notify=notify)
+
+        # The old coach must not be told about a lead they no longer own —
+        # the payload names the crusher on the premise that the recipient is
+        # the routed coach.
+        assert notified == []
+        assert result["sent"] == 0
+        lead.refresh_from_db()
+        # ...and the claim is handed back, so the *new* owner is reminded on
+        # the next sweep rather than the stamp being consumed by the old one.
+        assert lead.reminder_sent_at is None
+        assert lead.assigned_coach_id == new_coach.pk
+
+    def test_the_unchanged_owner_is_still_notified(self):
+        """Positive control — pinning the owner must not block the normal
+        path."""
+        coach, _lead_row = self._due_lead()
+        notified = []
+
+        crush_leads.sweep_lead_reminders(
+            notify=lambda c, l: (
+                notified.append(c.pk), {"success": 1, "failed": 0, "total": 1}
+            )[1]
+        )
+
+        assert notified == [coach.pk]
+
+
+class TestBackfillLeavesPoolLeadsAlone:
+    """P2, and an interaction between this PR's own two features: the backfill
+    could stamp `recipient_coach = X` on an *ownerless* lead, the new pool
+    section then invites X to claim it, and `crush_start_review` sets
+    `assigned_coach` without touching `recipient_coach` — leaving X on both
+    halves of a lead, which is the invariant `assign_recipient_coach()` exists
+    to protect."""
+
+    def _pool_lead(self, suffix, recipient_coach=None):
+        requester, _ = _make_user(f"pe_pool_bf_req_{suffix}@example.com", "M")
+        recipient, rec_p = _make_user(f"pe_pool_bf_rec_{suffix}@example.com", "F")
+        if recipient_coach is not None:
+            rec_p.assigned_coach = recipient_coach
+            rec_p.save(update_fields=["assigned_coach"])
+        return _lead(requester, recipient, _make_event())
+
+    def _run(self):
+        out = StringIO()
+        call_command("backfill_crush_recipient_coaches", stdout=out)
+        return out.getvalue()
+
+    def test_an_unrouted_pool_lead_is_not_given_a_recipient_coach(self):
+        theirs = _make_coach("pe_pool_bf_theirs@example.com")
+        lead = self._pool_lead("a", recipient_coach=theirs)
+
+        self._run()
+
+        lead.refresh_from_db()
+        assert lead.recipient_coach_id is None
+
+    def test_a_lead_whose_coach_went_inactive_is_not_given_one_either(self):
+        """Same reasoning: it is back in the pool, so its next routed coach is
+        not yet known."""
+        gone = _make_coach("pe_pool_bf_gone@example.com", is_active=False)
+        theirs = _make_coach("pe_pool_bf_theirs_b@example.com")
+        requester, _ = _make_user("pe_pool_bf_req_b@example.com", "M")
+        recipient, rec_p = _make_user("pe_pool_bf_rec_b@example.com", "F")
+        rec_p.assigned_coach = theirs
+        rec_p.save(update_fields=["assigned_coach"])
+        lead = _lead(requester, recipient, _make_event(), gone)
+
+        self._run()
+
+        lead.refresh_from_db()
+        assert lead.recipient_coach_id is None
+
+    def test_claiming_that_pool_lead_leaves_one_coach_on_one_half(self):
+        """The end state the exclusion protects: the recipient's own coach
+        claims the pool lead and ends up routed-only, not routed *and*
+        co-coach."""
+        theirs = _make_coach("pe_pool_bf_claimer@example.com")
+        lead = self._pool_lead("c", recipient_coach=theirs)
+        self._run()
+
+        client = Client()
+        _login(client, theirs.user)
+        client.post(
+            reverse(
+                "crush_lu:coach_connection_review",
+                kwargs={"connection_id": lead.pk},
+            ),
+            {"action": "crush_start_review"},
+        )
+
+        lead.refresh_from_db()
+        assert lead.assigned_coach_id == theirs.pk
+        assert lead.recipient_coach_id is None, (
+            "one coach must not hold both halves"
+        )
+        assert lead.has_active_recipient_coach is False
+
+    def test_a_routed_lead_is_still_backfilled(self):
+        """Positive control — the exclusion must not empty the command."""
+        routed = _make_coach("pe_pool_bf_routed@example.com")
+        theirs = _make_coach("pe_pool_bf_theirs_d@example.com")
+        requester, req_p = _make_user("pe_pool_bf_req_d@example.com", "M")
+        recipient, rec_p = _make_user("pe_pool_bf_rec_d@example.com", "F")
+        req_p.assigned_coach = routed
+        req_p.save(update_fields=["assigned_coach"])
+        rec_p.assigned_coach = theirs
+        rec_p.save(update_fields=["assigned_coach"])
+        lead = _lead(requester, recipient, _make_event(), routed)
+
+        self._run()
+
+        lead.refresh_from_db()
+        assert lead.recipient_coach_id == theirs.pk
