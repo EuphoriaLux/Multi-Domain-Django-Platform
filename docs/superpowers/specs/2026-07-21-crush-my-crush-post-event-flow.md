@@ -598,6 +598,31 @@ that segment. Out of scope here.
   glossary** to record the "My Crush!" (member feature) vs "My Dating Profile"
   (coach nav) naming — it is currently absent there.
 
+  Carried forward from Phase D (#683, merged 2026-07-26) — all of it was
+  deliberately deferred, none of it is a defect in what shipped:
+
+  * **The whole Phase D coach workflow is untranslated.** Deferring per-phase
+    extraction was the right call, but the scope is larger than the glossary
+    entry above: as of the merge, **neither the `de` nor the `fr` catalog
+    contains a single Phase D coach string** — `Recipient outreach`,
+    `Recipient consented`, `My Crush! call still open`, the outreach-task page,
+    the reminder body, and the consent-validation errors are all absent. Every
+    string is properly wrapped, so this is a `makemessages` run plus native
+    DE/FR authoring — but it is the bulk of the outstanding work, not a
+    footnote. #687 covers only the O10 glossary/`My Dating Profile` slice.
+  * **The coach inbox query model — see O12.** Five separate review findings
+    reduce to one design question; it is the first thing to settle, because it
+    changes what the queue and the SLA mean.
+  * **`recipient_coach` backfill for pre-Phase-D leads — see O13.**
+  * **Reminder-sweep subscription health — see O14.**
+
+  **Ops prerequisites before the 24h reminder can fire at all** (both, not
+  either): `DJANGO_CRUSH_LEAD_REMINDERS_URL` on the `crush-hybrid-maintenance`
+  Function App, and `CRUSH_LEAD_REMINDERS_ENABLED=True` on the Django app —
+  pinned slot-sticky **via the CLI**, since `infra/resources.bicep` carries a
+  standing warning against deploying it as-is. Full checklist in
+  `docs/superpowers/specs/2026-07-25-crush-my-crush-staging-verification.md`.
+
 **Sequencing dependency:** the §8 member surfaces (`request_connection`,
 `connection_detail`) render Event Identity taxonomy chips, and only the
 Event Identity spec creates `interests_new` / `ask_me_about` / `event_vibe` —
@@ -607,6 +632,45 @@ rendering those surfaces with **no profile content** (name/photo only) —
 never by falling back to the legacy bio/interests free text, which would
 violate the no-free-text guarantee. Phases A–B (capacity gate, lead model)
 are genuinely independent.
+
+### 10.1 O12 — what is a coach's inbox a list of?
+
+Phase D's review surfaced five findings that look independent and are not. All
+five are consequences of one line: `open_crush_leads()` keys both the coach
+queue and the reminder sweep off **`assigned_coach = me` and
+`coach_call_completed_at IS NULL`**.
+
+| Symptom reported | What it actually is |
+| --- | --- |
+| Routed coach loses the lead after completing the requester call, different-coach path | `coach_call_completed_at` ends queue membership, but the coach still owes approve/share |
+| Same, no-co-coach path | ditto, with the recipient half also unrecorded |
+| Completing a call while the lead is still `pending` drops it | ditto, and the approval form does not render in `pending` |
+| Co-coach's own outreach SLA gets no reminder | the sweep tracks one deadline per lead, keyed on the routed coach |
+| Unrouted leads appear in nobody's inbox | `assigned_coach = me` has no pool bucket |
+
+Today the inbox means *"leads whose call I haven't made."* Every finding above
+wants it to mean *"work anyone still owes on this lead."* Adopting the second
+reading is not a patch: the queue key stops being `coach_call_completed_at`,
+the SLA stops being one clock per lead, and the sweep grows a second track
+keyed on `recipient_outreach_at`. Patching the symptoms one at a time was
+tried across three review rounds and produced a new finding each pass.
+
+Three implementable options, each fixing a different subset:
+
+1. **Keep the routed coach's item until `shared`/`declined`** rather than until
+   the call is logged. Fixes rows 1–3. Changes what the inbox count means.
+2. **An independent recipient-outreach reminder track** — new
+   `recipient_reminder_sent_at`, second sweep branch. Fixes row 4.
+3. **A pool bucket in the inbox** for unrouted and stale-owner leads. Fixes
+   row 5.
+
+On row 5's priority: the reported trigger is `declare_crush()` skipping routing
+for a requester with no `CrushProfile`, but `event_register` requires a profile
+on **both** branches, so that path is unreachable — and `assign_coach()` tier 4
+is `CrushCoach.objects.filter(is_active=True).order_by('id').first()`, i.e. any
+active coach. A lead is therefore unrouted only when the platform has **zero
+active coaches**, at which point an empty pool queue has nobody to render it
+to. Treat it as the lowest of the three, not the P1 it was filed as.
 
 ## 11. Open decision points (for Tom)
 
@@ -618,6 +682,9 @@ are genuinely independent.
 | O9    | Crush limit per event.                                         | **1 per event for free AND 1 for Connect members** — do not make Connect unlimited; scarcity protects signal quality and bounds coach load. Enforced by a **gender-independent** counter (§5/§7) — the legacy cross-gender counter cannot bound coach load. |
 | O10   | Resolve "My Crush" naming collision with the coach navbar dropdown. | **Rename the coach dropdown to "My Dating Profile"** in both nav locations (`base.html:365` desktop, `base.html:896` mobile); member feature keeps "My Crush!". Record in `docs/products/crush-connect.md` §9. |
 | O11   | Lead routing when the crusher has no assigned coach.           | **Reuse `MeetupEvent.coaches`** (`events.py:257`) as the middle tier — the association already exists; only the selection policy among an event's coaches is net-new (§7). Then the coach-pool queue. Until built, `assign_coach()` falls back to any active coach. |
+| O12   | **What is a coach's inbox a list of?** (Phase E blocker)       | See §10.1 below — this needs a decision before the symptoms are worth patching. |
+| O13   | Backfill `recipient_coach` for leads declared before Phase D.  | **A `manage.py` reconciliation command**, not a data migration. `assign_recipient_coach()` is a model method; historical models in a migration do not carry it, and re-implementing the four routing tiers inside `0201` duplicates logic that will drift. A command is idempotent, re-runnable, uses the real model, and runs right after deploy. Check first whether production has any pre-Phase-D crush leads — if #681 had not deployed, the backfill set is empty. |
+| O14   | Reminder sweep: subscription-health writes roll back with the lead stamp. | `mark_failure()` and the 410 `delete()` sit inside the sweep's `transaction.atomic()`, so a delivery failure rolls them back with `reminder_sent_at`. A permanently broken endpoint therefore never reaches its five-failure auto-delete and is retried hourly forever. **Recommended: claim-then-send** — commit the stamp as a claim, send outside the transaction, release the stamp in a second short transaction on failure. Trades away the "a crashed sweep re-sends" guarantee (a process dying between claim and release drops that one reminder) for durable health bookkeeping. Alternatives: re-apply the health writes after rollback (preserves the guarantee, more moving parts), or leave it (log noise and a slow drain, not a correctness bug). |
 
 ## 12. Non-goals
 
