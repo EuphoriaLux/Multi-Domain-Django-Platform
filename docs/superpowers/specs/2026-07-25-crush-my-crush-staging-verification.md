@@ -2,9 +2,12 @@
 
 Spec: `docs/superpowers/specs/2026-07-21-crush-my-crush-post-event-flow.md`
 
-**Status: open. Do this once Phase E lands and the whole flow is deployed to
-staging — not before.** Phases B–D each shipped one slice of the flow, so
-until Phase E there is no end-to-end path to walk.
+**Status: open, and now unblocked.** Phase E's code has landed (O12 pool
+section, O13 backfill command, O14 claim-then-send, translation extraction), so
+the end-to-end path exists and this checklist can be walked. Two of its items
+below have ops steps that must happen *before* the walk, not during it: run
+`manage.py backfill_crush_recipient_coaches` after deploy, and set the four
+Function App / Django settings under "Infrastructure".
 
 ## Why this file exists
 
@@ -78,11 +81,25 @@ hourly at :45, via `POST /api/admin/crush-lead-reminders/`.
       receives the reminder only on the opted-in device. Unit-tested against a
       captured send list; never against real subscriptions.
 - [ ] **VAPID misconfiguration is distinguishable from opt-out.** Break the
-      VAPID keys deliberately, run the sweep, confirm `reminder_sent_at` rolls
-      back and the lead is still eligible on the next run. Both paths return a
+      VAPID keys deliberately, run the sweep, confirm the claim is released
+      (`reminder_sent_at` back to null) and the lead is still eligible on the
+      next run. Both paths return a
       zero-total result; only a flag separates them.
-- [ ] **Delivery failure rolls the stamp back** with the real push helper, not
-      an injected one. This is the exact shape that fooled the first fix.
+- [ ] **Delivery failure releases the claim** with the real push helper, not an
+      injected one. This is the exact shape that fooled the first fix. Since
+      O14 the sweep no longer *rolls back* — it commits the stamp as a claim,
+      sends outside the transaction, and clears the stamp with a second guarded
+      `UPDATE` on failure. So check both halves on one broken endpoint: the
+      lead is eligible again on the next sweep, **and** the subscription's
+      `failure_count` went up and stayed up. Before O14 the second half was the
+      bug: the rollback discarded the health write with the stamp, so a dead
+      endpoint never reached its five-failure auto-delete.
+- [ ] **A push that *raises* also releases the claim.** Distinct from the
+      above: the helper returns its errors, but a transport-level failure can
+      still propagate. Committing the claim first means an exception no longer
+      undoes it, so this path depends entirely on an explicit handler. Unit
+      tests cover it against a raising fake; confirm once against a real
+      unreachable endpoint.
 - [ ] **The timer's 60s budget holds** under a realistic backlog. The
       wall-clock budget (`REMINDER_TIME_BUDGET`, 45s) is tested with a fake
       clock; it has never met a slow endpoint. Check the Function does not
@@ -109,7 +126,7 @@ and lock). None has been observed with two real requests.
 - [ ] Postgres row locking behaves as assumed throughout — the suite runs on
       SQLite, so `select_for_update` is effectively a no-op there.
 
-## The flow end to end (needs Phase E)
+## The flow end to end
 
 - [ ] **Different coaches on each half:** declare → routed coach calls the
       crusher → co-coach reaches the recipient → consent → introduction. The
@@ -122,19 +139,41 @@ and lock). None has been observed with two real requests.
 - [ ] A **declined** recipient ends the lead and the crusher is never told
       they were refused — check every surface, including notifications.
 - [ ] An **unrouted pool lead** can be opened and claimed but not worked, and
-      its note stays shut until a coach owns it.
+      its note stays shut until a coach owns it. It now also appears in the
+      **coach inbox** under an amber "Unclaimed" badge, with the lead's own
+      "call by" clock — check it shows for *every* active coach, that claiming
+      it removes it from the others' inboxes, and that it does not sort above
+      a coach's own call at the same urgency. It gets **no push notification**:
+      that half of O12/3 was deliberately not built (§10.1), so a coach who
+      never opens their inbox still learns nothing about it.
 - [ ] A **mutual crush** flags both coaches without either learning the other
       side's note.
 
 ## UI (Phase E scope, listed here so it is not lost)
 
-- [ ] Coach surfaces in **DE and FR**. Not purely an extraction job: most
-      Phase D strings are wrapped and the catalogues simply have not been
-      extracted, but `RECIPIENT_RESPONSE_CHOICES`
-      (`crush_lu/models/connections.py:266-269`) holds its labels as raw
-      English, so `makemessages` skips them and
-      `get_recipient_response_display()` stays English in both languages
-      regardless. **Wrap those in code before or with the extraction run.**
+- [ ] Coach surfaces in **DE and FR**. The code half is done: the labels are
+      wrapped and `makemessages` has run, so the Phase D/E strings are in both
+      catalogues — **with empty `msgstr`s**. Until a native speaker fills them
+      in, every coach surface still renders English in DE and FR, and that is
+      what to check for here. Two things the extraction run itself does not
+      settle:
+      - `RECIPIENT_RESPONSE_CHOICES` is now wrapped, but nothing calls
+        `get_recipient_response_display()` yet — so its two labels are in the
+        catalogue ahead of any surface that shows them. Not a gap; just do not
+        go looking for them on screen.
+      - `STATUS_CHOICES` and `FLOW_CHOICES` next to it are **still unwrapped**
+        and were left that way deliberately — they predate this phase and are
+        admin-only. If a coach-facing surface ever renders
+        `get_status_display()`, it will be English in both languages and no
+        catalogue will fix it.
+      - `msgmerge` proposed 390 fuzzy guesses and they were cleared to blank
+        rather than kept: at least one was actively wrong ("Recipient
+        consented to the introduction" → "Die Einführung schreiben"). A
+        fuzzy entry is excluded from the compiled `.mo`, so it would not have
+        shipped — but a translator working through the file might well have
+        accepted it. If a future extraction re-introduces them, clear them the
+        same way (`msgattrib --clear-fuzzy --empty`); the catalogues carried
+        zero fuzzy entries before this run.
 - [ ] **Dark mode and light mode** on the outreach task and the lead
       workspace. A white-on-white button already shipped once in this phase
       and was only caught by review.
@@ -147,7 +186,10 @@ Recorded so a future reader does not mistake these for oversights:
 
 ~~- **A constrained triage surface for unrouted leads.** Routing tier 4 catches
   any active coach, so a lead is unrouted only when the platform has zero
-  active coaches.~~ **This was wrong — it belongs in the build, not here.**
+  active coaches.~~ **This was wrong — it belonged in the build, and has since
+  been built** as the coach inbox's `crush_pool` section (§10.1). The reasoning
+  it was wrong is kept below, because the shape of the mistake is worth more
+  than the conclusion.**
   The rationale missed that `profile_requirement="none"` events let
   `event_register` proceed with `profile = None` (`views_events.py:916-920`),
   and `request_connection` gates the *requester* on attendance only. A
