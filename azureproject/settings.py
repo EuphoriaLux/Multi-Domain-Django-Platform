@@ -58,6 +58,14 @@ ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
 # with per-coach CrushCoach.hybrid_features_enabled for staged rollout.
 HYBRID_COACH_SYSTEM_ENABLED = _env_bool("HYBRID_COACH_SYSTEM_ENABLED", False)
 
+# "My Crush!" 24h untouched-lead reminder sweep (spec §10, Phase D) — gate for
+# the /api/admin/crush-lead-reminders/ endpoint driven by the CrushLeadReminders
+# Azure Function timer. Default OFF, and independent of
+# HYBRID_COACH_SYSTEM_ENABLED on purpose: without its own switch the only ways
+# to stage or stop this flow are disabling every hybrid-maintenance job or
+# unsetting the function app's URL var, and the latter fails silently.
+CRUSH_LEAD_REMINDERS_ENABLED = _env_bool("CRUSH_LEAD_REMINDERS_ENABLED", False)
+
 # Multi-channel campaign dispatch (crush_lu campaign dashboard) — gate for the
 # /api/admin/campaigns/dispatch/ endpoint driven by the CampaignDispatch Azure
 # Function timer. Default OFF so scheduled campaigns never send until the

@@ -290,6 +290,7 @@ urlpatterns = [
     # Must stay language-neutral: the Function App uses hardcoded /api/admin/... paths.
     path('api/admin/hybrid-coach-sla-sweep/', api_admin_hybrid.sla_sweep, name='api_admin_sla_sweep'),
     path('api/admin/pre-screening-invites/', api_admin_hybrid.pre_screening_invites, name='api_admin_pre_screening_invites'),
+    path('api/admin/crush-lead-reminders/', api_admin_hybrid.crush_lead_reminders, name='api_admin_crush_lead_reminders'),
 
     # Weekly KPI digest (WeeklyKPIs Azure Function timer calls this on Mondays).
     # Language-neutral path so the Function App can hardcode it.
