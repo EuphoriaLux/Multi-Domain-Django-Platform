@@ -366,19 +366,67 @@ document.addEventListener("alpine:init", function () {
                 if (this._compassAttached) return;
                 this._compassAttached = true;
                 var self = this;
-                var updateHeading = function (deg) {
-                    self.heading = (deg + 360) % 360;
+
+                var getScreenAngle = function () {
+                    // `null` until someone simulates an angle from the console
+                    // (window.setSimulatedScreenAngle). It must not default to a
+                    // number: this branch is checked first, so a numeric default
+                    // shadows the real orientation below and rotation
+                    // compensation never runs for an actual player.
+                    if (typeof self.simulatedScreenAngle === "number") {
+                        return self.simulatedScreenAngle;
+                    }
+                    if (window.screen && window.screen.orientation && typeof window.screen.orientation.angle === "number") {
+                        return window.screen.orientation.angle;
+                    }
+                    if (typeof window.orientation === "number") {
+                        return window.orientation;
+                    }
+                    return 0;
+                };
+
+                var lastRawHeading = 0;
+                var updateHeading = function (rawDeg) {
+                    if (typeof rawDeg === "number" && !isNaN(rawDeg)) {
+                        lastRawHeading = rawDeg;
+                    }
+                    var screenAngle = getScreenAngle();
+                    var adjustedDeg = (lastRawHeading + screenAngle + 360) % 360;
+                    self.heading = adjustedDeg;
                     self.updateSelfMarker(self.currentLat, self.currentLng, self.accuracyM || 10);
+                };
+
+                self._updateHeading = updateHeading;
+                self.setSimulatedScreenAngle = function (angle) {
+                    self.simulatedScreenAngle = angle;
+                    updateHeading(lastRawHeading);
+                };
+                self.setDebugHeading = function (deg) {
+                    updateHeading(deg);
                 };
 
                 // Developer testing helpers for HTTP localhost where Chrome blocks real hardware sensors
                 window.setDebugHeading = function (deg) {
                     updateHeading(deg);
                 };
+                window.setSimulatedScreenAngle = function (angle) {
+                    if (self.setSimulatedScreenAngle) self.setSimulatedScreenAngle(angle);
+                };
+
+                window.addEventListener("orientationchange", function () {
+                    updateHeading(lastRawHeading);
+                });
+                if (window.screen && window.screen.orientation) {
+                    try {
+                        window.screen.orientation.addEventListener("change", function () {
+                            updateHeading(lastRawHeading);
+                        });
+                    } catch (e) {}
+                }
 
                 window.addEventListener("keydown", function (e) {
                     if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
-                    var current = self.heading || 0;
+                    var current = lastRawHeading || 0;
                     if (e.key === "ArrowLeft") {
                         updateHeading(current - 15);
                     } else if (e.key === "ArrowRight") {
@@ -403,12 +451,54 @@ document.addEventListener("alpine:init", function () {
                         }
                     }, true);
                 } catch (err) {}
+
+                // Support Web Sensor API AbsoluteOrientationSensor (used in modern Chrome DevTools emulation)
+                if (typeof AbsoluteOrientationSensor !== "undefined") {
+                    try {
+                        var sensor = new AbsoluteOrientationSensor({ frequency: 10 });
+                        sensor.addEventListener("reading", function () {
+                            var q = sensor.quaternion;
+                            if (q) {
+                                var alpha = Math.atan2(2 * (q[3] * q[2] + q[0] * q[1]), 1 - 2 * (q[1] * q[1] + q[2] * q[2]));
+                                var deg = alpha * (180 / Math.PI);
+                                self.hasAbsoluteHeading = true;
+                                updateHeading(360 - deg);
+                            }
+                        });
+                        sensor.start();
+                    } catch (e) {}
+                }
             },
 
             // --- Leaflet map (map navigation mode only) ---
 
             _isValidCoord: function (lat, lng) {
                 return typeof lat === "number" && typeof lng === "number" && !isNaN(lat) && !isNaN(lng);
+            },
+
+            // Only ever set from the console via window.setSimulatedScreenAngle.
+            // Must stay null by default — see getScreenAngle().
+            simulatedScreenAngle: null,
+            isFullscreenMap: false,
+
+            // --- Display helpers ---
+
+            toggleFullscreenMap: function () {
+                this.isFullscreenMap = !this.isFullscreenMap;
+                var container = document.getElementById("cache-map-container");
+                if (!container) return;
+                if (this.isFullscreenMap) {
+                    container.classList.add("crush-fullscreen-active");
+                } else {
+                    container.classList.remove("crush-fullscreen-active");
+                }
+                var self = this;
+                setTimeout(function () {
+                    if (self.map) {
+                        self.map.invalidateSize();
+                        self.recenterMap();
+                    }
+                }, 150);
             },
 
             initMap: function () {
@@ -428,10 +518,16 @@ document.addEventListener("alpine:init", function () {
                 L.control.zoom({ position: "bottomright" }).addTo(this.map);
                 L.control.attribution({ prefix: false }).addTo(this.map);
 
-                L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                var isDark = document.documentElement.classList.contains("dark");
+                var tileUrl = isDark
+                    ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                    : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+
+                L.tileLayer(tileUrl, {
                     maxZoom: 19,
+                    subdomains: "abcd",
                     detectRetina: true,
-                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
                 }).addTo(this.map);
 
                 // Draw trail connecting completed stations
@@ -494,7 +590,7 @@ document.addEventListener("alpine:init", function () {
                         btn.href = "#";
                         btn.title = "Recenter map";
                         btn.innerHTML = "🎯";
-                        btn.style.cssText = "font-size: 15px; display: flex; align-items: center; justify-content: center; text-decoration: none; width: 34px; height: 34px; line-height: 34px; background: rgba(255,255,255,0.95); font-weight: bold; border-radius: 8px;";
+                        btn.style.cssText = "font-size: 15px; display: flex; align-items: center; justify-content: center; text-decoration: none; width: 34px; height: 34px; line-height: 34px; background: rgba(255,255,255,0.95); color: #1f2937; font-weight: bold; border-radius: 8px; cursor: pointer;";
                         L.DomEvent.on(btn, "click", function (e) {
                             L.DomEvent.stopPropagation(e);
                             L.DomEvent.preventDefault(e);
@@ -504,6 +600,27 @@ document.addEventListener("alpine:init", function () {
                     }
                 });
                 this.map.addControl(new RecenterControl());
+
+                // Custom Fullscreen button control inside Leaflet top-right bar
+                var FullscreenControl = L.Control.extend({
+                    options: { position: "topright" },
+                    onAdd: function () {
+                        var container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
+                        var btn = L.DomUtil.create("a", "", container);
+                        btn.href = "#";
+                        btn.title = "Toggle Fullscreen Map";
+                        btn.innerHTML = self.isFullscreenMap ? "✖" : "⛶";
+                        btn.style.cssText = "font-size: 16px; display: flex; align-items: center; justify-content: center; text-decoration: none; width: 34px; height: 34px; line-height: 34px; background: rgba(255,255,255,0.95); color: #1f2937; font-weight: bold; border-radius: 8px; cursor: pointer;";
+                        L.DomEvent.on(btn, "click", function (e) {
+                            L.DomEvent.stopPropagation(e);
+                            L.DomEvent.preventDefault(e);
+                            self.toggleFullscreenMap();
+                            btn.innerHTML = self.isFullscreenMap ? "✖" : "⛶";
+                        });
+                        return container;
+                    }
+                });
+                this.map.addControl(new FullscreenControl());
                 this.attachCompass();
             },
 
@@ -544,14 +661,16 @@ document.addEventListener("alpine:init", function () {
                 var headingAngle = typeof this.heading === "number" && !isNaN(this.heading) ? this.heading : 0;
 
                 if (!this.selfMarker) {
-                    var selfHtml = '<div style="width:22px; height:22px; border-radius:50%; background:#3b82f6; border:3px solid #ffffff; box-shadow:0 0 10px rgba(59,130,246,0.8); position:relative;">' +
-                        '<div class="self-heading-cone" style="position:absolute; top:-12px; left:4px; width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-bottom:12px solid #3b82f6; opacity:0.9; transition:transform 0.15s linear; transform: rotate(' + headingAngle + 'deg); transform-origin: 4px 20px;"></div>' +
+                    var selfHtml = '<div style="width:24px; height:24px; box-sizing:border-box; border-radius:50%; background:linear-gradient(135deg, #8b5cf6, #ec4899); border:3px solid #ffffff; box-shadow:0 0 12px rgba(139,92,246,0.9); position:relative;" class="crush-player-pulse">' +
+                        '<svg class="self-heading-cone" style="position:absolute; top:-15px; left:-3px; width:24px; height:36px; overflow:visible; transition:transform 0.15s linear; transform: rotate(' + headingAngle + 'deg); transform-origin: 12px 24px;" viewBox="0 0 24 36">' +
+                        '<polygon points="12,0 7,12 17,12" fill="#ec4899" opacity="0.95"/>' +
+                        '</svg>' +
                         '</div>';
                     var selfIcon = L.divIcon({
                         className: "crush-self-marker",
                         html: selfHtml,
-                        iconSize: [22, 22],
-                        iconAnchor: [11, 11],
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 12],
                     });
                     this.selfMarker = L.marker([validLat, validLng], { icon: selfIcon, zIndexOffset: 1000 }).addTo(this.map);
 
