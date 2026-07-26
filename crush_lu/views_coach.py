@@ -574,6 +574,62 @@ def coach_action_queue(request):
             }
         )
 
+    # --- Unclaimed pool leads (spec §10.1, O12/3) ---
+    # A lead with no active routed coach belongs to nobody, so the owner-exact
+    # query above skipped it entirely and the member's promised 48h call had
+    # no one attached to it. It was reachable on the connections page's
+    # *Pending* tab and claimable from there, but that page defaults to
+    # `needs_review` (which excludes `pending`) and nothing put a clock on it.
+    #
+    # Shown to every coach, because that is what "unclaimed" means. The
+    # requester is named on the same basis as the routed queue above: a coach
+    # who can already open and claim this lead learns nothing new from the
+    # name, and an anonymous row is not triageable. The `requester_note` is
+    # *not* surfaced — that stays shut until someone owns the lead.
+    pool_leads = (
+        EventConnection.objects.crush_leads_in_pool()
+        .annotate_is_mutual_crush()
+        .select_related("requester", "recipient", "event", "assigned_coach")
+    )
+    for lead in pool_leads:
+        call_by = lead.call_by
+        hours_left = (call_by - now).total_seconds() / 3600
+        if hours_left <= 0:
+            state = "breach"
+        elif hours_left <= 6:
+            state = "urgent"
+        elif hours_left <= 24:
+            state = "warning"
+        else:
+            state = "ok"
+        requester_name = lead.requester.get_full_name() or lead.requester.username
+        items.append(
+            {
+                "kind": "crush_pool",
+                "title": requester_name,
+                # Says why it is here: never routed, or routed to someone since
+                # deactivated. The two need different follow-up from an admin.
+                "subtitle": (
+                    _("Unassigned My Crush! call — %(event)s")
+                    if lead.assigned_coach_id is None
+                    else _("My Crush! call, coach inactive — %(event)s")
+                )
+                % {"event": lead.event.title},
+                "deadline": call_by,
+                "sla_state": state,
+                # Deliberately not priority-boosted. An unclaimed lead is
+                # nobody's yet, so it must not outrank the calls a coach has
+                # personally committed to — it competes on its SLA alone.
+                "priority": state_priority.get(state, 5),
+                "is_mutual_crush": bool(
+                    getattr(lead, "is_mutual_crush_annotated", False)
+                ),
+                "url_name": "crush_lu:coach_connection_review",
+                "url_kwargs": {"connection_id": lead.id},
+                "submitted_at": lead.requested_at,
+            }
+        )
+
     # --- Recipient-side co-coach outreach tasks (§5) ---
     # Recipient-scoped only: the crusher is never named here, and the task
     # links to its own constrained surface, never to the lead.
@@ -625,6 +681,7 @@ def coach_action_queue(request):
         "connection": sum(1 for i in items if i["kind"] == "connection"),
         "crush_lead": sum(1 for i in items if i["kind"] == "crush_lead"),
         "crush_outreach": sum(1 for i in items if i["kind"] == "crush_outreach"),
+        "crush_pool": sum(1 for i in items if i["kind"] == "crush_pool"),
         "mutual_crush": sum(1 for i in items if i.get("is_mutual_crush")),
         "total": len(items),
         "urgent_or_worse": sum(
