@@ -45,6 +45,8 @@ JS_COMPONENTS = APP_ROOT / "static" / "crush_lu" / "js" / "alpine-components.js"
 # in the tracked DE/FR catalogs (spec §10 "launch readiness: translations").
 # Keep in sync with scripts/i18n/add_event_identity_translations.py.
 EVENT_IDENTITY_MSGIDS = [
+    # Navigation / O10 Naming Rule
+    "My Dating Profile",
     # Edit card / wizard / display surfaces
     "Your Event Identity",
     "Event Identity",
@@ -167,11 +169,20 @@ class EventIdentityCatalogTests(SimpleTestCase):
         exact msgstr the .po ships (catches a .po edited without rebuilding
         the .mo)."""
         expectations = {
-            "de": ("Your Event Identity", "Deine Event-Identität"),
-            "fr": ("Your Event Identity", "Votre identité événement"),
+            "de": [
+                ("Your Event Identity", "Deine Event-Identität"),
+                ("My Dating Profile", "Mein Dating-Profil"),
+            ],
+            "fr": [
+                ("Your Event Identity", "Votre identité événement"),
+                ("My Dating Profile", "Mon profil de rencontre"),
+            ],
         }
-        for lang, (msgid, msgstr) in expectations.items():
-            self.assertEqual(self._catalog(lang).gettext(msgid), msgstr)
+        for lang, pairs in expectations.items():
+            catalog = self._catalog(lang)
+            for msgid, msgstr in pairs:
+                self.assertEqual(catalog.gettext(msgid), msgstr)
+
 
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)

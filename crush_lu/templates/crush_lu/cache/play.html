@@ -27,10 +27,10 @@
     @media (prefers-reduced-motion: reduce) {
         .cache-shake, .cache-pop { animation: none; }
     }
-    /* Dark mode tile adaptation for OpenStreetMap Leaflet tiles */
-    .dark #cache-map .leaflet-tile-pane {
-        filter: brightness(0.65) invert(1) contrast(2.5) hue-rotate(190deg) saturate(0.35) brightness(0.85);
-    }
+    /* No dark-mode tile filter here on purpose. This used to invert the
+       light-only OpenStreetMap tiles to fake a dark map; cache-play.js now
+       loads CartoDB Dark Matter directly when the `dark` class is set, so
+       re-applying the filter would double-process already-dark tiles. */
 </style>
 {% endblock %}
 

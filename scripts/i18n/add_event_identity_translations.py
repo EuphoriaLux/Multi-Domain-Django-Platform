@@ -15,6 +15,11 @@ ROOT = Path(__file__).resolve().parents[2]
 
 # msgid -> (de, fr)
 TRANSLATIONS = {
+    # --- Navigation / O10 Naming Rule ---------------------------------------
+    "My Dating Profile": (
+        "Mein Dating-Profil",
+        "Mon profil de rencontre",
+    ),
     # --- User-facing: edit card / wizard / surfaces -------------------------
     "Your Event Identity": (
         "Deine Event-Identität",
