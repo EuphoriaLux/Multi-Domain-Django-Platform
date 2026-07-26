@@ -603,9 +603,11 @@ that segment. Out of scope here.
   24h reminder, mutual-crush priority flagging, recipient-outreach copy.
 
 * **Phase E — launch readiness:** translations (EN/DE/FR), accessibility,
-  dark/light, mobile widths. **Update `docs/products/crush-connect.md` §9 copy
-  glossary** to record the "My Crush!" (member feature) vs "My Dating Profile"
-  (coach nav) naming — it is currently absent there.
+  dark/light, mobile widths. ~~Update `docs/products/crush-connect.md` §9 copy
+  glossary … it is currently absent there.~~ **Done** — #687 recorded the O10
+  naming rule at `docs/products/crush-connect.md:200` and shipped the DE/FR
+  `My Dating Profile` msgids. That was the whole of #687; the rest of Phase E
+  below is untouched by it.
 
   Carried forward from Phase D (#683, merged 2026-07-26) — all of it was
   deliberately deferred, none of it is a defect in what shipped:
@@ -718,11 +720,27 @@ else:                                   # views_events.py:916-920
 `get_object_or_404(CrushProfile, …)` there resolves the *recipient*, not the
 declarer — so a profile-less attendee of an open event reaches `declare_crush()`
 normally, and `declare_crush()` deliberately skips `assign_coach()` for them.
-The lead is unrouted **with active coaches present**, and with no pool bucket it
-appears in nobody's inbox: `crush_leads_for_coach()` filters `assigned_coach =
-me`, the reminder sweep rejects null owners, and `coach_connections` defaults to
-`needs_review`, which excludes `pending`. A real member declaration silently
-misses the promised 48-hour call.
+The lead is unrouted **with active coaches present**. It is not invisible —
+that would overstate it, and the distinction changes how big option 3 is:
+
+* **It is discoverable and claimable today.** `visible_to_coach()` excludes
+  only rows with a non-null owner, so pool leads stay visible to *every*
+  coach; `coach_connections` has a **Pending** tab with its own count badge
+  that filters exactly `status="pending"`; and the review page renders
+  **Start review** (`crush_start_review`) for a `pending` row, which adopting
+  an unowned pool lead is a documented use of.
+* **What it is missing is urgency and chasing.** The SLA-tracked inbox
+  excludes it — `crush_leads_for_coach()` filters `assigned_coach = me` — the
+  reminder sweep rejects null owners (`reminder_candidates()` filters
+  `assigned_coach__isnull=False`), and `coach_connections` defaults to
+  `needs_review`, which does not include `pending`. So nothing puts a "call by"
+  clock on it, nothing badges it as breaching, and nothing chases it.
+
+The consequence is still that a real declaration can silently miss its promised
+48-hour call — but by sitting unnoticed on a secondary tab nobody is prompted
+to open, not by being absent from the system. Option 3 is therefore **wiring an
+existing, already-visible pool row into the SLA-tracked inbox and the reminder
+sweep**, not building discovery from zero.
 
 Two things worth taking from how this was missed: the flawed argument had been
 stated and accepted twice in review before anyone checked
@@ -744,7 +762,7 @@ rows here that still need an answer.
 | O8    | Coach-call SLA for crush leads.                                | **Call within 48h, reminder at 24h** — *conditional on the O-cap model showing it is absorbable*; otherwise lengthen.                            |
 | O9    | Crush limit per event.                                         | **1 per event for free AND 1 for Connect members** — do not make Connect unlimited; scarcity protects signal quality and bounds coach load. Enforced by a **gender-independent** counter (§5/§7) — the legacy cross-gender counter cannot bound coach load. |
 | O10   | Resolve "My Crush" naming collision with the coach navbar dropdown. | **Rename the coach dropdown to "My Dating Profile"** in both nav locations (`base.html:365` desktop, `base.html:896` mobile); member feature keeps "My Crush!". Record in `docs/products/crush-connect.md` §9. |
-| O11   | Lead routing when the crusher has no assigned coach.           | **Reuse `MeetupEvent.coaches`** (`events.py:257`) as the middle tier — the association already exists; only the selection policy among an event's coaches is net-new (§7). Then the coach-pool queue. Until built, `assign_coach()` falls back to any active coach. |
+| O11   | Lead routing when the crusher has no assigned coach.           | **Reuse `MeetupEvent.coaches`** (`events.py:257`) as the middle tier — the association already exists; only the selection policy among an event's coaches is net-new (§7). Then the coach-pool queue. **Built** — `assign_coach()` calls `select_event_coach(self.event)` before the pool fallback (`connections.py:671-676`); an earlier version of this row said the tier was outstanding, which contradicted the status header once Phases A–D shipped. |
 | O12   | **What is a coach's inbox a list of?** (Phase E blocker)       | See §10.1 below — this needs a decision before the symptoms are worth patching. |
 | O13   | Backfill `recipient_coach` for leads declared before Phase D.  | **A `manage.py` reconciliation command**, not a data migration. `assign_recipient_coach()` is a model method; historical models in a migration do not carry it, so re-implementing it in `0201` duplicates logic that will drift. A command is idempotent, re-runnable, uses the real model, and runs right after deploy. **Do not re-derive the rule by analogy with `assign_coach()`** — an earlier draft here said "the four routing tiers", which is the *requester* side. The recipient side is deliberately narrower (`connections.py:462-495`): only two tiers, the approved-submission coach then the profile's permanent coach, both requiring `is_active`; and it returns `None` — leaving `recipient_coach` null on purpose — when the result is the routed coach or there is no coach at all, because then one person covers both halves and there is no hand-off to track. Assigning event or pool coaches recipient-side would manufacture co-coach tasks that should not exist and disable the routed coach's own recipient-answer controls. Check first whether production has any pre-Phase-D crush leads — if #681 had not deployed, the backfill set is empty. |
 | O14   | Reminder sweep: subscription-health writes roll back with the lead stamp. | `mark_failure()` and the 410 `delete()` sit inside the sweep's `transaction.atomic()`, so a delivery failure rolls them back with `reminder_sent_at`. A permanently broken endpoint therefore never reaches its five-failure auto-delete and is retried hourly forever. **Recommended: claim-then-send** — commit the stamp as a claim, send outside the transaction, release the stamp in a second short transaction on failure. Trades away the "a crashed sweep re-sends" guarantee (a process dying between claim and release drops that one reminder) for durable health bookkeeping. Alternatives: re-apply the health writes after rollback (preserves the guarantee, more moving parts), or leave it (log noise and a slow drain, not a correctness bug). |

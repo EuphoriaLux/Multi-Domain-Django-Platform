@@ -37,9 +37,14 @@ hourly at :45, via `POST /api/admin/crush-lead-reminders/`.
 - [ ] **`DJANGO_CRUSH_LEAD_REMINDERS_URL` is actually set** on the Function
       App. Unset logs an error and no-ops, so the 24h reminder would silently
       never fire — and nothing else in the system would notice.
-- [ ] **`ADMIN_API_KEY` set on the Function App and matching Django's.** Also
-      checked inside the function; a mismatch surfaces as a 401 the timer
-      swallows.
+- [ ] **`ADMIN_API_KEY` set on the Function App and matching Django's.**
+      *Missing* and *wrong* fail differently, and only one is quiet. Missing
+      hits the same silent early return as the two above. **Mismatched does
+      not**: Django answers 401, `raise_for_status()` raises, and
+      `_call_admin_endpoint()` logs the error and re-raises
+      (`function_app.py:86,101-103`), so Azure marks the invocation **failed**.
+      If the key is wrong you have a failed Function invocation to look at —
+      check there first rather than assuming another silent skip.
 
       Listed in the order `_call_admin_endpoint()` checks them — each is an
       early return, so with several unset only the first is logged.
@@ -139,9 +144,14 @@ Recorded so a future reader does not mistake these for oversights:
   and `request_connection` gates the *requester* on attendance only. A
   profile-less attendee of an open event therefore declares normally,
   `declare_crush()` skips routing for them, and the lead is unrouted **with
-  active coaches present** — landing in no inbox, no reminder sweep, and behind
-  a connections page that defaults to `needs_review`. Tracked as row 5 / option
-  3 of O12 in the spec. Kept visible rather than deleted because the flawed
+  active coaches present**. It stays visible and claimable on the connections
+  page's **Pending** tab, but it is absent from the SLA-tracked inbox
+  (`crush_leads_for_coach()` filters `assigned_coach = me`) and from the
+  reminder sweep (`reminder_candidates()` filters
+  `assigned_coach__isnull=False`) — so nothing gives it a "call by" clock or
+  chases it, and the default `needs_review` tab does not show it. Tracked as
+  row 5 / option 3 of O12 in the spec, scoped there as wiring an existing pool
+  row into the inbox and sweep rather than building discovery from scratch. Kept visible rather than deleted because the flawed
   reachability argument was accepted twice in review before anyone read
   `profile_requirement`'s full choice list.
 ~~- **Reverting a `shared` lead via the legacy `approve` action.** The terminal
