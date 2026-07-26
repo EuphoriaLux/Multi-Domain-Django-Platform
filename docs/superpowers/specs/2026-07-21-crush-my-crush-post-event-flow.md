@@ -2,13 +2,22 @@
 
 **Date:** 2026-07-21
 
-**Status:** Draft — product decisions proposed with recommended defaults,
-pending Tom's confirmation (§11). **The §6 coach-capacity gate was measured
-on production on 2026-07-22** (after this document's original 2026-07-21
-draft date); the O8/O9 defaults are data-confirmed, pending Tom's review.
+**Status:** **Phases A–D shipped** (#680 lead model, #681 member flow, #683
+coach UI & notifications — merged 2026-07-26). O-cap, O7–O11 are settled and
+built as specified; the table in §11 records what was decided rather than what
+is proposed. **Phase E is outstanding**, and three decisions surfaced during
+Phase D's review are still open — O12, O13, O14 in §11, with O12 written up in
+§10.1. The §6 coach-capacity gate was measured on production on 2026-07-22.
 
-**Scope of this PR:** Planning only. No models, migrations, routes, templates,
-JavaScript, tasks, or production behavior are changed by this document.
+**Not yet verified on staging.** Everything above is green in CI against
+SQLite; the concurrency guarantees in particular are proven only against
+simulated races, never against Postgres row locking, and no reminder has been
+delivered to a real device. See
+`2026-07-25-crush-my-crush-staging-verification.md` — 21 checks, none ticked.
+
+**Scope of this document:** planning and decision record. It no longer
+describes unbuilt work for Phases A–D; treat §5/§7 as the spec the shipped
+code was written against, not as a proposal.
 
 **Related documents:**
 [Crush.lu Event Identity Redesign](2026-07-21-crush-event-identity-redesign.md),
@@ -51,8 +60,8 @@ conversion moment that exists, without a paywall screen.
 
 | #  | Decision                                                                                                                                                                                            | Status   |
 | -- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| D1 | Reframe the legacy post-event connection as **"My Crush!"** — a private crush declaration that becomes a coach lead, triggering a personal coach call (§4). No `EventConnection` status is removed. | Proposed |
-| D2 | Coach curation stays the brand through-line: "My Crush!" = coach-facilitated connection for free members (event-scoped); Connect = Coach's Pick (Premium, continuous). The crush call is the Premium conversion moment. | Proposed |
+| D1 | Reframe the legacy post-event connection as **"My Crush!"** — a private crush declaration that becomes a coach lead, triggering a personal coach call (§4). No `EventConnection` status is removed. | **Shipped** (Phases B–D) |
+| D2 | Coach curation stays the brand through-line: "My Crush!" = coach-facilitated connection for free members (event-scoped); Connect = Coach's Pick (Premium, continuous). The crush call is the Premium conversion moment. | **Shipped** (Phases B–D) |
 
 ## 4. The reframe
 
@@ -98,7 +107,7 @@ conversion moment that exists, without a paywall screen.
    machine.** The state machine survives; the *reveal semantics* around it
    do not.
 
-## 5. Mechanics (proposed)
+## 5. Mechanics (as built)
 
 * **Declaration:** post-event named attendees list (unchanged gating: attended
   + connection window open). Confirmation dialog: irreversible, sets the
@@ -672,7 +681,12 @@ active coach. A lead is therefore unrouted only when the platform has **zero
 active coaches**, at which point an empty pool queue has nobody to render it
 to. Treat it as the lowest of the three, not the P1 it was filed as.
 
-## 11. Open decision points (for Tom)
+## 11. Decision points
+
+**O-cap and O7–O11 are settled and built** — the "recommended default" column
+records what shipped, not what is proposed. **O12–O14 are genuinely open** and
+came out of Phase D's review after the rest was decided; they are the only
+rows here that still need an answer.
 
 | #     | Question                                                        | Recommended default                                                                                                                             |
 | ----- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -119,6 +119,10 @@ Recorded so a future reader does not mistake these for oversights:
   any active coach, so a lead is unrouted only when the platform has zero
   active coaches. If staging ever produces an unrouted lead with active
   coaches present, that reachability argument is wrong — reopen it.
-- **Reverting a `shared` lead via the legacy `approve` action.** The terminal
-  guard covers `declined` only. No review round raised it; noted in case
-  staging shows it matters.
+~~- **Reverting a `shared` lead via the legacy `approve` action.** The terminal
+  guard covers `declined` only.~~ **No longer true — fixed before merge.** The
+  guard now reads `status in ("declined", "shared")`, both before taking the
+  lock and again on the locked re-read, so a stale workspace cannot walk a
+  completed introduction back to `coach_approved` while `shared_at` stays
+  populated. Struck rather than deleted so anyone who read the earlier version
+  can see it was closed, not dropped.
