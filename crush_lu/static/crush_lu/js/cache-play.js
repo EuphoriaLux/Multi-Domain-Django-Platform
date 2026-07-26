@@ -368,6 +368,11 @@ document.addEventListener("alpine:init", function () {
                 var self = this;
 
                 var getScreenAngle = function () {
+                    // `null` until someone simulates an angle from the console
+                    // (window.setSimulatedScreenAngle). It must not default to a
+                    // number: this branch is checked first, so a numeric default
+                    // shadows the real orientation below and rotation
+                    // compensation never runs for an actual player.
                     if (typeof self.simulatedScreenAngle === "number") {
                         return self.simulatedScreenAngle;
                     }
@@ -471,54 +476,10 @@ document.addEventListener("alpine:init", function () {
                 return typeof lat === "number" && typeof lng === "number" && !isNaN(lat) && !isNaN(lng);
             },
 
-            simulatedScreenAngle: 0,
+            // Only ever set from the console via window.setSimulatedScreenAngle.
+            // Must stay null by default — see getScreenAngle().
+            simulatedScreenAngle: null,
             isFullscreenMap: false,
-
-            get isNotFullscreenMap() {
-                return !this.isFullscreenMap;
-            },
-
-            get screen0Class() {
-                return this.simulatedScreenAngle === 0
-                    ? "bg-purple-600 text-white"
-                    : "bg-white dark:bg-gray-800 text-purple-900 dark:text-purple-200";
-            },
-            get screen90Class() {
-                return this.simulatedScreenAngle === 90
-                    ? "bg-purple-600 text-white"
-                    : "bg-white dark:bg-gray-800 text-purple-900 dark:text-purple-200";
-            },
-            get screen270Class() {
-                return this.simulatedScreenAngle === 270
-                    ? "bg-purple-600 text-white"
-                    : "bg-white dark:bg-gray-800 text-purple-900 dark:text-purple-200";
-            },
-
-            setHeading0: function () {
-                if (typeof window.setDebugHeading === "function") window.setDebugHeading(0);
-            },
-            setHeading90: function () {
-                if (typeof window.setDebugHeading === "function") window.setDebugHeading(90);
-            },
-            setHeading180: function () {
-                if (typeof window.setDebugHeading === "function") window.setDebugHeading(180);
-            },
-            setHeading270: function () {
-                if (typeof window.setDebugHeading === "function") window.setDebugHeading(270);
-            },
-
-            setScreen0: function () {
-                this.simulatedScreenAngle = 0;
-                if (typeof window.setSimulatedScreenAngle === "function") window.setSimulatedScreenAngle(0);
-            },
-            setScreen90: function () {
-                this.simulatedScreenAngle = 90;
-                if (typeof window.setSimulatedScreenAngle === "function") window.setSimulatedScreenAngle(90);
-            },
-            setScreen270: function () {
-                this.simulatedScreenAngle = 270;
-                if (typeof window.setSimulatedScreenAngle === "function") window.setSimulatedScreenAngle(270);
-            },
 
             // --- Display helpers ---
 
