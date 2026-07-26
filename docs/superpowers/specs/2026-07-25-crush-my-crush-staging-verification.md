@@ -64,7 +64,11 @@ hourly at :45, via `POST /api/admin/crush-lead-reminders/`.
       file carries a standing warning not to deploy it as-is (its
       `appSettingNames` list is out of sync with the live resource), so pin it
       with the CLI instead:
-      `az webapp config appsettings set -g <rg> -n <app> --slot staging --settings CRUSH_LEAD_REMINDERS_ENABLED=True --slot-settings CRUSH_LEAD_REMINDERS_ENABLED`
+      ```
+      az webapp config appsettings set -g <rg> -n <app> --slot staging \
+        --settings CRUSH_LEAD_REMINDERS_ENABLED=True \
+        --slot-settings CRUSH_LEAD_REMINDERS_ENABLED
+      ```
       Unpinned, the staging→production swap exchanges it — turning reminders on
       in production before sign-off, or off again after release.
 - [ ] A real reminder push **arrives on a real device**, and its body does not
@@ -124,8 +128,13 @@ and lock). None has been observed with two real requests.
 
 ## UI (Phase E scope, listed here so it is not lost)
 
-- [ ] Coach surfaces in **DE and FR** — all Phase D strings are wrapped but
-      the catalogues have not been extracted.
+- [ ] Coach surfaces in **DE and FR**. Not purely an extraction job: most
+      Phase D strings are wrapped and the catalogues simply have not been
+      extracted, but `RECIPIENT_RESPONSE_CHOICES`
+      (`crush_lu/models/connections.py:266-269`) holds its labels as raw
+      English, so `makemessages` skips them and
+      `get_recipient_response_display()` stays English in both languages
+      regardless. **Wrap those in code before or with the extraction run.**
 - [ ] **Dark mode and light mode** on the outreach task and the lead
       workspace. A white-on-white button already shipped once in this phase
       and was only caught by review.
@@ -151,7 +160,8 @@ Recorded so a future reader does not mistake these for oversights:
   `assigned_coach__isnull=False`) — so nothing gives it a "call by" clock or
   chases it, and the default `needs_review` tab does not show it. Tracked as
   row 5 / option 3 of O12 in the spec, scoped there as wiring an existing pool
-  row into the inbox and sweep rather than building discovery from scratch. Kept visible rather than deleted because the flawed
+  row into the inbox and sweep rather than building discovery from scratch.
+  Kept visible rather than deleted because the flawed
   reachability argument was accepted twice in review before anyone read
   `profile_requirement`'s full choice list.
 ~~- **Reverting a `shared` lead via the legacy `approve` action.** The terminal
