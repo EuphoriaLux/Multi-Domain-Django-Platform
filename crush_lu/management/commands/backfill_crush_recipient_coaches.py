@@ -90,17 +90,47 @@ class Command(BaseCommand):
 
         assigned = 0
         skipped = 0
-        for lead in candidates:
-            if dry_run:
-                # Ask the same question without writing: resolve the coach the
-                # way the model method would, then throw the write away. A
-                # savepoint is cheaper and truer than duplicating the tier
-                # logic here, which is exactly the drift O13 warns about.
-                with transaction.atomic():
-                    coach = lead.assign_recipient_coach()
-                    transaction.set_rollback(True)
-            else:
+        stale = 0
+        for candidate in candidates:
+            # Lock and re-read before deciding. The scan above is a plain
+            # queryset, and this command runs against a live site — a coach can
+            # claim, answer or close a lead between the scan and this loop, and
+            # every one of those changes the answer:
+            #
+            #   * a lead claimed by the *recipient's own* coach in that window
+            #     makes them the routed coach, and `assign_recipient_coach()`
+            #     compares against `self.assigned_coach` — a stale instance
+            #     still holds the old value, so it would name that coach on
+            #     both halves and break the one-person-covers-both invariant
+            #     the method exists to protect;
+            #   * an answered or closed lead is out of scope entirely, but the
+            #     stale row still looks eligible.
+            #
+            # Re-applying the whole `_candidates()` predicate under the lock is
+            # what makes those windows harmless, rather than only re-checking
+            # `recipient_coach`.
+            with transaction.atomic():
+                lead = (
+                    self._candidates()
+                    .select_for_update(of=("self",))
+                    .filter(pk=candidate.pk)
+                    .first()
+                )
+                if lead is None:
+                    stale += 1
+                    self.stdout.write(
+                        f"  lead #{candidate.pk} — changed since the scan "
+                        f"(claimed, answered or closed) — skipped"
+                    )
+                    continue
                 coach = lead.assign_recipient_coach()
+                if dry_run:
+                    # Ask the same question without writing: resolve the coach
+                    # the way the model method would, then throw the write
+                    # away. A savepoint is cheaper and truer than duplicating
+                    # the tier logic here, which is exactly the drift O13
+                    # warns about.
+                    transaction.set_rollback(True)
 
             if coach is None:
                 skipped += 1
@@ -120,6 +150,8 @@ class Command(BaseCommand):
             f"{assigned} lead(s) routed to a co-coach, "
             f"{skipped} deliberately left null."
         )
+        if stale:
+            summary += f" {stale} changed since the scan and were skipped."
         if dry_run:
             self.stdout.write(
                 self.style.WARNING(f"Dry run — nothing written. {summary}")

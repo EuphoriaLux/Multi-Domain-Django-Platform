@@ -13,7 +13,6 @@ notification.
 import logging
 import time
 
-
 from django.db import transaction
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -178,6 +177,32 @@ def _delivery_failed(result) -> bool:
     return result.get("total", 0) > 0 and result.get("success", 0) == 0
 
 
+def _claim_still_owed(lead_id, stamp) -> bool:
+    """
+    Is a claimed lead still owed its reminder, moments before the push?
+
+    Mirrors ``reminder_due`` **minus** the ``reminder_sent_at is null`` clause,
+    which the claim itself has just falsified — that column is instead checked
+    for being *ours*, so a lead re-claimed by another sweep is not sent twice.
+    The routed coach's half of ``reminder_candidates`` is re-applied too: a
+    deactivation in this window leaves nobody to notify.
+
+    Deliberately an unlocked read. It shrinks the window in which a coach
+    action races the send; it cannot eliminate it without holding the row lock
+    across the network call, which is what O14 removed.
+    """
+    return EventConnection.objects.filter(
+        pk=lead_id,
+        reminder_sent_at=stamp,
+        flow=EventConnection.FLOW_CRUSH,
+        status__in=EventConnection.OPEN_LEAD_STATUSES,
+        coach_call_scheduled_at__isnull=True,
+        coach_call_completed_at__isnull=True,
+        assigned_coach__isnull=False,
+        assigned_coach__is_active=True,
+    ).exists()
+
+
 REMINDER_BATCH_LIMIT = 200
 
 # Wall-clock budget for one sweep. The `CrushLeadReminders` timer calls this
@@ -201,13 +226,20 @@ def sweep_lead_reminders(
     """
     Send the 24h untouched-lead reminder to each routed coach (spec §6/O8).
 
-    **Claim, then send, then release on failure.** ``reminder_sent_at`` is
+    **Claim, re-check, send, release on failure.** ``reminder_sent_at`` is
     both the filter and the record. It is stamped and *committed* under the
     row lock before the push goes out, and cleared again by a separate
     ``UPDATE`` if the push did not land — so the lead stays eligible for the
     next sweep instead of being silently swallowed, while the device-health
     writes the push helper makes along the way survive. See the comment at
     the claim for why the send must not sit inside our transaction.
+
+    Because the lock is released before the push, the coach action handlers —
+    which lock this same row — no longer queue behind the reminder. An
+    unlocked ``_claim_still_owed`` read immediately before the send narrows
+    the window in which a coach handles the lead mid-push and gets reminded
+    about it anyway. It does not close that window; nothing short of holding
+    the lock across the network call does, and that is the bug O14 removed.
 
     Rows are locked with ``skip_locked`` so two overlapping timer deliveries
     divide the work instead of blocking or double-sending: the second
@@ -235,7 +267,7 @@ def sweep_lead_reminders(
         # inside the device loop.
         sweep_deadline = started + time_budget
 
-        def notify(coach, lead):  # noqa: A001 — matches the injectable's name
+        def notify(coach, lead):
             return notify_coach_crush_lead_reminder(
                 coach, lead, deadline=sweep_deadline, clock=clock
             )
@@ -317,15 +349,38 @@ def sweep_lead_reminders(
                 lead.save(update_fields=["reminder_sent_at"])
                 coach = lead.assigned_coach
 
-            # `notify` can fail two ways and both have to release the claim:
-            # it may *return* a zero-success result (the shape that fooled an
-            # earlier fix, because the helper catches per-device errors), or it
-            # may raise. Treating only the first as failure would leave a
-            # raising send with a committed stamp and no retry — the exact
-            # regression this restructure could otherwise introduce.
+            # Last look before spending a push. Releasing the lock ahead of the
+            # send is the price of durable device-health writes, and it opens a
+            # window the old shape did not have: the coach action handlers lock
+            # this same row, so they used to queue behind the reminder
+            # transaction. Now they do not — a coach can schedule, complete or
+            # decline the lead *during* a multi-device push, and the `coach`
+            # and `lead` captured above would still deliver "your My Crush! call
+            # is still open" for work they have just done.
+            #
+            # This narrows the window to the gap between this read and the
+            # send; it does not close it. Closing it means holding the row lock
+            # across the network call again, which is the bug O14 exists to
+            # remove — a coach's own request would then block on a push to a
+            # dead endpoint. One unlocked query turns "acted at any point
+            # during a slow push" into "acted in the last instant".
+            if not _claim_still_owed(lead_id, now):
+                # Not ours to send any more. Hand the row back exactly as the
+                # failure path does — guarded on our own stamp, so if the coach
+                # action already cleared or replaced it we leave it alone.
+                EventConnection.objects.filter(
+                    pk=lead_id, reminder_sent_at=now
+                ).update(reminder_sent_at=None)
+                logger.info(
+                    "[crush_lead_reminders] lead %s handled during the send; "
+                    "reminder cancelled",
+                    lead_id,
+                )
+                continue
+
             try:
                 delivered = not _delivery_failed(notify(coach, lead))
-            except Exception:  # noqa: BLE001
+            except Exception:
                 logger.exception(
                     "[crush_lead_reminders] push raised for lead %s", lead_id
                 )
@@ -352,7 +407,7 @@ def sweep_lead_reminders(
                     lead_id,
                     "released for retry" if released else "left (lead changed)",
                 )
-        except Exception:  # noqa: BLE001
+        except Exception:
             # Anything outside the send itself — the lock, the claim write,
             # the release. Nothing is stamped in those paths without the claim
             # having committed, so there is no orphaned stamp to undo here.

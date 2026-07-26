@@ -123,6 +123,17 @@ and lock). None has been observed with two real requests.
       ("this lead is closed", not "already recorded").
 - [ ] `record_outreach` on a lead closing underneath it neither stamps the
       field nor reports success.
+- [ ] **A coach acting during a slow push does not get reminded about the work
+      they just did.** O14 releases the row lock before the send, so the coach
+      action handlers — which lock the same row — no longer queue behind the
+      reminder transaction. An unlocked re-read just before the send narrows
+      that window but cannot close it; closing it means holding the lock across
+      the network call, which is the bug O14 removed. Schedule a call against a
+      lead whose push is deliberately slow (a hung endpoint) and confirm the
+      reminder is cancelled and the claim handed back. **This is the one race
+      here that is expected to be reachable in production**, not merely
+      theoretical — it is bounded by push duration, and the loser is a coach
+      seeing one stale notification, not corrupted data.
 - [ ] Postgres row locking behaves as assumed throughout — the suite runs on
       SQLite, so `select_for_update` is effectively a no-op there.
 
@@ -166,14 +177,28 @@ and lock). None has been observed with two real requests.
         admin-only. If a coach-facing surface ever renders
         `get_status_display()`, it will be English in both languages and no
         catalogue will fix it.
-      - `msgmerge` proposed 390 fuzzy guesses and they were cleared to blank
-        rather than kept: at least one was actively wrong ("Recipient
-        consented to the introduction" → "Die Einführung schreiben"). A
-        fuzzy entry is excluded from the compiled `.mo`, so it would not have
-        shipped — but a translator working through the file might well have
-        accepted it. If a future extraction re-introduces them, clear them the
-        same way (`msgattrib --clear-fuzzy --empty`); the catalogues carried
-        zero fuzzy entries before this run.
+      - **390 entries are marked `#, fuzzy`, and that is deliberate.** Each
+        carries a candidate translation `msgmerge` recovered from a msgid that
+        was reworded at some point since the last extraction (2026-06-13),
+        with a `#| msgid "…"` breadcrumb showing the old text. A fuzzy entry
+        is excluded from the compiled `.mo`, so **none of them renders** — the
+        string shows in English until a translator confirms it. Confirming one
+        is a keystroke; retyping it is not.
+
+        An earlier version of this branch blanked all 390
+        (`msgattrib --clear-fuzzy --empty`) to avoid a translator accepting a
+        bad guess — one match really is nonsense ("Recipient consented to the
+        introduction" ← "Write the introduction"). That was the wrong trade:
+        it destroyed ~261 genuinely recoverable translations per language to
+        suppress a much smaller number of obvious mismatches, and the
+        breadcrumb makes the bad ones self-evident anyway. **Do not clear them
+        wholesale on a future run.**
+      - **Some strings were already rendering in English on `main` before any
+        of this.** The catalogues had gone stale: `"My Crush"` was translated
+        while every template says `"My Crush!"`, so the lookup already missed.
+        The extraction did not break those — it made the catalogue honest
+        about them. Expect the DE/FR pass to be larger than "the new Phase D/E
+        strings" for that reason.
 - [ ] **Dark mode and light mode** on the outreach task and the lead
       workspace. A white-on-white button already shipped once in this phase
       and was only caught by review.
@@ -189,7 +214,7 @@ Recorded so a future reader does not mistake these for oversights:
   active coaches.~~ **This was wrong — it belonged in the build, and has since
   been built** as the coach inbox's `crush_pool` section (§10.1). The reasoning
   it was wrong is kept below, because the shape of the mistake is worth more
-  than the conclusion.**
+  than the conclusion.
   The rationale missed that `profile_requirement="none"` events let
   `event_register` proceed with `profile = None` (`views_events.py:916-920`),
   and `request_connection` gates the *requester* on attendance only. A

@@ -10,8 +10,8 @@ which was deliberately left. The §6 coach-capacity gate was measured on
 production on 2026-07-22.
 
 **What is left of Phase E is not engineering.** Three things, in order of who
-does them: a native speaker fills in the DE/FR `msgstr`s (the strings are
-extracted and blank); an operator runs `manage.py
+does them: a native speaker fills in the DE/FR `msgstr`s (extracted, with 390
+`#, fuzzy` candidates to confirm or reject); an operator runs `manage.py
 backfill_crush_recipient_coaches` after deploy and sets the four ops
 prerequisites below; and someone walks the staging checklist.
 
@@ -19,7 +19,7 @@ prerequisites below; and someone walks the staging checklist.
 SQLite; the concurrency guarantees in particular are proven only against
 simulated races, never against Postgres row locking, and no reminder has been
 delivered to a real device. See
-`2026-07-25-crush-my-crush-staging-verification.md` — 24 checks, none ticked.
+`2026-07-25-crush-my-crush-staging-verification.md` — 25 checks, none ticked.
 
 **Scope of this document:** planning and decision record. It no longer
 describes unbuilt work for Phases A–D; treat §5/§7 as the spec the shipped
@@ -633,9 +633,13 @@ that segment. Out of scope here.
     outstanding.** The labels are wrapped and the extraction has run, so the
     Phase D/E strings are now *in* both catalogues — with empty `msgstr`s.
     That is deliberate: a machine-authored DE/FR coach vocabulary is worse
-    than none, and the same run's 390 `msgmerge` fuzzy guesses included
-    "Recipient consented to the introduction" → "Die Einführung schreiben",
-    which is simply wrong. They were cleared to blank rather than kept.
+    than none. The run's 390 `#, fuzzy` entries are **kept**, not cleared —
+    each is a candidate `msgmerge` recovered from a reworded msgid, excluded
+    from the compiled `.mo` (so none of them renders) and one keystroke for a
+    translator to confirm. An earlier version of this branch blanked them all
+    to suppress the handful of nonsense matches and destroyed ~261 recoverable
+    translations per language doing it; the `#| msgid` breadcrumb makes the
+    bad matches self-evident without that cost.
     **What remains is native DE/FR authoring, not engineering.** Two residues
     worth knowing: `get_recipient_response_display()` is still called from
     nowhere, so those two labels sit in the catalogue ahead of any surface

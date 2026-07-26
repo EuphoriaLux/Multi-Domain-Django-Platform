@@ -17,6 +17,7 @@ Run with: pytest crush_lu/tests/test_crush_phase_e_open_points.py -v
 """
 from datetime import date, timedelta
 from io import StringIO
+from unittest import mock
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -34,6 +35,7 @@ from crush_lu.models import (
     UserDataConsent,
 )
 from crush_lu.models.profiles import CoachPushSubscription
+from crush_lu.services import crush_leads
 from crush_lu.services.crush_leads import REMINDER_AFTER, sweep_lead_reminders
 
 User = get_user_model()
@@ -605,3 +607,272 @@ def test_recipient_response_labels_are_translatable():
     labels = [label for _value, label in EventConnection.RECIPIENT_RESPONSE_CHOICES]
     assert labels, "the choice list must not be empty"
     assert all(isinstance(label, Promise) for label in labels)
+
+
+# ---------------------------------------------------------------------------
+# Codex round 1 on #690 — three P2 findings
+# ---------------------------------------------------------------------------
+
+
+class TestCoachActionsRacingTheSend:
+    """P2: the claim-then-send restructure releases the row lock *before* the
+    push. The coach action handlers lock the same row, so they used to queue
+    behind the reminder transaction; now they do not, and a coach can handle
+    the lead during a slow multi-device push."""
+
+    def _due_lead(self):
+        coach = _make_coach("pe_race_coach@example.com")
+        requester, req_p = _make_user("pe_race_req@example.com", "M")
+        recipient, _ = _make_user("pe_race_rec@example.com", "F")
+        req_p.assigned_coach = coach
+        req_p.save(update_fields=["assigned_coach"])
+        lead = _lead(requester, recipient, _make_event(), coach)
+        EventConnection.objects.filter(pk=lead.pk).update(
+            requested_at=timezone.now() - REMINDER_AFTER - timedelta(hours=1)
+        )
+        lead.refresh_from_db()
+        return coach, lead
+
+    def _sweep_with_action_during_send(self, action):
+        """Run a sweep in which ``action`` lands after the claim commits and
+        before the push — the window the pre-send re-check covers. Acting
+        before the sweep would just drop the lead from the candidate scan and
+        prove nothing."""
+        lead_holder = {}
+        sent = []
+
+        def notify(coach, lead):
+            sent.append(lead.pk)
+            return {"success": 1, "failed": 0, "total": 1}
+
+        _coach, lead = self._due_lead()
+        lead_holder["lead"] = lead
+
+        # The action fires from inside the re-check itself: that is the only
+        # point that is provably after the claim commit and before the send.
+        original = crush_leads._claim_still_owed
+
+        def racing_check(lead_id, stamp):
+            action(lead)
+            return original(lead_id, stamp)
+
+        with mock.patch.object(crush_leads, "_claim_still_owed", racing_check):
+            result = crush_leads.sweep_lead_reminders(notify=notify)
+        return lead, result, sent
+
+    def test_a_call_scheduled_during_the_send_cancels_the_reminder(self):
+        lead, result, sent = self._sweep_with_action_during_send(
+            lambda l: EventConnection.objects.filter(pk=l.pk).update(
+                coach_call_scheduled_at=timezone.now()
+            )
+        )
+
+        assert sent == [], "a coach who just scheduled the call must not be reminded"
+        assert result["sent"] == 0
+        lead.refresh_from_db()
+        # The claim is handed back, so the row looks untouched by the sweep.
+        assert lead.reminder_sent_at is None
+
+    def test_a_lead_declined_during_the_send_cancels_the_reminder(self):
+        _lead_row, result, sent = self._sweep_with_action_during_send(
+            lambda l: EventConnection.objects.filter(pk=l.pk).update(
+                status="declined"
+            )
+        )
+
+        assert sent == []
+        assert result["sent"] == 0
+
+    def test_a_coach_deactivated_during_the_send_cancels_the_reminder(self):
+        def deactivate(lead):
+            coach = lead.assigned_coach
+            coach.is_active = False
+            coach.save(update_fields=["is_active"])
+
+        _lead_row, result, sent = self._sweep_with_action_during_send(deactivate)
+
+        assert sent == []
+        assert result["sent"] == 0
+
+    def test_an_untouched_lead_is_still_sent(self):
+        """Positive control — the re-check must not swallow the normal path."""
+        lead, result, sent = self._sweep_with_action_during_send(lambda l: None)
+
+        assert sent == [lead.pk]
+        assert result["sent"] == 1
+        lead.refresh_from_db()
+        assert lead.reminder_sent_at is not None
+
+    def test_a_cancelled_send_is_not_counted_as_a_failure(self):
+        """A coach handling the lead is the system working, not a delivery
+        problem. Counting it as `failed` would make a healthy sweep look like a
+        push outage in the logs."""
+        _row, result, _sent = self._sweep_with_action_during_send(
+            lambda l: EventConnection.objects.filter(pk=l.pk).update(
+                coach_call_completed_at=timezone.now()
+            )
+        )
+
+        assert result["failed"] == 0
+        assert result["sent"] == 0
+
+
+class TestBackfillRechecksUnderTheLock:
+    """P2: the command materialises its candidates and then loops. Against a
+    live site a lead can be claimed, answered or closed in between, and the
+    stale instance still carries the old `assigned_coach` — which is the value
+    `assign_recipient_coach()` compares against."""
+
+    def _pair(self, suffix, routed_coach, recipient_coach=None):
+        requester, req_p = _make_user(f"pe_bfr_req_{suffix}@example.com", "M")
+        recipient, rec_p = _make_user(f"pe_bfr_rec_{suffix}@example.com", "F")
+        req_p.assigned_coach = routed_coach
+        req_p.save(update_fields=["assigned_coach"])
+        if recipient_coach is not None:
+            rec_p.assigned_coach = recipient_coach
+            rec_p.save(update_fields=["assigned_coach"])
+        return _lead(requester, recipient, _make_event(), routed_coach)
+
+    def _run_racing(self, action):
+        """Fire ``action`` between the candidate scan and the per-row re-read.
+
+        `_candidates()` is called once by `handle` for the scan and again per
+        row for the locked re-read, so the *second* call is the window. Firing
+        on the first call would land the write before the scan instead — the
+        lead would simply drop out of the candidate list, and the test would
+        pass without the re-read existing at all. An earlier version of this
+        helper did exactly that and three of these four tests were vacuous.
+        """
+        out = StringIO()
+        from crush_lu.management.commands import (
+            backfill_crush_recipient_coaches as cmd_module,
+        )
+
+        original = cmd_module.Command._candidates
+        calls = {"n": 0}
+
+        def counting(self):
+            calls["n"] += 1
+            if calls["n"] == 2:
+                action()
+            return original(self)
+
+        with mock.patch.object(cmd_module.Command, "_candidates", counting):
+            call_command("backfill_crush_recipient_coaches", stdout=out)
+        assert calls["n"] >= 2, (
+            "the command never re-read a row — the race window under test "
+            "does not exist"
+        )
+        return out.getvalue()
+
+    def test_a_lead_claimed_by_the_recipients_coach_is_not_self_assigned(self):
+        """The invariant `assign_recipient_coach()` protects: one person never
+        covers both halves via `recipient_coach`. A stale `assigned_coach` is
+        exactly how that check gets the wrong answer."""
+        pool_coach = _make_coach("pe_bfr_pool@example.com")
+        theirs = _make_coach("pe_bfr_theirs@example.com")
+        lead = self._pair("a", pool_coach, recipient_coach=theirs)
+
+        # `theirs` claims the lead after the scan: they are now the routed
+        # coach, so there is no hand-off left to record.
+        self._run_racing(
+            lambda: EventConnection.objects.filter(pk=lead.pk).update(
+                assigned_coach=theirs
+            )
+        )
+
+        lead.refresh_from_db()
+        assert lead.assigned_coach_id == theirs.pk
+        assert lead.recipient_coach_id is None
+
+    def test_a_lead_answered_since_the_scan_is_skipped(self):
+        routed = _make_coach("pe_bfr_routed_b@example.com")
+        theirs = _make_coach("pe_bfr_theirs_b@example.com")
+        lead = self._pair("b", routed, recipient_coach=theirs)
+
+        output = self._run_racing(
+            lambda: EventConnection.objects.filter(pk=lead.pk).update(
+                recipient_response=EventConnection.RECIPIENT_RESPONSE_DECLINED
+            )
+        )
+
+        lead.refresh_from_db()
+        assert lead.recipient_coach_id is None
+        assert "changed since the scan" in output
+
+    def test_a_lead_closed_since_the_scan_is_skipped(self):
+        routed = _make_coach("pe_bfr_routed_c@example.com")
+        theirs = _make_coach("pe_bfr_theirs_c@example.com")
+        lead = self._pair("c", routed, recipient_coach=theirs)
+
+        self._run_racing(
+            lambda: EventConnection.objects.filter(pk=lead.pk).update(status="shared")
+        )
+
+        lead.refresh_from_db()
+        assert lead.recipient_coach_id is None
+
+    def test_an_unchanged_lead_is_still_assigned(self):
+        """Positive control — the re-read must not swallow the normal path."""
+        routed = _make_coach("pe_bfr_routed_d@example.com")
+        theirs = _make_coach("pe_bfr_theirs_d@example.com")
+        lead = self._pair("d", routed, recipient_coach=theirs)
+
+        self._run_racing(lambda: None)
+
+        lead.refresh_from_db()
+        assert lead.recipient_coach_id == theirs.pk
+
+
+class TestMutualCountIsScopedToOwnedCalls:
+    """P2: `counts.mutual_crush` is rendered *under* the owned `crush_lead`
+    total, so counting pool mutuals produced a strip that contradicts itself."""
+
+    def _mutual_pool_pair(self, coach):
+        a, _ = _make_user("pe_mut_a@example.com", "M")
+        b, _ = _make_user("pe_mut_b@example.com", "F")
+        event = _make_event("Mutual Pool Event")
+        # Reciprocal declarations, neither routed — both sit in the pool.
+        forward = _lead(a, b, event)
+        _lead(b, a, event)
+        return forward
+
+    def test_a_mutual_pool_lead_is_not_counted_under_owned_calls(self):
+        coach = _make_coach("pe_mut_coach@example.com")
+        self._mutual_pool_pair(coach)
+
+        counts = _queue(coach).context["counts"]
+
+        # The contradiction Codex named: "0 Crush calls / N mutual".
+        assert counts["crush_lead"] == 0
+        assert counts["mutual_crush"] == 0
+        assert counts["crush_pool"] == 2
+
+    def test_the_pool_row_still_shows_its_mutual_badge(self):
+        """Scoping the *count* must not hide the signal on the row — a coach
+        triaging the pool wants to know both members declared."""
+        coach = _make_coach("pe_mut_coach2@example.com")
+        self._mutual_pool_pair(coach)
+
+        items = [
+            i for i in _queue(coach).context["items"] if i["kind"] == "crush_pool"
+        ]
+
+        assert items
+        assert all(i["is_mutual_crush"] for i in items)
+
+    def test_an_owned_mutual_call_is_still_counted(self):
+        """Positive control — the scoping must not zero out the real case."""
+        coach = _make_coach("pe_mut_coach3@example.com")
+        a, a_p = _make_user("pe_mut_c@example.com", "M")
+        b, _ = _make_user("pe_mut_d@example.com", "F")
+        a_p.assigned_coach = coach
+        a_p.save(update_fields=["assigned_coach"])
+        event = _make_event("Mutual Owned Event")
+        _lead(a, b, event, coach)
+        _lead(b, a, event)
+
+        counts = _queue(coach).context["counts"]
+
+        assert counts["crush_lead"] == 1
+        assert counts["mutual_crush"] == 1

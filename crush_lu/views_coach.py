@@ -682,7 +682,15 @@ def coach_action_queue(request):
         "crush_lead": sum(1 for i in items if i["kind"] == "crush_lead"),
         "crush_outreach": sum(1 for i in items if i["kind"] == "crush_outreach"),
         "crush_pool": sum(1 for i in items if i["kind"] == "crush_pool"),
-        "mutual_crush": sum(1 for i in items if i.get("is_mutual_crush")),
+        # Scoped to owned calls because the template renders this *under* the
+        # `crush_lead` total. Counting pool mutuals here produced the
+        # contradictory strip "0 Crush calls / 1 mutual / 1 unclaimed" for a
+        # coach with no calls of their own. The pool row keeps its own Mutual
+        # badge — the signal is still there, it is just not tallied under a
+        # number it is not part of.
+        "mutual_crush": sum(
+            1 for i in items if i["kind"] == "crush_lead" and i.get("is_mutual_crush")
+        ),
         "total": len(items),
         "urgent_or_worse": sum(
             1 for i in items if i["sla_state"] in ("escalated", "breach", "urgent")
