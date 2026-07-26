@@ -83,8 +83,18 @@ hourly at :45, via `POST /api/admin/crush-lead-reminders/`.
 - [ ] **VAPID misconfiguration is distinguishable from opt-out.** Break the
       VAPID keys deliberately, run the sweep, confirm the claim is released
       (`reminder_sent_at` back to null) and the lead is still eligible on the
-      next run. Both paths return a
-      zero-total result; only a flag separates them.
+      next run. Both paths return a zero-total result; only a flag separates
+      them.
+
+      Do this with a **malformed** key, not just an unset one, and check the
+      subscriptions afterwards: **no device may be deleted or have its
+      `failure_count` raised.** The presence checks catch an unset key; nothing
+      catches an invalid one, so `webpush()` raises the same decoding error for
+      every device alike. Counting that against device health would blame each
+      endpoint for a global fault and, after five sweeps, delete every coach's
+      devices — a config typo turned into data loss that fixing the key would
+      not undo. The helper deliberately marks health only for
+      `requests` transport errors for exactly this reason.
 - [ ] **A hung endpoint's `failure_count` actually increases.** Point a
       subscription at an address that accepts the connection and never
       responds. The push raises a *timeout*, not a `WebPushException`, so it

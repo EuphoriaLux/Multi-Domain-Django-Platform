@@ -4287,9 +4287,20 @@ def coach_connection_review(request, connection_id):
                 # close the lead in the same window, which would otherwise
                 # turn a legitimate stale-owner claim into that same
                 # disclosure on a just-closed lead.
+                # `recipient_coach` and `system_actions` are loaded here, not
+                # deferred: both are *read* below, and reading them off the
+                # instance loaded at request entry would be a stale read of a
+                # row another coach may have written since.
                 locked = (
                     EventConnection.objects.select_for_update()
-                    .only("id", "assigned_coach", "status", "flow")
+                    .only(
+                        "id",
+                        "assigned_coach",
+                        "status",
+                        "flow",
+                        "recipient_coach",
+                        "system_actions",
+                    )
                     .get(pk=connection.pk)
                 )
                 if _claim_blocked(locked):
@@ -4297,21 +4308,35 @@ def coach_connection_review(request, connection_id):
                         request, _("This connection is assigned to another coach.")
                     )
                     return redirect("crush_lu:coach_connections")
-                connection.assigned_coach = coach
+                locked.assigned_coach = coach
                 claim_fields = ["assigned_coach"]
                 # Same reconciliation as `crush_start_review`: claiming a lead
                 # you are already the co-coach of would put you on both halves.
                 # Reachable here too — this is the other door into the same
                 # room, and the pool section feeds both.
-                if connection.recipient_coach_id == coach.id:
-                    connection.recipient_coach = None
-                    connection.log_system_action(
+                #
+                # Written through the *locked* row. `log_system_action` is a
+                # read-modify-write of a JSON column: appending to the entry
+                # list on a pre-transaction instance would silently drop any
+                # entry the co-coach's surface committed in between. Assigning
+                # a scalar from a stale instance was harmless, which is why
+                # this block did not need the locked row until an audit append
+                # was added to it.
+                if locked.recipient_coach_id == coach.id:
+                    locked.recipient_coach = None
+                    locked.log_system_action(
                         "crush_recipient_coach_cleared_on_claim",
                         actor=coach.user.username,
                         reason="claimer was also the recipient coach",
                     )
                     claim_fields += ["recipient_coach", "system_actions"]
-                connection.save(update_fields=claim_fields)
+                locked.save(update_fields=claim_fields)
+                # Keep the in-request instance consistent with what was just
+                # written — later code and the redirect target read from it.
+                connection.assigned_coach = coach
+                if "recipient_coach" in claim_fields:
+                    connection.recipient_coach = None
+                    connection.system_actions = locked.system_actions
                 if couple_reverse:
                     reverse_connection.assigned_coach = coach
                     reverse_connection.save(update_fields=["assigned_coach"])

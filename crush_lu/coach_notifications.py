@@ -7,6 +7,8 @@ Completely separate from user notifications to avoid conflicts.
 import json
 import logging
 import time
+
+import requests
 from django.conf import settings
 from django.urls import reverse
 from django.utils.translation import gettext as _
@@ -171,27 +173,46 @@ def send_coach_push_notification(
                 subscription.mark_failure()  # Auto-deletes after 5 failures
             failed_count += 1
 
+        except requests.exceptions.RequestException as e:
+            # Transport failures: timeouts, connection refused, DNS. These are
+            # *attributable to this endpoint*, so they count against its health.
+            #
+            # `webpush()` raises `WebPushException` for protocol-level errors,
+            # but a hung or unreachable endpoint surfaces here instead — and
+            # that is the exact device O14 exists to clean up. Without this
+            # branch a permanently stalled endpoint stayed at
+            # `failure_count == 0`, never reached the five-failure auto-delete,
+            # and burned its full `PUSH_TIMEOUT_SECONDS` out of the sweep's
+            # budget every hour forever.
+            #
+            # Safe for genuinely transient network trouble: `mark_success()`
+            # resets `failure_count` to 0, so a device has to fail five times
+            # *in a row* to be dropped.
+            logger.warning(
+                f"Coach push transport failure for {coach.user.username} "
+                f"({subscription.device_name}): {e}"
+            )
+            subscription.mark_failure()
+            failed_count += 1
+
         except Exception as e:
-            # Catch-all for unexpected errors — most importantly *transport*
-            # failures. `webpush()` raises `WebPushException` for protocol-level
-            # errors, but a hung or unreachable endpoint surfaces as a requests
-            # timeout, which lands here instead.
+            # Everything else — and deliberately *without* `mark_failure()`.
             #
-            # That is the exact device O14 exists to clean up, so this branch
-            # has to record health too. Without the `mark_failure()` below a
-            # permanently stalled endpoint stayed at `failure_count == 0`,
-            # never reached the five-failure auto-delete, and burned its full
-            # `PUSH_TIMEOUT_SECONDS` out of the sweep's budget every hour
-            # forever — the same slow drain the claim-then-send restructure was
-            # meant to stop, just reached by a different exception type.
+            # This branch also catches failures that have nothing to do with
+            # the device: a malformed (but non-empty) `VAPID_PRIVATE_KEY` makes
+            # `webpush()` raise a decoding error for every subscription alike,
+            # as would a payload-serialisation bug. Counting those against
+            # device health would blame each endpoint for a global fault and,
+            # after five sweeps, **delete every coach's devices** — turning a
+            # config typo into unrecoverable data loss that fixing the key
+            # would not undo. The presence checks above catch an *unset* key;
+            # they cannot catch an invalid one.
             #
-            # Safe for genuinely transient errors: `mark_success()` resets
-            # `failure_count` to 0, so a device has to fail five times *in a
-            # row* to be dropped.
+            # The lead still retries: `failed_count` makes the result read as a
+            # delivery failure, so the sweep releases its claim.
             logger.error(
                 f"Unexpected error sending coach push to {coach.user.username}: {e}"
             )
-            subscription.mark_failure()
             failed_count += 1
 
     return {

@@ -19,6 +19,8 @@ from datetime import date, timedelta
 from io import StringIO
 from unittest import mock
 
+import requests
+
 import pytest
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
@@ -1156,20 +1158,33 @@ class TestTransportFailuresCountAgainstDeviceHealth:
     def test_a_transport_timeout_marks_the_device(self):
         coach, subscription = self._coach_with_device()
 
-        result = self._send(coach, TimeoutError("endpoint never responded"))
+        # The real exception type, not a stand-in: `pywebpush` hands `timeout`
+        # to `requests`, so a hung endpoint raises `ReadTimeout`. An earlier
+        # version of this test used the builtin `TimeoutError`, which nothing
+        # in the stack actually raises — it passed against a catch-all branch
+        # and would have gone on passing after the branch was narrowed.
+        result = self._send(coach, requests.exceptions.ReadTimeout("no response"))
 
         subscription.refresh_from_db()
         assert subscription.failure_count == 1
         assert result["failed"] == 1
         assert result["success"] == 0
 
+    def test_a_refused_connection_marks_the_device(self):
+        coach, subscription = self._coach_with_device("pe_health_e@example.com")
+
+        self._send(coach, requests.exceptions.ConnectionError("refused"))
+
+        subscription.refresh_from_db()
+        assert subscription.failure_count == 1
+
     def test_five_consecutive_timeouts_delete_the_device(self):
-        """The auto-delete O14 is meant to restore. Without the catch-all
-        branch recording health this endpoint lived forever."""
+        """The auto-delete O14 is meant to restore. Without device health on
+        this path the endpoint lived forever."""
         coach, subscription = self._coach_with_device("pe_health_b@example.com")
 
         for _ in range(5):
-            self._send(coach, TimeoutError("endpoint never responded"))
+            self._send(coach, requests.exceptions.ReadTimeout("no response"))
 
         assert not CoachPushSubscription.objects.filter(pk=subscription.pk).exists()
 
@@ -1178,10 +1193,37 @@ class TestTransportFailuresCountAgainstDeviceHealth:
         claim — marking device health must not change that shape."""
         coach, _subscription = self._coach_with_device("pe_health_c@example.com")
 
-        result = self._send(coach, TimeoutError("endpoint never responded"))
+        result = self._send(coach, requests.exceptions.ReadTimeout("no response"))
 
         assert result["total"] > 0
         assert result["success"] == 0
+
+    def test_a_global_failure_does_not_blame_the_device(self):
+        """A malformed — but non-empty — VAPID key makes `webpush()` raise the
+        same decoding error for *every* subscription. Counting that against
+        device health would blame each endpoint for a global fault, and after
+        five sweeps delete every coach's devices. The presence checks catch an
+        unset key; they cannot catch an invalid one."""
+        coach, subscription = self._coach_with_device("pe_health_d@example.com")
+
+        result = self._send(coach, ValueError("Could not deserialize key data"))
+
+        subscription.refresh_from_db()
+        assert subscription.failure_count == 0
+        # Still a delivery failure, so the sweep releases its claim and retries
+        # once someone fixes the key.
+        assert result["failed"] == 1
+        assert result["success"] == 0
+
+    def test_a_global_failure_never_deletes_devices(self):
+        """The consequence that made this worth splitting: a config typo must
+        not become unrecoverable data loss."""
+        coach, subscription = self._coach_with_device("pe_health_f@example.com")
+
+        for _ in range(6):
+            self._send(coach, ValueError("Could not deserialize key data"))
+
+        assert CoachPushSubscription.objects.filter(pk=subscription.pk).exists()
 
 
 class TestClaimingALeadYouCoCoach:
@@ -1326,3 +1368,84 @@ class TestAnInactiveOwnerLeadCanActuallyBeClaimed:
 
         lead.refresh_from_db()
         assert lead.assigned_coach_id != rescuer.pk
+
+
+class TestTheClaimAuditAppendUsesTheLockedRow:
+    """P2: the `claim` branch validated the *locked* row but mutated the
+    instance loaded at request entry. `log_system_action` is a read-modify-write
+    of a JSON column, so appending from that stale instance would drop any entry
+    committed in between. Assigning a scalar was harmless — which is exactly why
+    this block did not need the locked row until an audit append was added."""
+
+    def _lead_owned_by_nobody_with_cocoach(self):
+        cocoach = _make_coach("pe_audit_co@example.com")
+        requester, _ = _make_user("pe_audit_req@example.com", "M")
+        recipient, _ = _make_user("pe_audit_rec@example.com", "F")
+        lead = _lead(requester, recipient, _make_event())
+        lead.recipient_coach = cocoach
+        lead.save(update_fields=["recipient_coach"])
+        return cocoach, lead
+
+    def test_a_concurrent_audit_entry_is_not_clobbered(self):
+        cocoach, lead = self._lead_owned_by_nobody_with_cocoach()
+
+        client = Client()
+        _login(client, cocoach.user)
+
+        # Land a committed audit entry *after* the view's request-entry read
+        # and *before* it takes the row lock. `_claim_blocked` is called twice
+        # — once on the pre-transaction instance, once on the locked row — so
+        # firing on the **first** call lands squarely in that window.
+        #
+        # Firing on the second call would be wrong, not merely different: that
+        # point is already past `select_for_update`, so on Postgres the
+        # competing writer would block until this transaction commits and the
+        # interleaving could never occur. It only "works" on SQLite, where the
+        # lock is a no-op — the exact shape of vacuous race test that shipped
+        # twice on #683.
+        from crush_lu import views_coach
+
+        original = views_coach._claim_blocked
+        fired = {"n": 0}
+
+        def racing(conn):
+            fired["n"] += 1
+            if fired["n"] == 1:
+                other = EventConnection.objects.get(pk=lead.pk)
+                other.log_system_action("concurrent_entry", actor="someone_else")
+                other.save(update_fields=["system_actions"])
+            return original(conn)
+
+        with mock.patch.object(views_coach, "_claim_blocked", racing):
+            client.post(
+                reverse(
+                    "crush_lu:coach_connection_review",
+                    kwargs={"connection_id": lead.pk},
+                ),
+                {"action": "claim"},
+            )
+
+        lead.refresh_from_db()
+        types = [a["type"] for a in lead.system_actions]
+        assert "crush_recipient_coach_cleared_on_claim" in types
+        assert "concurrent_entry" in types, (
+            "the append-only trail lost an entry committed before the lock"
+        )
+
+    def test_the_claim_still_works_without_a_race(self):
+        """Positive control."""
+        cocoach, lead = self._lead_owned_by_nobody_with_cocoach()
+
+        client = Client()
+        _login(client, cocoach.user)
+        client.post(
+            reverse(
+                "crush_lu:coach_connection_review",
+                kwargs={"connection_id": lead.pk},
+            ),
+            {"action": "claim"},
+        )
+
+        lead.refresh_from_db()
+        assert lead.assigned_coach_id == cocoach.pk
+        assert lead.recipient_coach_id is None

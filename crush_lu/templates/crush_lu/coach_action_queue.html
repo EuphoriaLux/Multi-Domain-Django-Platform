@@ -114,7 +114,7 @@
                     the wrong assumption to leave available.
                     {% endcomment %}
                     {% if item.kind == 'crush_pool' %}
-                        <span class="ml-1 align-middle inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">{% trans "Unclaimed" %}</span>
+                        {% include "crush_lu/components/status_badge.html" with tone="warning" label=_("Unclaimed") extra="ml-1 align-middle" %}
                     {% endif %}
                 </p>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mb-0 truncate">
