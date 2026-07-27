@@ -13,7 +13,6 @@ notification.
 import logging
 import time
 
-
 from django.db import transaction
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -145,8 +144,10 @@ def reminder_candidates(now=None):
     )
 
 
-class ReminderDeliveryFailed(Exception):
-    """Push delivery reported no successful send — retry on the next sweep."""
+# ``ReminderDeliveryFailed`` used to live here: the sweep raised it to roll
+# the claim back inside the transaction. The claim-then-send restructure
+# releases with an explicit UPDATE instead, so nothing raised or caught it any
+# more. Removed rather than left as a decorative import target.
 
 
 def _delivery_failed(result) -> bool:
@@ -176,6 +177,54 @@ def _delivery_failed(result) -> bool:
     return result.get("total", 0) > 0 and result.get("success", 0) == 0
 
 
+def _claim_still_owed(lead_id, stamp, coach_id) -> bool:
+    """
+    Is a claimed lead still owed its reminder *by this coach*, before the push?
+
+    Mirrors ``reminder_due`` **minus** the ``reminder_sent_at is null`` clause,
+    which the claim itself has just falsified — that column is instead checked
+    for being *ours*, so a lead re-claimed by another sweep is not sent twice.
+
+    ``coach_id`` pins the owner to the coach captured at claim time rather than
+    merely requiring *an* active owner. A reassignment in this window otherwise
+    passes an "owner is active" test while ``notify()`` still holds the old
+    coach: the reminder — naming the crusher — would go to someone who no
+    longer owns the lead, and the stamp would be consumed so the real owner
+    never gets one. The notification's own justification for naming the
+    crusher is that the recipient *is* the routed coach, so this is what keeps
+    that true.
+
+    Deliberately an unlocked read. It shrinks the window in which a coach
+    action races the send; it cannot eliminate it without holding the row lock
+    across the network call, which is what O14 removed.
+    """
+    return EventConnection.objects.filter(
+        pk=lead_id,
+        reminder_sent_at=stamp,
+        flow=EventConnection.FLOW_CRUSH,
+        status__in=EventConnection.OPEN_LEAD_STATUSES,
+        coach_call_scheduled_at__isnull=True,
+        coach_call_completed_at__isnull=True,
+        assigned_coach_id=coach_id,
+        assigned_coach__is_active=True,
+    ).exists()
+
+
+def _release_claim(lead_id, stamp) -> bool:
+    """
+    Hand a claimed lead back so a later sweep retries it.
+
+    Guarded on the stamp we wrote: if anything else has since touched the row
+    it is not ours to clear, and blanking it would re-arm a reminder for a lead
+    that no longer needs one. Returns whether the release actually matched.
+    """
+    return bool(
+        EventConnection.objects.filter(pk=lead_id, reminder_sent_at=stamp).update(
+            reminder_sent_at=None
+        )
+    )
+
+
 REMINDER_BATCH_LIMIT = 200
 
 # Wall-clock budget for one sweep. The `CrushLeadReminders` timer calls this
@@ -199,26 +248,31 @@ def sweep_lead_reminders(
     """
     Send the 24h untouched-lead reminder to each routed coach (spec §6/O8).
 
-    Idempotent by construction: ``reminder_sent_at`` is both the filter and
-    the record, and it is written inside the same savepoint that fires the
-    notification — so a failed notification rolls the stamp back and the
-    lead stays eligible for the next sweep instead of being silently
-    swallowed. Delivering the timer twice therefore produces exactly one
-    reminder per lead.
+    **Claim, re-check, send, release on failure.** ``reminder_sent_at`` is
+    both the filter and the record. It is stamped and *committed* under the
+    row lock before the push goes out, and cleared again by a separate
+    ``UPDATE`` if the push did not land — so the lead stays eligible for the
+    next sweep instead of being silently swallowed, while the device-health
+    writes the push helper makes along the way survive. See the comment at
+    the claim for why the send must not sit inside our transaction.
+
+    Because the lock is released before the push, the coach action handlers —
+    which lock this same row — no longer queue behind the reminder. An
+    unlocked ``_claim_still_owed`` read immediately before the send narrows
+    the window in which a coach handles the lead mid-push and gets reminded
+    about it anyway. It does not close that window; nothing short of holding
+    the lock across the network call does, and that is the bug O14 removed.
 
     Rows are locked with ``skip_locked`` so two overlapping timer deliveries
-    divide the work instead of blocking or double-sending.
+    divide the work instead of blocking or double-sending: the second
+    delivery re-reads a stamped row and finds it no longer due.
 
-    **One transaction per lead, not one for the sweep.** Web Push is a
-    network call inside the savepoint, and ``pywebpush`` defaults to no
-    timeout while the Azure Function caller gives up at 60s. Holding every
+    **One transaction per lead, not one for the sweep.** Holding every
     candidate's row lock across the whole serial run would let one stalled
-    endpoint block them all until the request is killed — and a rollback at
-    that point would lose the stamps of reminders already delivered, so the
-    next sweep would send them again. Each lead is therefore locked, sent
-    and committed on its own, and the batch is bounded by ``limit`` *and* by
-    ``time_budget`` — see ``REMINDER_TIME_BUDGET`` for why a count alone does
-    not fit inside the caller's timeout.
+    push endpoint block them all until the request is killed. Each lead is
+    therefore claimed and committed on its own, and the batch is bounded by
+    ``limit`` *and* by ``time_budget`` — see ``REMINDER_TIME_BUDGET`` for why
+    a count alone does not fit inside the caller's 60s timeout.
 
     ``notify`` and ``clock`` are injectable for tests; they default to the
     coach push notification helper and a monotonic clock.
@@ -235,7 +289,7 @@ def sweep_lead_reminders(
         # inside the device loop.
         sweep_deadline = started + time_budget
 
-        def notify(coach, lead):  # noqa: A001 — matches the injectable's name
+        def notify(coach, lead):
             return notify_coach_crush_lead_reminder(
                 coach, lead, deadline=sweep_deadline, clock=clock
             )
@@ -270,7 +324,25 @@ def sweep_lead_reminders(
                 len(candidate_ids),
             )
             break
+        claimed = False
         try:
+            # Claim, then send, then release on failure — three steps, and the
+            # send is deliberately *outside* any transaction of ours.
+            #
+            # It used to be one atomic block: stamp, push, raise on failure so
+            # the stamp rolled back. That read well and was wrong in one
+            # specific way — `send_coach_push_notification` records device
+            # health as it goes (`mark_failure`, and `delete` on a 410), and
+            # the rollback discarded those writes too. A permanently dead
+            # endpoint therefore never reached its five-failure auto-delete and
+            # was retried every hour forever, spending the sweep's time budget
+            # on a device that will never accept a push.
+            #
+            # The trade this makes: a process killed between claim and release
+            # leaves the stamp committed, so that one reminder is skipped
+            # rather than retried. That is a strictly smaller loss than an
+            # endpoint that can never be cleaned up, and the next sweep still
+            # covers every *other* lead.
             with transaction.atomic():
                 lead = (
                     EventConnection.objects.select_for_update(of=("self",), skip_locked=True)
@@ -293,18 +365,100 @@ def sweep_lead_reminders(
                 # notify.
                 if lead.assigned_coach is None or not lead.assigned_coach.is_active:
                     continue
+                # The claim. Committing this before sending is what still makes
+                # two overlapping timer deliveries send exactly once: the
+                # second one re-reads a stamped row and `reminder_due` is false.
                 lead.reminder_sent_at = now
                 lead.save(update_fields=["reminder_sent_at"])
-                if _delivery_failed(notify(lead.assigned_coach, lead)):
-                    # Inside the transaction, so the stamp rolls back and the
-                    # lead stays eligible for the next sweep.
-                    raise ReminderDeliveryFailed(
-                        f"no successful push for lead {lead_id}"
-                    )
-            sent += 1
-        except Exception:  # noqa: BLE001
+                coach = lead.assigned_coach
+                # From here the stamp is committed: every exit from this
+                # iteration has to either deliver or hand the claim back.
+                claimed = True
+
+            # Last look before spending a push. Releasing the lock ahead of the
+            # send is the price of durable device-health writes, and it opens a
+            # window the old shape did not have: the coach action handlers lock
+            # this same row, so they used to queue behind the reminder
+            # transaction. Now they do not — a coach can schedule, complete or
+            # decline the lead *during* a multi-device push, and the `coach`
+            # and `lead` captured above would still deliver "your My Crush! call
+            # is still open" for work they have just done.
+            #
+            # This narrows the window to the gap between this read and the
+            # send; it does not close it. Closing it means holding the row lock
+            # across the network call again, which is the bug O14 exists to
+            # remove — a coach's own request would then block on a push to a
+            # dead endpoint. One unlocked query turns "acted at any point
+            # during a slow push" into "acted in the last instant".
+            if not _claim_still_owed(lead_id, now, coach.pk):
+                # Not ours to send any more. Hand the row back, guarded on our
+                # own stamp, so if the coach action already cleared or replaced
+                # it we leave it alone.
+                _release_claim(lead_id, now)
+                claimed = False
+                logger.info(
+                    "[crush_lead_reminders] lead %s handled or reassigned "
+                    "during the send; reminder cancelled",
+                    lead_id,
+                )
+                continue
+
+            try:
+                delivered = not _delivery_failed(notify(coach, lead))
+            except Exception:
+                logger.exception(
+                    "[crush_lead_reminders] push raised for lead %s", lead_id
+                )
+                delivered = False
+
+            if delivered:
+                # The stamp is the record of a delivered reminder — keep it.
+                claimed = False
+                sent += 1
+            else:
+                # Release the claim so the next sweep retries. Its own
+                # transaction, so it cannot take the device-health writes the
+                # send just committed down with it — which is the entire point
+                # of this restructure.
+                released = _release_claim(lead_id, now)
+                claimed = False
+                failed += 1
+                logger.warning(
+                    "[crush_lead_reminders] no successful push for lead %s; "
+                    "claim %s",
+                    lead_id,
+                    "released for retry" if released else "left (lead changed)",
+                )
+        except Exception:
+            # Anything outside the send itself — the lock, the claim write, the
+            # re-check, the release.
+            #
+            # An earlier comment here said there was no orphaned stamp to undo,
+            # because nothing stamped without the claim having committed. That
+            # stopped being true with claim-then-send: the claim commits, and
+            # then the re-check and the release both run under this handler. A
+            # transient database error in either left `reminder_sent_at`
+            # populated with nothing delivered — and since `reminder_candidates`
+            # filters on that column being null, the lead would be excluded from
+            # every future sweep. Permanent silent loss of one member's reminder.
             failed += 1
             logger.exception("[crush_lead_reminders] Failed on lead %s", lead_id)
+            if claimed:
+                # Best-effort, and in its own handler: if the database is the
+                # thing that is unwell, this fails too, and it must not mask the
+                # original error or abort the rest of the batch. A stamp that
+                # survives is retried by the *next* release attempt only if the
+                # row is still ours, which is exactly the guard `_release_claim`
+                # applies.
+                try:
+                    _release_claim(lead_id, now)
+                except Exception:
+                    logger.exception(
+                        "[crush_lead_reminders] could not release the claim on "
+                        "lead %s; it will not be retried until the stamp is "
+                        "cleared by hand",
+                        lead_id,
+                    )
 
     logger.info(
         "[crush_lead_reminders] sent=%d failed=%d truncated=%s",

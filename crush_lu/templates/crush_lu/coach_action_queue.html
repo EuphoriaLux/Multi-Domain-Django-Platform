@@ -42,6 +42,14 @@
         {% if counts.mutual_crush %}
             <p class="text-xs font-medium text-pink-600 dark:text-pink-400 mt-1">{% blocktrans count counter=counts.mutual_crush %}{{ counter }} mutual{% plural %}{{ counter }} mutual{% endblocktrans %}</p>
         {% endif %}
+        {% comment %}
+        Unclaimed sits here rather than in its own tile: it is a state of the
+        same work, and a coach reading "3 crush calls" needs to know two more
+        are waiting for someone to take them.
+        {% endcomment %}
+        {% if counts.crush_pool %}
+            <p class="text-xs font-medium text-amber-600 dark:text-amber-400 mt-1">{% blocktrans count counter=counts.crush_pool %}{{ counter }} unclaimed{% plural %}{{ counter }} unclaimed{% endblocktrans %}</p>
+        {% endif %}
     </div>
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
         <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">{% trans "Outreach" %}</p>
@@ -99,6 +107,14 @@
                     {% endif %}
                     {% if item.is_mutual_crush %}
                         <span class="ml-1 align-middle inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300">{% trans "Mutual" %}</span>
+                    {% endif %}
+                    {% comment %}
+                    Without this a pool row is indistinguishable from the
+                    coach's own leads, and "someone else has this" is exactly
+                    the wrong assumption to leave available.
+                    {% endcomment %}
+                    {% if item.kind == 'crush_pool' %}
+                        {% include "crush_lu/components/status_badge.html" with tone="warning" label=_("Unclaimed") extra="ml-1 align-middle" %}
                     {% endif %}
                 </p>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mb-0 truncate">

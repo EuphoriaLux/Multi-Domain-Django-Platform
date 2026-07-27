@@ -53,6 +53,33 @@ class EventConnectionQuerySet(models.QuerySet):
             assigned_coach=coach,
         ).order_by('requested_at', 'id')
 
+    def crush_leads_in_pool(self):
+        """
+        Open crush leads nobody owns — the claim queue (spec §10.1, O12/3).
+
+        ``crush_leads_for_coach`` is owner-exact, so a lead with no routed
+        coach appeared in no inbox at all. It stayed visible on the
+        connections page's *Pending* tab and was claimable from there, but
+        nothing gave it a "call by" clock or chased it, and that page defaults
+        to ``needs_review`` — which excludes ``pending``. So a declaration
+        could sit unseen past the 48h the member was promised.
+
+        Reachable in production, not a theoretical hole: an event with
+        ``profile_requirement="none"`` lets ``event_register`` proceed with no
+        ``CrushProfile`` (``views_events.py``), ``request_connection`` gates
+        the requester on attendance alone, and ``declare_crush`` deliberately
+        skips routing for a profile-less requester.
+
+        A lead whose routed coach was since **deactivated** counts as pooled
+        too — ``coach_required`` bars that coach from every coach view, so the
+        lead is just as stranded as an unrouted one. Same rule as
+        ``visible_to_coach`` and the review view's claim guard.
+        """
+        return self.open_crush_leads().filter(
+            models.Q(assigned_coach__isnull=True)
+            | models.Q(assigned_coach__is_active=False)
+        ).order_by('requested_at', 'id')
+
     def for_user(self, user):
         """Connections where user is requester or recipient."""
         return self.filter(
@@ -237,6 +264,9 @@ class EventConnectionManager(models.Manager):
     def crush_leads_for_coach(self, coach):
         return self.get_queryset().crush_leads_for_coach(coach)
 
+    def crush_leads_in_pool(self):
+        return self.get_queryset().crush_leads_in_pool()
+
 
 class EventConnection(models.Model):
     """Post-event connection requests between attendees"""
@@ -263,9 +293,16 @@ class EventConnection(models.Model):
     # shown the lead).
     RECIPIENT_RESPONSE_CONSENTED = 'consented'
     RECIPIENT_RESPONSE_DECLINED = 'declined'
+    # Wrapped so ``makemessages`` can see them. Nothing calls
+    # ``get_recipient_response_display()`` today — these labels currently
+    # surface only in the Django admin — so this changes no rendered string
+    # yet; it means the first template that *does* display the answer is
+    # translatable rather than silently English in DE and FR. The sibling
+    # lists above are left unwrapped: same latent trap, but they predate this
+    # phase and rewrapping them is a separate, wider change.
     RECIPIENT_RESPONSE_CHOICES = [
-        (RECIPIENT_RESPONSE_CONSENTED, 'Recipient consented to the introduction'),
-        (RECIPIENT_RESPONSE_DECLINED, 'Recipient declined the introduction'),
+        (RECIPIENT_RESPONSE_CONSENTED, _('Recipient consented to the introduction')),
+        (RECIPIENT_RESPONSE_DECLINED, _('Recipient declined the introduction')),
     ]
 
     # Statuses in which a crush lead still requires coach action. A member

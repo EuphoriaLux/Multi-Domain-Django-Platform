@@ -12,7 +12,10 @@ from django.views.decorators.http import require_http_methods
 from django.conf import settings
 from .decorators import crush_login_required, ratelimit
 from .models import CrushCoach, CoachPushSubscription, PushSubscription
-from .coach_notifications import send_coach_test_notification
+from .coach_notifications import (
+    send_coach_test_notification,
+    subscription_key_fault,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +105,20 @@ def subscribe_push(request):
         return JsonResponse({
             'success': False,
             'error': 'Missing p256dh or auth keys'
+        }, status=400)
+
+    # Present is not the same as usable. Key material that cannot encrypt a
+    # push never will — it is not a transient condition — so storing it only
+    # creates a device the sender has to fail five times before deleting.
+    # Rejecting it here keeps that row out of the database in the first place.
+    key_fault = subscription_key_fault(keys['p256dh'], keys['auth'])
+    if key_fault:
+        logger.warning(
+            f"Rejecting coach push subscription with unusable keys: {key_fault}"
+        )
+        return JsonResponse({
+            'success': False,
+            'error': f'Invalid push keys: {key_fault}'
         }, status=400)
 
     fingerprint = data.get('deviceFingerprint', '')

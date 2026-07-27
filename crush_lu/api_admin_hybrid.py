@@ -229,10 +229,21 @@ def crush_lead_reminders(request):
 
     The sweep itself lives in ``crush_lu.services.crush_leads`` so it stays
     usable from a dev shell via ``manage.py send_crush_lead_reminders``.
-    Idempotent: ``reminder_sent_at`` is both the filter and the record, and
-    it is written in the same savepoint as the notification — so repeated
-    timer delivery produces exactly one reminder per lead, and a failed
-    notification leaves the lead eligible for the next sweep.
+    Idempotent by **claim-then-send** (spec §11/O14): ``reminder_sent_at`` is
+    both the filter and the record, and it is committed as a *claim* under the
+    row lock *before* the push goes out — not in the same savepoint as it, as
+    this docstring said until Phase E. A failed or cancelled send clears the
+    stamp again in a second guarded ``UPDATE``, so the lead stays eligible for
+    the next sweep; a delivered one keeps it, so repeated timer delivery
+    produces exactly one reminder per lead.
+
+    The trade that buys: the push helper's device-health writes (``mark_failure``
+    and the 410 ``delete``) no longer roll back with the stamp, so a dead
+    endpoint actually reaches its five-failure auto-delete. The cost is a
+    deliberate crash window — a process killed between committing the claim
+    and releasing it leaves that one reminder stamped but unsent, so it is
+    skipped rather than retried. Anything that *raises* is covered by a
+    best-effort release; only an abrupt process death is not.
     """
     if not _authenticate_admin_request(request):
         return _unauthorized(request)

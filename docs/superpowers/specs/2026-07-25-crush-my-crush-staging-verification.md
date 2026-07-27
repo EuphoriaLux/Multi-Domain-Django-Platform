@@ -2,9 +2,12 @@
 
 Spec: `docs/superpowers/specs/2026-07-21-crush-my-crush-post-event-flow.md`
 
-**Status: open. Do this once Phase E lands and the whole flow is deployed to
-staging — not before.** Phases B–D each shipped one slice of the flow, so
-until Phase E there is no end-to-end path to walk.
+**Status: open, and now unblocked.** Phase E's code has landed (O12 pool
+section, O13 backfill command, O14 claim-then-send, translation extraction), so
+the end-to-end path exists and this checklist can be walked. Two of its items
+below have ops steps that must happen *before* the walk, not during it: run
+`manage.py backfill_crush_recipient_coaches` after deploy, and set the four
+Function App / Django settings under "Infrastructure".
 
 ## Why this file exists
 
@@ -78,11 +81,59 @@ hourly at :45, via `POST /api/admin/crush-lead-reminders/`.
       receives the reminder only on the opted-in device. Unit-tested against a
       captured send list; never against real subscriptions.
 - [ ] **VAPID misconfiguration is distinguishable from opt-out.** Break the
-      VAPID keys deliberately, run the sweep, confirm `reminder_sent_at` rolls
-      back and the lead is still eligible on the next run. Both paths return a
-      zero-total result; only a flag separates them.
-- [ ] **Delivery failure rolls the stamp back** with the real push helper, not
-      an injected one. This is the exact shape that fooled the first fix.
+      VAPID keys deliberately, run the sweep, confirm the claim is released
+      (`reminder_sent_at` back to null) and the lead is still eligible on the
+      next run. Both paths return a zero-total result; only a flag separates
+      them.
+
+      Do this with a **malformed** key, not just an unset one, and check the
+      subscriptions afterwards: **no device may be deleted or have its
+      `failure_count` raised.** The presence checks catch an unset key; nothing
+      catches an invalid one, so `webpush()` raises the same decoding error for
+      every device alike. Counting that against device health would blame each
+      endpoint for a global fault and, after five sweeps, delete every coach's
+      devices — a config typo turned into data loss that fixing the key would
+      not undo. The helper deliberately marks health only for
+      `requests` transport errors for exactly this reason.
+- [ ] **Unusable key material is rejected at registration, and cleaned up if
+      already stored.** Two halves, because the fault can arrive either way:
+      - POST to `/api/coach/push/subscribe/` with a garbage `p256dh` (`"%%%"`)
+        and confirm a **400** with no row created. The endpoint used to check
+        only that the key fields were *present*, so a buggy client could store
+        material that can never encrypt anything.
+      - Hand-write a subscription row with the same garbage key, run the sweep
+        five times, and confirm it is **deleted** rather than retried. Before
+        this it stayed enabled forever, consuming an attempt every hour.
+
+      Distinct from the VAPID item above, which is a *global* config fault
+      where no device may be blamed. This one is per-device and the device
+      *is* at fault — the two are deliberately handled on opposite sides, and
+      the boundary between them has been wrong in both directions during
+      review, so check them as a pair rather than in isolation.
+- [ ] **A hung endpoint's `failure_count` actually increases.** Point a
+      subscription at an address that accepts the connection and never
+      responds. The push raises a *timeout*, not a `WebPushException`, so it
+      takes the helper's catch-all branch — which until this branch recorded
+      no device health at all, leaving the endpoint at `failure_count == 0`
+      forever, never auto-deleted, and burning its full `PUSH_TIMEOUT_SECONDS`
+      out of every hourly sweep. Confirm the count climbs and that the
+      subscription is deleted on the fifth consecutive failure. Distinct from
+      the 410 case below, which was always handled.
+- [ ] **Delivery failure releases the claim** with the real push helper, not an
+      injected one. This is the exact shape that fooled the first fix. Since
+      O14 the sweep no longer *rolls back* — it commits the stamp as a claim,
+      sends outside the transaction, and clears the stamp with a second guarded
+      `UPDATE` on failure. So check both halves on one broken endpoint: the
+      lead is eligible again on the next sweep, **and** the subscription's
+      `failure_count` went up and stayed up. Before O14 the second half was the
+      bug: the rollback discarded the health write with the stamp, so a dead
+      endpoint never reached its five-failure auto-delete.
+- [ ] **A push that *raises* also releases the claim.** Distinct from the
+      above: the helper returns its errors, but a transport-level failure can
+      still propagate. Committing the claim first means an exception no longer
+      undoes it, so this path depends entirely on an explicit handler. Unit
+      tests cover it against a raising fake; confirm once against a real
+      unreachable endpoint.
 - [ ] **The timer's 60s budget holds** under a realistic backlog. The
       wall-clock budget (`REMINDER_TIME_BUDGET`, 45s) is tested with a fake
       clock; it has never met a slow endpoint. Check the Function does not
@@ -106,10 +157,32 @@ and lock). None has been observed with two real requests.
       ("this lead is closed", not "already recorded").
 - [ ] `record_outreach` on a lead closing underneath it neither stamps the
       field nor reports success.
+- [ ] **A coach acting between the claim and the send cancels the reminder.**
+      O14 releases the row lock before the push, so the coach action handlers —
+      which lock the same row — no longer queue behind the reminder
+      transaction. `_claim_still_owed()` re-reads the row immediately before
+      `notify()`; schedule a call in *that* window and confirm the reminder is
+      cancelled and the claim handed back.
+
+      **Be precise about the window, or this check fails for the wrong
+      reason.** The re-read happens *before* the push starts. There is no
+      further check once the request is in flight, so an action taken during a
+      deliberately-hung push **will not cancel it** — the stale reminder goes
+      out and the claim is kept. That is the known residual window, not a
+      defect: closing it means holding the row lock across the network call,
+      which is the bug O14 removed. An earlier version of this check asked for
+      a cancellation during the in-flight push, which the code cannot do and
+      which would have failed sign-off for a behaviour that is working as
+      designed.
+
+      **This is the one race here expected to be genuinely reachable in
+      production**, not merely theoretical — it is bounded by push duration,
+      and the loser is a coach seeing one stale notification, not corrupted
+      data.
 - [ ] Postgres row locking behaves as assumed throughout — the suite runs on
       SQLite, so `select_for_update` is effectively a no-op there.
 
-## The flow end to end (needs Phase E)
+## The flow end to end
 
 - [ ] **Different coaches on each half:** declare → routed coach calls the
       crusher → co-coach reaches the recipient → consent → introduction. The
@@ -122,19 +195,55 @@ and lock). None has been observed with two real requests.
 - [ ] A **declined** recipient ends the lead and the crusher is never told
       they were refused — check every surface, including notifications.
 - [ ] An **unrouted pool lead** can be opened and claimed but not worked, and
-      its note stays shut until a coach owns it.
+      its note stays shut until a coach owns it. It now also appears in the
+      **coach inbox** under an amber "Unclaimed" badge, with the lead's own
+      "call by" clock — check it shows for *every* active coach, that claiming
+      it removes it from the others' inboxes, and that it does not sort above
+      a coach's own call at the same urgency. It gets **no push notification**:
+      that half of O12/3 was deliberately not built (§10.1), so a coach who
+      never opens their inbox still learns nothing about it.
 - [ ] A **mutual crush** flags both coaches without either learning the other
       side's note.
 
 ## UI (Phase E scope, listed here so it is not lost)
 
-- [ ] Coach surfaces in **DE and FR**. Not purely an extraction job: most
-      Phase D strings are wrapped and the catalogues simply have not been
-      extracted, but `RECIPIENT_RESPONSE_CHOICES`
-      (`crush_lu/models/connections.py:266-269`) holds its labels as raw
-      English, so `makemessages` skips them and
-      `get_recipient_response_display()` stays English in both languages
-      regardless. **Wrap those in code before or with the extraction run.**
+- [ ] Coach surfaces in **DE and FR**. The code half is done: the labels are
+      wrapped and `makemessages` has run, so the Phase D/E strings are in both
+      catalogues — **with empty `msgstr`s**. Until a native speaker fills them
+      in, every coach surface still renders English in DE and FR, and that is
+      what to check for here. Two things the extraction run itself does not
+      settle:
+      - `RECIPIENT_RESPONSE_CHOICES` is now wrapped, but nothing calls
+        `get_recipient_response_display()` yet — so its two labels are in the
+        catalogue ahead of any surface that shows them. Not a gap; just do not
+        go looking for them on screen.
+      - `STATUS_CHOICES` and `FLOW_CHOICES` next to it are **still unwrapped**
+        and were left that way deliberately — they predate this phase and are
+        admin-only. If a coach-facing surface ever renders
+        `get_status_display()`, it will be English in both languages and no
+        catalogue will fix it.
+      - **390 entries are marked `#, fuzzy`, and that is deliberate.** Each
+        carries a candidate translation `msgmerge` recovered from a msgid that
+        was reworded at some point since the last extraction (2026-06-13),
+        with a `#| msgid "…"` breadcrumb showing the old text. A fuzzy entry
+        is excluded from the compiled `.mo`, so **none of them renders** — the
+        string shows in English until a translator confirms it. Confirming one
+        is a keystroke; retyping it is not.
+
+        An earlier version of this branch blanked all 390
+        (`msgattrib --clear-fuzzy --empty`) to avoid a translator accepting a
+        bad guess — one match really is nonsense ("Recipient consented to the
+        introduction" ← "Write the introduction"). That was the wrong trade:
+        it destroyed ~261 genuinely recoverable translations per language to
+        suppress a much smaller number of obvious mismatches, and the
+        breadcrumb makes the bad ones self-evident anyway. **Do not clear them
+        wholesale on a future run.**
+      - **Some strings were already rendering in English on `main` before any
+        of this.** The catalogues had gone stale: `"My Crush"` was translated
+        while every template says `"My Crush!"`, so the lookup already missed.
+        The extraction did not break those — it made the catalogue honest
+        about them. Expect the DE/FR pass to be larger than "the new Phase D/E
+        strings" for that reason.
 - [ ] **Dark mode and light mode** on the outreach task and the lead
       workspace. A white-on-white button already shipped once in this phase
       and was only caught by review.
@@ -147,7 +256,10 @@ Recorded so a future reader does not mistake these for oversights:
 
 ~~- **A constrained triage surface for unrouted leads.** Routing tier 4 catches
   any active coach, so a lead is unrouted only when the platform has zero
-  active coaches.~~ **This was wrong — it belongs in the build, not here.**
+  active coaches.~~ **This was wrong — it belonged in the build, and has since
+  been built** as the coach inbox's `crush_pool` section (§10.1). The reasoning
+  it was wrong is kept below, because the shape of the mistake is worth more
+  than the conclusion.
   The rationale missed that `profile_requirement="none"` events let
   `event_register` proceed with `profile = None` (`views_events.py:916-920`),
   and `request_connection` gates the *requester* on attendance only. A
