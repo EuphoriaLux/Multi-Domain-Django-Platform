@@ -58,18 +58,27 @@ def _apply_verification(profile, method, coach, now):
     DB writes only — safe to call inside a transaction. Run the side effects
     after it commits.
     """
+    # Conditional pending -> verified claim, so exactly one verification path
+    # wins. A LuxID callback can land concurrently with a coach scan: both
+    # would otherwise read `pending`, both approve, the later save would
+    # overwrite the method that actually came first, and both would send the
+    # welcome email. The UPDATE's own WHERE clause settles it without needing
+    # every caller to hold the same lock.
+    claimed = CrushProfile.objects.filter(
+        pk=profile.pk, verification_status="pending"
+    ).update(
+        is_approved=True,
+        approved_at=now,
+        verification_status="verified",
+        verification_method=method,
+    )
+    if not claimed:
+        return False
+    # Keep the in-memory instance consistent with the row we just wrote.
     profile.is_approved = True
     profile.approved_at = now
     profile.verification_status = "verified"
     profile.verification_method = method
-    profile.save(
-        update_fields=[
-            "is_approved",
-            "approved_at",
-            "verification_status",
-            "verification_method",
-        ]
-    )
 
     # Approve a pending submission opportunistically, gated on the
     # expired-latest invariant: when the newest row was closed out by the pivot
@@ -101,6 +110,7 @@ def _apply_verification(profile, method, coach, now):
                 "coach",
             ]
         )
+    return True
 
 
 def _run_post_verification_side_effects(user, profile, request, ref):
@@ -127,6 +137,31 @@ def _run_post_verification_side_effects(user, profile, request, ref):
         )
     except Exception:
         logger.warning("Failed to send approval notification for registration %s", ref)
+
+
+def _evaluate_lobby_participation(registration):
+    """Crush Connect lobby participation, after attendance is committed.
+
+    Called from the normal check-in AND after a re-scan verification: the gate
+    requires `verification_status == "verified"`, so a member verified by the
+    re-scan produced nothing on their earlier (pending) scan.
+
+    Best-effort — a lobby failure must be logged but must never fail or delay a
+    valid event check-in (spec §10.1/§19).
+    """
+    try:
+        from .services.event_lobby import handle_checkin as lobby_handle_checkin
+
+        _participation, created = lobby_handle_checkin(registration)
+        if created:
+            from .views_event_lobby import broadcast_participant_joined
+
+            broadcast_participant_joined(registration.event_id)
+    except Exception:
+        logger.exception(
+            "Event lobby participation evaluation failed for registration %s",
+            registration.id,
+        )
 
 
 def _auto_verify_on_attendance(request, registration, now):
@@ -159,7 +194,9 @@ def _auto_verify_on_attendance(request, registration, now):
     if not profile.photo_1:
         return None
 
-    _apply_verification(profile, "coach_event", coach, now)
+    if not _apply_verification(profile, "coach_event", coach, now):
+        # Another path (e.g. a concurrent LuxID callback) verified them first.
+        return None
     logger.info(
         "[CHECKIN-VERIFY] Verified profile pk=%s via attendance at event pk=%s",
         profile.pk,
@@ -230,6 +267,22 @@ def event_checkin_api(request, registration_id, token):
             status=400,
         )
 
+    # Check-in window, computed here because the already-attended branch below
+    # must respect it too: tickets do not expire, so without this a coach could
+    # scan a months-old QR and newly approve a pending profile (with referral
+    # credit and a welcome email) at a moment when an ordinary check-in would
+    # be refused outright. The rejection itself stays where it was — a re-scan
+    # outside the window still reports "already checked in" as before, it just
+    # no longer verifies.
+    checkin_window_hours = getattr(settings, "EVENT_CHECKIN_WINDOW_HOURS", 12)
+    now = timezone.now()
+    event_start = registration.event.date_time
+    from datetime import timedelta
+
+    window_start = event_start - timedelta(hours=checkin_window_hours)
+    window_end = event_start + timedelta(hours=checkin_window_hours)
+    within_checkin_window = window_start <= now <= window_end
+
     # Check if already attended
     if registration.status == "attended":
         # A re-scan must still verify. Two ways to be here with a pending
@@ -244,16 +297,17 @@ def event_checkin_api(request, registration_id, token):
         # self-guards, but `notify_profile_approved` does not — the attendee
         # would get two "you're approved" emails. Serialising here means the
         # loser re-reads `verified` and does nothing.
-        # `now` is only bound below, with the check-in window check.
-        with transaction.atomic():
-            locked_registration = (
-                EventRegistration.objects.select_for_update()
-                .select_related("event", "user")
-                .get(id=registration_id)
-            )
-            rescan_verified = _auto_verify_on_attendance(
-                request, locked_registration, timezone.now()
-            )
+        rescan_verified = None
+        if within_checkin_window:
+            with transaction.atomic():
+                locked_registration = (
+                    EventRegistration.objects.select_for_update()
+                    .select_related("event", "user")
+                    .get(id=registration_id)
+                )
+                rescan_verified = _auto_verify_on_attendance(
+                    request, locked_registration, now
+                )
         if rescan_verified is not None:
             # `registration` was loaded with `user__crushprofile` selected, so
             # its cached profile predates the write above — re-read it or the
@@ -284,6 +338,12 @@ def event_checkin_api(request, registration_id, token):
             _run_post_verification_side_effects(
                 registration.user, rescan_verified, request, registration.id
             )
+            # Re-evaluate lobby participation. `participant_gate` requires
+            # `verification_status == "verified"`, so the hook that ran on the
+            # original (pending) scan created nothing — without this the member
+            # stays off the live roster until they open the lobby themselves and
+            # trip its self-heal.
+            _evaluate_lobby_participation(registration)
             _broadcast_checkin(registration.event_id, response_data)
         return JsonResponse(response_data)
 
@@ -297,16 +357,9 @@ def event_checkin_api(request, registration_id, token):
             status=400,
         )
 
-    # Check event is within check-in window
-    checkin_window_hours = getattr(settings, "EVENT_CHECKIN_WINDOW_HOURS", 12)
-    now = timezone.now()
-    event_start = registration.event.date_time
-    from datetime import timedelta
-
-    window_start = event_start - timedelta(hours=checkin_window_hours)
-    window_end = event_start + timedelta(hours=checkin_window_hours)
-
-    if not (window_start <= now <= window_end):
+    # Check event is within check-in window (computed above, before the
+    # already-attended branch, which needs it too).
+    if not within_checkin_window:
         return JsonResponse(
             {
                 "success": False,
@@ -401,21 +454,8 @@ def event_checkin_api(request, registration_id, token):
             )
 
     # Crush Connect Event Lobby: evaluate participation only after attendance
-    # committed. Best-effort — a lobby failure must be logged but must never
-    # fail or delay a valid event check-in (spec §10.1/§19).
-    try:
-        from .services.event_lobby import handle_checkin as lobby_handle_checkin
-
-        _lobby_participation, lobby_created = lobby_handle_checkin(registration)
-        if lobby_created:
-            from .views_event_lobby import broadcast_participant_joined
-
-            broadcast_participant_joined(registration.event_id)
-    except Exception:
-        logger.exception(
-            "Event lobby participation evaluation failed for registration %s",
-            registration.id,
-        )
+    # committed.
+    _evaluate_lobby_participation(registration)
 
     display_name = _get_display_name(registration)
 
@@ -534,7 +574,21 @@ def coach_mark_verified(request, event_id, registration_id):
 
         # Same workflow the auto-verify on attendance runs, so the two paths
         # cannot drift apart.
-        _apply_verification(profile, method, coach, now)
+        if not _apply_verification(profile, method, coach, now):
+            # Lost the pending -> verified claim to a concurrent path. Report
+            # the same idempotent success as an already-verified profile
+            # rather than running the side effects a second time.
+            profile.refresh_from_db()
+            return JsonResponse(
+                {
+                    "success": True,
+                    "already_verified": True,
+                    "registration_id": registration.id,
+                    "attendee_name": _get_display_name(registration),
+                    "verification_method": profile.verification_method,
+                    "message": str(_("Already verified.")),
+                }
+            )
 
     logger.info(
         "Coach %s verified registration %s (user %s) at event %s via %s",

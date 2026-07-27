@@ -316,3 +316,40 @@ def test_repeated_rescans_fire_the_side_effects_only_once(
     assert calls["notify"] == 1
     profile.refresh_from_db()
     assert profile.verification_status == "verified"
+
+
+def test_rescan_outside_the_checkin_window_does_not_verify(event, coach):
+    """Tickets do not expire — a months-old QR must not grant verification."""
+    profile, reg = _attendee(event, "oldticket")
+    reg.status = "attended"
+    reg.save(update_fields=["status"])
+    # Move the event far outside the +/-12h window.
+    MeetupEvent.objects.filter(pk=event.pk).update(
+        date_time=timezone.now() - timedelta(days=60)
+    )
+
+    payload = _scan(reg, event, as_coach=coach).json()
+
+    assert payload["already_checked_in"] is True
+    assert payload["auto_verified"] is False
+    profile.refresh_from_db()
+    assert profile.verification_status == "pending"
+
+
+def test_a_concurrent_verification_wins_only_once(event, coach):
+    """The pending -> verified claim is conditional, so one path wins.
+
+    Simulates the LuxID callback landing first: the row is already `verified`
+    when the scan's claim UPDATE runs, so it matches nothing and the scan must
+    not overwrite the method or re-run the side effects.
+    """
+    profile, reg = _attendee(event, "concurrent")
+    CrushProfile.objects.filter(pk=profile.pk).update(
+        verification_status="verified", is_approved=True, verification_method="luxid"
+    )
+
+    payload = _scan(reg, event, as_coach=coach).json()
+
+    assert payload["auto_verified"] is False
+    profile.refresh_from_db()
+    assert profile.verification_method == "luxid"
