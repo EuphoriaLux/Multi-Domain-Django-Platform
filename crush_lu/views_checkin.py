@@ -21,9 +21,76 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from .decorators import coach_required
-from .models import EventRegistration
+from .models import CrushProfile, EventRegistration
 
 logger = logging.getLogger(__name__)
+
+
+def _scanning_coach(request):
+    """The active coach whose session made this request, or ``None``.
+
+    ``event_checkin_api`` authenticates on the **signed token only** — it has no
+    ``@coach_required`` — because the QR itself is the credential. That is fine
+    for marking attendance, but the attendee holds their own QR: without this
+    check a member could POST their own check-in URL and self-verify.
+
+    The scanner page is used by a logged-in coach and posts same-origin
+    (`fetch(url, {method:"POST"})` sends cookies), so a genuine door scan always
+    carries a coach session and a self-post never does.
+    """
+    user = getattr(request, "user", None)
+    if user is None or not user.is_authenticated:
+        return None
+    coach = getattr(user, "crushcoach", None)
+    return coach if coach is not None and coach.is_active else None
+
+
+def _auto_verify_on_attendance(request, registration, now):
+    """Verify a `pending` profile because a coach checked them in at the door.
+
+    Attending the event *is* the verification for the ordinary walk-in, so the
+    coach should not have to tap a second button. Two deliberate exceptions keep
+    their own explicit action (the Verify button stays visible for exactly
+    these):
+
+    * **Premium members** — the "only their own coach may verify" rule is
+      intentional for paying members, so it is left to that coach.
+    * **Profiles with no photo** — since the fast-track change (PR #650) a
+      member can complete their profile without one, and a scan cannot confirm
+      an identity there is nothing on screen to compare. Verification would be
+      asserting something nobody checked.
+
+    Returns True when the profile was verified here.
+    """
+    if _scanning_coach(request) is None:
+        return False
+
+    profile = CrushProfile.objects.filter(user_id=registration.user_id).first()
+    if profile is None or profile.verification_status != "pending":
+        return False
+    if profile.has_active_premium:
+        return False
+    if not profile.photo_1:
+        return False
+
+    profile.is_approved = True
+    profile.approved_at = now
+    profile.verification_status = "verified"
+    profile.verification_method = "coach_event"
+    profile.save(
+        update_fields=[
+            "is_approved",
+            "approved_at",
+            "verification_status",
+            "verification_method",
+        ]
+    )
+    logger.info(
+        "[CHECKIN-VERIFY] Verified profile pk=%s via attendance at event pk=%s",
+        profile.pk,
+        registration.event_id,
+    )
+    return True
 
 
 @csrf_exempt
@@ -168,6 +235,9 @@ def event_checkin_api(request, registration_id, token):
         registration.checked_in_at = now
         registration.save(update_fields=["status", "checked_in_at", "updated_at"])
 
+        # Attending IS the verification, for the ordinary case.
+        auto_verified = _auto_verify_on_attendance(request, registration, now)
+
         # Quiz table assignment (if this is a quiz night event)
         try:
             quiz_event = getattr(registration.event, "quiz", None)
@@ -216,7 +286,12 @@ def event_checkin_api(request, registration_id, token):
         "attendee_name": display_name,
         "checked_in_at": now.isoformat(),
         "message": f"{display_name} has been checked in!",
+        # Built AFTER the auto-verify above, so `profile.is_approved` in the
+        # toast reflects this scan rather than the pre-check-in state — the
+        # scanner must not show an "Unverified Profile" warning for someone it
+        # just verified.
         "profile": _get_profile_data(registration),
+        "auto_verified": auto_verified,
     }
     if table_assignment:
         response_data["table_number"] = table_assignment["table_number"]
@@ -280,8 +355,13 @@ def coach_mark_verified(request, event_id, registration_id):
             )
 
         # Premium members may only be verified by their own assigned coach.
-        if profile.assigned_coach_id:
-            if profile.assigned_coach_id != coach.id:
+        # Gate on the real entitlement, not on `assigned_coach`. A coach is
+        # granted free on first attendance (`assign_coach_on_first_attendance`),
+        # so keying off the FK made an ordinary attendee "premium" the moment
+        # they were scanned — and every coach except the event's `.first()` one
+        # then got a 403 trying to verify them at the door.
+        if profile.has_active_premium:
+            if profile.assigned_coach_id and profile.assigned_coach_id != coach.id:
                 return JsonResponse(
                     {
                         "success": False,
