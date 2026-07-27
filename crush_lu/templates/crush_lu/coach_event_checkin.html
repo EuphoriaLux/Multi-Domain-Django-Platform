@@ -77,8 +77,7 @@
         </div>
     </div>
 
-    {# Camera viewport — qr-scanner attaches to the video and injects its
-       scan-region overlay into the relative-positioned wrapper #}
+    {# Camera viewport — qr-scanner attaches to the video and injects its scan-region overlay into the relative-positioned wrapper #}
     <div id="qr-reader" class="relative mb-4 rounded-lg overflow-hidden" style="display: none;">
         <video id="qr-video" class="w-full rounded-lg" playsinline></video>
     </div>
@@ -257,9 +256,7 @@
 }
 </style>
 
-{# qr-scanner (nimiq) — vendored so the door scanner works without internet.
-   The worker file is resolved relative to this script's URL, so both files
-   live side by side under vendor/qr-scanner/. #}
+{# qr-scanner (nimiq) — vendored so the door scanner works without internet; the worker file is resolved relative to this script's URL, so both files live side by side under vendor/qr-scanner/ #}
 <script src="{% static 'crush_lu/vendor/qr-scanner/qr-scanner.umd.min.js' %}"></script>
 <script>
 window._checkinI18n = {
