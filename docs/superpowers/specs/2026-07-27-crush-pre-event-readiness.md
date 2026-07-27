@@ -92,19 +92,50 @@ That asymmetry decides what is repairable on the night:
       coach assigned → attendee appears where the post-event flow expects them.
       Not covered by this session's verification at all.
 
-### 1.1b Event 12's profile requirement — changed mid-preparation
+### 1.1b Event 12's profile requirement — and what production actually says
 
-**Current setting: `completed`** ("Vollständiges Profil / Einstiegs-
-veranstaltung"). It was `none` ("Kein Profil erforderlich") when this file was
-first written on 2026-07-27 and was changed the same day. See
+**Verified against production 2026-07-27: `profile_requirement = "none"`.**
+
+An earlier revision of this file recorded it as changed to `completed`. It was
+not — the change did not reach the database. Corrected here rather than left
+standing, because everything downstream was being reasoned from it. See
 `2026-07-27-profile-requirement-audit.md` for the full option matrix.
 
-`completed` is the right choice: it requires a profile, so the profile-less path
-below **cannot arise for anyone registering from now on**, while still admitting
-the member who has built their profile and verified their phone but is not yet
-verified — the LuxID-less attendee who gets verified in person at the door.
+```
+EVENT 12 🎉 Social Mixer | Let's meet at the Karaoke 🦌 | requirement: none | when: 2026-07-29 17:00:00+00:00
+```
 
-- [ ] **But the change does not revalidate registrations already taken.**
+**The cohort audit came back clean anyway.** Of **71** non-cancelled
+registrations (60 confirmed, 11 waitlist), **zero** lack a `CrushProfile`:
+
+```
+NO PROFILE: 0 []
+NOT VERIFIED: 10   # all verification_status="pending" with phone_verified=True
+```
+
+So the permissive setting was never exercised, and **the profile-less path
+below cannot occur for the current cohort** — not because the setting stopped
+it, but because nobody registered that way. The ten unverified members are
+state **S3**: profile built, phone verified, awaiting in-person verification at
+the door. Exactly the LuxID-less flow working as designed.
+
+Two things that follow:
+
+- [ ] **Registration is still open** (deadline 18:30 on the day), so the window
+      is not shut. The event is full at 60/60 so new registrations go to
+      waitlist, which makes this low-risk — but setting the requirement to
+      `completed` closes it at no cost. Optional, not blocking.
+- **Coaches:** all four attached are `is_active=True`, and `.first()` selects
+      **Coach: Tom Swayer (pk 1)**. The non-repairable inactive-coach case is
+      therefore clear; every newly-coached attendee gets Tom Swayer.
+
+**If you do switch it to `completed`**, that is the right target: it requires a
+profile, so the profile-less path below cannot arise for anyone registering
+afterwards, while still admitting the member who has built their profile and
+verified their phone but is not yet verified — the LuxID-less attendee verified
+in person at the door.
+
+- [ ] **A change would not revalidate registrations already taken.**
       `profile_requirement` is enforced in `event_register` only, at the moment
       of registering. Anyone who registered while the event was `none` keeps
       their confirmed registration; the QR check-in endpoint never re-checks
