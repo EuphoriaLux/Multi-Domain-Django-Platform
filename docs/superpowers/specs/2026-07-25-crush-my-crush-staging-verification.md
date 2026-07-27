@@ -198,8 +198,17 @@ and lock). None has been observed with two real requests.
       its note stays shut until a coach owns it. It now also appears in the
       **coach inbox** under an amber "Unclaimed" badge, with the lead's own
       "call by" clock — check it shows for *every* active coach, that claiming
-      it removes it from the others' inboxes, and that it does not sort above
-      a coach's own call at the same urgency. It gets **no push notification**:
+      it removes it from the others' inboxes, and that it is not *priority
+      boosted* (it competes on its SLA alone).
+
+      **Do not read that as "never appears above an owned call at the same
+      urgency".** The sort key is `(priority, submitted_at)` and a pool lead
+      carries the same priority number as an owned lead in the same SLA bucket,
+      so within a bucket the **older** row sorts first regardless of who owns
+      it — an older pool lead does appear above a newer owned call. That is
+      nearest-deadline-first and is working as designed; an earlier wording here
+      implied otherwise and would have failed sign-off on correct behaviour.
+      Verified in the browser 2026-07-27. It gets **no push notification**:
       that half of O12/3 was deliberately not built (§10.1), so a coach who
       never opens their inbox still learns nothing about it.
 - [ ] A **mutual crush** flags both coaches without either learning the other

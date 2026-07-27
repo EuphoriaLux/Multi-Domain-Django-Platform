@@ -20,6 +20,13 @@ on:
       # does not exercise it. Anything added to the required-checks list must
       # likewise be reachable from every path that can appear in a PR.
       - 'mobile/**'
+      # Same reason, two more paths that hit it in practice: a CSS-only PR
+      # (design tokens + the tracked tailwind.css build artifact) and a
+      # docs-only PR both reported neither check and were unmergeable. The
+      # Django suite does not exercise either, but a required check has to be
+      # reachable from every path — see the note above.
+      - '**.css'
+      - '**.md'
   workflow_dispatch:
 
 # Cancel any in-progress or queued run for the same branch when a new one starts.
