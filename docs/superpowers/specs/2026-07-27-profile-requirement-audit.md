@@ -61,12 +61,19 @@ confusion:
 
 | option (label) | S0 no profile | S1 incomplete | S2 pending, no phone | S3 pending + phone | S4 LuxID | S5 coach-verified | S6 + coach | S7 rejected |
 |---|---|---|---|---|---|---|---|---|
-| **completed** — "Completed profile (entry event)" | ✗ | ✗ | ✗ | ✅ | ✅ | ✅ | ✅ | ✗ |
+| **completed** — "Completed profile (entry event)" | ✗ | ✗ | ✗ | ✅ | ✅¹ | ✅¹ | ✅¹ | ✗ |
 | **approved** — "Verified profile only" | ✗ | ✗ | ✗ | ✗ | ✅ | ✅ | ✅ | ✗ |
-| **coach_assigned** — "Premium — coach assigned" | ✗ | ✗ | ✗ | only if coach set | only if coach set | only if coach set | ✅ | ✗ |
+| **coach_assigned** — "Premium — coach assigned" | ✗ | ✗ | ✗ | only if coach set | only if coach set | only if coach set | ✅ | **only if coach set** ⚠ |
 | **unverified** — "Unverified profile only" | ✗ | ✅ | ✅ | ✅ | ✗ | ✗ | ✗ | **✅** ⚠ |
 | **profile_exists** — "Profile must exist" | ✗ | ✅ | ✅ | ✅ | **✗** ⚠ | **✗** ⚠ | **✗** ⚠ | **✅** ⚠ |
 | **none** — "No profile required" | **✅** ⚠ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+¹ **`completed` does not universally require `phone_verified`.** The gate is
+`verification_status == "verified" OR (verification_status == "pending" AND
+phone_verified)` (`views_events.py:818-821`). The phone check applies **only to
+`pending` profiles**. An already-`verified` member registers regardless of their
+phone flag — so S4/S5/S6 are admitted even with `phone_verified=False`. Any label
+or summary implying "phone verification required" is wrong for verified members.
 
 ## 5. Findings
 
@@ -107,6 +114,20 @@ The sync is one-directional, so any future path that sets
 `verification_status="verified"` without also setting `is_approved` would make
 those three gates disagree with `completed`.
 
+### F5b — `coach_assigned` is a second route for rejected profiles
+
+The branch tests **only** `assigned_coach_id` (`views_events.py:874-885`) and
+never looks at verification state. Nothing in the rejection path clears
+`assigned_coach` — `views_coach.py:1368` sets
+`verification_status = "rejected"` and there is no `assigned_coach = None`
+anywhere in the codebase. So a member who was assigned a coach (by attending an
+event) and *later* rejected keeps that coach and can still register for premium
+`coach_assigned` events.
+
+Together with F3 this makes **two** independent paths by which a rejected
+profile registers, so the fix in §6 must gate on `verification_status` in this
+branch too, not only in the two loose ones.
+
 ### F5 — `none` is the only option admitting S0
 
 Everything discussed for event 12 (profile-less attendee → no coach assigned →
@@ -122,25 +143,40 @@ Ordered by value, none blocking for Wednesday.
    Alternatively remove the option entirely and migrate existing rows to
    `unverified`; but the label describes a level organisers genuinely want, so
    fixing is better than deleting.
-2. **Exclude `rejected` from `unverified` and `profile_exists`** — switch both
-   to an allowlist on `verification_status`, matching `completed`.
+2. **Exclude `rejected` from `unverified`, `profile_exists` *and*
+   `coach_assigned`** — switch all three to an allowlist on
+   `verification_status`, matching `completed`. `coach_assigned` matters as much
+   as the loose two (F5b): it never inspects verification state at all, so a
+   rejected member who kept an assigned coach registers for premium events.
 3. **Read `verification_status` everywhere**, retiring the `is_approved` reads
    in the three gates (F4).
-4. **Relabel the options to name what they check**, e.g.
-   "Completed profile — phone verified, verification pending or done (entry
-   event)" and "Any profile, verified or not". The current labels describe
-   intent; the gates implement something narrower.
+4. **Relabel the options to name what they check.** Be precise about
+   `completed` — "phone verified" is true only for the `pending` case, so a
+   label like "Completed profile — phone verified (entry event)" misdescribes
+   the verified members it also admits. Something closer to "Verified members,
+   plus phone-verified profiles awaiting verification (entry event)" and "Any
+   profile, verified or not" for `profile_exists`. The current labels describe
+   intent; the gates implement something different in both directions.
 
 ## 7. For Wednesday
 
 Event 12 was moved to **`completed`** ("Vollständiges Profil / Einstiegs-
 veranstaltung"). That is the correct choice and needs no code:
 
-- guarantees every attendee has a profile → **S0 cannot occur**, so nobody
-  arrives coachless and no declaration lands unrouted in the pool;
+- requires a profile → **S0 cannot occur for anyone registering from now on**;
 - still admits **S3** — profile built, phone verified, *not yet verified* —
   which is exactly the LuxID-less member who gets verified in person at the
-  door by a coach;
+  door by a coach (and S4–S6 regardless of their phone flag, per ¹);
 - excludes `incomplete` and `rejected`.
+
+**One caveat, and it is the one that can still bite on the day.** The setting is
+enforced in `event_register` only, at the moment of registering. It does **not**
+revalidate registrations already confirmed while the event was `none`: QR
+check-in never re-checks `profile_requirement`, and the attendance signal just
+skips assignment when its fresh profile lookup returns nothing. So the guarantee
+covers **new registrations only**. Audit the existing cohort before relying on
+it — the command is in
+`2026-07-27-crush-pre-event-readiness.md` §1.1b. Anyone it returns needs a
+profile created *before* they are scanned.
 
 Nothing in §6 needs to ship before the event.

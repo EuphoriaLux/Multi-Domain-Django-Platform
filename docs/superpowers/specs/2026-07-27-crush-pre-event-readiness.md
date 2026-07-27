@@ -31,6 +31,17 @@ the scanner. It fires once per registration.
       ```
       python manage.py shell -c "from crush_lu.models import MeetupEvent; e=MeetupEvent.objects.get(id=12); print(e.title, list(e.coaches.all()))"
       ```
+- [ ] **Confirm the coach it selects is `is_active`.** Attachment alone is not
+      enough. `assign_coach_on_first_attendance` calls the **unfiltered**
+      `instance.event.coaches.first()` (`signals.py:2435`) and permanently
+      assigns whatever it returns — including a **deactivated** coach. Later
+      My Crush routing then explicitly *skips* an inactive permanent coach
+      (`models/connections.py:703-705`), so the member ends up holding an
+      unusable assignment while their leads route elsewhere, and the ticked box
+      above would have hidden it. Check the selected row, not just the count:
+      ```
+      python manage.py shell -c "from crush_lu.models import MeetupEvent; c=MeetupEvent.objects.get(id=12).coaches.first(); print(c, 'is_active=', c.is_active if c else None)"
+      ```
 - [ ] **Decide whether one coach taking every attendee is what you want.**
       Four coaches on the event does **not** spread the load — there is no
       round-robin. `signals.py` calls `event.coaches.first()`, `CrushCoach` has
@@ -60,12 +71,36 @@ the scanner. It fires once per registration.
       coach assigned → attendee appears where the post-event flow expects them.
       Not covered by this session's verification at all.
 
-### 1.1b Event 12 is configured `profile_requirement = "none"`
+### 1.1b Event 12's profile requirement — changed mid-preparation
 
-Confirmed from the production admin on 2026-07-27 ("Kein Profil erforderlich").
-This is the one setting that makes the O12 pool work **load-bearing on
-Wednesday** rather than theoretical, and it has two consequences that are easy
-to mistake for bugs on the day:
+**Current setting: `completed`** ("Vollständiges Profil / Einstiegs-
+veranstaltung"). It was `none` ("Kein Profil erforderlich") when this file was
+first written on 2026-07-27 and was changed the same day. See
+`2026-07-27-profile-requirement-audit.md` for the full option matrix.
+
+`completed` is the right choice: it requires a profile, so the profile-less path
+below **cannot arise for anyone registering from now on**, while still admitting
+the member who has built their profile and verified their phone but is not yet
+verified — the LuxID-less attendee who gets verified in person at the door.
+
+- [ ] **But the change does not revalidate registrations already taken.**
+      `profile_requirement` is enforced in `event_register` only, at the moment
+      of registering. Anyone who registered while the event was `none` keeps
+      their confirmed registration; the QR check-in endpoint never re-checks
+      `profile_requirement`, and the attendance signal simply skips assignment
+      when its fresh profile lookup returns nothing. **So the guarantee above
+      applies to new registrations only — the existing cohort must be audited
+      separately**, or profile-less attendees still arrive coachless on the day
+      and their declarations still land in the pool:
+      ```
+      python manage.py shell -c "from crush_lu.models import EventRegistration; qs=EventRegistration.objects.filter(event_id=12, user__crushprofile__isnull=True); print(qs.count(), [r.user.email for r in qs])"
+      ```
+      Zero means the setting change fully closed it. Non-zero is the list to
+      chase before Wednesday — each of those people needs a profile created
+      *before* they are scanned.
+
+The rest of this section documents the mechanism, which still applies to **any**
+event left on `none` and to any pre-change registrations found above:
 
 - **An attendee still profile-less _at check-in_ gets no coach**, even though
   the event has four. **The timing is what matters, not registration.**
@@ -90,7 +125,9 @@ to mistake for bugs on the day:
   uncovered — that reasoning missed `profile_requirement="none"`. Verified
   working in the browser on 2026-07-27.
 
-- [ ] **Brief the coaches that "Unclaimed" rows are real work**, not noise.
+- [ ] **Brief the coaches that "Unclaimed" rows are real work**, not noise —
+      needed only if the registration audit above returns a non-empty cohort,
+      but cheap enough to do regardless.
       They get **no push notification** (§10.1 — deliberately not built), so a
       coach who never opens their inbox will not learn the lead exists, and the
       member is still promised a call within 48h.
