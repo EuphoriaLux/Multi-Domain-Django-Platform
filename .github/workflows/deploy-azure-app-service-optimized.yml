@@ -95,6 +95,21 @@ jobs:
       # MUST come after checkout (which would otherwise overwrite these with the
       # committed versions) and before collectstatic. This is what makes the
       # `build` job's CSS the CSS that actually ships.
+      # Delete the tracked bundles FIRST, or the verification below is
+      # meaningless: checkout has already written a committed, non-empty
+      # tailwind.css to each of these paths, so a download that restored
+      # nothing (wrong artifact name, changed layout) would still pass an
+      # existence check — and collectstatic would package the stale committed
+      # file, which is the exact bug this job exists to prevent.
+      - name: Clear tracked CSS bundles
+        run: |
+          set -e
+          rm -f crush_lu/static/crush_lu/css/tailwind.css \
+                power_up/static/power_up/css/tailwind.css \
+                tableau/static/tableau/css/tailwind.css \
+                arborist/static/arborist/css/tailwind.css
+          echo "🧹 Tracked CSS removed — only the artifact can satisfy the check below"
+
       - name: Download built CSS
         uses: actions/download-artifact@v7
         with:
@@ -109,7 +124,7 @@ jobs:
                    arborist/static/arborist/css/tailwind.css; do
             test -s "$f" || { echo "❌ missing or empty after download: $f"; exit 1; }
           done
-          echo "✅ All four CSS bundles present — collectstatic will package the built output"
+          echo "✅ All four CSS bundles restored from the artifact"
 
       - name: Setup Python
         uses: actions/setup-python@v7
