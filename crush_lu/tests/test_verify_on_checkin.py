@@ -353,3 +353,48 @@ def test_a_concurrent_verification_wins_only_once(event, coach):
     assert payload["auto_verified"] is False
     profile.refresh_from_db()
     assert profile.verification_method == "luxid"
+
+
+def test_manual_verify_still_works_for_an_incomplete_profile(event, coach, client):
+    """The Verify button must keep working for non-`pending` profiles.
+
+    The scanner offers it for every unapproved profile, and the endpoint has
+    always guarded only on "already verified". Narrowing the shared claim to
+    `pending` broke this and — worse — reported `already_verified`, which makes
+    the client drop the button while the row stays unapproved.
+    """
+    profile, reg = _attendee(event, "incompleteprof")
+    CrushProfile.objects.filter(pk=profile.pk).update(
+        verification_status="incomplete", is_approved=False
+    )
+
+    client.force_login(coach.user)
+    response = client.post(f"/api/events/{event.id}/verify/{reg.id}/")
+
+    assert response.status_code == 200
+    assert response.json().get("already_verified") is not True
+    profile.refresh_from_db()
+    assert profile.verification_status == "verified"
+    assert profile.is_approved is True
+
+
+def test_luxid_does_not_overwrite_a_scan_that_verified_first(event, coach):
+    """LuxID must respect the same pending -> verified claim.
+
+    Otherwise a callback that read `pending` resumes after a door scan has
+    committed and overwrites `verification_method`, and both paths emit the
+    approval notification and referral work.
+    """
+    from crush_lu.signals import _execute_luxid_direct_verify
+
+    profile, reg = _attendee(event, "luxidrace")
+    # The door scan wins first.
+    assert _scan(reg, event, as_coach=coach).json()["auto_verified"] is True
+
+    # LuxID resumes holding its stale `pending` instance.
+    stale = CrushProfile.objects.get(pk=profile.pk)
+    stale.verification_status = "pending"
+    _execute_luxid_direct_verify(stale.user, stale, None, None)
+
+    profile.refresh_from_db()
+    assert profile.verification_method == "coach_event"

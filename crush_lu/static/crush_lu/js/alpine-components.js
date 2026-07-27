@@ -658,6 +658,16 @@ document.addEventListener("alpine:init", function () {
 
             handleRemoteCheckin: function (data) {
                 var regId = data.registration_id;
+                // A verification is a genuinely new event about an ID this page
+                // has already seen: the attendee's first (unverified) scan
+                // marked the ID processed, so a later rescan that verifies them
+                // would be suppressed here and this page would keep showing the
+                // amber pill and Verify button until reload. Apply it before
+                // the duplicate check, which exists to stop repeat *check-in*
+                // toasts, not state changes.
+                if (data.auto_verified) {
+                    this._markRowVerified(regId);
+                }
                 if (this.processedIds[regId]) return;
                 this.processedIds[regId] = true;
 

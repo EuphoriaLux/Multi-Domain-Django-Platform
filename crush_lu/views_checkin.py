@@ -45,7 +45,15 @@ def _scanning_coach(request):
     return coach if coach is not None and coach.is_active else None
 
 
-def _apply_verification(profile, method, coach, now):
+#: Statuses the manual Verify button may transition from. The endpoint has
+#: always guarded only on "already verified" and approved anything else, so
+#: narrowing this to `pending` would silently stop coaches verifying
+#: `incomplete` walk-ins at the door — the scanner still offers the button for
+#: every unapproved profile.
+MANUAL_VERIFY_CLAIM_FROM = ("incomplete", "pending", "rejected")
+
+
+def _apply_verification(profile, method, coach, now, claim_from=("pending",)):
     """Persist a verification — fields AND the pending submission.
 
     Shared by the manual Verify button and the auto-verify on attendance so the
@@ -65,7 +73,7 @@ def _apply_verification(profile, method, coach, now):
     # welcome email. The UPDATE's own WHERE clause settles it without needing
     # every caller to hold the same lock.
     claimed = CrushProfile.objects.filter(
-        pk=profile.pk, verification_status="pending"
+        pk=profile.pk, verification_status__in=claim_from
     ).update(
         is_approved=True,
         approved_at=now,
@@ -574,11 +582,27 @@ def coach_mark_verified(request, event_id, registration_id):
 
         # Same workflow the auto-verify on attendance runs, so the two paths
         # cannot drift apart.
-        if not _apply_verification(profile, method, coach, now):
-            # Lost the pending -> verified claim to a concurrent path. Report
-            # the same idempotent success as an already-verified profile
-            # rather than running the side effects a second time.
+        if not _apply_verification(
+            profile, method, coach, now, claim_from=MANUAL_VERIFY_CLAIM_FROM
+        ):
+            # The claim can only fail here because another path verified them
+            # first — every other status is claimable. Report the same
+            # idempotent success as an already-verified profile rather than
+            # running the side effects twice. Reporting this for a still-
+            # unapproved profile would be worse than useless: the client
+            # removes the Verify button on `already_verified`, so the row would
+            # claim verified while the database disagreed.
             profile.refresh_from_db()
+            if profile.verification_status != "verified":
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "error": str(
+                            _("Could not verify this profile. Please try again.")
+                        ),
+                    },
+                    status=409,
+                )
             return JsonResponse(
                 {
                     "success": True,
