@@ -38388,3 +38388,78 @@ msgstr "Antwort anonym übermittelt!"
 #: views_voting.py:595
 msgid "Response updated!"
 msgstr "Antwort aktualisiert!"
+
+#. profile_requirement gate fix (2026-07-27)
+msgid "Verified, or phone-verified and awaiting verification (entry event)"
+msgstr ""
+"Verifiziert oder Telefon bestätigt und auf Verifizierung wartend "
+"(Einstiegsveranstaltung)"
+
+#. profile_requirement gate fix (2026-07-27)
+msgid "Verified members only"
+msgstr "Nur verifizierte Mitglieder"
+
+#. profile_requirement gate fix (2026-07-27)
+msgid "Has an assigned coach (NOT a Premium check)"
+msgstr "Hat einen zugewiesenen Coach (KEINE Premium-Prüfung)"
+
+#. profile_requirement gate fix (2026-07-27)
+msgid "Not-yet-verified profiles only (excludes rejected)"
+msgstr "Nur noch nicht verifizierte Profile (abgelehnte ausgeschlossen)"
+
+#. profile_requirement gate fix (2026-07-27)
+msgid "Any profile, verified or not (excludes rejected)"
+msgstr "Jedes Profil, verifiziert oder nicht (abgelehnte ausgeschlossen)"
+
+#. profile_requirement gate fix (2026-07-27)
+msgid "No profile required — any logged-in account"
+msgstr "Kein Profil erforderlich — jedes angemeldete Konto"
+
+#. profile_requirement gate fix (2026-07-27)
+msgid "No profile"
+msgstr "Kein Profil"
+
+#. profile_requirement gate fix (2026-07-27)
+msgid ""
+"Your profile was not approved, so you cannot register for this event. Please"
+" contact support."
+msgstr ""
+"Dein Profil wurde nicht genehmigt, daher kannst du dich nicht für diese "
+"Veranstaltung anmelden. Bitte wende dich an den Support."
+
+#. profile_requirement gate fix (2026-07-27)
+msgid ""
+"This event is for members with a personal coach. Attend an event to get your"
+" coach assigned."
+msgstr ""
+"Diese Veranstaltung ist für Mitglieder mit einem persönlichen Coach. Nimm an"
+" einer Veranstaltung teil, um deinen Coach zugewiesen zu bekommen."
+
+#. profile_requirement gate fix (2026-07-27)
+msgid "Members with an assigned coach"
+msgstr "Mitglieder mit zugewiesenem Coach"
+
+#. profile_requirement gate fix (2026-07-27)
+msgid "All profiles (except rejected)"
+msgstr "Alle Profile (außer abgelehnte)"
+
+#. profile_requirement gate fix (2026-07-27)
+msgid ""
+"Members with an assigned coach (not a paid-Premium check), matching event "
+"criteria."
+msgstr ""
+"Mitglieder mit zugewiesenem Coach (keine bezahlte Premium-Prüfung), passend "
+"zu den Veranstaltungskriterien."
+
+#. profile_requirement gate fix (2026-07-27)
+msgid "Coach required"
+msgstr "Coach erforderlich"
+
+#. profile_requirement gate fix (2026-07-27)
+msgid ""
+"This event is reserved for members with a personal coach. Attend any event "
+"to get your coach assigned."
+msgstr ""
+"Diese Veranstaltung ist Mitgliedern mit einem persönlichen Coach "
+"vorbehalten. Nimm an einer beliebigen Veranstaltung teil, um deinen Coach "
+"zugewiesen zu bekommen."

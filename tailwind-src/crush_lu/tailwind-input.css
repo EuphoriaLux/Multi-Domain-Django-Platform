@@ -316,6 +316,7 @@ body.journey-bg {
      ========================================================================= */
     .btn,
     .btn-crush-primary,
+    .btn-crush-solid,
     .btn-primary,
     .btn-secondary,
     .btn-outline-primary,
@@ -5022,6 +5023,7 @@ html.dark .btn-crush-outline {
 /* Disabled State */
 .btn-crush-primary:disabled,
 .btn-crush-secondary:disabled,
+.btn-crush-solid:disabled,
 .btn-crush-outline:disabled,
 .btn-hero-primary:disabled {
     opacity: 0.5;

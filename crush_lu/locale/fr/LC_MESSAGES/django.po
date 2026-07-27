@@ -38528,3 +38528,77 @@ msgstr "Réponse soumise anonymement !"
 #: views_voting.py:595
 msgid "Response updated!"
 msgstr "Réponse mise à jour !"
+
+#. profile_requirement gate fix (2026-07-27)
+msgid "Verified, or phone-verified and awaiting verification (entry event)"
+msgstr ""
+"Vérifié, ou téléphone confirmé et en attente de vérification (événement "
+"d'entrée)"
+
+#. profile_requirement gate fix (2026-07-27)
+msgid "Verified members only"
+msgstr "Membres vérifiés uniquement"
+
+#. profile_requirement gate fix (2026-07-27)
+msgid "Has an assigned coach (NOT a Premium check)"
+msgstr "A un coach attribué (ce n'est PAS un contrôle Premium)"
+
+#. profile_requirement gate fix (2026-07-27)
+msgid "Not-yet-verified profiles only (excludes rejected)"
+msgstr "Profils pas encore vérifiés uniquement (les refusés sont exclus)"
+
+#. profile_requirement gate fix (2026-07-27)
+msgid "Any profile, verified or not (excludes rejected)"
+msgstr "Tout profil, vérifié ou non (les refusés sont exclus)"
+
+#. profile_requirement gate fix (2026-07-27)
+msgid "No profile required — any logged-in account"
+msgstr "Aucun profil requis — tout compte connecté"
+
+#. profile_requirement gate fix (2026-07-27)
+msgid "No profile"
+msgstr "Aucun profil"
+
+#. profile_requirement gate fix (2026-07-27)
+msgid ""
+"Your profile was not approved, so you cannot register for this event. Please"
+" contact support."
+msgstr ""
+"Votre profil n'a pas été approuvé, vous ne pouvez donc pas vous inscrire à "
+"cet événement. Veuillez contacter le support."
+
+#. profile_requirement gate fix (2026-07-27)
+msgid ""
+"This event is for members with a personal coach. Attend an event to get your"
+" coach assigned."
+msgstr ""
+"Cet événement est réservé aux membres ayant un coach personnel. Participez à"
+" un événement pour qu'un coach vous soit attribué."
+
+#. profile_requirement gate fix (2026-07-27)
+msgid "Members with an assigned coach"
+msgstr "Membres avec un coach attribué"
+
+#. profile_requirement gate fix (2026-07-27)
+msgid "All profiles (except rejected)"
+msgstr "Tous les profils (sauf refusés)"
+
+#. profile_requirement gate fix (2026-07-27)
+msgid ""
+"Members with an assigned coach (not a paid-Premium check), matching event "
+"criteria."
+msgstr ""
+"Membres avec un coach attribué (ce n'est pas un contrôle Premium payant), "
+"correspondant aux critères de l'événement."
+
+#. profile_requirement gate fix (2026-07-27)
+msgid "Coach required"
+msgstr "Coach requis"
+
+#. profile_requirement gate fix (2026-07-27)
+msgid ""
+"This event is reserved for members with a personal coach. Attend any event "
+"to get your coach assigned."
+msgstr ""
+"Cet événement est réservé aux membres ayant un coach personnel. Participez à"
+" un événement quelconque pour qu'un coach vous soit attribué."

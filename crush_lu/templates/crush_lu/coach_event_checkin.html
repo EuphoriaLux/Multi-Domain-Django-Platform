@@ -167,6 +167,21 @@
                                 {% trans "Unverified" %}
                             </span>
                             {% endif %}
+                        {% else %}
+                            {% comment %}
+                            No CrushProfile at all. Without this the row renders
+                            bare in a column of green "Verified" badges, which
+                            reads as a rendering glitch rather than a warning —
+                            so staff wave the attendee through and the coach
+                            assignment silently never happens. Red, not amber:
+                            this is not "awaiting verification", there is
+                            nothing to verify, and the in-person Verify button
+                            below is correctly absent for the same reason.
+                            {% endcomment %}
+                            <span class="inline-flex items-center gap-0.5 rounded-full bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 text-xs font-medium text-red-700 dark:text-red-400">
+                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10A8 8 0 112 10a8 8 0 0116 0zm-8-4a1 1 0 00-1 1v3a1 1 0 002 0V7a1 1 0 00-1-1zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                                {% trans "No profile" %}
+                            </span>
                         {% endif %}
                     </div>
                     {# Coach line #}
