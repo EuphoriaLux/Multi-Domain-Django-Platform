@@ -23,19 +23,63 @@ Marking a registration `attended` is what assigns a member's *permanent* coach,
 and the coach chosen is `event.coaches.first()` — **not** the person operating
 the scanner. It fires once per registration.
 
-- [ ] **Confirm the Wednesday event has at least one coach attached.** An event
-      with no coaches assigns **nobody**, silently. Every attendee then lands
-      coachless, and because the assignment only fires once, re-running check-in
-      later does not repair it. This is a one-line check and the single cheapest
-      thing on this list:
+- [x] **Confirm the event has at least one coach attached.** ✅ **Done
+      2026-07-27** — production event **12** has four: Tom Swayer, Wesley,
+      Matilde, Natascha. So nobody lands coachless for want of an assignment.
+      An event with *no* coaches assigns **nobody**, silently, and because the
+      signal fires once per registration, re-running check-in never repairs it.
       ```
-      python manage.py shell -c "from crush_lu.models import MeetupEvent; e=MeetupEvent.objects.get(id=<ID>); print(e.title, list(e.coaches.all()))"
+      python manage.py shell -c "from crush_lu.models import MeetupEvent; e=MeetupEvent.objects.get(id=12); print(e.title, list(e.coaches.all()))"
       ```
-- [ ] **Confirm the coach it would pick is the one you actually want.**
-      `.first()` is ordering-dependent, not "the event owner".
+- [ ] **Decide whether one coach taking every attendee is what you want.**
+      Four coaches on the event does **not** spread the load — there is no
+      round-robin. `signals.py` calls `event.coaches.first()`, `CrushCoach` has
+      no `Meta.ordering`, so Django's `first()` falls back to `order_by("pk")`.
+      Every newly-coached attendee from event 12 therefore gets **the same
+      single coach**: whichever of the four has the **lowest `CrushCoach.pk`**
+      — the oldest coach record, not the first name in the admin widget and not
+      the person scanning.
+
+      That person also becomes the **routed coach for every My Crush! lead**
+      those members later declare (routing tier 2 reads
+      `CrushProfile.assigned_coach`), so the concentration compounds after the
+      event rather than staying a signup detail. Confirm who it resolves to:
+      ```
+      python manage.py shell -c "from crush_lu.models import MeetupEvent; print(MeetupEvent.objects.get(id=12).coaches.first())"
+      ```
+      If that is not the intended owner, the lever before Wednesday is which
+      coaches are attached, not the check-in flow.
 - [ ] **Walk a real QR check-in on staging end to end** — scan → `attended` →
       coach assigned → attendee appears where the post-event flow expects them.
       Not covered by this session's verification at all.
+
+### 1.1b Event 12 is configured `profile_requirement = "none"`
+
+Confirmed from the production admin on 2026-07-27 ("Kein Profil erforderlich").
+This is the one setting that makes the O12 pool work **load-bearing on
+Wednesday** rather than theoretical, and it has two consequences that are easy
+to mistake for bugs on the day:
+
+- **A profile-less attendee gets no coach at all**, even though the event has
+  four. `event_register` falls through to the `else` branch and proceeds with
+  `profile = None` (`views_events.py:916-920`), and the assignment signal bails
+  at `if profile is None` before it ever reads `event.coaches`. Nothing is
+  broken; there is simply no `CrushProfile` row to hang a coach on.
+- **Their "My Crush!" declaration lands unrouted, in the pool.**
+  `declare_crush()` deliberately skips `assign_coach()` when the requester has
+  no `CrushProfile`, so the lead has no owner. It surfaces in **every** active
+  coach's inbox under the amber "Unclaimed" badge with its own `call_by` clock,
+  and its note stays sealed until someone claims it.
+
+  This is exactly the path the O12 build exists for, and exactly the path the
+  earlier "unrouted leads are unreachable, leave as-is" decision would have left
+  uncovered — that reasoning missed `profile_requirement="none"`. Verified
+  working in the browser on 2026-07-27.
+
+- [ ] **Brief the coaches that "Unclaimed" rows are real work**, not noise.
+      They get **no push notification** (§10.1 — deliberately not built), so a
+      coach who never opens their inbox will not learn the lead exists, and the
+      member is still promised a call within 48h.
 
 ### 1.2 Deploy-time ops steps that fail *silently*
 
