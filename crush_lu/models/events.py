@@ -162,13 +162,22 @@ class MeetupEvent(models.Model):
     )
     min_age = models.PositiveIntegerField(default=18)
     max_age = models.PositiveIntegerField(default=99)
+    # Labels name what each option CHECKS, not what it was intended for — the
+    # previous wording described intent and diverged from the gates in both
+    # directions (see docs/superpowers/specs/2026-07-27-profile-requirement-audit.md).
+    # Notably `coach_assigned` is NOT a Premium check: a coach is auto-assigned
+    # on first attendance without payment, so it admits every past attendee.
+    # `CrushProfile.has_active_premium` is the real entitlement.
     PROFILE_REQUIREMENT_CHOICES = [
-        ("completed", _("Completed profile (entry event)")),
-        ("approved", _("Verified profile only (members)")),
-        ("coach_assigned", _("Premium member — coach assigned")),
-        ("unverified", _("Unverified profile only")),
-        ("profile_exists", _("Profile must exist")),
-        ("none", _("No profile required")),
+        (
+            "completed",
+            _("Verified, or phone-verified and awaiting verification (entry event)"),
+        ),
+        ("approved", _("Verified members only")),
+        ("coach_assigned", _("Has an assigned coach (NOT a Premium check)")),
+        ("unverified", _("Not-yet-verified profiles only")),
+        ("profile_exists", _("Any profile — verified or not")),
+        ("none", _("No profile required — any logged-in account")),
     ]
     profile_requirement = models.CharField(
         max_length=20,
@@ -295,9 +304,7 @@ class MeetupEvent(models.Model):
         ordering = ["date_time"]
         constraints = [
             models.CheckConstraint(
-                condition=models.Q(
-                    duration_minutes__lte=MAX_EVENT_DURATION_MINUTES
-                ),
+                condition=models.Q(duration_minutes__lte=MAX_EVENT_DURATION_MINUTES),
                 name="crush_lu_meetupevent_duration_within_ceiling",
             ),
         ]
@@ -499,10 +506,7 @@ class MeetupEvent(models.Model):
         "Live now" card badge from ever appearing for a cancelled event.
         """
         now = timezone.now()
-        return (
-            not self.is_cancelled
-            and self.date_time <= now < self.end_time
-        )
+        return not self.is_cancelled and self.date_time <= now < self.end_time
 
     @property
     def connection_window_deadline(self):

@@ -855,7 +855,10 @@ def event_register(request, event_id):
         elif event.profile_requirement == "approved":
             try:
                 profile = CrushProfile.objects.get(user=request.user)
-                if not profile.is_approved:
+                # `verification_status`, not the legacy `is_approved`: the model
+                # documents the latter as replaced, and `save()` only syncs
+                # is_approved -> status, never the reverse.
+                if profile.verification_status != "verified":
                     messages.error(
                         request,
                         _(
@@ -874,11 +877,24 @@ def event_register(request, event_id):
         elif event.profile_requirement == "coach_assigned":
             try:
                 profile = CrushProfile.objects.get(user=request.user)
+                # A rejected profile keeps its `assigned_coach` — nothing in the
+                # rejection path clears it — so gating on the FK alone let a
+                # rejected member register here. Checked first so the rejection
+                # is reported as such rather than as "no coach".
+                if profile.verification_status == "rejected":
+                    messages.error(
+                        request,
+                        _(
+                            "Your profile was not approved, so you cannot register for this event. "
+                            "Please contact support."
+                        ),
+                    )
+                    return redirect("crush_lu:event_detail", event_id=event_id)
                 if not profile.assigned_coach_id:
                     messages.error(
                         request,
                         _(
-                            "This is a premium event for members with a personal coach. "
+                            "This event is for members with a personal coach. "
                             "Attend an event to get your coach assigned."
                         ),
                     )
@@ -894,11 +910,23 @@ def event_register(request, event_id):
         elif event.profile_requirement == "unverified":
             try:
                 profile = CrushProfile.objects.get(user=request.user)
-                if profile.is_approved:
+                # Allowlist, not `not is_approved`. A rejected profile also has
+                # is_approved=False, so the old test admitted it — the same trap
+                # the `completed` branch already guards against.
+                if profile.verification_status == "verified":
                     messages.error(
                         request,
                         _(
                             "This event is exclusively for members whose profile has not yet been verified by a coach."
+                        ),
+                    )
+                    return redirect("crush_lu:event_detail", event_id=event_id)
+                if profile.verification_status == "rejected":
+                    messages.error(
+                        request,
+                        _(
+                            "Your profile was not approved, so you cannot register for this event. "
+                            "Please contact support."
                         ),
                     )
                     return redirect("crush_lu:event_detail", event_id=event_id)
@@ -911,13 +939,20 @@ def event_register(request, event_id):
                 )
                 return redirect("crush_lu:create_profile")
         elif event.profile_requirement == "profile_exists":
+            # "Profile must exist" now means exactly that. It previously
+            # rejected `is_approved` profiles, making it a byte-for-byte
+            # duplicate of `unverified` under a label promising the opposite —
+            # so an organiser choosing it to mean "anyone with a profile"
+            # silently locked out every verified member, and no option in the
+            # dropdown expressed "any profile" at all.
             try:
                 profile = CrushProfile.objects.get(user=request.user)
-                if profile.is_approved:
+                if profile.verification_status == "rejected":
                     messages.error(
                         request,
                         _(
-                            "This event is exclusively for members whose profile has not yet been verified by a coach. Since your profile is already approved, you are not eligible for this event."
+                            "Your profile was not approved, so you cannot register for this event. "
+                            "Please contact support."
                         ),
                     )
                     return redirect("crush_lu:event_detail", event_id=event_id)

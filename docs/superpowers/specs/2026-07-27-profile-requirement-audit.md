@@ -203,8 +203,15 @@ Ordered by value, none blocking for Wednesday.
 
 ## 7. For Wednesday
 
-Event 12 was moved to **`completed`** ("Vollständiges Profil / Einstiegs-
-veranstaltung"). That is the correct choice and needs no code:
+**Correction (verified against production 2026-07-27): event 12 is still
+`none`.** An earlier revision of this file said it had been moved to
+`completed`; that change never reached the database. The cohort audit came back
+clean regardless — 0 of 71 non-cancelled registrations lack a profile — so the
+permissive setting was never exercised. Details and the raw output are in
+`2026-07-27-crush-pre-event-readiness.md` §1.1b.
+
+Moving it to `completed` remains the right setting if you want the window shut
+before the 18:30 deadline, and needs no code:
 
 - requires a profile → **S0 cannot occur for anyone registering from now on**;
 - still admits **S3** — profile built, phone verified, *not yet verified* —
