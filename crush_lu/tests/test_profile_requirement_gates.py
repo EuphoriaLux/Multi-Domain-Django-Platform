@@ -216,3 +216,46 @@ def test_completed_admits_verified_without_phone_verified():
         verification_status="verified", is_approved=True, phone_verified=False
     )
     assert _try_register(user, event)
+
+
+# --- event_detail CTA ---------------------------------------------------
+#
+# The gate matrix above tests `event_register` directly. That is not enough:
+# event detail is the ONLY normal entry point to it, so a page that hides the
+# CTA keeps a lockout alive with a green backend — which is exactly what
+# happened here. These pin the page against the gate.
+
+
+def _detail_has_register_cta(user, event):
+    client = Client()
+    client.force_login(user)
+    response = client.get(reverse("crush_lu:event_detail", args=[event.id]))
+    assert response.status_code == 200
+    return f"/events/{event.id}/register/" in response.content.decode()
+
+
+def test_detail_shows_cta_to_verified_member_on_profile_exists():
+    """The headline lockout, at the surface the user actually sees."""
+    event = _event("profile_exists")
+    user = _user("detail-pe-verified", "S4_verified")
+    assert _detail_has_register_cta(user, event), (
+        "event_detail hid the register CTA from a verified member on a "
+        "profile_exists event — the gate admits them, so the page must too"
+    )
+
+
+def test_detail_hides_cta_from_rejected_with_coach_on_coach_assigned():
+    """A rejected profile keeps its coach, so the two prior checks pass."""
+    event = _event("coach_assigned")
+    user = _user("detail-ca-rejected", "S7_rejected_coach")
+    assert not _detail_has_register_cta(user, event), (
+        "event_detail offered a register CTA to a rejected member whose "
+        "assigned_coach survived the rejection — event_register refuses them"
+    )
+
+
+@pytest.mark.parametrize("requirement", ["profile_exists", "unverified"])
+def test_detail_hides_cta_from_rejected(requirement):
+    event = _event(requirement)
+    user = _user(f"detail-rej-{requirement}", "S7_rejected")
+    assert not _detail_has_register_cta(user, event)

@@ -38450,3 +38450,16 @@ msgid ""
 msgstr ""
 "Mitglieder mit zugewiesenem Coach (keine bezahlte Premium-Prüfung), passend "
 "zu den Veranstaltungskriterien."
+
+#. profile_requirement gate fix (2026-07-27)
+msgid "Coach required"
+msgstr "Coach erforderlich"
+
+#. profile_requirement gate fix (2026-07-27)
+msgid ""
+"This event is reserved for members with a personal coach. Attend any event "
+"to get your coach assigned."
+msgstr ""
+"Diese Veranstaltung ist Mitgliedern mit einem persönlichen Coach "
+"vorbehalten. Nimm an einer beliebigen Veranstaltung teil, um deinen Coach "
+"zugewiesen zu bekommen."

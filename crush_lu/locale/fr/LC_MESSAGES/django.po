@@ -38590,3 +38590,15 @@ msgid ""
 msgstr ""
 "Membres avec un coach attribué (ce n'est pas un contrôle Premium payant), "
 "correspondant aux critères de l'événement."
+
+#. profile_requirement gate fix (2026-07-27)
+msgid "Coach required"
+msgstr "Coach requis"
+
+#. profile_requirement gate fix (2026-07-27)
+msgid ""
+"This event is reserved for members with a personal coach. Attend any event "
+"to get your coach assigned."
+msgstr ""
+"Cet événement est réservé aux membres ayant un coach personnel. Participez à"
+" un événement quelconque pour qu'un coach vous soit attribué."
