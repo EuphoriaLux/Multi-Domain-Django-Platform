@@ -281,3 +281,38 @@ def test_rescan_of_an_already_verified_attendee_reports_no_new_verification(
     again = _scan(reg, event, as_coach=coach).json()
     assert again["already_checked_in"] is True
     assert again["auto_verified"] is False
+
+
+def test_repeated_rescans_fire_the_side_effects_only_once(
+    event, coach, monkeypatch, django_capture_on_commit_callbacks
+):
+    """The welcome email has no double-send guard of its own.
+
+    `check_and_apply_profile_approved_reward` self-guards, but
+    `notify_profile_approved` does not — so the verification must happen exactly
+    once. The `select_for_update` on the re-scan path is what serialises genuine
+    concurrent scans; this pins the observable outcome.
+    """
+    calls = {"notify": 0}
+    import crush_lu.notification_service as notifications
+
+    monkeypatch.setattr(
+        notifications,
+        "notify_profile_approved",
+        lambda **kw: calls.__setitem__("notify", calls["notify"] + 1),
+    )
+
+    profile, reg = _attendee(event, "doublescan")
+    # First scan has no coach session, so it only checks in.
+    _scan(reg, event, as_coach=None)
+
+    with django_capture_on_commit_callbacks(execute=True):
+        first = _scan(reg, event, as_coach=coach).json()
+    with django_capture_on_commit_callbacks(execute=True):
+        second = _scan(reg, event, as_coach=coach).json()
+
+    assert first["auto_verified"] is True
+    assert second["auto_verified"] is False
+    assert calls["notify"] == 1
+    profile.refresh_from_db()
+    assert profile.verification_status == "verified"

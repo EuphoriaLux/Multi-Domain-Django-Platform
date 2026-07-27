@@ -237,10 +237,22 @@ def event_checkin_api(request, registration_id, token):
         # endpoint deliberately still allows), or the row was marked attended
         # before this feature existed. Without this the coach is silently back
         # to tapping Verify.
+        # Lock the registration first, matching the main check-in path below.
+        # Without it two near-simultaneous re-scans (a double-tap, or two
+        # coaches scanning the same badge) can both read `pending`, both
+        # verify, and both schedule the side effects. The referral reward
+        # self-guards, but `notify_profile_approved` does not — the attendee
+        # would get two "you're approved" emails. Serialising here means the
+        # loser re-reads `verified` and does nothing.
         # `now` is only bound below, with the check-in window check.
         with transaction.atomic():
+            locked_registration = (
+                EventRegistration.objects.select_for_update()
+                .select_related("event", "user")
+                .get(id=registration_id)
+            )
             rescan_verified = _auto_verify_on_attendance(
-                request, registration, timezone.now()
+                request, locked_registration, timezone.now()
             )
         if rescan_verified is not None:
             # `registration` was loaded with `user__crushprofile` selected, so
@@ -339,12 +351,21 @@ def event_checkin_api(request, registration_id, token):
             if table_info:
                 response_data.update(table_info)
             if already_verified_profile is not None:
+                # This branch is the loser of the `select_for_update` race, but
+                # it still performs real writes, so it must announce them like
+                # its sibling above — otherwise other coaches watching the live
+                # list never see the row flip to verified until they reload.
+                # Deferred to commit so the broadcast cannot describe a state
+                # that gets rolled back.
                 transaction.on_commit(
-                    lambda: _run_post_verification_side_effects(
-                        registration.user,
-                        already_verified_profile,
-                        request,
-                        registration.id,
+                    lambda: (
+                        _run_post_verification_side_effects(
+                            registration.user,
+                            already_verified_profile,
+                            request,
+                            registration.id,
+                        ),
+                        _broadcast_checkin(registration.event_id, response_data),
                     )
                 )
             return JsonResponse(response_data)
