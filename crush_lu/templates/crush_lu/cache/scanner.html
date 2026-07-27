@@ -31,6 +31,13 @@
                 {% trans "Looking for QR code…" %}
             </div>
 
+            {# Torch toggle — revealed only when the device exposes flash control #}
+            <div class="mt-3 text-center">
+                <button type="button" id="torch-btn" hidden class="btn-crush-solid px-4 py-2 text-sm">
+                    {% trans "Flash On" %}
+                </button>
+            </div>
+
             <div class="mt-5 border-t border-gray-200 dark:border-gray-700 pt-4">
                 <p class="mb-2 text-center text-sm text-gray-500 dark:text-gray-400">
                     {% trans "Camera not working? Type the short code printed under the QR:" %}
@@ -77,18 +84,23 @@
     }
 </style>
 
-<!-- QR Code Scanner Library -->
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<!-- qr-scanner (vendored) — the worker file is resolved relative to this
+     script's URL, so both files live side by side under vendor/qr-scanner/ -->
+<script src="{% static 'crush_lu/vendor/qr-scanner/qr-scanner.umd.min.js' %}"></script>
 
 <script nonce="{{ csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     var statusEl = document.getElementById('scanner-status');
+    var videoEl = document.getElementById('qr-video');
+    var torchBtn = document.getElementById('torch-btn');
     var scanUrlTemplate = '{% url "crush_lu:cache_qr_scan" "00000000-0000-0000-0000-000000000000" %}';
 
     var msgQrDetected = '{% filter escapejs %}{% trans "QR Code detected! Redirecting..." %}{% endfilter %}';
     var msgCameraDenied = '{% filter escapejs %}{% trans "Camera access denied. Please use manual input below." %}{% endfilter %}';
     var msgNoCamera = '{% filter escapejs %}{% trans "No camera found. Please use manual input below." %}{% endfilter %}';
     var msgCameraError = '{% filter escapejs %}{% trans "Could not access camera. Please use manual input." %}{% endfilter %}';
+    var msgFlashOn = '{% filter escapejs %}{% trans "Flash On" %}{% endfilter %}';
+    var msgFlashOff = '{% filter escapejs %}{% trans "Flash Off" %}{% endfilter %}';
 
     window.handleManualCodeSubmit = function(evt, form) {
         evt.preventDefault();
@@ -106,19 +118,13 @@ document.addEventListener('DOMContentLoaded', function() {
         playSynthQrSound();
     }
 
-    if (typeof Html5Qrcode === 'undefined') {
+    if (typeof QrScanner === 'undefined') {
         statusEl.textContent = msgNoCamera;
         return;
     }
 
-    var html5QrCode;
-    var config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1 };
-    try {
-        html5QrCode = new Html5Qrcode("qr-video");
-    } catch (e) {
-        statusEl.textContent = msgCameraError;
-        return;
-    }
+    var scanner = null;
+    var scanBusy = false;
 
     function playSynthQrSound() {
         try {
@@ -152,7 +158,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function onScanSuccess(decodedText) {
-        html5QrCode.stop();
+        if (scanner) scanner.stop();
         statusEl.textContent = msgQrDetected;
         playQrSuccessSound();
         if (navigator.vibrate) {
@@ -171,16 +177,56 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function showWarning(msg) { statusEl.textContent = msg; }
 
-    Html5Qrcode.getCameras().then(function(devices) {
-        if (devices && devices.length) {
-            var backCamera = devices.find(function(d) { return d.label.toLowerCase().includes('back'); });
-            var cameraId = backCamera ? backCamera.id : devices[0].id;
-            html5QrCode.start(cameraId, config, onScanSuccess, function() {})
-                .catch(function() { showWarning(msgCameraDenied); });
-        } else {
-            showWarning(msgNoCamera);
+    scanner = new QrScanner(
+        videoEl,
+        function (result) {
+            // qr-scanner fires ~10x/s while a code stays visible; the first
+            // hit navigates away, ignore the rest.
+            if (scanBusy) return;
+            scanBusy = true;
+            onScanSuccess(result.data);
+        },
+        {
+            returnDetailedScanResult: true,
+            preferredCamera: 'environment',
+            maxScansPerSecond: 10,
+            // Decode the full camera frame at a 720px working resolution
+            // (the library default crops to a centred square) — the page
+            // keeps its own decorative frame overlay.
+            calculateScanRegion: function (video) {
+                var w = video.videoWidth;
+                var h = video.videoHeight;
+                var scale = Math.min(1, 720 / Math.max(1, Math.min(w, h)));
+                return {
+                    x: 0, y: 0, width: w, height: h,
+                    downScaledWidth: Math.round(w * scale),
+                    downScaledHeight: Math.round(h * scale)
+                };
+            }
         }
-    }).catch(function() { showWarning(msgCameraError); });
+    );
+    scanner.start().then(function () {
+        scanner.hasFlash().then(function (has) {
+            if (has && torchBtn) torchBtn.hidden = false;
+        }).catch(function () {});
+    }).catch(function (err) {
+        var errStr = String(err);
+        if (errStr.indexOf('NotAllowedError') !== -1 || errStr.indexOf('Permission') !== -1) {
+            showWarning(msgCameraDenied);
+        } else if (errStr.indexOf('NotFoundError') !== -1 || errStr.indexOf('DevicesNotFound') !== -1 || errStr.indexOf('Camera not found') !== -1) {
+            showWarning(msgNoCamera);
+        } else {
+            showWarning(msgCameraError);
+        }
+    });
+    if (torchBtn) {
+        torchBtn.addEventListener('click', function () {
+            if (!scanner) return;
+            scanner.toggleFlash().then(function () {
+                torchBtn.textContent = scanner.isFlashOn() ? msgFlashOff : msgFlashOn;
+            }).catch(function () {});
+        });
+    }
 });
 </script>
 {% endblock %}
