@@ -1119,6 +1119,11 @@ SECURE_CSP_REPORT_ONLY = {
         # Azure Application Insights SDK
         "https://js.monitor.azure.com",
     ],
+    # Workers: qr-scanner's decode worker is spawned from a blob: URL
+    # (vendored under crush_lu/static/crush_lu/vendor/qr-scanner/). Without
+    # blob: here, enforcing this policy would silently disable QR decoding on
+    # browsers lacking BarcodeDetector — notably iOS Safari at the event door.
+    "worker-src": [CSP.SELF, "blob:"],
     # Styles: Tailwind JIT requires unsafe-inline
     "style-src": [
         CSP.SELF,

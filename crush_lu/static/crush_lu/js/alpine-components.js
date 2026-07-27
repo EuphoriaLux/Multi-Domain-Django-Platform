@@ -907,12 +907,16 @@ document.addEventListener("alpine:init", function () {
                             errStr.indexOf("NotAllowedError") !== -1 ||
                             errStr.indexOf("Permission") !== -1
                         ) {
-                            self.message =
-                                gettext("Camera permission denied. Please allow camera access in your browser settings (click the lock icon in the address bar) and try again.");
+                            self.message = self._cameraDeniedMessage();
+                        } else if (errStr.indexOf("Camera not found") !== -1) {
+                            // qr-scanner collapses EVERY getUserMedia failure
+                            // (denied, busy, missing) into this one string —
+                            // probe the environment to give actionable advice.
+                            self.message = gettext("No camera found on this device.");
+                            self._diagnoseCameraFailure();
                         } else if (
                             errStr.indexOf("NotFoundError") !== -1 ||
-                            errStr.indexOf("DevicesNotFound") !== -1 ||
-                            errStr.indexOf("Camera not found") !== -1
+                            errStr.indexOf("DevicesNotFound") !== -1
                         ) {
                             self.message = gettext("No camera found on this device.");
                         } else if (
@@ -928,10 +932,59 @@ document.addEventListener("alpine:init", function () {
                     });
             },
 
+            _cameraDeniedMessage: function () {
+                return gettext("Camera permission denied. Please allow camera access in your browser settings (click the lock icon in the address bar) and try again.");
+            },
+
+            _diagnoseCameraFailure: function () {
+                var self = this;
+                var fallbackByDevices = function () {
+                    // With permission denied, cameras still enumerate (with
+                    // blank labels) — so "no devices" is the only state that
+                    // truly means no camera.
+                    if (
+                        typeof QrScanner !== "undefined" &&
+                        QrScanner.hasCamera
+                    ) {
+                        QrScanner.hasCamera().then(function (has) {
+                            self.message = has
+                                ? self._cameraDeniedMessage()
+                                : gettext("No camera found on this device.");
+                        });
+                    } else {
+                        self.message = gettext("No camera found on this device.");
+                    }
+                };
+                if (navigator.permissions && navigator.permissions.query) {
+                    navigator.permissions
+                        .query({ name: "camera" })
+                        .then(function (status) {
+                            if (status.state === "denied") {
+                                self.message = self._cameraDeniedMessage();
+                            } else {
+                                fallbackByDevices();
+                            }
+                        })
+                        .catch(fallbackByDevices);
+                } else {
+                    fallbackByDevices();
+                }
+            },
+
             stopScanner: function () {
                 var self = this;
                 if (!self.scanner) return;
-                self.scanner.stop();
+                var scanner = self.scanner;
+                // qr-scanner's start() re-enables a torch that was left on
+                // (stop() keeps its internal flash flag) — turn it off
+                // explicitly so the next Start doesn't surprise-fire the
+                // flash while the UI shows it off.
+                scanner
+                    .turnFlashOff()
+                    .catch(function () {})
+                    .then(function () {
+                        scanner.stop();
+                    });
                 self.scannerActive = false;
                 self.torchAvailable = false;
                 self.torchOn = false;
