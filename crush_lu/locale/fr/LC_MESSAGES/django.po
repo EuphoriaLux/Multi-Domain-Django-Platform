@@ -38602,3 +38602,9 @@ msgid ""
 msgstr ""
 "Cet événement est réservé aux membres ayant un coach personnel. Participez à"
 " un événement quelconque pour qu'un coach vous soit attribué."
+
+msgid "Flash On"
+msgstr "Activer le flash"
+
+msgid "Flash Off"
+msgstr "Éteindre le flash"

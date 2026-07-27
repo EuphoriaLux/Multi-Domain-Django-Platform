@@ -429,6 +429,10 @@ document.addEventListener("alpine:init", function () {
             checkins: [],
             lastTableNumber: 0,
             lastRole: "",
+            torchAvailable: false,
+            torchOn: false,
+            scanBusy: false,
+            startPending: false,
 
             // WebSocket state
             ws: null,
@@ -483,6 +487,15 @@ document.addEventListener("alpine:init", function () {
             },
             get connectionLabel() {
                 return this.connected ? "Live" : "Offline";
+            },
+            get torchIsAvailable() {
+                return this.torchAvailable;
+            },
+            get torchButtonText() {
+                var i18n = window._checkinI18n || {};
+                return this.torchOn
+                    ? i18n.torchOff || "Flash Off"
+                    : i18n.torchOn || "Flash On";
             },
 
             // --- HTML helpers (XSS protection) ---
@@ -823,30 +836,87 @@ document.addEventListener("alpine:init", function () {
             startScanner: function () {
                 var self = this;
                 var readerEl = document.getElementById("qr-reader");
-                if (!readerEl) return;
+                var videoEl = document.getElementById("qr-video");
+                if (!readerEl || !videoEl) return;
                 readerEl.style.display = "block";
 
-                if (typeof Html5Qrcode === "undefined") {
+                if (typeof QrScanner === "undefined") {
                     self.result = true;
                     self.errorState = true;
                     self.message = gettext("QR scanner library not loaded.");
                     return;
                 }
 
-                self.scanner = new Html5Qrcode("qr-reader");
-                self.scanner
-                    .start(
-                        { facingMode: "environment" },
-                        { fps: 10, qrbox: { width: 250, height: 250 } },
-                        function (decodedText) {
-                            self.handleScan(decodedText);
+                if (!self.scanner) {
+                    self.scanner = new QrScanner(
+                        videoEl,
+                        function (result) {
+                            self.handleScan(result.data);
                         },
-                        function () {},
-                    )
+                        {
+                            returnDetailedScanResult: true,
+                            preferredCamera: "environment",
+                            maxScansPerSecond: 10,
+                            highlightScanRegion: true,
+                            highlightCodeOutline: true,
+                            // Scan the FULL camera frame at a higher working
+                            // resolution than the library default (which crops
+                            // to a centred square and downscales to 400px) —
+                            // dim, small or off-centre codes at the door were
+                            // the reason html5-qrcode was replaced.
+                            calculateScanRegion: function (video) {
+                                var w = video.videoWidth;
+                                var h = video.videoHeight;
+                                var scale = Math.min(
+                                    1,
+                                    720 / Math.max(1, Math.min(w, h)),
+                                );
+                                return {
+                                    x: 0,
+                                    y: 0,
+                                    width: w,
+                                    height: h,
+                                    downScaledWidth: Math.round(w * scale),
+                                    downScaledHeight: Math.round(h * scale),
+                                };
+                            },
+                        },
+                    );
+                }
+
+                // Tapping Start twice while the first getUserMedia() prompt is
+                // still pending makes qr-scanner's second start() resolve at
+                // once (it already considers itself active), so without this
+                // guard a later denial would leave the button stuck on "Stop
+                // Scanner" for a scanner that never started.
+                if (self.startPending) return;
+                self.startPending = true;
+
+                self.scanner
+                    .start()
                     .then(function () {
+                        self.startPending = false;
                         self.scannerActive = true;
+                        self.scanBusy = false;
+                        // Torch is only exposed on supporting devices
+                        // (Android Chrome); iOS never reports flash support.
+                        self.scanner
+                            .hasFlash()
+                            .then(function (has) {
+                                self.torchAvailable = !!has;
+                            })
+                            .catch(function () {
+                                self.torchAvailable = false;
+                            });
                     })
                     .catch(function (err) {
+                        self.startPending = false;
+                        // A failed start leaves nothing running — clear the
+                        // active flag so the button offers Start again rather
+                        // than a Stop for a dead scanner.
+                        self.scannerActive = false;
+                        self.torchAvailable = false;
+                        self.torchOn = false;
                         self.result = true;
                         self.errorState = true;
                         var errStr = String(err);
@@ -854,8 +924,13 @@ document.addEventListener("alpine:init", function () {
                             errStr.indexOf("NotAllowedError") !== -1 ||
                             errStr.indexOf("Permission") !== -1
                         ) {
-                            self.message =
-                                gettext("Camera permission denied. Please allow camera access in your browser settings (click the lock icon in the address bar) and try again.");
+                            self.message = self._cameraDeniedMessage();
+                        } else if (errStr.indexOf("Camera not found") !== -1) {
+                            // qr-scanner collapses EVERY getUserMedia failure
+                            // (denied, busy, missing) into this one string —
+                            // probe the environment to give actionable advice.
+                            self.message = gettext("No camera found on this device.");
+                            self._diagnoseCameraFailure();
                         } else if (
                             errStr.indexOf("NotFoundError") !== -1 ||
                             errStr.indexOf("DevicesNotFound") !== -1
@@ -874,26 +949,87 @@ document.addEventListener("alpine:init", function () {
                     });
             },
 
+            _cameraDeniedMessage: function () {
+                return gettext("Camera permission denied. Please allow camera access in your browser settings (click the lock icon in the address bar) and try again.");
+            },
+
+            _diagnoseCameraFailure: function () {
+                var self = this;
+                var fallbackByDevices = function () {
+                    // With permission denied, cameras still enumerate (with
+                    // blank labels) — so "no devices" is the only state that
+                    // truly means no camera.
+                    if (
+                        typeof QrScanner !== "undefined" &&
+                        QrScanner.hasCamera
+                    ) {
+                        QrScanner.hasCamera().then(function (has) {
+                            self.message = has
+                                ? self._cameraDeniedMessage()
+                                : gettext("No camera found on this device.");
+                        });
+                    } else {
+                        self.message = gettext("No camera found on this device.");
+                    }
+                };
+                if (navigator.permissions && navigator.permissions.query) {
+                    navigator.permissions
+                        .query({ name: "camera" })
+                        .then(function (status) {
+                            if (status.state === "denied") {
+                                self.message = self._cameraDeniedMessage();
+                            } else {
+                                fallbackByDevices();
+                            }
+                        })
+                        .catch(fallbackByDevices);
+                } else {
+                    fallbackByDevices();
+                }
+            },
+
             stopScanner: function () {
                 var self = this;
-                if (self.scanner) {
-                    self.scanner
-                        .stop()
-                        .then(function () {
-                            self.scannerActive = false;
-                            var readerEl = document.getElementById("qr-reader");
-                            if (readerEl) readerEl.style.display = "none";
-                        })
-                        .catch(function () {
-                            self.scannerActive = false;
-                        });
-                }
+                if (!self.scanner) return;
+                var scanner = self.scanner;
+                // qr-scanner's start() re-enables a torch that was left on
+                // (stop() keeps its internal flash flag) — turn it off
+                // explicitly so the next Start doesn't surprise-fire the
+                // flash while the UI shows it off.
+                scanner
+                    .turnFlashOff()
+                    .catch(function () {})
+                    .then(function () {
+                        scanner.stop();
+                    });
+                self.scannerActive = false;
+                self.torchAvailable = false;
+                self.torchOn = false;
+                self.scanBusy = false;
+                self.startPending = false;
+                var readerEl = document.getElementById("qr-reader");
+                if (readerEl) readerEl.style.display = "none";
+            },
+
+            toggleTorch: function () {
+                var self = this;
+                if (!self.scanner) return;
+                self.scanner
+                    .toggleFlash()
+                    .then(function () {
+                        self.torchOn = self.scanner.isFlashOn();
+                    })
+                    .catch(function () {});
             },
 
             handleScan: function (url) {
                 var self = this;
+                // qr-scanner keeps decoding ~10x/s while the code is visible;
+                // process the first hit and ignore the rest until resume.
+                if (self.scanBusy) return;
+                self.scanBusy = true;
                 if (self.scanner) {
-                    self.scanner.pause(true);
+                    self.scanner.pause();
                 }
 
                 // Pre-mark registration as processed to prevent WebSocket duplicate
@@ -928,10 +1064,9 @@ document.addEventListener("alpine:init", function () {
                             self.message = data.error || gettext("Check-in failed.");
                         }
                         setTimeout(function () {
+                            self.scanBusy = false;
                             if (self.scanner && self.scannerActive) {
-                                try {
-                                    self.scanner.resume();
-                                } catch (e) {}
+                                self.scanner.start().catch(function () {});
                             }
                         }, 2000);
                     })
@@ -941,10 +1076,9 @@ document.addEventListener("alpine:init", function () {
                         self.errorState = true;
                         self.message = gettext("Network error or invalid QR code.");
                         setTimeout(function () {
+                            self.scanBusy = false;
                             if (self.scanner && self.scannerActive) {
-                                try {
-                                    self.scanner.resume();
-                                } catch (e) {}
+                                self.scanner.start().catch(function () {});
                             }
                         }, 2000);
                     });

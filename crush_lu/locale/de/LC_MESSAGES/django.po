@@ -38463,3 +38463,9 @@ msgstr ""
 "Diese Veranstaltung ist Mitgliedern mit einem persönlichen Coach "
 "vorbehalten. Nimm an einer beliebigen Veranstaltung teil, um deinen Coach "
 "zugewiesen zu bekommen."
+
+msgid "Flash On"
+msgstr "Blitz an"
+
+msgid "Flash Off"
+msgstr "Blitz aus"
