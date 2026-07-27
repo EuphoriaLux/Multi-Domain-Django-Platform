@@ -175,8 +175,8 @@ class MeetupEvent(models.Model):
         ),
         ("approved", _("Verified members only")),
         ("coach_assigned", _("Has an assigned coach (NOT a Premium check)")),
-        ("unverified", _("Not-yet-verified profiles only")),
-        ("profile_exists", _("Any profile — verified or not")),
+        ("unverified", _("Not-yet-verified profiles only (excludes rejected)")),
+        ("profile_exists", _("Any profile, verified or not (excludes rejected)")),
         ("none", _("No profile required — any logged-in account")),
     ]
     profile_requirement = models.CharField(

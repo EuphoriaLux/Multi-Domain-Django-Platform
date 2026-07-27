@@ -104,7 +104,7 @@ class EventRegistrationInline(admin.TabularInline):
     model = EventRegistration
     form = EventRegistrationAdminForm
     extra = 0
-    autocomplete_fields = ['user']
+    autocomplete_fields = ["user"]
     fields = ("user", "status", "payment_confirmed", "registered_at")
     readonly_fields = ("registered_at",)
     can_delete = False
@@ -148,7 +148,7 @@ class EventVotingSessionInline(admin.StackedInline):
 class PresentationQueueInline(admin.TabularInline):
     model = PresentationQueue
     extra = 0
-    autocomplete_fields = ['user']
+    autocomplete_fields = ["user"]
     fields = (
         "user",
         "presentation_order",
@@ -589,9 +589,9 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 "Profile requirement level for registration:\n"
                 "• Completed profile / entry event (recommended, default): Anyone with a completed profile (built + phone verified) can register, verified or not. New members get verified in person at the event\n"
                 "• Verified profile only (members): Only already-verified members can register — use for members-only events\n"
-                "• Premium member — coach assigned: Only members who have a personal coach assigned can register\n"
-                "• Unverified profile only: Only users with a profile NOT yet verified by a coach can register\n"
-                "• Profile must exist: Any user with a Crush profile can register (pending or incomplete OK)\n"
+                "• Has an assigned coach: Only members with a personal coach can register. NOT a Premium/paid check — a coach is granted free on first attendance, so this admits past attendees\n"
+                "• Not-yet-verified profiles only: Only users with a profile NOT yet verified by a coach can register (rejected profiles excluded)\n"
+                "• Any profile — verified or not: Any user with a Crush profile can register (pending or incomplete OK; rejected excluded)\n"
                 "• No profile required: Any authenticated user can register"
             )
         elif db_field.name == "image":
@@ -608,12 +608,24 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
 
 class EventRegistrationAdmin(admin.ModelAdmin):
     form = EventRegistrationAdminForm
-    list_display = ("get_user_display", "event", "status", "payment_confirmed", "registered_at")
+    list_display = (
+        "get_user_display",
+        "event",
+        "status",
+        "payment_confirmed",
+        "registered_at",
+    )
     list_per_page = 50
     list_select_related = ["user", "event"]
     list_filter = ("status", "payment_confirmed", "registered_at")
-    search_fields = ("user__username", "user__first_name", "user__last_name", "user__email", "event__title")
-    autocomplete_fields = ['user', 'event']
+    search_fields = (
+        "user__username",
+        "user__first_name",
+        "user__last_name",
+        "user__email",
+        "event__title",
+    )
+    autocomplete_fields = ["user", "event"]
     readonly_fields = ("registered_at", "updated_at")
     # Quick inline editing for registration management
     list_editable = ("status", "payment_confirmed")
@@ -650,10 +662,15 @@ class EventRegistrationAdmin(admin.ModelAdmin):
     def get_user_display(self, obj):
         full_name = obj.user.get_full_name()
         if full_name:
-            return format_html('{} <span style="color: #888; font-size: 11px;">({})</span>', full_name, obj.user.username)
+            return format_html(
+                '{} <span style="color: #888; font-size: 11px;">({})</span>',
+                full_name,
+                obj.user.username,
+            )
         return obj.user.username
-    get_user_display.short_description = _('User')
-    get_user_display.admin_order_field = 'user__first_name'
+
+    get_user_display.short_description = _("User")
+    get_user_display.admin_order_field = "user__first_name"
 
     @admin.action(description=_("📋 Export selected registrations to CSV"))
     def export_registrations_csv(self, request, queryset):
@@ -734,12 +751,18 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                     skipped += 1
                     continue
             eligible_ids.append(reg.pk)
-        updated = EventRegistration.objects.filter(pk__in=eligible_ids).update(status="confirmed")
-        django_messages.success(request, _("Confirmed %(count)s registration(s).") % {"count": updated})
+        updated = EventRegistration.objects.filter(pk__in=eligible_ids).update(
+            status="confirmed"
+        )
+        django_messages.success(
+            request, _("Confirmed %(count)s registration(s).") % {"count": updated}
+        )
         if skipped:
             django_messages.warning(
                 request,
-                _("Skipped %(count)s registration(s) that do not meet the event's age requirements.")
+                _(
+                    "Skipped %(count)s registration(s) that do not meet the event's age requirements."
+                )
                 % {"count": skipped},
             )
 
@@ -1037,7 +1060,10 @@ class EventFeedbackAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (_("Response"), {"fields": ("event", "user", "nps_score", "would_recommend")}),
-        (_("Free Text (visible to coaches only)"), {"fields": ("what_worked", "what_to_improve")}),
+        (
+            _("Free Text (visible to coaches only)"),
+            {"fields": ("what_worked", "what_to_improve")},
+        ),
         (_("Metadata"), {"fields": ("created_at",)}),
     )
 

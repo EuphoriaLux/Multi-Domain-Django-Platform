@@ -395,7 +395,9 @@ def coach_dashboard(request):
                 "_priority": state_priority.get(state, 5),
             }
         )
-    pending_submissions.sort(key=lambda r: (r["_priority"], r["submission"].submitted_at))
+    pending_submissions.sort(
+        key=lambda r: (r["_priority"], r["submission"].submitted_at)
+    )
     context["pending_submissions"] = pending_submissions
     context["pending_sla_breach_count"] = sum(
         1 for r in pending_submissions if r["sla_state"] in ("breach", "escalated")
@@ -428,10 +430,9 @@ def coach_action_queue(request):
     }
 
     # --- Profile reviews ---
-    pending_subs = (
-        ProfileSubmission.objects.filter(coach=coach, status="pending")
-        .select_related("profile__user")
-    )
+    pending_subs = ProfileSubmission.objects.filter(
+        coach=coach, status="pending"
+    ).select_related("profile__user")
     for sub in pending_subs:
         state = sub.sla_state
         items.append(
@@ -503,12 +504,8 @@ def coach_action_queue(request):
             state = "warning"
         else:
             state = "ok"
-        requester_name = (
-            conn.requester.get_full_name() or conn.requester.username
-        )
-        recipient_name = (
-            conn.recipient.get_full_name() or conn.recipient.username
-        )
+        requester_name = conn.requester.get_full_name() or conn.requester.username
+        recipient_name = conn.recipient.get_full_name() or conn.recipient.username
         items.append(
             {
                 "kind": "connection",
@@ -1400,7 +1397,7 @@ def coach_review_profile(request, submission_id):
                 submission.coach = None
 
                 # Unlock the profile so the user can edit and resubmit.
-                submission.profile.verification_status = 'incomplete'
+                submission.profile.verification_status = "incomplete"
                 submission.profile.save()
 
                 # Send revision request to user (push first, email fallback)
@@ -1457,13 +1454,9 @@ def coach_review_profile(request, submission_id):
 
     # Status-strip lookups: latest call attempt + next/most-recent booked slot.
     # Keep these out of the template so the strip stays cheap to render.
-    last_call_attempt = (
-        submission.call_attempts.order_by("-attempt_date").first()
-    )
+    last_call_attempt = submission.call_attempts.order_by("-attempt_date").first()
     latest_booked_slot = (
-        submission.booked_slots.filter(status="booked")
-        .order_by("start_at")
-        .first()
+        submission.booked_slots.filter(status="booked").order_by("start_at").first()
     )
 
     context = {
@@ -2251,10 +2244,32 @@ def coach_event_detail(request, event_id):
                 pool_confirmed_counts[pool] = pool_confirmed_counts.get(pool, 0) + 1
         pool_waitlist_counts = {p: c for p, c in pool_counters.items() if p}
         gender_pool_stats = [
-            entry for entry in [
-                {"key": "m",  "symbol": "♂", "label": _("Male"),       "confirmed": pool_confirmed_counts.get("m",  0), "waitlist": pool_waitlist_counts.get("m",  0), "limit": event.max_participants_m},
-                {"key": "f",  "symbol": "♀", "label": _("Female"),     "confirmed": pool_confirmed_counts.get("f",  0), "waitlist": pool_waitlist_counts.get("f",  0), "limit": event.max_participants_f},
-                {"key": "nb", "symbol": "⚬", "label": _("Non-binary"), "confirmed": pool_confirmed_counts.get("nb", 0), "waitlist": pool_waitlist_counts.get("nb", 0), "limit": event.max_participants_nb},
+            entry
+            for entry in [
+                {
+                    "key": "m",
+                    "symbol": "♂",
+                    "label": _("Male"),
+                    "confirmed": pool_confirmed_counts.get("m", 0),
+                    "waitlist": pool_waitlist_counts.get("m", 0),
+                    "limit": event.max_participants_m,
+                },
+                {
+                    "key": "f",
+                    "symbol": "♀",
+                    "label": _("Female"),
+                    "confirmed": pool_confirmed_counts.get("f", 0),
+                    "waitlist": pool_waitlist_counts.get("f", 0),
+                    "limit": event.max_participants_f,
+                },
+                {
+                    "key": "nb",
+                    "symbol": "⚬",
+                    "label": _("Non-binary"),
+                    "confirmed": pool_confirmed_counts.get("nb", 0),
+                    "waitlist": pool_waitlist_counts.get("nb", 0),
+                    "limit": event.max_participants_nb,
+                },
             ]
             if entry["limit"]
         ]
@@ -2322,29 +2337,30 @@ def coach_event_detail(request, event_id):
     # match, and how many connections of theirs still need an intro approved.
     coach = request.coach
     onboarded_user_ids = set(
-        ProfileSubmission.objects.filter(
-            coach=coach, status='approved'
-        ).values_list('profile__user_id', flat=True)
+        ProfileSubmission.objects.filter(coach=coach, status="approved").values_list(
+            "profile__user_id", flat=True
+        )
     )
     coach_recap = None
     if onboarded_user_ids:
         attended_user_ids = {
-            r.user_id for r in all_confirmed
-            if r.status == 'attended' and r.user_id in onboarded_user_ids
+            r.user_id
+            for r in all_confirmed
+            if r.status == "attended" and r.user_id in onboarded_user_ids
         }
         attended_count_mine = len(attended_user_ids)
 
         # Connections from this event involving the coach's onboarded users
         connections_for_event = EventConnection.objects.filter(event=event)
-        senders_with_mine = connections_for_event.filter(
-            requester_id__in=attended_user_ids
-        ).values('requester_id').distinct()
+        senders_with_mine = (
+            connections_for_event.filter(requester_id__in=attended_user_ids)
+            .values("requester_id")
+            .distinct()
+        )
         senders_count = senders_with_mine.count()
 
-        annotated_conns = (
-            connections_for_event
-            .annotate_is_mutual()
-            .filter(requester_id__in=attended_user_ids)
+        annotated_conns = connections_for_event.annotate_is_mutual().filter(
+            requester_id__in=attended_user_ids
         )
         mutual_user_ids = {
             c.requester_id for c in annotated_conns if c.is_mutual_annotated
@@ -2353,15 +2369,15 @@ def coach_event_detail(request, event_id):
 
         pending_intros_mine = connections_for_event.filter(
             assigned_coach=coach,
-            status__in=['accepted', 'coach_reviewing'],
+            status__in=["accepted", "coach_reviewing"],
         ).count()
 
         coach_recap = {
-            'onboarded_count': len(onboarded_user_ids),
-            'attended_count': attended_count_mine,
-            'senders_count': senders_count,
-            'mutual_count': mutual_count,
-            'pending_intros': pending_intros_mine,
+            "onboarded_count": len(onboarded_user_ids),
+            "attended_count": attended_count_mine,
+            "senders_count": senders_count,
+            "mutual_count": mutual_count,
+            "pending_intros": pending_intros_mine,
         }
 
     # Feedback aggregates (only meaningful after the event has ended).
@@ -2375,9 +2391,7 @@ def coach_event_detail(request, event_id):
         promoters = sum(1 for f in feedback_qs if f.is_promoter)
         detractors = sum(1 for f in feedback_qs if f.is_detractor)
         nps = round(((promoters - detractors) * 100.0) / feedback_total)
-        avg_score = round(
-            sum(f.nps_score for f in feedback_qs) / feedback_total, 1
-        )
+        avg_score = round(sum(f.nps_score for f in feedback_qs) / feedback_total, 1)
         recommend_count = sum(1 for f in feedback_qs if f.would_recommend)
         feedback_summary = {
             "total": feedback_total,
@@ -2471,7 +2485,8 @@ def coach_event_checkin(request, event_id):
             sub = submissions_by_profile.get(profile.id)
             reg.coach_name = (
                 f"{sub.coach.user.first_name} {sub.coach.user.last_name}".strip()
-                if sub and sub.coach else None
+                if sub and sub.coach
+                else None
             )
         except Exception:
             reg.photo_url = None
@@ -2623,6 +2638,10 @@ def coach_event_sms_invite(request, event_id):
             CrushProfile.objects.filter(phone_q)
             .filter(age_filter)
             .filter(is_approved=False)
+            # A profile rejected without a ProfileSubmission row has
+            # latest_submission_status NULL, so the submission filter below
+            # lets it through — and the registration gate then refuses it.
+            .exclude(verification_status="rejected")
             .annotate(latest_submission_status=latest_submission_status)
             .filter(
                 Q(latest_submission_status__isnull=True)
@@ -2656,29 +2675,40 @@ def coach_event_sms_invite(request, event_id):
         pool_label = _("Completed Profiles (entry event)")
 
     elif event.profile_requirement == "approved":
-        profile_pool_qs = CrushProfile.objects.filter(phone_q, verification_status="verified").filter(
-            age_filter
-        )
+        profile_pool_qs = CrushProfile.objects.filter(
+            phone_q, verification_status="verified"
+        ).filter(age_filter)
         if has_language_filter:
             profile_pool_qs = profile_pool_qs.filter(lang_q)
         profile_pool_qs = profile_pool_qs.select_related("user")
         pool_label = _("Approved Profiles")
 
     elif event.profile_requirement == "coach_assigned":
-        profile_pool_qs = CrushProfile.objects.filter(
-            phone_q, assigned_coach__isnull=False
-        ).filter(age_filter)
+        # Not a Premium pool: `assigned_coach` is granted free on first
+        # attendance, so this is "has a coach", not "has paid". Rejected
+        # profiles keep their coach (nothing clears it), so exclude them or the
+        # invite leads to a registration that refuses them.
+        profile_pool_qs = (
+            CrushProfile.objects.filter(phone_q, assigned_coach__isnull=False)
+            .exclude(verification_status="rejected")
+            .filter(age_filter)
+        )
         if has_language_filter:
             profile_pool_qs = profile_pool_qs.filter(lang_q)
         profile_pool_qs = profile_pool_qs.select_related("user", "assigned_coach__user")
-        pool_label = _("Premium Members (Coach assigned)")
+        pool_label = _("Members with an assigned coach")
 
     elif event.profile_requirement == "profile_exists":
-        profile_pool_qs = CrushProfile.objects.filter(phone_q).filter(age_filter)
+        # Mirror the gate: any profile except rejected.
+        profile_pool_qs = (
+            CrushProfile.objects.filter(phone_q)
+            .exclude(verification_status="rejected")
+            .filter(age_filter)
+        )
         if has_language_filter:
             profile_pool_qs = profile_pool_qs.filter(lang_q)
         profile_pool_qs = profile_pool_qs.select_related("user")
-        pool_label = _("All Profiles")
+        pool_label = _("All profiles (except rejected)")
 
     else:  # "none"
         profile_pool_qs = CrushProfile.objects.filter(phone_q).filter(age_filter)
@@ -2743,9 +2773,7 @@ def coach_event_sms_invite(request, event_id):
         lang = getattr(profile, "preferred_language", "en") or "en"
         field = f"{template_prefix}_{lang}"
         fallback_field = f"{template_prefix}_en"
-        template = getattr(config, field, None) or getattr(
-            config, fallback_field, None
-        )
+        template = getattr(config, field, None) or getattr(config, fallback_field, None)
         if not template:
             template = config.sms_event_invite_template_en
         first_name = profile.user.first_name or ""
@@ -2781,7 +2809,9 @@ def coach_event_sms_invite(request, event_id):
         profile = sub.profile
 
         lang, sms_uri = _build_sms_uri(profile)
-        _lm_lang, sms_uri_lm = _build_sms_uri(profile, "sms_last_minute_invite_template")
+        _lm_lang, sms_uri_lm = _build_sms_uri(
+            profile, "sms_last_minute_invite_template"
+        )
 
         sent = sub.id in already_sent_submission_ids
         if sent:
@@ -2815,7 +2845,9 @@ def coach_event_sms_invite(request, event_id):
     # Process profile pool
     for profile in profile_pool_qs:
         lang, sms_uri = _build_sms_uri(profile)
-        _lm_lang, sms_uri_lm = _build_sms_uri(profile, "sms_last_minute_invite_template")
+        _lm_lang, sms_uri_lm = _build_sms_uri(
+            profile, "sms_last_minute_invite_template"
+        )
 
         sent = profile.id in already_sent_profile_ids
         if sent:
@@ -2855,7 +2887,9 @@ def coach_event_sms_invite(request, event_id):
         if not profile or not profile.phone_number or not profile.phone_verified:
             continue
         lang, sms_uri = _build_sms_uri(profile)
-        _lm_lang, sms_uri_lm = _build_sms_uri(profile, "sms_last_minute_invite_template")
+        _lm_lang, sms_uri_lm = _build_sms_uri(
+            profile, "sms_last_minute_invite_template"
+        )
         already_sent = profile.id in already_sent_profile_ids
         waitlisted_profiles.append(
             {
@@ -2975,7 +3009,11 @@ def coach_log_event_sms_sent(request, event_id, submission_id):
     return render(
         request,
         "crush_lu/_sms_invite_row_sent.html",
-        {"submission": submission, "event": event, "sms_uri_last_minute": sms_uri_last_minute},
+        {
+            "submission": submission,
+            "event": event,
+            "sms_uri_last_minute": sms_uri_last_minute,
+        },
     )
 
 
@@ -3755,13 +3793,13 @@ def _compute_connection_next_action(conn, current_coach):
                 "icon": "hand",
             }
         is_for_me = (
-            current_coach is not None
-            and conn.assigned_coach_id == current_coach.id
+            current_coach is not None and conn.assigned_coach_id == current_coach.id
         )
         coach_label = (
-            _("You") if is_for_me else (
-                conn.assigned_coach.user.first_name
-                or conn.assigned_coach.user.username
+            _("You")
+            if is_for_me
+            else (
+                conn.assigned_coach.user.first_name or conn.assigned_coach.user.username
             )
         )
         return {
@@ -3774,14 +3812,12 @@ def _compute_connection_next_action(conn, current_coach):
 
     if conn.status == "coach_reviewing":
         is_for_me = (
-            current_coach is not None
-            and conn.assigned_coach_id == current_coach.id
+            current_coach is not None and conn.assigned_coach_id == current_coach.id
         )
         coach_label = _("You")
         if not is_for_me and conn.assigned_coach:
             coach_label = (
-                conn.assigned_coach.user.first_name
-                or conn.assigned_coach.user.username
+                conn.assigned_coach.user.first_name or conn.assigned_coach.user.username
             )
         if not (conn.coach_introduction or "").strip():
             return {
@@ -3960,9 +3996,7 @@ def coach_connections(request):
         )
         # Flow-aware mutual flag for crush rows (see the annotation above).
         if conn.flow == EventConnection.FLOW_CRUSH:
-            conn.is_mutual_annotated = getattr(
-                conn, "is_mutual_crush_annotated", False
-            )
+            conn.is_mutual_annotated = getattr(conn, "is_mutual_crush_annotated", False)
 
     # Batch-fetch the onboarding coach per user (the coach who approved their
     # ProfileSubmission). Surfaced next to each avatar so the reviewing coach
@@ -4183,9 +4217,9 @@ def coach_connection_review(request, connection_id):
             # Deliberately narrow: only the terminal states are rejected.
             # `accepted` is not a closed state, and legacy rows keep their
             # old behaviour.
-            if (
-                connection.flow == EventConnection.FLOW_CRUSH
-                and connection.status in ("declined", "shared")
+            if connection.flow == EventConnection.FLOW_CRUSH and connection.status in (
+                "declined",
+                "shared",
             ):
                 messages.info(request, _("This lead is closed."))
                 return redirect(
@@ -4382,7 +4416,10 @@ def coach_connection_review(request, connection_id):
                 connection = (
                     EventConnection.objects.select_for_update(of=("self",))
                     .select_related(
-                        "requester", "recipient", "event", "assigned_coach",
+                        "requester",
+                        "recipient",
+                        "event",
+                        "assigned_coach",
                         "recipient_coach",
                     )
                     .get(pk=connection.pk)
@@ -4585,7 +4622,9 @@ def coach_connection_review(request, connection_id):
                     elif connection.recipient_response is not None:
                         messages.info(
                             request,
-                            _("This answer was already recorded and cannot be changed."),
+                            _(
+                                "This answer was already recorded and cannot be changed."
+                            ),
                         )
                     elif _consent_answer(request) is None:
                         # Same validation as `crush_record_consent`: this
@@ -4632,9 +4671,11 @@ def coach_connection_review(request, connection_id):
                         connection.save(update_fields=fields)
                         messages.success(
                             request,
-                            _("Recipient consent recorded.")
-                            if consented
-                            else _("Recipient decline recorded."),
+                            (
+                                _("Recipient consent recorded.")
+                                if consented
+                                else _("Recipient decline recorded.")
+                            ),
                         )
 
                 elif action == "crush_share":
@@ -4777,9 +4818,7 @@ def coach_connection_review(request, connection_id):
         ),
         "recipient_answer": connection.recipient_response,
         # A crush lead has no thread until the introduction is made (§7).
-        "show_conversation": (
-            not is_crush_lead or connection.status == "shared"
-        ),
+        "show_conversation": (not is_crush_lead or connection.status == "shared"),
         "call_outcome_choices": EventConnection.CALL_OUTCOME_CHOICES,
         "can_share_now": connection.can_share_contacts,
         "intro_templates": intro_templates_for_picker,
@@ -5157,9 +5196,11 @@ def coach_verification_channel(request):
     if filter_age_min and filter_age_max and filter_age_min > filter_age_max:
         filter_age_min, filter_age_max = filter_age_max, filter_age_min
 
-    qs = ProfileSubmission.objects.filter(
-        status="pending", coach__isnull=True
-    ).select_related("profile__user").prefetch_related("profile__interests_new")
+    qs = (
+        ProfileSubmission.objects.filter(status="pending", coach__isnull=True)
+        .select_related("profile__user")
+        .prefetch_related("profile__interests_new")
+    )
 
     if filter_region:
         qs = qs.filter(profile__location__icontains=filter_region)
@@ -5183,8 +5224,7 @@ def coach_verification_channel(request):
 
     if filter_lang:
         channel = [
-            s for s in channel
-            if filter_lang in (s.profile.event_languages or [])
+            s for s in channel if filter_lang in (s.profile.event_languages or [])
         ]
 
     coach_langs = set(coach.spoken_languages or [])
@@ -5222,7 +5262,9 @@ def coach_verification_channel(request):
         "filter_region": filter_region,
         "filter_age_min": filter_age_min,
         "filter_age_max": filter_age_max,
-        "has_filters": bool(filter_lang or filter_region or filter_age_min or filter_age_max),
+        "has_filters": bool(
+            filter_lang or filter_region or filter_age_min or filter_age_max
+        ),
         "language_options": list(CrushCoach.LANGUAGE_DISPLAY.items()),
     }
     return render(request, "crush_lu/coach_verification_channel.html", context)
@@ -5304,6 +5346,7 @@ def api_coach_claim_submission(request):
 # =========================================================================
 # "My Crush!" recipient-side co-coach task (spec §5)
 # =========================================================================
+
 
 @coach_required
 @require_http_methods(["GET", "POST"])
@@ -5521,7 +5564,9 @@ def coach_crush_outreach_task(request, connection_id):
                     _("This answer was already recorded and cannot be changed."),
                 )
 
-        return redirect("crush_lu:coach_crush_outreach_task", connection_id=connection.id)
+        return redirect(
+            "crush_lu:coach_crush_outreach_task", connection_id=connection.id
+        )
 
     return render(
         request,

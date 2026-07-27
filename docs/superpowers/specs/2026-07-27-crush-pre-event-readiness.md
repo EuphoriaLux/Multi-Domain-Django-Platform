@@ -129,12 +129,13 @@ Two things that follow:
       **Coach: Tom Swayer (pk 1)**. The non-repairable inactive-coach case is
       therefore clear; every newly-coached attendee gets Tom Swayer.
 
-`completed` is the right choice: it requires a profile, so the profile-less path
-below **cannot arise for anyone registering from now on**, while still admitting
-the member who has built their profile and verified their phone but is not yet
-verified — the LuxID-less attendee who gets verified in person at the door.
+**If you do switch it to `completed`**, that is the right target: it requires a
+profile, so the profile-less path below cannot arise for anyone registering
+afterwards, while still admitting the member who has built their profile and
+verified their phone but is not yet verified — the LuxID-less attendee verified
+in person at the door.
 
-- [ ] **But the change does not revalidate registrations already taken.**
+- [ ] **A change would not revalidate registrations already taken.**
       `profile_requirement` is enforced in `event_register` only, at the moment
       of registering. Anyone who registered while the event was `none` keeps
       their confirmed registration; the QR check-in endpoint never re-checks
