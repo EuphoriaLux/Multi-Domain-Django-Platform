@@ -167,12 +167,28 @@ def event_list(request):
     )
     upcoming_events = [e for e in upcoming_events if e.end_time >= now]
 
-    past_events = list(
+    boundary_past = [
+        event
+        for event in MeetupEvent.objects.with_registration_counts()
+        .filter(
+            is_published=True,
+            is_cancelled=False,
+            date_time__gte=generous_cutoff,
+            date_time__lt=now,
+        )
+        .order_by("-date_time")
+        if event.end_time < now
+    ]
+    older_past = list(
         MeetupEvent.objects.with_registration_counts()
-        .filter(is_published=True, is_cancelled=False, date_time__lt=now)
-        .order_by("-date_time")[:50]
+        .filter(
+            is_published=True,
+            is_cancelled=False,
+            date_time__lt=generous_cutoff,
+        )
+        .order_by("-date_time")[:10]
     )
-    past_events = [e for e in past_events if e.end_time < now][:10]
+    past_events = (boundary_past + older_past)[:10]
 
     visible_upcoming = _filter_private_events(upcoming_events, request.user)
     visible_past = _filter_private_events(past_events, request.user)
