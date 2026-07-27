@@ -2431,9 +2431,14 @@ def assign_coach_on_first_attendance(sender, instance, created, **kwargs):
     Premium gates (``coach_assigned`` events and Crush Connect) depend on
     ``CrushProfile.assigned_coach``. This is the path that earns it: when a
     registration is marked "attended" and the member has no coach yet, the
-    event's first assigned coach becomes their permanent coach. Idempotent —
-    once a coach is assigned the member keeps it, and events with no coaches
-    simply leave the member unassigned until a coached event is attended.
+    coach who scanned them in (``instance._checkin_coach``, set by
+    ``views_checkin.event_checkin_api``) becomes their permanent coach —
+    the person who actually met them at the door, not whoever happens to be
+    first in the event's coach list. Anonymous/admin attendance transitions
+    carry no scanner and fall back to the event's first assigned coach.
+    Idempotent — once a coach is assigned the member keeps it, and events
+    with no coaches simply leave the member unassigned until a coached event
+    is attended.
     """
     if instance.status != "attended":
         return
@@ -2442,7 +2447,7 @@ def assign_coach_on_first_attendance(sender, instance, created, **kwargs):
     if profile is None or profile.assigned_coach_id:
         return
 
-    coach = instance.event.coaches.first()
+    coach = getattr(instance, "_checkin_coach", None) or instance.event.coaches.first()
     if coach is None:
         return
 
