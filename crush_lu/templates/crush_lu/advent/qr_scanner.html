@@ -215,6 +215,28 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         );
+        function diagnoseCameraFailure() {
+            // qr-scanner collapses every getUserMedia failure into "Camera
+            // not found." — denied permission still enumerates cameras
+            // (unlabeled), so probe before blaming the hardware.
+            var byDevices = function () {
+                QrScanner.hasCamera().then(function (has) {
+                    showWarning(has ? msgCameraDenied : msgNoCamera);
+                }).catch(function () { showWarning(msgNoCamera); });
+            };
+            if (navigator.permissions && navigator.permissions.query) {
+                navigator.permissions.query({ name: 'camera' }).then(function (status) {
+                    if (status.state === 'denied') {
+                        showWarning(msgCameraDenied);
+                    } else {
+                        byDevices();
+                    }
+                }).catch(byDevices);
+            } else {
+                byDevices();
+            }
+        }
+
         scanner.start().then(function () {
             scanner.hasFlash().then(function (has) {
                 if (has && torchBtn) torchBtn.hidden = false;
@@ -223,7 +245,10 @@ document.addEventListener('DOMContentLoaded', function() {
             var errStr = String(err);
             if (errStr.indexOf('NotAllowedError') !== -1 || errStr.indexOf('Permission') !== -1) {
                 showWarning(msgCameraDenied);
-            } else if (errStr.indexOf('NotFoundError') !== -1 || errStr.indexOf('DevicesNotFound') !== -1 || errStr.indexOf('Camera not found') !== -1) {
+            } else if (errStr.indexOf('Camera not found') !== -1) {
+                showWarning(msgNoCamera);
+                diagnoseCameraFailure();
+            } else if (errStr.indexOf('NotFoundError') !== -1 || errStr.indexOf('DevicesNotFound') !== -1) {
                 showWarning(msgNoCamera);
             } else {
                 showWarning(msgCameraError);
