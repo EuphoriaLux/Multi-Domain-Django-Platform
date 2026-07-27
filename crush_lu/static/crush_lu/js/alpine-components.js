@@ -438,6 +438,7 @@ document.addEventListener("alpine:init", function () {
             ws: null,
             connected: false,
             reconnectAttempts: 0,
+            stableTimer: null,
             eventId: 0,
 
             // Toast state
@@ -647,15 +648,29 @@ document.addEventListener("alpine:init", function () {
                 this.ws = new WebSocket(url);
                 this.ws.onopen = function () {
                     self.connected = true;
-                    self.reconnectAttempts = 0;
+                    // Only count this as healthy once it has SURVIVED a while.
+                    // The channel layer can accept a socket and then drop it a
+                    // few seconds later (idle blocking-read timeout); resetting
+                    // the counter on open alone turned that into a permanent
+                    // ~6s reconnect loop that never backed off and never
+                    // reached the attempt cap — every open coach phone hammered
+                    // the server all evening.
+                    clearTimeout(self.stableTimer);
+                    self.stableTimer = setTimeout(function () {
+                        self.reconnectAttempts = 0;
+                    }, 30000);
                 };
                 this.ws.onclose = function () {
                     self.connected = false;
+                    clearTimeout(self.stableTimer);
                     if (self.reconnectAttempts >= 20) return;
-                    var delay = Math.min(
+                    // Jitter: several coaches open the wizard at once at the
+                    // door, and lockstep retries would arrive as one burst.
+                    var base = Math.min(
                         1000 * Math.pow(2, self.reconnectAttempts),
                         30000,
                     );
+                    var delay = base * (0.8 + Math.random() * 0.4);
                     self.reconnectAttempts++;
                     setTimeout(function () {
                         self.connectWebSocket();
