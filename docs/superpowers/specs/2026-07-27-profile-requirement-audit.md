@@ -52,7 +52,7 @@ confusion:
 | **S3** | Profile, `pending`, **phone verified** — the LuxID-less member who gets verified in person at the door |
 | **S4** | Profile, `verified` via **LuxID** |
 | **S5** | Profile, `verified` via **coach at event** |
-| **S6** | Profile, `verified` **+ assigned coach** (premium) |
+| **S6** | Profile, `verified` **+ assigned coach** — a *service relationship*, **not** Premium (see F6) |
 | **S7** | Profile, `rejected` |
 
 ## 4. Who each option actually admits
@@ -67,6 +67,23 @@ confusion:
 | **unverified** — "Unverified profile only" | ✗ | ✅ | ✅ | ✅ | ✗ | ✗ | ✗ | **✅** ⚠ |
 | **profile_exists** — "Profile must exist" | ✗ | ✅ | ✅ | ✅ | **✗** ⚠ | **✗** ⚠ | **✗** ⚠ | **✅** ⚠ |
 | **none** — "No profile required" | **✅** ⚠ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+**The whole matrix assumes no other event restrictions.** `profile_requirement`
+is not the only gate in `event_register`. Two later checks can reject a member
+the table marks ✅ — and both reject a *missing profile* outright, so they
+narrow the S0 row in particular:
+
+- **Age** — `event_has_age_restriction = min_age > 18 or max_age < 99`
+  (`views_events.py:941`). When true, `profile is None` is rejected, so S0
+  cannot register **even under `none`**.
+- **Languages** — a non-empty `event.languages` list routes through
+  `user_meets_language_requirement()`, which rejects a user with no profile
+  (`models/events.py:619-627`).
+
+For **event 12** neither applies — min 18 / max 99 (so the restriction flag is
+false) and no languages selected — which is why its S0 cohort is real rather
+than theoretical. For any other event, read the matrix as "subject to the age
+and language gates".
 
 ¹ **`completed` does not universally require `phone_verified`.** The gate is
 `verification_status == "verified" OR (verification_status == "pending" AND
@@ -128,11 +145,37 @@ Together with F3 this makes **two** independent paths by which a rejected
 profile registers, so the fix in §6 must gate on `verification_status` in this
 branch too, not only in the two loose ones.
 
+### F6 — `coach_assigned` is labelled "Premium" but does not check Premium
+
+The option reads "Premium member — coach assigned", and the gate gates on
+`assigned_coach_id` alone. But an assigned coach is **not** the Premium
+entitlement. `CrushProfile.has_active_premium` says so in its own docstring
+(`models/profiles.py:1024-1035`):
+
+> This — not `assigned_coach` — is the Premium entitlement. A coach can be
+> assigned without payment (the 0150 backfill, the attendance auto-assign
+> signal), so `assigned_coach` only expresses the service relationship
+
+Every attendee who has attended a coached event is auto-assigned a coach by
+`assign_coach_on_first_attendance` — without paying anything. So an organiser
+who picks the option named "Premium" to restrict an event to paying members
+**admits every past attendee instead**. That is the inverse of F1: there the
+label was stricter than the gate, here it is looser, and this one leaks paid
+access rather than blocking members.
+
+The fix is either to gate on `has_active_premium` (a behaviour change — decide
+deliberately, since it would exclude the coach-assigned non-payers who can
+register today) or to rename the option to "Member with an assigned coach" and
+add a separate genuinely-Premium level. Not a doc-only fix; flagged for the
+same PR as §6.
+
 ### F5 — `none` is the only option admitting S0
 
 Everything discussed for event 12 (profile-less attendee → no coach assigned →
-unrouted lead in the pool) follows solely from this option. Every other value
-guarantees a `CrushProfile` exists.
+unrouted lead in the pool) follows solely from this option — and only because
+event 12 also has no age or language restriction to catch the missing profile
+downstream (see the note under the matrix). Every other `profile_requirement`
+value guarantees a `CrushProfile` exists regardless of those gates.
 
 ## 6. Recommended fix
 

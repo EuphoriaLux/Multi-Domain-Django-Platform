@@ -21,13 +21,31 @@ slot-swap runbook in the memory hub.
 **This is the highest-risk untested path and it is event-day-critical.**
 Marking a registration `attended` is what assigns a member's *permanent* coach,
 and the coach chosen is `event.coaches.first()` — **not** the person operating
-the scanner. It fires once per registration.
+the scanner. It assigns **only while the member has no coach yet** — once
+`assigned_coach_id` is set the receiver bails, so the first assignment sticks.
+
+That asymmetry decides what is repairable on the night:
+
+- **No coach assigned** (the event had none attached) → **repairable.** Attach a
+  coach, re-save the attended registration, and the receiver runs.
+- **Wrong or inactive coach assigned** → **not** repairable that way. The
+  receiver bails on the existing `assigned_coach_id`, so re-saving does nothing
+  and the profile has to be corrected directly.
 
 - [x] **Confirm the event has at least one coach attached.** ✅ **Done
       2026-07-27** — production event **12** has four: Tom Swayer, Wesley,
       Matilde, Natascha. So nobody lands coachless for want of an assignment.
-      An event with *no* coaches assigns **nobody**, silently, and because the
-      signal fires once per registration, re-running check-in never repairs it.
+      An event with *no* coaches assigns **nobody**, silently, and **re-scanning
+      does not repair it** — the QR endpoint returns early on a repeat scan
+      (`views_checkin.py:91-110`), so the signal never runs again from the door.
+
+      **It is recoverable, though, and this is worth knowing on the night.**
+      `assign_coach_on_first_attendance` is an unconditional `post_save`
+      receiver guarded only on `status == "attended"` and "no coach yet"
+      (`signals.py:2416-2441`) — not a once-ever hook. So after attaching a
+      coach to the event, an operator can **re-save the attended registration**
+      (admin, or `reg.save()`) and the assignment runs then. The mistake costs a
+      repair step, not the member's coach.
       ```
       python manage.py shell -c "from crush_lu.models import MeetupEvent; e=MeetupEvent.objects.get(id=12); print(e.title, list(e.coaches.all()))"
       ```
@@ -38,7 +56,10 @@ the scanner. It fires once per registration.
       My Crush routing then explicitly *skips* an inactive permanent coach
       (`models/connections.py:703-705`), so the member ends up holding an
       unusable assignment while their leads route elsewhere, and the ticked box
-      above would have hidden it. Check the selected row, not just the count:
+      above would have hidden it. **This is the non-repairable case** — once a
+      coach is set the receiver bails, so a re-save will not correct it and the
+      profiles have to be fixed by hand. Check the selected row *before* the
+      doors open, not just the count:
       ```
       python manage.py shell -c "from crush_lu.models import MeetupEvent; c=MeetupEvent.objects.get(id=12).coaches.first(); print(c, 'is_active=', c.is_active if c else None)"
       ```
