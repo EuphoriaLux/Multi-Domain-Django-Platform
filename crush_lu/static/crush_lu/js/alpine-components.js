@@ -432,6 +432,7 @@ document.addEventListener("alpine:init", function () {
             torchAvailable: false,
             torchOn: false,
             scanBusy: false,
+            startPending: false,
 
             // WebSocket state
             ws: null,
@@ -883,9 +884,18 @@ document.addEventListener("alpine:init", function () {
                     );
                 }
 
+                // Tapping Start twice while the first getUserMedia() prompt is
+                // still pending makes qr-scanner's second start() resolve at
+                // once (it already considers itself active), so without this
+                // guard a later denial would leave the button stuck on "Stop
+                // Scanner" for a scanner that never started.
+                if (self.startPending) return;
+                self.startPending = true;
+
                 self.scanner
                     .start()
                     .then(function () {
+                        self.startPending = false;
                         self.scannerActive = true;
                         self.scanBusy = false;
                         // Torch is only exposed on supporting devices
@@ -900,6 +910,13 @@ document.addEventListener("alpine:init", function () {
                             });
                     })
                     .catch(function (err) {
+                        self.startPending = false;
+                        // A failed start leaves nothing running — clear the
+                        // active flag so the button offers Start again rather
+                        // than a Stop for a dead scanner.
+                        self.scannerActive = false;
+                        self.torchAvailable = false;
+                        self.torchOn = false;
                         self.result = true;
                         self.errorState = true;
                         var errStr = String(err);
@@ -989,6 +1006,7 @@ document.addEventListener("alpine:init", function () {
                 self.torchAvailable = false;
                 self.torchOn = false;
                 self.scanBusy = false;
+                self.startPending = false;
                 var readerEl = document.getElementById("qr-reader");
                 if (readerEl) readerEl.style.display = "none";
             },
