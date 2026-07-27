@@ -57,10 +57,22 @@ raises an error when skipped.
 - [ ] **Set the three Function App settings** on `crush-hybrid-maintenance`, in
       the order `_call_admin_endpoint()` checks them:
       `HYBRID_MAINTENANCE_ENABLED="true"` (literal string), then
-      `DJANGO_CRUSH_LEAD_REMINDERS_URL`, then `ADMIN_API_KEY`. The first two fail
-      as **silent early returns**; a *mismatched* `ADMIN_API_KEY` instead fails
-      loudly (Django 401 → failed Azure invocation), so check the Function's own
-      logs, not Django's.
+      `DJANGO_CRUSH_LEAD_REMINDERS_URL`, then `ADMIN_API_KEY`.
+
+      **All three fail the same silent way when *missing*.** Each is its own
+      early `return` that logs and exits without raising
+      (`function_app.py:66-74`), so Azure records the invocation as
+      **successful** while Django is never called — including for a missing
+      `ADMIN_API_KEY`. They are checked in the order listed and each returns, so
+      with several unset **only the first is logged**: fixing one can simply
+      reveal the next.
+
+      The single loud case is an `ADMIN_API_KEY` that is *present but wrong*:
+      Django answers 401, `raise_for_status()` raises, and the exception is
+      re-raised (`function_app.py:99-103`), so Azure marks the invocation
+      **failed**. So a *failed* invocation means a wrong key; a *successful*
+      invocation proves nothing on its own — read the Function's own logs, not
+      Django's, and confirm it actually reached Django.
 
 ### 1.3 The reminder sweep, on staging
 
