@@ -1,5 +1,5 @@
 {% extends 'crush_lu/base.html' %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "Check-In" %} - {{ event.title }} - Crush.lu{% endblock %}
 {% block meta_robots %}noindex, nofollow{% endblock %}
@@ -61,16 +61,27 @@
     {# Scanner Controls #}
     <div class="flex items-center justify-between mb-4">
         <h3 class="font-semibold text-lg dark:text-white">{% trans "QR Scanner" %}</h3>
-        <button @click="toggleScanner" class="btn-crush-primary inline-flex items-center gap-2 px-4 py-2 text-sm">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
-            </svg>
-            <span x-text="scannerButtonText"></span>
-        </button>
+        <div class="flex items-center gap-2">
+            <button x-show="torchIsAvailable" @click="toggleTorch" style="display: none;" class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+                <span x-text="torchButtonText"></span>
+            </button>
+            <button @click="toggleScanner" class="btn-crush-primary inline-flex items-center gap-2 px-4 py-2 text-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
+                </svg>
+                <span x-text="scannerButtonText"></span>
+            </button>
+        </div>
     </div>
 
-    {# Camera viewport #}
-    <div id="qr-reader" class="mb-4 rounded-lg overflow-hidden" style="display: none;"></div>
+    {# Camera viewport — qr-scanner attaches to the video and injects its
+       scan-region overlay into the relative-positioned wrapper #}
+    <div id="qr-reader" class="relative mb-4 rounded-lg overflow-hidden" style="display: none;">
+        <video id="qr-video" class="w-full rounded-lg" playsinline></video>
+    </div>
 
     {# Scan Result Feedback #}
     <div x-show="hasResult" class="mb-4" style="display: none;">
@@ -246,8 +257,10 @@
 }
 </style>
 
-{# html5-qrcode library #}
-<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+{# qr-scanner (nimiq) — vendored so the door scanner works without internet.
+   The worker file is resolved relative to this script's URL, so both files
+   live side by side under vendor/qr-scanner/. #}
+<script src="{% static 'crush_lu/vendor/qr-scanner/qr-scanner.umd.min.js' %}"></script>
 <script>
 window._checkinI18n = {
     checkedIn: '{% filter escapejs %}{% trans "Checked In" %}{% endfilter %}',
@@ -258,7 +271,9 @@ window._checkinI18n = {
     unverified: '{% filter escapejs %}{% trans "Unverified Profile" %}{% endfilter %}',
     coach: '{% filter escapejs %}{% trans "Coach" %}{% endfilter %}',
     verifyAction: '{% filter escapejs %}{% trans "Verify" %}{% endfilter %}',
-    verifyFailed: '{% filter escapejs %}{% trans "Verification failed" %}{% endfilter %}'
+    verifyFailed: '{% filter escapejs %}{% trans "Verification failed" %}{% endfilter %}',
+    torchOn: '{% filter escapejs %}{% trans "Flash On" %}{% endfilter %}',
+    torchOff: '{% filter escapejs %}{% trans "Flash Off" %}{% endfilter %}'
 };
 var _tableAssignments = {{ table_assignments_json|safe }};
 var _tableFill = {{ table_fill_json|safe }};
