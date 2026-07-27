@@ -398,3 +398,63 @@ def test_luxid_does_not_overwrite_a_scan_that_verified_first(event, coach):
 
     profile.refresh_from_db()
     assert profile.verification_method == "coach_event"
+
+
+# ---------------------------------------------------------------------------
+# Coach assignment: the scanner, not the coach-list order, decides who you get
+# ---------------------------------------------------------------------------
+
+
+def _second_coach():
+    """A later-created (higher-pk) coach, so `event.coaches.first()` is NOT it."""
+    user = User.objects.create_user(
+        username="secondcoach@t.test", email="secondcoach@t.test", password="pw12345678"
+    )
+    UserDataConsent.objects.update_or_create(
+        user=user, defaults={"crushlu_consent_given": True}
+    )
+    return CrushCoach.objects.create(user=user, bio="s", is_active=True)
+
+
+def test_scanning_coach_becomes_the_assigned_coach(event, coach):
+    """The member's permanent coach is whoever actually met them at the door.
+
+    `assign_coach_on_first_attendance` used to take `event.coaches.first()`,
+    linking the member to whichever coach happened to sort first — not the one
+    who checked them in.
+    """
+    scanner = _second_coach()
+    event.coaches.add(coach, scanner)
+    profile, reg = _attendee(event, "assignscan")
+
+    response = _scan(reg, event, as_coach=scanner)
+
+    assert response.status_code == 200
+    profile.refresh_from_db()
+    assert event.coaches.first() == coach  # the scanner is NOT first in the list
+    assert profile.assigned_coach_id == scanner.id
+    assert profile.assigned_coach_at is not None
+
+
+def test_anonymous_scan_still_assigns_the_events_first_coach(event, coach):
+    """No coach session on the request -> the legacy fallback stands."""
+    scanner = _second_coach()
+    event.coaches.add(coach, scanner)
+    profile, reg = _attendee(event, "assignanon")
+
+    _scan(reg, event, as_coach=None)
+
+    profile.refresh_from_db()
+    assert profile.assigned_coach_id == coach.id
+
+
+def test_existing_coach_is_never_reassigned_by_a_scan(event, coach):
+    scanner = _second_coach()
+    event.coaches.add(coach, scanner)
+    profile, reg = _attendee(event, "assignkeep")
+    CrushProfile.objects.filter(pk=profile.pk).update(assigned_coach=coach)
+
+    _scan(reg, event, as_coach=scanner)
+
+    profile.refresh_from_db()
+    assert profile.assigned_coach_id == coach.id

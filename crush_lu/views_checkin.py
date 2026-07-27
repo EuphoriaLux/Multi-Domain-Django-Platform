@@ -430,6 +430,10 @@ def event_checkin_api(request, registration_id, token):
                     )
                 )
             return JsonResponse(response_data)
+        # The scanning coach becomes the member's permanent coach (when they
+        # have none): read by `assign_coach_on_first_attendance` during the
+        # save below, in preference to `event.coaches.first()`.
+        registration._checkin_coach = _scanning_coach(request)
         registration.status = "attended"
         registration.checked_in_at = now
         registration.save(update_fields=["status", "checked_in_at", "updated_at"])
