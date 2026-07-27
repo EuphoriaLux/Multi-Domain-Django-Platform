@@ -298,10 +298,16 @@ Detail and rationale in `2026-07-25-crush-my-crush-staging-verification.md`.
       - **Gitignoring the file would ship production with no CSS.** The option
         floated earlier is actively harmful and must not be taken.
 
-      The real fix is to make the pipeline authoritative: either build CSS inside
-      the `deploy` job before `collectstatic`, or upload the `build` job's output
-      as an artifact and download it in `deploy`. Only once the pipeline
-      genuinely produces the CSS does untracking it become safe.
+      **FIXED** — the `build` job now uploads all four platform bundles as a
+      `built-css` artifact and `deploy` downloads them after checkout and before
+      `collectstatic`, with `if-no-files-found: error` and an explicit
+      non-empty check so a silent regression fails the deploy instead of
+      shipping stale CSS again.
+
+      Untracking `tailwind.css` becomes *technically* safe once that lands, but
+      it is still not recommended: the file is useful for local dev without a
+      build step, and keeping it tracked means the artifact and the repo can be
+      diffed against each other. Revisit deliberately, not as a side effect.
 - [ ] **Reminder sweep for pool leads is deliberately not built** (§10.1). A
       coach who never opens their inbox learns nothing about an unclaimed lead.
       Open ops question, not an oversight.
