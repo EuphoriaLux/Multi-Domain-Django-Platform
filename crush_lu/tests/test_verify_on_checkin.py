@@ -206,3 +206,78 @@ def test_rejected_profile_is_not_verified_by_attending(event, coach):
     assert response.json()["auto_verified"] is False
     profile.refresh_from_db()
     assert profile.verification_status == "rejected"
+
+
+def test_referral_reward_and_welcome_email_fire(
+    event, coach, monkeypatch, django_capture_on_commit_callbacks
+):
+    """The auto-verify must run the same side effects as the Verify button.
+
+    Event verification is the primary path for new members, so skipping these
+    silently stops paying referrers and stops welcoming people.
+
+    The side effects are deferred with `transaction.on_commit` so an email is
+    never sent for a rolled-back check-in — which also means the test must
+    capture and run those callbacks, since pytest rolls its transaction back.
+    """
+    calls = {"reward": 0, "notify": 0}
+    import crush_lu.referrals as referrals
+    import crush_lu.notification_service as notifications
+
+    monkeypatch.setattr(
+        referrals,
+        "check_and_apply_profile_approved_reward",
+        lambda profile: calls.__setitem__("reward", calls["reward"] + 1),
+    )
+    monkeypatch.setattr(
+        notifications,
+        "notify_profile_approved",
+        lambda **kw: calls.__setitem__("notify", calls["notify"] + 1),
+    )
+
+    _profile, reg = _attendee(event, "sideeffects")
+    with django_capture_on_commit_callbacks(execute=True):
+        assert _scan(reg, event, as_coach=coach).json()["auto_verified"] is True
+    assert calls == {"reward": 1, "notify": 1}
+
+
+def test_pending_submission_is_approved_by_the_auto_verify(event, coach):
+    """Not just the profile fields — the submission must close too."""
+    from crush_lu.models import ProfileSubmission
+
+    profile, reg = _attendee(event, "submission")
+    sub = ProfileSubmission.objects.create(profile=profile, status="pending")
+
+    assert _scan(reg, event, as_coach=coach).json()["auto_verified"] is True
+    sub.refresh_from_db()
+    assert sub.status == "approved"
+    assert sub.reviewed_at is not None
+    assert sub.coach_id == coach.id
+
+
+def test_rescan_by_a_coach_verifies_a_self_scanned_attendee(event, coach):
+    """A first scan without a coach session must not strand them unverified."""
+    profile, reg = _attendee(event, "rescan")
+
+    first = _scan(reg, event, as_coach=None).json()
+    assert first["auto_verified"] is False
+    profile.refresh_from_db()
+    assert profile.verification_status == "pending"
+
+    second = _scan(reg, event, as_coach=coach).json()
+    assert second["already_checked_in"] is True
+    assert second["auto_verified"] is True
+    profile.refresh_from_db()
+    assert profile.verification_status == "verified"
+    assert profile.verification_method == "coach_event"
+
+
+def test_rescan_of_an_already_verified_attendee_reports_no_new_verification(
+    event, coach
+):
+    profile, reg = _attendee(event, "rescan2")
+    _scan(reg, event, as_coach=coach)
+
+    again = _scan(reg, event, as_coach=coach).json()
+    assert again["already_checked_in"] is True
+    assert again["auto_verified"] is False

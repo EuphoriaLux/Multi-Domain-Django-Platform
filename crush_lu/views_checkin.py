@@ -21,7 +21,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from .decorators import coach_required
-from .models import CrushProfile, EventRegistration
+from .models import CrushProfile, EventRegistration, ProfileSubmission
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +45,90 @@ def _scanning_coach(request):
     return coach if coach is not None and coach.is_active else None
 
 
+def _apply_verification(profile, method, coach, now):
+    """Persist a verification — fields AND the pending submission.
+
+    Shared by the manual Verify button and the auto-verify on attendance so the
+    two cannot drift: an earlier version of the auto-verify wrote only the
+    profile fields, silently skipping the submission approval (and the referral
+    reward and welcome email in `_run_post_verification_side_effects`). Because
+    it marked the profile verified immediately, the manual path that does that
+    work would never run afterwards.
+
+    DB writes only — safe to call inside a transaction. Run the side effects
+    after it commits.
+    """
+    profile.is_approved = True
+    profile.approved_at = now
+    profile.verification_status = "verified"
+    profile.verification_method = method
+    profile.save(
+        update_fields=[
+            "is_approved",
+            "approved_at",
+            "verification_status",
+            "verification_method",
+        ]
+    )
+
+    # Approve a pending submission opportunistically, gated on the
+    # expired-latest invariant: when the newest row was closed out by the pivot
+    # cleanup (latest_for_profile returns None), the member is a self-serve
+    # case — never resurrect an older pending row.
+    submission = None
+    if ProfileSubmission.latest_for_profile(profile) is not None:
+        submission = (
+            ProfileSubmission.objects.filter(profile=profile, status="pending")
+            .order_by("-submitted_at")
+            .first()
+        )
+    if submission:
+        submission.status = "approved"
+        submission.reviewed_at = now
+        submission.review_call_completed = True
+        if not submission.coach_id:
+            submission.coach = coach
+        submission.coach_notes = (
+            (submission.coach_notes + "\n" if submission.coach_notes else "")
+            + "Verified in person at event by coach"
+        ).strip()
+        submission.save(
+            update_fields=[
+                "status",
+                "reviewed_at",
+                "coach_notes",
+                "review_call_completed",
+                "coach",
+            ]
+        )
+
+
+def _run_post_verification_side_effects(user, profile, request, ref):
+    """Referral credit + welcome email. Call AFTER the transaction commits.
+
+    Event verification is the primary path for new members, so skipping these
+    would silently stop paying referrers and stop welcoming people. Both are
+    best-effort: neither may break the door flow.
+    """
+    try:
+        from .referrals import check_and_apply_profile_approved_reward
+
+        check_and_apply_profile_approved_reward(profile)
+    except Exception:
+        logger.warning(
+            "Failed to apply profile-approved referral reward for registration %s", ref
+        )
+
+    try:
+        from .notification_service import notify_profile_approved
+
+        notify_profile_approved(
+            user=user, profile=profile, coach_notes=None, request=request
+        )
+    except Exception:
+        logger.warning("Failed to send approval notification for registration %s", ref)
+
+
 def _auto_verify_on_attendance(request, registration, now):
     """Verify a `pending` profile because a coach checked them in at the door.
 
@@ -60,37 +144,28 @@ def _auto_verify_on_attendance(request, registration, now):
       an identity there is nothing on screen to compare. Verification would be
       asserting something nobody checked.
 
-    Returns True when the profile was verified here.
+    Returns the verified profile (so the caller can run the side effects once
+    the transaction commits), or ``None``.
     """
-    if _scanning_coach(request) is None:
-        return False
+    coach = _scanning_coach(request)
+    if coach is None:
+        return None
 
     profile = CrushProfile.objects.filter(user_id=registration.user_id).first()
     if profile is None or profile.verification_status != "pending":
-        return False
+        return None
     if profile.has_active_premium:
-        return False
+        return None
     if not profile.photo_1:
-        return False
+        return None
 
-    profile.is_approved = True
-    profile.approved_at = now
-    profile.verification_status = "verified"
-    profile.verification_method = "coach_event"
-    profile.save(
-        update_fields=[
-            "is_approved",
-            "approved_at",
-            "verification_status",
-            "verification_method",
-        ]
-    )
+    _apply_verification(profile, "coach_event", coach, now)
     logger.info(
         "[CHECKIN-VERIFY] Verified profile pk=%s via attendance at event pk=%s",
         profile.pk,
         registration.event_id,
     )
-    return True
+    return profile
 
 
 @csrf_exempt
@@ -157,6 +232,24 @@ def event_checkin_api(request, registration_id, token):
 
     # Check if already attended
     if registration.status == "attended":
+        # A re-scan must still verify. Two ways to be here with a pending
+        # profile: the first scan carried no coach session (the self-scan this
+        # endpoint deliberately still allows), or the row was marked attended
+        # before this feature existed. Without this the coach is silently back
+        # to tapping Verify.
+        # `now` is only bound below, with the check-in window check.
+        with transaction.atomic():
+            rescan_verified = _auto_verify_on_attendance(
+                request, registration, timezone.now()
+            )
+        if rescan_verified is not None:
+            # `registration` was loaded with `user__crushprofile` selected, so
+            # its cached profile predates the write above — re-read it or the
+            # toast would report the attendee as still unverified.
+            registration = EventRegistration.objects.select_related(
+                "event", "user", "user__crushprofile"
+            ).get(id=registration_id)
+
         display_name = _get_display_name(registration)
         response_data = {
             "success": True,
@@ -170,10 +263,16 @@ def event_checkin_api(request, registration_id, token):
             ),
             "message": f"{display_name} was already checked in.",
             "profile": _get_profile_data(registration),
+            "auto_verified": rescan_verified is not None,
         }
         table_info = _get_existing_table_assignment(registration)
         if table_info:
             response_data.update(table_info)
+        if rescan_verified is not None:
+            _run_post_verification_side_effects(
+                registration.user, rescan_verified, request, registration.id
+            )
+            _broadcast_checkin(registration.event_id, response_data)
         return JsonResponse(response_data)
 
     # Verify status is confirmed
@@ -213,6 +312,14 @@ def event_checkin_api(request, registration_id, token):
             .get(id=registration_id)
         )
         if registration.status == "attended":
+            # A re-scan must still be able to verify. Two ways to arrive here
+            # with a pending profile: the first scan carried no coach session
+            # (the self-scan case this endpoint deliberately still allows), or
+            # the registration was marked attended before this feature existed.
+            # Without this the coach is silently back to tapping Verify.
+            already_verified_profile = _auto_verify_on_attendance(
+                request, registration, now
+            )
             display_name = _get_display_name(registration)
             response_data = {
                 "success": True,
@@ -226,17 +333,36 @@ def event_checkin_api(request, registration_id, token):
                 ),
                 "message": f"{display_name} was already checked in.",
                 "profile": _get_profile_data(registration),
+                "auto_verified": already_verified_profile is not None,
             }
             table_info = _get_existing_table_assignment(registration)
             if table_info:
                 response_data.update(table_info)
+            if already_verified_profile is not None:
+                transaction.on_commit(
+                    lambda: _run_post_verification_side_effects(
+                        registration.user,
+                        already_verified_profile,
+                        request,
+                        registration.id,
+                    )
+                )
             return JsonResponse(response_data)
         registration.status = "attended"
         registration.checked_in_at = now
         registration.save(update_fields=["status", "checked_in_at", "updated_at"])
 
-        # Attending IS the verification, for the ordinary case.
-        auto_verified = _auto_verify_on_attendance(request, registration, now)
+        # Attending IS the verification, for the ordinary case. Side effects
+        # (referral credit, welcome email) run on commit — never inside the
+        # transaction, or a rollback would leave the email already sent.
+        verified_profile = _auto_verify_on_attendance(request, registration, now)
+        auto_verified = verified_profile is not None
+        if auto_verified:
+            transaction.on_commit(
+                lambda: _run_post_verification_side_effects(
+                    registration.user, verified_profile, request, registration.id
+                )
+            )
 
         # Quiz table assignment (if this is a quiz night event)
         try:
@@ -316,8 +442,6 @@ def coach_mark_verified(request, event_id, registration_id):
     For a premium member (one with an ``assigned_coach``) only that assigned
     coach may verify them, and the method is recorded as ``premium_coach``.
     """
-    from .models import ProfileSubmission
-
     coach = request.coach
     now = timezone.now()
 
@@ -387,49 +511,9 @@ def coach_mark_verified(request, event_id, registration_id):
                 }
             )
 
-        profile.is_approved = True
-        profile.approved_at = now
-        profile.verification_status = "verified"
-        profile.verification_method = method
-        profile.save(
-            update_fields=[
-                "is_approved",
-                "approved_at",
-                "verification_status",
-                "verification_method",
-            ]
-        )
-
-        # Approve a pending submission opportunistically, gated on the
-        # expired-latest invariant: when the newest row was closed out by
-        # the pivot cleanup (latest_for_profile returns None), the member
-        # is a self-serve case — never resurrect an older pending row.
-        submission = None
-        if ProfileSubmission.latest_for_profile(profile) is not None:
-            submission = (
-                ProfileSubmission.objects.filter(profile=profile, status="pending")
-                .order_by("-submitted_at")
-                .first()
-            )
-        if submission:
-            submission.status = "approved"
-            submission.reviewed_at = now
-            submission.review_call_completed = True
-            if not submission.coach_id:
-                submission.coach = coach
-            submission.coach_notes = (
-                (submission.coach_notes + "\n" if submission.coach_notes else "")
-                + "Verified in person at event by coach"
-            ).strip()
-            submission.save(
-                update_fields=[
-                    "status",
-                    "reviewed_at",
-                    "coach_notes",
-                    "review_call_completed",
-                    "coach",
-                ]
-            )
+        # Same workflow the auto-verify on attendance runs, so the two paths
+        # cannot drift apart.
+        _apply_verification(profile, method, coach, now)
 
     logger.info(
         "Coach %s verified registration %s (user %s) at event %s via %s",
@@ -440,32 +524,12 @@ def coach_mark_verified(request, event_id, registration_id):
         method,
     )
 
-    # Credit the referrer if this attendee was referred (mirrors the LuxID and
-    # coach-review paths). Event verification is now the primary path for new
-    # users, so the profile-approved referral bonus must fire here too.
-    # Best-effort: never let the reward step break the in-person check-in flow.
-    try:
-        from .referrals import check_and_apply_profile_approved_reward
-
-        check_and_apply_profile_approved_reward(profile)
-    except Exception:
-        logger.warning(
-            "Failed to apply profile-approved referral reward for registration %s",
-            registration.id,
-        )
-
-    # Welcome the freshly-verified member (mirrors the LuxID path). Best-effort:
-    # never let an email failure break the in-person check-in flow.
-    try:
-        from .notification_service import notify_profile_approved
-
-        notify_profile_approved(
-            user=registration.user, profile=profile, coach_notes=None, request=request
-        )
-    except Exception:
-        logger.warning(
-            "Failed to send approval notification for registration %s", registration.id
-        )
+    # Referral credit + welcome email. Shared with the auto-verify on
+    # attendance: event verification is the primary path for new members, so
+    # both paths must run these or referrers silently stop being paid.
+    _run_post_verification_side_effects(
+        registration.user, profile, request, registration.id
+    )
 
     response_data = {
         "success": True,
