@@ -91,6 +91,19 @@ class CoachMarkVerifiedTests(SiteTestMixin, TestCase):
             is_published=True,
         )
 
+    def _grant_premium(self, user):
+        """An ACTIVE PremiumMembership — the real entitlement.
+
+        `assigned_coach` is not it: a coach is granted free on first attendance,
+        so the two must be set independently in tests or the premium rule looks
+        like it fires for ordinary attendees.
+        """
+        from crush_lu.models import PremiumMembership
+
+        return PremiumMembership.objects.create(
+            user=user, coach=self.other_coach, status="active"
+        )
+
     def _make_attendee(self, username, assigned_coach=None, status="confirmed"):
         user = User.objects.create_user(
             username=username, email=username, password="pass12345", first_name="Al"
@@ -169,10 +182,30 @@ class CoachMarkVerifiedTests(SiteTestMixin, TestCase):
         self.assertIsNone(older_pending.reviewed_at)
         self.assertEqual(expired.status, "expired")
 
+    def test_assigned_coach_alone_does_not_make_a_member_premium(self):
+        """Any coach may verify a walk-in who merely has a coach.
+
+        This is the door case that used to break: check-in assigns
+        `event.coaches.first()` to every unverified attendee, so keying the
+        premium rule off that FK meant every OTHER coach got a 403 when they
+        tried to verify someone who had just been scanned.
+        """
+        profile, reg = self._make_attendee(
+            "coached@example.com", assigned_coach=self.other_coach
+        )
+        # No PremiumMembership -> not premium, whatever the FK says.
+        self.client.force_login(self.coach_user)
+        resp = self.client.post(self._url(reg))
+        self.assertEqual(resp.status_code, 200)
+        profile.refresh_from_db()
+        self.assertEqual(profile.verification_status, "verified")
+        self.assertEqual(profile.verification_method, "coach_event")
+
     def test_premium_member_requires_assigned_coach(self):
         profile, reg = self._make_attendee(
             "premium@example.com", assigned_coach=self.other_coach
         )
+        self._grant_premium(profile.user)
 
         # The event-running coach is NOT the assigned coach -> 403.
         self.client.force_login(self.coach_user)

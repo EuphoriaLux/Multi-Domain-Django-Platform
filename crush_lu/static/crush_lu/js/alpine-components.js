@@ -658,6 +658,16 @@ document.addEventListener("alpine:init", function () {
 
             handleRemoteCheckin: function (data) {
                 var regId = data.registration_id;
+                // A verification is a genuinely new event about an ID this page
+                // has already seen: the attendee's first (unverified) scan
+                // marked the ID processed, so a later rescan that verifies them
+                // would be suppressed here and this page would keep showing the
+                // amber pill and Verify button until reload. Apply it before
+                // the duplicate check, which exists to stop repeat *check-in*
+                // toasts, not state changes.
+                if (data.auto_verified) {
+                    this._markRowVerified(regId);
+                }
                 if (this.processedIds[regId]) return;
                 this.processedIds[regId] = true;
 
@@ -712,6 +722,15 @@ document.addEventListener("alpine:init", function () {
             // --- Shared UI update logic ---
             _updateCheckinUI: function (data) {
                 var regId = data.registration_id;
+                // Attending now verifies the profile, so the row must stop
+                // showing the amber "Unverified" pill and its Verify button —
+                // otherwise the toast and the DB say verified while the list
+                // still invites a redundant (and now pointless) verification.
+                // Before the already_checked_in early return: a re-scan is
+                // exactly when a previously self-scanned attendee gets verified.
+                if (data.auto_verified) {
+                    this._markRowVerified(regId);
+                }
                 if (data.already_checked_in) return;
 
                 // Add to recent checkins list
