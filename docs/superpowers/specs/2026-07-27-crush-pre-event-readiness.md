@@ -40,10 +40,17 @@ the scanner. It fires once per registration.
       — the oldest coach record, not the first name in the admin widget and not
       the person scanning.
 
-      That person also becomes the **routed coach for every My Crush! lead**
-      those members later declare (routing tier 2 reads
-      `CrushProfile.assigned_coach`), so the concentration compounds after the
-      event rather than staying a signup detail. Confirm who it resolves to:
+      That person then becomes the routed coach for those members' later
+      My Crush! leads **only where no higher tier claims them**.
+      `assign_coach()` (`models/connections.py:685-710`) resolves in order:
+      (1) the requester's **approved `ProfileSubmission` coach**, if active;
+      (2) `CrushProfile.assigned_coach`, if active; (3) an event coach. So a
+      member who already has an approved submission under a different active
+      coach routes to *that* coach, not to this one, and an inactive permanent
+      coach is skipped. The concentration is real for members whose only coach
+      link is this event, but it is **not** "every lead from event 12" —
+      staffing decisions should not assume the stronger version. Confirm who
+      the event tier resolves to:
       ```
       python manage.py shell -c "from crush_lu.models import MeetupEvent; print(MeetupEvent.objects.get(id=12).coaches.first())"
       ```
@@ -60,11 +67,18 @@ This is the one setting that makes the O12 pool work **load-bearing on
 Wednesday** rather than theoretical, and it has two consequences that are easy
 to mistake for bugs on the day:
 
-- **A profile-less attendee gets no coach at all**, even though the event has
-  four. `event_register` falls through to the `else` branch and proceeds with
-  `profile = None` (`views_events.py:916-920`), and the assignment signal bails
-  at `if profile is None` before it ever reads `event.coaches`. Nothing is
-  broken; there is simply no `CrushProfile` row to hang a coach on.
+- **An attendee still profile-less _at check-in_ gets no coach**, even though
+  the event has four. **The timing is what matters, not registration.**
+  `event_register` proceeds with `profile = None`
+  (`views_events.py:916-920`), but that value decides nothing later: the
+  assignment signal runs its **own fresh `CrushProfile` query** when the
+  registration flips to `attended` (`signals.py:2431-2435`) and bails at
+  `if profile is None` only if the profile is *still* missing at that moment.
+
+  So someone who registers without a profile and **creates one before being
+  scanned does get the event coach normally**. Only someone still without a
+  profile when they are scanned follows the path below — do not classify
+  attendees, or their later leads, from how they registered.
 - **Their "My Crush!" declaration lands unrouted, in the pool.**
   `declare_crush()` deliberately skips `assign_coach()` when the requester has
   no `CrushProfile`, so the lead has no owner. It surfaces in **every** active
@@ -87,9 +101,15 @@ Both are one-shot actions that nothing else will remind you about, and neither
 raises an error when skipped.
 
 - [ ] **Run `manage.py backfill_crush_recipient_coaches` after the swap.**
-      Idempotent, supports `--dry-run`. Without it, leads declared before Phase D
-      have no `recipient_coach`, so the recipient-side outreach task exists for
-      nobody and those introductions stall with no visible symptom.
+      Idempotent, supports `--dry-run`. Scope the expectation correctly: this
+      only matters for pre-Phase-D leads whose recipient resolves to a
+      **separate active co-coach**. A null `recipient_coach` is *not* itself a
+      stall — where the recipient has no distinct active coach the command
+      deliberately leaves the row null
+      (`backfill_crush_recipient_coaches.py:148-163`) and the routed coach is
+      given the recipient-consent controls instead
+      (`views_coach.py:4572-4584`). Skipping the run strands only the
+      genuine co-coach candidates, and those stall with no visible symptom.
 - [ ] **Pin `CRUSH_LEAD_REMINDERS_ENABLED` slot-sticky.** Unpinned, the
       staging→production swap *exchanges* it. `infra/resources.bicep` carries a
       standing warning not to deploy as-is, so use the CLI:
@@ -111,12 +131,19 @@ raises an error when skipped.
       with several unset **only the first is logged**: fixing one can simply
       reveal the next.
 
-      The single loud case is an `ADMIN_API_KEY` that is *present but wrong*:
-      Django answers 401, `raise_for_status()` raises, and the exception is
-      re-raised (`function_app.py:99-103`), so Azure marks the invocation
-      **failed**. So a *failed* invocation means a wrong key; a *successful*
-      invocation proves nothing on its own — read the Function's own logs, not
-      Django's, and confirm it actually reached Django.
+      Failures, by contrast, are **loud but not self-diagnosing**. A timeout, an
+      unreachable host, a bad URL, a Django 500 and a wrong key all re-raise
+      (`function_app.py:98-103`), so Azure marks the invocation **failed** in
+      every one of those cases. A failed invocation therefore means "the call
+      was attempted and did not succeed" — **not** "the key is wrong". Read the
+      logged status before touching `ADMIN_API_KEY`: a **401** is the evidence
+      for a wrong key; anything else points at the URL, the endpoint or the
+      network.
+
+      The asymmetry to remember: a *successful* invocation proves nothing on its
+      own (it is also what all three missing-value skips look like), and a
+      *failed* one names a problem without naming which. Read the Function's own
+      logs, not Django's, and confirm it actually reached Django.
 
 ### 1.3 The reminder sweep, on staging
 
@@ -160,12 +187,32 @@ Detail and rationale in `2026-07-25-crush-my-crush-staging-verification.md`.
       wins regardless of ownership — reproduced in the browser on 2026-07-27.
       The behaviour is correct (nearest deadline first within a bucket); the
       sentence is stricter than the code and will fail sign-off on working code.
-- [ ] **Decide how the built `tailwind.css` stays in sync.** It is tracked but
-      nothing rebuilds it on commit, so it drifted: as of this branch it was last
-      built 2026-07-23 while templates changed 2026-07-24 (#681), leaving 5
-      utility classes missing from the committed file. Production is unaffected
-      (the deploy workflow runs `build:css:all` + `collectstatic`), so the choice
-      is gitignore it or add a pre-commit rebuild.
+- [ ] **The committed `tailwind.css` IS what production serves — fix the
+      pipeline, and never gitignore it.** An earlier draft of this file claimed
+      production was unaffected by CSS drift because the deploy workflow rebuilds
+      it. **That is wrong**, and the correction matters more than the original
+      point:
+
+      `deploy-azure-app-service-optimized.yml` runs `npm ci && npm run
+      build:css:all` in the **`build` job** (`:57-61`) and then **uploads
+      nothing** — the workflow contains no `upload-artifact`/`download-artifact`
+      at all. The `deploy` job (`:64-`) takes a **fresh `actions/checkout`** and
+      runs `collectstatic` over the **tracked** file, so the zip ships whatever
+      is committed to git. The CSS build job is decorative; its output is
+      discarded with the runner.
+
+      Two consequences:
+      - The drift found on this branch (last built 2026-07-23, templates changed
+        2026-07-24 in #681, 5 utility classes missing) was **live on
+        production**, not just a local-dev annoyance. The rebuild in this PR is a
+        production fix.
+      - **Gitignoring the file would ship production with no CSS.** The option
+        floated earlier is actively harmful and must not be taken.
+
+      The real fix is to make the pipeline authoritative: either build CSS inside
+      the `deploy` job before `collectstatic`, or upload the `build` job's output
+      as an artifact and download it in `deploy`. Only once the pipeline
+      genuinely produces the CSS does untracking it become safe.
 - [ ] **Reminder sweep for pool leads is deliberately not built** (§10.1). A
       coach who never opens their inbox learns nothing about an unclaimed lead.
       Open ops question, not an oversight.
