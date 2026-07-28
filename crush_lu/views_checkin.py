@@ -673,10 +673,18 @@ def coach_undo_checkin(request, event_id, registration_id):
       (``assigned_coach_at >= checked_in_at``). A member who already had a
       coach keeps it.
 
+    - A quiz seat, if the original check-in took one. The membership and the
+      rotation rows are separate objects that outlive the status flip, so an
+      undone attendee would otherwise keep a chair their table is short of.
+
     What it deliberately does NOT revert: the verification. The welcome email
     and the referral credit have already gone out, and un-verifying a member
     who is standing in the room is worse than an over-verified walk-in. The
     coach can see the profile is verified and act accordingly.
+
+    Refused for a row with no ``checked_in_at``. The window is what keeps this
+    a correction rather than an attendance editor, and a row with no timestamp
+    has no window — those belong to an administrator.
 
     The Event Lobby needs no cleanup: ``eligible_participations`` re-checks
     ``event_registration__status == "attended"`` at read time (§5.2), so the
@@ -709,22 +717,26 @@ def coach_undo_checkin(request, event_id, registration_id):
                 status=409,
             )
 
+        # No timestamp, no window — and no undo. An attended row with a NULL
+        # checked_in_at is valid: attendance entered administratively or by an
+        # older flow. Letting it skip the age check is what would turn a
+        # 15-minute mis-scan fix into an editor for attendance of any age,
+        # because every attended row renders an Undo button.
         checked_in_at = registration.checked_in_at
-        if checked_in_at is not None:
-            age = now - checked_in_at
-            if age > timedelta(minutes=CHECKIN_UNDO_WINDOW_MINUTES):
-                return JsonResponse(
-                    {
-                        "success": False,
-                        "error": str(
-                            _(
-                                "This check-in is too old to undo here. Ask an "
-                                "administrator to correct it."
-                            )
-                        ),
-                    },
-                    status=409,
-                )
+        undo_window = timedelta(minutes=CHECKIN_UNDO_WINDOW_MINUTES)
+        if checked_in_at is None or now - checked_in_at > undo_window:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": str(
+                        _(
+                            "This check-in is too old to undo here. Ask an "
+                            "administrator to correct it."
+                        )
+                    ),
+                },
+                status=409,
+            )
 
         # Clear the coach only when this attendance is what granted it. Without
         # the timestamp comparison an undo would strip the coach from a member
@@ -735,7 +747,6 @@ def coach_undo_checkin(request, event_id, registration_id):
             profile is not None
             and profile.assigned_coach_id
             and profile.assigned_coach_at
-            and checked_in_at
             and profile.assigned_coach_at >= checked_in_at
         ):
             profile.assigned_coach = None
@@ -748,6 +759,22 @@ def coach_undo_checkin(request, event_id, registration_id):
         # updated_at is auto_now, so it is only written when named here —
         # every other save in this file lists it for the same reason.
         registration.save(update_fields=["status", "checked_in_at", "updated_at"])
+
+        # The status flip alone does not free the quiz seat the check-in took.
+        # Best-effort, like the assignment it undoes: a quiz problem must not
+        # cost the coach the correction they came here to make.
+        released_table = None
+        try:
+            quiz_event = getattr(registration.event, "quiz", None)
+            if quiz_event:
+                from .services.quiz_rotation import release_table_on_undo
+
+                released_table = release_table_on_undo(quiz_event, registration.user)
+        except Exception:
+            logger.exception(
+                "Quiz table release failed for undone registration %s",
+                registration.id,
+            )
 
     logger.info(
         "Coach %s undid check-in of registration %s (user %s) at event %s; "
@@ -774,7 +801,13 @@ def coach_undo_checkin(request, event_id, registration_id):
         or "",
         "message": str(_("Check-in undone for %(name)s.")) % {"name": display_name},
     }
+    # Deliberately NOT in response_data: handleRemoteCheckin has no `undone`
+    # branch yet (#710), so a table_number here would make the other coaches'
+    # pages count the freed seat as a new arrival. The quiz table group is a
+    # different channel and reaches the players, which is who needs to know.
     _broadcast_checkin(registration.event_id, response_data)
+    if released_table:
+        _broadcast_quiz_table_update(registration.event, released_table)
     return JsonResponse(response_data)
 
 

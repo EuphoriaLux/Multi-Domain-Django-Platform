@@ -2395,6 +2395,7 @@ def handle_event_ticket_on_registration_change(sender, instance, created, **kwar
 
     - cancelled -> expire the ticket
     - attended -> complete the ticket
+    - confirmed -> activate the ticket (an attendance was undone)
     """
     if not instance.google_wallet_ticket_object_id:
         return
@@ -2407,6 +2408,7 @@ def handle_event_ticket_on_registration_change(sender, instance, created, **kwar
 
     try:
         from .wallet.google_event_ticket_api import (
+            activate_event_ticket,
             expire_event_ticket,
             complete_event_ticket,
         )
@@ -2419,6 +2421,13 @@ def handle_event_ticket_on_registration_change(sender, instance, created, **kwar
             result = complete_event_ticket(instance)
             if result["success"]:
                 logger.info(f"Completed event ticket for registration {instance.id}")
+        elif instance.status == "confirmed":
+            # Undoing a mis-scan sends the row back to confirmed. Without this
+            # branch the member keeps a pass marked used while still holding a
+            # valid registration, so their own ticket stops being a door pass.
+            result = activate_event_ticket(instance)
+            if result["success"]:
+                logger.info(f"Reactivated event ticket for registration {instance.id}")
     except Exception as e:
         logger.error(f"Error updating event ticket for registration {instance.id}: {e}")
 

@@ -335,6 +335,71 @@ def assign_table_on_checkin(quiz_event, user):
     }
 
 
+def release_table_on_undo(quiz_event, user):
+    """
+    Give back the seat ``assign_table_on_checkin`` took — the inverse of it.
+
+    A check-in that is undone leaves the registration correct and the quiz
+    wrong: the ``QuizTableMembership`` and the rotation rows are separate
+    objects that no status flip touches, so the mistakenly scanned person
+    keeps a chair in the table-fill display and their table stays one seat
+    short for whoever actually turns up.
+
+    Removes every rotation row for this user at this quiz, not just round 0.
+    They were never there, so no round should seat them.
+
+    Returns:
+        dict with {"table_number": int} of the freed table, or None if the
+        user held no seat.
+    """
+    from django.db import transaction
+
+    from crush_lu.models.quiz import (
+        QuizRotationSchedule,
+        QuizTable,
+        QuizTableMembership,
+    )
+
+    with transaction.atomic():
+        # Same lock as the assign path, in the same order, so an undo cannot
+        # interleave with a concurrent check-in on the other tables.
+        list(
+            QuizTable.objects.filter(quiz=quiz_event)
+            .select_for_update()
+            .order_by("table_number")
+        )
+
+        membership = (
+            QuizTableMembership.objects.filter(table__quiz=quiz_event, user=user)
+            .select_related("table")
+            .first()
+        )
+        if membership is None:
+            return None
+
+        table_number = membership.table.table_number
+        membership.delete()
+        QuizRotationSchedule.objects.filter(quiz=quiz_event, user=user).delete()
+
+    # Mirror of the assign path: a live quiz has to be reseated around the
+    # gap, and generate_rotation_rounds preserves the current and already-
+    # played rounds so the room does not move mid-question.
+    if quiz_event.status in ("active", "paused"):
+        try:
+            generate_rotation_rounds(quiz_event, preserve_current_round=True)
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception(
+                "Failed to regenerate rotation rounds after an undo "
+                "(quiz=%s user=%s)",
+                quiz_event.pk,
+                user.pk,
+            )
+
+    return {"table_number": table_number}
+
+
 def generate_rotation_rounds(quiz, from_round=1, preserve_current_round=False):
     """
     Generate rotation schedule for rounds >= ``from_round`` using existing

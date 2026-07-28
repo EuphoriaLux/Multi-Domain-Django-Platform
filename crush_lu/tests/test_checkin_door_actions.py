@@ -10,6 +10,7 @@ again. Before this the only fix for a wrong badge was Django admin.
 """
 
 from datetime import timedelta
+from unittest import mock
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -235,6 +236,85 @@ class TestUndoCheckin:
         assert response.status_code == 409
         registration.refresh_from_db()
         assert registration.status == "attended"
+
+    def test_undo_refused_for_undated_attendance(self, client):
+        """checked_in_at is nullable and an attended row can legitimately have
+        none — attendance entered administratively or by an older flow. Skipping
+        the age check there turns a 15-minute correction into an editor for
+        attendance of any age, because every attended row offers Undo."""
+        coach = _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="attended", checked_in_at=None
+        )
+        client.force_login(coach.user)
+
+        response = client.post(_undo_url(event, registration))
+
+        assert response.status_code == 409
+        registration.refresh_from_db()
+        assert registration.status == "attended"
+
+    def test_undo_releases_the_quiz_seat(self, client):
+        """A status flip does not free the chair. The membership and the
+        rotation rows are separate objects, so without this the mistakenly
+        scanned person still occupies a seat their table is short of."""
+        from crush_lu.models.quiz import (
+            QuizEvent,
+            QuizRotationSchedule,
+            QuizTableMembership,
+        )
+
+        coach = _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        event.event_type = "quiz_night"
+        event.save(update_fields=["event_type"])
+        QuizEvent.objects.create(
+            event=event, status="draft", created_by=coach.user, num_tables=2
+        )
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="waitlist"
+        )
+        client.force_login(coach.user)
+
+        # Drive both endpoints rather than hand-building the seat: the point is
+        # that the pair is symmetric, which a fixture cannot demonstrate.
+        assert client.post(_promote_url(event, registration)).status_code == 200
+        assert QuizTableMembership.objects.filter(user=attendee).exists()
+        assert QuizRotationSchedule.objects.filter(user=attendee).exists()
+
+        assert client.post(_undo_url(event, registration)).status_code == 200
+
+        assert not QuizTableMembership.objects.filter(user=attendee).exists()
+        assert not QuizRotationSchedule.objects.filter(user=attendee).exists()
+
+    def test_undo_reactivates_the_wallet_ticket(self, client, settings):
+        """The scan marked the pass completed. Leaving it there hands the member
+        a used ticket while their registration is valid and they are still at
+        the door."""
+        settings.WALLET_GOOGLE_EVENT_TICKET_ENABLED = True
+        coach = _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event,
+            user=attendee,
+            status="attended",
+            checked_in_at=timezone.now(),
+            google_wallet_ticket_object_id="issuer.ticket-1",
+        )
+        client.force_login(coach.user)
+
+        with mock.patch(
+            "crush_lu.wallet.google_event_ticket_api.activate_event_ticket",
+            return_value={"success": True, "message": "ok"},
+        ) as activate:
+            assert client.post(_undo_url(event, registration)).status_code == 200
+
+        assert activate.call_count == 1
+        assert activate.call_args[0][0].pk == registration.pk
 
     def test_undo_refused_when_not_checked_in(self, client):
         coach = _make_coach()
@@ -474,6 +554,25 @@ class TestDoorPageContext:
         cf.refresh_from_db()
         assert not wl.checkin_token, "waitlisted row was given a token"
         assert cf.checkin_token, "confirmed row lost its token"
+
+    def test_undated_attendance_gets_no_undo_button(self, client):
+        """The endpoint refuses a row with no checked_in_at, so rendering the
+        button would only ever offer a correction that answers 409."""
+        coach = _make_coach()
+        dated = _make_attendee("dated@example.com")
+        undated = _make_attendee("undated@example.com")
+        event = _make_event()
+        EventRegistration.objects.create(
+            event=event, user=dated, status="attended", checked_in_at=timezone.now()
+        )
+        EventRegistration.objects.create(
+            event=event, user=undated, status="attended", checked_in_at=None
+        )
+        client.force_login(coach.user)
+
+        content = self._page(client, event).content.decode()
+
+        assert content.count("manual-undo-btn") == 1
 
     def test_counts_split_arrived_from_outstanding(self, client):
         coach = _make_coach()
