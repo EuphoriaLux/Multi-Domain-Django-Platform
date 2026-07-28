@@ -4955,6 +4955,26 @@ footer hr {
     display: inline-flex;
 }
 
+/* Same unlayered-beats-layered hazard, for the size modifiers: .btn-sm /
+   .btn-lg are @apply-based and live in @layer components, so their padding
+   loses to the `padding` shorthand above no matter the specificity, and
+   `btn-crush-outline btn-sm` silently renders full size. Restore it with
+   equally-unlayered rules mirroring the layered .btn-sm (px-4 py-2) and
+   .btn-lg (px-8 py-4) values.
+   Only `padding` needs this: .btn-sm/.btn-lg's `text-sm`/`text-lg` and
+   .btn-block's `w-full` already apply, because neither button rule above
+   declares font-size or width. Don't "fix" those too — an unlayered width
+   would break the `btn-block w-full sm:w-auto` responsive idiom. */
+.btn-crush-secondary.btn-sm,
+.btn-crush-outline.btn-sm {
+    padding: var(--space-2) var(--space-4);
+}
+
+.btn-crush-secondary.btn-lg,
+.btn-crush-outline.btn-lg {
+    padding: var(--space-4) var(--space-8);
+}
+
 .btn-crush-outline:hover {
     background: var(--gradient-primary);
     color: white;
