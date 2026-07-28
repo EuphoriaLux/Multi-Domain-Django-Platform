@@ -133,9 +133,13 @@ def _render_coach_preview(request, event, phase, now):
         # the connection would only be opened to be closed (5 bounded retries
         # of noise). The 15s poll carries the preview.
         "ws_path": "",
-        # Renders the page read-only: no signal ledger, inert tiles. Without it
-        # the coach sees a full "3 signals left" UI whose every action 403s,
-        # and the 403 makes event-lobby.js revokeAccess() the page.
+        # Renders the page read-only: no signal ledger, inert tiles, and a
+        # coach-specific ended state instead of the member recap CTA (#715 —
+        # the 15s poll flips the panel to "ended" under a coach who left the
+        # tab open, and the member CTA would reload straight into
+        # lobby_closed). Without it the coach sees a full "3 signals left" UI
+        # whose every action 403s, and the 403 makes event-lobby.js
+        # revokeAccess() the page.
         "coach_preview": True,
     }
     response = render(request, "crush_lu/event_lobby/lobby.html", context)
@@ -171,8 +175,17 @@ def event_lobby(request, event_id):
     if not ok:
         # A coach who checked themselves in at the door is still a coach:
         # attendance must not cost them the preview and hand them the member
-        # lock page (or a 404) instead. Coaches who DO clear the gate fall
-        # through to the participant path — they are members like any other.
+        # lock page (or a 404) instead.
+        #
+        # Precedence, settled in #718 (raised on #715) — NOT an oversight:
+        # coach status beats attendance only *here*, where the member path
+        # has nothing left to offer but a lock page. A coach who ALSO clears
+        # the Connect gate never reaches this branch: they fall through to
+        # the participant path below and get the full member lobby, signals
+        # included. At an event they both work and attend they are a member
+        # like any other, and that is the intended behaviour. If that ever
+        # has to change, the fix is to test ``is_coach`` *before* the
+        # registration lookup above — not to widen this branch.
         if is_coach:
             return _render_coach_preview(request, event, phase, now)
         # §5.3: only a LuxID-capable, approved guest may even learn a lobby

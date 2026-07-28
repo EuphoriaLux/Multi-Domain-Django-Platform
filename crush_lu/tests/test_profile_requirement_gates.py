@@ -25,9 +25,11 @@ from datetime import date, timedelta
 import pytest
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.test import Client
+from django.core.exceptions import ValidationError
+from django.test import Client, RequestFactory
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.translation import override
 
 from crush_lu.models import (
     CrushCoach,
@@ -259,3 +261,153 @@ def test_detail_hides_cta_from_rejected(requirement):
     event = _event(requirement)
     user = _user(f"detail-rej-{requirement}", "S7_rejected")
     assert not _detail_has_register_cta(user, event)
+
+
+# --- organizer admin ----------------------------------------------------
+
+
+def _admin_form_data(audience):
+    now = timezone.now()
+    return {
+        "title": "Audience test event",
+        "description": "x",
+        "event_type": "mixer",
+        "location": "Luxembourg",
+        "address": "1 Test Street",
+        "date_time": (now + timedelta(days=3)).isoformat(),
+        "duration_minutes": "120",
+        "max_participants": "20",
+        "reserved_premium_seats": "0",
+        "min_age": "18",
+        "max_age": "99",
+        "registration_deadline": (now + timedelta(days=2)).isoformat(),
+        "registration_fee": "0",
+        "languages": "[]",
+        "max_invited_guests": "1",
+        "max_sparks_per_event": "3",
+        "connection_window_hours": "48",
+        "max_cross_gender_connections": "1",
+        "registration_audience": audience,
+    }
+
+
+@pytest.mark.parametrize(
+    "audience",
+    [
+        "none",
+        "completed",
+        "approved",
+        "profile_exists",
+        "unverified",
+        "coach_assigned",
+    ],
+)
+def test_admin_audience_form_preserves_profile_requirement_codes(audience):
+    from crush_lu.admin.events import MeetupEventAdminForm
+
+    form = MeetupEventAdminForm(data=_admin_form_data(audience))
+    assert form.is_valid(), form.errors.as_json()
+
+    event = form.save(commit=False)
+    assert event.profile_requirement == audience
+    assert event.is_private_invitation is False
+
+
+def test_admin_private_invitation_has_priority_and_preserves_dormant_requirement():
+    from crush_lu.admin.events import MeetupEventAdminForm
+
+    event = _event("coach_assigned")
+    form = MeetupEventAdminForm(
+        data=_admin_form_data("private_invitation"), instance=event
+    )
+    assert form.is_valid(), form.errors.as_json()
+
+    updated = form.save(commit=False)
+    assert updated.is_private_invitation is True
+    assert updated.profile_requirement == "coach_assigned"
+
+
+def test_admin_form_initializes_existing_private_event_as_private_invitation():
+    from crush_lu.admin.events import MeetupEventAdminForm
+
+    event = _event("profile_exists")
+    event.is_private_invitation = True
+    event.save(update_fields=["is_private_invitation"])
+
+    form = MeetupEventAdminForm(instance=event)
+    assert form["registration_audience"].value() == "private_invitation"
+
+
+def test_admin_audience_widget_shows_three_standard_and_four_advanced_cards():
+    from crush_lu.admin.events import MeetupEventAdminForm
+
+    html = MeetupEventAdminForm()["registration_audience"].as_widget()
+
+    assert html.index(">Standard<") < html.index(">Advanced<")
+    standard_html, advanced_html = html.split(">Advanced<", maxsplit=1)
+    assert standard_html.count('type="radio"') == 3
+    assert advanced_html.count('type="radio"') == 4
+    assert "All logged-in people" in standard_html
+    assert "Participation-ready Crush profile" in standard_html
+    assert "Verified members only" in standard_html
+    assert "Members with an assigned coach (not Premium)" in advanced_html
+    assert "Private invitation" in advanced_html
+
+
+def test_event_admin_uses_registration_audience_form_and_media():
+    from crush_lu.admin import crush_admin_site
+    from crush_lu.admin.events import MeetupEventAdmin, MeetupEventAdminForm
+
+    request = RequestFactory().get("/crush-admin/crush_lu/meetupevent/add/")
+    request.user = _user("audience-admin")
+    request.user.is_staff = True
+    request.user.is_superuser = True
+
+    model_admin = MeetupEventAdmin(MeetupEvent, crush_admin_site)
+    form_class = model_admin.get_form(request)
+    form = form_class()
+
+    assert issubclass(form_class, MeetupEventAdminForm)
+    assert "registration_audience" in form.fields
+    assert "profile_requirement" not in form.fields
+    assert "is_private_invitation" not in form.fields
+    assert "crush_lu/css/admin_registration_audience.css" in str(form.media)
+
+
+@pytest.mark.parametrize(
+    ("language", "standard_label", "coach_label", "private_label"),
+    [
+        (
+            "de",
+            "Teilnahmebereites Crush-Profil",
+            "Mitglieder mit zugewiesenem Coach (nicht Premium)",
+            "Private Einladung",
+        ),
+        (
+            "fr",
+            "Profil Crush prêt à participer",
+            "Membres avec un coach attribué (pas Premium)",
+            "Invitation privée",
+        ),
+    ],
+)
+def test_admin_audience_widget_is_translated(
+    language, standard_label, coach_label, private_label
+):
+    from crush_lu.admin.events import MeetupEventAdminForm
+
+    with override(language):
+        html = MeetupEventAdminForm()["registration_audience"].as_widget()
+
+    assert standard_label in html
+    assert coach_label in html
+    assert private_label in html
+
+
+def test_admin_audience_rejects_unknown_value():
+    from crush_lu.admin.events import MeetupEventAdminForm
+
+    with pytest.raises(ValidationError):
+        MeetupEventAdminForm.apply_registration_audience(
+            MeetupEvent(), "future-unknown-mode"
+        )

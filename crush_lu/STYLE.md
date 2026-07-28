@@ -94,6 +94,30 @@ Modifiers:
 | Full-width | `.btn-block` | Mobile forms, modals. |
 | Link-styled | `.btn-link` | "Forgot password?", "Use a different account" — actions that read as inline links. |
 
+> **Cascade caveat — `.btn-crush-outline` / `.btn-crush-secondary` are unlayered.**
+> Those two are plain CSS near the bottom of `tailwind-input.css`, not `@apply`
+> rules inside `@layer components` like `.btn-crush-primary` / `.btn-crush-solid`.
+> Unlayered CSS beats *all* layered CSS regardless of specificity or source
+> order, so any property those two declare — `padding`, `display`, `border`,
+> `background`, `color`, `font-weight`, `border-radius` — silently wins over a
+> Tailwind utility or modifier that sets the same property. It fails quietly:
+> the class is on the element, it just does nothing.
+>
+> `.btn-sm` / `.btn-lg` are affected (both set `padding`) and are restored by
+> explicit unlayered `.btn-crush-outline.btn-sm` / `.btn-lg` rules next to the
+> `.inline-flex` restoration. `.btn-block` and `text-*` are **not** affected —
+> neither button rule declares `width` or `font-size`, so those land normally.
+>
+> Consequences when touching these two variants:
+> - Adding a new modifier that sets a property they declare? Add a matching
+>   unlayered `.btn-crush-outline.<modifier>` rule, or it will be inert.
+> - Don't "fix" this with a blanket unlayered rule for properties that aren't
+>   actually broken — an unlayered `width` would break the
+>   `btn-block w-full sm:w-auto` responsive idiom.
+> - Ad-hoc padding utilities (`btn-crush-outline px-6 py-2`) are still inert;
+>   there is no finite rule set that covers arbitrary utilities. Use `.btn-sm`
+>   / `.btn-lg`, or restructure the variant into `@layer components`.
+
 ### Legacy button classes (do not use in new code)
 
 These still exist for backwards compatibility with coach and admin templates

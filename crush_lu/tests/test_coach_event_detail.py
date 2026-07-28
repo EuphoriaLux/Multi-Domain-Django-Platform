@@ -3,14 +3,21 @@ Tests for the coach event management page (``coach_event_detail``) and the
 coach preview exemption on the Crush Connect Event Lobby.
 
 Covers:
-- The "Configure Quiz" header link renders only for ``quiz_night`` events.
+- The quiz config header link renders for every ``quiz_night`` *and* for any
+  event that already has a quiz (a mixer can legitimately run one), labelled
+  "Create Quiz" or "Configure Quiz" depending on which mode it lands in.
 - The "Quiz Live View" link renders only when the event actually has a quiz.
 - An active coach can preview the live event lobby without an attended
   registration (read-only — no participation row is created), while a
   non-coach non-attendee still gets the §5.3 indistinguishable 404.
 - The preview really is read-only: no signal ledger, no live socket, inert
-  tiles. The participant-side counterpart lives in ``test_event_lobby.py``
-  (``test_participant_page_is_not_read_only``).
+  tiles, and no member recap CTA once the 15s poll flips it to the ended
+  state (#715). The participant-side counterparts live in
+  ``test_event_lobby.py`` (``test_participant_page_is_not_read_only``,
+  ``test_participant_keeps_the_recap_cta_in_the_ended_state``).
+- Coach-vs-attendance precedence (#715, decided in #718): coach status wins
+  only where the member path would dead-end on the lock page; a coach who
+  clears the Connect gate gets the full member lobby.
 - The manual check-in list filters on name *and* email.
 """
 
@@ -87,6 +94,8 @@ def _make_event(event_type="mixer", starts_in_minutes=60, duration=120):
 
 class TestQuizLinksVisibility:
     def test_configure_quiz_hidden_for_non_quiz_event(self, client):
+        """No quiz and not a quiz night — *creating* one stays type-specific,
+        so the link would only be clutter."""
         coach = _make_coach()
         event = _make_event(event_type="mixer")
         client.force_login(coach)
@@ -97,8 +106,11 @@ class TestQuizLinksVisibility:
         quiz_config_url = reverse("crush_lu:coach_quiz_config", args=[event.pk])
         assert quiz_config_url.encode() not in response.content
         assert b"Configure Quiz" not in response.content
+        assert b"Create Quiz" not in response.content
 
     def test_configure_quiz_shown_for_quiz_night(self, client):
+        """A quiz night with no QuizEvent yet: the config page's empty state is
+        the create form, so the link is live and labelled for creating."""
         coach = _make_coach()
         event = _make_event(event_type="quiz_night")
         client.force_login(coach)
@@ -108,7 +120,56 @@ class TestQuizLinksVisibility:
         assert response.status_code == 200
         quiz_config_url = reverse("crush_lu:coach_quiz_config", args=[event.pk])
         assert quiz_config_url.encode() in response.content
+        assert b"Create Quiz" in response.content
+
+    def test_configure_quiz_shown_for_non_quiz_night_with_quiz(self, client):
+        """The bug: ``QuizEvent.event`` is unrestricted and ``quiz_live_view``
+        works for any event type, so a coach can legitimately run a quiz at a
+        Social Mixer. Gating the config link on ``event_type`` left that coach
+        with a working Host Panel and Live View but no route to configuration
+        outside Django admin."""
+        coach = _make_coach()
+        event = _make_event(event_type="mixer")
+        QuizEvent.objects.create(event=event, created_by=coach)
+        client.force_login(coach)
+
+        response = client.get(reverse("crush_lu:coach_event_detail", args=[event.pk]))
+
+        assert response.status_code == 200
+        quiz_config_url = reverse("crush_lu:coach_quiz_config", args=[event.pk])
+        assert quiz_config_url.encode() in response.content
+        # An existing quiz is configured, never created.
         assert b"Configure Quiz" in response.content
+        assert b"Create Quiz" not in response.content
+
+    def test_configure_quiz_link_actually_opens_for_a_non_quiz_night(self, client):
+        """Rendering the link is half the claim — ``coach_quiz_config`` must
+        also accept a non-``quiz_night`` event, or the fix just moves the dead
+        end one click further in."""
+        coach = _make_coach()
+        event = _make_event(event_type="mixer")
+        QuizEvent.objects.create(event=event, created_by=coach)
+        client.force_login(coach)
+
+        response = client.get(
+            reverse("crush_lu:coach_quiz_config", args=[event.pk]), follow=True
+        )
+
+        assert response.status_code == 200
+        assert b"Quiz Configuration" in response.content
+
+    def test_configure_quiz_label_for_quiz_night_that_has_a_quiz(self, client):
+        """Both gate halves true — the label must follow the quiz, not the type."""
+        coach = _make_coach()
+        event = _make_event(event_type="quiz_night")
+        QuizEvent.objects.create(event=event, created_by=coach)
+        client.force_login(coach)
+
+        response = client.get(reverse("crush_lu:coach_event_detail", args=[event.pk]))
+
+        assert response.status_code == 200
+        assert b"Configure Quiz" in response.content
+        assert b"Create Quiz" not in response.content
 
     def test_quiz_live_view_hidden_without_quiz(self, client):
         """A quiz_night event without a QuizEvent row must not render links
@@ -291,6 +352,48 @@ class TestCoachLobbyPreview:
         assert tiles, "roster tile did not render — the rest asserts nothing"
         assert all("disabled" in tile for tile in tiles)
 
+    def test_preview_has_no_member_recap_cta_in_its_ended_state(self, client):
+        """#715: the preview polls every 15s and ``lobby_state_api`` answers a
+        coach with a non-live phase once the event ends, so ``applyState`` ->
+        ``markEnded`` flips the panel to "ended" under a coach who simply left
+        the tab open. The member ending asks "Who did you meet?" and links to
+        the recap — which for a coach with no participation reloads
+        ``event_lobby`` straight into ``lobby_closed.html``, a dead end at
+        exactly the moment the coach is trying to work.
+
+        Asserted on the served HTML because ``x-show`` cannot un-hide a block
+        that was never rendered: the fix has to remove it, not hide it."""
+        coach = _make_coach()
+        event = _make_event(starts_in_minutes=-30)
+        client.force_login(coach)
+
+        html = client.get(
+            reverse("crush_lu:event_lobby", args=[event.pk])
+        ).content.decode()
+
+        assert "Who did you meet?" not in html
+        assert "Open the recap" not in html
+        # ...replaced by a coach ending that leads back to their work surface.
+        assert "data-coach-preview-ended" in html
+        assert reverse("crush_lu:coach_event_detail", args=[event.pk]) in html
+
+    def test_state_api_flips_the_preview_to_ended_after_the_event(self, client):
+        """The server half of the #715 path: this non-live phase is what
+        ``applyState`` turns into ``markEnded()``. Pinned so the leak cannot
+        come back by the API starting to answer ``live`` forever (which would
+        make the template assertion above vacuous)."""
+        coach = _make_coach()
+        event = _make_event(starts_in_minutes=-30)
+        _end_event(event)
+        client.force_login(coach)
+
+        payload = client.get(
+            reverse("crush_lu:event_lobby_state_api", args=[event.pk])
+        ).json()
+
+        assert payload["ok"] is True
+        assert payload["state"]["phase"] != "live"
+
     def test_attended_coach_still_gets_the_preview(self, client):
         """A coach who scanned themselves in at the door is still a coach.
         Attendance must not drop them onto the member path, where failing the
@@ -309,6 +412,32 @@ class TestCoachLobbyPreview:
         assert "data-coach-preview-notice" in html
         # Still no participation — attendance alone must not mint one here.
         assert EventLobbyParticipation.objects.filter(user=coach).count() == 0
+
+    def test_eligible_coach_who_attends_gets_the_full_member_lobby(self, client):
+        """The precedence question #715 raised, settled in #718 as "keep
+        current behaviour": a coach who clears the Connect gate on their own
+        attended registration never reaches the coach branch in
+        ``event_lobby`` — they fall through to the participant path and get
+        the real member lobby, signals included. Coach status beats attendance
+        only when the member path has nothing left to offer but the lock page
+        (the test above). Pinned here so flipping that precedence has to be a
+        deliberate change, not a silent one."""
+        coach = _make_member("workingcoach")
+        _grant_consent(coach)
+        CrushCoach.objects.create(user=coach, is_active=True)
+        event = _make_event(starts_in_minutes=-30)
+        _join(coach, event)
+        client.force_login(coach)
+
+        html = client.get(
+            reverse("crush_lu:event_lobby", args=[event.pk])
+        ).content.decode()
+
+        assert 'data-read-only="1"' not in html
+        assert "data-coach-preview-notice" not in html
+        assert "data-coach-preview-ended" not in html
+        assert "Your signals for tonight" in html
+        assert EventLobbyParticipation.objects.filter(user=coach).count() == 1
 
     def test_preview_card_hidden_for_unpublished_or_cancelled_events(self, client):
         """_get_lobby_event rejects both, so the card would be a dead link."""

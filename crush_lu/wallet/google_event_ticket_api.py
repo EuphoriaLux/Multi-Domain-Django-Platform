@@ -209,6 +209,23 @@ def complete_event_ticket(registration):
     return _patch_ticket_state(registration, "completed")
 
 
+def activate_event_ticket(registration):
+    """
+    Return an event ticket to active (attendance was undone).
+
+    The inverse of ``complete_event_ticket``. A coach undoing a mis-scan
+    leaves the member holding a pass marked used, even though their
+    registration is valid and they are still at the door.
+
+    Args:
+        registration: EventRegistration with google_wallet_ticket_object_id
+
+    Returns:
+        dict: {"success": bool, "message": str}
+    """
+    return _patch_ticket_state(registration, "active")
+
+
 def _patch_ticket_state(registration, state):
     """
     PATCH the state of an EventTicketObject.

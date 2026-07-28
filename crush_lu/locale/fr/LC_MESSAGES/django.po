@@ -595,37 +595,6 @@ msgstr ""
 "Sélectionnez les langues de cet événement. Laissez tout décoché pour aucune "
 "restriction linguistique (tout utilisateur peut s'inscrire)."
 
-#: admin/events.py:589
-msgid ""
-"Profile requirement level for registration:\n"
-"• Completed profile / entry event (recommended, default): Anyone with a "
-"completed profile (built + phone verified) can register, verified or not. "
-"New members get verified in person at the event\n"
-"• Verified profile only (members): Only already-verified members can "
-"register — use for members-only events\n"
-"• Premium member — coach assigned: Only members who have a personal coach "
-"assigned can register\n"
-"• Unverified profile only: Only users with a profile NOT yet verified by a "
-"coach can register\n"
-"• Profile must exist: Any user with a Crush profile can register (pending or "
-"incomplete OK)\n"
-"• No profile required: Any authenticated user can register"
-msgstr ""
-"Niveau d’exigence de profil pour l’inscription :\n"
-"• Profil complété / événement d’entrée (recommandé, par défaut) : toute "
-"personne ayant un profil complété (créé + téléphone vérifié) peut "
-"s’inscrire, vérifiée ou non. Les nouveaux membres sont vérifiés en personne "
-"lors de l’événement\n"
-"• Profil vérifié uniquement (membres) : seuls les membres déjà vérifiés "
-"peuvent s’inscrire — pour les événements réservés aux membres\n"
-"• Membre premium — coach attribué : seuls les membres ayant un coach "
-"personnel attribué peuvent s’inscrire\n"
-"• Profil non vérifié uniquement : seuls les utilisateurs dont le profil "
-"n’est PAS encore vérifié par un coach peuvent s’inscrire\n"
-"• Le profil doit exister : tout utilisateur ayant un profil Crush peut "
-"s’inscrire (en attente ou incomplet accepté)\n"
-"• Aucun profil requis : tout utilisateur authentifié peut s’inscrire"
-
 #: admin/events.py:599
 msgid ""
 "📸 Event banner image (optional)\n"
@@ -5232,10 +5201,6 @@ msgstr "Profil complété (événement d'accueil)"
 #: models/events.py:167
 msgid "Verified profile only (members)"
 msgstr "Profil vérifié uniquement (membres)"
-
-#: models/events.py:168
-msgid "Premium member — coach assigned"
-msgstr "Membre premium — coach attribué"
 
 #: models/events.py:169
 msgid "Unverified profile only"
@@ -38715,3 +38680,85 @@ msgstr ""
 #: views_checkin.py:915
 msgid "%(name)s promoted from the waitlist and checked in."
 msgstr "%(name)s est admis(e) depuis la liste d'attente et enregistré(e)."
+
+#. Event registration audience admin (2026-07-28)
+msgid "All logged-in people"
+msgstr "Toutes les personnes connectées"
+
+msgid "Participation-ready Crush profile"
+msgstr "Profil Crush prêt à participer"
+
+msgid "Any Crush profile (except rejected)"
+msgstr "Tout profil Crush (sauf les profils refusés)"
+
+msgid "Not-yet-verified profiles only (except rejected)"
+msgstr "Profils pas encore vérifiés uniquement (sauf les profils refusés)"
+
+msgid "Members with an assigned coach (not Premium)"
+msgstr "Membres avec un coach attribué (pas Premium)"
+
+msgid "Controls which audience can register for this event."
+msgstr "Détermine quel public peut s'inscrire à cet événement."
+
+msgid "Standard"
+msgstr "Standard"
+
+msgid "Advanced"
+msgstr "Avancé"
+
+msgid "Private invitation"
+msgstr "Invitation privée"
+
+msgid "No Crush profile is required. Event age and language restrictions still apply."
+msgstr "Aucun profil Crush n'est requis. Les restrictions d'âge et de langue de l'événement s'appliquent toujours."
+
+msgid "For verified members, plus pending members whose phone number is verified. Pending members can be verified in person at the event."
+msgstr "Pour les membres vérifiés, ainsi que les membres en attente dont le numéro de téléphone est vérifié. Les membres en attente peuvent être vérifiés en personne lors de l'événement."
+
+msgid "Only members whose Crush profile is already verified can register."
+msgstr "Seuls les membres dont le profil Crush est déjà vérifié peuvent s'inscrire."
+
+msgid "Any member with a Crush profile can register, unless the profile was rejected."
+msgstr "Tout membre disposant d'un profil Crush peut s'inscrire, sauf si son profil a été refusé."
+
+msgid "Only incomplete or pending Crush profiles can register. Verified and rejected profiles are excluded."
+msgstr "Seuls les profils Crush incomplets ou en attente peuvent s'inscrire. Les profils vérifiés et refusés sont exclus."
+
+msgid "Only members with an assigned personal coach can register. This does not check for an active Premium membership."
+msgstr "Seuls les membres ayant un coach personnel attribué peuvent s'inscrire. Cela ne vérifie pas l'existence d'un abonnement Premium actif."
+
+msgid "Only approved invitees can register. Configure the invitation details in the advanced section below."
+msgstr "Seules les personnes dont l'invitation est approuvée peuvent s'inscrire. Configurez les détails de l'invitation dans la section avancée ci-dessous."
+
+msgid "Registration audience"
+msgstr "Public de l'inscription"
+
+msgid "Choose who can register. Standard choices cover the usual event flows; use Advanced only for a specialized audience."
+msgstr "Choisissez qui peut s'inscrire. Les choix standard couvrent les parcours habituels ; utilisez « Avancé » uniquement pour un public spécifique."
+
+msgid "Select a valid registration audience."
+msgstr "Sélectionnez un public d'inscription valide."
+
+msgid "Registration Audience"
+msgstr "Public de l'inscription"
+
+msgid "Choose one audience. The three standard options cover the usual event flows; specialized access rules are grouped under Advanced."
+msgstr "Choisissez un public. Les trois options standard couvrent les parcours habituels ; les règles d'accès spécifiques sont regroupées sous « Avancé »."
+
+msgid "Advanced: Private Invitation Settings"
+msgstr "Avancé : paramètres des invitations privées"
+
+msgid "Configure this event as invitation-only. You can invite existing users directly or send external guest invitations (managed via EventInvitation inline below)."
+msgstr "Configurez cet événement sur invitation uniquement. Vous pouvez inviter directement des utilisateurs existants ou envoyer des invitations à des personnes externes (gérées via les lignes EventInvitation ci-dessous)."
+
+msgid "Members now have 48 hours to confirm who they met."
+msgstr "Les membres ont maintenant 48 heures pour confirmer qui ils ont rencontré."
+
+msgid "Status this registration held immediately before check-in"
+msgstr "Statut que cette inscription avait juste avant l’enregistrement"
+
+msgid "Coach this check-in granted the member as their permanent coach (empty when the member already had one)"
+msgstr "Coach que cet enregistrement a attribué au membre comme coach permanent (vide si le membre en avait déjà un)"
+
+msgid "The exact CrushProfile.assigned_coach_at this check-in wrote. Undo clears the coach only while the profile still holds this pair, so any later write — premium confirmation, admin reassignment — survives the undo."
+msgstr "La valeur exacte de CrushProfile.assigned_coach_at écrite par cet enregistrement. L’annulation ne retire le coach que tant que le profil contient encore cette paire ; toute écriture ultérieure (confirmation premium, réattribution par un administrateur) y survit."

@@ -295,12 +295,33 @@
                 comes first in the document — undo would otherwise rebuild the
                 Check In button inside the avatar.
             {% endcomment %}
+            {% comment %}
+                Row controls use the canonical variants from STYLE.md §2:
+                .btn-crush-solid + .btn-sm for the actions, .btn-link for the
+                quiet undo. Two overrides are deliberate and should not be
+                "cleaned up":
+
+                  - bg-*/focus:ring-* on Verify and the waitlist promote. The
+                    tones carry meaning (green = identity, amber = waitlist)
+                    and STYLE.md sanctions a tinted .btn-crush-solid for the
+                    rare non-purple solid.
+                  - text-white on all three solids. The component's own
+                    text-white resolves to brand white #f0ecf5, which drops
+                    light-mode contrast below AA on this surface (Check In
+                    4.67 -> 4.01, the tinted pair to ~2.75). Pure #fff keeps
+                    every button at or above where it was, and the door is
+                    read on a phone in a dim venue.
+
+                Note .btn-sm is INERT on .btn-crush-outline — that component is
+                unlayered, so its padding beats the layered utility. The two
+                are only combinable on .btn-crush-solid.
+            {% endcomment %}
             <div class="flex-shrink-0 flex items-center gap-2" data-row-actions>
                 {# Verify-in-person: shown for unverified attendees #}
                 {% if reg.user.crushprofile and not reg.user.crushprofile.is_approved %}
                 <button
                     type="button"
-                    class="manual-verify-btn px-3 py-1.5 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    class="manual-verify-btn btn-crush-solid btn-sm bg-green-600 hover:bg-green-700 focus:ring-green-500 text-white"
                     data-verify-url="/api/events/{{ event.id }}/verify/{{ reg.id }}/"
                     data-reg-id="{{ reg.id }}"
                     @click="markVerified"
@@ -311,7 +332,7 @@
                 {% if reg.status != 'attended' %}
                 <button
                     type="button"
-                    class="manual-checkin-btn px-3 py-1.5 text-xs font-medium bg-crush-purple text-white rounded-lg hover:bg-crush-purple/90 transition-colors"
+                    class="manual-checkin-btn btn-crush-solid btn-sm text-white"
                     data-checkin-url="/api/events/checkin/{{ reg.id }}/{{ reg.checkin_token }}/"
                     data-reg-id="{{ reg.id }}"
                     @click="manualCheckin"
@@ -327,16 +348,23 @@
                     this the only fix is Django admin. The endpoint refuses
                     after a short window — this corrects a mis-scan, it does not
                     edit attendance history.
+
+                    Gated on checked_in_at as well as status: a row attended
+                    with no timestamp has no window, so the endpoint refuses it.
+                    Rendering the button anyway would offer a correction that
+                    can only answer 409.
                 {% endcomment %}
+                {% if reg.checked_in_at %}
                 <button
                     type="button"
-                    class="manual-undo-btn px-2 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 underline decoration-dotted transition-colors"
+                    class="manual-undo-btn btn-link px-2 py-1.5 text-xs font-medium decoration-dotted transition-colors text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400"
                     data-undo-url="/api/events/{{ event.id }}/undo-checkin/{{ reg.id }}/"
                     data-reg-id="{{ reg.id }}"
                     @click="undoCheckin"
                 >
                     {% trans "Undo" %}
                 </button>
+                {% endif %}
                 {% endif %}
             </div>
         </div>
@@ -392,7 +420,7 @@
                 </div>
                 <button
                     type="button"
-                    class="waitlist-promote-btn flex-shrink-0 px-3 py-1.5 text-xs font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+                    class="waitlist-promote-btn flex-shrink-0 btn-crush-solid btn-sm bg-amber-600 hover:bg-amber-700 focus:ring-amber-500 text-white"
                     data-promote-url="/api/events/{{ event.id }}/promote/{{ reg.id }}/"
                     data-reg-id="{{ reg.id }}"
                     @click="promoteFromWaitlist"

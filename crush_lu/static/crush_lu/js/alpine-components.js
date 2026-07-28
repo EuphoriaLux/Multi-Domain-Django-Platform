@@ -884,8 +884,12 @@ document.addEventListener("alpine:init", function () {
                 if (!undoUrl) return null;
                 var undoBtn = document.createElement("button");
                 undoBtn.type = "button";
+                // Must stay identical to the server-rendered twin in
+                // coach_event_checkin.html — a row that came back through undo
+                // sits next to rows that never left, and a drifted class list
+                // shows up as two differently-shaped buttons in the same list.
                 undoBtn.className =
-                    "manual-undo-btn px-2 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 underline decoration-dotted transition-colors";
+                    "manual-undo-btn btn-link px-2 py-1.5 text-xs font-medium decoration-dotted transition-colors text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400";
                 undoBtn.setAttribute("data-undo-url", undoUrl);
                 undoBtn.setAttribute("data-reg-id", regId);
                 undoBtn.textContent = i18n.undoAction || "Undo";
@@ -1252,13 +1256,34 @@ document.addEventListener("alpine:init", function () {
                 var i18n = window._checkinI18n || {};
                 var id = data.registration_id || regId;
                 var row = document.getElementById("manual-reg-" + id);
+                // An undo returns the row to whatever it actually held before
+                // the check-in, which the server now records rather than
+                // assumes: undoing a mistaken promotion puts the walk-up back
+                // on the waitlist instead of leaving them a confirmed seat.
+                var toWaitlist = data.restored_status === "waitlist";
 
-                // An undo always returns someone to the confirmed list, never
-                // to the waitlist, so this is the plain inverse of a scan.
                 this._bumpCounter("attended-count", -1);
-                this._bumpCounter("outstanding-count", 1);
+                // Exact inverse of what the check-in bumped. A promotion grew
+                // the expected set (views_coach counts confirmed + attended,
+                // and a waitlisted row is in neither), so undoing it shrinks
+                // that set again — outstanding was never touched either way.
+                this._bumpCounter(
+                    toWaitlist ? "expected-count" : "outstanding-count",
+                    toWaitlist ? -1 : 1,
+                );
                 this._bumpGenderSplit(data.gender, -1);
                 if (!row) return;
+
+                if (toWaitlist) {
+                    // The confirmed list only ever renders confirmed and
+                    // attended rows, so a waitlisted one does not belong in
+                    // it — and rebuilding its Check In button would post to
+                    // event_checkin_api, which refuses anything but
+                    // `confirmed`. The waitlist section below is rebuilt on
+                    // the next page load (see #710).
+                    row.remove();
+                    return;
+                }
 
                 row.setAttribute("data-attendee-status", "confirmed");
                 var badge = row.querySelector(".checkin-overlay-badge");
@@ -1294,8 +1319,10 @@ document.addEventListener("alpine:init", function () {
                     );
                     var newBtn = document.createElement("button");
                     newBtn.type = "button";
+                    // Keep in sync with the server-rendered twin in
+                    // coach_event_checkin.html (see _buildUndoButton).
                     newBtn.className =
-                        "manual-checkin-btn px-3 py-1.5 text-xs font-medium bg-crush-purple text-white rounded-lg hover:bg-crush-purple/90 transition-colors";
+                        "manual-checkin-btn btn-crush-solid btn-sm text-white";
                     newBtn.setAttribute("data-checkin-url", checkinUrl || "");
                     newBtn.setAttribute("data-reg-id", id);
                     newBtn.textContent = i18n.checkIn || "Check In";

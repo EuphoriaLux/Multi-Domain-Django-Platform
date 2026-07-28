@@ -46,6 +46,40 @@ def _scanning_coach(request):
     return coach if coach is not None and coach.is_active else None
 
 
+#: Fields every check-in write names. `updated_at` is `auto_now`, so it is only
+#: written when listed; the three `checkin_*` provenance fields are what makes
+#: the undo reversible without guessing (see `_record_checkin_provenance`).
+_CHECKIN_UPDATE_FIELDS = [
+    "status",
+    "checked_in_at",
+    "checkin_prior_status",
+    "checkin_granted_coach",
+    "checkin_granted_coach_at",
+    "updated_at",
+]
+
+#: Statuses `coach_undo_checkin` will restore a row to. The two check-in paths
+#: are the only ones that record a prior status, and they accept exactly these:
+#: `event_checkin_api` requires `confirmed`, `coach_promote_from_waitlist`
+#: requires `waitlist`. Anything else on the row is a stale or hand-written
+#: value and falls back to `confirmed`, which is what the undo did for every
+#: row before provenance existed.
+UNDO_RESTORABLE_STATUSES = frozenset({"confirmed", "waitlist"})
+
+
+def _record_checkin_provenance(registration):
+    """Stamp how this attendance is being reached, before the status flips.
+
+    Call immediately before setting ``status = "attended"``. Records the status
+    being left behind and clears any coach grant left by an earlier check-in of
+    the same row — ``assign_coach_on_first_attendance`` fills the grant back in
+    during the save that follows, if this check-in is what earns one.
+    """
+    registration.checkin_prior_status = registration.status
+    registration.checkin_granted_coach = None
+    registration.checkin_granted_coach_at = None
+
+
 #: Statuses the manual Verify button may transition from. The endpoint has
 #: always guarded only on "already verified" and approved anything else, so
 #: narrowing this to `pending` would silently stop coaches verifying
@@ -435,9 +469,10 @@ def event_checkin_api(request, registration_id, token):
         # have none): read by `assign_coach_on_first_attendance` during the
         # save below, in preference to `event.coaches.first()`.
         registration._checkin_coach = _scanning_coach(request)
+        _record_checkin_provenance(registration)
         registration.status = "attended"
         registration.checked_in_at = now
-        registration.save(update_fields=["status", "checked_in_at", "updated_at"])
+        registration.save(update_fields=_CHECKIN_UPDATE_FIELDS)
 
         # Attending IS the verification, for the ordinary case. Side effects
         # (referral credit, welcome email) run on commit — never inside the
@@ -666,17 +701,34 @@ def coach_undo_checkin(request, event_id, registration_id):
     so ``assign_coach_on_first_attendance`` never fires again. Without this
     endpoint one mis-scan can only be fixed in Django admin.
 
-    What it reverts:
+    What it reverts, both from the provenance the check-in recorded rather
+    than from anything inferred afterwards:
 
-    - ``attended`` -> ``confirmed``, clearing ``checked_in_at``.
-    - The permanent coach, *only* if this attendance is what granted it
-      (``assigned_coach_at >= checked_in_at``). A member who already had a
-      coach keeps it.
+    - ``attended`` -> the status the row actually held before
+      (``checkin_prior_status``), so undoing a mistaken waitlist promotion
+      returns the walk-up to the **waitlist** instead of handing them a
+      confirmed seat they were never given.
+    - The permanent coach, only while the profile still holds exactly the
+      grant this check-in wrote (``checkin_granted_coach`` +
+      ``checkin_granted_coach_at``). A member who arrived with a coach keeps
+      it, and so does one whose coach was rewritten inside the undo window by
+      a premium confirmation or an admin reassignment — both write
+      ``assigned_coach_at``, so the old ``assigned_coach_at >= checked_in_at``
+      test read a *paid* coach as a door grant and stripped it.
+
+    Rows checked in before this provenance existed carry none of it, and fall
+    back to restoring ``confirmed`` and leaving the coach alone — the safe
+    direction of each guess, and reachable for at most the 15 minutes after a
+    deploy in which a pre-deploy check-in is still undoable.
 
     What it deliberately does NOT revert: the verification. The welcome email
     and the referral credit have already gone out, and un-verifying a member
     who is standing in the room is worse than an over-verified walk-in. The
     coach can see the profile is verified and act accordingly.
+
+    Refused for a row with no ``checked_in_at``. The window is what keeps this
+    a correction rather than an attendance editor, and a row with no timestamp
+    has no window — those belong to an administrator.
 
     The Event Lobby needs no cleanup: ``eligible_participations`` re-checks
     ``event_registration__status == "attended"`` at read time (§5.2), so the
@@ -709,53 +761,84 @@ def coach_undo_checkin(request, event_id, registration_id):
                 status=409,
             )
 
+        # No timestamp, no window — and no undo. An attended row with a NULL
+        # checked_in_at is valid: attendance entered administratively or by an
+        # older flow. Letting it skip the age check is what would turn a
+        # 15-minute mis-scan fix into an editor for attendance of any age,
+        # because every attended row renders an Undo button.
         checked_in_at = registration.checked_in_at
-        if checked_in_at is not None:
-            age = now - checked_in_at
-            if age > timedelta(minutes=CHECKIN_UNDO_WINDOW_MINUTES):
-                return JsonResponse(
-                    {
-                        "success": False,
-                        "error": str(
-                            _(
-                                "This check-in is too old to undo here. Ask an "
-                                "administrator to correct it."
-                            )
-                        ),
-                    },
-                    status=409,
-                )
+        undo_window = timedelta(minutes=CHECKIN_UNDO_WINDOW_MINUTES)
+        if checked_in_at is None or now - checked_in_at > undo_window:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": str(
+                        _(
+                            "This check-in is too old to undo here. Ask an "
+                            "administrator to correct it."
+                        )
+                    ),
+                },
+                status=409,
+            )
 
-        # Clear the coach only when this attendance is what granted it. Without
-        # the timestamp comparison an undo would strip the coach from a member
-        # who arrived with one, which no other flow can restore.
+        # Clear the coach only while the profile still holds exactly the grant
+        # this check-in recorded. Equality on both the coach and the timestamp
+        # is what makes it provenance rather than ordering: every other writer
+        # of `assigned_coach` / `assigned_coach_at` (PremiumMembership.confirm,
+        # an admin editing either field) changes at least one of them, so a
+        # rewrite inside the undo window no longer looks like a door grant.
+        # A member who arrived with a coach records no grant at all and is
+        # untouched, as before.
         coach_cleared = False
         profile = CrushProfile.objects.filter(user_id=registration.user_id).first()
+        granted_coach_id = registration.checkin_granted_coach_id
+        granted_at = registration.checkin_granted_coach_at
         if (
-            profile is not None
-            and profile.assigned_coach_id
-            and profile.assigned_coach_at
-            and checked_in_at
-            and profile.assigned_coach_at >= checked_in_at
+            granted_coach_id
+            and granted_at
+            and profile is not None
+            and profile.assigned_coach_id == granted_coach_id
+            and profile.assigned_coach_at == granted_at
         ):
             profile.assigned_coach = None
             profile.assigned_coach_at = None
             profile.save(update_fields=["assigned_coach", "assigned_coach_at"])
             coach_cleared = True
 
-        registration.status = "confirmed"
+        # Back to whatever the row actually held. A promoted walk-up returns to
+        # the waitlist: undoing a mistaken promotion must not leave them
+        # holding a confirmed seat nobody gave them, which is what event
+        # capacity and registration priority are counted from.
+        restored_status = registration.checkin_prior_status
+        if restored_status not in UNDO_RESTORABLE_STATUSES:
+            restored_status = "confirmed"
+
+        registration.status = restored_status
         registration.checked_in_at = None
+        # Provenance describes an attendance, and this row no longer has one.
+        registration.checkin_prior_status = ""
+        registration.checkin_granted_coach = None
+        registration.checkin_granted_coach_at = None
+        # Tells handle_event_ticket_on_registration_change that this really is
+        # an attended -> confirmed transition. The same idiom as
+        # _checkin_coach: the signal cannot tell a transition from any other
+        # save that happens to leave the row confirmed. A restore to `waitlist`
+        # is not in that signal's status map at all and correctly touches no
+        # pass — a waitlisted row is never issued a live one.
+        registration._reactivate_ticket = True
         # updated_at is auto_now, so it is only written when named here —
         # every other save in this file lists it for the same reason.
-        registration.save(update_fields=["status", "checked_in_at", "updated_at"])
+        registration.save(update_fields=_CHECKIN_UPDATE_FIELDS)
 
     logger.info(
         "Coach %s undid check-in of registration %s (user %s) at event %s; "
-        "coach_cleared=%s",
+        "restored_status=%s coach_cleared=%s",
         coach,
         registration.id,
         registration.user_id,
         event_id,
+        restored_status,
         coach_cleared,
     )
 
@@ -765,6 +848,10 @@ def coach_undo_checkin(request, event_id, registration_id):
         "undone": True,
         "registration_id": registration.id,
         "attendee_name": display_name,
+        # Where the row landed. The door page counts a returned-to-waitlist row
+        # differently from a returned-to-confirmed one — the waitlist was never
+        # in the expected set — so this cannot be assumed client-side.
+        "restored_status": restored_status,
         "coach_cleared": coach_cleared,
         # The client decrements the live gender split with this. Only the
         # bucket letter travels — the toast payload would be gratuitous here.
@@ -869,9 +956,13 @@ def coach_promote_from_waitlist(request, event_id, registration_id):
             )
 
         registration._checkin_coach = _scanning_coach(request)
+        # Records `waitlist` as the prior status, which is the whole reason an
+        # undo of this action can put the walk-up back where they were instead
+        # of promoting them to a confirmed seat by accident.
+        _record_checkin_provenance(registration)
         registration.status = "attended"
         registration.checked_in_at = now
-        registration.save(update_fields=["status", "checked_in_at", "updated_at"])
+        registration.save(update_fields=_CHECKIN_UPDATE_FIELDS)
 
         verified_profile = _auto_verify_on_attendance(request, registration, now)
         auto_verified = verified_profile is not None
