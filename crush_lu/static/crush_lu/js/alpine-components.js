@@ -1256,13 +1256,34 @@ document.addEventListener("alpine:init", function () {
                 var i18n = window._checkinI18n || {};
                 var id = data.registration_id || regId;
                 var row = document.getElementById("manual-reg-" + id);
+                // An undo returns the row to whatever it actually held before
+                // the check-in, which the server now records rather than
+                // assumes: undoing a mistaken promotion puts the walk-up back
+                // on the waitlist instead of leaving them a confirmed seat.
+                var toWaitlist = data.restored_status === "waitlist";
 
-                // An undo always returns someone to the confirmed list, never
-                // to the waitlist, so this is the plain inverse of a scan.
                 this._bumpCounter("attended-count", -1);
-                this._bumpCounter("outstanding-count", 1);
+                // Exact inverse of what the check-in bumped. A promotion grew
+                // the expected set (views_coach counts confirmed + attended,
+                // and a waitlisted row is in neither), so undoing it shrinks
+                // that set again — outstanding was never touched either way.
+                this._bumpCounter(
+                    toWaitlist ? "expected-count" : "outstanding-count",
+                    toWaitlist ? -1 : 1,
+                );
                 this._bumpGenderSplit(data.gender, -1);
                 if (!row) return;
+
+                if (toWaitlist) {
+                    // The confirmed list only ever renders confirmed and
+                    // attended rows, so a waitlisted one does not belong in
+                    // it — and rebuilding its Check In button would post to
+                    // event_checkin_api, which refuses anything but
+                    // `confirmed`. The waitlist section below is rebuilt on
+                    // the next page load (see #710).
+                    row.remove();
+                    return;
+                }
 
                 row.setAttribute("data-attendee-status", "confirmed");
                 var badge = row.querySelector(".checkin-overlay-badge");

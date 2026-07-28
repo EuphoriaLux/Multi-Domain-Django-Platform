@@ -15,6 +15,7 @@ from unittest import mock
 import pytest
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from django.core.signing import Signer
 from django.urls import reverse
 from django.utils import timezone
 
@@ -23,6 +24,7 @@ from crush_lu.models import (
     CrushProfile,
     EventRegistration,
     MeetupEvent,
+    PremiumMembership,
     UserDataConsent,
 )
 from crush_lu.views_checkin import CHECKIN_UNDO_WINDOW_MINUTES
@@ -100,6 +102,18 @@ def _promote_url(event, registration):
     )
 
 
+def _scan(client, event, registration):
+    """Drive the real door scan (`event_checkin_api`) on `client`'s session.
+
+    The undo now reverses what the check-in *recorded*, so a hand-built
+    ``status="attended"`` row is no longer a stand-in for a scan — it carries
+    no provenance and every undo assertion about it would pass or fail for
+    reasons unrelated to the door.
+    """
+    token = Signer().sign(f"{registration.pk}:{event.pk}")
+    return client.post(f"/api/events/checkin/{registration.pk}/{token}/")
+
+
 class TestUndoCheckin:
     def test_undo_reverts_attendance(self, client):
         coach = _make_coach()
@@ -120,7 +134,209 @@ class TestUndoCheckin:
 
     def test_undo_clears_a_coach_this_attendance_granted(self, client):
         """The whole point: a mis-scan makes the scanner someone's permanent
-        coach, and nothing else can take it back."""
+        coach, and nothing else can take it back.
+
+        Driven through the real scan so the grant is the one
+        `assign_coach_on_first_attendance` actually wrote — that is the record
+        the undo now reads, in place of comparing timestamps.
+        """
+        coach = _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="confirmed"
+        )
+        client.force_login(coach.user)
+        assert _scan(client, event, registration).status_code == 200
+
+        profile = attendee.crushprofile
+        profile.refresh_from_db()
+        assert profile.assigned_coach_id == coach.pk  # the scan granted it
+        registration.refresh_from_db()
+        assert registration.checkin_granted_coach_id == coach.pk
+        assert registration.checkin_granted_coach_at == profile.assigned_coach_at
+
+        response = client.post(_undo_url(event, registration))
+
+        assert response.json()["coach_cleared"] is True
+        profile.refresh_from_db()
+        assert profile.assigned_coach_id is None
+        assert profile.assigned_coach_at is None
+        # Provenance describes an attendance the row no longer has.
+        registration.refresh_from_db()
+        assert registration.checkin_granted_coach_id is None
+        assert registration.checkin_granted_coach_at is None
+        assert registration.checkin_prior_status == ""
+
+    def test_undo_keeps_a_coach_the_member_already_had(self, client):
+        """A member who arrived with a coach must keep it — no other flow can
+        restore an assignment this endpoint wrongly stripped."""
+        scanning_coach = _make_coach()
+        earlier_coach = _make_coach(username="earlier@example.com", first_name="Robin")
+        attendee = _make_attendee()
+        event = _make_event()
+        profile = attendee.crushprofile
+        profile.assigned_coach = earlier_coach
+        profile.assigned_coach_at = timezone.now() - timedelta(days=30)
+        profile.save(update_fields=["assigned_coach", "assigned_coach_at"])
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="confirmed"
+        )
+        client.force_login(scanning_coach.user)
+        _scan(client, event, registration)
+
+        registration.refresh_from_db()
+        assert registration.checkin_granted_coach_id is None  # granted nothing
+
+        response = client.post(_undo_url(event, registration))
+
+        assert response.json()["coach_cleared"] is False
+        profile.refresh_from_db()
+        assert profile.assigned_coach_id == earlier_coach.pk
+
+    def test_a_premium_confirmation_inside_the_window_survives_an_undo(self, client):
+        """The failure the timestamp comparison caused, in full.
+
+        Scanned at the door, then a pending premium membership is confirmed
+        four minutes later — `PremiumMembership.confirm()` writes the same two
+        profile fields, so `assigned_coach_at >= checked_in_at` held and the
+        undo stripped a coach the member had *paid* for. Nothing restores it.
+        """
+        door_coach = _make_coach()
+        paid_coach = _make_coach(username="paid@example.com", first_name="Robin")
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="confirmed"
+        )
+        client.force_login(door_coach.user)
+        _scan(client, event, registration)
+
+        membership = PremiumMembership.objects.create(
+            user=attendee, coach=paid_coach, status="pending"
+        )
+        membership.confirm()
+
+        response = client.post(_undo_url(event, registration))
+
+        assert response.status_code == 200
+        assert response.json()["coach_cleared"] is False
+        profile = attendee.crushprofile
+        profile.refresh_from_db()
+        assert profile.assigned_coach_id == paid_coach.pk
+        assert profile.assigned_coach_at is not None
+
+    def test_an_admin_reassignment_inside_the_window_survives_an_undo(self, client):
+        """Admin edits `assigned_coach` and `assigned_coach_at` as two separate
+        form fields, so a reassignment can move the coach and leave the
+        timestamp alone — or the reverse. Either way the profile no longer
+        holds the pair this check-in wrote, and the undo must not touch it."""
+        door_coach = _make_coach()
+        new_coach = _make_coach(username="reassigned@example.com", first_name="Robin")
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="confirmed"
+        )
+        client.force_login(door_coach.user)
+        _scan(client, event, registration)
+
+        profile = attendee.crushprofile
+        profile.refresh_from_db()
+        granted_at = profile.assigned_coach_at
+        # Coach moved, timestamp deliberately untouched — the harder half.
+        CrushProfile.objects.filter(pk=profile.pk).update(assigned_coach=new_coach)
+
+        response = client.post(_undo_url(event, registration))
+
+        assert response.json()["coach_cleared"] is False
+        profile.refresh_from_db()
+        assert profile.assigned_coach_id == new_coach.pk
+        assert profile.assigned_coach_at == granted_at
+
+    def test_undo_restores_confirmed_for_a_scanned_attendee(self, client):
+        """The ordinary case still lands where it always did."""
+        coach = _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="confirmed"
+        )
+        client.force_login(coach.user)
+        _scan(client, event, registration)
+
+        registration.refresh_from_db()
+        assert registration.checkin_prior_status == "confirmed"
+
+        payload = client.post(_undo_url(event, registration)).json()
+
+        assert payload["restored_status"] == "confirmed"
+        registration.refresh_from_db()
+        assert registration.status == "confirmed"
+
+    def test_undo_of_a_promotion_returns_the_walk_up_to_the_waitlist(self, client):
+        """Both endpoints, no hand-built fixture.
+
+        A promotion is `waitlist -> attended`. Undoing it used to write
+        `confirmed` unconditionally, so a mistaken promotion left the walk-up
+        holding a seat nobody gave them — and event capacity plus registration
+        priority are counted from exactly that status.
+        """
+        coach = _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="waitlist"
+        )
+        client.force_login(coach.user)
+
+        promote = client.post(_promote_url(event, registration))
+        assert promote.status_code == 200
+        registration.refresh_from_db()
+        assert registration.status == "attended"
+        assert registration.checkin_prior_status == "waitlist"
+
+        undo = client.post(_undo_url(event, registration))
+
+        assert undo.status_code == 200
+        assert undo.json()["restored_status"] == "waitlist"
+        registration.refresh_from_db()
+        assert registration.status == "waitlist"
+        assert registration.checked_in_at is None
+        assert registration.checkin_prior_status == ""
+
+    def test_undo_of_a_promotion_still_clears_the_coach_it_granted(self, client):
+        """A promotion grants a permanent coach exactly like a scan does, so
+        undoing one has to take it back the same way."""
+        coach = _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="waitlist"
+        )
+        client.force_login(coach.user)
+        client.post(_promote_url(event, registration))
+
+        profile = attendee.crushprofile
+        profile.refresh_from_db()
+        assert profile.assigned_coach_id == coach.pk
+
+        payload = client.post(_undo_url(event, registration)).json()
+
+        assert payload["coach_cleared"] is True
+        assert payload["restored_status"] == "waitlist"
+        profile.refresh_from_db()
+        assert profile.assigned_coach_id is None
+
+    def test_undo_of_a_legacy_attendance_restores_confirmed_and_keeps_the_coach(
+        self, client
+    ):
+        """A row checked in before provenance existed carries none of it.
+
+        Both guesses fall the safe way: `confirmed` is what the undo always
+        restored, and a coach with no recorded grant is left alone rather than
+        stripped on a hunch.
+        """
         coach = _make_coach()
         attendee = _make_attendee()
         event = _make_event()
@@ -134,35 +350,42 @@ class TestUndoCheckin:
         profile.save(update_fields=["assigned_coach", "assigned_coach_at"])
         client.force_login(coach.user)
 
-        response = client.post(_undo_url(event, registration))
+        payload = client.post(_undo_url(event, registration)).json()
 
-        assert response.json()["coach_cleared"] is True
+        assert payload["restored_status"] == "confirmed"
+        assert payload["coach_cleared"] is False
+        registration.refresh_from_db()
+        assert registration.status == "confirmed"
         profile.refresh_from_db()
-        assert profile.assigned_coach_id is None
-        assert profile.assigned_coach_at is None
+        assert profile.assigned_coach_id == coach.pk
 
-    def test_undo_keeps_a_coach_the_member_already_had(self, client):
-        """A member who arrived with a coach must keep it — no other flow can
-        restore an assignment this endpoint wrongly stripped."""
-        scanning_coach = _make_coach()
-        earlier_coach = _make_coach(username="earlier@example.com", first_name="Robin")
+    def test_a_re_scan_after_an_undo_records_fresh_provenance(self, client):
+        """The corrected scan is the one that matters. Its own grant has to be
+        undoable, and it must not inherit the cleared one."""
+        first_coach = _make_coach()
+        second_coach = _make_coach(username="second@example.com", first_name="Robin")
         attendee = _make_attendee()
         event = _make_event()
-        checked_in_at = timezone.now()
         registration = EventRegistration.objects.create(
-            event=event, user=attendee, status="attended", checked_in_at=checked_in_at
+            event=event, user=attendee, status="confirmed"
         )
+        client.force_login(first_coach.user)
+        _scan(client, event, registration)
+        client.post(_undo_url(event, registration))
+
+        client.force_login(second_coach.user)
+        _scan(client, event, registration)
+
+        registration.refresh_from_db()
+        assert registration.status == "attended"
+        assert registration.checkin_granted_coach_id == second_coach.pk
+
+        payload = client.post(_undo_url(event, registration)).json()
+
+        assert payload["coach_cleared"] is True
         profile = attendee.crushprofile
-        profile.assigned_coach = earlier_coach
-        profile.assigned_coach_at = checked_in_at - timedelta(days=30)
-        profile.save(update_fields=["assigned_coach", "assigned_coach_at"])
-        client.force_login(scanning_coach.user)
-
-        response = client.post(_undo_url(event, registration))
-
-        assert response.json()["coach_cleared"] is False
         profile.refresh_from_db()
-        assert profile.assigned_coach_id == earlier_coach.pk
+        assert profile.assigned_coach_id is None
 
     def test_undo_does_not_revert_verification(self, client):
         """The welcome email and referral credit are already out. Un-verifying

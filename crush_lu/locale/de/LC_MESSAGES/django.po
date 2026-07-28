@@ -38614,3 +38614,12 @@ msgstr "Konfiguriere diese Veranstaltung als nur auf Einladung zugänglich. Du k
 
 msgid "Members now have 48 hours to confirm who they met."
 msgstr "Die Mitglieder haben jetzt 48 Stunden Zeit, um zu bestätigen, wen sie getroffen haben."
+
+msgid "Status this registration held immediately before check-in"
+msgstr "Status, den diese Anmeldung unmittelbar vor dem Check-in hatte"
+
+msgid "Coach this check-in granted the member as their permanent coach (empty when the member already had one)"
+msgstr "Coach, den dieses Check-in dem Mitglied als festen Coach zugewiesen hat (leer, wenn das Mitglied bereits einen hatte)"
+
+msgid "The exact CrushProfile.assigned_coach_at this check-in wrote. Undo clears the coach only while the profile still holds this pair, so any later write — premium confirmation, admin reassignment — survives the undo."
+msgstr "Der exakte CrushProfile.assigned_coach_at, den dieses Check-in geschrieben hat. Das Rückgängigmachen entfernt den Coach nur, solange das Profil dieses Paar noch enthält – jede spätere Änderung (Premium-Bestätigung, Neuzuweisung durch Admin) übersteht es."
