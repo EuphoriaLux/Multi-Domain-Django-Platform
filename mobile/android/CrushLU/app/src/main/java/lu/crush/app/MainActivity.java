@@ -11,6 +11,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
 import android.webkit.CookieManager;
+import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
@@ -41,6 +42,7 @@ import android.os.Build;
 public class MainActivity extends AppCompatActivity {
     private static final int FILE_CHOOSER_REQUEST = 1001;
     private static final int NOTIFICATION_PERMISSION_REQUEST = 1002;
+    private static final int CAMERA_PERMISSION_REQUEST = 1003;
     private static final String BASE_URL = BuildConfig.BASE_URL;
     private static final String START_URL = BASE_URL + "/en/dashboard/?source=android_app";
     private static final String AUTH_SCHEME = BuildConfig.AUTH_SCHEME;
@@ -52,6 +54,9 @@ public class MainActivity extends AppCompatActivity {
     private SwipeRefreshLayout swipeRefresh;
     private View offlineView;
     private ValueCallback<Uri[]> filePathCallback;
+    // Held while the OS camera prompt is up: the WebView's request must stay
+    // un-answered until the user decides, then be granted or denied.
+    private PermissionRequest pendingCameraRequest;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -199,7 +204,66 @@ public class MainActivity extends AppCompatActivity {
                 }
                 return true;
             }
+
+            @Override
+            public void onPermissionRequest(PermissionRequest request) {
+                // WebChromeClient's default implementation denies outright, so
+                // without this override getUserMedia() in the check-in scanner
+                // fails with NotAllowedError and no prompt is ever shown.
+                boolean wantsCamera = false;
+                for (String resource : request.getResources()) {
+                    if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resource)) {
+                        wantsCamera = true;
+                    }
+                }
+                // Only our own pages may reach the camera; anything else (an
+                // embedded third-party frame) is refused.
+                if (!wantsCamera || !isInternal(request.getOrigin())) {
+                    request.deny();
+                    return;
+                }
+
+                if (checkSelfPermission(android.Manifest.permission.CAMERA)
+                        == PackageManager.PERMISSION_GRANTED) {
+                    request.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
+                    return;
+                }
+
+                if (pendingCameraRequest != null) {
+                    // A prompt is already up (e.g. Start tapped twice); leaving
+                    // the newer request unanswered would wedge the scanner.
+                    request.deny();
+                    return;
+                }
+                pendingCameraRequest = request;
+                requestPermissions(
+                        new String[]{android.Manifest.permission.CAMERA},
+                        CAMERA_PERMISSION_REQUEST);
+            }
+
+            @Override
+            public void onPermissionRequestCanceled(PermissionRequest request) {
+                if (request.equals(pendingCameraRequest)) {
+                    pendingCameraRequest = null;
+                }
+            }
         });
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != CAMERA_PERMISSION_REQUEST || pendingCameraRequest == null) {
+            return;
+        }
+        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            pendingCameraRequest.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
+        } else {
+            // Denying (rather than dropping it) lets the page surface its
+            // "camera permission denied" message instead of hanging.
+            pendingCameraRequest.deny();
+        }
+        pendingCameraRequest = null;
     }
 
     private void configureSwipeRefresh() {
