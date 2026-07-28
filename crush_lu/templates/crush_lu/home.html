@@ -90,7 +90,7 @@
                     <a href="{% url 'crush_lu:signup' %}" class="btn-hero-primary">
                         {% trans "Get Started Free" %}
                     </a>
-                    <a href="{% url 'crush_lu:how_it_works' %}" class="hero-cta-link">
+                    <a href="{% url 'crush_lu:how_it_works' %}" class="hero-cta-link inline-flex items-center gap-1 px-5 py-3 rounded-full border-2 border-white/40 text-white font-semibold hover:bg-white/10 transition-colors min-h-11">
                         {% trans "How It Works" %} →
                     </a>
                 </div>
@@ -105,10 +105,10 @@
 <!-- Features Section -->
 <section class="features-section animate-on-scroll" aria-labelledby="features-heading">
     <h2 id="features-heading" class="sr-only">{% trans "Why Choose Crush.lu" %}</h2>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         <div class="feature-card">
             <div class="feature-icon" aria-hidden="true">
-                {% include "crush_lu/includes/ghost-story-approved.html" with class="w-16 h-16 ghost-glow" %}
+                {% include "crush_lu/includes/ghost-story-approved.html" with class="w-12 h-12 md:w-16 md:h-16 ghost-glow" %}
             </div>
             <h3 class="feature-title">{% trans "Privacy First" %}</h3>
             <p class="feature-text">
@@ -117,7 +117,7 @@
         </div>
         <div class="feature-card">
             <div class="feature-icon" aria-hidden="true">
-                {% include "crush_lu/includes/ghost-story-party.html" with class="w-16 h-16 ghost-glow" %}
+                {% include "crush_lu/includes/ghost-story-party.html" with class="w-12 h-12 md:w-16 md:h-16 ghost-glow" %}
             </div>
             <h3 class="feature-title">{% trans "Real Events" %}</h3>
             <p class="feature-text">
@@ -126,7 +126,7 @@
         </div>
         <div class="feature-card">
             <div class="feature-icon" aria-hidden="true">
-                {% include "crush_lu/includes/ghost-story-chatting-pair.html" with class="w-16 h-16 ghost-glow" %}
+                {% include "crush_lu/includes/ghost-story-chatting-pair.html" with class="w-12 h-12 md:w-16 md:h-16 ghost-glow" %}
             </div>
             <h3 class="feature-title">{% trans "Guided Support" %}</h3>
             <p class="feature-text">
