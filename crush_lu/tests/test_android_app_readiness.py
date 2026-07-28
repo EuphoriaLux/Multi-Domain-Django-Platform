@@ -105,6 +105,24 @@ def test_assetlinks_includes_android_app_when_fingerprint_configured(client, set
     assert android_target["sha256_cert_fingerprints"] == ["AA:BB:CC:DD:EE:FF"]
 
 
+def test_assetlinks_web_only_when_fingerprint_unset(client, settings):
+    # The default production state until the Play signing fingerprint is
+    # configured: assetlinks.json must serve the web target only, with no
+    # android_app entry, so verification fails closed rather than pointing
+    # Android at an unverified app target.
+    settings.ANDROID_APP_SHA256_CERT_FINGERPRINTS = []
+
+    response = client.get("/.well-known/assetlinks.json")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload) == 1
+    assert payload[0]["target"]["namespace"] == "web"
+    assert all(
+        target["target"]["namespace"] != "android_app" for target in payload
+    )
+
+
 def test_android_native_request_suppresses_commerce(rf, settings):
     from crush_lu.context_processors import crush_user_context
 
