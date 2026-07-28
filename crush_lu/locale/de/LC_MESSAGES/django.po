@@ -598,37 +598,6 @@ msgstr ""
 "Sie alles deaktiviert für keine Sprachbeschränkung (jeder Benutzer kann sich "
 "anmelden)."
 
-#: admin/events.py:589
-msgid ""
-"Profile requirement level for registration:\n"
-"• Completed profile / entry event (recommended, default): Anyone with a "
-"completed profile (built + phone verified) can register, verified or not. "
-"New members get verified in person at the event\n"
-"• Verified profile only (members): Only already-verified members can "
-"register — use for members-only events\n"
-"• Premium member — coach assigned: Only members who have a personal coach "
-"assigned can register\n"
-"• Unverified profile only: Only users with a profile NOT yet verified by a "
-"coach can register\n"
-"• Profile must exist: Any user with a Crush profile can register (pending or "
-"incomplete OK)\n"
-"• No profile required: Any authenticated user can register"
-msgstr ""
-"Profilanforderungsstufe für die Registrierung:\n"
-"• Vollständiges Profil / Einstiegsveranstaltung (empfohlen, Standard): Jeder "
-"mit einem vollständigen Profil (erstellt + Telefon verifiziert) kann sich "
-"registrieren, ob verifiziert oder nicht. Neue Mitglieder werden persönlich "
-"bei der Veranstaltung verifiziert\n"
-"• Nur verifiziertes Profil (Mitglieder): Nur bereits verifizierte Mitglieder "
-"können sich registrieren – für Veranstaltungen nur für Mitglieder\n"
-"• Premium-Mitglied – Coach zugewiesen: Nur Mitglieder mit einem persönlich "
-"zugewiesenen Coach können sich registrieren\n"
-"• Nur unverifiziertes Profil: Nur Nutzer mit einem noch nicht von einem "
-"Coach verifizierten Profil können sich registrieren\n"
-"• Profil muss vorhanden sein: Jeder Nutzer mit einem Crush-Profil kann sich "
-"registrieren (ausstehend oder unvollständig OK)\n"
-"• Kein Profil erforderlich: Jeder angemeldete Nutzer kann sich registrieren"
-
 #: admin/events.py:599
 msgid ""
 "📸 Event banner image (optional)\n"
@@ -5218,10 +5187,6 @@ msgstr "Vollständiges Profil (Einstiegs-Event)"
 #: models/events.py:167
 msgid "Verified profile only (members)"
 msgstr "Nur verifiziertes Profil (Mitglieder)"
-
-#: models/events.py:168
-msgid "Premium member — coach assigned"
-msgstr "Premium-Mitglied – Coach zugewiesen"
 
 #: models/events.py:169
 msgid "Unverified profile only"
@@ -38573,3 +38538,73 @@ msgstr ""
 #: views_checkin.py:915
 msgid "%(name)s promoted from the waitlist and checked in."
 msgstr "%(name)s ist von der Warteliste nachgerückt und eingecheckt."
+
+#. Event registration audience admin (2026-07-28)
+msgid "All logged-in people"
+msgstr "Alle angemeldeten Personen"
+
+msgid "Participation-ready Crush profile"
+msgstr "Teilnahmebereites Crush-Profil"
+
+msgid "Any Crush profile (except rejected)"
+msgstr "Jedes Crush-Profil (außer abgelehnten)"
+
+msgid "Not-yet-verified profiles only (except rejected)"
+msgstr "Nur noch nicht verifizierte Profile (außer abgelehnten)"
+
+msgid "Members with an assigned coach (not Premium)"
+msgstr "Mitglieder mit zugewiesenem Coach (nicht Premium)"
+
+msgid "Controls which audience can register for this event."
+msgstr "Legt fest, welche Zielgruppe sich für diese Veranstaltung anmelden kann."
+
+msgid "Standard"
+msgstr "Standard"
+
+msgid "Advanced"
+msgstr "Erweitert"
+
+msgid "Private invitation"
+msgstr "Private Einladung"
+
+msgid "No Crush profile is required. Event age and language restrictions still apply."
+msgstr "Kein Crush-Profil erforderlich. Alters- und Sprachbeschränkungen der Veranstaltung gelten weiterhin."
+
+msgid "For verified members, plus pending members whose phone number is verified. Pending members can be verified in person at the event."
+msgstr "Für verifizierte Mitglieder sowie ausstehende Mitglieder mit bestätigter Telefonnummer. Ausstehende Mitglieder können bei der Veranstaltung persönlich verifiziert werden."
+
+msgid "Only members whose Crush profile is already verified can register."
+msgstr "Nur Mitglieder mit bereits verifiziertem Crush-Profil können sich anmelden."
+
+msgid "Any member with a Crush profile can register, unless the profile was rejected."
+msgstr "Alle Mitglieder mit Crush-Profil können sich anmelden, sofern das Profil nicht abgelehnt wurde."
+
+msgid "Only incomplete or pending Crush profiles can register. Verified and rejected profiles are excluded."
+msgstr "Nur unvollständige oder ausstehende Crush-Profile können sich anmelden. Verifizierte und abgelehnte Profile sind ausgeschlossen."
+
+msgid "Only members with an assigned personal coach can register. This does not check for an active Premium membership."
+msgstr "Nur Mitglieder mit zugewiesenem persönlichem Coach können sich anmelden. Eine aktive Premium-Mitgliedschaft wird dabei nicht geprüft."
+
+msgid "Only approved invitees can register. Configure the invitation details in the advanced section below."
+msgstr "Nur bestätigte eingeladene Personen können sich anmelden. Konfiguriere die Einladungsdetails im erweiterten Abschnitt unten."
+
+msgid "Registration audience"
+msgstr "Zielgruppe für die Anmeldung"
+
+msgid "Choose who can register. Standard choices cover the usual event flows; use Advanced only for a specialized audience."
+msgstr "Lege fest, wer sich anmelden kann. Die Standardauswahl deckt die üblichen Abläufe ab; verwende „Erweitert“ nur für eine besondere Zielgruppe."
+
+msgid "Select a valid registration audience."
+msgstr "Wähle eine gültige Zielgruppe für die Anmeldung."
+
+msgid "Registration Audience"
+msgstr "Zielgruppe für die Anmeldung"
+
+msgid "Choose one audience. The three standard options cover the usual event flows; specialized access rules are grouped under Advanced."
+msgstr "Wähle eine Zielgruppe. Die drei Standardoptionen decken die üblichen Abläufe ab; besondere Zugangsregeln sind unter „Erweitert“ gruppiert."
+
+msgid "Advanced: Private Invitation Settings"
+msgstr "Erweitert: Einstellungen für private Einladungen"
+
+msgid "Configure this event as invitation-only. You can invite existing users directly or send external guest invitations (managed via EventInvitation inline below)."
+msgstr "Konfiguriere diese Veranstaltung als nur auf Einladung zugänglich. Du kannst bestehende Nutzer direkt einladen oder externe Gasteinladungen senden (über die EventInvitation-Zeilen unten verwaltet)."

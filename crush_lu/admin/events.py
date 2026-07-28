@@ -24,10 +24,146 @@ from crush_lu.models import (
     EventRegistration,
     EventInvitation,
     EventVotingSession,
+    MeetupEvent,
     PresentationQueue,
 )
 from .filters import EventCapacityFilter
 from .quiz import QuizEventInline
+
+
+class RegistrationAudienceWidget(forms.RadioSelect):
+    """Card-style audience picker with explicit standard and advanced groups."""
+
+    template_name = "admin/crush_lu/meetupevent/widgets/registration_audience.html"
+    option_template_name = (
+        "admin/crush_lu/meetupevent/widgets/registration_audience_option.html"
+    )
+
+    def __init__(self, *args, descriptions=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.descriptions = descriptions or {}
+
+    def create_option(
+        self, name, value, label, selected, index, subindex=None, attrs=None
+    ):
+        option = super().create_option(
+            name, value, label, selected, index, subindex=subindex, attrs=attrs
+        )
+        option["description"] = self.descriptions.get(str(value), "")
+        return option
+
+
+class MeetupEventAdminForm(forms.ModelForm):
+    """Present the two stored access fields as one organizer-facing choice."""
+
+    PRIVATE_INVITATION = "private_invitation"
+    STANDARD_CHOICES = (
+        ("none", _("All logged-in people")),
+        ("completed", _("Participation-ready Crush profile")),
+        ("approved", _("Verified members only")),
+    )
+    ADVANCED_CHOICES = (
+        ("profile_exists", _("Any Crush profile (except rejected)")),
+        ("unverified", _("Not-yet-verified profiles only (except rejected)")),
+        (
+            "coach_assigned",
+            _("Members with an assigned coach (not Premium)"),
+        ),
+        (PRIVATE_INVITATION, _("Private invitation")),
+    )
+    AUDIENCE_CHOICES = (
+        (_("Standard"), STANDARD_CHOICES),
+        (_("Advanced"), ADVANCED_CHOICES),
+    )
+    AUDIENCE_DESCRIPTIONS = {
+        "none": _(
+            "No Crush profile is required. Event age and language restrictions "
+            "still apply."
+        ),
+        "completed": _(
+            "For verified members, plus pending members whose phone number is "
+            "verified. Pending members can be verified in person at the event."
+        ),
+        "approved": _(
+            "Only members whose Crush profile is already verified can register."
+        ),
+        "profile_exists": _(
+            "Any member with a Crush profile can register, unless the profile "
+            "was rejected."
+        ),
+        "unverified": _(
+            "Only incomplete or pending Crush profiles can register. Verified "
+            "and rejected profiles are excluded."
+        ),
+        "coach_assigned": _(
+            "Only members with an assigned personal coach can register. This "
+            "does not check for an active Premium membership."
+        ),
+        PRIVATE_INVITATION: _(
+            "Only approved invitees can register. Configure the invitation "
+            "details in the advanced section below."
+        ),
+    }
+
+    registration_audience = forms.ChoiceField(
+        label=_("Registration audience"),
+        choices=AUDIENCE_CHOICES,
+        initial="completed",
+        widget=RegistrationAudienceWidget(descriptions=AUDIENCE_DESCRIPTIONS),
+        help_text=_(
+            "Choose who can register. Standard choices cover the usual event "
+            "flows; use Advanced only for a specialized audience."
+        ),
+    )
+
+    class Meta:
+        model = MeetupEvent
+        fields = "__all__"
+        exclude = ("profile_requirement", "is_private_invitation")
+
+    class Media:
+        css = {"all": ("crush_lu/css/admin_registration_audience.css",)}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.is_bound:
+            if self.instance and self.instance.pk:
+                audience = (
+                    self.PRIVATE_INVITATION
+                    if self.instance.is_private_invitation
+                    else self.instance.profile_requirement
+                )
+            else:
+                audience = "completed"
+            self.initial["registration_audience"] = audience
+
+    @classmethod
+    def apply_registration_audience(cls, instance, audience):
+        """Map the organizer choice onto the existing stored fields."""
+        if audience == cls.PRIVATE_INVITATION:
+            instance.is_private_invitation = True
+            # profile_requirement is deliberately preserved. Private invitation
+            # takes priority at registration time, and the dormant value should
+            # still be there if an organizer later disables private mode.
+            return instance
+
+        valid_profile_requirements = dict(MeetupEvent.PROFILE_REQUIREMENT_CHOICES)
+        if audience not in valid_profile_requirements:
+            raise forms.ValidationError(_("Select a valid registration audience."))
+
+        instance.profile_requirement = audience
+        instance.is_private_invitation = False
+        return instance
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        self.apply_registration_audience(
+            instance, self.cleaned_data["registration_audience"]
+        )
+        if commit:
+            instance.save()
+            self.save_m2m()
+        return instance
 
 
 class EventRegistrationAdminForm(forms.ModelForm):
@@ -164,6 +300,7 @@ class PresentationQueueInline(admin.TabularInline):
 
 
 class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
+    form = MeetupEventAdminForm
     list_display = (
         "title",
         "event_type",
@@ -257,7 +394,6 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                     ("max_participants_m", "max_participants_f", "max_participants_nb"),
                     "min_age",
                     "max_age",
-                    "profile_requirement",
                     "languages",
                     "has_food_component",
                     "allow_plus_ones",
@@ -265,6 +401,17 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 "description": (
                     "Set all three gender caps to activate gender-aware waitlisting. "
                     "Leave all blank for total-only cap."
+                ),
+            },
+        ),
+        (
+            _("Registration Audience"),
+            {
+                "fields": ("registration_audience",),
+                "description": _(
+                    "Choose one audience. The three standard options cover the "
+                    "usual event flows; specialized access rules are grouped "
+                    "under Advanced."
                 ),
             },
         ),
@@ -277,17 +424,20 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         ),
         ("Registration", {"fields": ("registration_deadline", "registration_fee")}),
         (
-            "✨ Private Invitation Settings",
+            _("Advanced: Private Invitation Settings"),
             {
                 "fields": (
-                    "is_private_invitation",
                     "invited_users",
                     "invitation_code",
                     "max_invited_guests",
                     "invitation_expires_at",
                 ),
                 "classes": ("collapse",),
-                "description": "Configure this event as invitation-only. You can invite existing users directly OR send external guest invitations (managed via EventInvitation inline below)",
+                "description": _(
+                    "Configure this event as invitation-only. You can invite "
+                    "existing users directly or send external guest invitations "
+                    "(managed via EventInvitation inline below)."
+                ),
             },
         ),
         (
@@ -583,16 +733,6 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 required=False,
                 help_text=kwargs["help_text"],
                 coerce=str,
-            )
-        elif db_field.name == "profile_requirement":
-            kwargs["help_text"] = _(
-                "Profile requirement level for registration:\n"
-                "• Completed profile / entry event (recommended, default): Anyone with a completed profile (built + phone verified) can register, verified or not. New members get verified in person at the event\n"
-                "• Verified profile only (members): Only already-verified members can register — use for members-only events\n"
-                "• Has an assigned coach: Only members with a personal coach can register. NOT a Premium/paid check — a coach is granted free on first attendance, so this admits past attendees\n"
-                "• Not-yet-verified profiles only: Only users with a profile NOT yet verified by a coach can register (rejected profiles excluded)\n"
-                "• Any profile — verified or not: Any user with a Crush profile can register (pending or incomplete OK; rejected excluded)\n"
-                "• No profile required: Any authenticated user can register"
             )
         elif db_field.name == "image":
             kwargs["help_text"] = _(
