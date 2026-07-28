@@ -28,11 +28,11 @@ def main():
             "forget to activate a virtual environment?"
         ) from exc
 
-    # Auto-switch to Uvicorn ASGI when REDIS_URL is set and running 'runserver'
+    # Auto-switch to Uvicorn ASGI when USE_ASGI_DEV is set and running 'runserver'
     if (
         len(sys.argv) >= 2
         and sys.argv[1] == "runserver"
-        and os.environ.get("REDIS_URL")
+        and os.environ.get("USE_ASGI_DEV")
     ):
         import uvicorn
 
