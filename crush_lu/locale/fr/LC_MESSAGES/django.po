@@ -14234,6 +14234,10 @@ msgstr "En attente de vérification"
 msgid "Edit Profile"
 msgstr "Modifier le profil"
 
+#: templates/crush_lu/profile_submitted.html:41
+msgid "Edit Profile Details"
+msgstr "Modifier les détails du profil"
+
 #: templates/crush_lu/account_settings.html:331
 msgid "View rejection details"
 msgstr "Voir les détails du refus"

@@ -205,7 +205,10 @@ def save_profile_step1(request):
         profile.completion_status = (
             "step1"  # legacy field; remove after migration cleanup
         )
-        profile.verification_status = "incomplete"
+        # A pending/verified user editing via ?edit=1 must not be yanked back
+        # into incomplete — that drops them from the verification funnel.
+        if profile.verification_status not in ("pending", "verified"):
+            profile.verification_status = "incomplete"
 
         # Clear step1 draft data on successful save (data now officially saved)
         if profile.draft_data and "step1" in profile.draft_data:
@@ -304,7 +307,10 @@ def save_profile_step2(request):
         profile.completion_status = (
             "step2"  # legacy field; remove after migration cleanup
         )
-        profile.verification_status = "incomplete"
+        # A pending/verified user editing via ?edit=1 must not be yanked back
+        # into incomplete — that drops them from the verification funnel.
+        if profile.verification_status not in ("pending", "verified"):
+            profile.verification_status = "incomplete"
 
         # Clear step2 draft data on successful save (no UI-only fields remain
         # after the free-text category checkboxes were removed).
@@ -570,9 +576,16 @@ def save_profile_step3(request):
                 processed = process_uploaded_image(uploaded, filename=uploaded.name)
                 setattr(profile, photo_key, processed)
             except (VE, Exception) as exc:
-                logger.warning("Photo validation failed in save_profile_step3 for %s: %s", photo_key, exc)
+                logger.warning(
+                    "Photo validation failed in save_profile_step3 for %s: %s",
+                    photo_key,
+                    exc,
+                )
                 return JsonResponse(
-                    {"success": False, "error": "Invalid photo. Please upload a JPEG or PNG under 10MB."},
+                    {
+                        "success": False,
+                        "error": "Invalid photo. Please upload a JPEG or PNG under 10MB.",
+                    },
                     status=400,
                 )
 
@@ -608,7 +621,10 @@ def save_profile_step3(request):
         profile.completion_status = (
             "step3"  # legacy field; remove after migration cleanup
         )
-        profile.verification_status = "incomplete"
+        # A pending/verified user editing via ?edit=1 must not be yanked back
+        # into incomplete — that drops them from the verification funnel.
+        if profile.verification_status not in ("pending", "verified"):
+            profile.verification_status = "incomplete"
 
         # Clear step3 draft data on successful save
         if profile.draft_data and "step3" in profile.draft_data:

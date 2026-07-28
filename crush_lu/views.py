@@ -886,7 +886,10 @@ def create_profile(request):
                 }
                 return _render_create_profile(request, context)
 
-            if request.GET.get("edit") == "1":
+            if (
+                profile.verification_status == "pending"
+                and request.GET.get("edit") == "1"
+            ):
                 from .social_photos import get_all_social_photos
 
                 form = CrushProfileForm(instance=profile)
@@ -898,7 +901,11 @@ def create_profile(request):
                         "profile": profile,
                         "current_step": step,
                         "social_photos": get_all_social_photos(request.user),
-                        "is_editing_pending": True,
+                        # create_profile.html reads ``is_editing`` (not
+                        # ``is_editing_pending``) to switch the wizard into
+                        # edit mode — suppress the journey rail, show the edit
+                        # heading, populate data-is-editing.
+                        "is_editing": True,
                     },
                 )
 
@@ -1190,6 +1197,7 @@ def _edit_section_contact(request, profile):
         if form.is_valid():
             updated_profile = form.save()
             from .matching import update_match_scores_for_user
+
             transaction.on_commit(lambda: update_match_scores_for_user(request.user))
             if request.htmx:
                 context = _render_contact_section(request, updated_profile)

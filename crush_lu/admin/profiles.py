@@ -305,6 +305,10 @@ class CrushProfileAdminForm(forms.ModelForm):
 
     MAX_INTERESTS = 8
     MAX_ASK_ME_ABOUT = 3
+    # Mirrors CrushProfileForm.MAX_TRAITS_PER_CATEGORY — the member wizard
+    # rejects >5 per category, and compute_quality_score divides by 5, so an
+    # admin override here would silently produce component scores above 1.
+    MAX_TRAITS_PER_CATEGORY = 5
 
     class Meta:
         model = CrushProfile
@@ -338,6 +342,25 @@ class CrushProfileAdminForm(forms.ModelForm):
             )
         return ids
 
+    def clean_event_languages(self):
+        # The model field is a JSONField; the default admin widget accepts any
+        # valid JSON, so a scalar (e.g. 1) would pass here and later break
+        # MeetupEvent.user_meets_language_requirement (set(user_languages)).
+        # Mirror CrushProfileForm.clean_event_languages: enforce list-of-codes.
+        languages = self.cleaned_data.get("event_languages", [])
+        if languages is None:
+            return []
+        if not isinstance(languages, list):
+            raise forms.ValidationError(_("Event languages must be a list."))
+        valid_codes = [code for code, _ in CrushProfile.EVENT_LANGUAGE_CHOICES]
+        for lang in languages:
+            if lang not in valid_codes:
+                raise forms.ValidationError(
+                    _("Invalid language selection: %(lang)s"),
+                    params={"lang": lang},
+                )
+        return list(languages)
+
     def clean(self):
         cleaned = super().clean()
         interests = cleaned.get("interests_new")
@@ -349,10 +372,19 @@ class CrushProfileAdminForm(forms.ModelForm):
             if not set(ask).issubset(selected_ids):
                 self.add_error(
                     "ask_me_about",
-                    _(
-                        "“Ask me about” items must be among the selected "
-                        "interests."
-                    ),
+                    _("“Ask me about” items must be among the selected " "interests."),
+                )
+        # qualities / defects / sought_qualities are now exposed via
+        # filter_horizontal with no default cap — enforce the member-side
+        # limit of 5 per category so admin edits can't create states the
+        # member form rejects (and that skew compute_quality_score).
+        for field in ("qualities", "defects", "sought_qualities"):
+            value = cleaned.get(field)
+            if value is not None and len(value) > self.MAX_TRAITS_PER_CATEGORY:
+                self.add_error(
+                    field,
+                    _("Select at most %(max)d.")
+                    % {"max": self.MAX_TRAITS_PER_CATEGORY},
                 )
         return cleaned
 
@@ -541,7 +573,9 @@ class CrushProfileAdmin(admin.ModelAdmin):
                     "first_step_preference",
                     "astro_enabled",
                 ),
-                "description": _("Qualities, defects, partner seeking criteria, and zodiac compatibility"),
+                "description": _(
+                    "Qualities, defects, partner seeking criteria, and zodiac compatibility"
+                ),
             },
         ),
         (
