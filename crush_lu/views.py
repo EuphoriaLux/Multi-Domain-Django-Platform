@@ -886,6 +886,22 @@ def create_profile(request):
                 }
                 return _render_create_profile(request, context)
 
+            if request.GET.get("edit") == "1":
+                from .social_photos import get_all_social_photos
+
+                form = CrushProfileForm(instance=profile)
+                step = profile.wizard_step or 4
+                return _render_create_profile(
+                    request,
+                    {
+                        "form": form,
+                        "profile": profile,
+                        "current_step": step,
+                        "social_photos": get_all_social_photos(request.user),
+                        "is_editing_pending": True,
+                    },
+                )
+
             messages.info(
                 request, _("Your profile has been submitted. Check the status below.")
             )

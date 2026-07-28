@@ -33,7 +33,14 @@
                 </div>
             </div>
             <h2 class="mt-4 mb-1 text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{% trans "Your profile is ready — now get verified" %}</h2>
-            <p class="text-sm text-gray-500 dark:text-gray-400 mb-8">{% trans "One last step to activate your Crush.lu profile and start meeting real people." %}</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">{% trans "One last step to activate your Crush.lu profile and start meeting real people." %}</p>
+
+            <div class="mb-8 flex justify-center">
+                <a href="{% url 'crush_lu:create_profile' %}?edit=1" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm font-semibold hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-600 dark:hover:text-purple-300 border border-gray-200 dark:border-gray-700 transition shadow-sm">
+                    <svg class="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                    {% trans "Edit Profile Details" %}
+                </a>
+            </div>
 
             {# If the user already connected LuxID but isn't verified yet, reassure them (view lazily verifies + redirects normally; this is an edge state). #}
             {% if not luxid_connect_url %}

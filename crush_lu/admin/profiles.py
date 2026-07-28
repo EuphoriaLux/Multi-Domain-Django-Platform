@@ -434,7 +434,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
     )
     search_fields = ("user__username", "user__email", "location", "bio", "phone_number")
     ordering = ["-created_at"]  # Most recent profiles first
-    filter_horizontal = ("interests_new",)
+    filter_horizontal = ("interests_new", "qualities", "defects", "sought_qualities")
     readonly_fields = (
         "get_quick_status_summary",
         "get_user_account_info",
@@ -451,6 +451,8 @@ class CrushProfileAdmin(admin.ModelAdmin):
         "get_referral_count",
         "get_journey_progress",
         "outlook_contact_id",
+        "apple_pass_serial",
+        "google_wallet_object_id",
         # Onboarding-journey timestamps — set by the views, not by humans.
         "welcome_seen_at",
         "coach_intro_seen_at",
@@ -498,8 +500,10 @@ class CrushProfileAdmin(admin.ModelAdmin):
                     "date_of_birth",
                     "gender",
                     "phone_number",
+                    "not_on_whatsapp",
                     "location",
                     "preferred_language",
+                    "event_languages",
                 ),
                 "description": _("Core profile information"),
             },
@@ -525,6 +529,19 @@ class CrushProfileAdmin(admin.ModelAdmin):
                     "Structured event-profile content that replaces the legacy "
                     "free-text bio/interests below."
                 ),
+            },
+        ),
+        (
+            "Matching & Personality Traits",
+            {
+                "fields": (
+                    "qualities",
+                    "defects",
+                    "sought_qualities",
+                    "first_step_preference",
+                    "astro_enabled",
+                ),
+                "description": _("Qualities, defects, partner seeking criteria, and zodiac compatibility"),
             },
         ),
         (
@@ -603,6 +620,18 @@ class CrushProfileAdmin(admin.ModelAdmin):
                     "Auto-saved form state from the profile-build wizard. Cleared "
                     "on successful submission. Useful for debugging stuck users."
                 ),
+            },
+        ),
+        (
+            "Wallet & Integrations",
+            {
+                "fields": (
+                    "show_photo_on_wallet",
+                    "apple_pass_serial",
+                    "google_wallet_object_id",
+                ),
+                "classes": ("collapse",),
+                "description": _("Digital wallet pass details"),
             },
         ),
         (
