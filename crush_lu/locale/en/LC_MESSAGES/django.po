@@ -26694,3 +26694,36 @@ msgstr ""
 #: templates/crush_lu/coach_event_checkin.html:431
 msgid "Could not undo this check-in"
 msgstr ""
+
+#: views_checkin.py:702
+msgid "This attendee is not checked in."
+msgstr ""
+
+#: views_checkin.py:716
+msgid ""
+"This check-in is too old to undo here. Ask an administrator to correct it."
+msgstr ""
+
+#: views_checkin.py:780
+msgid "Check-in undone for %(name)s."
+msgstr ""
+
+#: views_checkin.py:820
+msgid "This attendee is already checked in."
+msgstr ""
+
+#: views_checkin.py:828
+msgid "Only waitlisted attendees can be promoted."
+msgstr ""
+
+#: views_checkin.py:838
+msgid "This event has been cancelled."
+msgstr ""
+
+#: views_checkin.py:856
+msgid "Check-in is only available within %(hours)s hours of the event."
+msgstr ""
+
+#: views_checkin.py:915
+msgid "%(name)s promoted from the waitlist and checked in."
+msgstr ""

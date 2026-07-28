@@ -38675,3 +38675,40 @@ msgstr ""
 #: templates/crush_lu/coach_event_checkin.html:431
 msgid "Could not undo this check-in"
 msgstr "Impossible d'annuler cet enregistrement"
+
+#: views_checkin.py:702
+msgid "This attendee is not checked in."
+msgstr "Cette personne n'est pas enregistrée."
+
+#: views_checkin.py:716
+msgid ""
+"This check-in is too old to undo here. Ask an administrator to correct it."
+msgstr ""
+"Cet enregistrement est trop ancien pour être annulé ici. Demandez à un "
+"administrateur de le corriger."
+
+#: views_checkin.py:780
+msgid "Check-in undone for %(name)s."
+msgstr "Enregistrement annulé pour %(name)s."
+
+#: views_checkin.py:820
+msgid "This attendee is already checked in."
+msgstr "Cette personne est déjà enregistrée."
+
+#: views_checkin.py:828
+msgid "Only waitlisted attendees can be promoted."
+msgstr "Seules les personnes sur liste d'attente peuvent être admises."
+
+#: views_checkin.py:838
+msgid "This event has been cancelled."
+msgstr "Cet événement a été annulé."
+
+#: views_checkin.py:856
+msgid "Check-in is only available within %(hours)s hours of the event."
+msgstr ""
+"L'enregistrement n'est possible que dans les %(hours)s heures autour de "
+"l'événement."
+
+#: views_checkin.py:915
+msgid "%(name)s promoted from the waitlist and checked in."
+msgstr "%(name)s est admis(e) depuis la liste d'attente et enregistré(e)."

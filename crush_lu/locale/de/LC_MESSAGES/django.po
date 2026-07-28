@@ -38536,3 +38536,40 @@ msgstr ""
 #: templates/crush_lu/coach_event_checkin.html:431
 msgid "Could not undo this check-in"
 msgstr "Check-in konnte nicht rückgängig gemacht werden"
+
+#: views_checkin.py:702
+msgid "This attendee is not checked in."
+msgstr "Diese Person ist nicht eingecheckt."
+
+#: views_checkin.py:716
+msgid ""
+"This check-in is too old to undo here. Ask an administrator to correct it."
+msgstr ""
+"Dieser Check-in ist zu alt, um hier rückgängig gemacht zu werden. Bitte eine"
+" Administratorin oder einen Administrator um Korrektur."
+
+#: views_checkin.py:780
+msgid "Check-in undone for %(name)s."
+msgstr "Check-in für %(name)s rückgängig gemacht."
+
+#: views_checkin.py:820
+msgid "This attendee is already checked in."
+msgstr "Diese Person ist bereits eingecheckt."
+
+#: views_checkin.py:828
+msgid "Only waitlisted attendees can be promoted."
+msgstr "Nur Personen auf der Warteliste können nachrücken."
+
+#: views_checkin.py:838
+msgid "This event has been cancelled."
+msgstr "Dieses Event wurde abgesagt."
+
+#: views_checkin.py:856
+msgid "Check-in is only available within %(hours)s hours of the event."
+msgstr ""
+"Check-in ist nur innerhalb von %(hours)s Stunden vor und nach dem Event "
+"möglich."
+
+#: views_checkin.py:915
+msgid "%(name)s promoted from the waitlist and checked in."
+msgstr "%(name)s ist von der Warteliste nachgerückt und eingecheckt."
