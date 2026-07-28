@@ -758,6 +758,38 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         await self.send_json({"type": "quiz.error", "data": event["data"]})
 
     async def quiz_table_update(self, event):
+        # Authorisation is otherwise decided once, at connect. An undone
+        # promotion puts a walk-up back on the `waitlist`, which a fresh
+        # connection refuses — but theirs was already accepted, so it would go
+        # on receiving questions and standings for an event they are no longer
+        # attending. This is the one broadcast that reaches them (they keep
+        # their table group until they reconnect), so it is where the re-check
+        # belongs. Only the named user pays for it; everyone else at the table
+        # falls straight through.
+        affected_user_id = event.get("affected_user_id")
+        user = self.scope.get("user")
+        if (
+            affected_user_id
+            and not self.is_display
+            and getattr(user, "is_authenticated", False)
+            and user.id == affected_user_id
+        ):
+            still_allowed = (
+                await self.is_host(user)
+                or await self._is_staff_viewer(user)
+                or await self._has_event_registration(user)
+            )
+            if not still_allowed:
+                logger.info(
+                    "Quiz WS closed: user %s lost their rights to quiz %s",
+                    user.id,
+                    self.quiz_id,
+                )
+                await self.close()
+                return
+        # `affected_user_id` is deliberately not forwarded — the payload goes
+        # to everyone at the table, and internal ids do not belong there
+        # (AUTHZ-02).
         await self.send_json({"type": "quiz.table_update", "data": event["data"]})
 
     async def quiz_table_dissolved(self, event):

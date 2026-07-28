@@ -4122,3 +4122,119 @@ class TestScoringSeatRace:
             src = inspect.getsource(inspect.unwrap(fn))
             assert "select_for_update()" in src
             assert 'order_by("table_number")' in src
+
+
+# ============================================================================
+# A REMOVED PLAYER'S LIVE SOCKET IS REVOKED (#708 follow-up)
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestSeatChangeReauthorization:
+    """Authorisation is decided once, at connect, and never again.
+
+    Undoing a *promotion* returns the walk-up to `waitlist`, which a fresh
+    connection refuses — but theirs was already accepted, and they keep their
+    table group until they reconnect, so they would go on receiving questions
+    and standings for an event they are no longer attending.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _keep_test_connection_open(self, monkeypatch):
+        monkeypatch.setattr(
+            "channels.db.close_old_connections", lambda *a, **kw: None
+        )
+
+    def _make_consumer(self, quiz, user):
+        from unittest.mock import AsyncMock
+        from crush_lu.consumers import QuizConsumer
+
+        consumer = QuizConsumer()
+        consumer.scope = {
+            "user": user,
+            "url_route": {"kwargs": {"quiz_id": quiz.id}},
+            "query_string": b"",
+        }
+        consumer.channel_name = "test-channel-name"
+        consumer.channel_layer = AsyncMock()
+        consumer.accept = AsyncMock()
+        consumer.close = AsyncMock()
+        consumer.send_json = AsyncMock()
+        return consumer
+
+    def _connected(self, quiz, user, status):
+        from asgiref.sync import async_to_sync
+        from crush_lu.models.events import EventRegistration
+
+        EventRegistration.objects.create(event=quiz.event, user=user, status=status)
+        consumer = self._make_consumer(quiz, user)
+        async_to_sync(consumer.connect)()
+        consumer.accept.assert_awaited_once()
+        # connect() sends the initial quiz.state — reset so each assertion
+        # below is about the table_update alone.
+        consumer.send_json.reset_mock()
+        return consumer
+
+    def test_a_player_put_back_on_the_waitlist_is_disconnected(
+        self, quiz_event, quiz_user
+    ):
+        from asgiref.sync import async_to_sync
+        from crush_lu.models.events import EventRegistration
+
+        consumer = self._connected(quiz_event, quiz_user, "attended")
+        EventRegistration.objects.filter(event=quiz_event.event, user=quiz_user).update(
+            status="waitlist"
+        )
+
+        async_to_sync(consumer.quiz_table_update)(
+            {"data": {"table_number": 1}, "affected_user_id": quiz_user.id}
+        )
+
+        consumer.close.assert_awaited_once()
+        consumer.send_json.assert_not_awaited()
+
+    def test_an_undone_scan_keeps_its_socket(self, quiz_event, quiz_user):
+        """Undoing an ordinary scan restores `confirmed`, which is still
+        allowed to watch — only a promotion regresses far enough to lose it."""
+        from asgiref.sync import async_to_sync
+        from crush_lu.models.events import EventRegistration
+
+        consumer = self._connected(quiz_event, quiz_user, "attended")
+        EventRegistration.objects.filter(event=quiz_event.event, user=quiz_user).update(
+            status="confirmed"
+        )
+
+        async_to_sync(consumer.quiz_table_update)(
+            {"data": {"table_number": 1}, "affected_user_id": quiz_user.id}
+        )
+
+        consumer.close.assert_not_awaited()
+        consumer.send_json.assert_awaited_once()
+
+    def test_everyone_else_at_the_table_is_untouched(self, quiz_event, quiz_user):
+        """The re-check is for the named user only — the rest of the table must
+        not pay a query, and must not be disconnected by someone else's undo."""
+        from asgiref.sync import async_to_sync
+
+        consumer = self._connected(quiz_event, quiz_user, "attended")
+
+        async_to_sync(consumer.quiz_table_update)(
+            {"data": {"table_number": 1}, "affected_user_id": quiz_user.id + 9999}
+        )
+
+        consumer.close.assert_not_awaited()
+        consumer.send_json.assert_awaited_once()
+
+    def test_the_internal_id_never_reaches_a_browser(self, quiz_event, quiz_user):
+        """AUTHZ-02 — the payload goes to everyone at the table."""
+        from asgiref.sync import async_to_sync
+
+        consumer = self._connected(quiz_event, quiz_user, "attended")
+
+        async_to_sync(consumer.quiz_table_update)(
+            {"data": {"table_number": 1}, "affected_user_id": quiz_user.id + 9999}
+        )
+
+        sent = consumer.send_json.await_args.args[0]
+        assert sent == {"type": "quiz.table_update", "data": {"table_number": 1}}
+        assert "affected_user_id" not in sent["data"]

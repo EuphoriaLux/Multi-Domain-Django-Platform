@@ -544,6 +544,58 @@ class TestUndoCheckin:
         assert payload["released_table_number"] in (1, 2)
         assert "table_number" not in payload
 
+    def test_the_door_grid_is_given_back_the_table_it_counts(self, client):
+        """A rotator undone after moving. The door page's table-fill grid is
+        built from QuizTableMembership, which stays on the round-0 table, so
+        the response has to name that one — decrementing the table they had
+        rotated to would leave it a seat short *and* strand a seat on the tile
+        they actually vacated. The live broadcast still gets the current one."""
+        from crush_lu.models.quiz import (
+            QuizEvent,
+            QuizRotationSchedule,
+            QuizRound,
+            QuizTableMembership,
+        )
+
+        coach = _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        event.event_type = "quiz_night"
+        event.save(update_fields=["event_type"])
+        quiz = QuizEvent.objects.create(
+            event=event, status="draft", created_by=coach.user, num_tables=2
+        )
+        quiz.ensure_tables()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="confirmed"
+        )
+        client.force_login(coach.user)
+        _scan(client, event, registration)
+
+        # Rotate them off their check-in table: membership stays at 1, the
+        # current round seats them at 2.
+        seated_at = QuizTableMembership.objects.get(
+            table__quiz=quiz, user=attendee
+        ).table
+        other = quiz.tables.exclude(pk=seated_at.pk).first()
+        QuizRound.objects.create(quiz=quiz, title="R1", sort_order=0)
+        second = QuizRound.objects.create(quiz=quiz, title="R2", sort_order=1)
+        quiz.current_round = second
+        quiz.save(update_fields=["current_round"])
+        QuizRotationSchedule.objects.create(
+            quiz=quiz, round_number=1, table=other, user=attendee, role="rotator"
+        )
+        quiz = QuizEvent.objects.get(pk=quiz.pk)
+        assert quiz.get_round_number() == 1
+
+        with mock.patch(
+            "crush_lu.views_checkin._broadcast_quiz_table_update"
+        ) as broadcast:
+            payload = client.post(_undo_url(event, registration)).json()
+
+        assert payload["released_table_number"] == seated_at.table_number
+        assert broadcast.call_args.args[1]["table_number"] == other.table_number
+
     def test_a_non_quiz_undo_names_no_table(self, client):
         """The key is absent, not null — the client tests it for truthiness and
         an ordinary mixer must not reach the table-fill branch at all."""
@@ -906,7 +958,14 @@ class TestQuizSeatRelease:
         quiz, attendee = self._seated_quiz(rotated_to=2)
         assert quiz.get_round_number() == 1
 
-        assert release_table_on_undo(quiz, attendee) == {"table_number": 2}
+        released = release_table_on_undo(quiz, attendee)
+
+        assert released["table_number"] == 2
+        # …and the door page needs the other one. Its table-fill grid is
+        # rendered from QuizTableMembership, which never moved off table 1, so
+        # decrementing the current table would leave T2 a seat short and T1
+        # still holding one nobody occupies. Same release, two audiences.
+        assert released["membership_table_number"] == 1
 
     def test_it_reads_the_round_through_the_lock_not_the_callers_instance(self):
         """An undo that waited behind a round advance holds a pre-advance
@@ -923,14 +982,17 @@ class TestQuizSeatRelease:
         stale.current_round = quiz.rounds.order_by("sort_order").first()
         assert stale.get_round_number() == 0
 
-        assert release_table_on_undo(stale, attendee) == {"table_number": 2}
+        assert release_table_on_undo(stale, attendee)["table_number"] == 2
 
     def test_it_falls_back_to_the_membership_table_before_any_rotation(self):
         from crush_lu.services.quiz_rotation import release_table_on_undo
 
         quiz, attendee = self._seated_quiz()
 
-        assert release_table_on_undo(quiz, attendee) == {"table_number": 1}
+        assert release_table_on_undo(quiz, attendee) == {
+            "table_number": 1,
+            "membership_table_number": 1,
+        }
 
     def test_it_removes_the_scores_the_undone_attendee_collected(self):
         """A table scored inside the 15-minute undo window creates an
@@ -1036,7 +1098,9 @@ class TestQuizSeatRelease:
 
         released = release_table_on_undo(quiz, orphan)
 
-        assert released == {"table_number": 2}
+        # No membership row, so nothing for the door grid to give back — it
+        # counts memberships, and this one never had one.
+        assert released == {"table_number": 2, "membership_table_number": None}
         assert not QuizRotationSchedule.objects.filter(quiz=quiz, user=orphan).exists()
         assert not IndividualScore.objects.filter(quiz=quiz, user=orphan).exists()
         # The properly-seated attendee is untouched.
@@ -1181,3 +1245,57 @@ class TestDoorPageContext:
         html = self._page(client, event).content.decode()
 
         assert "No coach yet" in html
+
+
+class TestSeatLockOrder:
+    """Every seat operation must take the quiz row before the tables.
+
+    `release_table_on_undo` used to lock the tables first and then the quiz,
+    while `dissolve_table` and `manual_assign_table` lock the quiz and then a
+    table — a straight ABBA deadlock when a host dissolves or hand-assigns a
+    table in the same moment as an undo. It is worse than a plain deadlock
+    error: `coach_undo_checkin` swallows a failure from the release so the
+    correction still lands, so the undo loses the tie and commits having
+    silently left the seat and the scores in place.
+
+    `assign_table_on_checkin` had the same inversion by a longer route — it
+    locked only the tables, then reached the quiz row through the
+    `generate_rotation_rounds` call, which runs inside the caller's
+    transaction with those table locks still held.
+
+    Asserted by inspection: two connections deadlocking is not something
+    SQLite can be made to express.
+    """
+
+    def _lock_order(self, fn):
+        import inspect
+        import re
+
+        src = inspect.getsource(inspect.unwrap(fn))
+        return [
+            m.group(1)
+            for m in re.finditer(r"(QuizEvent|QuizTable)\.objects[\s\S]{0,120}?"
+                                 r"select_for_update\(\)", src)
+        ]
+
+    def test_the_release_takes_the_quiz_row_before_the_tables(self):
+        from crush_lu.services.quiz_rotation import release_table_on_undo
+
+        order = self._lock_order(release_table_on_undo)
+
+        assert order[:2] == ["QuizEvent", "QuizTable"], order
+
+    def test_the_assign_takes_the_quiz_row_before_the_tables(self):
+        from crush_lu.services.quiz_rotation import assign_table_on_checkin
+
+        order = self._lock_order(assign_table_on_checkin)
+
+        assert order[:2] == ["QuizEvent", "QuizTable"], order
+
+    def test_the_host_side_operations_agree(self):
+        """The order the other two were already using, pinned so a future
+        change to either side has to move both."""
+        from crush_lu.services.quiz_rotation import dissolve_table, manual_assign_table
+
+        for fn in (dissolve_table, manual_assign_table):
+            assert self._lock_order(fn)[:2] == ["QuizEvent", "QuizTable"], fn.__name__

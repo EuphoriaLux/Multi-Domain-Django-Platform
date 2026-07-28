@@ -883,18 +883,34 @@ def coach_undo_checkin(request, event_id, registration_id):
         or "",
         "message": str(_("Check-in undone for %(name)s.")) % {"name": display_name},
     }
+    # The *membership* table, not the current one. The door page's table-fill
+    # grid is rendered from QuizTableMembership (views_coach.py), so it counts
+    # the seat where the person checked in however far the rotation has since
+    # moved them — decrementing the current table would leave that tile short
+    # and the round-0 tile still holding a seat nobody occupies.
+    #
     # Under its own key, never `table_number`: handleRemoteCheckin has no
     # `undone` branch yet (#710), so an undo payload is still read as an
     # arrival, and the arrival key would make the other coaches' pages count
     # the freed seat *up*. `_updateUndoUI` reads this one, which only the
     # acting coach runs — so the door page that issued the correction fixes
     # its own table-fill grid, and no other page is misled into a bump. The
-    # quiz table group is a different channel and reaches the players.
-    if released_table and released_table.get("table_number"):
-        response_data["released_table_number"] = released_table["table_number"]
+    # quiz table group is a different channel, carries the current table, and
+    # reaches the players.
+    if released_table and released_table.get("membership_table_number"):
+        response_data["released_table_number"] = released_table[
+            "membership_table_number"
+        ]
     _broadcast_checkin(registration.event_id, response_data)
     if released_table:
-        _broadcast_quiz_table_update(registration.event, released_table)
+        # Naming the user is what lets the consumer drop their live socket.
+        # An undo can put a promoted walk-up back on the `waitlist`, which a
+        # fresh WS connection refuses — but theirs was authorised once at
+        # connect and never again, so without this they keep receiving
+        # questions and standings for an event they are no longer attending.
+        _broadcast_quiz_table_update(
+            registration.event, released_table, affected_user_id=registration.user_id
+        )
     return JsonResponse(response_data)
 
 
@@ -1116,7 +1132,7 @@ def _broadcast_checkin(event_id, response_data):
         )
 
 
-def _broadcast_quiz_table_update(event, table_assignment):
+def _broadcast_quiz_table_update(event, table_assignment, affected_user_id=None):
     """Tell the people at a table that its membership changed.
 
     Someone joining (a scan or a waitlist promotion) or leaving (an undone
@@ -1129,6 +1145,12 @@ def _broadcast_quiz_table_update(event, table_assignment):
     the host panel had never refreshed for *any* door action — not a scan, not
     a promotion, not an undo — so a walk-up promoted at the door has been
     invisible on the host's table overview since #703 (#722).
+
+    ``affected_user_id`` names the person whose seat changed, when a caller
+    knows it. It travels on the channel-layer event and is stripped before
+    anything is sent to a browser — the consumer uses it to re-run its
+    connect-time authorisation for exactly that user, and nothing else needs
+    to know an internal id (AUTHZ-02).
     """
     from .models.quiz import QuizTable
 
@@ -1147,12 +1169,15 @@ def _broadcast_quiz_table_update(event, table_assignment):
                 quiz=quiz_event, table_number=table_number
             ).first()
             if quiz_table:
-                # Only the affected participants refresh
+                # Only the affected participants refresh — and this is the one
+                # group the departing player is still in, so it is where the
+                # re-authorisation has to ride.
                 async_to_sync(channel_layer.group_send)(
                     f"quiz_{quiz_event.id}_table_{quiz_table.id}",
                     {
                         "type": "quiz.table_update",
                         "data": {"table_number": table_number},
+                        "affected_user_id": affected_user_id,
                     },
                 )
         # The projector always refreshes, even with no table to name. It shows

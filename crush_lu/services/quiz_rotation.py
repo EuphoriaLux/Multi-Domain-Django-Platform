@@ -204,6 +204,7 @@ def assign_table_on_checkin(quiz_event, user):
     from django.db.models import Count
 
     from crush_lu.models.quiz import (
+        QuizEvent,
         QuizRotationSchedule,
         QuizTable,
         QuizTableMembership,
@@ -218,6 +219,16 @@ def assign_table_on_checkin(quiz_event, user):
 
     # Find table with fewest members of the same role, tie-break by table_number
     with transaction.atomic():
+        # Quiz row first, then the tables — the order every other seat
+        # operation takes (release_table_on_undo, dissolve_table,
+        # manual_assign_table, generate_rotation_rounds). This path used to
+        # take only the tables and then reach the quiz row indirectly, via the
+        # generate_rotation_rounds call below: that runs inside the caller's
+        # transaction, so the table locks are still held when it locks the
+        # quiz, which is the same tables-then-quiz inversion that deadlocks
+        # against a host dissolving a table.
+        QuizEvent.objects.select_for_update().filter(pk=quiz_event.pk).first()
+
         # Create QuizTable rows on demand if they don't exist yet. The
         # initial batch generate_rotation_rounds normally creates them,
         # but it can fail (e.g. host pressed Start before enough people
@@ -352,10 +363,16 @@ def release_table_on_undo(quiz_event, user):
     for any question scored inside the undo window.
 
     Returns:
-        dict with {"table_number": int|None} of the table to refresh, or None
-        if the user left nothing behind at all. The table is the one they are
-        sitting at *now*, which after a rotation is not the one they checked
-        in at, and None when no current round seats them.
+        dict with ``table_number`` and ``membership_table_number``, or None if
+        the user left nothing behind at all. The two differ for a rotator who
+        has moved, and each has exactly one correct audience:
+
+        - ``table_number`` is where they are sitting **now**, for the live
+          quiz broadcast. None when no current round seats them.
+        - ``membership_table_number`` is their round-0 table, for the door
+          page — whose table-fill grid is rendered from ``QuizTableMembership``
+          (``views_coach.py``) and so counts the seat there whatever the
+          rotation has since done. None when they held no membership row.
     """
     from django.db import transaction
 
@@ -368,24 +385,19 @@ def release_table_on_undo(quiz_event, user):
     )
 
     with transaction.atomic():
-        # Same lock as the assign path, in the same order, so an undo cannot
-        # interleave with a concurrent check-in on the other tables.
-        list(
-            QuizTable.objects.filter(quiz=quiz_event)
-            .select_for_update()
-            .order_by("table_number")
-        )
-        # Then the quiz row, *before* any schedule row is touched.
-        # generate_rotation_rounds takes the quiz row first and then deletes
-        # rounds >= from_round, and this function goes on to call it while
-        # still holding the locks its own deletes take — these run inside the
-        # caller's transaction, so nothing is released in between. Deleting
-        # first and taking the quiz row after would invert that order: a
-        # concurrent regeneration would hold the quiz row and wait on our
-        # schedule rows while we waited on its quiz row.
+        # Quiz row first, then the tables — the order dissolve_table,
+        # manual_assign_table and generate_rotation_rounds all take. This used
+        # to lock the tables first, which deadlocks against a host dissolving
+        # or hand-assigning a table at the same moment; and because
+        # coach_undo_checkin swallows a failure here so the correction still
+        # lands, the undo would be picked as the victim and commit having
+        # silently left the seat and the scores behind.
         #
-        # assign_table_on_checkin has no such edge — it only writes a round-0
-        # row, which generate_rotation_rounds never deletes.
+        # Taking the quiz row before any schedule row is deleted is also what
+        # the regeneration path needs: generate_rotation_rounds locks the quiz
+        # and then deletes rounds >= from_round, and this function goes on to
+        # call it while still holding its own deletes' locks — they run inside
+        # the caller's transaction, so nothing is released in between.
         #
         # Read *through* the lock, the way generate_rotation_rounds does: if we
         # waited here behind a round advance, the caller's instance still holds
@@ -398,9 +410,17 @@ def release_table_on_undo(quiz_event, user):
             return None
         quiz_event = locked_quiz
 
-        membership = QuizTableMembership.objects.filter(
-            table__quiz=quiz_event, user=user
-        ).first()
+        list(
+            QuizTable.objects.filter(quiz=quiz_event)
+            .select_for_update()
+            .order_by("table_number")
+        )
+
+        membership = (
+            QuizTableMembership.objects.filter(table__quiz=quiz_event, user=user)
+            .select_related("table")
+            .first()
+        )
         schedule = QuizRotationSchedule.objects.filter(quiz=quiz_event, user=user)
         scores = IndividualScore.objects.filter(quiz=quiz_event, user=user)
 
@@ -423,6 +443,13 @@ def release_table_on_undo(quiz_event, user):
         # and _broadcast_quiz_table_update no-ops on it.
         current = get_current_assignment(quiz_event, user.pk)
         table_number = current["table_number"] if current else None
+        # Read before the delete, and kept separate from the one above: the
+        # door grid counts memberships, so a rotator undone after moving has
+        # to decrement the table they checked in at, not the one they had
+        # rotated to. Reporting only the current table left both tiles wrong.
+        membership_table_number = (
+            membership.table.table_number if membership is not None else None
+        )
 
         if membership is not None:
             membership.delete()
@@ -445,7 +472,10 @@ def release_table_on_undo(quiz_event, user):
                 user.pk,
             )
 
-    return {"table_number": table_number}
+    return {
+        "table_number": table_number,
+        "membership_table_number": membership_table_number,
+    }
 
 
 def generate_rotation_rounds(quiz, from_round=1, preserve_current_round=False):
