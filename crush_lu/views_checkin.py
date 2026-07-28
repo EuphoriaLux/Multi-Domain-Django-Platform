@@ -1033,7 +1033,12 @@ def _broadcast_checkin(event_id, response_data):
 
 
 def _broadcast_quiz_table_update(event, table_assignment):
-    """Notify quiz participants at a table that a new person has joined."""
+    """Tell the people at a table that its membership changed.
+
+    Someone joining (a scan or a waitlist promotion) or leaving (an undone
+    check-in) both land here — only ``table_number`` is read, so either
+    direction can pass its own dict.
+    """
     from .models.quiz import QuizTable
 
     channel_layer = get_channel_layer()
