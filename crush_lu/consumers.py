@@ -186,6 +186,24 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         # Join the quiz group
         await self.channel_layer.group_add(self.quiz_group, self.channel_name)
 
+        # A group for whoever is running the room. The host panel's table
+        # overview has to refresh on a door action, and none of the existing
+        # groups can carry that: `quiz_<id>_table_<pk>` reaches the players at
+        # one table, `quiz_<id>_display` reaches the projector, and
+        # `quiz_<id>` reaches *everyone* — including every player, whose
+        # `quiz.table_update` branch refetches their own assignment. Sending a
+        # seat change there would have the whole room refetch on every door
+        # scan, and would reach the projector twice, since a display
+        # connection joins `quiz_<id>` as well as `quiz_<id>_display`.
+        #
+        # `is_host` is cached per connection (it was just called above), so
+        # this costs no extra query. It covers the quiz creator and coaches
+        # explicitly assigned to the event — the two who can open the panel.
+        self.host_group = None
+        if await self.is_host(user):
+            self.host_group = f"quiz_{self.quiz_id}_host"
+            await self.channel_layer.group_add(self.host_group, self.channel_name)
+
         # Try to join table-specific group
         if user.is_authenticated:
             try:
@@ -265,6 +283,8 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             )
         if getattr(self, "table_group", None):
             await self.channel_layer.group_discard(self.table_group, self.channel_name)
+        if getattr(self, "host_group", None):
+            await self.channel_layer.group_discard(self.host_group, self.channel_name)
 
     async def receive_json(self, content):
         # Display connections are read-only (projector view)
@@ -738,7 +758,49 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         await self.send_json({"type": "quiz.error", "data": event["data"]})
 
     async def quiz_table_update(self, event):
+        # Authorisation is otherwise decided once, at connect. An undone
+        # promotion puts a walk-up back on the `waitlist`, which a fresh
+        # connection refuses — but theirs was already accepted, so it would go
+        # on receiving questions and standings for an event they are no longer
+        # attending. This is the one broadcast that reaches them (they keep
+        # their table group until they reconnect), so it is where the re-check
+        # belongs. Only the named user pays for it; everyone else at the table
+        # falls straight through.
+        affected_user_id = event.get("affected_user_id")
+        user = self.scope.get("user")
+        revoke = False
+        if (
+            affected_user_id
+            and not self.is_display
+            and getattr(user, "is_authenticated", False)
+            and user.id == affected_user_id
+        ):
+            revoke = not (
+                await self.is_host(user)
+                or await self._is_staff_viewer(user)
+                or await self._has_event_registration(user)
+            )
+
+        # Send *before* closing, even when revoking. This is the message that
+        # makes quiz-live.js call fetchAssignment(), which is the only thing
+        # that clears the table, role, tablemates and score from their screen.
+        # Closing first strands all of it: the client reconnects, the same
+        # check rejects it, and its refetch is wired to a successful `onopen`
+        # that never comes — so it would sit on a stale table until it gave up
+        # and asked for a reload.
+        #
+        # `affected_user_id` is deliberately not forwarded — the payload goes
+        # to everyone at the table, and internal ids do not belong there
+        # (AUTHZ-02).
         await self.send_json({"type": "quiz.table_update", "data": event["data"]})
+
+        if revoke:
+            logger.info(
+                "Quiz WS closed: user %s lost their rights to quiz %s",
+                user.id,
+                self.quiz_id,
+            )
+            await self.close()
 
     async def quiz_table_dissolved(self, event):
         await self.send_json({"type": "quiz.table_dissolved", "data": event["data"]})
@@ -1363,7 +1425,33 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         # correctness) so flipping a score after that would cause
         # confusing UI churn. The "no re-score after reveal" lock is
         # the all-tables-scored gate, not a pure write-once rule.
+        #
+        # The seat read and the IndividualScore writes are inside this atomic
+        # too, not after it. Read-before-delete / write-after-delete is what
+        # credited people who had already left the table: `rotation_users` was
+        # read once, and anything rewriting QuizRotationSchedule in between —
+        # a late arrival regenerating future rounds, a rotation, a
+        # consolidation, an undone check-in — landed between the two.
         with transaction.atomic():
+            # Quiz row, then the tables — the order every seat operation
+            # takes. Scoring touches no registration, so it enters the door
+            # path's registration -> tables -> quiz order here.
+            #
+            # Taking the quiz row is not optional even though nothing below
+            # reads it: on PostgreSQL the first TableRoundScore or
+            # IndividualScore insert takes a FOR KEY SHARE lock on the
+            # referenced QuizEvent row for the foreign key check, and that
+            # conflicts with the FOR UPDATE the rotation helpers hold. Locking
+            # only the tables therefore still ends up tables -> quiz, just
+            # implicitly, and deadlocks against exactly the paths the explicit
+            # ordering was meant to make safe.
+            QuizEvent.objects.select_for_update().filter(pk=quiz.pk).first()
+            list(
+                QuizTable.objects.filter(quiz=quiz)
+                .select_for_update()
+                .order_by("table_number")
+            )
+
             existing = (
                 TableRoundScore.objects.select_for_update()
                 .filter(quiz=quiz, table=table, question=question)
@@ -1398,69 +1486,70 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 existing.save(update_fields=["is_correct"])
                 created = False
 
-        # Issue #4: Read bonus from question's own round, not quiz.current_round
-        points = question.points if is_correct else 0
-        if is_correct and question.round.is_bonus:
-            points *= 2
+            # Issue #4: Read bonus from question's own round, not
+            # quiz.current_round
+            points = question.points if is_correct else 0
+            if is_correct and question.round.is_bonus:
+                points *= 2
 
-        # Attribute scores to the round this question belongs to, not the
-        # quiz's current round. Prevents a rotate between "question asked"
-        # and "late score arrives" from crediting the new round's seatmates.
-        round_number = quiz.get_round_number(question.round)
+            # Attribute scores to the round this question belongs to, not the
+            # quiz's current round. Prevents a rotate between "question asked"
+            # and "late score arrives" from crediting the new round's seatmates.
+            round_number = quiz.get_round_number(question.round)
 
-        # Decide rotation-vs-fallback at the *quiz* level, not per-table.
-        # A rotation-aware quiz with an empty seat at the scored table
-        # must not fall back to round-0 memberships (the fossil bug
-        # described in §4I) — that would credit ghosts for the
-        # current question.
-        round_has_rotation = QuizRotationSchedule.objects.filter(
-            quiz=quiz, round_number=round_number
-        ).exists()
-        if round_has_rotation:
-            rotation_users = list(
-                QuizRotationSchedule.objects.filter(
-                    quiz=quiz,
-                    round_number=round_number,
-                    table=table,
-                ).values_list("user_id", flat=True)
-            )
-        else:
-            # Legacy non-rotating quiz path.
-            rotation_users = list(
-                QuizTableMembership.objects.filter(table=table).values_list(
-                    "user_id", flat=True
+            # Decide rotation-vs-fallback at the *quiz* level, not per-table.
+            # A rotation-aware quiz with an empty seat at the scored table
+            # must not fall back to round-0 memberships (the fossil bug
+            # described in §4I) — that would credit ghosts for the
+            # current question.
+            round_has_rotation = QuizRotationSchedule.objects.filter(
+                quiz=quiz, round_number=round_number
+            ).exists()
+            if round_has_rotation:
+                rotation_users = list(
+                    QuizRotationSchedule.objects.filter(
+                        quiz=quiz,
+                        round_number=round_number,
+                        table=table,
+                    ).values_list("user_id", flat=True)
                 )
-            )
+            else:
+                # Legacy non-rotating quiz path.
+                rotation_users = list(
+                    QuizTableMembership.objects.filter(table=table).values_list(
+                        "user_id", flat=True
+                    )
+                )
 
-        # On a re-score, refresh existing IndividualScore rows so
-        # leaderboards and per-user scores reflect the corrected state.
-        # On the first scoring, get_or_create avoids overwriting
-        # concurrent scores for other tables that share members (rare,
-        # but possible across rotations).
-        if created:
-            for user_id in rotation_users:
-                IndividualScore.objects.get_or_create(
-                    quiz=quiz,
-                    user_id=user_id,
-                    question=question,
-                    defaults={
-                        "is_correct": is_correct,
-                        "points_earned": points,
-                        "answer": f"table_scored:{table.table_number}",
-                    },
-                )
-        else:
-            for user_id in rotation_users:
-                IndividualScore.objects.update_or_create(
-                    quiz=quiz,
-                    user_id=user_id,
-                    question=question,
-                    defaults={
-                        "is_correct": is_correct,
-                        "points_earned": points,
-                        "answer": f"table_scored:{table.table_number}",
-                    },
-                )
+            # On a re-score, refresh existing IndividualScore rows so
+            # leaderboards and per-user scores reflect the corrected state.
+            # On the first scoring, get_or_create avoids overwriting
+            # concurrent scores for other tables that share members (rare,
+            # but possible across rotations).
+            if created:
+                for user_id in rotation_users:
+                    IndividualScore.objects.get_or_create(
+                        quiz=quiz,
+                        user_id=user_id,
+                        question=question,
+                        defaults={
+                            "is_correct": is_correct,
+                            "points_earned": points,
+                            "answer": f"table_scored:{table.table_number}",
+                        },
+                    )
+            else:
+                for user_id in rotation_users:
+                    IndividualScore.objects.update_or_create(
+                        quiz=quiz,
+                        user_id=user_id,
+                        question=question,
+                        defaults={
+                            "is_correct": is_correct,
+                            "points_earned": points,
+                            "answer": f"table_scored:{table.table_number}",
+                        },
+                    )
 
         # Check if all tables have been scored for this question
         total_tables = QuizTable.objects.filter(quiz=quiz).count()
@@ -1745,58 +1834,71 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def get_leaderboard(self):
-        from crush_lu.models.quiz import IndividualScore, QuizTable
+        return build_leaderboard(self.quiz_id)
 
-        tables = QuizTable.objects.filter(quiz_id=self.quiz_id).order_by("table_number")
-        leaderboard = []
-        for table in tables:
-            score = table.get_total_score()
-            leaderboard.append(
-                {
-                    "table_number": table.table_number,
-                    "total_score": score,
-                }
+
+def build_leaderboard(quiz_id):
+    """The quiz's table and individual standings.
+
+    Module level so a plain HTTP view can build the same payload the consumer
+    broadcasts — an undo that removes someone's IndividualScore rows changes
+    what everyone in the room is looking at, not just the people at their
+    table, and `views_checkin` has no consumer to ask.
+    """
+    from django.db.models import Sum
+
+    from crush_lu.models.quiz import IndividualScore, QuizTable
+
+    tables = QuizTable.objects.filter(quiz_id=quiz_id).order_by("table_number")
+    leaderboard = []
+    for table in tables:
+        score = table.get_total_score()
+        leaderboard.append(
+            {
+                "table_number": table.table_number,
+                "total_score": score,
+            }
+        )
+    leaderboard.sort(key=lambda x: x["total_score"], reverse=True)
+
+    # Individual top scorers (using display_name for privacy)
+    from crush_lu.models import CrushProfile
+
+    top_individuals = (
+        IndividualScore.objects.filter(quiz_id=quiz_id)
+        .values("user_id")
+        .annotate(total=Sum("points_earned"))
+        .order_by("-total")[:10]
+    )
+
+    individual_scores = []
+    for entry in top_individuals:
+        try:
+            profile = CrushProfile.objects.get(user_id=entry["user_id"])
+            name = profile.display_name
+            has_photo = bool(getattr(profile, "photo_1", None))
+            photo_url = (
+                f"/api/quiz/photo/{entry['user_id']}/" if has_photo else None
             )
-        leaderboard.sort(key=lambda x: x["total_score"], reverse=True)
+        except CrushProfile.DoesNotExist:
+            name = "Anonymous"
+            photo_url = None
+        from crush_lu.views_quiz import _member_color, _member_initials
 
-        # Individual top scorers (using display_name for privacy)
-        from crush_lu.models import CrushProfile
-
-        top_individuals = (
-            IndividualScore.objects.filter(quiz_id=self.quiz_id)
-            .values("user_id")
-            .annotate(total=Sum("points_earned"))
-            .order_by("-total")[:10]
+        individual_scores.append(
+            {
+                "display_name": name,
+                "total_score": entry["total"],
+                "initials": _member_initials(name),
+                "color": _member_color(name),
+                "photo_url": photo_url,
+            }
         )
 
-        individual_scores = []
-        for entry in top_individuals:
-            try:
-                profile = CrushProfile.objects.get(user_id=entry["user_id"])
-                name = profile.display_name
-                has_photo = bool(getattr(profile, "photo_1", None))
-                photo_url = (
-                    f"/api/quiz/photo/{entry['user_id']}/" if has_photo else None
-                )
-            except CrushProfile.DoesNotExist:
-                name = "Anonymous"
-                photo_url = None
-            from crush_lu.views_quiz import _member_color, _member_initials
-
-            individual_scores.append(
-                {
-                    "display_name": name,
-                    "total_score": entry["total"],
-                    "initials": _member_initials(name),
-                    "color": _member_color(name),
-                    "photo_url": photo_url,
-                }
-            )
-
-        return {
-            "tables": leaderboard,
-            "individuals": individual_scores,
-        }
+    return {
+        "tables": leaderboard,
+        "individuals": individual_scores,
+    }
 
 
 class CheckinConsumer(AsyncJsonWebsocketConsumer):

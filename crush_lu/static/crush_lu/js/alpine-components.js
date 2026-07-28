@@ -843,8 +843,14 @@ document.addEventListener("alpine:init", function () {
 
                         if (data.table_number) {
                             var tableBadge = document.createElement("span");
+                            // `manual-table-badge` is what _updateUndoUI
+                            // removes. Without it, undoing a check-in made in
+                            // this same session cleared the seat server-side
+                            // but left its "T3" on screen — the server-rendered
+                            // twin in coach_event_checkin.html carries the
+                            // class, so only the freshest badge got stranded.
                             tableBadge.className =
-                                "inline-flex items-center rounded-full bg-crush-purple/10 px-2 py-0.5 text-xs font-medium text-crush-purple dark:text-purple-300";
+                                "manual-table-badge inline-flex items-center rounded-full bg-crush-purple/10 px-2 py-0.5 text-xs font-medium text-crush-purple dark:text-purple-300";
                             tableBadge.textContent = "T" + data.table_number;
                             wrap.appendChild(tableBadge);
                         }
@@ -1272,6 +1278,29 @@ document.addEventListener("alpine:init", function () {
                     toWaitlist ? -1 : 1,
                 );
                 this._bumpGenderSplit(data.gender, -1);
+
+                // Give the chair back on the table-fill grid. The server sends
+                // this under its own key rather than `table_number`: an undo
+                // broadcast still reaches other coaches through
+                // _updateCheckinUI, which would read the arrival key and count
+                // the seat *up* (#710, finding 1). Which is also why this only
+                // corrects the acting coach's page — the remote one is put
+                // right by the redesign, not here.
+                // A list, because the seat model's uniqueness is only
+                // (table, user) — one person can hold chairs at two tables of
+                // the same quiz, and the grid counts both.
+                var releasedTables = data.released_table_numbers || [];
+                for (var ti = 0; ti < releasedTables.length; ti++) {
+                    var fillEl = document.getElementById(
+                        "table-fill-" + releasedTables[ti],
+                    );
+                    if (fillEl) {
+                        var fill = parseInt(fillEl.textContent, 10);
+                        if (!isNaN(fill)) {
+                            fillEl.textContent = Math.max(0, fill - 1);
+                        }
+                    }
+                }
                 if (!row) return;
 
                 if (toWaitlist) {

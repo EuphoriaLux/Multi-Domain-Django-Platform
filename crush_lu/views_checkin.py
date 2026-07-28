@@ -721,6 +721,12 @@ def coach_undo_checkin(request, event_id, registration_id):
     direction of each guess, and reachable for at most the 15 minutes after a
     deploy in which a pre-deploy check-in is still undoable.
 
+    - A quiz seat, if the original check-in took one — membership, rotation
+      rows and any scores collected inside the undo window. All of those are
+      separate objects that outlive the status flip, so an undone attendee
+      would otherwise keep a chair their table is short of and points on the
+      individual leaderboard.
+
     What it deliberately does NOT revert: the verification. The welcome email
     and the referral credit have already gone out, and un-verifying a member
     who is standing in the room is worse than an over-verified walk-in. The
@@ -831,6 +837,22 @@ def coach_undo_checkin(request, event_id, registration_id):
         # every other save in this file lists it for the same reason.
         registration.save(update_fields=_CHECKIN_UPDATE_FIELDS)
 
+        # The status flip alone does not free the quiz seat the check-in took.
+        # Best-effort, like the assignment it undoes: a quiz problem must not
+        # cost the coach the correction they came here to make.
+        released_table = None
+        try:
+            quiz_event = getattr(registration.event, "quiz", None)
+            if quiz_event:
+                from .services.quiz_rotation import release_table_on_undo
+
+                released_table = release_table_on_undo(quiz_event, registration.user)
+        except Exception:
+            logger.exception(
+                "Quiz table release failed for undone registration %s",
+                registration.id,
+            )
+
     logger.info(
         "Coach %s undid check-in of registration %s (user %s) at event %s; "
         "restored_status=%s coach_cleared=%s",
@@ -861,7 +883,42 @@ def coach_undo_checkin(request, event_id, registration_id):
         or "",
         "message": str(_("Check-in undone for %(name)s.")) % {"name": display_name},
     }
+    # The *membership* table, not the current one. The door page's table-fill
+    # grid is rendered from QuizTableMembership (views_coach.py), so it counts
+    # the seat where the person checked in however far the rotation has since
+    # moved them — decrementing the current table would leave that tile short
+    # and the round-0 tile still holding a seat nobody occupies.
+    #
+    # Under its own key, never `table_number`: handleRemoteCheckin has no
+    # `undone` branch yet (#710), so an undo payload is still read as an
+    # arrival, and the arrival key would make the other coaches' pages count
+    # the freed seat *up*. `_updateUndoUI` reads this one, which only the
+    # acting coach runs — so the door page that issued the correction fixes
+    # its own table-fill grid, and no other page is misled into a bump. The
+    # quiz table group is a different channel, carries the current table, and
+    # reaches the players.
+    if released_table and released_table.get("membership_table_numbers"):
+        response_data["released_table_numbers"] = released_table[
+            "membership_table_numbers"
+        ]
     _broadcast_checkin(registration.event_id, response_data)
+    if released_table:
+        # Naming the user is what lets the consumer drop their live socket.
+        # An undo can put a promoted walk-up back on the `waitlist`, which a
+        # fresh WS connection refuses — but theirs was authorised once at
+        # connect and never again, so without this they keep receiving
+        # questions and standings for an event they are no longer attending.
+        _broadcast_quiz_table_update(
+            registration.event, released_table, affected_user_id=registration.user_id
+        )
+        # Deleting their IndividualScore rows changes the standings everyone
+        # in the room is looking at, not just the people at their table — and
+        # the table broadcast reaches only the latter, whose handler refetches
+        # an assignment rather than a leaderboard. Sent on the shared group as
+        # the existing `quiz.leaderboard`, which every client already handles
+        # and which triggers no assignment refetch.
+        if released_table.get("scores_removed"):
+            _broadcast_quiz_leaderboard(registration.event)
     return JsonResponse(response_data)
 
 
@@ -1083,8 +1140,26 @@ def _broadcast_checkin(event_id, response_data):
         )
 
 
-def _broadcast_quiz_table_update(event, table_assignment):
-    """Notify quiz participants at a table that a new person has joined."""
+def _broadcast_quiz_table_update(event, table_assignment, affected_user_id=None):
+    """Tell the people at a table that its membership changed.
+
+    Someone joining (a scan or a waitlist promotion) or leaving (an undone
+    check-in) both land here — only ``table_number`` is read, so either
+    direction can pass its own dict, and it may be None when a cleanup freed
+    no seat in the current round.
+
+    Reaches three audiences, each on its own group: the players at the table,
+    the projector, and whoever is running the room. The host is last because
+    the host panel had never refreshed for *any* door action — not a scan, not
+    a promotion, not an undo — so a walk-up promoted at the door has been
+    invisible on the host's table overview since #703 (#722).
+
+    ``affected_user_id`` names the person whose seat changed, when a caller
+    knows it. It travels on the channel-layer event and is stripped before
+    anything is sent to a browser — the consumer uses it to re-run its
+    connect-time authorisation for exactly that user, and nothing else needs
+    to know an internal id (AUTHZ-02).
+    """
     from .models.quiz import QuizTable
 
     channel_layer = get_channel_layer()
@@ -1095,23 +1170,29 @@ def _broadcast_quiz_table_update(event, table_assignment):
         if not quiz_event:
             return
         table_number = table_assignment.get("table_number")
-        if not table_number:
-            return
-        # Look up the QuizTable PK — the consumer subscribes using table PK, not table_number
-        quiz_table = QuizTable.objects.filter(
-            quiz=quiz_event, table_number=table_number
-        ).first()
-        if not quiz_table:
-            return
-        # Broadcast to the specific table group so only affected participants refresh
-        async_to_sync(channel_layer.group_send)(
-            f"quiz_{quiz_event.id}_table_{quiz_table.id}",
-            {
-                "type": "quiz.table_update",
-                "data": {"table_number": table_number},
-            },
-        )
-        # Also broadcast to display-specific group so the projector page updates
+        if table_number:
+            # Look up the QuizTable PK — the consumer subscribes using table PK,
+            # not table_number
+            quiz_table = QuizTable.objects.filter(
+                quiz=quiz_event, table_number=table_number
+            ).first()
+            if quiz_table:
+                # Only the affected participants refresh — and this is the one
+                # group the departing player is still in, so it is where the
+                # re-authorisation has to ride.
+                async_to_sync(channel_layer.group_send)(
+                    f"quiz_{quiz_event.id}_table_{quiz_table.id}",
+                    {
+                        "type": "quiz.table_update",
+                        "data": {"table_number": table_number},
+                        "affected_user_id": affected_user_id,
+                    },
+                )
+        # The projector always refreshes, even with no table to name. It shows
+        # attendance and the individual leaderboard, which a cleanup changes
+        # whether or not it freed a seat in the current round — and the
+        # no-current-seat case is exactly the one that carries no table number.
+        # handleTableUpdate ignores the payload and refetches, so a null is fine.
         async_to_sync(channel_layer.group_send)(
             f"quiz_{quiz_event.id}_display",
             {
@@ -1119,8 +1200,52 @@ def _broadcast_quiz_table_update(event, table_assignment):
                 "data": {"table_number": table_number},
             },
         )
+        # The host, for the same reason as the projector: their overview is a
+        # roster of the whole room, so it goes stale on any seat change and not
+        # only on one that names a table. A dedicated group rather than
+        # `quiz_<id>`, which the host does subscribe to but shares with every
+        # player — whose own `quiz.table_update` branch refetches their
+        # assignment, so the room would refetch as one on every door scan.
+        async_to_sync(channel_layer.group_send)(
+            f"quiz_{quiz_event.id}_host",
+            {
+                "type": "quiz.table_update",
+                "data": {"table_number": table_number},
+            },
+        )
     except Exception:
         logger.exception("Failed to broadcast quiz table update for event %s", event.id)
+
+
+def _broadcast_quiz_leaderboard(event):
+    """Push fresh standings to everyone connected to the quiz.
+
+    The individual leaderboard is otherwise only rebuilt when the host scores
+    or reveals, so removing someone's scores mid-round leaves them on every
+    other player's standings until the next question is marked. Goes to
+    ``quiz_<id>`` — the shared group — deliberately: the standings are the one
+    thing on that page that really is the same for the whole room, and
+    ``quiz.leaderboard`` is already handled by the player, host and projector
+    clients without triggering an assignment refetch.
+    """
+    from .consumers import build_leaderboard
+
+    channel_layer = get_channel_layer()
+    if not channel_layer:
+        return
+    try:
+        quiz_event = getattr(event, "quiz", None)
+        if not quiz_event:
+            return
+        async_to_sync(channel_layer.group_send)(
+            f"quiz_{quiz_event.id}",
+            {
+                "type": "quiz.leaderboard",
+                "data": build_leaderboard(quiz_event.id),
+            },
+        )
+    except Exception:
+        logger.exception("Failed to broadcast quiz leaderboard for event %s", event.id)
 
 
 def _get_existing_table_assignment(registration):

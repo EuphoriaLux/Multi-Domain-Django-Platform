@@ -1439,8 +1439,16 @@ class TestQuizAPI:
         assert data["table_number"] == 1
         assert data["role"] == "anchor"
         assert data["personal_score"] == 0
+        assert data["seated"] is True
 
     def test_my_assignment_not_assigned(self, quiz_event):
+        """200 with `seated: false`, not 404.
+
+        The client cannot tell a 404 apart from a transient failure — it
+        retries every 2s and then tells the player to reload — and a player
+        with no seat is a real answer, not a missing resource. Before #708
+        there was no way to lose a seat, so it never came up.
+        """
         other_user = User.objects.create_user(
             username="other@test.com", password="test"
         )
@@ -1448,7 +1456,44 @@ class TestQuizAPI:
         client = APIClient()
         client.force_authenticate(user=other_user)
         response = client.get(f"/api/quiz/{quiz_event.id}/my-assignment/")
-        assert response.status_code == 404
+        assert response.status_code == 200
+        data = response.json()
+        assert data["seated"] is False
+        # Every field spelled out — the client assigns them all, so an absent
+        # key would read as "keep whatever you were showing", which is the bug.
+        assert data["table_number"] is None
+        assert data["role"] == ""
+        assert data["tablemates"] == []
+        assert data["next_table"] is None
+
+    def test_my_assignment_after_the_seat_is_released(self, quiz_event, quiz_table):
+        """End to end with the un-seating it exists for: a player seated at a
+        table, released by an undone check-in, must be told they have no seat.
+        Their table-group subscription outlives the removal, so this response
+        is the only thing that clears the table they are still displaying."""
+        from crush_lu.models.quiz import QuizTableMembership
+        from crush_lu.services.quiz_rotation import release_table_on_undo
+
+        player = User.objects.create_user(username="seated@test.com", password="test")
+        _grant_consent(player)
+        QuizTableMembership.objects.create(table=quiz_table, user=player)
+        QuizRotationSchedule.objects.create(
+            quiz=quiz_event,
+            round_number=0,
+            table=quiz_table,
+            user=player,
+            role="rotator",
+        )
+        client = APIClient()
+        client.force_authenticate(user=player)
+
+        assert client.get(f"/api/quiz/{quiz_event.id}/my-assignment/").json()["seated"]
+
+        release_table_on_undo(quiz_event, player)
+
+        data = client.get(f"/api/quiz/{quiz_event.id}/my-assignment/").json()
+        assert data["seated"] is False
+        assert data["table_number"] is None
 
     def test_score_table_endpoint(
         self, quiz_event, quiz_table, quiz_questions, quiz_user, coach_user
@@ -3829,3 +3874,393 @@ class TestConnectAuthorization:
             consumer.channel_layer.group_add.assert_not_awaited()
 
         async_to_sync(run)()
+
+
+# ============================================================================
+# HOST GROUP — the host panel's own broadcast channel (#722)
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestHostGroupSubscription:
+    """The host panel's table overview had never refreshed on a door action —
+    not a scan, not a waitlist promotion, not an undo.
+
+    `_broadcast_quiz_table_update` reached the players at one table and the
+    projector, and the host subscribes to neither. The obvious fix, sending to
+    `quiz_<id>`, is wrong in two directions: every *player* is on that group
+    and their `quiz.table_update` branch refetches their own assignment, so the
+    whole room would refetch on every door scan; and a display connection joins
+    `quiz_<id>` on top of `quiz_<id>_display`, so the projector would refresh
+    twice. Hence a group only the host is on.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _keep_test_connection_open(self, monkeypatch):
+        """Same pytest-django atomic-wrapper guard as the other consumer
+        tests (see TestRotateGuard)."""
+        monkeypatch.setattr(
+            "channels.db.close_old_connections", lambda *a, **kw: None
+        )
+
+    def _make_consumer(self, quiz, user):
+        from unittest.mock import AsyncMock
+        from crush_lu.consumers import QuizConsumer
+
+        consumer = QuizConsumer()
+        consumer.scope = {
+            "user": user,
+            "url_route": {"kwargs": {"quiz_id": quiz.id}},
+            "query_string": b"",
+        }
+        consumer.channel_name = "test-channel-name"
+        consumer.channel_layer = AsyncMock()
+        consumer.accept = AsyncMock()
+        consumer.close = AsyncMock()
+        consumer.send_json = AsyncMock()
+        return consumer
+
+    def _groups_joined(self, consumer):
+        return [call.args[0] for call in consumer.channel_layer.group_add.await_args_list]
+
+    def test_the_host_joins_the_host_group(self, quiz_event, coach_user):
+        from asgiref.sync import async_to_sync
+
+        async def run():
+            consumer = self._make_consumer(quiz_event, coach_user)
+            await consumer.connect()
+            assert f"quiz_{quiz_event.id}_host" in self._groups_joined(consumer)
+
+        async_to_sync(run)()
+
+    def test_a_player_does_not(self, quiz_event, quiz_user):
+        """The one that matters. A player on the host group would refetch their
+        assignment on every seat change anywhere in the room."""
+        from asgiref.sync import async_to_sync
+        from crush_lu.models.events import EventRegistration
+
+        EventRegistration.objects.create(
+            event=quiz_event.event, user=quiz_user, status="attended"
+        )
+
+        async def run():
+            consumer = self._make_consumer(quiz_event, quiz_user)
+            await consumer.connect()
+            joined = self._groups_joined(consumer)
+            assert f"quiz_{quiz_event.id}" in joined  # still on the shared feed
+            assert f"quiz_{quiz_event.id}_host" not in joined
+
+        async_to_sync(run)()
+
+    def test_a_staff_viewer_does_not(self, quiz_event, quiz_user):
+        """Staff get the read-only *player* page (`quiz_live_view` renders
+        quiz_live.html / quizLive), not the host panel, so the host group would
+        only cost them an assignment refetch they have no use for."""
+        from asgiref.sync import async_to_sync
+
+        quiz_user.is_staff = True
+        quiz_user.save(update_fields=["is_staff"])
+
+        async def run():
+            consumer = self._make_consumer(quiz_event, quiz_user)
+            await consumer.connect()
+            assert f"quiz_{quiz_event.id}_host" not in self._groups_joined(consumer)
+
+        async_to_sync(run)()
+
+    def test_disconnect_leaves_the_host_group(self, quiz_event, coach_user):
+        """A group a connection never leaves keeps receiving into a dead
+        channel; every other group this consumer joins is discarded."""
+        from asgiref.sync import async_to_sync
+
+        async def run():
+            consumer = self._make_consumer(quiz_event, coach_user)
+            await consumer.connect()
+            await consumer.disconnect(1000)
+            left = [
+                call.args[0]
+                for call in consumer.channel_layer.group_discard.await_args_list
+            ]
+            assert f"quiz_{quiz_event.id}_host" in left
+
+        async_to_sync(run)()
+
+
+# ============================================================================
+# SCORING READS SEATS UNDER THE SAME LOCK IT WRITES THEM (#721)
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestScoringSeatRace:
+    """`score_table_for_question` read `rotation_users` *after* its atomic
+    block closed, then wrote IndividualScore rows outside it.
+
+    Read-before-delete / write-after-delete: anything that rewrites
+    QuizRotationSchedule in between credits a person who is no longer at the
+    table. Not specific to the undo — `assign_table_on_checkin` already
+    triggered it, because a late arrival to a live quiz regenerates the future
+    rounds, and rotation and consolidation rewrite the same rows.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _keep_test_connection_open(self, monkeypatch):
+        """Same pytest-django atomic-wrapper guard as the other consumer
+        tests (see TestRotateGuard) — score_table_for_question is a
+        database_sync_to_async hop."""
+        monkeypatch.setattr(
+            "channels.db.close_old_connections", lambda *a, **kw: None
+        )
+
+    def _setup(self, quiz):
+        round1 = QuizRound.objects.create(
+            quiz=quiz, title="R1", sort_order=0, time_per_question=30
+        )
+        question = QuizQuestion.objects.create(
+            round=round1, text="Q?", question_type="open_ended", points=10, sort_order=0
+        )
+        quiz.num_tables = 2
+        quiz.save(update_fields=["num_tables"])
+        tables = quiz.ensure_tables()
+        quiz.current_round = round1
+        quiz.save(update_fields=["current_round"])
+        return question, tables
+
+    def _seat(self, quiz, table, username):
+        user = User.objects.create_user(username=username, password="x")
+        _grant_consent(user)
+        _create_profile(user, "M")
+        QuizRotationSchedule.objects.create(
+            quiz=quiz, round_number=0, table=table, user=user, role="anchor"
+        )
+        QuizTableMembership.objects.create(table=table, user=user)
+        return user
+
+    def _make_consumer(self, quiz):
+        from unittest.mock import AsyncMock
+        from crush_lu.consumers import QuizConsumer
+
+        consumer = QuizConsumer()
+        consumer.quiz_id = quiz.id
+        consumer.channel_layer = AsyncMock()
+        return consumer
+
+    def test_a_failed_individual_write_rolls_the_table_score_back(
+        self, quiz_event, coach_user
+    ):
+        """The structural gate. The seat read and the IndividualScore writes
+        now share the transaction that writes TableRoundScore, so a failure
+        among them cannot leave a table recorded as scored with nobody
+        credited for it — which is exactly what the old shape allowed, the
+        table score having already committed."""
+        from unittest import mock
+
+        from asgiref.sync import async_to_sync
+        from crush_lu.models.quiz import IndividualScore, TableRoundScore
+
+        question, tables = self._setup(quiz_event)
+        self._seat(quiz_event, tables[1], "scored@test.com")
+        consumer = self._make_consumer(quiz_event)
+
+        with mock.patch.object(
+            IndividualScore.objects,
+            "get_or_create",
+            side_effect=RuntimeError("individual score write failed"),
+        ):
+            with pytest.raises(RuntimeError):
+                async_to_sync(consumer.score_table_for_question)(
+                    tables[1].id, question.id, True
+                )
+
+        assert not TableRoundScore.objects.filter(
+            quiz=quiz_event, table=tables[1], question=question
+        ).exists()
+        assert not IndividualScore.objects.filter(quiz=quiz_event).exists()
+
+    def test_a_released_seat_is_not_credited(self, quiz_event, coach_user):
+        """The outcome the lock protects, with the race resolved the way it
+        would be if the undo won: someone whose seat was released before the
+        host scored must not appear on the individual leaderboard for a
+        question they were not seated for."""
+        from asgiref.sync import async_to_sync
+        from crush_lu.models.quiz import IndividualScore
+        from crush_lu.services.quiz_rotation import release_table_on_undo
+
+        question, tables = self._setup(quiz_event)
+        staying = self._seat(quiz_event, tables[1], "staying@test.com")
+        leaving = self._seat(quiz_event, tables[1], "leaving@test.com")
+
+        release_table_on_undo(quiz_event, leaving)
+
+        consumer = self._make_consumer(quiz_event)
+        async_to_sync(consumer.score_table_for_question)(
+            tables[1].id, question.id, True
+        )
+
+        credited = set(
+            IndividualScore.objects.filter(quiz=quiz_event).values_list(
+                "user_id", flat=True
+            )
+        )
+        assert credited == {staying.id}
+        assert leaving.id not in credited
+
+    def test_both_scoring_paths_lock_the_quiz_then_the_tables(self, quiz_event):
+        """The consumer and the REST endpoint are twins — the host panel can
+        reach either — so a lock on only one leaves the race open on the other.
+
+        The quiz row has to come first even though neither reads it: on
+        PostgreSQL the first TableRoundScore/IndividualScore insert takes a
+        FOR KEY SHARE lock on the referenced QuizEvent row for its foreign key
+        check, which conflicts with the FOR UPDATE the seat operations hold.
+        Locking only the tables is therefore still tables -> quiz, implicitly,
+        and deadlocks against exactly what the ordering exists to protect.
+
+        Pinned by inspection rather than by a real concurrent write, which
+        SQLite cannot express."""
+        import inspect
+        import re
+
+        from crush_lu import api_quiz
+        from crush_lu.consumers import QuizConsumer
+
+        for fn in (
+            QuizConsumer.score_table_for_question,
+            api_quiz.score_table,
+        ):
+            src = inspect.getsource(inspect.unwrap(fn))
+            order = [
+                m.group(1)
+                for m in re.finditer(
+                    r"(QuizEvent|QuizTable)\.objects[\s\S]{0,120}?"
+                    r"select_for_update\(\)",
+                    src,
+                )
+            ]
+            assert order[:2] == ["QuizEvent", "QuizTable"], (fn.__name__, order)
+            assert 'order_by("table_number")' in src
+
+
+# ============================================================================
+# A REMOVED PLAYER'S LIVE SOCKET IS REVOKED (#708 follow-up)
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestSeatChangeReauthorization:
+    """Authorisation is decided once, at connect, and never again.
+
+    Undoing a *promotion* returns the walk-up to `waitlist`, which a fresh
+    connection refuses — but theirs was already accepted, and they keep their
+    table group until they reconnect, so they would go on receiving questions
+    and standings for an event they are no longer attending.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _keep_test_connection_open(self, monkeypatch):
+        monkeypatch.setattr(
+            "channels.db.close_old_connections", lambda *a, **kw: None
+        )
+
+    def _make_consumer(self, quiz, user):
+        from unittest.mock import AsyncMock
+        from crush_lu.consumers import QuizConsumer
+
+        consumer = QuizConsumer()
+        consumer.scope = {
+            "user": user,
+            "url_route": {"kwargs": {"quiz_id": quiz.id}},
+            "query_string": b"",
+        }
+        consumer.channel_name = "test-channel-name"
+        consumer.channel_layer = AsyncMock()
+        consumer.accept = AsyncMock()
+        consumer.close = AsyncMock()
+        consumer.send_json = AsyncMock()
+        return consumer
+
+    def _connected(self, quiz, user, status):
+        from asgiref.sync import async_to_sync
+        from crush_lu.models.events import EventRegistration
+
+        EventRegistration.objects.create(event=quiz.event, user=user, status=status)
+        consumer = self._make_consumer(quiz, user)
+        async_to_sync(consumer.connect)()
+        consumer.accept.assert_awaited_once()
+        # connect() sends the initial quiz.state — reset so each assertion
+        # below is about the table_update alone.
+        consumer.send_json.reset_mock()
+        return consumer
+
+    def test_a_player_put_back_on_the_waitlist_is_disconnected(
+        self, quiz_event, quiz_user
+    ):
+        from asgiref.sync import async_to_sync
+        from crush_lu.models.events import EventRegistration
+
+        consumer = self._connected(quiz_event, quiz_user, "attended")
+        EventRegistration.objects.filter(event=quiz_event.event, user=quiz_user).update(
+            status="waitlist"
+        )
+
+        async_to_sync(consumer.quiz_table_update)(
+            {"data": {"table_number": 1}, "affected_user_id": quiz_user.id}
+        )
+
+        consumer.close.assert_awaited_once()
+        # And the update goes out *first*. It is what makes quiz-live.js call
+        # fetchAssignment(), the only thing that clears the table, role,
+        # tablemates and score from their screen. Closing without it strands
+        # all of it: the client reconnects, the same check rejects it, and its
+        # refetch is wired to an `onopen` that never arrives.
+        consumer.send_json.assert_awaited_once()
+        assert consumer.send_json.await_args.args[0] == {
+            "type": "quiz.table_update",
+            "data": {"table_number": 1},
+        }
+
+    def test_an_undone_scan_keeps_its_socket(self, quiz_event, quiz_user):
+        """Undoing an ordinary scan restores `confirmed`, which is still
+        allowed to watch — only a promotion regresses far enough to lose it."""
+        from asgiref.sync import async_to_sync
+        from crush_lu.models.events import EventRegistration
+
+        consumer = self._connected(quiz_event, quiz_user, "attended")
+        EventRegistration.objects.filter(event=quiz_event.event, user=quiz_user).update(
+            status="confirmed"
+        )
+
+        async_to_sync(consumer.quiz_table_update)(
+            {"data": {"table_number": 1}, "affected_user_id": quiz_user.id}
+        )
+
+        consumer.close.assert_not_awaited()
+        consumer.send_json.assert_awaited_once()
+
+    def test_everyone_else_at_the_table_is_untouched(self, quiz_event, quiz_user):
+        """The re-check is for the named user only — the rest of the table must
+        not pay a query, and must not be disconnected by someone else's undo."""
+        from asgiref.sync import async_to_sync
+
+        consumer = self._connected(quiz_event, quiz_user, "attended")
+
+        async_to_sync(consumer.quiz_table_update)(
+            {"data": {"table_number": 1}, "affected_user_id": quiz_user.id + 9999}
+        )
+
+        consumer.close.assert_not_awaited()
+        consumer.send_json.assert_awaited_once()
+
+    def test_the_internal_id_never_reaches_a_browser(self, quiz_event, quiz_user):
+        """AUTHZ-02 — the payload goes to everyone at the table."""
+        from asgiref.sync import async_to_sync
+
+        consumer = self._connected(quiz_event, quiz_user, "attended")
+
+        async_to_sync(consumer.quiz_table_update)(
+            {"data": {"table_number": 1}, "affected_user_id": quiz_user.id + 9999}
+        )
+
+        sent = consumer.send_json.await_args.args[0]
+        assert sent == {"type": "quiz.table_update", "data": {"table_number": 1}}
+        assert "affected_user_id" not in sent["data"]

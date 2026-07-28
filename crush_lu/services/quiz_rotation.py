@@ -204,6 +204,7 @@ def assign_table_on_checkin(quiz_event, user):
     from django.db.models import Count
 
     from crush_lu.models.quiz import (
+        QuizEvent,
         QuizRotationSchedule,
         QuizTable,
         QuizTableMembership,
@@ -218,6 +219,16 @@ def assign_table_on_checkin(quiz_event, user):
 
     # Find table with fewest members of the same role, tie-break by table_number
     with transaction.atomic():
+        # Quiz row first, then the tables — the order every other seat
+        # operation takes (release_table_on_undo, dissolve_table,
+        # manual_assign_table, generate_rotation_rounds). This path used to
+        # take only the tables and then reach the quiz row indirectly, via the
+        # generate_rotation_rounds call below: that runs inside the caller's
+        # transaction, so the table locks are still held when it locks the
+        # quiz, which is the same tables-then-quiz inversion that deadlocks
+        # against a host dissolving a table.
+        QuizEvent.objects.select_for_update().filter(pk=quiz_event.pk).first()
+
         # Create QuizTable rows on demand if they don't exist yet. The
         # initial batch generate_rotation_rounds normally creates them,
         # but it can fail (e.g. host pressed Start before enough people
@@ -332,6 +343,148 @@ def assign_table_on_checkin(quiz_event, user):
     return {
         "table_number": target_table.table_number,
         "role": role,
+    }
+
+
+def release_table_on_undo(quiz_event, user):
+    """
+    Give back the seat ``assign_table_on_checkin`` took — the inverse of it.
+
+    A check-in that is undone leaves the registration correct and the quiz
+    wrong: the ``QuizTableMembership`` and the rotation rows are separate
+    objects that no status flip touches, so the mistakenly scanned person
+    keeps a chair in the table-fill display and their table stays one seat
+    short for whoever actually turns up.
+
+    Removes every rotation row for this user at this quiz, not just round 0.
+    They were never there, so no round should seat them — and for the same
+    reason their ``IndividualScore`` rows go too, or a person the undo
+    declares was never present keeps points on the individual leaderboard
+    for any question scored inside the undo window.
+
+    Returns:
+        dict with ``table_number`` and ``membership_table_number``, or None if
+        the user left nothing behind at all. The two differ for a rotator who
+        has moved, and each has exactly one correct audience:
+
+        - ``table_number`` is where they are sitting **now**, for the live
+          quiz broadcast. None when no current round seats them.
+        - ``membership_table_numbers`` are their round-0 tables, for the door
+          page — whose table-fill grid is rendered from ``QuizTableMembership``
+          (``views_coach.py``) and so counts the seat there whatever the
+          rotation has since done. A list because the model's uniqueness is
+          only ``(table, user)``: nothing stops the same person holding a
+          chair at two tables of one quiz, and the admin's
+          ``QuizTableMembershipInline`` will happily create exactly that.
+          Empty when they held no membership row.
+    """
+    from django.db import transaction
+
+    from crush_lu.models.quiz import (
+        IndividualScore,
+        QuizEvent,
+        QuizRotationSchedule,
+        QuizTable,
+        QuizTableMembership,
+    )
+
+    with transaction.atomic():
+        # Quiz row first, then the tables — the order dissolve_table,
+        # manual_assign_table and generate_rotation_rounds all take. This used
+        # to lock the tables first, which deadlocks against a host dissolving
+        # or hand-assigning a table at the same moment; and because
+        # coach_undo_checkin swallows a failure here so the correction still
+        # lands, the undo would be picked as the victim and commit having
+        # silently left the seat and the scores behind.
+        #
+        # Taking the quiz row before any schedule row is deleted is also what
+        # the regeneration path needs: generate_rotation_rounds locks the quiz
+        # and then deletes rounds >= from_round, and this function goes on to
+        # call it while still holding its own deletes' locks — they run inside
+        # the caller's transaction, so nothing is released in between.
+        #
+        # Read *through* the lock, the way generate_rotation_rounds does: if we
+        # waited here behind a round advance, the caller's instance still holds
+        # the pre-advance current_round, and deriving the table from it would
+        # broadcast the departure to the table they just left.
+        locked_quiz = (
+            QuizEvent.objects.select_for_update().filter(pk=quiz_event.pk).first()
+        )
+        if locked_quiz is None:
+            return None
+        quiz_event = locked_quiz
+
+        list(
+            QuizTable.objects.filter(quiz=quiz_event)
+            .select_for_update()
+            .order_by("table_number")
+        )
+
+        # Every membership, not the first. `unique_together` is
+        # ``(table, user)``, so one user can legally hold chairs at several
+        # tables of the same quiz — releasing one and leaving the rest is
+        # precisely the half-done cleanup this function exists to prevent.
+        memberships = QuizTableMembership.objects.filter(
+            table__quiz=quiz_event, user=user
+        ).select_related("table")
+        schedule = QuizRotationSchedule.objects.filter(quiz=quiz_event, user=user)
+        scores = IndividualScore.objects.filter(quiz=quiz_event, user=user)
+
+        # Membership is not the test for "did they leave anything behind".
+        # Someone checked in before num_tables was configured never gets one —
+        # assign_table_on_checkin returns early — and a later
+        # generate_rotation_rounds can still schedule them off their attendance.
+        # Keying the whole cleanup on membership would leave those rows seating
+        # a confirmed non-attendee for the rest of the quiz.
+        if not memberships.exists() and not schedule.exists() and not scores.exists():
+            return None
+
+        # Where they are seated now, not where they checked in. A rotator's
+        # membership row stays on their round-0 table while their live
+        # subscription follows the current QuizRotationSchedule row — the same
+        # precedence get_current_assignment applies on the WS connect path.
+        # Broadcasting the membership table mid-quiz refreshes a table they
+        # left, and the people they are actually sitting with keep seeing them.
+        # None when they are scheduled in no current round: nothing to refresh,
+        # and _broadcast_quiz_table_update no-ops on it.
+        current = get_current_assignment(quiz_event, user.pk)
+        table_number = current["table_number"] if current else None
+        # Read before the delete, and kept separate from the one above: the
+        # door grid counts memberships, so a rotator undone after moving has
+        # to decrement the table they checked in at, not the one they had
+        # rotated to. Reporting only the current table left both tiles wrong.
+        membership_table_numbers = sorted(
+            m.table.table_number for m in memberships
+        )
+        scores_removed = scores.exists()
+
+        memberships.delete()
+        schedule.delete()
+        scores.delete()
+
+    # Mirror of the assign path: a live quiz has to be reseated around the
+    # gap, and generate_rotation_rounds preserves the current and already-
+    # played rounds so the room does not move mid-question.
+    if quiz_event.status in ("active", "paused"):
+        try:
+            generate_rotation_rounds(quiz_event, preserve_current_round=True)
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception(
+                "Failed to regenerate rotation rounds after an undo "
+                "(quiz=%s user=%s)",
+                quiz_event.pk,
+                user.pk,
+            )
+
+    return {
+        "table_number": table_number,
+        "membership_table_numbers": membership_table_numbers,
+        # Whether the individual leaderboard just changed. Everyone in the
+        # room can see it, not only the people at this table, so the caller
+        # has a wider audience to tell than the seat change alone implies.
+        "scores_removed": scores_removed,
     }
 
 

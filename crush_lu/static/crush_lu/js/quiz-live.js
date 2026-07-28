@@ -314,18 +314,22 @@ document.addEventListener("alpine:init", function () {
                         return r.json();
                     })
                     .then(function (data) {
-                        if (data.table_number) self.tableNumber = data.table_number;
-                        if (data.role) {
-                            self.userRole = data.role;
-                            self._renderRoleBadge();
-                        }
-                        if (data.tablemates) {
-                            self.tablemates = data.tablemates;
-                            self._renderTablemates();
-                        }
+                        // Assign every field rather than guarding on
+                        // truthiness. A guard can only ever *set* a value, so
+                        // it was fine while a seat could only be taken or
+                        // moved — but a player can now be un-seated (#708),
+                        // and a removed player kept showing the table they had
+                        // left, its tablemates and their role, at an event they
+                        // are no longer marked as attending. The empty values
+                        // here match the component's own initial state.
+                        self.tableNumber = data.table_number || 0;
+                        self.userRole = data.role || "";
+                        self._renderRoleBadge();
+                        self.tablemates = data.tablemates || [];
+                        self._renderTablemates();
                         if (data.personal_score !== undefined)
                             self.personalScore = data.personal_score;
-                        if (data.next_table) self.nextTable = data.next_table;
+                        self.nextTable = data.next_table || null;
                     })
                     .catch(function () {
                         if (retries > 0) {
@@ -1337,6 +1341,14 @@ document.addEventListener("alpine:init", function () {
                     // photos, avatar colors, and rescues us if the broadcast
                     // had empty assignments (e.g. rotation schedule was
                     // missing on the server).
+                    this._fetchTableOverview();
+                } else if (type === "quiz.table_update") {
+                    // A door action changed who is in the room — a scan, a
+                    // waitlist promotion or an undone check-in. The overview is
+                    // a roster of every table, so refetch it wholesale rather
+                    // than trying to patch one table from the payload; the
+                    // payload names at most the table that changed, and a
+                    // cleanup that freed no current-round seat names none.
                     this._fetchTableOverview();
                 } else if (type === "quiz.table_scored") {
                     // Track which tables have been scored (no correctness info yet)
