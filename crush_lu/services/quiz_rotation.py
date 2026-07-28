@@ -335,6 +335,119 @@ def assign_table_on_checkin(quiz_event, user):
     }
 
 
+def release_table_on_undo(quiz_event, user):
+    """
+    Give back the seat ``assign_table_on_checkin`` took — the inverse of it.
+
+    A check-in that is undone leaves the registration correct and the quiz
+    wrong: the ``QuizTableMembership`` and the rotation rows are separate
+    objects that no status flip touches, so the mistakenly scanned person
+    keeps a chair in the table-fill display and their table stays one seat
+    short for whoever actually turns up.
+
+    Removes every rotation row for this user at this quiz, not just round 0.
+    They were never there, so no round should seat them — and for the same
+    reason their ``IndividualScore`` rows go too, or a person the undo
+    declares was never present keeps points on the individual leaderboard
+    for any question scored inside the undo window.
+
+    Returns:
+        dict with {"table_number": int|None} of the table to refresh, or None
+        if the user left nothing behind at all. The table is the one they are
+        sitting at *now*, which after a rotation is not the one they checked
+        in at, and None when no current round seats them.
+    """
+    from django.db import transaction
+
+    from crush_lu.models.quiz import (
+        IndividualScore,
+        QuizEvent,
+        QuizRotationSchedule,
+        QuizTable,
+        QuizTableMembership,
+    )
+
+    with transaction.atomic():
+        # Same lock as the assign path, in the same order, so an undo cannot
+        # interleave with a concurrent check-in on the other tables.
+        list(
+            QuizTable.objects.filter(quiz=quiz_event)
+            .select_for_update()
+            .order_by("table_number")
+        )
+        # Then the quiz row, *before* any schedule row is touched.
+        # generate_rotation_rounds takes the quiz row first and then deletes
+        # rounds >= from_round, and this function goes on to call it while
+        # still holding the locks its own deletes take — these run inside the
+        # caller's transaction, so nothing is released in between. Deleting
+        # first and taking the quiz row after would invert that order: a
+        # concurrent regeneration would hold the quiz row and wait on our
+        # schedule rows while we waited on its quiz row.
+        #
+        # assign_table_on_checkin has no such edge — it only writes a round-0
+        # row, which generate_rotation_rounds never deletes.
+        #
+        # Read *through* the lock, the way generate_rotation_rounds does: if we
+        # waited here behind a round advance, the caller's instance still holds
+        # the pre-advance current_round, and deriving the table from it would
+        # broadcast the departure to the table they just left.
+        locked_quiz = (
+            QuizEvent.objects.select_for_update().filter(pk=quiz_event.pk).first()
+        )
+        if locked_quiz is None:
+            return None
+        quiz_event = locked_quiz
+
+        membership = QuizTableMembership.objects.filter(
+            table__quiz=quiz_event, user=user
+        ).first()
+        schedule = QuizRotationSchedule.objects.filter(quiz=quiz_event, user=user)
+        scores = IndividualScore.objects.filter(quiz=quiz_event, user=user)
+
+        # Membership is not the test for "did they leave anything behind".
+        # Someone checked in before num_tables was configured never gets one —
+        # assign_table_on_checkin returns early — and a later
+        # generate_rotation_rounds can still schedule them off their attendance.
+        # Keying the whole cleanup on membership would leave those rows seating
+        # a confirmed non-attendee for the rest of the quiz.
+        if membership is None and not schedule.exists() and not scores.exists():
+            return None
+
+        # Where they are seated now, not where they checked in. A rotator's
+        # membership row stays on their round-0 table while their live
+        # subscription follows the current QuizRotationSchedule row — the same
+        # precedence get_current_assignment applies on the WS connect path.
+        # Broadcasting the membership table mid-quiz refreshes a table they
+        # left, and the people they are actually sitting with keep seeing them.
+        # None when they are scheduled in no current round: nothing to refresh,
+        # and _broadcast_quiz_table_update no-ops on it.
+        current = get_current_assignment(quiz_event, user.pk)
+        table_number = current["table_number"] if current else None
+
+        if membership is not None:
+            membership.delete()
+        schedule.delete()
+        scores.delete()
+
+    # Mirror of the assign path: a live quiz has to be reseated around the
+    # gap, and generate_rotation_rounds preserves the current and already-
+    # played rounds so the room does not move mid-question.
+    if quiz_event.status in ("active", "paused"):
+        try:
+            generate_rotation_rounds(quiz_event, preserve_current_round=True)
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception(
+                "Failed to regenerate rotation rounds after an undo "
+                "(quiz=%s user=%s)",
+                quiz_event.pk,
+                user.pk,
+            )
+
+    return {"table_number": table_number}
+
+
 def generate_rotation_rounds(quiz, from_round=1, preserve_current_round=False):
     """
     Generate rotation schedule for rounds >= ``from_round`` using existing

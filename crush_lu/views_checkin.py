@@ -721,6 +721,12 @@ def coach_undo_checkin(request, event_id, registration_id):
     direction of each guess, and reachable for at most the 15 minutes after a
     deploy in which a pre-deploy check-in is still undoable.
 
+    - A quiz seat, if the original check-in took one — membership, rotation
+      rows and any scores collected inside the undo window. All of those are
+      separate objects that outlive the status flip, so an undone attendee
+      would otherwise keep a chair their table is short of and points on the
+      individual leaderboard.
+
     What it deliberately does NOT revert: the verification. The welcome email
     and the referral credit have already gone out, and un-verifying a member
     who is standing in the room is worse than an over-verified walk-in. The
@@ -831,6 +837,22 @@ def coach_undo_checkin(request, event_id, registration_id):
         # every other save in this file lists it for the same reason.
         registration.save(update_fields=_CHECKIN_UPDATE_FIELDS)
 
+        # The status flip alone does not free the quiz seat the check-in took.
+        # Best-effort, like the assignment it undoes: a quiz problem must not
+        # cost the coach the correction they came here to make.
+        released_table = None
+        try:
+            quiz_event = getattr(registration.event, "quiz", None)
+            if quiz_event:
+                from .services.quiz_rotation import release_table_on_undo
+
+                released_table = release_table_on_undo(quiz_event, registration.user)
+        except Exception:
+            logger.exception(
+                "Quiz table release failed for undone registration %s",
+                registration.id,
+            )
+
     logger.info(
         "Coach %s undid check-in of registration %s (user %s) at event %s; "
         "restored_status=%s coach_cleared=%s",
@@ -861,7 +883,18 @@ def coach_undo_checkin(request, event_id, registration_id):
         or "",
         "message": str(_("Check-in undone for %(name)s.")) % {"name": display_name},
     }
+    # Under its own key, never `table_number`: handleRemoteCheckin has no
+    # `undone` branch yet (#710), so an undo payload is still read as an
+    # arrival, and the arrival key would make the other coaches' pages count
+    # the freed seat *up*. `_updateUndoUI` reads this one, which only the
+    # acting coach runs — so the door page that issued the correction fixes
+    # its own table-fill grid, and no other page is misled into a bump. The
+    # quiz table group is a different channel and reaches the players.
+    if released_table and released_table.get("table_number"):
+        response_data["released_table_number"] = released_table["table_number"]
     _broadcast_checkin(registration.event_id, response_data)
+    if released_table:
+        _broadcast_quiz_table_update(registration.event, released_table)
     return JsonResponse(response_data)
 
 
@@ -1084,7 +1117,16 @@ def _broadcast_checkin(event_id, response_data):
 
 
 def _broadcast_quiz_table_update(event, table_assignment):
-    """Notify quiz participants at a table that a new person has joined."""
+    """Tell the people at a table that its membership changed.
+
+    Someone joining (a scan or a waitlist promotion) or leaving (an undone
+    check-in) both land here — only ``table_number`` is read, so either
+    direction can pass its own dict, and it may be None when a cleanup freed
+    no seat in the current round.
+
+    Note this reaches the table and the projector, not the host panel, which
+    subscribes to ``quiz_<id>`` — see the follow-up issue on the host overview.
+    """
     from .models.quiz import QuizTable
 
     channel_layer = get_channel_layer()
@@ -1095,23 +1137,26 @@ def _broadcast_quiz_table_update(event, table_assignment):
         if not quiz_event:
             return
         table_number = table_assignment.get("table_number")
-        if not table_number:
-            return
-        # Look up the QuizTable PK — the consumer subscribes using table PK, not table_number
-        quiz_table = QuizTable.objects.filter(
-            quiz=quiz_event, table_number=table_number
-        ).first()
-        if not quiz_table:
-            return
-        # Broadcast to the specific table group so only affected participants refresh
-        async_to_sync(channel_layer.group_send)(
-            f"quiz_{quiz_event.id}_table_{quiz_table.id}",
-            {
-                "type": "quiz.table_update",
-                "data": {"table_number": table_number},
-            },
-        )
-        # Also broadcast to display-specific group so the projector page updates
+        if table_number:
+            # Look up the QuizTable PK — the consumer subscribes using table PK,
+            # not table_number
+            quiz_table = QuizTable.objects.filter(
+                quiz=quiz_event, table_number=table_number
+            ).first()
+            if quiz_table:
+                # Only the affected participants refresh
+                async_to_sync(channel_layer.group_send)(
+                    f"quiz_{quiz_event.id}_table_{quiz_table.id}",
+                    {
+                        "type": "quiz.table_update",
+                        "data": {"table_number": table_number},
+                    },
+                )
+        # The projector always refreshes, even with no table to name. It shows
+        # attendance and the individual leaderboard, which a cleanup changes
+        # whether or not it freed a seat in the current round — and the
+        # no-current-seat case is exactly the one that carries no table number.
+        # handleTableUpdate ignores the payload and refetches, so a null is fine.
         async_to_sync(channel_layer.group_send)(
             f"quiz_{quiz_event.id}_display",
             {
