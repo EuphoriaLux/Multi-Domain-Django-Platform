@@ -352,9 +352,10 @@ def release_table_on_undo(quiz_event, user):
     for any question scored inside the undo window.
 
     Returns:
-        dict with {"table_number": int} of the table to refresh, or None if
-        the user held no seat. That is the table they are sitting at *now*,
-        which after a rotation is not the one they checked in at.
+        dict with {"table_number": int|None} of the table to refresh, or None
+        if the user left nothing behind at all. The table is the one they are
+        sitting at *now*, which after a rotation is not the one they checked
+        in at, and None when no current round seats them.
     """
     from django.db import transaction
 
@@ -374,12 +375,19 @@ def release_table_on_undo(quiz_event, user):
             .order_by("table_number")
         )
 
-        membership = (
-            QuizTableMembership.objects.filter(table__quiz=quiz_event, user=user)
-            .select_related("table")
-            .first()
-        )
-        if membership is None:
+        membership = QuizTableMembership.objects.filter(
+            table__quiz=quiz_event, user=user
+        ).first()
+        schedule = QuizRotationSchedule.objects.filter(quiz=quiz_event, user=user)
+        scores = IndividualScore.objects.filter(quiz=quiz_event, user=user)
+
+        # Membership is not the test for "did they leave anything behind".
+        # Someone checked in before num_tables was configured never gets one —
+        # assign_table_on_checkin returns early — and a later
+        # generate_rotation_rounds can still schedule them off their attendance.
+        # Keying the whole cleanup on membership would leave those rows seating
+        # a confirmed non-attendee for the rest of the quiz.
+        if membership is None and not schedule.exists() and not scores.exists():
             return None
 
         # Where they are seated now, not where they checked in. A rotator's
@@ -388,14 +396,15 @@ def release_table_on_undo(quiz_event, user):
         # precedence get_current_assignment applies on the WS connect path.
         # Broadcasting the membership table mid-quiz refreshes a table they
         # left, and the people they are actually sitting with keep seeing them.
+        # None when they are scheduled in no current round: nothing to refresh,
+        # and _broadcast_quiz_table_update no-ops on it.
         current = get_current_assignment(quiz_event, user.pk)
-        table_number = (
-            current["table_number"] if current else membership.table.table_number
-        )
+        table_number = current["table_number"] if current else None
 
-        membership.delete()
-        QuizRotationSchedule.objects.filter(quiz=quiz_event, user=user).delete()
-        IndividualScore.objects.filter(quiz=quiz_event, user=user).delete()
+        if membership is not None:
+            membership.delete()
+        schedule.delete()
+        scores.delete()
 
     # Mirror of the assign path: a live quiz has to be reseated around the
     # gap, and generate_rotation_rounds preserves the current and already-

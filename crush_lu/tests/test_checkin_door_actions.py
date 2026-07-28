@@ -621,6 +621,41 @@ class TestQuizSeatRelease:
 
         assert release_table_on_undo(quiz, stranger) is None
 
+    def test_it_clears_schedule_rows_left_without_a_membership(self):
+        """Someone checked in before num_tables was configured never gets a
+        membership — assign_table_on_checkin returns early — but a later
+        generate_rotation_rounds can still schedule them off their attendance.
+        Keying the cleanup on membership would leave a confirmed non-attendee
+        seated for the rest of the quiz."""
+        from crush_lu.models.quiz import (
+            IndividualScore,
+            QuizQuestion,
+            QuizRotationSchedule,
+        )
+        from crush_lu.services.quiz_rotation import release_table_on_undo
+
+        quiz, attendee = self._seated_quiz()
+        orphan = _make_attendee("orphan@example.com")
+        table = quiz.tables.get(table_number=2)
+        QuizRotationSchedule.objects.create(
+            quiz=quiz, round_number=0, table=table, user=orphan, role="anchor"
+        )
+        question = QuizQuestion.objects.create(
+            round=quiz.rounds.first(), text="Capital of Luxembourg?"
+        )
+        IndividualScore.objects.create(
+            quiz=quiz, user=orphan, question=question, points_earned=10
+        )
+        assert not orphan.quiz_tables.exists(), "fixture should have no membership"
+
+        released = release_table_on_undo(quiz, orphan)
+
+        assert released == {"table_number": 2}
+        assert not QuizRotationSchedule.objects.filter(quiz=quiz, user=orphan).exists()
+        assert not IndividualScore.objects.filter(quiz=quiz, user=orphan).exists()
+        # The properly-seated attendee is untouched.
+        assert QuizRotationSchedule.objects.filter(quiz=quiz, user=attendee).exists()
+
 
 class TestDoorPageContext:
     def _page(self, client, event):
