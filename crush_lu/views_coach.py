@@ -2408,10 +2408,14 @@ def coach_event_detail(request, event_id):
         )
 
     # Event Lobby preview link: only render it while the lobby feature is
-    # live, otherwise the coach would hit the lobby's 404 wall.
+    # live, otherwise the coach would hit the lobby's 404 wall. That same wall
+    # (_get_lobby_event) also rejects unpublished and cancelled events, so
+    # those must not render the card either.
     from .services.event_lobby import lobby_feature_enabled
 
-    event_lobby_enabled = lobby_feature_enabled()
+    event_lobby_enabled = (
+        lobby_feature_enabled() and event.is_published and not event.is_cancelled
+    )
 
     context = {
         "coach": request.coach,

@@ -142,6 +142,23 @@ class TestQuizLinksVisibility:
             reverse("crush_lu:quiz_live", args=[event.pk]).encode() in response.content
         )
 
+    def test_quiz_live_link_actually_opens_for_a_coach(self, client):
+        """The link is only honest because a signal grants is_staff to every
+        active CrushCoach (signals.py), which is what quiz_live_view checks —
+        it has no coach branch of its own. Pinned here so revoking that
+        implicit staff grant fails loudly instead of shipping a dead link to
+        every coach who never checked in as an attendee."""
+        coach = _make_coach()
+        event = _make_event(event_type="quiz_night", starts_in_minutes=-30)
+        QuizEvent.objects.create(event=event, created_by=coach)
+        coach.refresh_from_db()
+        assert coach.is_staff, "coach lost the implicit staff grant"
+        client.force_login(coach)
+
+        response = client.get(reverse("crush_lu:quiz_live", args=[event.pk]))
+
+        assert response.status_code == 200
+
 
 @pytest.fixture
 def lobby_flags(settings):
@@ -273,6 +290,46 @@ class TestCoachLobbyPreview:
         tiles = re.findall(r"<button[^>]*data-handle=[^>]*>", html)
         assert tiles, "roster tile did not render — the rest asserts nothing"
         assert all("disabled" in tile for tile in tiles)
+
+    def test_attended_coach_still_gets_the_preview(self, client):
+        """A coach who scanned themselves in at the door is still a coach.
+        Attendance must not drop them onto the member path, where failing the
+        Connect gate hands them the lock page (or a 404) instead of the
+        preview they came for."""
+        coach = _make_coach()
+        event = _make_event(starts_in_minutes=-30)
+        EventRegistration.objects.create(event=event, user=coach, status="attended")
+        client.force_login(coach)
+
+        response = client.get(reverse("crush_lu:event_lobby", args=[event.pk]))
+
+        assert response.status_code == 200
+        html = response.content.decode()
+        assert 'data-read-only="1"' in html
+        assert "data-coach-preview-notice" in html
+        # Still no participation — attendance alone must not mint one here.
+        assert EventLobbyParticipation.objects.filter(user=coach).count() == 0
+
+    def test_preview_card_hidden_for_unpublished_or_cancelled_events(self, client):
+        """_get_lobby_event rejects both, so the card would be a dead link."""
+        coach = _make_coach()
+        client.force_login(coach)
+
+        unpublished = _make_event()
+        MeetupEvent.objects.filter(pk=unpublished.pk).update(is_published=False)
+        cancelled = _make_event()
+        MeetupEvent.objects.filter(pk=cancelled.pk).update(is_cancelled=True)
+        published = _make_event()
+
+        for event, expected in (
+            (unpublished, False),
+            (cancelled, False),
+            (published, True),
+        ):
+            html = client.get(
+                reverse("crush_lu:coach_event_detail", args=[event.pk])
+            ).content.decode()
+            assert ("Event Lobby Preview" in html) is expected, event.pk
 
     def test_preview_can_load_roster_photos(self, client, settings, tmp_path):
         """The faces ARE the preview. ``lobby_photo`` authorizes the viewer

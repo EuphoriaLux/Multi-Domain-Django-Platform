@@ -114,6 +114,35 @@ def _user_is_active_coach(user):
     return CrushCoach.objects.filter(user=user, is_active=True).exists()
 
 
+def _render_coach_preview(request, event, phase, now):
+    """Read-only view of the live lobby for the coach running the event."""
+    # Live only — recap reads a frozen participation the coach does not have.
+    if phase != PHASE_LIVE:
+        return render(
+            request,
+            "crush_lu/event_lobby/lobby_closed.html",
+            {"event": event, "phase": phase},
+        )
+    context = {
+        "event": event,
+        "participation": None,
+        "state": lobby_state(request.user, event, now),
+        "roster": get_roster(request.user, event),
+        "mutuals": get_mutuals(request.user, event),
+        # No socket: EventLobbyConsumer._can_join requires a participation, so
+        # the connection would only be opened to be closed (5 bounded retries
+        # of noise). The 15s poll carries the preview.
+        "ws_path": "",
+        # Renders the page read-only: no signal ledger, inert tiles. Without it
+        # the coach sees a full "3 signals left" UI whose every action 403s,
+        # and the 403 makes event-lobby.js revokeAccess() the page.
+        "coach_preview": True,
+    }
+    response = render(request, "crush_lu/event_lobby/lobby.html", context)
+    response["Cache-Control"] = "private, no-store"
+    return response
+
+
 @crush_login_required
 def event_lobby(request, event_id):
     """The lobby page (§7.2). Attendance is the hard wall: guests without an
@@ -128,42 +157,24 @@ def event_lobby(request, event_id):
     event = _get_lobby_event(event_id)
     now = timezone.now()
     phase = event_lobby_phase(event, now)
+    is_coach = _user_is_active_coach(request.user)
 
     registration = EventRegistration.objects.filter(
         event=event, user=request.user, status="attended"
     ).first()
     if registration is None:
-        if not _user_is_active_coach(request.user):
+        if not is_coach:
             raise Http404("Event lobby not available")
-        # Coach preview: live lobby only — recap requires a frozen
-        # participation the coach does not have.
-        if phase != PHASE_LIVE:
-            return render(
-                request,
-                "crush_lu/event_lobby/lobby_closed.html",
-                {"event": event, "phase": phase},
-            )
-        context = {
-            "event": event,
-            "participation": None,
-            "state": lobby_state(request.user, event, now),
-            "roster": get_roster(request.user, event),
-            "mutuals": get_mutuals(request.user, event),
-            # No socket for the preview: EventLobbyConsumer._can_join requires a
-            # participation, so the connection would only be opened to be closed
-            # (5 bounded retries of noise). The 15s poll carries the preview.
-            "ws_path": "",
-            # Renders the page read-only: no signal ledger, inert tiles. Without
-            # it the coach sees a full "3 signals left" UI whose every action
-            # 403s, and the 403 makes event-lobby.js revokeAccess() the page.
-            "coach_preview": True,
-        }
-        response = render(request, "crush_lu/event_lobby/lobby.html", context)
-        response["Cache-Control"] = "private, no-store"
-        return response
+        return _render_coach_preview(request, event, phase, now)
 
     ok, gate_reason = participant_gate(request.user)
     if not ok:
+        # A coach who checked themselves in at the door is still a coach:
+        # attendance must not cost them the preview and hand them the member
+        # lock page (or a 404) instead. Coaches who DO clear the gate fall
+        # through to the participant path — they are members like any other.
+        if is_coach:
+            return _render_coach_preview(request, event, phase, now)
         # §5.3: only a LuxID-capable, approved guest may even learn a lobby
         # exists. A plain non-Connect attendee gets the same 404 as someone
         # who never checked in — the CTA must not advertise the feature.
