@@ -34,8 +34,8 @@
 {% fb_event "ViewContent" content_name=event.title content_category=event.get_event_type_display %}
 <div class="flex justify-center">
     <div class="w-full lg:w-2/3">
-        <div class="flex flex-wrap items-center gap-3 mb-4 sm:mb-6">
-            <a href="{% url 'crush_lu:event_list' %}" class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors">
+        <div class="flex flex-wrap items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+            <a href="{% url 'crush_lu:event_list' %}" class="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium rounded-lg transition-colors text-sm sm:text-base min-h-11">
                 {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
                 {% trans "Back to Events" %}
             </a>
