@@ -1,0 +1,9 @@
+<label class="registration-audience__card{% if widget.selected %} registration-audience__card--selected{% endif %}"{% if widget.attrs.id %} for="{{ widget.attrs.id }}"{% endif %}>
+  <input type="{{ widget.type }}" name="{{ widget.name }}"{% if widget.value != None %} value="{{ widget.value|stringformat:'s' }}"{% endif %}{% include "django/forms/widgets/attrs.html" %}>
+  <span class="registration-audience__copy">
+    <span class="registration-audience__title">{{ widget.label }}</span>
+    {% if widget.description %}
+      <span class="registration-audience__description">{{ widget.description }}</span>
+    {% endif %}
+  </span>
+</label>

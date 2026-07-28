@@ -169,23 +169,21 @@ class MeetupEvent(models.Model):
     # on first attendance without payment, so it admits every past attendee.
     # `CrushProfile.has_active_premium` is the real entitlement.
     PROFILE_REQUIREMENT_CHOICES = [
-        (
-            "completed",
-            _("Verified, or phone-verified and awaiting verification (entry event)"),
-        ),
+        ("none", _("All logged-in people")),
+        ("completed", _("Participation-ready Crush profile")),
         ("approved", _("Verified members only")),
-        ("coach_assigned", _("Has an assigned coach (NOT a Premium check)")),
-        ("unverified", _("Not-yet-verified profiles only (excludes rejected)")),
-        ("profile_exists", _("Any profile, verified or not (excludes rejected)")),
-        ("none", _("No profile required — any logged-in account")),
+        ("profile_exists", _("Any Crush profile (except rejected)")),
+        ("unverified", _("Not-yet-verified profiles only (except rejected)")),
+        (
+            "coach_assigned",
+            _("Members with an assigned coach (not Premium)"),
+        ),
     ]
     profile_requirement = models.CharField(
         max_length=20,
         choices=PROFILE_REQUIREMENT_CHOICES,
         default="completed",
-        help_text=_(
-            "Controls what level of profile is needed to register for this event"
-        ),
+        help_text=_("Controls which audience can register for this event."),
     )
 
     # Registration Form Configuration

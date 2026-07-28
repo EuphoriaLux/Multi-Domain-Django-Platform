@@ -1,0 +1,14 @@
+<div class="registration-audience" role="radiogroup" aria-describedby="{{ widget.attrs.id }}_helptext">
+  {% for group_name, group_options, group_index in widget.optgroups %}
+    <fieldset class="registration-audience__group registration-audience__group--{{ group_index }}">
+      {% if group_name %}
+        <legend class="registration-audience__legend">{{ group_name }}</legend>
+      {% endif %}
+      <div class="registration-audience__options">
+        {% for option in group_options %}
+          {% include option.template_name with widget=option %}
+        {% endfor %}
+      </div>
+    </fieldset>
+  {% endfor %}
+</div>

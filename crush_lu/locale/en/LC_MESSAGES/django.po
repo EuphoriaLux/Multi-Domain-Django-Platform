@@ -26728,3 +26728,76 @@ msgstr ""
 #: views_checkin.py:915
 msgid "%(name)s promoted from the waitlist and checked in."
 msgstr ""
+
+#. Event registration audience admin (2026-07-28)
+msgid "All logged-in people"
+msgstr ""
+
+msgid "Participation-ready Crush profile"
+msgstr ""
+
+msgid "Verified members only"
+msgstr ""
+
+msgid "Any Crush profile (except rejected)"
+msgstr ""
+
+msgid "Not-yet-verified profiles only (except rejected)"
+msgstr ""
+
+msgid "Members with an assigned coach (not Premium)"
+msgstr ""
+
+msgid "Controls which audience can register for this event."
+msgstr ""
+
+msgid "Standard"
+msgstr ""
+
+msgid "Advanced"
+msgstr ""
+
+msgid "Private invitation"
+msgstr ""
+
+msgid "No Crush profile is required. Event age and language restrictions still apply."
+msgstr ""
+
+msgid "For verified members, plus pending members whose phone number is verified. Pending members can be verified in person at the event."
+msgstr ""
+
+msgid "Only members whose Crush profile is already verified can register."
+msgstr ""
+
+msgid "Any member with a Crush profile can register, unless the profile was rejected."
+msgstr ""
+
+msgid "Only incomplete or pending Crush profiles can register. Verified and rejected profiles are excluded."
+msgstr ""
+
+msgid "Only members with an assigned personal coach can register. This does not check for an active Premium membership."
+msgstr ""
+
+msgid "Only approved invitees can register. Configure the invitation details in the advanced section below."
+msgstr ""
+
+msgid "Registration audience"
+msgstr ""
+
+msgid "Choose who can register. Standard choices cover the usual event flows; use Advanced only for a specialized audience."
+msgstr ""
+
+msgid "Select a valid registration audience."
+msgstr ""
+
+msgid "Registration Audience"
+msgstr ""
+
+msgid "Choose one audience. The three standard options cover the usual event flows; specialized access rules are grouped under Advanced."
+msgstr ""
+
+msgid "Advanced: Private Invitation Settings"
+msgstr ""
+
+msgid "Configure this event as invitation-only. You can invite existing users directly or send external guest invitations (managed via EventInvitation inline below)."
+msgstr ""
