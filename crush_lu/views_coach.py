@@ -2463,7 +2463,6 @@ def coach_event_checkin(request, event_id):
     # and check one in without leaving the scanner (the common move once
     # no-shows free up seats).
     waitlisted = [r for r in registrations if r.status == "waitlist"]
-    no_show_count = sum(1 for r in registrations if r.status == "no_show")
 
     # Ensure all confirmed registrations have check-in tokens for manual fallback
     from crush_lu.views_ticket import _generate_checkin_token
@@ -2560,7 +2559,6 @@ def coach_event_checkin(request, event_id):
         # In the last fifteen minutes the question is who has NOT arrived, and
         # answering it used to mean a subtraction plus scrolling.
         "outstanding_count": len(confirmed) - attended_count,
-        "no_show_count": no_show_count,
         "gender_checked_in": gender_checked_in,
         "gender_expected": gender_expected,
         "is_quiz_night": is_quiz_night and quiz_event is not None,

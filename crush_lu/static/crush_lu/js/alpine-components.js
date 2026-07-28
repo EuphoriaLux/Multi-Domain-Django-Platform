@@ -779,15 +779,18 @@ document.addEventListener("alpine:init", function () {
                 if (counter) {
                     counter.textContent = parseInt(counter.textContent) + 1;
                 }
-                // ...and its complement, or the "not arrived" tile drifts as
-                // soon as anyone is scanned in.
-                var outstandingTile = document.getElementById("outstanding-count");
-                if (outstandingTile) {
-                    outstandingTile.textContent = Math.max(
-                        0,
-                        parseInt(outstandingTile.textContent, 10) - 1,
-                    );
-                }
+                // A scan moves someone from "expected but not here" to "here",
+                // so outstanding drops. A PROMOTION does not: a waitlisted row
+                // was never in the expected set (views_coach counts only
+                // confirmed/attended), so on reload both expected and attended
+                // grow by one and outstanding is unchanged. Decrementing it
+                // here would understate exactly the number the coach is using
+                // to decide whether to keep promoting.
+                this._bumpCounter(
+                    data.promoted ? "expected-count" : "outstanding-count",
+                    data.promoted ? 1 : -1,
+                );
+                this._bumpGenderSplit(data.profile && data.profile.gender, 1);
 
                 // Update table fill display
                 if (data.table_number) {
@@ -856,6 +859,22 @@ document.addEventListener("alpine:init", function () {
                         btn.replaceWith(wrap);
                     }
                 }
+            },
+
+            _bumpCounter: function (elementId, delta) {
+                var el = document.getElementById(elementId);
+                if (!el) return;
+                var current = parseInt(el.textContent, 10);
+                if (isNaN(current)) return;
+                el.textContent = Math.max(0, current + delta);
+            },
+
+            _bumpGenderSplit: function (gender, delta) {
+                // The "In the room" tile is what the waitlist decision leans
+                // on, and a door shift runs for hours without a reload — a
+                // render-time-only count would be wrong from the first scan.
+                var key = gender === "F" || gender === "M" ? gender : "other";
+                this._bumpCounter("gender-" + key.toLowerCase() + "-count", delta);
             },
 
             _buildUndoButton: function (row, regId) {
@@ -1234,18 +1253,11 @@ document.addEventListener("alpine:init", function () {
                 var id = data.registration_id || regId;
                 var row = document.getElementById("manual-reg-" + id);
 
-                var counter = document.getElementById("attended-count");
-                if (counter) {
-                    counter.textContent = Math.max(
-                        0,
-                        parseInt(counter.textContent, 10) - 1,
-                    );
-                }
-                var outstanding = document.getElementById("outstanding-count");
-                if (outstanding) {
-                    outstanding.textContent =
-                        parseInt(outstanding.textContent, 10) + 1;
-                }
+                // An undo always returns someone to the confirmed list, never
+                // to the waitlist, so this is the plain inverse of a scan.
+                this._bumpCounter("attended-count", -1);
+                this._bumpCounter("outstanding-count", 1);
+                this._bumpGenderSplit(data.gender, -1);
                 if (!row) return;
 
                 row.setAttribute("data-attendee-status", "confirmed");

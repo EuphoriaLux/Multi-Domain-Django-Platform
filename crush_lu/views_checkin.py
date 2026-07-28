@@ -745,7 +745,9 @@ def coach_undo_checkin(request, event_id, registration_id):
 
         registration.status = "confirmed"
         registration.checked_in_at = None
-        registration.save(update_fields=["status", "checked_in_at"])
+        # updated_at is auto_now, so it is only written when named here —
+        # every other save in this file lists it for the same reason.
+        registration.save(update_fields=["status", "checked_in_at", "updated_at"])
 
     logger.info(
         "Coach %s undid check-in of registration %s (user %s) at event %s; "
@@ -764,6 +766,12 @@ def coach_undo_checkin(request, event_id, registration_id):
         "registration_id": registration.id,
         "attendee_name": display_name,
         "coach_cleared": coach_cleared,
+        # The client decrements the live gender split with this. Only the
+        # bucket letter travels — the toast payload would be gratuitous here.
+        "gender": getattr(
+            getattr(registration.user, "crushprofile", None), "gender", ""
+        )
+        or "",
         "message": str(_("Check-in undone for %(name)s.")) % {"name": display_name},
     }
     _broadcast_checkin(registration.event_id, response_data)
@@ -782,13 +790,16 @@ def coach_promote_from_waitlist(request, event_id, registration_id):
 
     Deliberately does NOT re-check capacity or gender limits. A coach standing
     at the door with the person in front of them is overriding those on
-    purpose; the page shows the live counts so the decision is informed. What
-    it must not do is silently differ from a normal check-in, so it runs the
-    same transition: the promoting coach becomes their permanent coach,
-    attendance auto-verifies, and lobby participation is evaluated on commit.
+    purpose; the page shows the live counts so the decision is informed.
+
+    Everything else matches an ordinary scan, because a promotion IS a check-in
+    and must not diverge from one: the same check-in window, the promoting
+    coach becomes their permanent coach, attendance auto-verifies, a quiz-night
+    walk-up gets a table, and lobby participation is evaluated on commit.
     """
     coach = request.coach
     now = timezone.now()
+    table_assignment = None
 
     with transaction.atomic():
         registration = (
@@ -819,6 +830,31 @@ def coach_promote_from_waitlist(request, event_id, registration_id):
                 status=409,
             )
 
+        # Same window as event_checkin_api. A promotion grants a seat, a
+        # verification and a permanent coach; none of that should be reachable
+        # from a stale event page weeks later just because this route skipped
+        # the check the scanner enforces.
+        checkin_window_hours = getattr(settings, "EVENT_CHECKIN_WINDOW_HOURS", 12)
+        event_start = registration.event.date_time
+        if not (
+            event_start - timedelta(hours=checkin_window_hours)
+            <= now
+            <= event_start + timedelta(hours=checkin_window_hours)
+        ):
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": str(
+                        _(
+                            "Check-in is only available within %(hours)s hours "
+                            "of the event."
+                        )
+                    )
+                    % {"hours": checkin_window_hours},
+                },
+                status=400,
+            )
+
         registration._checkin_coach = _scanning_coach(request)
         registration.status = "attended"
         registration.checked_in_at = now
@@ -831,6 +867,22 @@ def coach_promote_from_waitlist(request, event_id, registration_id):
                 lambda: _run_post_verification_side_effects(
                     registration.user, verified_profile, request, registration.id
                 )
+            )
+
+        # A quiz-night walk-up needs a table like anyone else, or they sit
+        # down to a round they cannot take part in.
+        try:
+            quiz_event = getattr(registration.event, "quiz", None)
+            if quiz_event and quiz_event.num_tables:
+                from .services.quiz_rotation import assign_table_on_checkin
+
+                table_assignment = assign_table_on_checkin(
+                    quiz_event, registration.user
+                )
+        except Exception:
+            logger.exception(
+                "Quiz table assignment failed for promoted registration %s",
+                registration.id,
             )
 
     _evaluate_lobby_participation(registration)
@@ -856,7 +908,12 @@ def coach_promote_from_waitlist(request, event_id, registration_id):
         "profile": _get_profile_data(registration),
         "auto_verified": auto_verified,
     }
+    if table_assignment:
+        response_data["table_number"] = table_assignment["table_number"]
+        response_data["role"] = table_assignment["role"]
     _broadcast_checkin(registration.event_id, response_data)
+    if table_assignment:
+        _broadcast_quiz_table_update(registration.event, table_assignment)
     return JsonResponse(response_data)
 
 

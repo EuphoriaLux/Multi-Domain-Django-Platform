@@ -183,6 +183,40 @@ class TestUndoCheckin:
         profile.refresh_from_db()
         assert profile.verification_status == "verified"
 
+    def test_undo_returns_the_gender_bucket(self, client):
+        """The client decrements the live "In the room" split with this — the
+        tile is rendered once and a door shift never reloads."""
+        coach = _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="attended", checked_in_at=timezone.now()
+        )
+        client.force_login(coach.user)
+
+        payload = client.post(_undo_url(event, registration)).json()
+
+        assert payload["gender"] == "F"
+
+    def test_undo_touches_updated_at(self, client):
+        """auto_now only writes when the field is named in update_fields."""
+        coach = _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="attended", checked_in_at=timezone.now()
+        )
+        EventRegistration.objects.filter(pk=registration.pk).update(
+            updated_at=timezone.now() - timedelta(days=1)
+        )
+        stale = EventRegistration.objects.get(pk=registration.pk).updated_at
+        client.force_login(coach.user)
+
+        client.post(_undo_url(event, registration))
+
+        registration.refresh_from_db()
+        assert registration.updated_at > stale
+
     def test_undo_refused_outside_the_window(self, client):
         coach = _make_coach()
         attendee = _make_attendee()
@@ -326,6 +360,41 @@ class TestPromoteFromWaitlist:
         assert first.status_code == 200
         assert second.status_code == 409
         assert EventRegistration.objects.filter(status="attended").count() == 1
+
+    def test_promote_enforces_the_check_in_window(self, client):
+        """A promotion grants a seat, a verification and a permanent coach.
+        None of that should be reachable from a stale event page weeks later
+        just because this route skipped the check the scanner enforces."""
+        coach = _make_coach()
+        attendee = _make_attendee()
+        event = _make_event(starts_in_minutes=-60 * 24 * 30)  # a month ago
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="waitlist"
+        )
+        client.force_login(coach.user)
+
+        response = client.post(_promote_url(event, registration))
+
+        assert response.status_code == 400
+        registration.refresh_from_db()
+        assert registration.status == "waitlist"
+
+    def test_promote_reports_itself_as_a_promotion(self, client):
+        """The client keys the counter maths off this: a promoted row was
+        never in the expected set, so unlike a scan it must not decrement
+        "not arrived"."""
+        coach = _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="waitlist"
+        )
+        client.force_login(coach.user)
+
+        payload = client.post(_promote_url(event, registration)).json()
+
+        assert payload["promoted"] is True
+        assert payload["profile"]["gender"] == "F"
 
     def test_promote_requires_a_coach(self, client):
         attendee = _make_attendee()
