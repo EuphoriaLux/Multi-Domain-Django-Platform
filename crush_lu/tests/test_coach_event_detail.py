@@ -3,7 +3,9 @@ Tests for the coach event management page (``coach_event_detail``) and the
 coach preview exemption on the Crush Connect Event Lobby.
 
 Covers:
-- The "Configure Quiz" header link renders only for ``quiz_night`` events.
+- The quiz config header link renders for every ``quiz_night`` *and* for any
+  event that already has a quiz (a mixer can legitimately run one), labelled
+  "Create Quiz" or "Configure Quiz" depending on which mode it lands in.
 - The "Quiz Live View" link renders only when the event actually has a quiz.
 - An active coach can preview the live event lobby without an attended
   registration (read-only — no participation row is created), while a
@@ -92,6 +94,8 @@ def _make_event(event_type="mixer", starts_in_minutes=60, duration=120):
 
 class TestQuizLinksVisibility:
     def test_configure_quiz_hidden_for_non_quiz_event(self, client):
+        """No quiz and not a quiz night — *creating* one stays type-specific,
+        so the link would only be clutter."""
         coach = _make_coach()
         event = _make_event(event_type="mixer")
         client.force_login(coach)
@@ -102,8 +106,11 @@ class TestQuizLinksVisibility:
         quiz_config_url = reverse("crush_lu:coach_quiz_config", args=[event.pk])
         assert quiz_config_url.encode() not in response.content
         assert b"Configure Quiz" not in response.content
+        assert b"Create Quiz" not in response.content
 
     def test_configure_quiz_shown_for_quiz_night(self, client):
+        """A quiz night with no QuizEvent yet: the config page's empty state is
+        the create form, so the link is live and labelled for creating."""
         coach = _make_coach()
         event = _make_event(event_type="quiz_night")
         client.force_login(coach)
@@ -113,7 +120,56 @@ class TestQuizLinksVisibility:
         assert response.status_code == 200
         quiz_config_url = reverse("crush_lu:coach_quiz_config", args=[event.pk])
         assert quiz_config_url.encode() in response.content
+        assert b"Create Quiz" in response.content
+
+    def test_configure_quiz_shown_for_non_quiz_night_with_quiz(self, client):
+        """The bug: ``QuizEvent.event`` is unrestricted and ``quiz_live_view``
+        works for any event type, so a coach can legitimately run a quiz at a
+        Social Mixer. Gating the config link on ``event_type`` left that coach
+        with a working Host Panel and Live View but no route to configuration
+        outside Django admin."""
+        coach = _make_coach()
+        event = _make_event(event_type="mixer")
+        QuizEvent.objects.create(event=event, created_by=coach)
+        client.force_login(coach)
+
+        response = client.get(reverse("crush_lu:coach_event_detail", args=[event.pk]))
+
+        assert response.status_code == 200
+        quiz_config_url = reverse("crush_lu:coach_quiz_config", args=[event.pk])
+        assert quiz_config_url.encode() in response.content
+        # An existing quiz is configured, never created.
         assert b"Configure Quiz" in response.content
+        assert b"Create Quiz" not in response.content
+
+    def test_configure_quiz_link_actually_opens_for_a_non_quiz_night(self, client):
+        """Rendering the link is half the claim — ``coach_quiz_config`` must
+        also accept a non-``quiz_night`` event, or the fix just moves the dead
+        end one click further in."""
+        coach = _make_coach()
+        event = _make_event(event_type="mixer")
+        QuizEvent.objects.create(event=event, created_by=coach)
+        client.force_login(coach)
+
+        response = client.get(
+            reverse("crush_lu:coach_quiz_config", args=[event.pk]), follow=True
+        )
+
+        assert response.status_code == 200
+        assert b"Quiz Configuration" in response.content
+
+    def test_configure_quiz_label_for_quiz_night_that_has_a_quiz(self, client):
+        """Both gate halves true — the label must follow the quiz, not the type."""
+        coach = _make_coach()
+        event = _make_event(event_type="quiz_night")
+        QuizEvent.objects.create(event=event, created_by=coach)
+        client.force_login(coach)
+
+        response = client.get(reverse("crush_lu:coach_event_detail", args=[event.pk]))
+
+        assert response.status_code == 200
+        assert b"Configure Quiz" in response.content
+        assert b"Create Quiz" not in response.content
 
     def test_quiz_live_view_hidden_without_quiz(self, client):
         """A quiz_night event without a QuizEvent row must not render links
