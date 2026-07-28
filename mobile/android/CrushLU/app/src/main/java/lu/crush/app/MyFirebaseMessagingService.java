@@ -30,7 +30,11 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     @Override
     public void onNewToken(@NonNull String token) {
         super.onNewToken(token);
-        Log.d(TAG, "Refreshed FCM registration token: " + token);
+        // The registration token is a credential-equivalent identifier; never
+        // leak it (or push payloads below) to logcat on release builds.
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "Refreshed FCM registration token: " + token);
+        }
 
         // Store the token in SharedPreferences
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
@@ -43,20 +47,26 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     @Override
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
         super.onMessageReceived(remoteMessage);
-        Log.d(TAG, "From: " + remoteMessage.getFrom());
 
-        // Check if message contains data payload
         Map<String, String> data = remoteMessage.getData();
-        if (data.size() > 0) {
-            Log.d(TAG, "Message data payload: " + data);
+
+        // Push payloads (sender, data, title/body) are private user content;
+        // only log them on debug builds.
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "From: " + remoteMessage.getFrom());
+            if (data.size() > 0) {
+                Log.d(TAG, "Message data payload: " + data);
+            }
         }
 
         // Check if message contains a notification payload
         if (remoteMessage.getNotification() != null) {
             String title = remoteMessage.getNotification().getTitle();
             String body = remoteMessage.getNotification().getBody();
-            Log.d(TAG, "Message Notification Title: " + title);
-            Log.d(TAG, "Message Notification Body: " + body);
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "Message Notification Title: " + title);
+                Log.d(TAG, "Message Notification Body: " + body);
+            }
 
             // Display a notification if the app is in the foreground
             sendNotification(title, body, data);

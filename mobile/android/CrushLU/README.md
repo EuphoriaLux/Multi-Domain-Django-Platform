@@ -20,6 +20,38 @@ Native Android WebView shell for the Crush.lu Play Store submission.
 
 You can also run `./gradlew bundleRelease` from this directory. On Windows PowerShell, use `.\gradlew.bat bundleRelease`. The Play upload file will be created at `app/build/outputs/bundle/release/app-release.aab`.
 
+## Signing & Release CI
+
+Signed production builds are produced by the `android-release.yml` workflow
+(triggered by a `v*` tag or a manual `workflow_dispatch`). It is the only path
+that uploads to the Play Store. Do **not** commit signing secrets — they live in
+GitHub Actions secrets and are injected at run time.
+
+The workflow expects these repository secrets:
+
+| Secret | Purpose |
+|--------|---------|
+| `ANDROID_KEYSTORE_BASE64` | The Play upload keystore (`crush-lu-upload.jks`), base64-encoded. Decoded into `app/keystores/` at build time. |
+| `ANDROID_KEYSTORE_PASSWORD` | Keystore password. |
+| `ANDROID_KEY_ALIAS` | Signing key alias (e.g. `crush-lu-upload`). |
+| `ANDROID_KEY_PASSWORD` | Signing key password. |
+| `ANDROID_SERVICE_ACCOUNT_JSON` | Google Play service account JSON (only required for the Play upload step). |
+
+The build is driven by gradle properties passed on the command line, never read
+from a committed `gradle.properties`:
+
+- `CRUSH_ENV` — `production` (default) or `staging`. The local-dev `local`
+  variant (`http://10.0.2.2:8000`, package `lu.crush.app.local`) is for emulator
+  use only and is never built by CI.
+- `CRUSH_VERSION_CODE` — a monotonic value computed at run time
+  (seconds since 2024-01-01) under a serialized concurrency group, so Play
+  always sees increasing codes. The literal fallback of `4` in
+  `app/build.gradle.kts` is local-only and never uploaded.
+
+Releases run one at a time (concurrency group `android-release`,
+`cancel-in-progress: false`) and upload to the `internal` track. Release notes
+ship from `distribution/whatsnew/whatsnew-en-US` — edit before each release.
+
 ## Backend Environment
 
 Set these in production before submitting:

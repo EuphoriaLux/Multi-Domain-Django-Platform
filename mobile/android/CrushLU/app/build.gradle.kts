@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("com.google.gms.google-services")
+    id("com.google.firebase.crashlytics")
 }
 
 val uploadStoreFile = providers.gradleProperty("CRUSH_UPLOAD_STORE_FILE")
@@ -48,9 +49,10 @@ android {
         }
         minSdk = 26
         targetSdk = 35
-        // CI passes -PCRUSH_VERSION_CODE=<git commit count> so every uploaded
-        // build gets a unique, always-increasing code with no manual bump. The
-        // literal is only a fallback for local builds (which never upload).
+        // CI (android-release.yml) passes -PCRUSH_VERSION_CODE=<seconds since
+        // 2024-01-01>, a monotonic value computed at run time under a serialized
+        // concurrency group so Play always sees increasing codes. The literal
+        // fallback is only for local builds, which never upload.
         versionCode = providers.gradleProperty("CRUSH_VERSION_CODE").map { it.toInt() }.getOrElse(4)
         versionName = "1.0.2"
         buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
@@ -90,7 +92,8 @@ dependencies {
     implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("com.google.android.material:material:1.12.0")
 
-    // Firebase Cloud Messaging (FCM)
+    // Firebase Cloud Messaging (FCM) + Crashlytics (crash reporting)
     implementation(platform("com.google.firebase:firebase-bom:33.1.2"))
     implementation("com.google.firebase:firebase-messaging")
+    implementation("com.google.firebase:firebase-crashlytics")
 }
