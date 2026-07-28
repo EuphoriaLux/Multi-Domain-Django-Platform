@@ -170,6 +170,7 @@ yarn-error.log*
 /.claude/hooks/*
 !/.claude/hooks/session-start.sh
 .codex/
+.zcode/
 
 # Apple Wallet test passes (generated locally)
 *.pkpass
