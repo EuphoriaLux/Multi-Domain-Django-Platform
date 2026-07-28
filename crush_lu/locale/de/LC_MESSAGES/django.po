@@ -38493,3 +38493,83 @@ msgid ""
 msgstr ""
 "So sehen die Mitglieder heute Abend die Lobby. Du kannst zusehen, wie sich "
 "der Raum füllt, aber du kannst keine Signale senden."
+
+#: templates/crush_lu/coach_event_checkin.html:47
+msgid "Not arrived"
+msgstr "Nicht da"
+
+#: templates/crush_lu/coach_event_checkin.html:60
+msgid "In the room"
+msgstr "Im Raum"
+
+#: templates/crush_lu/coach_event_checkin.html:180
+msgid "Show only who has not arrived"
+msgstr "Nur Fehlende anzeigen"
+
+#: templates/crush_lu/coach_event_checkin.html:277
+msgid "No coach yet"
+msgstr "Noch kein Coach"
+
+#: templates/crush_lu/coach_event_checkin.html:320
+msgid "Undo"
+msgstr "Rückgängig"
+
+#: templates/crush_lu/coach_event_checkin.html:382
+msgid "Check in"
+msgstr "Einchecken"
+
+#: templates/crush_lu/coach_event_checkin.html:340
+msgid ""
+"Checking someone in from here takes their seat immediately. Capacity and "
+"gender limits are not re-checked — the counts above are the guide."
+msgstr ""
+"Wer hier eingecheckt wird, bekommt sofort einen Platz. Kapazität und "
+"Geschlechterlimits werden nicht erneut geprüft — die Zahlen oben sind dein "
+"Anhaltspunkt."
+
+#: templates/crush_lu/coach_event_checkin.html:430
+msgid "Undo this check-in? They will be marked as not arrived again."
+msgstr ""
+"Diesen Check-in rückgängig machen? Die Person gilt wieder als nicht "
+"angekommen."
+
+#: templates/crush_lu/coach_event_checkin.html:431
+msgid "Could not undo this check-in"
+msgstr "Check-in konnte nicht rückgängig gemacht werden"
+
+#: views_checkin.py:702
+msgid "This attendee is not checked in."
+msgstr "Diese Person ist nicht eingecheckt."
+
+#: views_checkin.py:716
+msgid ""
+"This check-in is too old to undo here. Ask an administrator to correct it."
+msgstr ""
+"Dieser Check-in ist zu alt, um hier rückgängig gemacht zu werden. Bitte eine"
+" Administratorin oder einen Administrator um Korrektur."
+
+#: views_checkin.py:780
+msgid "Check-in undone for %(name)s."
+msgstr "Check-in für %(name)s rückgängig gemacht."
+
+#: views_checkin.py:820
+msgid "This attendee is already checked in."
+msgstr "Diese Person ist bereits eingecheckt."
+
+#: views_checkin.py:828
+msgid "Only waitlisted attendees can be promoted."
+msgstr "Nur Personen auf der Warteliste können nachrücken."
+
+#: views_checkin.py:838
+msgid "This event has been cancelled."
+msgstr "Dieses Event wurde abgesagt."
+
+#: views_checkin.py:856
+msgid "Check-in is only available within %(hours)s hours of the event."
+msgstr ""
+"Check-in ist nur innerhalb von %(hours)s Stunden vor und nach dem Event "
+"möglich."
+
+#: views_checkin.py:915
+msgid "%(name)s promoted from the waitlist and checked in."
+msgstr "%(name)s ist von der Warteliste nachgerückt und eingecheckt."
