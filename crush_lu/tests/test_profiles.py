@@ -434,3 +434,195 @@ class ProfileSettingsAutosaveTests(TestCase):
         self.profile.refresh_from_db()
         self.assertTrue(self.profile.show_full_name)
         self.assertFalse(self.profile.show_exact_age)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class SelfServiceEditPathTests(TestCase):
+    """Cover the ?edit=1 self-service edit entry point on create_profile.
+
+    Added alongside the review fixes on PR #729: the entry point must be
+    scoped to pending profiles (verified users have their own edit flow),
+    must not clobber verification_status when a pending user saves an
+    intermediate wizard step, and resubmitting must not create a duplicate
+    ProfileSubmission.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="editor", email="editor@example.com", password="SecurePass123!"
+        )
+        self.profile, _ = CrushProfile.objects.get_or_create(user=self.user)
+        # Match the submission gate the rest of the suite uses, and satisfy
+        # the journey guard (get_current_step needs welcome_seen_at +
+        # phone_verified + coach_intro_seen_at to reach step 4+; otherwise
+        # create_profile GET bounces to onboarding_entry).
+        self.profile.phone_number = "+35212345678"
+        self.profile.phone_verified = True
+        self.profile.phone_verified_at = timezone.now()
+        self.profile.welcome_seen_at = timezone.now()
+        self.profile.coach_intro_seen_at = timezone.now()
+        self.profile.gender = "F"
+        self.profile.location = "canton-luxembourg"
+        self.profile.date_of_birth = timezone.now().date() - timedelta(days=30 * 365)
+        self.profile.save()
+        # Consent middleware gates every non-exempt Crush.lu path on this flag;
+        # the signal creates the record, we just flip it on so create_profile
+        # is reachable (otherwise GET redirects to /consent/confirm/).
+        if hasattr(self.user, "data_consent"):
+            self.user.data_consent.crushlu_consent_given = True
+            self.user.data_consent.save()
+        else:
+            UserDataConsent.objects.create(user=self.user, crushlu_consent_given=True)
+        self.client.force_login(self.user)
+
+    def test_pending_user_gets_edit_wizard(self):
+        """A pending user hitting ?edit=1 gets the wizard in edit mode."""
+        self.profile.verification_status = "pending"
+        self.profile.completion_status = "submitted"
+        self.profile.save()
+
+        response = self.client.get(
+            reverse("crush_lu:create_profile") + "?edit=1",
+            HTTP_HOST="crush.lu",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        # The template switches into edit mode via ``is_editing`` — the old
+        # code passed ``is_editing_pending``, which the template never read.
+        self.assertTrue(response.context["is_editing"])
+
+    def test_verified_user_is_not_offered_edit_wizard(self):
+        """A verified user hitting ?edit=1 must not reach the wizard.
+
+        The wizard renders its own gender/DOB controls that save_profile_step1
+        writes directly, bypassing CrushProfileForm's is_approved lock — so the
+        edit entry is scoped to pending only. Verified users redirect to
+        profile_submitted.
+        """
+        self.profile.verification_status = "verified"
+        self.profile.is_approved = True
+        self.profile.completion_status = "submitted"
+        self.profile.save()
+
+        response = self.client.get(
+            reverse("crush_lu:create_profile") + "?edit=1",
+            HTTP_HOST="crush.lu",
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("crush_lu:profile_submitted"), response["Location"])
+
+    def test_pending_status_survives_intermediate_step_save(self):
+        """Saving step1 from the edit path must not downgrade pending.
+
+        Before the fix, save_profile_step1/2/3 unconditionally wrote
+        verification_status='incomplete', dropping a pending editor out of the
+        verification funnel if they navigated back and saved an early step.
+        """
+        self.profile.verification_status = "pending"
+        self.profile.completion_status = "submitted"
+        self.profile.save()
+
+        response = self.client.post(
+            "/api/profile/save-step1/",
+            data=json.dumps(
+                {
+                    "phone_number": "+35212345678",
+                    "date_of_birth": (
+                        timezone.now().date() - timedelta(days=30 * 365)
+                    ).isoformat(),
+                    "gender": "F",
+                    "location": "canton-luxembourg",
+                }
+            ),
+            content_type="application/json",
+            HTTP_HOST="crush.lu",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.verification_status, "pending")
+
+    def test_resubmit_while_pending_creates_no_duplicate_submission(self):
+        """An edit + resubmit cycle must not stack ProfileSubmission rows.
+
+        The new free path doesn't create a ProfileSubmission on submit (users
+        verify via LuxID or buy a coach review), so resubmitting a pending
+        profile must leave that invariant intact.
+        """
+        self.profile.verification_status = "pending"
+        self.profile.completion_status = "submitted"
+        self.profile.save()
+        before = ProfileSubmission.objects.filter(profile=self.profile).count()
+
+        response = self.client.post(
+            reverse("crush_lu:create_profile"),
+            data={
+                "phone_number": "+35212345678",
+                "date_of_birth": (
+                    timezone.now().date() - timedelta(days=30 * 365)
+                ).isoformat(),
+                "gender": "F",
+                "location": "canton-luxembourg",
+                "bio": "Edited bio",
+                "interests": "Reading, Hiking",
+                "event_languages": ["en", "fr"],
+            },
+            follow=True,
+            HTTP_HOST="crush.lu",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.verification_status, "pending")
+        after = ProfileSubmission.objects.filter(profile=self.profile).count()
+        self.assertEqual(before, after)
+
+
+class CrushProfileAdminSaveModelTests(TestCase):
+    """Regression cover for the phone-verification bypass in
+    CrushProfileAdmin.save_model.
+
+    Exposing qualities/defects/sought_qualities via filter_horizontal meant
+    those M2M names could appear in form.changed_data alongside a phone field.
+    The bypass path passed the full changed_data to update_fields, which Django
+    rejects with ValueError for M2M names — so a staff edit touching both a
+    verified phone and a trait selector 500'd. save_model now filters to
+    concrete, non-M2M fields.
+    """
+
+    def setUp(self):
+        self.staff = User.objects.create_superuser(
+            username="staff", email="staff@example.com", password="SecurePass123!"
+        )
+        self.user = User.objects.create_user(
+            username="member", email="member@example.com"
+        )
+        self.profile = CrushProfile.objects.create(
+            user=self.user,
+            phone_number="+35212345678",
+            phone_verified=True,
+            phone_verified_at=timezone.now(),
+            verification_status="verified",
+            is_approved=True,
+        )
+
+    def test_phone_plus_m2m_change_does_not_raise(self):
+        from crush_lu.admin.profiles import CrushProfileAdmin
+
+        admin_instance = CrushProfileAdmin(CrushProfile, None)
+        # Reload so obj carries the stored phone_verified state the bypass keys
+        # off (old_instance lookup inside save_model reads the DB row).
+        obj = CrushProfile.objects.get(pk=self.profile.pk)
+        obj.phone_number = "+35299999999"  # phone change triggers the bypass
+
+        class _StubForm:
+            # A trait selector (M2M) edited in the same submit as the phone.
+            changed_data = ["phone_number", "qualities"]
+
+        # Before the fix this raised:
+        #   ValueError: Cannot update a field with M2M in update_fields.
+        admin_instance.save_model(request=None, obj=obj, form=_StubForm(), change=True)
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.phone_number, "+35299999999")
