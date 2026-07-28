@@ -54,7 +54,7 @@ android {
         // concurrency group so Play always sees increasing codes. The literal
         // fallback is only for local builds, which never upload.
         versionCode = providers.gradleProperty("CRUSH_VERSION_CODE").map { it.toInt() }.getOrElse(4)
-        versionName = "1.0.2"
+        versionName = "1.0.3"
         buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
         buildConfigField("String", "AUTH_SCHEME", "\"$authScheme\"")
 
