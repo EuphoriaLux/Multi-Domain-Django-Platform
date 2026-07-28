@@ -587,6 +587,23 @@ class TestQuizSeatRelease:
 
         assert release_table_on_undo(quiz, attendee) == {"table_number": 2}
 
+    def test_it_reads_the_round_through_the_lock_not_the_callers_instance(self):
+        """An undo that waited behind a round advance holds a pre-advance
+        instance. Deriving the table from it would announce the departure at
+        the table they had already left, leaving the new one stale."""
+        from crush_lu.models.quiz import QuizEvent
+        from crush_lu.services.quiz_rotation import release_table_on_undo
+
+        quiz, attendee = self._seated_quiz(rotated_to=2)
+
+        # The caller's copy still points at round 0; the committed row is on
+        # round 1, which is where the player actually is.
+        stale = QuizEvent.objects.get(pk=quiz.pk)
+        stale.current_round = quiz.rounds.order_by("sort_order").first()
+        assert stale.get_round_number() == 0
+
+        assert release_table_on_undo(stale, attendee) == {"table_number": 2}
+
     def test_it_falls_back_to_the_membership_table_before_any_rotation(self):
         from crush_lu.services.quiz_rotation import release_table_on_undo
 

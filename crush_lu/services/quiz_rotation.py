@@ -386,7 +386,17 @@ def release_table_on_undo(quiz_event, user):
         #
         # assign_table_on_checkin has no such edge — it only writes a round-0
         # row, which generate_rotation_rounds never deletes.
-        QuizEvent.objects.select_for_update().filter(pk=quiz_event.pk).first()
+        #
+        # Read *through* the lock, the way generate_rotation_rounds does: if we
+        # waited here behind a round advance, the caller's instance still holds
+        # the pre-advance current_round, and deriving the table from it would
+        # broadcast the departure to the table they just left.
+        locked_quiz = (
+            QuizEvent.objects.select_for_update().filter(pk=quiz_event.pk).first()
+        )
+        if locked_quiz is None:
+            return None
+        quiz_event = locked_quiz
 
         membership = QuizTableMembership.objects.filter(
             table__quiz=quiz_event, user=user
