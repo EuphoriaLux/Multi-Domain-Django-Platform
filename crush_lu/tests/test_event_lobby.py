@@ -1350,6 +1350,44 @@ class TestLobbyCta:
         _attend(member, event)
         assert lobby.lobby_cta(member, event) is None
 
+    def test_compact_recap_cta_is_constrained_only_on_mobile(self):
+        from django.template.loader import render_to_string
+
+        event = _make_event()
+        compact = render_to_string(
+            "crush_lu/components/event_lobby_cta.html",
+            {"cta": lobby.CTA_ENTER_RECAP, "event": event},
+        )
+        assert "min-w-0 w-40 max-w-full" in compact
+        assert "sm:w-auto sm:max-w-none" in compact
+
+        full_width = render_to_string(
+            "crush_lu/components/event_lobby_cta.html",
+            {"cta": lobby.CTA_ENTER_RECAP, "event": event, "block": True},
+        )
+        assert "w-full" in full_width
+
+    def test_dashboard_attendee_action_is_labelled_my_crush(self, client):
+        member = _make_member("cta_dashboard", membership=False, luxid=False)
+        event = _make_event()
+        _attend(member, event)
+        _login(client, member)
+
+        response = client.get(reverse("crush_lu:dashboard"))
+
+        assert response.status_code == 200
+        attendee_url = reverse(
+            "crush_lu:event_attendees", kwargs={"event_id": event.pk}
+        )
+        html = response.content.decode()
+        attendee_action = re.search(
+            rf'<a[^>]*href="{re.escape(attendee_url)}"[^>]*>(.*?)</a>',
+            html,
+            re.DOTALL,
+        )
+        assert attendee_action is not None
+        assert "My Crush" in attendee_action.group(1)
+
     def test_anonymous_viewer_gets_promo_only(self):
         from django.contrib.auth.models import AnonymousUser
 

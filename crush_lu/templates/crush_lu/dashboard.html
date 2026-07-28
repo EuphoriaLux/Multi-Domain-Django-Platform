@@ -201,7 +201,7 @@
                         {% if registration.status == 'attended' %}
                             {% include "crush_lu/components/event_lobby_cta.html" with cta=registration.lobby_cta event=registration.event %}
                             <a href="{% url 'crush_lu:event_attendees' registration.event.id %}" class="btn-crush-solid inline-flex items-center justify-center gap-2 text-sm px-3 py-2">
-                                {% include "shared/icons/users.html" with class="w-4 h-4" %} {% trans "Connect" %}
+                                {% include "shared/icons/users.html" with class="w-4 h-4" %} {% trans "My Crush" %}
                             </a>
                             {% if registration.event.quiz_join_available %}
                             <a href="{% url 'crush_lu:quiz_live' registration.event.id %}" class="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-semibold bg-crush-purple hover:bg-crush-purple-dark text-white rounded-lg transition-all">

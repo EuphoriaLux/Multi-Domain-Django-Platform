@@ -22294,11 +22294,14 @@ msgstr ""
 "täglicher Drop neuer Gesichter. Werde Premium — erster Monat gratis — oder "
 "mach kostenlos mit dank LuxID."
 
-#: templates/crush_lu/dashboard.html:206
 #: templates/crush_lu/partials/_verification_journey.html:44
-#: templates/crush_lu/partials/bottom_nav.html:76
 msgid "Connect"
 msgstr "Connect"
+
+#: templates/crush_lu/dashboard.html:204
+#: templates/crush_lu/partials/bottom_nav.html:76
+msgid "My Crush"
+msgstr "Mein Crush"
 
 #: templates/crush_lu/dashboard.html:211
 #: templates/crush_lu/event_detail.html:387

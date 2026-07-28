@@ -873,6 +873,8 @@ class TestCoachNavRename:
 
         assert response.status_code == 200
         assert response.content.count(b"My Dating Profile") >= 2
+        assert b'<span>Connect</span>' in response.content
+        assert b'aria-label="Crush Connect"' in response.content
         assert b"<span>My Crush</span>" not in response.content
 
 

@@ -13992,6 +13992,45 @@ body.connect-wizard main.has-bottom-nav {
     .connect-btn-secondary:hover {
         border-color: color-mix(in srgb, var(--color-crush-purple) 50%, transparent);
     }
+
+    /* Keep the shared desktop/onboarding chip flow unchanged. The lifestyle
+       profile editor only switches these children to equal-width rows below. */
+    .connect-trait-grid {
+        @apply flex flex-wrap gap-2;
+    }
+
+    /* Lifestyle profile editor: the site shell already provides a mobile
+       surface and gutter. Flatten the nested card below sm so the form keeps
+       usable width; the regular Connect card returns unchanged at sm+. */
+    @media (max-width: 639px) {
+        .connect-lifestyle-profile .connect-card {
+            background: transparent;
+            border-radius: 0;
+            padding: 0;
+            box-shadow: none;
+        }
+
+        /* Keep unselected choices on the single base surface. The existing
+           peer-checked rule is more specific and retains the purple accent. */
+        .connect-lifestyle-profile .connect-selectable {
+            background: transparent;
+        }
+
+        /* Equal-width, centered rows; justify-content also centres an
+           incomplete final row instead of leaving a right-side void. */
+        .connect-trait-grid {
+            justify-content: center;
+        }
+        .connect-trait-grid > label {
+            flex: 0 1 calc(50% - 0.25rem);
+            min-width: 0;
+        }
+        .connect-trait-grid .connect-chip {
+            width: 100%;
+            justify-content: center;
+            text-align: center;
+        }
+    }
 }
 
 /* =============================================================================
