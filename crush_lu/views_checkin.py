@@ -678,6 +678,10 @@ def coach_undo_checkin(request, event_id, registration_id):
     who is standing in the room is worse than an over-verified walk-in. The
     coach can see the profile is verified and act accordingly.
 
+    Refused for a row with no ``checked_in_at``. The window is what keeps this
+    a correction rather than an attendance editor, and a row with no timestamp
+    has no window — those belong to an administrator.
+
     The Event Lobby needs no cleanup: ``eligible_participations`` re-checks
     ``event_registration__status == "attended"`` at read time (§5.2), so the
     member drops off the roster, the photo route and the signal targets as
@@ -709,22 +713,26 @@ def coach_undo_checkin(request, event_id, registration_id):
                 status=409,
             )
 
+        # No timestamp, no window — and no undo. An attended row with a NULL
+        # checked_in_at is valid: attendance entered administratively or by an
+        # older flow. Letting it skip the age check is what would turn a
+        # 15-minute mis-scan fix into an editor for attendance of any age,
+        # because every attended row renders an Undo button.
         checked_in_at = registration.checked_in_at
-        if checked_in_at is not None:
-            age = now - checked_in_at
-            if age > timedelta(minutes=CHECKIN_UNDO_WINDOW_MINUTES):
-                return JsonResponse(
-                    {
-                        "success": False,
-                        "error": str(
-                            _(
-                                "This check-in is too old to undo here. Ask an "
-                                "administrator to correct it."
-                            )
-                        ),
-                    },
-                    status=409,
-                )
+        undo_window = timedelta(minutes=CHECKIN_UNDO_WINDOW_MINUTES)
+        if checked_in_at is None or now - checked_in_at > undo_window:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": str(
+                        _(
+                            "This check-in is too old to undo here. Ask an "
+                            "administrator to correct it."
+                        )
+                    ),
+                },
+                status=409,
+            )
 
         # Clear the coach only when this attendance is what granted it. Without
         # the timestamp comparison an undo would strip the coach from a member
@@ -735,7 +743,6 @@ def coach_undo_checkin(request, event_id, registration_id):
             profile is not None
             and profile.assigned_coach_id
             and profile.assigned_coach_at
-            and checked_in_at
             and profile.assigned_coach_at >= checked_in_at
         ):
             profile.assigned_coach = None
@@ -745,6 +752,11 @@ def coach_undo_checkin(request, event_id, registration_id):
 
         registration.status = "confirmed"
         registration.checked_in_at = None
+        # Tells handle_event_ticket_on_registration_change that this really is
+        # an attended -> confirmed transition. The same idiom as
+        # _checkin_coach: the signal cannot tell a transition from any other
+        # save that happens to leave the row confirmed.
+        registration._reactivate_ticket = True
         # updated_at is auto_now, so it is only written when named here —
         # every other save in this file lists it for the same reason.
         registration.save(update_fields=["status", "checked_in_at", "updated_at"])
