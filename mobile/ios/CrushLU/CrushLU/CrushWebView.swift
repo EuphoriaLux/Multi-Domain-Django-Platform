@@ -13,6 +13,10 @@ struct CrushWebView: UIViewRepresentable {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
         configuration.allowsInlineMediaPlayback = true
+        // The scanner's <video> is fed by a MediaStream and started from inside a
+        // promise chain, so the tap's user-gesture no longer counts by the time
+        // play() runs. Mirrors setMediaPlaybackRequiresUserGesture(false) on Android.
+        configuration.mediaTypesRequiringUserActionForPlayback = []
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
@@ -129,8 +133,29 @@ struct CrushWebView: UIViewRepresentable {
             appState.load(completeURL)
         }
 
+        func webView(
+            _ webView: WKWebView,
+            requestMediaCapturePermissionFor origin: WKSecurityOrigin,
+            initiatedByFrame frame: WKFrameInfo,
+            type: WKMediaCaptureType,
+            decisionHandler: @escaping (WKPermissionDecision) -> Void
+        ) {
+            // Only the check-in scanner needs capture, and only our own pages may
+            // ask. Granting here skips WebKit's redundant in-page prompt; iOS still
+            // shows the system alert on first use (NSCameraUsageDescription).
+            guard type == .camera, isInternalHost(origin.host) else {
+                decisionHandler(.deny)
+                return
+            }
+            decisionHandler(.grant)
+        }
+
         private func isInternal(_ url: URL) -> Bool {
-            guard let host = url.host?.lowercased() else { return false }
+            isInternalHost(url.host)
+        }
+
+        private func isInternalHost(_ host: String?) -> Bool {
+            guard let host = host?.lowercased() else { return false }
             return host == "crush.lu" || host == "www.crush.lu" || host == "test.crush.lu"
         }
     }

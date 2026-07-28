@@ -27,6 +27,8 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Crush.lu uses the camera so coaches can scan attendee QR codes at event check-in.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIRequiresFullScreen</key>

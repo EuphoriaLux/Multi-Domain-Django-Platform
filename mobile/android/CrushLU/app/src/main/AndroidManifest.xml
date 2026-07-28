@@ -3,6 +3,16 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- The coach check-in page scans QR codes with getUserMedia() inside the
+         WebView. Without this declaration the runtime request is auto-denied and
+         no system prompt is ever shown. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- Declaring CAMERA implies a *required* camera feature, which would hide
+         the app on Play from camera-less devices. Everything but the scanner
+         works without one, so keep distribution open. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
     <application
         android:allowBackup="false"
