@@ -55,9 +55,24 @@ def _step_url(step):
 
 
 def _interest_pks(n):
-    return list(
-        Interest.objects.filter(is_active=True).values_list("pk", flat=True)[:n]
-    )
+    """Return ``n`` active Interest pks, creating them if the test DB has none
+    seeded — same reason as ``_trait_pks``: the taxonomy ships as a data
+    migration, and migration-seeded rows don't survive the flush a
+    ``transaction=True`` test does on teardown, so under ``--reuse-db`` they
+    are gone for every later run. Step 3 silently saves no interests when this
+    comes back empty, which leaves the wizard pointer stuck."""
+    existing = list(Interest.objects.filter(is_active=True).order_by("pk"))
+    while len(existing) < n:
+        idx = len(existing) + 1
+        existing.append(
+            Interest.objects.create(
+                slug=f"onboarding-interest-{idx}",
+                label=f"Interest {idx}",
+                category=Interest.Category.SPORTS,
+                sort_order=idx,
+            )
+        )
+    return [i.pk for i in existing[:n]]
 
 
 def _trait_pks(trait_type, n=2):
