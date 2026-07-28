@@ -2,7 +2,7 @@
 Tests for the Crush Connect hub (homepage) and its dedicated navigation.
 
 The hub is the shared landing for both onboarded tracks; the navbar "Crush
-Connect" entry and the mobile bottom-nav "Connect" tab point here. View tests
+Connect" entry and the mobile bottom-nav "My Crush" tab point here. View tests
 use ``/en/crush-connect/…`` URLs which only resolve under ``urls_crush``.
 """
 
