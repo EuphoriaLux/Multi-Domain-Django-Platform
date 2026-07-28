@@ -14178,6 +14178,10 @@ msgstr "Warten auf Verifizierung"
 msgid "Edit Profile"
 msgstr "Profil bearbeiten"
 
+#: templates/crush_lu/profile_submitted.html:41
+msgid "Edit Profile Details"
+msgstr "Profildetails bearbeiten"
+
 #: templates/crush_lu/account_settings.html:331
 msgid "View rejection details"
 msgstr "Ablehnungsdetails ansehen"

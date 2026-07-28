@@ -305,6 +305,10 @@ class CrushProfileAdminForm(forms.ModelForm):
 
     MAX_INTERESTS = 8
     MAX_ASK_ME_ABOUT = 3
+    # Mirrors CrushProfileForm.MAX_TRAITS_PER_CATEGORY — the member wizard
+    # rejects >5 per category, and compute_quality_score divides by 5, so an
+    # admin override here would silently produce component scores above 1.
+    MAX_TRAITS_PER_CATEGORY = 5
 
     class Meta:
         model = CrushProfile
@@ -338,6 +342,25 @@ class CrushProfileAdminForm(forms.ModelForm):
             )
         return ids
 
+    def clean_event_languages(self):
+        # The model field is a JSONField; the default admin widget accepts any
+        # valid JSON, so a scalar (e.g. 1) would pass here and later break
+        # MeetupEvent.user_meets_language_requirement (set(user_languages)).
+        # Mirror CrushProfileForm.clean_event_languages: enforce list-of-codes.
+        languages = self.cleaned_data.get("event_languages", [])
+        if languages is None:
+            return []
+        if not isinstance(languages, list):
+            raise forms.ValidationError(_("Event languages must be a list."))
+        valid_codes = [code for code, _ in CrushProfile.EVENT_LANGUAGE_CHOICES]
+        for lang in languages:
+            if lang not in valid_codes:
+                raise forms.ValidationError(
+                    _("Invalid language selection: %(lang)s"),
+                    params={"lang": lang},
+                )
+        return list(languages)
+
     def clean(self):
         cleaned = super().clean()
         interests = cleaned.get("interests_new")
@@ -349,10 +372,19 @@ class CrushProfileAdminForm(forms.ModelForm):
             if not set(ask).issubset(selected_ids):
                 self.add_error(
                     "ask_me_about",
-                    _(
-                        "“Ask me about” items must be among the selected "
-                        "interests."
-                    ),
+                    _("“Ask me about” items must be among the selected " "interests."),
+                )
+        # qualities / defects / sought_qualities are now exposed via
+        # filter_horizontal with no default cap — enforce the member-side
+        # limit of 5 per category so admin edits can't create states the
+        # member form rejects (and that skew compute_quality_score).
+        for field in ("qualities", "defects", "sought_qualities"):
+            value = cleaned.get(field)
+            if value is not None and len(value) > self.MAX_TRAITS_PER_CATEGORY:
+                self.add_error(
+                    field,
+                    _("Select at most %(max)d.")
+                    % {"max": self.MAX_TRAITS_PER_CATEGORY},
                 )
         return cleaned
 
@@ -398,8 +430,20 @@ class CrushProfileAdmin(admin.ModelAdmin):
 
             if old_instance.phone_verified and phone_fields_changed:
                 # Admin is explicitly changing phone fields - bypass model protection
-                # Save directly to database without triggering model's save() override
-                super(CrushProfile, obj).save(update_fields=form.changed_data)
+                # Save directly to database without triggering model's save() override.
+                # Filter to concrete, non-M2M fields: update_fields rejects M2M names
+                # (ValueError), and since we exposed qualities/defects/sought_qualities
+                # via filter_horizontal those names can appear in changed_data when a
+                # trait edit lands in the same submit as a phone correction.
+                concrete_fields = {
+                    f.name
+                    for f in CrushProfile._meta.get_fields()
+                    if f.concrete and not f.many_to_many
+                }
+                safe_update_fields = [
+                    name for name in form.changed_data if name in concrete_fields
+                ]
+                super(CrushProfile, obj).save(update_fields=safe_update_fields)
                 return
 
         # Normal save for all other cases
@@ -434,7 +478,7 @@ class CrushProfileAdmin(admin.ModelAdmin):
     )
     search_fields = ("user__username", "user__email", "location", "bio", "phone_number")
     ordering = ["-created_at"]  # Most recent profiles first
-    filter_horizontal = ("interests_new",)
+    filter_horizontal = ("interests_new", "qualities", "defects", "sought_qualities")
     readonly_fields = (
         "get_quick_status_summary",
         "get_user_account_info",
@@ -451,6 +495,8 @@ class CrushProfileAdmin(admin.ModelAdmin):
         "get_referral_count",
         "get_journey_progress",
         "outlook_contact_id",
+        "apple_pass_serial",
+        "google_wallet_object_id",
         # Onboarding-journey timestamps — set by the views, not by humans.
         "welcome_seen_at",
         "coach_intro_seen_at",
@@ -498,8 +544,10 @@ class CrushProfileAdmin(admin.ModelAdmin):
                     "date_of_birth",
                     "gender",
                     "phone_number",
+                    "not_on_whatsapp",
                     "location",
                     "preferred_language",
+                    "event_languages",
                 ),
                 "description": _("Core profile information"),
             },
@@ -524,6 +572,21 @@ class CrushProfileAdmin(admin.ModelAdmin):
                 "description": _(
                     "Structured event-profile content that replaces the legacy "
                     "free-text bio/interests below."
+                ),
+            },
+        ),
+        (
+            "Matching & Personality Traits",
+            {
+                "fields": (
+                    "qualities",
+                    "defects",
+                    "sought_qualities",
+                    "first_step_preference",
+                    "astro_enabled",
+                ),
+                "description": _(
+                    "Qualities, defects, partner seeking criteria, and zodiac compatibility"
                 ),
             },
         ),
@@ -603,6 +666,18 @@ class CrushProfileAdmin(admin.ModelAdmin):
                     "Auto-saved form state from the profile-build wizard. Cleared "
                     "on successful submission. Useful for debugging stuck users."
                 ),
+            },
+        ),
+        (
+            "Wallet & Integrations",
+            {
+                "fields": (
+                    "show_photo_on_wallet",
+                    "apple_pass_serial",
+                    "google_wallet_object_id",
+                ),
+                "classes": ("collapse",),
+                "description": _("Digital wallet pass details"),
             },
         ),
         (
