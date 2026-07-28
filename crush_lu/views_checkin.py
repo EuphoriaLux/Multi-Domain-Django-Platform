@@ -1124,8 +1124,11 @@ def _broadcast_quiz_table_update(event, table_assignment):
     direction can pass its own dict, and it may be None when a cleanup freed
     no seat in the current round.
 
-    Note this reaches the table and the projector, not the host panel, which
-    subscribes to ``quiz_<id>`` — see the follow-up issue on the host overview.
+    Reaches three audiences, each on its own group: the players at the table,
+    the projector, and whoever is running the room. The host is last because
+    the host panel had never refreshed for *any* door action — not a scan, not
+    a promotion, not an undo — so a walk-up promoted at the door has been
+    invisible on the host's table overview since #703 (#722).
     """
     from .models.quiz import QuizTable
 
@@ -1159,6 +1162,19 @@ def _broadcast_quiz_table_update(event, table_assignment):
         # handleTableUpdate ignores the payload and refetches, so a null is fine.
         async_to_sync(channel_layer.group_send)(
             f"quiz_{quiz_event.id}_display",
+            {
+                "type": "quiz.table_update",
+                "data": {"table_number": table_number},
+            },
+        )
+        # The host, for the same reason as the projector: their overview is a
+        # roster of the whole room, so it goes stale on any seat change and not
+        # only on one that names a table. A dedicated group rather than
+        # `quiz_<id>`, which the host does subscribe to but shares with every
+        # player — whose own `quiz.table_update` branch refetches their
+        # assignment, so the room would refetch as one on every door scan.
+        async_to_sync(channel_layer.group_send)(
+            f"quiz_{quiz_event.id}_host",
             {
                 "type": "quiz.table_update",
                 "data": {"table_number": table_number},

@@ -186,6 +186,24 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         # Join the quiz group
         await self.channel_layer.group_add(self.quiz_group, self.channel_name)
 
+        # A group for whoever is running the room. The host panel's table
+        # overview has to refresh on a door action, and none of the existing
+        # groups can carry that: `quiz_<id>_table_<pk>` reaches the players at
+        # one table, `quiz_<id>_display` reaches the projector, and
+        # `quiz_<id>` reaches *everyone* — including every player, whose
+        # `quiz.table_update` branch refetches their own assignment. Sending a
+        # seat change there would have the whole room refetch on every door
+        # scan, and would reach the projector twice, since a display
+        # connection joins `quiz_<id>` as well as `quiz_<id>_display`.
+        #
+        # `is_host` is cached per connection (it was just called above), so
+        # this costs no extra query. It covers the quiz creator and coaches
+        # explicitly assigned to the event — the two who can open the panel.
+        self.host_group = None
+        if await self.is_host(user):
+            self.host_group = f"quiz_{self.quiz_id}_host"
+            await self.channel_layer.group_add(self.host_group, self.channel_name)
+
         # Try to join table-specific group
         if user.is_authenticated:
             try:
@@ -265,6 +283,8 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
             )
         if getattr(self, "table_group", None):
             await self.channel_layer.group_discard(self.table_group, self.channel_name)
+        if getattr(self, "host_group", None):
+            await self.channel_layer.group_discard(self.host_group, self.channel_name)
 
     async def receive_json(self, content):
         # Display connections are read-only (projector view)

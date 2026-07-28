@@ -1338,6 +1338,14 @@ document.addEventListener("alpine:init", function () {
                     // had empty assignments (e.g. rotation schedule was
                     // missing on the server).
                     this._fetchTableOverview();
+                } else if (type === "quiz.table_update") {
+                    // A door action changed who is in the room — a scan, a
+                    // waitlist promotion or an undone check-in. The overview is
+                    // a roster of every table, so refetch it wholesale rather
+                    // than trying to patch one table from the payload; the
+                    // payload names at most the table that changed, and a
+                    // cleanup that freed no current-round seat names none.
+                    this._fetchTableOverview();
                 } else if (type === "quiz.table_scored") {
                     // Track which tables have been scored (no correctness info yet)
                     if (data.table_id) {

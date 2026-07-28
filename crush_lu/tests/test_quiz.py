@@ -3829,3 +3829,113 @@ class TestConnectAuthorization:
             consumer.channel_layer.group_add.assert_not_awaited()
 
         async_to_sync(run)()
+
+
+# ============================================================================
+# HOST GROUP — the host panel's own broadcast channel (#722)
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestHostGroupSubscription:
+    """The host panel's table overview had never refreshed on a door action —
+    not a scan, not a waitlist promotion, not an undo.
+
+    `_broadcast_quiz_table_update` reached the players at one table and the
+    projector, and the host subscribes to neither. The obvious fix, sending to
+    `quiz_<id>`, is wrong in two directions: every *player* is on that group
+    and their `quiz.table_update` branch refetches their own assignment, so the
+    whole room would refetch on every door scan; and a display connection joins
+    `quiz_<id>` on top of `quiz_<id>_display`, so the projector would refresh
+    twice. Hence a group only the host is on.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _keep_test_connection_open(self, monkeypatch):
+        """Same pytest-django atomic-wrapper guard as the other consumer
+        tests (see TestRotateGuard)."""
+        monkeypatch.setattr(
+            "channels.db.close_old_connections", lambda *a, **kw: None
+        )
+
+    def _make_consumer(self, quiz, user):
+        from unittest.mock import AsyncMock
+        from crush_lu.consumers import QuizConsumer
+
+        consumer = QuizConsumer()
+        consumer.scope = {
+            "user": user,
+            "url_route": {"kwargs": {"quiz_id": quiz.id}},
+            "query_string": b"",
+        }
+        consumer.channel_name = "test-channel-name"
+        consumer.channel_layer = AsyncMock()
+        consumer.accept = AsyncMock()
+        consumer.close = AsyncMock()
+        consumer.send_json = AsyncMock()
+        return consumer
+
+    def _groups_joined(self, consumer):
+        return [call.args[0] for call in consumer.channel_layer.group_add.await_args_list]
+
+    def test_the_host_joins_the_host_group(self, quiz_event, coach_user):
+        from asgiref.sync import async_to_sync
+
+        async def run():
+            consumer = self._make_consumer(quiz_event, coach_user)
+            await consumer.connect()
+            assert f"quiz_{quiz_event.id}_host" in self._groups_joined(consumer)
+
+        async_to_sync(run)()
+
+    def test_a_player_does_not(self, quiz_event, quiz_user):
+        """The one that matters. A player on the host group would refetch their
+        assignment on every seat change anywhere in the room."""
+        from asgiref.sync import async_to_sync
+        from crush_lu.models.events import EventRegistration
+
+        EventRegistration.objects.create(
+            event=quiz_event.event, user=quiz_user, status="attended"
+        )
+
+        async def run():
+            consumer = self._make_consumer(quiz_event, quiz_user)
+            await consumer.connect()
+            joined = self._groups_joined(consumer)
+            assert f"quiz_{quiz_event.id}" in joined  # still on the shared feed
+            assert f"quiz_{quiz_event.id}_host" not in joined
+
+        async_to_sync(run)()
+
+    def test_a_staff_viewer_does_not(self, quiz_event, quiz_user):
+        """Staff get the read-only *player* page (`quiz_live_view` renders
+        quiz_live.html / quizLive), not the host panel, so the host group would
+        only cost them an assignment refetch they have no use for."""
+        from asgiref.sync import async_to_sync
+
+        quiz_user.is_staff = True
+        quiz_user.save(update_fields=["is_staff"])
+
+        async def run():
+            consumer = self._make_consumer(quiz_event, quiz_user)
+            await consumer.connect()
+            assert f"quiz_{quiz_event.id}_host" not in self._groups_joined(consumer)
+
+        async_to_sync(run)()
+
+    def test_disconnect_leaves_the_host_group(self, quiz_event, coach_user):
+        """A group a connection never leaves keeps receiving into a dead
+        channel; every other group this consumer joins is discarded."""
+        from asgiref.sync import async_to_sync
+
+        async def run():
+            consumer = self._make_consumer(quiz_event, coach_user)
+            await consumer.connect()
+            await consumer.disconnect(1000)
+            left = [
+                call.args[0]
+                for call in consumer.channel_layer.group_discard.await_args_list
+            ]
+            assert f"quiz_{quiz_event.id}_host" in left
+
+        async_to_sync(run)()

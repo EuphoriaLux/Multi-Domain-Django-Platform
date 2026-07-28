@@ -959,16 +959,10 @@ class TestQuizSeatRelease:
 
         assert release_table_on_undo(quiz, stranger) is None
 
-    def test_the_projector_refreshes_even_when_no_seat_was_freed(self):
-        """A cleanup that frees no current-round seat carries no table number,
-        and the projector shows attendance and the individual leaderboard —
-        both of which just changed. Returning early would leave the removed
-        attendee on screen until some other quiz event happened to fire."""
+    def _broadcast_groups(self, quiz, table_assignment):
         from crush_lu.views_checkin import _broadcast_quiz_table_update
 
-        quiz, _attendee = self._seated_quiz()
         sent = []
-
         with (
             mock.patch(
                 "crush_lu.views_checkin.get_channel_layer",
@@ -979,9 +973,39 @@ class TestQuizSeatRelease:
                 lambda fn: lambda group, payload: sent.append(group),
             ),
         ):
-            _broadcast_quiz_table_update(quiz.event, {"table_number": None})
+            _broadcast_quiz_table_update(quiz.event, table_assignment)
+        return sent
 
-        assert sent == [f"quiz_{quiz.id}_display"]
+    def test_the_projector_and_host_refresh_even_when_no_seat_was_freed(self):
+        """A cleanup that frees no current-round seat carries no table number,
+        and both the projector and the host overview show the whole room —
+        attendance, the individual leaderboard, every table's roster. All of
+        that just changed. Returning early would leave the removed attendee on
+        screen until some other quiz event happened to fire."""
+        quiz, _attendee = self._seated_quiz()
+
+        sent = self._broadcast_groups(quiz, {"table_number": None})
+
+        assert sent == [f"quiz_{quiz.id}_display", f"quiz_{quiz.id}_host"]
+
+    def test_a_named_table_reaches_the_players_the_projector_and_the_host(self):
+        """Three audiences, three groups — and deliberately not `quiz_<id>`,
+        which the host shares with every player. A player's own
+        `quiz.table_update` branch refetches their assignment, so putting a
+        seat change on the shared group would have the entire room refetch on
+        every door scan, and would reach the projector twice over (a display
+        connection joins `quiz_<id>` as well as `quiz_<id>_display`)."""
+        quiz, _attendee = self._seated_quiz()
+        table = quiz.tables.get(table_number=1)
+
+        sent = self._broadcast_groups(quiz, {"table_number": 1})
+
+        assert sent == [
+            f"quiz_{quiz.id}_table_{table.id}",
+            f"quiz_{quiz.id}_display",
+            f"quiz_{quiz.id}_host",
+        ]
+        assert f"quiz_{quiz.id}" not in sent
 
     def test_it_clears_schedule_rows_left_without_a_membership(self):
         """Someone checked in before num_tables was configured never gets a
