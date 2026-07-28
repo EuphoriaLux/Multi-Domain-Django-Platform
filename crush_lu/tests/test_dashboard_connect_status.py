@@ -85,7 +85,7 @@ class DashboardConnectStatusStripTests(TestCase):
         self.assertNotContains(response, self.JOIN_CTA)
 
     @override_settings(CRUSH_CONNECT_LAUNCHED=True)
-    def test_general_connect_destinations_are_labelled_my_crush(self):
+    def test_crush_connect_tab_uses_compact_connect_label(self):
         _link_luxid(self.user)
         CrushConnectMembership.objects.create(
             user=self.user, onboarded_at=timezone.now(), photo_share_consent=True
@@ -93,16 +93,17 @@ class DashboardConnectStatusStripTests(TestCase):
 
         response = self._get()
 
-        self.assertContains(response, "<span>My Crush</span>", html=True)
-        self.assertContains(response, "Crush Connect")
+        self.assertContains(response, "<span>Connect</span>", html=True)
+        self.assertContains(response, 'aria-label="Crush Connect"')
         self.assertContains(response, reverse("crush_lu:crush_connect_hub"))
 
-        for language, label in (("de", "Mein Crush"), ("fr", "Mon crush")):
+        for language in ("de", "fr"):
             localized = self.client.get(
                 f"/{language}/dashboard/", HTTP_HOST="crush.lu"
             )
             self.assertEqual(localized.status_code, 200)
-            self.assertContains(localized, f"<span>{label}</span>", html=True)
+            self.assertContains(localized, "<span>Connect</span>", html=True)
+            self.assertContains(localized, 'aria-label="Crush Connect"')
 
     @override_settings(CRUSH_CONNECT_LAUNCHED=True)
     def test_onboarded_without_photo_consent_shows_action_needed(self):

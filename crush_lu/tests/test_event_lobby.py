@@ -1380,8 +1380,13 @@ class TestLobbyCta:
             "crush_lu:event_attendees", kwargs={"event_id": event.pk}
         )
         html = response.content.decode()
-        assert f'href="{attendee_url}"' in html
-        assert "My Crush" in html
+        attendee_action = re.search(
+            rf'<a[^>]*href="{re.escape(attendee_url)}"[^>]*>(.*?)</a>',
+            html,
+            re.DOTALL,
+        )
+        assert attendee_action is not None
+        assert "My Crush" in attendee_action.group(1)
 
     def test_anonymous_viewer_gets_promo_only(self):
         from django.contrib.auth.models import AnonymousUser

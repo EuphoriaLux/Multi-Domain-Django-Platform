@@ -862,8 +862,8 @@ class TestRecipientPrivacy:
 
 
 class TestCoachNavRename:
-    """O10: coach profile links retain their specific label while the compact
-    general personal-area destination uses "My Crush"."""
+    """O10: coach navbar dropdown renamed in BOTH nav locations; the member
+    feature keeps the "My Crush!" name."""
 
     def test_my_dating_profile_in_desktop_and_mobile_nav(self, client):
         coach = _make_coach("navcoach@example.com")
@@ -873,7 +873,9 @@ class TestCoachNavRename:
 
         assert response.status_code == 200
         assert response.content.count(b"My Dating Profile") >= 2
-        assert b"<span>My Crush</span>" in response.content
+        assert b'<span>Connect</span>' in response.content
+        assert b'aria-label="Crush Connect"' in response.content
+        assert b"<span>My Crush</span>" not in response.content
 
 
 class TestCoachLeadPrivacy:
