@@ -361,6 +361,7 @@ def release_table_on_undo(quiz_event, user):
 
     from crush_lu.models.quiz import (
         IndividualScore,
+        QuizEvent,
         QuizRotationSchedule,
         QuizTable,
         QuizTableMembership,
@@ -374,6 +375,18 @@ def release_table_on_undo(quiz_event, user):
             .select_for_update()
             .order_by("table_number")
         )
+        # Then the quiz row, *before* any schedule row is touched.
+        # generate_rotation_rounds takes the quiz row first and then deletes
+        # rounds >= from_round, and this function goes on to call it while
+        # still holding the locks its own deletes take — these run inside the
+        # caller's transaction, so nothing is released in between. Deleting
+        # first and taking the quiz row after would invert that order: a
+        # concurrent regeneration would hold the quiz row and wait on our
+        # schedule rows while we waited on its quiz row.
+        #
+        # assign_table_on_checkin has no such edge — it only writes a round-0
+        # row, which generate_rotation_rounds never deletes.
+        QuizEvent.objects.select_for_update().filter(pk=quiz_event.pk).first()
 
         membership = QuizTableMembership.objects.filter(
             table__quiz=quiz_event, user=user

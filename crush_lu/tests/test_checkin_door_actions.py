@@ -621,6 +621,30 @@ class TestQuizSeatRelease:
 
         assert release_table_on_undo(quiz, stranger) is None
 
+    def test_the_projector_refreshes_even_when_no_seat_was_freed(self):
+        """A cleanup that frees no current-round seat carries no table number,
+        and the projector shows attendance and the individual leaderboard —
+        both of which just changed. Returning early would leave the removed
+        attendee on screen until some other quiz event happened to fire."""
+        from crush_lu.views_checkin import _broadcast_quiz_table_update
+
+        quiz, _attendee = self._seated_quiz()
+        sent = []
+
+        with (
+            mock.patch(
+                "crush_lu.views_checkin.get_channel_layer",
+                return_value=mock.MagicMock(),
+            ),
+            mock.patch(
+                "crush_lu.views_checkin.async_to_sync",
+                lambda fn: lambda group, payload: sent.append(group),
+            ),
+        ):
+            _broadcast_quiz_table_update(quiz.event, {"table_number": None})
+
+        assert sent == [f"quiz_{quiz.id}_display"]
+
     def test_it_clears_schedule_rows_left_without_a_membership(self):
         """Someone checked in before num_tables was configured never gets a
         membership — assign_table_on_checkin returns early — but a later

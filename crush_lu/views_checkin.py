@@ -1037,7 +1037,11 @@ def _broadcast_quiz_table_update(event, table_assignment):
 
     Someone joining (a scan or a waitlist promotion) or leaving (an undone
     check-in) both land here — only ``table_number`` is read, so either
-    direction can pass its own dict.
+    direction can pass its own dict, and it may be None when a cleanup freed
+    no seat in the current round.
+
+    Note this reaches the table and the projector, not the host panel, which
+    subscribes to ``quiz_<id>`` — see the follow-up issue on the host overview.
     """
     from .models.quiz import QuizTable
 
@@ -1049,23 +1053,26 @@ def _broadcast_quiz_table_update(event, table_assignment):
         if not quiz_event:
             return
         table_number = table_assignment.get("table_number")
-        if not table_number:
-            return
-        # Look up the QuizTable PK — the consumer subscribes using table PK, not table_number
-        quiz_table = QuizTable.objects.filter(
-            quiz=quiz_event, table_number=table_number
-        ).first()
-        if not quiz_table:
-            return
-        # Broadcast to the specific table group so only affected participants refresh
-        async_to_sync(channel_layer.group_send)(
-            f"quiz_{quiz_event.id}_table_{quiz_table.id}",
-            {
-                "type": "quiz.table_update",
-                "data": {"table_number": table_number},
-            },
-        )
-        # Also broadcast to display-specific group so the projector page updates
+        if table_number:
+            # Look up the QuizTable PK — the consumer subscribes using table PK,
+            # not table_number
+            quiz_table = QuizTable.objects.filter(
+                quiz=quiz_event, table_number=table_number
+            ).first()
+            if quiz_table:
+                # Only the affected participants refresh
+                async_to_sync(channel_layer.group_send)(
+                    f"quiz_{quiz_event.id}_table_{quiz_table.id}",
+                    {
+                        "type": "quiz.table_update",
+                        "data": {"table_number": table_number},
+                    },
+                )
+        # The projector always refreshes, even with no table to name. It shows
+        # attendance and the individual leaderboard, which a cleanup changes
+        # whether or not it freed a seat in the current round — and the
+        # no-current-seat case is exactly the one that carries no table number.
+        # handleTableUpdate ignores the payload and refetches, so a null is fine.
         async_to_sync(channel_layer.group_send)(
             f"quiz_{quiz_event.id}_display",
             {
