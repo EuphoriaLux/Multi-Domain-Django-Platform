@@ -256,10 +256,17 @@ class TestUndoCheckin:
         registration.refresh_from_db()
         assert registration.status == "attended"
 
-    def test_undo_reactivates_the_wallet_ticket(self, client, settings):
+    def test_undo_reactivates_the_wallet_ticket(
+        self, client, settings, django_capture_on_commit_callbacks
+    ):
         """The scan marked the pass completed. Leaving it there hands the member
         a used ticket while their registration is valid and they are still at
-        the door."""
+        the door.
+
+        The PATCH is deferred to commit, so the callbacks have to be executed
+        explicitly — pytest-django's transaction never commits, and without
+        this the assertion below would pass for the wrong reason.
+        """
         settings.WALLET_GOOGLE_EVENT_TICKET_ENABLED = True
         coach = _make_coach()
         attendee = _make_attendee()
@@ -277,12 +284,15 @@ class TestUndoCheckin:
             "crush_lu.wallet.google_event_ticket_api.activate_event_ticket",
             return_value={"success": True, "message": "ok"},
         ) as activate:
-            assert client.post(_undo_url(event, registration)).status_code == 200
+            with django_capture_on_commit_callbacks(execute=True):
+                assert client.post(_undo_url(event, registration)).status_code == 200
 
         assert activate.call_count == 1
         assert activate.call_args[0][0].pk == registration.pk
 
-    def test_an_unrelated_save_does_not_reactivate_the_ticket(self, settings):
+    def test_an_unrelated_save_does_not_reactivate_the_ticket(
+        self, settings, django_capture_on_commit_callbacks
+    ):
         """Reactivation is flagged by the undo path, not derived from the
         status. _ensure_ticket_object_id and _generate_checkin_token both save
         non-status fields on a confirmed row, and the first of them runs
@@ -303,8 +313,9 @@ class TestUndoCheckin:
             "crush_lu.wallet.google_event_ticket_api.activate_event_ticket",
             return_value={"success": True, "message": "ok"},
         ) as activate:
-            registration.checkin_token = "tok"
-            registration.save(update_fields=["checkin_token"])
+            with django_capture_on_commit_callbacks(execute=True):
+                registration.checkin_token = "tok"
+                registration.save(update_fields=["checkin_token"])
 
         assert activate.call_count == 0
 

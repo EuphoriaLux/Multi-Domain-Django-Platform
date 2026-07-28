@@ -2414,14 +2414,39 @@ def handle_event_ticket_on_registration_change(sender, instance, created, **kwar
             complete_event_ticket,
         )
 
+        def _after_commit(patch, verb):
+            """Run the Wallet PATCH once the row it describes is durable.
+
+            These callers save inside a transaction — event_checkin_api and
+            coach_undo_checkin both hold a select_for_update on the
+            registration — and the PATCH is a synchronous Google call that
+            allows 30 seconds. Doing it inline both stretches an open
+            transaction across a network round trip and lets a rollback leave
+            the pass and the registration disagreeing. Reactivation is the
+            direction that matters: a rolled-back undo would leave the row
+            attended while its used pass is live again, i.e. reusable at the
+            door. on_commit runs immediately when there is no transaction, so
+            this is safe for every caller.
+            """
+
+            def _apply():
+                try:
+                    result = patch(instance)
+                    if result["success"]:
+                        logger.info(
+                            f"{verb} event ticket for registration {instance.id}"
+                        )
+                except Exception as e:
+                    logger.error(
+                        f"Error updating event ticket for registration {instance.id}: {e}"
+                    )
+
+            transaction.on_commit(_apply)
+
         if instance.status == "cancelled":
-            result = expire_event_ticket(instance)
-            if result["success"]:
-                logger.info(f"Expired event ticket for registration {instance.id}")
+            _after_commit(expire_event_ticket, "Expired")
         elif instance.status == "attended":
-            result = complete_event_ticket(instance)
-            if result["success"]:
-                logger.info(f"Completed event ticket for registration {instance.id}")
+            _after_commit(complete_event_ticket, "Completed")
         elif instance.status == "confirmed" and getattr(
             instance, "_reactivate_ticket", False
         ):
@@ -2436,9 +2461,7 @@ def handle_event_ticket_on_registration_change(sender, instance, created, **kwar
             # test would PATCH on each of those — and the first one runs before
             # the JWT has created the Wallet object, so it 404s while still
             # allowing the request its 30 seconds.
-            result = activate_event_ticket(instance)
-            if result["success"]:
-                logger.info(f"Reactivated event ticket for registration {instance.id}")
+            _after_commit(activate_event_ticket, "Reactivated")
     except Exception as e:
         logger.error(f"Error updating event ticket for registration {instance.id}: {e}")
 
