@@ -3984,3 +3984,141 @@ class TestHostGroupSubscription:
             assert f"quiz_{quiz_event.id}_host" in left
 
         async_to_sync(run)()
+
+
+# ============================================================================
+# SCORING READS SEATS UNDER THE SAME LOCK IT WRITES THEM (#721)
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestScoringSeatRace:
+    """`score_table_for_question` read `rotation_users` *after* its atomic
+    block closed, then wrote IndividualScore rows outside it.
+
+    Read-before-delete / write-after-delete: anything that rewrites
+    QuizRotationSchedule in between credits a person who is no longer at the
+    table. Not specific to the undo — `assign_table_on_checkin` already
+    triggered it, because a late arrival to a live quiz regenerates the future
+    rounds, and rotation and consolidation rewrite the same rows.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _keep_test_connection_open(self, monkeypatch):
+        """Same pytest-django atomic-wrapper guard as the other consumer
+        tests (see TestRotateGuard) — score_table_for_question is a
+        database_sync_to_async hop."""
+        monkeypatch.setattr(
+            "channels.db.close_old_connections", lambda *a, **kw: None
+        )
+
+    def _setup(self, quiz):
+        round1 = QuizRound.objects.create(
+            quiz=quiz, title="R1", sort_order=0, time_per_question=30
+        )
+        question = QuizQuestion.objects.create(
+            round=round1, text="Q?", question_type="open_ended", points=10, sort_order=0
+        )
+        quiz.num_tables = 2
+        quiz.save(update_fields=["num_tables"])
+        tables = quiz.ensure_tables()
+        quiz.current_round = round1
+        quiz.save(update_fields=["current_round"])
+        return question, tables
+
+    def _seat(self, quiz, table, username):
+        user = User.objects.create_user(username=username, password="x")
+        _grant_consent(user)
+        _create_profile(user, "M")
+        QuizRotationSchedule.objects.create(
+            quiz=quiz, round_number=0, table=table, user=user, role="anchor"
+        )
+        QuizTableMembership.objects.create(table=table, user=user)
+        return user
+
+    def _make_consumer(self, quiz):
+        from unittest.mock import AsyncMock
+        from crush_lu.consumers import QuizConsumer
+
+        consumer = QuizConsumer()
+        consumer.quiz_id = quiz.id
+        consumer.channel_layer = AsyncMock()
+        return consumer
+
+    def test_a_failed_individual_write_rolls_the_table_score_back(
+        self, quiz_event, coach_user
+    ):
+        """The structural gate. The seat read and the IndividualScore writes
+        now share the transaction that writes TableRoundScore, so a failure
+        among them cannot leave a table recorded as scored with nobody
+        credited for it — which is exactly what the old shape allowed, the
+        table score having already committed."""
+        from unittest import mock
+
+        from asgiref.sync import async_to_sync
+        from crush_lu.models.quiz import IndividualScore, TableRoundScore
+
+        question, tables = self._setup(quiz_event)
+        self._seat(quiz_event, tables[1], "scored@test.com")
+        consumer = self._make_consumer(quiz_event)
+
+        with mock.patch.object(
+            IndividualScore.objects,
+            "get_or_create",
+            side_effect=RuntimeError("individual score write failed"),
+        ):
+            with pytest.raises(RuntimeError):
+                async_to_sync(consumer.score_table_for_question)(
+                    tables[1].id, question.id, True
+                )
+
+        assert not TableRoundScore.objects.filter(
+            quiz=quiz_event, table=tables[1], question=question
+        ).exists()
+        assert not IndividualScore.objects.filter(quiz=quiz_event).exists()
+
+    def test_a_released_seat_is_not_credited(self, quiz_event, coach_user):
+        """The outcome the lock protects, with the race resolved the way it
+        would be if the undo won: someone whose seat was released before the
+        host scored must not appear on the individual leaderboard for a
+        question they were not seated for."""
+        from asgiref.sync import async_to_sync
+        from crush_lu.models.quiz import IndividualScore
+        from crush_lu.services.quiz_rotation import release_table_on_undo
+
+        question, tables = self._setup(quiz_event)
+        staying = self._seat(quiz_event, tables[1], "staying@test.com")
+        leaving = self._seat(quiz_event, tables[1], "leaving@test.com")
+
+        release_table_on_undo(quiz_event, leaving)
+
+        consumer = self._make_consumer(quiz_event)
+        async_to_sync(consumer.score_table_for_question)(
+            tables[1].id, question.id, True
+        )
+
+        credited = set(
+            IndividualScore.objects.filter(quiz=quiz_event).values_list(
+                "user_id", flat=True
+            )
+        )
+        assert credited == {staying.id}
+        assert leaving.id not in credited
+
+    def test_both_scoring_paths_hold_the_table_lock(self, quiz_event):
+        """The consumer and the REST endpoint are twins — the host panel can
+        reach either — so a lock on only one leaves the race open on the
+        other. Pinned by inspection rather than by a real concurrent write,
+        which SQLite cannot express."""
+        import inspect
+
+        from crush_lu import api_quiz
+        from crush_lu.consumers import QuizConsumer
+
+        for fn in (
+            QuizConsumer.score_table_for_question,
+            api_quiz.score_table,
+        ):
+            src = inspect.getsource(inspect.unwrap(fn))
+            assert "select_for_update()" in src
+            assert 'order_by("table_number")' in src

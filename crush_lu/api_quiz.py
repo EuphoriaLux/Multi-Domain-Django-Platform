@@ -354,6 +354,19 @@ def score_table(request, quiz_id):
     from django.db import transaction
 
     with transaction.atomic():
+        # Same lock, same order as the consumer's twin and the rotation
+        # helpers (#721). This path already had its seat read and its
+        # IndividualScore writes inside the transaction, which is what keeps
+        # a failure from leaving a table scored with nobody credited — but
+        # under READ COMMITTED that alone does not stop a concurrent
+        # check-in, rotation or undo from committing between the read and the
+        # write. Only holding the tables the rotation writers hold does.
+        list(
+            QuizTable.objects.filter(quiz=quiz)
+            .select_for_update()
+            .order_by("table_number")
+        )
+
         existing = TableRoundScore.objects.select_for_update().filter(
             quiz=quiz, table=table, question=question
         ).first()

@@ -1383,7 +1383,28 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         # correctness) so flipping a score after that would cause
         # confusing UI churn. The "no re-score after reveal" lock is
         # the all-tables-scored gate, not a pure write-once rule.
+        #
+        # The seat read and the IndividualScore writes are inside this atomic
+        # too, not after it. Read-before-delete / write-after-delete is what
+        # credited people who had already left the table: `rotation_users` was
+        # read once, and anything rewriting QuizRotationSchedule in between —
+        # a late arrival regenerating future rounds, a rotation, a
+        # consolidation, an undone check-in — landed between the two.
         with transaction.atomic():
+            # The lock the rotation helpers take, in their order: every writer
+            # of these seats holds the quiz's tables (assign_table_on_checkin,
+            # release_table_on_undo), so taking them here serialises against
+            # all of them. Scoring touches no registration, so it enters the
+            # door path's registration -> tables -> quiz order at `tables`,
+            # and it deliberately does NOT go on to take the quiz row:
+            # dissolve_table locks quiz -> table, and holding tables while
+            # waiting on the quiz is the one combination that could cycle.
+            list(
+                QuizTable.objects.filter(quiz=quiz)
+                .select_for_update()
+                .order_by("table_number")
+            )
+
             existing = (
                 TableRoundScore.objects.select_for_update()
                 .filter(quiz=quiz, table=table, question=question)
@@ -1418,69 +1439,70 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
                 existing.save(update_fields=["is_correct"])
                 created = False
 
-        # Issue #4: Read bonus from question's own round, not quiz.current_round
-        points = question.points if is_correct else 0
-        if is_correct and question.round.is_bonus:
-            points *= 2
+            # Issue #4: Read bonus from question's own round, not
+            # quiz.current_round
+            points = question.points if is_correct else 0
+            if is_correct and question.round.is_bonus:
+                points *= 2
 
-        # Attribute scores to the round this question belongs to, not the
-        # quiz's current round. Prevents a rotate between "question asked"
-        # and "late score arrives" from crediting the new round's seatmates.
-        round_number = quiz.get_round_number(question.round)
+            # Attribute scores to the round this question belongs to, not the
+            # quiz's current round. Prevents a rotate between "question asked"
+            # and "late score arrives" from crediting the new round's seatmates.
+            round_number = quiz.get_round_number(question.round)
 
-        # Decide rotation-vs-fallback at the *quiz* level, not per-table.
-        # A rotation-aware quiz with an empty seat at the scored table
-        # must not fall back to round-0 memberships (the fossil bug
-        # described in §4I) — that would credit ghosts for the
-        # current question.
-        round_has_rotation = QuizRotationSchedule.objects.filter(
-            quiz=quiz, round_number=round_number
-        ).exists()
-        if round_has_rotation:
-            rotation_users = list(
-                QuizRotationSchedule.objects.filter(
-                    quiz=quiz,
-                    round_number=round_number,
-                    table=table,
-                ).values_list("user_id", flat=True)
-            )
-        else:
-            # Legacy non-rotating quiz path.
-            rotation_users = list(
-                QuizTableMembership.objects.filter(table=table).values_list(
-                    "user_id", flat=True
+            # Decide rotation-vs-fallback at the *quiz* level, not per-table.
+            # A rotation-aware quiz with an empty seat at the scored table
+            # must not fall back to round-0 memberships (the fossil bug
+            # described in §4I) — that would credit ghosts for the
+            # current question.
+            round_has_rotation = QuizRotationSchedule.objects.filter(
+                quiz=quiz, round_number=round_number
+            ).exists()
+            if round_has_rotation:
+                rotation_users = list(
+                    QuizRotationSchedule.objects.filter(
+                        quiz=quiz,
+                        round_number=round_number,
+                        table=table,
+                    ).values_list("user_id", flat=True)
                 )
-            )
+            else:
+                # Legacy non-rotating quiz path.
+                rotation_users = list(
+                    QuizTableMembership.objects.filter(table=table).values_list(
+                        "user_id", flat=True
+                    )
+                )
 
-        # On a re-score, refresh existing IndividualScore rows so
-        # leaderboards and per-user scores reflect the corrected state.
-        # On the first scoring, get_or_create avoids overwriting
-        # concurrent scores for other tables that share members (rare,
-        # but possible across rotations).
-        if created:
-            for user_id in rotation_users:
-                IndividualScore.objects.get_or_create(
-                    quiz=quiz,
-                    user_id=user_id,
-                    question=question,
-                    defaults={
-                        "is_correct": is_correct,
-                        "points_earned": points,
-                        "answer": f"table_scored:{table.table_number}",
-                    },
-                )
-        else:
-            for user_id in rotation_users:
-                IndividualScore.objects.update_or_create(
-                    quiz=quiz,
-                    user_id=user_id,
-                    question=question,
-                    defaults={
-                        "is_correct": is_correct,
-                        "points_earned": points,
-                        "answer": f"table_scored:{table.table_number}",
-                    },
-                )
+            # On a re-score, refresh existing IndividualScore rows so
+            # leaderboards and per-user scores reflect the corrected state.
+            # On the first scoring, get_or_create avoids overwriting
+            # concurrent scores for other tables that share members (rare,
+            # but possible across rotations).
+            if created:
+                for user_id in rotation_users:
+                    IndividualScore.objects.get_or_create(
+                        quiz=quiz,
+                        user_id=user_id,
+                        question=question,
+                        defaults={
+                            "is_correct": is_correct,
+                            "points_earned": points,
+                            "answer": f"table_scored:{table.table_number}",
+                        },
+                    )
+            else:
+                for user_id in rotation_users:
+                    IndividualScore.objects.update_or_create(
+                        quiz=quiz,
+                        user_id=user_id,
+                        question=question,
+                        defaults={
+                            "is_correct": is_correct,
+                            "points_earned": points,
+                            "answer": f"table_scored:{table.table_number}",
+                        },
+                    )
 
         # Check if all tables have been scored for this question
         total_tables = QuizTable.objects.filter(quiz=quiz).count()
