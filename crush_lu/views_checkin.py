@@ -830,6 +830,19 @@ def coach_promote_from_waitlist(request, event_id, registration_id):
                 status=409,
             )
 
+        # Cancelling an event only flips MeetupEvent.is_cancelled; the
+        # waitlist rows keep their status, so an already-open scanner tab
+        # would still promote them — granting attendance, verification and a
+        # permanent coach for an event that is not happening.
+        if registration.event.is_cancelled:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": str(_("This event has been cancelled.")),
+                },
+                status=409,
+            )
+
         # Same window as event_checkin_api. A promotion grants a seat, a
         # verification and a permanent coach; none of that should be reachable
         # from a stale event page weeks later just because this route skipped

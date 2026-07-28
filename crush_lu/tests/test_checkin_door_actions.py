@@ -379,6 +379,26 @@ class TestPromoteFromWaitlist:
         registration.refresh_from_db()
         assert registration.status == "waitlist"
 
+    def test_promote_refused_for_a_cancelled_event(self, client):
+        """Cancelling an event only flips is_cancelled — the waitlist rows keep
+        their status, so an already-open scanner tab could still grant
+        attendance, verification and a permanent coach for an event that is
+        not happening."""
+        coach = _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        MeetupEvent.objects.filter(pk=event.pk).update(is_cancelled=True)
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="waitlist"
+        )
+        client.force_login(coach.user)
+
+        response = client.post(_promote_url(event, registration))
+
+        assert response.status_code == 409
+        registration.refresh_from_db()
+        assert registration.status == "waitlist"
+
     def test_promote_reports_itself_as_a_promotion(self, client):
         """The client keys the counter maths off this: a promoted row was
         never in the expected set, so unlike a scan it must not decrement
