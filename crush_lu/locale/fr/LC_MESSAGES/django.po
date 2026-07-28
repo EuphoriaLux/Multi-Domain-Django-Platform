@@ -38750,3 +38750,12 @@ msgstr "Avancé : paramètres des invitations privées"
 
 msgid "Configure this event as invitation-only. You can invite existing users directly or send external guest invitations (managed via EventInvitation inline below)."
 msgstr "Configurez cet événement sur invitation uniquement. Vous pouvez inviter directement des utilisateurs existants ou envoyer des invitations à des personnes externes (gérées via les lignes EventInvitation ci-dessous)."
+
+msgid "Status this registration held immediately before check-in"
+msgstr "Statut que cette inscription avait juste avant l’enregistrement"
+
+msgid "Coach this check-in granted the member as their permanent coach (empty when the member already had one)"
+msgstr "Coach que cet enregistrement a attribué au membre comme coach permanent (vide si le membre en avait déjà un)"
+
+msgid "The exact CrushProfile.assigned_coach_at this check-in wrote. Undo clears the coach only while the profile still holds this pair, so any later write — premium confirmation, admin reassignment — survives the undo."
+msgstr "La valeur exacte de CrushProfile.assigned_coach_at écrite par cet enregistrement. L’annulation ne retire le coach que tant que le profil contient encore cette paire ; toute écriture ultérieure (confirmation premium, réattribution par un administrateur) y survit."

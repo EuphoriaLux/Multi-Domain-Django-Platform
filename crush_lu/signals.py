@@ -2501,6 +2501,11 @@ def assign_coach_on_first_attendance(sender, instance, created, **kwargs):
     Idempotent — once a coach is assigned the member keeps it, and events
     with no coaches simply leave the member unassigned until a coached event
     is attended.
+
+    Records the grant on the registration (``checkin_granted_coach`` +
+    ``checkin_granted_coach_at``) so ``coach_undo_checkin`` can take it back
+    from a record rather than from a timestamp comparison it has no way of
+    attributing to a workflow.
     """
     if instance.status != "attended":
         return
@@ -2513,9 +2518,21 @@ def assign_coach_on_first_attendance(sender, instance, created, **kwargs):
     if coach is None:
         return
 
+    granted_at = timezone.now()
     profile.assigned_coach = coach
-    profile.assigned_coach_at = timezone.now()
+    profile.assigned_coach_at = granted_at
     profile.save(update_fields=["assigned_coach", "assigned_coach_at"])
+
+    # Written with a queryset update, not `instance.save()`: this IS the
+    # post_save handler for EventRegistration and re-saving would re-enter it.
+    # The in-memory instance is updated too, so the calling view's response
+    # and its own later reads see the grant without a refresh.
+    instance.checkin_granted_coach = coach
+    instance.checkin_granted_coach_at = granted_at
+    EventRegistration.objects.filter(pk=instance.pk).update(
+        checkin_granted_coach=coach,
+        checkin_granted_coach_at=granted_at,
+    )
     logger.info(
         "[COACH-ASSIGN] Assigned coach pk=%s to profile pk=%s on attendance "
         "of event pk=%s",

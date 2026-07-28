@@ -700,6 +700,48 @@ class EventRegistration(models.Model):
         help_text=_("When the attendee was checked in via QR scan"),
     )
 
+    # --- Undo provenance -------------------------------------------------
+    # How this attendance was reached, written at the moment it is reached.
+    # `coach_undo_checkin` used to infer both of these and got both wrong:
+    # it hardcoded `confirmed` as the status to restore (so undoing a
+    # mistaken waitlist promotion handed out a seat that was never given),
+    # and it read `assigned_coach_at >= checked_in_at` as "this check-in
+    # granted the coach". A timestamp establishes ordering, not which
+    # workflow did the writing — `PremiumMembership.confirm()` and an admin
+    # reassignment write the same two profile fields, so a premium
+    # confirmation four minutes after a scan read as a door grant and the
+    # undo stripped a *paid* coach with nothing able to restore it.
+    #
+    # Cleared again by the undo, so a row that is not `attended` carries no
+    # stale provenance for whatever marks it attended next.
+    checkin_prior_status = models.CharField(
+        max_length=20,
+        blank=True,
+        default="",
+        help_text=_("Status this registration held immediately before check-in"),
+    )
+    checkin_granted_coach = models.ForeignKey(
+        CrushCoach,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        help_text=_(
+            "Coach this check-in granted the member as their permanent coach "
+            "(empty when the member already had one)"
+        ),
+    )
+    checkin_granted_coach_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_(
+            "The exact CrushProfile.assigned_coach_at this check-in wrote. "
+            "Undo clears the coach only while the profile still holds this "
+            "pair, so any later write — premium confirmation, admin "
+            "reassignment — survives the undo."
+        ),
+    )
+
     # Google Wallet Event Ticket
     google_wallet_ticket_object_id = models.CharField(
         max_length=128,
