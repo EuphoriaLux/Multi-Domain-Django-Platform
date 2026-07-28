@@ -10508,7 +10508,8 @@ msgstr ""
 msgid "Edit Coach Profile"
 msgstr ""
 
-#: .\crush_lu\templates\crush_lu\base.html:326
+#: templates/crush_lu/dashboard.html:204
+#: templates/crush_lu/partials/bottom_nav.html:76
 msgid "My Crush"
 msgstr ""
 

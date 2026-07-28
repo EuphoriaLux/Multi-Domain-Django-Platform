@@ -4,7 +4,7 @@
 {% block title %}{% trans "Edit your Crush Connect profile" %}{% endblock %}
 
 {% block connect_content %}
-<div class="max-w-2xl mx-auto px-4 py-8 pb-24 lg:pb-10">
+<div class="max-w-2xl mx-auto {% if mode == 'detail' and cfg.key == 'lifestyle' %}px-0 sm:px-4{% else %}px-4{% endif %} py-8 pb-24 lg:pb-10">
 
 {% if mode == "detail" %}
     {# ── Focused single-section editor ── #}
@@ -15,7 +15,9 @@
         </a>
     </header>
 
-    <form method="post" action="{% url 'crush_lu:crush_connect_profile_edit' %}?section={{ cfg.key }}" novalidate>
+    <form method="post" action="{% url 'crush_lu:crush_connect_profile_edit' %}?section={{ cfg.key }}"
+          {% if cfg.key == "lifestyle" %}class="connect-lifestyle-profile"{% endif %}
+          novalidate>
         {% csrf_token %}
         <input type="hidden" name="section" value="{{ cfg.key }}">
 
