@@ -255,35 +255,32 @@ TEMPLATES = [
 WSGI_APPLICATION = "azureproject.wsgi.application"
 ASGI_APPLICATION = "azureproject.asgi.application"
 
+# Must stay above channels-redis' `brpop_timeout` (a class attribute on
+# RedisChannelLayer, 5s). The layer listens with `BRPOP <channel> 5`, which on
+# an idle channel blocks the full five seconds by design, while redis-py 8.0
+# applies `DEFAULT_SOCKET_TIMEOUT = 5` where older releases used None. Two
+# identical timers race, the client wins, and every idle WebSocket dies at
+# exactly 5.0s with "Timeout reading from ...redis.cache.windows.net:6380".
+CHANNEL_LAYER_SOCKET_TIMEOUT = 10
+
+
+def channel_layer_hosts(url):
+    """Channel-layer host config with a read timeout that outlives BRPOP.
+
+    Scoped to the channel layer on purpose: CACHES shares this Redis URL, and
+    raising the timeout there too would slow how fast a wedged Redis surfaces
+    on the page-render path. `decode_hosts` forwards dict entries verbatim and
+    `create_pool` calls `from_url(address, **host)`, so this reaches the pool.
+    """
+    return [{"address": url, "socket_timeout": CHANNEL_LAYER_SOCKET_TIMEOUT}]
+
+
 # Channel Layers - Redis if REDIS_URL is set, otherwise in-memory
 if os.environ.get("REDIS_URL"):
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": {
-                # socket_timeout MUST stay above channels-redis' brpop_timeout
-                # (`channels_redis/core.py`, class attribute, 5s). The layer
-                # listens with `BRPOP <channel> 5`, which on an idle channel
-                # blocks for the full five seconds by design — and redis-py 8.0
-                # applies `DEFAULT_SOCKET_TIMEOUT = 5` (`redis/_defaults.py`)
-                # where older releases defaulted to None. Two identical
-                # five-second timers race, the client one wins, and every idle
-                # WebSocket dies at exactly 5.0s with
-                # "Timeout reading from ...redis.cache.windows.net:6380".
-                #
-                # Passing the host as a dict keeps this scoped to the channel
-                # layer: `decode_hosts` forwards dict entries verbatim and
-                # `create_pool` calls `from_url(address, **host)`. Setting it
-                # on REDIS_URL instead would also raise the CACHES read
-                # timeout, slowing down how fast a wedged Redis surfaces on
-                # the page-render path.
-                "hosts": [
-                    {
-                        "address": os.environ["REDIS_URL"],
-                        "socket_timeout": 10,
-                    }
-                ],
-            },
+            "CONFIG": {"hosts": channel_layer_hosts(os.environ["REDIS_URL"])},
         },
     }
 else:

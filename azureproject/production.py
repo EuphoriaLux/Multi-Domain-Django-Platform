@@ -16,7 +16,7 @@ DJANGO_ENV = os.environ.get("DJANGO_ENV", "production")
 from django.http import request as django_request
 
 from .settings import *  # noqa
-from .settings import BASE_DIR
+from .settings import BASE_DIR, channel_layer_hosts
 
 _original_validate_host = django_request.validate_host
 
@@ -339,37 +339,21 @@ CACHES = {
 
 # Channel Layers - Redis for production WebSocket support (Django Channels)
 #
-# THIS is the channel layer Azure actually runs. asgi.py/wsgi.py load this
-# module whenever WEBSITE_HOSTNAME is set, and it overrides settings.py's
+# THIS is the channel layer Azure actually runs: asgi.py/wsgi.py load this
+# module whenever WEBSITE_HOSTNAME is set, and it replaces settings.py's
 # CHANNEL_LAYERS wholesale — note it keys on AZURE_REDIS_CONNECTIONSTRING while
-# settings.py keys on REDIS_URL, which is unset here. Change both together.
-#
-# socket_timeout MUST stay above channels-redis' brpop_timeout
-# (`channels_redis/core.py`, class attribute, 5s). The layer listens with
-# `BRPOP <channel> 5`, which on an idle channel blocks for the full five
-# seconds by design — and redis-py 8.0 applies `DEFAULT_SOCKET_TIMEOUT = 5`
-# (`redis/_defaults.py`) where older releases defaulted to None. Two identical
-# five-second timers race, the client one wins, and every idle WebSocket dies
-# at exactly 5.0s with "Timeout reading from ...redis.cache.windows.net:6380".
-# Observed on production 2026-07-28 on /ws/checkin/, once per socket per 5s.
-#
-# Passing the host as a dict keeps this scoped to the channel layer:
-# `decode_hosts` forwards dict entries verbatim and `create_pool` calls
-# `from_url(address, **host)`. Putting it on the connection string instead
-# would also raise the CACHES read timeout above, slowing down how fast a
-# wedged Redis surfaces on the page-render path.
+# settings.py keys on REDIS_URL, which is unset here. Patching only settings.py
+# is a silent no-op in production. `channel_layer_hosts` carries the read-timeout
+# rationale; both modules go through it so the two cannot drift.
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [
-                {
-                    "address": os.environ.get(
-                        "AZURE_REDIS_CONNECTIONSTRING", "redis://localhost:6379/0"
-                    ),
-                    "socket_timeout": 10,
-                }
-            ],
+            "hosts": channel_layer_hosts(
+                os.environ.get(
+                    "AZURE_REDIS_CONNECTIONSTRING", "redis://localhost:6379/0"
+                )
+            ),
         },
     },
 }
