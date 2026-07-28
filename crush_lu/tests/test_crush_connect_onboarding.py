@@ -219,6 +219,22 @@ def test_back_edit_allowed_without_pointer_regression(client, settings):
 
 
 @pytest.mark.django_db
+def test_lifestyle_profile_editor_has_mobile_flat_layout(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", preferred_genders=["F"], onboarded=True)
+    _mark_attended(me)
+    _login_eligible(client, me)
+
+    resp = client.get(PROFILE_EDIT_URL + "?section=lifestyle")
+
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert 'class="connect-lifestyle-profile"' in body
+    assert "px-0 sm:px-4" in body
+    assert body.count('class="connect-trait-grid"') == 2
+
+
+@pytest.mark.django_db
 def test_per_step_immediate_persistence(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(username="me", preferred_genders=["F"], onboarded=False)
