@@ -577,3 +577,52 @@ class SelfServiceEditPathTests(TestCase):
         self.assertEqual(self.profile.verification_status, "pending")
         after = ProfileSubmission.objects.filter(profile=self.profile).count()
         self.assertEqual(before, after)
+
+
+class CrushProfileAdminSaveModelTests(TestCase):
+    """Regression cover for the phone-verification bypass in
+    CrushProfileAdmin.save_model.
+
+    Exposing qualities/defects/sought_qualities via filter_horizontal meant
+    those M2M names could appear in form.changed_data alongside a phone field.
+    The bypass path passed the full changed_data to update_fields, which Django
+    rejects with ValueError for M2M names — so a staff edit touching both a
+    verified phone and a trait selector 500'd. save_model now filters to
+    concrete, non-M2M fields.
+    """
+
+    def setUp(self):
+        self.staff = User.objects.create_superuser(
+            username="staff", email="staff@example.com", password="SecurePass123!"
+        )
+        self.user = User.objects.create_user(
+            username="member", email="member@example.com"
+        )
+        self.profile = CrushProfile.objects.create(
+            user=self.user,
+            phone_number="+35212345678",
+            phone_verified=True,
+            phone_verified_at=timezone.now(),
+            verification_status="verified",
+            is_approved=True,
+        )
+
+    def test_phone_plus_m2m_change_does_not_raise(self):
+        from crush_lu.admin.profiles import CrushProfileAdmin
+
+        admin_instance = CrushProfileAdmin(CrushProfile, None)
+        # Reload so obj carries the stored phone_verified state the bypass keys
+        # off (old_instance lookup inside save_model reads the DB row).
+        obj = CrushProfile.objects.get(pk=self.profile.pk)
+        obj.phone_number = "+35299999999"  # phone change triggers the bypass
+
+        class _StubForm:
+            # A trait selector (M2M) edited in the same submit as the phone.
+            changed_data = ["phone_number", "qualities"]
+
+        # Before the fix this raised:
+        #   ValueError: Cannot update a field with M2M in update_fields.
+        admin_instance.save_model(request=None, obj=obj, form=_StubForm(), change=True)
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.phone_number, "+35299999999")

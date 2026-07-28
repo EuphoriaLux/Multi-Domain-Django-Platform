@@ -430,8 +430,20 @@ class CrushProfileAdmin(admin.ModelAdmin):
 
             if old_instance.phone_verified and phone_fields_changed:
                 # Admin is explicitly changing phone fields - bypass model protection
-                # Save directly to database without triggering model's save() override
-                super(CrushProfile, obj).save(update_fields=form.changed_data)
+                # Save directly to database without triggering model's save() override.
+                # Filter to concrete, non-M2M fields: update_fields rejects M2M names
+                # (ValueError), and since we exposed qualities/defects/sought_qualities
+                # via filter_horizontal those names can appear in changed_data when a
+                # trait edit lands in the same submit as a phone correction.
+                concrete_fields = {
+                    f.name
+                    for f in CrushProfile._meta.get_fields()
+                    if f.concrete and not f.many_to_many
+                }
+                safe_update_fields = [
+                    name for name in form.changed_data if name in concrete_fields
+                ]
+                super(CrushProfile, obj).save(update_fields=safe_update_fields)
                 return
 
         # Normal save for all other cases
