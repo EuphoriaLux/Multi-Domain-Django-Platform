@@ -290,6 +290,45 @@ class TestUndoCheckin:
         assert activate.call_count == 1
         assert activate.call_args[0][0].pk == registration.pk
 
+    def test_a_deferred_wallet_patch_sends_what_the_row_says_now(
+        self, settings, django_capture_on_commit_callbacks
+    ):
+        """Committing releases the row lock, so two overlapping door actions
+        can have PATCHes in flight at once and the last one decides what Google
+        stores. The state is re-derived at send time, so a scan whose PATCH
+        lands after an undo sends `active` — matching the row — instead of the
+        `completed` it decided on up to 30 seconds earlier."""
+        settings.WALLET_GOOGLE_EVENT_TICKET_ENABLED = True
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event,
+            user=attendee,
+            status="confirmed",
+            google_wallet_ticket_object_id="issuer.ticket-1",
+        )
+
+        with (
+            mock.patch(
+                "crush_lu.wallet.google_event_ticket_api.complete_event_ticket",
+                return_value={"success": True, "message": "ok"},
+            ) as complete,
+            mock.patch(
+                "crush_lu.wallet.google_event_ticket_api.activate_event_ticket",
+                return_value={"success": True, "message": "ok"},
+            ) as activate,
+        ):
+            with django_capture_on_commit_callbacks(execute=True):
+                registration.status = "attended"
+                registration.save(update_fields=["status"])
+                # Another coach undoes it before the deferred PATCH runs.
+                EventRegistration.objects.filter(pk=registration.pk).update(
+                    status="confirmed"
+                )
+
+        assert complete.call_count == 0, "sent a decision the row had moved past"
+        assert activate.call_count == 1
+
     def test_an_unrelated_save_does_not_reactivate_the_ticket(
         self, settings, django_capture_on_commit_callbacks
     ):
