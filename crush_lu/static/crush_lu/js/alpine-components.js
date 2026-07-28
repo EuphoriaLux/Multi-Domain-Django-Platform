@@ -884,8 +884,12 @@ document.addEventListener("alpine:init", function () {
                 if (!undoUrl) return null;
                 var undoBtn = document.createElement("button");
                 undoBtn.type = "button";
+                // Must stay identical to the server-rendered twin in
+                // coach_event_checkin.html — a row that came back through undo
+                // sits next to rows that never left, and a drifted class list
+                // shows up as two differently-shaped buttons in the same list.
                 undoBtn.className =
-                    "manual-undo-btn px-2 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 underline decoration-dotted transition-colors";
+                    "manual-undo-btn btn-link px-2 py-1.5 text-xs font-medium decoration-dotted transition-colors text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400";
                 undoBtn.setAttribute("data-undo-url", undoUrl);
                 undoBtn.setAttribute("data-reg-id", regId);
                 undoBtn.textContent = i18n.undoAction || "Undo";
@@ -1294,8 +1298,10 @@ document.addEventListener("alpine:init", function () {
                     );
                     var newBtn = document.createElement("button");
                     newBtn.type = "button";
+                    // Keep in sync with the server-rendered twin in
+                    // coach_event_checkin.html (see _buildUndoButton).
                     newBtn.className =
-                        "manual-checkin-btn px-3 py-1.5 text-xs font-medium bg-crush-purple text-white rounded-lg hover:bg-crush-purple/90 transition-colors";
+                        "manual-checkin-btn btn-crush-solid btn-sm text-white";
                     newBtn.setAttribute("data-checkin-url", checkinUrl || "");
                     newBtn.setAttribute("data-reg-id", id);
                     newBtn.textContent = i18n.checkIn || "Check In";
