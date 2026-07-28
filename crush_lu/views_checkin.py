@@ -673,9 +673,11 @@ def coach_undo_checkin(request, event_id, registration_id):
       (``assigned_coach_at >= checked_in_at``). A member who already had a
       coach keeps it.
 
-    - A quiz seat, if the original check-in took one. The membership and the
-      rotation rows are separate objects that outlive the status flip, so an
-      undone attendee would otherwise keep a chair their table is short of.
+    - A quiz seat, if the original check-in took one — membership, rotation
+      rows and any scores collected inside the undo window. All of those are
+      separate objects that outlive the status flip, so an undone attendee
+      would otherwise keep a chair their table is short of and points on the
+      individual leaderboard.
 
     What it deliberately does NOT revert: the verification. The welcome email
     and the referral credit have already gone out, and un-verifying a member
@@ -756,6 +758,11 @@ def coach_undo_checkin(request, event_id, registration_id):
 
         registration.status = "confirmed"
         registration.checked_in_at = None
+        # Tells handle_event_ticket_on_registration_change that this really is
+        # an attended -> confirmed transition. The same idiom as
+        # _checkin_coach: the signal cannot tell a transition from any other
+        # save that happens to leave the row confirmed.
+        registration._reactivate_ticket = True
         # updated_at is auto_now, so it is only written when named here —
         # every other save in this file lists it for the same reason.
         registration.save(update_fields=["status", "checked_in_at", "updated_at"])

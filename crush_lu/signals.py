@@ -2395,7 +2395,8 @@ def handle_event_ticket_on_registration_change(sender, instance, created, **kwar
 
     - cancelled -> expire the ticket
     - attended -> complete the ticket
-    - confirmed -> activate the ticket (an attendance was undone)
+    - confirmed *and* ``_reactivate_ticket`` set -> activate the ticket
+      (an attendance was undone; see the branch for why the flag is needed)
     """
     if not instance.google_wallet_ticket_object_id:
         return
@@ -2421,10 +2422,20 @@ def handle_event_ticket_on_registration_change(sender, instance, created, **kwar
             result = complete_event_ticket(instance)
             if result["success"]:
                 logger.info(f"Completed event ticket for registration {instance.id}")
-        elif instance.status == "confirmed":
+        elif instance.status == "confirmed" and getattr(
+            instance, "_reactivate_ticket", False
+        ):
             # Undoing a mis-scan sends the row back to confirmed. Without this
-            # branch the member keeps a pass marked used while still holding a
-            # valid registration, so their own ticket stops being a door pass.
+            # the member keeps a pass marked used while still holding a valid
+            # registration, so their own ticket stops being a door pass.
+            #
+            # Explicitly flagged by the undo path rather than derived from the
+            # status, because plenty of saves leave a row confirmed without any
+            # transition having happened: _ensure_ticket_object_id and
+            # _generate_checkin_token both write non-status fields. A status-only
+            # test would PATCH on each of those — and the first one runs before
+            # the JWT has created the Wallet object, so it 404s while still
+            # allowing the request its 30 seconds.
             result = activate_event_ticket(instance)
             if result["success"]:
                 logger.info(f"Reactivated event ticket for registration {instance.id}")

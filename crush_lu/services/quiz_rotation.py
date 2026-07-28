@@ -346,15 +346,20 @@ def release_table_on_undo(quiz_event, user):
     short for whoever actually turns up.
 
     Removes every rotation row for this user at this quiz, not just round 0.
-    They were never there, so no round should seat them.
+    They were never there, so no round should seat them — and for the same
+    reason their ``IndividualScore`` rows go too, or a person the undo
+    declares was never present keeps points on the individual leaderboard
+    for any question scored inside the undo window.
 
     Returns:
-        dict with {"table_number": int} of the freed table, or None if the
-        user held no seat.
+        dict with {"table_number": int} of the table to refresh, or None if
+        the user held no seat. That is the table they are sitting at *now*,
+        which after a rotation is not the one they checked in at.
     """
     from django.db import transaction
 
     from crush_lu.models.quiz import (
+        IndividualScore,
         QuizRotationSchedule,
         QuizTable,
         QuizTableMembership,
@@ -377,9 +382,20 @@ def release_table_on_undo(quiz_event, user):
         if membership is None:
             return None
 
-        table_number = membership.table.table_number
+        # Where they are seated now, not where they checked in. A rotator's
+        # membership row stays on their round-0 table while their live
+        # subscription follows the current QuizRotationSchedule row — the same
+        # precedence get_current_assignment applies on the WS connect path.
+        # Broadcasting the membership table mid-quiz refreshes a table they
+        # left, and the people they are actually sitting with keep seeing them.
+        current = get_current_assignment(quiz_event, user.pk)
+        table_number = (
+            current["table_number"] if current else membership.table.table_number
+        )
+
         membership.delete()
         QuizRotationSchedule.objects.filter(quiz=quiz_event, user=user).delete()
+        IndividualScore.objects.filter(quiz=quiz_event, user=user).delete()
 
     # Mirror of the assign path: a live quiz has to be reseated around the
     # gap, and generate_rotation_rounds preserves the current and already-

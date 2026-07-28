@@ -316,6 +316,32 @@ class TestUndoCheckin:
         assert activate.call_count == 1
         assert activate.call_args[0][0].pk == registration.pk
 
+    def test_an_unrelated_save_does_not_reactivate_the_ticket(self, settings):
+        """Reactivation is flagged by the undo path, not derived from the
+        status. _ensure_ticket_object_id and _generate_checkin_token both save
+        non-status fields on a confirmed row, and the first of them runs
+        *before* the JWT has created the Wallet object — a status-only branch
+        would PATCH a 404 and still allow the request its 30 seconds, in front
+        of ticket generation."""
+        settings.WALLET_GOOGLE_EVENT_TICKET_ENABLED = True
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event,
+            user=attendee,
+            status="confirmed",
+            google_wallet_ticket_object_id="issuer.ticket-1",
+        )
+
+        with mock.patch(
+            "crush_lu.wallet.google_event_ticket_api.activate_event_ticket",
+            return_value={"success": True, "message": "ok"},
+        ) as activate:
+            registration.checkin_token = "tok"
+            registration.save(update_fields=["checkin_token"])
+
+        assert activate.call_count == 0
+
     def test_undo_refused_when_not_checked_in(self, client):
         coach = _make_coach()
         attendee = _make_attendee()
@@ -509,6 +535,91 @@ class TestPromoteFromWaitlist:
         assert response.status_code in (302, 403)
         registration.refresh_from_db()
         assert registration.status == "waitlist"
+
+
+class TestQuizSeatRelease:
+    """release_table_on_undo is the inverse of assign_table_on_checkin, and
+    has to undo everything the seat accumulated — not just the chair."""
+
+    def _seated_quiz(self, rotated_to=None):
+        from crush_lu.models.quiz import (
+            QuizEvent,
+            QuizRotationSchedule,
+            QuizRound,
+            QuizTableMembership,
+        )
+
+        coach = _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        quiz = QuizEvent.objects.create(
+            event=event, status="draft", created_by=coach.user, num_tables=2
+        )
+        tables = quiz.ensure_tables()
+        QuizRound.objects.create(quiz=quiz, title="Round 1", sort_order=0)
+        second = QuizRound.objects.create(quiz=quiz, title="Round 2", sort_order=1)
+
+        QuizTableMembership.objects.create(table=tables[1], user=attendee)
+        QuizRotationSchedule.objects.create(
+            quiz=quiz, round_number=0, table=tables[1], user=attendee, role="rotator"
+        )
+        if rotated_to is not None:
+            quiz.current_round = second
+            quiz.save(update_fields=["current_round"])
+            QuizRotationSchedule.objects.create(
+                quiz=quiz,
+                round_number=1,
+                table=tables[rotated_to],
+                user=attendee,
+                role="rotator",
+            )
+        return quiz, attendee
+
+    def test_it_notifies_the_table_the_player_is_at_now(self):
+        """A rotator's membership row stays on their round-0 table while their
+        live subscription follows the current schedule row. Broadcasting the
+        membership table mid-quiz refreshes a table they already left, so the
+        people they are actually sitting with keep seeing them."""
+        from crush_lu.services.quiz_rotation import release_table_on_undo
+
+        quiz, attendee = self._seated_quiz(rotated_to=2)
+        assert quiz.get_round_number() == 1
+
+        assert release_table_on_undo(quiz, attendee) == {"table_number": 2}
+
+    def test_it_falls_back_to_the_membership_table_before_any_rotation(self):
+        from crush_lu.services.quiz_rotation import release_table_on_undo
+
+        quiz, attendee = self._seated_quiz()
+
+        assert release_table_on_undo(quiz, attendee) == {"table_number": 1}
+
+    def test_it_removes_the_scores_the_undone_attendee_collected(self):
+        """A table scored inside the 15-minute undo window creates an
+        IndividualScore for every scheduled member. Leaving them behind keeps
+        a person the undo declares was never present on the leaderboard."""
+        from crush_lu.models.quiz import IndividualScore, QuizQuestion
+        from crush_lu.services.quiz_rotation import release_table_on_undo
+
+        quiz, attendee = self._seated_quiz()
+        question = QuizQuestion.objects.create(
+            round=quiz.rounds.first(), text="Capital of Luxembourg?"
+        )
+        IndividualScore.objects.create(
+            quiz=quiz, user=attendee, question=question, points_earned=10
+        )
+
+        release_table_on_undo(quiz, attendee)
+
+        assert not IndividualScore.objects.filter(quiz=quiz, user=attendee).exists()
+
+    def test_it_is_a_no_op_for_someone_who_never_sat_down(self):
+        from crush_lu.services.quiz_rotation import release_table_on_undo
+
+        quiz, _attendee = self._seated_quiz()
+        stranger = _make_attendee("stranger@example.com")
+
+        assert release_table_on_undo(quiz, stranger) is None
 
 
 class TestDoorPageContext:
