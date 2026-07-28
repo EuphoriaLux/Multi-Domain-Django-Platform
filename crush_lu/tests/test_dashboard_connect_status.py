@@ -85,6 +85,26 @@ class DashboardConnectStatusStripTests(TestCase):
         self.assertNotContains(response, self.JOIN_CTA)
 
     @override_settings(CRUSH_CONNECT_LAUNCHED=True)
+    def test_general_connect_destinations_are_labelled_my_crush(self):
+        _link_luxid(self.user)
+        CrushConnectMembership.objects.create(
+            user=self.user, onboarded_at=timezone.now(), photo_share_consent=True
+        )
+
+        response = self._get()
+
+        self.assertContains(response, "<span>My Crush</span>", html=True)
+        self.assertContains(response, "Crush Connect")
+        self.assertContains(response, reverse("crush_lu:crush_connect_hub"))
+
+        for language, label in (("de", "Mein Crush"), ("fr", "Mon crush")):
+            localized = self.client.get(
+                f"/{language}/dashboard/", HTTP_HOST="crush.lu"
+            )
+            self.assertEqual(localized.status_code, 200)
+            self.assertContains(localized, f"<span>{label}</span>", html=True)
+
+    @override_settings(CRUSH_CONNECT_LAUNCHED=True)
     def test_onboarded_without_photo_consent_shows_action_needed(self):
         """Opted in but photo sharing off → not actually discoverable, so the
         strip nudges to re-enable it instead of claiming "in the Mix"."""
