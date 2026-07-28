@@ -1286,9 +1286,13 @@ document.addEventListener("alpine:init", function () {
                 // the seat *up* (#710, finding 1). Which is also why this only
                 // corrects the acting coach's page — the remote one is put
                 // right by the redesign, not here.
-                if (data.released_table_number) {
+                // A list, because the seat model's uniqueness is only
+                // (table, user) — one person can hold chairs at two tables of
+                // the same quiz, and the grid counts both.
+                var releasedTables = data.released_table_numbers || [];
+                for (var ti = 0; ti < releasedTables.length; ti++) {
                     var fillEl = document.getElementById(
-                        "table-fill-" + data.released_table_number,
+                        "table-fill-" + releasedTables[ti],
                     );
                     if (fillEl) {
                         var fill = parseInt(fillEl.textContent, 10);

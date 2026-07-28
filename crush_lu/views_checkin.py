@@ -897,9 +897,9 @@ def coach_undo_checkin(request, event_id, registration_id):
     # its own table-fill grid, and no other page is misled into a bump. The
     # quiz table group is a different channel, carries the current table, and
     # reaches the players.
-    if released_table and released_table.get("membership_table_number"):
-        response_data["released_table_number"] = released_table[
-            "membership_table_number"
+    if released_table and released_table.get("membership_table_numbers"):
+        response_data["released_table_numbers"] = released_table[
+            "membership_table_numbers"
         ]
     _broadcast_checkin(registration.event_id, response_data)
     if released_table:
@@ -911,6 +911,14 @@ def coach_undo_checkin(request, event_id, registration_id):
         _broadcast_quiz_table_update(
             registration.event, released_table, affected_user_id=registration.user_id
         )
+        # Deleting their IndividualScore rows changes the standings everyone
+        # in the room is looking at, not just the people at their table — and
+        # the table broadcast reaches only the latter, whose handler refetches
+        # an assignment rather than a leaderboard. Sent on the shared group as
+        # the existing `quiz.leaderboard`, which every client already handles
+        # and which triggers no assignment refetch.
+        if released_table.get("scores_removed"):
+            _broadcast_quiz_leaderboard(registration.event)
     return JsonResponse(response_data)
 
 
@@ -1207,6 +1215,37 @@ def _broadcast_quiz_table_update(event, table_assignment, affected_user_id=None)
         )
     except Exception:
         logger.exception("Failed to broadcast quiz table update for event %s", event.id)
+
+
+def _broadcast_quiz_leaderboard(event):
+    """Push fresh standings to everyone connected to the quiz.
+
+    The individual leaderboard is otherwise only rebuilt when the host scores
+    or reveals, so removing someone's scores mid-round leaves them on every
+    other player's standings until the next question is marked. Goes to
+    ``quiz_<id>`` — the shared group — deliberately: the standings are the one
+    thing on that page that really is the same for the whole room, and
+    ``quiz.leaderboard`` is already handled by the player, host and projector
+    clients without triggering an assignment refetch.
+    """
+    from .consumers import build_leaderboard
+
+    channel_layer = get_channel_layer()
+    if not channel_layer:
+        return
+    try:
+        quiz_event = getattr(event, "quiz", None)
+        if not quiz_event:
+            return
+        async_to_sync(channel_layer.group_send)(
+            f"quiz_{quiz_event.id}",
+            {
+                "type": "quiz.leaderboard",
+                "data": build_leaderboard(quiz_event.id),
+            },
+        )
+    except Exception:
+        logger.exception("Failed to broadcast quiz leaderboard for event %s", event.id)
 
 
 def _get_existing_table_assignment(registration):

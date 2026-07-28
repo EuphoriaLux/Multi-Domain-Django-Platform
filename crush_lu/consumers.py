@@ -768,29 +768,39 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         # falls straight through.
         affected_user_id = event.get("affected_user_id")
         user = self.scope.get("user")
+        revoke = False
         if (
             affected_user_id
             and not self.is_display
             and getattr(user, "is_authenticated", False)
             and user.id == affected_user_id
         ):
-            still_allowed = (
+            revoke = not (
                 await self.is_host(user)
                 or await self._is_staff_viewer(user)
                 or await self._has_event_registration(user)
             )
-            if not still_allowed:
-                logger.info(
-                    "Quiz WS closed: user %s lost their rights to quiz %s",
-                    user.id,
-                    self.quiz_id,
-                )
-                await self.close()
-                return
+
+        # Send *before* closing, even when revoking. This is the message that
+        # makes quiz-live.js call fetchAssignment(), which is the only thing
+        # that clears the table, role, tablemates and score from their screen.
+        # Closing first strands all of it: the client reconnects, the same
+        # check rejects it, and its refetch is wired to a successful `onopen`
+        # that never comes — so it would sit on a stale table until it gave up
+        # and asked for a reload.
+        #
         # `affected_user_id` is deliberately not forwarded — the payload goes
         # to everyone at the table, and internal ids do not belong there
         # (AUTHZ-02).
         await self.send_json({"type": "quiz.table_update", "data": event["data"]})
+
+        if revoke:
+            logger.info(
+                "Quiz WS closed: user %s lost their rights to quiz %s",
+                user.id,
+                self.quiz_id,
+            )
+            await self.close()
 
     async def quiz_table_dissolved(self, event):
         await self.send_json({"type": "quiz.table_dissolved", "data": event["data"]})
@@ -1423,14 +1433,19 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
         # a late arrival regenerating future rounds, a rotation, a
         # consolidation, an undone check-in — landed between the two.
         with transaction.atomic():
-            # The lock the rotation helpers take, in their order: every writer
-            # of these seats holds the quiz's tables (assign_table_on_checkin,
-            # release_table_on_undo), so taking them here serialises against
-            # all of them. Scoring touches no registration, so it enters the
-            # door path's registration -> tables -> quiz order at `tables`,
-            # and it deliberately does NOT go on to take the quiz row:
-            # dissolve_table locks quiz -> table, and holding tables while
-            # waiting on the quiz is the one combination that could cycle.
+            # Quiz row, then the tables — the order every seat operation
+            # takes. Scoring touches no registration, so it enters the door
+            # path's registration -> tables -> quiz order here.
+            #
+            # Taking the quiz row is not optional even though nothing below
+            # reads it: on PostgreSQL the first TableRoundScore or
+            # IndividualScore insert takes a FOR KEY SHARE lock on the
+            # referenced QuizEvent row for the foreign key check, and that
+            # conflicts with the FOR UPDATE the rotation helpers hold. Locking
+            # only the tables therefore still ends up tables -> quiz, just
+            # implicitly, and deadlocks against exactly the paths the explicit
+            # ordering was meant to make safe.
+            QuizEvent.objects.select_for_update().filter(pk=quiz.pk).first()
             list(
                 QuizTable.objects.filter(quiz=quiz)
                 .select_for_update()
@@ -1819,58 +1834,71 @@ class QuizConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def get_leaderboard(self):
-        from crush_lu.models.quiz import IndividualScore, QuizTable
+        return build_leaderboard(self.quiz_id)
 
-        tables = QuizTable.objects.filter(quiz_id=self.quiz_id).order_by("table_number")
-        leaderboard = []
-        for table in tables:
-            score = table.get_total_score()
-            leaderboard.append(
-                {
-                    "table_number": table.table_number,
-                    "total_score": score,
-                }
+
+def build_leaderboard(quiz_id):
+    """The quiz's table and individual standings.
+
+    Module level so a plain HTTP view can build the same payload the consumer
+    broadcasts — an undo that removes someone's IndividualScore rows changes
+    what everyone in the room is looking at, not just the people at their
+    table, and `views_checkin` has no consumer to ask.
+    """
+    from django.db.models import Sum
+
+    from crush_lu.models.quiz import IndividualScore, QuizTable
+
+    tables = QuizTable.objects.filter(quiz_id=quiz_id).order_by("table_number")
+    leaderboard = []
+    for table in tables:
+        score = table.get_total_score()
+        leaderboard.append(
+            {
+                "table_number": table.table_number,
+                "total_score": score,
+            }
+        )
+    leaderboard.sort(key=lambda x: x["total_score"], reverse=True)
+
+    # Individual top scorers (using display_name for privacy)
+    from crush_lu.models import CrushProfile
+
+    top_individuals = (
+        IndividualScore.objects.filter(quiz_id=quiz_id)
+        .values("user_id")
+        .annotate(total=Sum("points_earned"))
+        .order_by("-total")[:10]
+    )
+
+    individual_scores = []
+    for entry in top_individuals:
+        try:
+            profile = CrushProfile.objects.get(user_id=entry["user_id"])
+            name = profile.display_name
+            has_photo = bool(getattr(profile, "photo_1", None))
+            photo_url = (
+                f"/api/quiz/photo/{entry['user_id']}/" if has_photo else None
             )
-        leaderboard.sort(key=lambda x: x["total_score"], reverse=True)
+        except CrushProfile.DoesNotExist:
+            name = "Anonymous"
+            photo_url = None
+        from crush_lu.views_quiz import _member_color, _member_initials
 
-        # Individual top scorers (using display_name for privacy)
-        from crush_lu.models import CrushProfile
-
-        top_individuals = (
-            IndividualScore.objects.filter(quiz_id=self.quiz_id)
-            .values("user_id")
-            .annotate(total=Sum("points_earned"))
-            .order_by("-total")[:10]
+        individual_scores.append(
+            {
+                "display_name": name,
+                "total_score": entry["total"],
+                "initials": _member_initials(name),
+                "color": _member_color(name),
+                "photo_url": photo_url,
+            }
         )
 
-        individual_scores = []
-        for entry in top_individuals:
-            try:
-                profile = CrushProfile.objects.get(user_id=entry["user_id"])
-                name = profile.display_name
-                has_photo = bool(getattr(profile, "photo_1", None))
-                photo_url = (
-                    f"/api/quiz/photo/{entry['user_id']}/" if has_photo else None
-                )
-            except CrushProfile.DoesNotExist:
-                name = "Anonymous"
-                photo_url = None
-            from crush_lu.views_quiz import _member_color, _member_initials
-
-            individual_scores.append(
-                {
-                    "display_name": name,
-                    "total_score": entry["total"],
-                    "initials": _member_initials(name),
-                    "color": _member_color(name),
-                    "photo_url": photo_url,
-                }
-            )
-
-        return {
-            "tables": leaderboard,
-            "individuals": individual_scores,
-        }
+    return {
+        "tables": leaderboard,
+        "individuals": individual_scores,
+    }
 
 
 class CheckinConsumer(AsyncJsonWebsocketConsumer):

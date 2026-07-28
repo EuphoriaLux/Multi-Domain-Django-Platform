@@ -369,10 +369,14 @@ def release_table_on_undo(quiz_event, user):
 
         - ``table_number`` is where they are sitting **now**, for the live
           quiz broadcast. None when no current round seats them.
-        - ``membership_table_number`` is their round-0 table, for the door
+        - ``membership_table_numbers`` are their round-0 tables, for the door
           page — whose table-fill grid is rendered from ``QuizTableMembership``
           (``views_coach.py``) and so counts the seat there whatever the
-          rotation has since done. None when they held no membership row.
+          rotation has since done. A list because the model's uniqueness is
+          only ``(table, user)``: nothing stops the same person holding a
+          chair at two tables of one quiz, and the admin's
+          ``QuizTableMembershipInline`` will happily create exactly that.
+          Empty when they held no membership row.
     """
     from django.db import transaction
 
@@ -416,11 +420,13 @@ def release_table_on_undo(quiz_event, user):
             .order_by("table_number")
         )
 
-        membership = (
-            QuizTableMembership.objects.filter(table__quiz=quiz_event, user=user)
-            .select_related("table")
-            .first()
-        )
+        # Every membership, not the first. `unique_together` is
+        # ``(table, user)``, so one user can legally hold chairs at several
+        # tables of the same quiz — releasing one and leaving the rest is
+        # precisely the half-done cleanup this function exists to prevent.
+        memberships = QuizTableMembership.objects.filter(
+            table__quiz=quiz_event, user=user
+        ).select_related("table")
         schedule = QuizRotationSchedule.objects.filter(quiz=quiz_event, user=user)
         scores = IndividualScore.objects.filter(quiz=quiz_event, user=user)
 
@@ -430,7 +436,7 @@ def release_table_on_undo(quiz_event, user):
         # generate_rotation_rounds can still schedule them off their attendance.
         # Keying the whole cleanup on membership would leave those rows seating
         # a confirmed non-attendee for the rest of the quiz.
-        if membership is None and not schedule.exists() and not scores.exists():
+        if not memberships.exists() and not schedule.exists() and not scores.exists():
             return None
 
         # Where they are seated now, not where they checked in. A rotator's
@@ -447,12 +453,12 @@ def release_table_on_undo(quiz_event, user):
         # door grid counts memberships, so a rotator undone after moving has
         # to decrement the table they checked in at, not the one they had
         # rotated to. Reporting only the current table left both tiles wrong.
-        membership_table_number = (
-            membership.table.table_number if membership is not None else None
+        membership_table_numbers = sorted(
+            m.table.table_number for m in memberships
         )
+        scores_removed = scores.exists()
 
-        if membership is not None:
-            membership.delete()
+        memberships.delete()
         schedule.delete()
         scores.delete()
 
@@ -474,7 +480,11 @@ def release_table_on_undo(quiz_event, user):
 
     return {
         "table_number": table_number,
-        "membership_table_number": membership_table_number,
+        "membership_table_numbers": membership_table_numbers,
+        # Whether the individual leaderboard just changed. Everyone in the
+        # room can see it, not only the people at this table, so the caller
+        # has a wider audience to tell than the seat change alone implies.
+        "scores_removed": scores_removed,
     }
 
 

@@ -360,7 +360,14 @@ def score_table(request, quiz_id):
         # a failure from leaving a table scored with nobody credited — but
         # under READ COMMITTED that alone does not stop a concurrent
         # check-in, rotation or undo from committing between the read and the
-        # write. Only holding the tables the rotation writers hold does.
+        # write. Only holding what the rotation writers hold does.
+        #
+        # The quiz row first, and not only for symmetry: PostgreSQL takes a
+        # FOR KEY SHARE lock on the referenced QuizEvent row when the score
+        # inserts below check their foreign key, so locking the tables alone
+        # would still be tables -> quiz and would deadlock against the
+        # quiz-first seat operations.
+        QuizEvent.objects.select_for_update().filter(pk=quiz.pk).first()
         list(
             QuizTable.objects.filter(quiz=quiz)
             .select_for_update()

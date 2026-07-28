@@ -514,7 +514,7 @@ class TestUndoCheckin:
         assert not QuizRotationSchedule.objects.filter(user=attendee).exists()
 
     def test_the_freed_seat_is_named_under_its_own_key(self, client):
-        """`released_table_number`, never `table_number`.
+        """`released_table_numbers`, never `table_number`.
 
         The acting coach's page has to put its own table-fill grid back, and
         the only channel for that is this response. But `handleRemoteCheckin`
@@ -541,7 +541,7 @@ class TestUndoCheckin:
 
         payload = client.post(_undo_url(event, registration)).json()
 
-        assert payload["released_table_number"] in (1, 2)
+        assert payload["released_table_numbers"] in ([1], [2])
         assert "table_number" not in payload
 
     def test_the_door_grid_is_given_back_the_table_it_counts(self, client):
@@ -593,7 +593,7 @@ class TestUndoCheckin:
         ) as broadcast:
             payload = client.post(_undo_url(event, registration)).json()
 
-        assert payload["released_table_number"] == seated_at.table_number
+        assert payload["released_table_numbers"] == [seated_at.table_number]
         assert broadcast.call_args.args[1]["table_number"] == other.table_number
 
     def test_a_non_quiz_undo_names_no_table(self, client):
@@ -611,7 +611,7 @@ class TestUndoCheckin:
         payload = client.post(_undo_url(event, registration)).json()
 
         assert payload["success"] is True
-        assert "released_table_number" not in payload
+        assert "released_table_numbers" not in payload
 
     def test_undo_reactivates_the_wallet_ticket(
         self, client, settings, django_capture_on_commit_callbacks
@@ -965,7 +965,7 @@ class TestQuizSeatRelease:
         # rendered from QuizTableMembership, which never moved off table 1, so
         # decrementing the current table would leave T2 a seat short and T1
         # still holding one nobody occupies. Same release, two audiences.
-        assert released["membership_table_number"] == 1
+        assert released["membership_table_numbers"] == [1]
 
     def test_it_reads_the_round_through_the_lock_not_the_callers_instance(self):
         """An undo that waited behind a round advance holds a pre-advance
@@ -991,7 +991,8 @@ class TestQuizSeatRelease:
 
         assert release_table_on_undo(quiz, attendee) == {
             "table_number": 1,
-            "membership_table_number": 1,
+            "membership_table_numbers": [1],
+            "scores_removed": False,
         }
 
     def test_it_removes_the_scores_the_undone_attendee_collected(self):
@@ -1100,7 +1101,11 @@ class TestQuizSeatRelease:
 
         # No membership row, so nothing for the door grid to give back — it
         # counts memberships, and this one never had one.
-        assert released == {"table_number": 2, "membership_table_number": None}
+        assert released == {
+            "table_number": 2,
+            "membership_table_numbers": [],
+            "scores_removed": True,
+        }
         assert not QuizRotationSchedule.objects.filter(quiz=quiz, user=orphan).exists()
         assert not IndividualScore.objects.filter(quiz=quiz, user=orphan).exists()
         # The properly-seated attendee is untouched.
@@ -1299,3 +1304,133 @@ class TestSeatLockOrder:
 
         for fn in (dissolve_table, manual_assign_table):
             assert self._lock_order(fn)[:2] == ["QuizEvent", "QuizTable"], fn.__name__
+
+
+class TestSeatReleaseEdges:
+    """Cases the second Codex round surfaced."""
+
+    def _quiz_night(self, num_tables=3):
+        from crush_lu.models.quiz import QuizEvent
+
+        coach = _make_coach()
+        event = _make_event()
+        event.event_type = "quiz_night"
+        event.save(update_fields=["event_type"])
+        quiz = QuizEvent.objects.create(
+            event=event, status="draft", created_by=coach.user, num_tables=num_tables
+        )
+        quiz.ensure_tables()
+        return coach, event, quiz
+
+    def test_every_chair_is_released_not_just_the_first(self, client):
+        """`unique_together` is (table, user), so one person can legally hold
+        chairs at two tables of the same quiz — the admin's
+        QuizTableMembershipInline creates exactly that. Releasing only the
+        first left the other occupied, and the door grid kept counting it."""
+        from crush_lu.models.quiz import QuizTableMembership
+        from crush_lu.services.quiz_rotation import release_table_on_undo
+
+        coach, event, quiz = self._quiz_night()
+        attendee = _make_attendee()
+        for number in (1, 3):
+            QuizTableMembership.objects.create(
+                table=quiz.tables.get(table_number=number), user=attendee
+            )
+
+        released = release_table_on_undo(quiz, attendee)
+
+        assert released["membership_table_numbers"] == [1, 3]
+        assert not QuizTableMembership.objects.filter(
+            table__quiz=quiz, user=attendee
+        ).exists()
+
+    def test_the_door_response_names_both_tables(self, client):
+        from crush_lu.models.quiz import QuizTableMembership
+
+        coach, event, quiz = self._quiz_night()
+        attendee = _make_attendee()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="confirmed"
+        )
+        client.force_login(coach.user)
+        _scan(client, event, registration)
+        # A second chair, as only the admin can create.
+        spare = quiz.tables.exclude(
+            pk=QuizTableMembership.objects.get(
+                table__quiz=quiz, user=attendee
+            ).table_id
+        ).first()
+        QuizTableMembership.objects.create(table=spare, user=attendee)
+
+        payload = client.post(_undo_url(event, registration)).json()
+
+        assert len(payload["released_table_numbers"]) == 2
+        assert spare.table_number in payload["released_table_numbers"]
+
+    def test_the_room_is_told_when_scores_disappear(self, client):
+        """Deleting IndividualScore rows changes the standings everyone can
+        see, not just the people at that table — and the table broadcast only
+        reaches the latter, whose handler refetches an assignment, not a
+        leaderboard."""
+        from crush_lu.models.quiz import IndividualScore, QuizQuestion, QuizRound
+
+        coach, event, quiz = self._quiz_night()
+        attendee = _make_attendee()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="confirmed"
+        )
+        client.force_login(coach.user)
+        _scan(client, event, registration)
+        round1 = QuizRound.objects.create(quiz=quiz, title="R1", sort_order=0)
+        question = QuizQuestion.objects.create(round=round1, text="Q?", points=10)
+        IndividualScore.objects.create(
+            quiz=quiz, user=attendee, question=question, points_earned=10
+        )
+
+        with mock.patch(
+            "crush_lu.views_checkin._broadcast_quiz_leaderboard"
+        ) as leaderboard:
+            client.post(_undo_url(event, registration))
+
+        assert leaderboard.call_count == 1
+
+    def test_no_leaderboard_broadcast_when_nothing_was_scored(self, client):
+        """The ordinary door undo. Standings did not change, so the whole room
+        does not need waking up for it."""
+        coach, event, quiz = self._quiz_night()
+        attendee = _make_attendee()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="confirmed"
+        )
+        client.force_login(coach.user)
+        _scan(client, event, registration)
+
+        with mock.patch(
+            "crush_lu.views_checkin._broadcast_quiz_leaderboard"
+        ) as leaderboard:
+            client.post(_undo_url(event, registration))
+
+        assert leaderboard.call_count == 0
+
+    def test_the_leaderboard_goes_to_the_shared_group(self, client):
+        """`quiz_<id>`, deliberately — the standings are the one thing on that
+        page that really is the same for the whole room, and `quiz.leaderboard`
+        triggers no assignment refetch."""
+        from crush_lu.views_checkin import _broadcast_quiz_leaderboard
+
+        coach, event, quiz = self._quiz_night()
+        sent = []
+
+        with (
+            mock.patch(
+                "crush_lu.views_checkin.get_channel_layer",
+                return_value=mock.MagicMock(),
+            ),
+            mock.patch(
+                "crush_lu.views_checkin.async_to_sync",
+                lambda fn: lambda group, payload: sent.append((group, payload["type"])),
+            ),
+        ):
+            _broadcast_quiz_leaderboard(event)
+
+        assert sent == [(f"quiz_{quiz.id}", "quiz.leaderboard")]

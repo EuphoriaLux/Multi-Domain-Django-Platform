@@ -4105,12 +4105,21 @@ class TestScoringSeatRace:
         assert credited == {staying.id}
         assert leaving.id not in credited
 
-    def test_both_scoring_paths_hold_the_table_lock(self, quiz_event):
+    def test_both_scoring_paths_lock_the_quiz_then_the_tables(self, quiz_event):
         """The consumer and the REST endpoint are twins — the host panel can
-        reach either — so a lock on only one leaves the race open on the
-        other. Pinned by inspection rather than by a real concurrent write,
-        which SQLite cannot express."""
+        reach either — so a lock on only one leaves the race open on the other.
+
+        The quiz row has to come first even though neither reads it: on
+        PostgreSQL the first TableRoundScore/IndividualScore insert takes a
+        FOR KEY SHARE lock on the referenced QuizEvent row for its foreign key
+        check, which conflicts with the FOR UPDATE the seat operations hold.
+        Locking only the tables is therefore still tables -> quiz, implicitly,
+        and deadlocks against exactly what the ordering exists to protect.
+
+        Pinned by inspection rather than by a real concurrent write, which
+        SQLite cannot express."""
         import inspect
+        import re
 
         from crush_lu import api_quiz
         from crush_lu.consumers import QuizConsumer
@@ -4120,7 +4129,15 @@ class TestScoringSeatRace:
             api_quiz.score_table,
         ):
             src = inspect.getsource(inspect.unwrap(fn))
-            assert "select_for_update()" in src
+            order = [
+                m.group(1)
+                for m in re.finditer(
+                    r"(QuizEvent|QuizTable)\.objects[\s\S]{0,120}?"
+                    r"select_for_update\(\)",
+                    src,
+                )
+            ]
+            assert order[:2] == ["QuizEvent", "QuizTable"], (fn.__name__, order)
             assert 'order_by("table_number")' in src
 
 
@@ -4191,7 +4208,16 @@ class TestSeatChangeReauthorization:
         )
 
         consumer.close.assert_awaited_once()
-        consumer.send_json.assert_not_awaited()
+        # And the update goes out *first*. It is what makes quiz-live.js call
+        # fetchAssignment(), the only thing that clears the table, role,
+        # tablemates and score from their screen. Closing without it strands
+        # all of it: the client reconnects, the same check rejects it, and its
+        # refetch is wired to an `onopen` that never arrives.
+        consumer.send_json.assert_awaited_once()
+        assert consumer.send_json.await_args.args[0] == {
+            "type": "quiz.table_update",
+            "data": {"table_number": 1},
+        }
 
     def test_an_undone_scan_keeps_its_socket(self, quiz_event, quiz_user):
         """Undoing an ordinary scan restores `confirmed`, which is still
