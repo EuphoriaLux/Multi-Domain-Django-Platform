@@ -40,14 +40,20 @@
                 <span>{% trans "Manage Invitations" %}</span>
             </a>
             {% endif %}
+            {% if is_quiz_night %}
             <a href="{% url 'crush_lu:coach_quiz_config' event.id %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-amber-600 text-white hover:bg-amber-700 rounded-lg transition-colors">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                 <span>{% trans "Configure Quiz" %}</span>
             </a>
+            {% endif %}
             {% if has_quiz %}
             <a href="{% url 'crush_lu:quiz_coach' event.id %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-green-600 text-white hover:bg-green-700 rounded-lg transition-colors">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
                 <span>{% trans "Quiz Host Panel" %}</span>
+            </a>
+            <a href="{% url 'crush_lu:quiz_live' event.id %}" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                <span>{% trans "Quiz Live View" %}</span>
             </a>
             {% endif %}
             {% if can_manage_cache_hunt %}
@@ -106,6 +112,19 @@
                 </div>
             </div>
         </a>
+        {% if event_lobby_enabled %}
+        <a href="{% url 'crush_lu:event_lobby' event.id %}" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 hover:shadow-md dark:hover:shadow-gray-900/40 hover:ring-1 hover:ring-crush-purple/30 transition-all">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center text-lg">
+                    🥂
+                </div>
+                <div>
+                    <p class="font-semibold dark:text-white">{% trans "Event Lobby Preview" %}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{% trans "See the lobby as members do" %}</p>
+                </div>
+            </div>
+        </a>
+        {% endif %}
         {% if event.enable_activity_voting %}
         <a href="{% url 'crush_lu:event_voting_results' event.id %}" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 hover:shadow-md dark:hover:shadow-gray-900/40 hover:ring-1 hover:ring-crush-purple/30 transition-all">
             <div class="flex items-center gap-3">

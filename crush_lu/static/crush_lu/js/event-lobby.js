@@ -22,6 +22,7 @@ document.addEventListener("alpine:init", function () {
             signalsTotal: 3,
             incomingCount: 0,
             ended: false,
+            readOnly: false,
             confirmOpen: false,
             confirmHandle: null,
             confirmPhotoUrl: "",
@@ -39,6 +40,11 @@ document.addEventListener("alpine:init", function () {
                 this.stateUrl = root.dataset.stateUrl;
                 this.signalUrl = root.dataset.signalUrl;
                 this.wsPath = root.dataset.wsPath;
+                // Coach preview (no participation): the page may only be read.
+                // The template renders it inert, but every refetch rebuilds the
+                // grid — buildTile has to honour this too or the 15s poll hands
+                // the coach live tiles back.
+                this.readOnly = root.dataset.readOnly === "1";
                 this.phase = root.dataset.phase || "live";
                 this.secondsToEnd = parseInt(root.dataset.secondsToEnd || "0", 10);
                 this.signalsRemaining = parseInt(root.dataset.signalsRemaining || "0", 10);
@@ -149,6 +155,7 @@ document.addEventListener("alpine:init", function () {
                 var grid = document.getElementById("lobby-grid");
                 if (!grid) return;
                 grid.addEventListener("click", function (evt) {
+                    if (self.readOnly) return;
                     var tile = evt.target.closest("button[data-handle]");
                     if (!tile || tile.disabled) return;
                     self.openConfirm(tile.dataset.handle, tile.dataset.photoUrl);
@@ -313,6 +320,7 @@ document.addEventListener("alpine:init", function () {
                     tile.appendChild(this.buildSparkMark());
                     tile.setAttribute("aria-label", this.msgs.sentBadge);
                 }
+                if (this.readOnly) tile.disabled = true;
                 return tile;
             },
 

@@ -2315,6 +2315,7 @@ def coach_event_detail(request, event_id):
     ).count()
 
     has_quiz = hasattr(event, "quiz")
+    is_quiz_night = event.event_type == "quiz_night"
 
     from django.conf import settings as django_settings
 
@@ -2406,6 +2407,12 @@ def coach_event_detail(request, event_id):
             feedback_qs.select_related("user").order_by("-created_at")
         )
 
+    # Event Lobby preview link: only render it while the lobby feature is
+    # live, otherwise the coach would hit the lobby's 404 wall.
+    from .services.event_lobby import lobby_feature_enabled
+
+    event_lobby_enabled = lobby_feature_enabled()
+
     context = {
         "coach": request.coach,
         "event": event,
@@ -2424,6 +2431,8 @@ def coach_event_detail(request, event_id):
         "spark_count": spark_count,
         "sparks_pending": sparks_pending,
         "has_quiz": has_quiz,
+        "is_quiz_night": is_quiz_night,
+        "event_lobby_enabled": event_lobby_enabled,
         "can_manage_cache_hunt": can_manage_cache_hunt,
         "feedback_summary": feedback_summary,
         "feedback_responses": feedback_responses,

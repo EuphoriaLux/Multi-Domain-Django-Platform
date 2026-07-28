@@ -119,9 +119,26 @@
     <h3 class="font-semibold text-lg mb-4 dark:text-white">{% trans "Manual Check-In" %}</h3>
     <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">{% trans "Tap a name to manually check in an attendee." %}</p>
 
+    {# Client-side attendee filter (vanilla JS at the bottom of this template) #}
+    {% if registrations %}
+    <div class="mb-4">
+        <input type="search" id="attendee-search"
+               placeholder="{% trans 'Search attendees…' %}"
+               class="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-crush-purple/50 focus:border-crush-purple">
+        <p id="attendee-search-empty" class="text-sm text-gray-500 dark:text-gray-400 py-4" style="display: none;">{% trans "No attendees match your search." %}</p>
+    </div>
+    {% endif %}
+
     <div class="divide-y divide-gray-100 dark:divide-gray-700">
         {% for reg in registrations %}
-        <div class="py-3 flex items-center justify-between gap-3" id="manual-reg-{{ reg.id }}">
+        {% comment %}
+            Filter haystack: the display name shown in the row plus the legal
+            name and email, because at the door a guest gives the name on their
+            ID or the email they booked with, neither of which need match their
+            display_name.
+        {% endcomment %}
+        <div class="py-3 flex items-center justify-between gap-3" id="manual-reg-{{ reg.id }}"
+             data-attendee-search="{% if reg.user.crushprofile %}{{ reg.user.crushprofile.display_name }} {% endif %}{{ reg.user.first_name }} {{ reg.user.last_name }} {{ reg.user.email }}">
             {# Left: avatar + info #}
             <div class="flex items-center gap-3 min-w-0">
                 {# Check-in status icon (small, stacked with avatar) #}
@@ -295,6 +312,26 @@ document.addEventListener('DOMContentLoaded', function() {
             badge.style.display = '';
         }
     });
+
+    // Client-side attendee filter — hide/show the server-rendered rows
+    var searchInput = document.getElementById('attendee-search');
+    if (searchInput) {
+        var attendeeRows = document.querySelectorAll('[data-attendee-search]');
+        var searchEmpty = document.getElementById('attendee-search-empty');
+        searchInput.addEventListener('input', function() {
+            var query = searchInput.value.trim().toLowerCase();
+            var visibleCount = 0;
+            attendeeRows.forEach(function(row) {
+                var haystack = (row.getAttribute('data-attendee-search') || '').toLowerCase();
+                var matches = !query || haystack.indexOf(query) !== -1;
+                row.style.display = matches ? '' : 'none';
+                if (matches) visibleCount++;
+            });
+            if (searchEmpty) {
+                searchEmpty.style.display = visibleCount === 0 && attendeeRows.length > 0 ? '' : 'none';
+            }
+        });
+    }
 });
 </script>
 {% endblock %}
