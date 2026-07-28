@@ -314,18 +314,22 @@ document.addEventListener("alpine:init", function () {
                         return r.json();
                     })
                     .then(function (data) {
-                        if (data.table_number) self.tableNumber = data.table_number;
-                        if (data.role) {
-                            self.userRole = data.role;
-                            self._renderRoleBadge();
-                        }
-                        if (data.tablemates) {
-                            self.tablemates = data.tablemates;
-                            self._renderTablemates();
-                        }
+                        // Assign every field rather than guarding on
+                        // truthiness. A guard can only ever *set* a value, so
+                        // it was fine while a seat could only be taken or
+                        // moved — but a player can now be un-seated (#708),
+                        // and a removed player kept showing the table they had
+                        // left, its tablemates and their role, at an event they
+                        // are no longer marked as attending. The empty values
+                        // here match the component's own initial state.
+                        self.tableNumber = data.table_number || 0;
+                        self.userRole = data.role || "";
+                        self._renderRoleBadge();
+                        self.tablemates = data.tablemates || [];
+                        self._renderTablemates();
                         if (data.personal_score !== undefined)
                             self.personalScore = data.personal_score;
-                        if (data.next_table) self.nextTable = data.next_table;
+                        self.nextTable = data.next_table || null;
                     })
                     .catch(function () {
                         if (retries > 0) {

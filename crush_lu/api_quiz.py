@@ -184,7 +184,18 @@ def quiz_tables(request, quiz_id):
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def my_assignment(request, quiz_id):
-    """Return current user's table assignment, role, tablemates, and score."""
+    """Return current user's table assignment, role, tablemates, and score.
+
+    Answers 200 with ``seated: false`` when the user holds no seat, rather
+    than the 404 it used to. A 404 is indistinguishable from a transient
+    failure — the client retries it every 2s and then gives up with "please
+    reload" — and until #708 there was no such thing as losing a seat, so the
+    distinction never came up. Every other seat operation *adds* a player or
+    *moves* one, and both still answer with a table.
+
+    The 404 is kept for a quiz that does not exist, which is a missing
+    resource rather than an answer about one.
+    """
     try:
         quiz = QuizEvent.objects.select_related("event", "current_round").get(
             id=quiz_id
@@ -214,15 +225,32 @@ def my_assignment(request, quiz_id):
             .first()
         )
         if not membership:
-            return Response({"error": "Not assigned to a table"}, status=404)
+            # Every field spelled out, not omitted: the client assigns them
+            # all, so a missing key would read as "leave what you had" — which
+            # is the bug (#723). `personal_score` still reports whatever the
+            # user holds; an un-seating clears their scores too (#708), so
+            # this is 0 in that case rather than assumed to be.
+            return Response(
+                {
+                    "seated": False,
+                    "table_number": None,
+                    "role": "",
+                    "rotation_group": "",
+                    "tablemates": [],
+                    "personal_score": _get_personal_score(quiz, user),
+                    "next_table": None,
+                }
+            )
 
         return Response(
             {
+                "seated": True,
                 "table_number": membership.table.table_number,
                 "role": "unknown",
                 "rotation_group": "",
                 "tablemates": [],
                 "personal_score": _get_personal_score(quiz, user),
+                "next_table": None,
             }
         )
 
@@ -261,6 +289,7 @@ def my_assignment(request, quiz_id):
 
     return Response(
         {
+            "seated": True,
             "table_number": rotation.table.table_number,
             "role": rotation.role,
             "rotation_group": rotation.rotation_group,

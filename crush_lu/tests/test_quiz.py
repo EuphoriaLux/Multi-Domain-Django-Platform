@@ -1439,8 +1439,16 @@ class TestQuizAPI:
         assert data["table_number"] == 1
         assert data["role"] == "anchor"
         assert data["personal_score"] == 0
+        assert data["seated"] is True
 
     def test_my_assignment_not_assigned(self, quiz_event):
+        """200 with `seated: false`, not 404.
+
+        The client cannot tell a 404 apart from a transient failure — it
+        retries every 2s and then tells the player to reload — and a player
+        with no seat is a real answer, not a missing resource. Before #708
+        there was no way to lose a seat, so it never came up.
+        """
         other_user = User.objects.create_user(
             username="other@test.com", password="test"
         )
@@ -1448,7 +1456,44 @@ class TestQuizAPI:
         client = APIClient()
         client.force_authenticate(user=other_user)
         response = client.get(f"/api/quiz/{quiz_event.id}/my-assignment/")
-        assert response.status_code == 404
+        assert response.status_code == 200
+        data = response.json()
+        assert data["seated"] is False
+        # Every field spelled out — the client assigns them all, so an absent
+        # key would read as "keep whatever you were showing", which is the bug.
+        assert data["table_number"] is None
+        assert data["role"] == ""
+        assert data["tablemates"] == []
+        assert data["next_table"] is None
+
+    def test_my_assignment_after_the_seat_is_released(self, quiz_event, quiz_table):
+        """End to end with the un-seating it exists for: a player seated at a
+        table, released by an undone check-in, must be told they have no seat.
+        Their table-group subscription outlives the removal, so this response
+        is the only thing that clears the table they are still displaying."""
+        from crush_lu.models.quiz import QuizTableMembership
+        from crush_lu.services.quiz_rotation import release_table_on_undo
+
+        player = User.objects.create_user(username="seated@test.com", password="test")
+        _grant_consent(player)
+        QuizTableMembership.objects.create(table=quiz_table, user=player)
+        QuizRotationSchedule.objects.create(
+            quiz=quiz_event,
+            round_number=0,
+            table=quiz_table,
+            user=player,
+            role="rotator",
+        )
+        client = APIClient()
+        client.force_authenticate(user=player)
+
+        assert client.get(f"/api/quiz/{quiz_event.id}/my-assignment/").json()["seated"]
+
+        release_table_on_undo(quiz_event, player)
+
+        data = client.get(f"/api/quiz/{quiz_event.id}/my-assignment/").json()
+        assert data["seated"] is False
+        assert data["table_number"] is None
 
     def test_score_table_endpoint(
         self, quiz_event, quiz_table, quiz_questions, quiz_user, coach_user
