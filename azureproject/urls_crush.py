@@ -268,6 +268,10 @@ urlpatterns = [
     # Verify an attendee in person at an event (coach action from the scanner)
     path('api/events/<int:event_id>/verify/<int:registration_id>/', views_checkin.coach_mark_verified, name='coach_mark_verified'),
 
+    # Undo a mis-scan, and check in a waitlisted walk-up (coach actions from the scanner)
+    path('api/events/<int:event_id>/undo-checkin/<int:registration_id>/', views_checkin.coach_undo_checkin, name='coach_undo_checkin'),
+    path('api/events/<int:event_id>/promote/<int:registration_id>/', views_checkin.coach_promote_from_waitlist, name='coach_promote_from_waitlist'),
+
     # Wallet passes (language-neutral for platform-specific clients)
     path('wallet/apple/pass/', views_wallet.apple_wallet_pass, name='wallet_apple_pass'),
     path('wallet/google/jwt/', views_wallet.google_wallet_jwt, name='wallet_google_jwt'),

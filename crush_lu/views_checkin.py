@@ -7,6 +7,7 @@ verifies the token and marks the registration as attended.
 """
 
 import logging
+from datetime import timedelta
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -643,6 +644,217 @@ def coach_mark_verified(request, event_id, registration_id):
         "message": str(_("%(name)s is now verified."))
         % {"name": _get_display_name(registration)},
         "profile": _get_profile_data(registration),
+    }
+    _broadcast_checkin(registration.event_id, response_data)
+    return JsonResponse(response_data)
+
+
+#: How long after a check-in a coach may undo it. This is a correction tool for
+#: the wrong badge scanned at the door, not an attendance editor — the event
+#: record itself must stay honest, so the window is short.
+CHECKIN_UNDO_WINDOW_MINUTES = 15
+
+
+@coach_required
+@require_POST
+def coach_undo_checkin(request, event_id, registration_id):
+    """Undo a check-in a coach just made by mistake.
+
+    Attendance is no longer only a status flip: it auto-verifies the profile
+    (referral reward + welcome email) and grants a *permanent* coach. A re-scan
+    cannot repair either — the already-attended branch never re-saves the row,
+    so ``assign_coach_on_first_attendance`` never fires again. Without this
+    endpoint one mis-scan can only be fixed in Django admin.
+
+    What it reverts:
+
+    - ``attended`` -> ``confirmed``, clearing ``checked_in_at``.
+    - The permanent coach, *only* if this attendance is what granted it
+      (``assigned_coach_at >= checked_in_at``). A member who already had a
+      coach keeps it.
+
+    What it deliberately does NOT revert: the verification. The welcome email
+    and the referral credit have already gone out, and un-verifying a member
+    who is standing in the room is worse than an over-verified walk-in. The
+    coach can see the profile is verified and act accordingly.
+
+    The Event Lobby needs no cleanup: ``eligible_participations`` re-checks
+    ``event_registration__status == "attended"`` at read time (§5.2), so the
+    member drops off the roster, the photo route and the signal targets as
+    soon as this commits.
+    """
+    coach = request.coach
+    now = timezone.now()
+
+    with transaction.atomic():
+        # Lock only the registration row — crushprofile is the nullable side of
+        # an outer join, which PostgreSQL refuses to lock under FOR UPDATE.
+        registration = (
+            EventRegistration.objects.select_for_update(of=("self",))
+            .select_related("user", "event")
+            .filter(id=registration_id, event_id=event_id)
+            .first()
+        )
+        if registration is None:
+            return JsonResponse(
+                {"success": False, "error": str(_("Registration not found."))},
+                status=404,
+            )
+        if registration.status != "attended":
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": str(_("This attendee is not checked in.")),
+                },
+                status=409,
+            )
+
+        checked_in_at = registration.checked_in_at
+        if checked_in_at is not None:
+            age = now - checked_in_at
+            if age > timedelta(minutes=CHECKIN_UNDO_WINDOW_MINUTES):
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "error": str(
+                            _(
+                                "This check-in is too old to undo here. Ask an "
+                                "administrator to correct it."
+                            )
+                        ),
+                    },
+                    status=409,
+                )
+
+        # Clear the coach only when this attendance is what granted it. Without
+        # the timestamp comparison an undo would strip the coach from a member
+        # who arrived with one, which no other flow can restore.
+        coach_cleared = False
+        profile = CrushProfile.objects.filter(user_id=registration.user_id).first()
+        if (
+            profile is not None
+            and profile.assigned_coach_id
+            and profile.assigned_coach_at
+            and checked_in_at
+            and profile.assigned_coach_at >= checked_in_at
+        ):
+            profile.assigned_coach = None
+            profile.assigned_coach_at = None
+            profile.save(update_fields=["assigned_coach", "assigned_coach_at"])
+            coach_cleared = True
+
+        registration.status = "confirmed"
+        registration.checked_in_at = None
+        registration.save(update_fields=["status", "checked_in_at"])
+
+    logger.info(
+        "Coach %s undid check-in of registration %s (user %s) at event %s; "
+        "coach_cleared=%s",
+        coach,
+        registration.id,
+        registration.user_id,
+        event_id,
+        coach_cleared,
+    )
+
+    display_name = _get_display_name(registration)
+    response_data = {
+        "success": True,
+        "undone": True,
+        "registration_id": registration.id,
+        "attendee_name": display_name,
+        "coach_cleared": coach_cleared,
+        "message": str(_("Check-in undone for %(name)s.")) % {"name": display_name},
+    }
+    _broadcast_checkin(registration.event_id, response_data)
+    return JsonResponse(response_data)
+
+
+@coach_required
+@require_POST
+def coach_promote_from_waitlist(request, event_id, registration_id):
+    """Check in a waitlisted walk-up in one action.
+
+    On a night with no-shows this is the most ordinary door operation there
+    is, and until now the scanner could not do it at all: the page only ever
+    receives ``confirmed`` and ``attended`` rows, so the coach had to leave the
+    scanner, promote the person on the event management page, and come back.
+
+    Deliberately does NOT re-check capacity or gender limits. A coach standing
+    at the door with the person in front of them is overriding those on
+    purpose; the page shows the live counts so the decision is informed. What
+    it must not do is silently differ from a normal check-in, so it runs the
+    same transition: the promoting coach becomes their permanent coach,
+    attendance auto-verifies, and lobby participation is evaluated on commit.
+    """
+    coach = request.coach
+    now = timezone.now()
+
+    with transaction.atomic():
+        registration = (
+            EventRegistration.objects.select_for_update(of=("self",))
+            .select_related("user", "event")
+            .filter(id=registration_id, event_id=event_id)
+            .first()
+        )
+        if registration is None:
+            return JsonResponse(
+                {"success": False, "error": str(_("Registration not found."))},
+                status=404,
+            )
+        if registration.status == "attended":
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": str(_("This attendee is already checked in.")),
+                },
+                status=409,
+            )
+        if registration.status != "waitlist":
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": str(_("Only waitlisted attendees can be promoted.")),
+                },
+                status=409,
+            )
+
+        registration._checkin_coach = _scanning_coach(request)
+        registration.status = "attended"
+        registration.checked_in_at = now
+        registration.save(update_fields=["status", "checked_in_at", "updated_at"])
+
+        verified_profile = _auto_verify_on_attendance(request, registration, now)
+        auto_verified = verified_profile is not None
+        if auto_verified:
+            transaction.on_commit(
+                lambda: _run_post_verification_side_effects(
+                    registration.user, verified_profile, request, registration.id
+                )
+            )
+
+    _evaluate_lobby_participation(registration)
+
+    logger.info(
+        "Coach %s promoted waitlisted registration %s (user %s) at event %s",
+        coach,
+        registration.id,
+        registration.user_id,
+        event_id,
+    )
+
+    display_name = _get_display_name(registration)
+    response_data = {
+        "success": True,
+        "promoted": True,
+        "already_checked_in": False,
+        "registration_id": registration.id,
+        "attendee_name": display_name,
+        "checked_in_at": now.isoformat(),
+        "message": str(_("%(name)s promoted from the waitlist and checked in."))
+        % {"name": display_name},
+        "profile": _get_profile_data(registration),
+        "auto_verified": auto_verified,
     }
     _broadcast_checkin(registration.event_id, response_data)
     return JsonResponse(response_data)

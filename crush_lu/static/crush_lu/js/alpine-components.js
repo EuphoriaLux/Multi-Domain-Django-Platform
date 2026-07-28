@@ -779,6 +779,15 @@ document.addEventListener("alpine:init", function () {
                 if (counter) {
                     counter.textContent = parseInt(counter.textContent) + 1;
                 }
+                // ...and its complement, or the "not arrived" tile drifts as
+                // soon as anyone is scanned in.
+                var outstandingTile = document.getElementById("outstanding-count");
+                if (outstandingTile) {
+                    outstandingTile.textContent = Math.max(
+                        0,
+                        parseInt(outstandingTile.textContent, 10) - 1,
+                    );
+                }
 
                 // Update table fill display
                 if (data.table_number) {
@@ -793,6 +802,9 @@ document.addEventListener("alpine:init", function () {
                 // Update manual check-in row
                 var row = document.getElementById("manual-reg-" + regId);
                 if (row) {
+                    // Keeps the "not arrived" filter honest for rows checked
+                    // in after the page loaded.
+                    row.setAttribute("data-attendee-status", "attended");
                     // Inject green overlay badge on the avatar (new layout)
                     var avatarWrap = row.querySelector("[data-checkin-avatar]");
                     if (
@@ -834,9 +846,36 @@ document.addEventListener("alpine:init", function () {
                             wrap.appendChild(tableBadge);
                         }
 
+                        // The check-in most worth undoing is the one just
+                        // made, so the button has to appear now — not only on
+                        // the next page load, which is what a coach at the
+                        // door is least able to afford.
+                        var undoBtn = this._buildUndoButton(row, regId);
+                        if (undoBtn) wrap.appendChild(undoBtn);
+
                         btn.replaceWith(wrap);
                     }
                 }
+            },
+
+            _buildUndoButton: function (row, regId) {
+                var self = this;
+                var i18n = window._checkinI18n || {};
+                var undoUrl = row.getAttribute("data-undo-url");
+                if (!undoUrl) return null;
+                var undoBtn = document.createElement("button");
+                undoBtn.type = "button";
+                undoBtn.className =
+                    "manual-undo-btn px-2 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 underline decoration-dotted transition-colors";
+                undoBtn.setAttribute("data-undo-url", undoUrl);
+                undoBtn.setAttribute("data-reg-id", regId);
+                undoBtn.textContent = i18n.undoAction || "Undo";
+                // Bound directly rather than with x-on — Alpine only wires
+                // directives present when it walked the tree.
+                undoBtn.addEventListener("click", function (clickEvent) {
+                    self.undoCheckin(clickEvent);
+                });
+                return undoBtn;
             },
 
             // --- Scanner ---
@@ -1148,6 +1187,165 @@ document.addEventListener("alpine:init", function () {
                     return row.startsWith("csrftoken=");
                 });
                 return cookie ? cookie.split("=")[1] : "";
+            },
+
+            undoCheckin: function (evt) {
+                var self = this;
+                var btn = evt.currentTarget;
+                var url = btn.getAttribute("data-undo-url");
+                var regId = btn.getAttribute("data-reg-id");
+                var i18n = window._checkinI18n || {};
+                if (!window.confirm(i18n.undoConfirm || "Undo this check-in?")) {
+                    return;
+                }
+                btn.disabled = true;
+                btn.textContent = "...";
+
+                fetch(url, {
+                    method: "POST",
+                    headers: { "X-CSRFToken": self.getCsrfToken() },
+                })
+                    .then(function (r) {
+                        return r.json();
+                    })
+                    .then(function (data) {
+                        if (data.success) {
+                            // Allow a fresh scan of this badge to be processed
+                            // again — otherwise the dedupe set silently
+                            // swallows the corrected check-in.
+                            delete self.processedIds[regId];
+                            self._updateUndoUI(data, regId);
+                        } else {
+                            btn.disabled = false;
+                            btn.textContent = i18n.undoAction || "Undo";
+                            alert(data.error || i18n.undoFailed || "Undo failed");
+                        }
+                    })
+                    .catch(function () {
+                        btn.disabled = false;
+                        btn.textContent = i18n.undoAction || "Undo";
+                        alert(i18n.networkError || "Network error");
+                    });
+            },
+
+            _updateUndoUI: function (data, regId) {
+                var self = this;
+                var i18n = window._checkinI18n || {};
+                var id = data.registration_id || regId;
+                var row = document.getElementById("manual-reg-" + id);
+
+                var counter = document.getElementById("attended-count");
+                if (counter) {
+                    counter.textContent = Math.max(
+                        0,
+                        parseInt(counter.textContent, 10) - 1,
+                    );
+                }
+                var outstanding = document.getElementById("outstanding-count");
+                if (outstanding) {
+                    outstanding.textContent =
+                        parseInt(outstanding.textContent, 10) + 1;
+                }
+                if (!row) return;
+
+                row.setAttribute("data-attendee-status", "confirmed");
+                var badge = row.querySelector(".checkin-overlay-badge");
+                if (badge) badge.remove();
+
+                // The coach line only ever showed a coach this attendance may
+                // have granted, so reflect the server's answer rather than
+                // guessing.
+                if (data.coach_cleared) {
+                    var coachLine = row.querySelector("[data-coach-line]");
+                    if (coachLine) coachLine.remove();
+                }
+
+                // Rebuild the Check In button the check-in flow replaced.
+                var actions = row.querySelector("[data-row-actions]");
+                if (actions) {
+                    var checkinUrl = row.getAttribute("data-checkin-url");
+                    Array.prototype.forEach.call(
+                        actions.querySelectorAll(
+                            ".manual-undo-btn, .manual-table-badge",
+                        ),
+                        function (el) {
+                            el.remove();
+                        },
+                    );
+                    Array.prototype.forEach.call(
+                        actions.querySelectorAll("span"),
+                        function (el) {
+                            if (el.textContent === (i18n.checkedIn || "Checked In")) {
+                                el.remove();
+                            }
+                        },
+                    );
+                    var newBtn = document.createElement("button");
+                    newBtn.type = "button";
+                    newBtn.className =
+                        "manual-checkin-btn px-3 py-1.5 text-xs font-medium bg-crush-purple text-white rounded-lg hover:bg-crush-purple/90 transition-colors";
+                    newBtn.setAttribute("data-checkin-url", checkinUrl || "");
+                    newBtn.setAttribute("data-reg-id", id);
+                    newBtn.textContent = i18n.checkIn || "Check In";
+                    // Bound directly, not via x-on: Alpine only wires
+                    // directives it saw when it walked the tree, so a button
+                    // created here would render enabled and do nothing —
+                    // exactly the trap the undo exists to get out of.
+                    newBtn.addEventListener("click", function (clickEvent) {
+                        self.manualCheckin(clickEvent);
+                    });
+                    actions.appendChild(newBtn);
+                }
+            },
+
+            promoteFromWaitlist: function (evt) {
+                var self = this;
+                var btn = evt.currentTarget;
+                var url = btn.getAttribute("data-promote-url");
+                var regId = btn.getAttribute("data-reg-id");
+                var i18n = window._checkinI18n || {};
+                btn.disabled = true;
+                btn.textContent = "...";
+
+                // Pre-mark as processed to prevent a WebSocket duplicate, the
+                // same way manualCheckin does.
+                if (regId) {
+                    self.processedIds[regId] = true;
+                }
+
+                fetch(url, {
+                    method: "POST",
+                    headers: { "X-CSRFToken": self.getCsrfToken() },
+                })
+                    .then(function (r) {
+                        return r.json();
+                    })
+                    .then(function (data) {
+                        if (data.success) {
+                            if (data.registration_id) {
+                                self.processedIds[data.registration_id] = true;
+                            }
+                            self.showProfileToast(data);
+                            self._updateCheckinUI(data);
+                            // The row lives in the waitlist section, which the
+                            // confirmed-list update above does not know about.
+                            var wlRow = document.getElementById(
+                                "waitlist-reg-" + (data.registration_id || regId),
+                            );
+                            if (wlRow) wlRow.remove();
+                        } else {
+                            btn.disabled = false;
+                            btn.textContent = i18n.checkIn || "Check In";
+                            alert(
+                                data.error || i18n.checkinFailed || "Check-in failed",
+                            );
+                        }
+                    })
+                    .catch(function () {
+                        btn.disabled = false;
+                        btn.textContent = i18n.checkIn || "Check In";
+                        alert(i18n.networkError || "Network error");
+                    });
             },
 
             markVerified: function (evt) {

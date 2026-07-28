@@ -38632,3 +38632,46 @@ msgid ""
 msgstr ""
 "Voici le lobby tel que les membres le voient ce soir. Vous pouvez regarder "
 "la salle se remplir, mais vous ne pouvez pas envoyer de signaux."
+
+#: templates/crush_lu/coach_event_checkin.html:47
+msgid "Not arrived"
+msgstr "Pas arrivé"
+
+#: templates/crush_lu/coach_event_checkin.html:60
+msgid "In the room"
+msgstr "Dans la salle"
+
+#: templates/crush_lu/coach_event_checkin.html:180
+msgid "Show only who has not arrived"
+msgstr "Afficher seulement les absents"
+
+#: templates/crush_lu/coach_event_checkin.html:277
+msgid "No coach yet"
+msgstr "Pas encore de coach"
+
+#: templates/crush_lu/coach_event_checkin.html:320
+msgid "Undo"
+msgstr "Annuler"
+
+#: templates/crush_lu/coach_event_checkin.html:382
+msgid "Check in"
+msgstr "Enregistrer"
+
+#: templates/crush_lu/coach_event_checkin.html:340
+msgid ""
+"Checking someone in from here takes their seat immediately. Capacity and "
+"gender limits are not re-checked — the counts above are the guide."
+msgstr ""
+"Enregistrer quelqu'un ici lui donne sa place immédiatement. La capacité et "
+"les limites de genre ne sont pas revérifiées — les compteurs ci-dessus sont "
+"votre repère."
+
+#: templates/crush_lu/coach_event_checkin.html:430
+msgid "Undo this check-in? They will be marked as not arrived again."
+msgstr ""
+"Annuler cet enregistrement ? La personne sera de nouveau considérée comme "
+"absente."
+
+#: templates/crush_lu/coach_event_checkin.html:431
+msgid "Could not undo this check-in"
+msgstr "Impossible d'annuler cet enregistrement"

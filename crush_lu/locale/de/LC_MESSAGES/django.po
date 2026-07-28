@@ -38493,3 +38493,46 @@ msgid ""
 msgstr ""
 "So sehen die Mitglieder heute Abend die Lobby. Du kannst zusehen, wie sich "
 "der Raum füllt, aber du kannst keine Signale senden."
+
+#: templates/crush_lu/coach_event_checkin.html:47
+msgid "Not arrived"
+msgstr "Nicht da"
+
+#: templates/crush_lu/coach_event_checkin.html:60
+msgid "In the room"
+msgstr "Im Raum"
+
+#: templates/crush_lu/coach_event_checkin.html:180
+msgid "Show only who has not arrived"
+msgstr "Nur Fehlende anzeigen"
+
+#: templates/crush_lu/coach_event_checkin.html:277
+msgid "No coach yet"
+msgstr "Noch kein Coach"
+
+#: templates/crush_lu/coach_event_checkin.html:320
+msgid "Undo"
+msgstr "Rückgängig"
+
+#: templates/crush_lu/coach_event_checkin.html:382
+msgid "Check in"
+msgstr "Einchecken"
+
+#: templates/crush_lu/coach_event_checkin.html:340
+msgid ""
+"Checking someone in from here takes their seat immediately. Capacity and "
+"gender limits are not re-checked — the counts above are the guide."
+msgstr ""
+"Wer hier eingecheckt wird, bekommt sofort einen Platz. Kapazität und "
+"Geschlechterlimits werden nicht erneut geprüft — die Zahlen oben sind dein "
+"Anhaltspunkt."
+
+#: templates/crush_lu/coach_event_checkin.html:430
+msgid "Undo this check-in? They will be marked as not arrived again."
+msgstr ""
+"Diesen Check-in rückgängig machen? Die Person gilt wieder als nicht "
+"angekommen."
+
+#: templates/crush_lu/coach_event_checkin.html:431
+msgid "Could not undo this check-in"
+msgstr "Check-in konnte nicht rückgängig gemacht werden"

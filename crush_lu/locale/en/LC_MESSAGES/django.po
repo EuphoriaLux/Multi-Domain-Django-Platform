@@ -26656,3 +26656,41 @@ msgid ""
 "This is the lobby as tonight's members see it. You can watch the room fill "
 "up, but you cannot send signals."
 msgstr ""
+
+#: templates/crush_lu/coach_event_checkin.html:47
+msgid "Not arrived"
+msgstr ""
+
+#: templates/crush_lu/coach_event_checkin.html:60
+msgid "In the room"
+msgstr ""
+
+#: templates/crush_lu/coach_event_checkin.html:180
+msgid "Show only who has not arrived"
+msgstr ""
+
+#: templates/crush_lu/coach_event_checkin.html:277
+msgid "No coach yet"
+msgstr ""
+
+#: templates/crush_lu/coach_event_checkin.html:320
+msgid "Undo"
+msgstr ""
+
+#: templates/crush_lu/coach_event_checkin.html:382
+msgid "Check in"
+msgstr ""
+
+#: templates/crush_lu/coach_event_checkin.html:340
+msgid ""
+"Checking someone in from here takes their seat immediately. Capacity and "
+"gender limits are not re-checked — the counts above are the guide."
+msgstr ""
+
+#: templates/crush_lu/coach_event_checkin.html:430
+msgid "Undo this check-in? They will be marked as not arrived again."
+msgstr ""
+
+#: templates/crush_lu/coach_event_checkin.html:431
+msgid "Could not undo this check-in"
+msgstr ""
