@@ -38612,6 +38612,9 @@ msgstr "Erweitert: Einstellungen für private Einladungen"
 msgid "Configure this event as invitation-only. You can invite existing users directly or send external guest invitations (managed via EventInvitation inline below)."
 msgstr "Konfiguriere diese Veranstaltung als nur auf Einladung zugänglich. Du kannst bestehende Nutzer direkt einladen oder externe Gasteinladungen senden (über die EventInvitation-Zeilen unten verwaltet)."
 
+msgid "Members now have 48 hours to confirm who they met."
+msgstr "Die Mitglieder haben jetzt 48 Stunden Zeit, um zu bestätigen, wen sie getroffen haben."
+
 msgid "Status this registration held immediately before check-in"
 msgstr "Status, den diese Anmeldung unmittelbar vor dem Check-in hatte"
 
