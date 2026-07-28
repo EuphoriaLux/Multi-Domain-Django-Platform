@@ -840,6 +840,23 @@ class TestLobbyPage:
         assert tiles, "roster tile did not render — the rest asserts nothing"
         assert not any("disabled" in tile for tile in tiles)
 
+    def test_participant_keeps_the_recap_cta_in_the_ended_state(self, client):
+        """Paired with ``test_preview_has_no_member_recap_cta_in_its_ended_state``
+        in test_coach_event_detail.py: #715 removed that CTA from the coach
+        preview by gating it on ``coach_preview``. A gate that also swallowed
+        it for members would hide the recap hand-off from everyone and the
+        coach-side test would still pass, so pin the member surface here."""
+        event = _make_event()
+        alice = _make_member("alice")
+        _join(alice, event)
+        _login(client, alice)
+
+        html = client.get(_lobby_url(event)).content.decode()
+
+        assert "Who did you meet?" in html
+        assert "Open the recap" in html
+        assert "data-coach-preview-ended" not in html
+
     def test_participant_sees_photo_grid_without_pre_mutual_names(self, client):
         event = _make_event()
         alice = _make_member("alice")
