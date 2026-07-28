@@ -327,7 +327,13 @@
                     this the only fix is Django admin. The endpoint refuses
                     after a short window — this corrects a mis-scan, it does not
                     edit attendance history.
+
+                    Gated on checked_in_at as well as status: a row attended
+                    with no timestamp has no window, so the endpoint refuses it.
+                    Rendering the button anyway would offer a correction that
+                    can only answer 409.
                 {% endcomment %}
+                {% if reg.checked_in_at %}
                 <button
                     type="button"
                     class="manual-undo-btn px-2 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 underline decoration-dotted transition-colors"
@@ -337,6 +343,7 @@
                 >
                     {% trans "Undo" %}
                 </button>
+                {% endif %}
                 {% endif %}
             </div>
         </div>

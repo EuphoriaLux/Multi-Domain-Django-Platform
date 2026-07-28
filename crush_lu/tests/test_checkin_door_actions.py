@@ -10,6 +10,7 @@ again. Before this the only fix for a wrong badge was Django admin.
 """
 
 from datetime import timedelta
+from unittest import mock
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -235,6 +236,127 @@ class TestUndoCheckin:
         assert response.status_code == 409
         registration.refresh_from_db()
         assert registration.status == "attended"
+
+    def test_undo_refused_for_undated_attendance(self, client):
+        """checked_in_at is nullable and an attended row can legitimately have
+        none — attendance entered administratively or by an older flow. Skipping
+        the age check there turns a 15-minute correction into an editor for
+        attendance of any age, because every attended row offers Undo."""
+        coach = _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event, user=attendee, status="attended", checked_in_at=None
+        )
+        client.force_login(coach.user)
+
+        response = client.post(_undo_url(event, registration))
+
+        assert response.status_code == 409
+        registration.refresh_from_db()
+        assert registration.status == "attended"
+
+    def test_undo_reactivates_the_wallet_ticket(
+        self, client, settings, django_capture_on_commit_callbacks
+    ):
+        """The scan marked the pass completed. Leaving it there hands the member
+        a used ticket while their registration is valid and they are still at
+        the door.
+
+        The PATCH is deferred to commit, so the callbacks have to be executed
+        explicitly — pytest-django's transaction never commits, and without
+        this the assertion below would pass for the wrong reason.
+        """
+        settings.WALLET_GOOGLE_EVENT_TICKET_ENABLED = True
+        coach = _make_coach()
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event,
+            user=attendee,
+            status="attended",
+            checked_in_at=timezone.now(),
+            google_wallet_ticket_object_id="issuer.ticket-1",
+        )
+        client.force_login(coach.user)
+
+        with mock.patch(
+            "crush_lu.wallet.google_event_ticket_api.activate_event_ticket",
+            return_value={"success": True, "message": "ok"},
+        ) as activate:
+            with django_capture_on_commit_callbacks(execute=True):
+                assert client.post(_undo_url(event, registration)).status_code == 200
+
+        assert activate.call_count == 1
+        assert activate.call_args[0][0].pk == registration.pk
+
+    def test_a_deferred_wallet_patch_sends_what_the_row_says_now(
+        self, settings, django_capture_on_commit_callbacks
+    ):
+        """Committing releases the row lock, so two overlapping door actions
+        can have PATCHes in flight at once and the last one decides what Google
+        stores. The state is re-derived at send time, so a scan whose PATCH
+        lands after an undo sends `active` — matching the row — instead of the
+        `completed` it decided on up to 30 seconds earlier."""
+        settings.WALLET_GOOGLE_EVENT_TICKET_ENABLED = True
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event,
+            user=attendee,
+            status="confirmed",
+            google_wallet_ticket_object_id="issuer.ticket-1",
+        )
+
+        with (
+            mock.patch(
+                "crush_lu.wallet.google_event_ticket_api.complete_event_ticket",
+                return_value={"success": True, "message": "ok"},
+            ) as complete,
+            mock.patch(
+                "crush_lu.wallet.google_event_ticket_api.activate_event_ticket",
+                return_value={"success": True, "message": "ok"},
+            ) as activate,
+        ):
+            with django_capture_on_commit_callbacks(execute=True):
+                registration.status = "attended"
+                registration.save(update_fields=["status"])
+                # Another coach undoes it before the deferred PATCH runs.
+                EventRegistration.objects.filter(pk=registration.pk).update(
+                    status="confirmed"
+                )
+
+        assert complete.call_count == 0, "sent a decision the row had moved past"
+        assert activate.call_count == 1
+
+    def test_an_unrelated_save_does_not_reactivate_the_ticket(
+        self, settings, django_capture_on_commit_callbacks
+    ):
+        """Reactivation is flagged by the undo path, not derived from the
+        status. _ensure_ticket_object_id and _generate_checkin_token both save
+        non-status fields on a confirmed row, and the first of them runs
+        *before* the JWT has created the Wallet object — a status-only branch
+        would PATCH a 404 and still allow the request its 30 seconds, in front
+        of ticket generation."""
+        settings.WALLET_GOOGLE_EVENT_TICKET_ENABLED = True
+        attendee = _make_attendee()
+        event = _make_event()
+        registration = EventRegistration.objects.create(
+            event=event,
+            user=attendee,
+            status="confirmed",
+            google_wallet_ticket_object_id="issuer.ticket-1",
+        )
+
+        with mock.patch(
+            "crush_lu.wallet.google_event_ticket_api.activate_event_ticket",
+            return_value={"success": True, "message": "ok"},
+        ) as activate:
+            with django_capture_on_commit_callbacks(execute=True):
+                registration.checkin_token = "tok"
+                registration.save(update_fields=["checkin_token"])
+
+        assert activate.call_count == 0
 
     def test_undo_refused_when_not_checked_in(self, client):
         coach = _make_coach()
@@ -474,6 +596,25 @@ class TestDoorPageContext:
         cf.refresh_from_db()
         assert not wl.checkin_token, "waitlisted row was given a token"
         assert cf.checkin_token, "confirmed row lost its token"
+
+    def test_undated_attendance_gets_no_undo_button(self, client):
+        """The endpoint refuses a row with no checked_in_at, so rendering the
+        button would only ever offer a correction that answers 409."""
+        coach = _make_coach()
+        dated = _make_attendee("dated@example.com")
+        undated = _make_attendee("undated@example.com")
+        event = _make_event()
+        EventRegistration.objects.create(
+            event=event, user=dated, status="attended", checked_in_at=timezone.now()
+        )
+        EventRegistration.objects.create(
+            event=event, user=undated, status="attended", checked_in_at=None
+        )
+        client.force_login(coach.user)
+
+        content = self._page(client, event).content.decode()
+
+        assert content.count("manual-undo-btn") == 1
 
     def test_counts_split_arrived_from_outstanding(self, client):
         coach = _make_coach()

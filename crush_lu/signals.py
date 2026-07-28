@@ -2395,6 +2395,8 @@ def handle_event_ticket_on_registration_change(sender, instance, created, **kwar
 
     - cancelled -> expire the ticket
     - attended -> complete the ticket
+    - confirmed *and* ``_reactivate_ticket`` set -> activate the ticket
+      (an attendance was undone; see the branch for why the flag is needed)
     """
     if not instance.google_wallet_ticket_object_id:
         return
@@ -2407,18 +2409,78 @@ def handle_event_ticket_on_registration_change(sender, instance, created, **kwar
 
     try:
         from .wallet.google_event_ticket_api import (
+            activate_event_ticket,
             expire_event_ticket,
             complete_event_ticket,
         )
 
-        if instance.status == "cancelled":
-            result = expire_event_ticket(instance)
-            if result["success"]:
-                logger.info(f"Expired event ticket for registration {instance.id}")
-        elif instance.status == "attended":
-            result = complete_event_ticket(instance)
-            if result["success"]:
-                logger.info(f"Completed event ticket for registration {instance.id}")
+        _PATCH_FOR_STATUS = {
+            "cancelled": (expire_event_ticket, "Expired"),
+            "attended": (complete_event_ticket, "Completed"),
+            "confirmed": (activate_event_ticket, "Reactivated"),
+        }
+
+        def _after_commit():
+            """Reconcile the pass with the row once that row is durable.
+
+            Deferred because these callers save inside a transaction —
+            event_checkin_api and coach_undo_checkin both hold a
+            select_for_update on the registration — and the PATCH is a
+            synchronous Google call that allows 30 seconds. Inline, it
+            stretched an open transaction across a network round trip and let
+            a rollback leave the pass and the row disagreeing: a rolled-back
+            undo would keep the row attended while its used pass went live
+            again, i.e. reusable at the door.
+
+            The target state is re-derived from a *fresh* read rather than
+            from the status this save happened to see. Committing releases the
+            row lock, so two overlapping door actions can have their PATCHes
+            in flight at once, and the one that lands last decides what Google
+            stores. Reading here means the last writer sends whatever the
+            database says now, instead of a decision taken up to 30 seconds
+            earlier. That narrows the window to this read-to-request gap; it
+            does not close it. Closing it needs the wallet updates serialized
+            out of band, and production has no task worker.
+
+            on_commit runs immediately when there is no transaction, so every
+            other caller is unaffected.
+            """
+            try:
+                fresh = EventRegistration.objects.filter(pk=instance.pk).first()
+                if fresh is None or not fresh.google_wallet_ticket_object_id:
+                    return
+                patch, verb = _PATCH_FOR_STATUS.get(fresh.status, (None, None))
+                if patch is None:
+                    return
+                result = patch(fresh)
+                if result["success"]:
+                    logger.info(f"{verb} event ticket for registration {fresh.id}")
+            except Exception as e:
+                logger.error(
+                    f"Error updating event ticket for registration {instance.id}: {e}"
+                )
+
+        # Whether to touch the pass at all is decided here, from this save.
+        # `confirmed` stays gated on the flag so unrelated saves on a confirmed
+        # row do not schedule anything — see below. *What* to send is decided
+        # in _after_commit, from committed state.
+        if instance.status in ("cancelled", "attended"):
+            transaction.on_commit(_after_commit)
+        elif instance.status == "confirmed" and getattr(
+            instance, "_reactivate_ticket", False
+        ):
+            # Undoing a mis-scan sends the row back to confirmed. Without this
+            # the member keeps a pass marked used while still holding a valid
+            # registration, so their own ticket stops being a door pass.
+            #
+            # Explicitly flagged by the undo path rather than derived from the
+            # status, because plenty of saves leave a row confirmed without any
+            # transition having happened: _ensure_ticket_object_id and
+            # _generate_checkin_token both write non-status fields. A status-only
+            # test would PATCH on each of those — and the first one runs before
+            # the JWT has created the Wallet object, so it 404s while still
+            # allowing the request its 30 seconds.
+            transaction.on_commit(_after_commit)
     except Exception as e:
         logger.error(f"Error updating event ticket for registration {instance.id}: {e}")
 
