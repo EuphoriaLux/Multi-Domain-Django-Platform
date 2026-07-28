@@ -9,8 +9,13 @@ Covers:
   registration (read-only — no participation row is created), while a
   non-coach non-attendee still gets the §5.3 indistinguishable 404.
 - The preview really is read-only: no signal ledger, no live socket, inert
-  tiles. The participant-side counterpart lives in ``test_event_lobby.py``
-  (``test_participant_page_is_not_read_only``).
+  tiles, and no member recap CTA once the 15s poll flips it to the ended
+  state (#715). The participant-side counterparts live in
+  ``test_event_lobby.py`` (``test_participant_page_is_not_read_only``,
+  ``test_participant_keeps_the_recap_cta_in_the_ended_state``).
+- Coach-vs-attendance precedence (#715, decided in #718): coach status wins
+  only where the member path would dead-end on the lock page; a coach who
+  clears the Connect gate gets the full member lobby.
 - The manual check-in list filters on name *and* email.
 """
 
@@ -291,6 +296,48 @@ class TestCoachLobbyPreview:
         assert tiles, "roster tile did not render — the rest asserts nothing"
         assert all("disabled" in tile for tile in tiles)
 
+    def test_preview_has_no_member_recap_cta_in_its_ended_state(self, client):
+        """#715: the preview polls every 15s and ``lobby_state_api`` answers a
+        coach with a non-live phase once the event ends, so ``applyState`` ->
+        ``markEnded`` flips the panel to "ended" under a coach who simply left
+        the tab open. The member ending asks "Who did you meet?" and links to
+        the recap — which for a coach with no participation reloads
+        ``event_lobby`` straight into ``lobby_closed.html``, a dead end at
+        exactly the moment the coach is trying to work.
+
+        Asserted on the served HTML because ``x-show`` cannot un-hide a block
+        that was never rendered: the fix has to remove it, not hide it."""
+        coach = _make_coach()
+        event = _make_event(starts_in_minutes=-30)
+        client.force_login(coach)
+
+        html = client.get(
+            reverse("crush_lu:event_lobby", args=[event.pk])
+        ).content.decode()
+
+        assert "Who did you meet?" not in html
+        assert "Open the recap" not in html
+        # ...replaced by a coach ending that leads back to their work surface.
+        assert "data-coach-preview-ended" in html
+        assert reverse("crush_lu:coach_event_detail", args=[event.pk]) in html
+
+    def test_state_api_flips_the_preview_to_ended_after_the_event(self, client):
+        """The server half of the #715 path: this non-live phase is what
+        ``applyState`` turns into ``markEnded()``. Pinned so the leak cannot
+        come back by the API starting to answer ``live`` forever (which would
+        make the template assertion above vacuous)."""
+        coach = _make_coach()
+        event = _make_event(starts_in_minutes=-30)
+        _end_event(event)
+        client.force_login(coach)
+
+        payload = client.get(
+            reverse("crush_lu:event_lobby_state_api", args=[event.pk])
+        ).json()
+
+        assert payload["ok"] is True
+        assert payload["state"]["phase"] != "live"
+
     def test_attended_coach_still_gets_the_preview(self, client):
         """A coach who scanned themselves in at the door is still a coach.
         Attendance must not drop them onto the member path, where failing the
@@ -309,6 +356,32 @@ class TestCoachLobbyPreview:
         assert "data-coach-preview-notice" in html
         # Still no participation — attendance alone must not mint one here.
         assert EventLobbyParticipation.objects.filter(user=coach).count() == 0
+
+    def test_eligible_coach_who_attends_gets_the_full_member_lobby(self, client):
+        """The precedence question #715 raised, settled in #718 as "keep
+        current behaviour": a coach who clears the Connect gate on their own
+        attended registration never reaches the coach branch in
+        ``event_lobby`` — they fall through to the participant path and get
+        the real member lobby, signals included. Coach status beats attendance
+        only when the member path has nothing left to offer but the lock page
+        (the test above). Pinned here so flipping that precedence has to be a
+        deliberate change, not a silent one."""
+        coach = _make_member("workingcoach")
+        _grant_consent(coach)
+        CrushCoach.objects.create(user=coach, is_active=True)
+        event = _make_event(starts_in_minutes=-30)
+        _join(coach, event)
+        client.force_login(coach)
+
+        html = client.get(
+            reverse("crush_lu:event_lobby", args=[event.pk])
+        ).content.decode()
+
+        assert 'data-read-only="1"' not in html
+        assert "data-coach-preview-notice" not in html
+        assert "data-coach-preview-ended" not in html
+        assert "Your signals for tonight" in html
+        assert EventLobbyParticipation.objects.filter(user=coach).count() == 1
 
     def test_preview_card_hidden_for_unpublished_or_cancelled_events(self, client):
         """_get_lobby_event rejects both, so the card would be a dead link."""

@@ -228,7 +228,32 @@
 
         {% comment %}═══════════════════════════════════════════════════════════
            ENDED STATE — the lights come up; hand over to the recap.
+
+           Two versions, gated on coach_preview exactly like the read-only
+           notice (:66) and the signal ledger (:85): the recap belongs to
+           members. The preview polls every 15s (event-lobby.js startPolling)
+           and lobby_state_api answers a coach with a non-live phase once the
+           event ends, so applyState -> markEnded flips `ended` under a coach
+           who simply left the tab open. The member CTA would then reload
+           event_lobby, where a coach with no participation lands on
+           lobby_closed.html — a dead end at exactly the moment the coach is
+           trying to work. So the preview gets its own ending, pointing back
+           at the event dashboard the coach came from.
            ═══════════════════════════════════════════════════════════════{% endcomment %}
+        {% if coach_preview %}
+        <div class="rounded-2xl border border-lobby-edge bg-lobby-room p-8 text-center"
+             x-show="ended" x-cloak data-coach-preview-ended>
+            <span class="lobby-spark lobby-spark--spent mx-auto mb-4" aria-hidden="true">{% include "shared/icons/spark.html" with class="w-3.5 h-3.5" %}</span>
+            <p class="font-display text-xl font-semibold text-lobby-ink mb-2">{% trans "The live lobby has ended." %}</p>
+            <p class="text-sm text-lobby-dim mb-6 max-w-sm mx-auto">
+                {% trans "Members now have 48 hours to confirm who they met." %}
+            </p>
+            <a href="{% url 'crush_lu:coach_event_detail' event.id %}" class="inline-flex items-center gap-2 bg-crush-pink hover:bg-crush-pink-light text-lobby-night font-bold px-6 py-3 rounded-xl transition-colors">
+                <span aria-hidden="true">←</span>
+                {% trans "Back to Event Dashboard" %}
+            </a>
+        </div>
+        {% else %}
         <div class="rounded-2xl border border-lobby-edge bg-lobby-room p-8 text-center"
              x-show="ended" x-cloak>
             <span class="lobby-spark lobby-spark--spent mx-auto mb-4" aria-hidden="true">{% include "shared/icons/spark.html" with class="w-3.5 h-3.5" %}</span>
@@ -241,6 +266,7 @@
                 <span aria-hidden="true">→</span>
             </a>
         </div>
+        {% endif %}
 
         {% comment %}═══════════════════════════════════════════════════════════
            CONFIRM SHEET — names the cost honestly: spending is irreversible,

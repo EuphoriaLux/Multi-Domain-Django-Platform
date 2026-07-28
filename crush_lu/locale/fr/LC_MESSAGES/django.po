@@ -38750,3 +38750,6 @@ msgstr "Avancé : paramètres des invitations privées"
 
 msgid "Configure this event as invitation-only. You can invite existing users directly or send external guest invitations (managed via EventInvitation inline below)."
 msgstr "Configurez cet événement sur invitation uniquement. Vous pouvez inviter directement des utilisateurs existants ou envoyer des invitations à des personnes externes (gérées via les lignes EventInvitation ci-dessous)."
+
+msgid "Members now have 48 hours to confirm who they met."
+msgstr "Les membres ont maintenant 48 heures pour confirmer qui ils ont rencontré."
