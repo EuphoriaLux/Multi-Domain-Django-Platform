@@ -2,8 +2,9 @@
 and the Event Identity form's validation layer).
 
 Spec: docs/superpowers/specs/2026-07-21-crush-event-identity-redesign.md (§8, §13).
-The Interest taxonomy (including the O3 additions) is seeded by migrations, so
-the slugs asserted below exist in the test DB.
+The Interest taxonomy (including the O3 additions) ships as data migrations, but
+this module seeds it itself (see ``interest_taxonomy``) rather than trusting the
+test DB to still hold it.
 """
 
 from datetime import timedelta
@@ -34,6 +35,47 @@ def _run(*args):
     out = StringIO()
     call_command("migrate_interests_to_taxonomy", *args, stdout=out)
     return out.getvalue()
+
+
+@pytest.fixture(autouse=True)
+def interest_taxonomy(db):
+    """Guarantee the Interest catalogue every assertion below reads from.
+
+    The taxonomy is seeded by data migrations (0163 + 0196), but migration-seeded
+    rows do not survive the flush a ``transaction=True`` test performs on
+    teardown — so with ``--reuse-db`` they are gone from the test DB for every
+    later run, and this module then fails on its own. Re-seeding from the
+    migrations' own data keeps the fixture from drifting away from what
+    production actually has, and stays a no-op on a freshly created test DB.
+    """
+    from django.apps import apps as global_apps
+
+    base = import_module("crush_lu.migrations.0163_seed_connect_interests")
+    additions = import_module("crush_lu.migrations.0196_seed_interest_additions")
+
+    present = set(Interest.objects.values_list("slug", flat=True))
+    per_category_order = {}
+    for slug, category, en, de, fr in base.INTERESTS:
+        # sort_order is positional per category, exactly as 0163 computes it —
+        # the >8 cap tie-breaks on (category, sort_order).
+        order = per_category_order.get(category, 0)
+        per_category_order[category] = order + 1
+        if slug in present:
+            continue
+        Interest.objects.create(
+            slug=slug,
+            category=category,
+            sort_order=order,
+            is_active=True,
+            label=en,
+            label_en=en,
+            label_de=de,
+            label_fr=fr,
+        )
+
+    # 0196 is already get_or_create-idempotent against the real model, so it can
+    # run as written.
+    additions.seed_additions(global_apps, None)
 
 
 # ---------------------------------------------------------------------------
