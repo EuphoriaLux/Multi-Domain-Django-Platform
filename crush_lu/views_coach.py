@@ -2453,38 +2453,38 @@ def coach_event_checkin(request, event_id):
     registrations = (
         EventRegistration.objects.filter(event=event)
         .exclude(status="cancelled")
-        .select_related("user__crushprofile")
+        .select_related("user__crushprofile__assigned_coach__user")
         .order_by("registered_at")
     )
 
     confirmed = [r for r in registrations if r.status in ("confirmed", "attended")]
     attended_count = sum(1 for r in confirmed if r.status == "attended")
+    # Waitlisted walk-ups: shown in their own section so a coach can promote
+    # and check one in without leaving the scanner (the common move once
+    # no-shows free up seats).
+    waitlisted = [r for r in registrations if r.status == "waitlist"]
 
     # Ensure all confirmed registrations have check-in tokens for manual fallback
     from crush_lu.views_ticket import _generate_checkin_token
 
+    door_rows = confirmed + waitlisted
+
+    # Tokens for confirmed/attended rows ONLY. Promotion is addressed by
+    # registration id, not a signed token, so a waitlisted row never needs
+    # one — and minting it is not free: _generate_checkin_token saves the
+    # registration, and that save fires
+    # trigger_wallet_pass_update_on_registration_change, which refreshes
+    # Apple/Google Wallet synchronously (the Google call allows 30s). Doing
+    # that for every waitlisted row would put a multi-second stall in front
+    # of the one page that has to load instantly at the door.
     for reg in confirmed:
         if not reg.checkin_token:
             _generate_checkin_token(reg)
 
     # Pre-fetch coach assignments for all profiles in one query (avoids N+1)
     from django.urls import reverse as _reverse
-    from crush_lu.models import ProfileSubmission
 
-    profile_ids = [
-        reg.user.crushprofile.id
-        for reg in confirmed
-        if hasattr(reg.user, "crushprofile") and reg.user.crushprofile.id
-    ]
-    submissions_by_profile = {}
-    for sub in (
-        ProfileSubmission.objects.filter(profile_id__in=profile_ids)
-        .select_related("coach__user")
-        .order_by("-submitted_at")
-    ):
-        submissions_by_profile.setdefault(sub.profile_id, sub)
-
-    for reg in confirmed:
+    for reg in door_rows:
         try:
             profile = reg.user.crushprofile
             reg.photo_url = (
@@ -2495,15 +2495,35 @@ def coach_event_checkin(request, event_id):
                 if profile.photo_1
                 else None
             )
-            sub = submissions_by_profile.get(profile.id)
-            reg.coach_name = (
-                f"{sub.coach.user.first_name} {sub.coach.user.last_name}".strip()
-                if sub and sub.coach
-                else None
-            )
+            # The member's PERMANENT coach, not whoever last reviewed their
+            # profile. This row is the surface where attendance grants that
+            # coach (PR #698), so showing the reviewing coach here described a
+            # different relationship under the same word — and, worse, made an
+            # attendee with no coach at all look identical to one who has one.
+            # A coachless attendee is only repairable at the door: a re-scan
+            # never re-fires the assignment signal.
+            reg.coach_name = None
+            if profile.assigned_coach_id:
+                coach_user = profile.assigned_coach.user
+                reg.coach_name = (
+                    f"{coach_user.first_name} {coach_user.last_name}".strip()
+                    or coach_user.username
+                )
         except Exception:
             reg.photo_url = None
             reg.coach_name = None
+
+    # Live gender split of who is actually in the room. The waitlist decision
+    # at the door depends on the current balance, and the coach dashboard
+    # already computes exactly this one page over.
+    gender_checked_in = {"F": 0, "M": 0, "other": 0}
+    gender_expected = {"F": 0, "M": 0, "other": 0}
+    for reg in confirmed:
+        gender = getattr(getattr(reg.user, "crushprofile", None), "gender", None)
+        key = gender if gender in ("F", "M") else "other"
+        gender_expected[key] += 1
+        if reg.status == "attended":
+            gender_checked_in[key] += 1
 
     # Quiz table assignment data
     import json
@@ -2538,8 +2558,15 @@ def coach_event_checkin(request, event_id):
         "coach": request.coach,
         "event": event,
         "registrations": confirmed,
+        "waitlisted": waitlisted,
+        "waitlist_count": len(waitlisted),
         "confirmed_count": len(confirmed),
         "attended_count": attended_count,
+        # In the last fifteen minutes the question is who has NOT arrived, and
+        # answering it used to mean a subtraction plus scrolling.
+        "outstanding_count": len(confirmed) - attended_count,
+        "gender_checked_in": gender_checked_in,
+        "gender_expected": gender_expected,
         "is_quiz_night": is_quiz_night and quiz_event is not None,
         "table_assignments_json": json.dumps(
             {str(k): v for k, v in table_assignments.items()}
