@@ -6408,11 +6408,19 @@ html.dark .section-card {
         padding: 12px 16px;
     }
 
-    /* Make checkbox/radio labels easier to tap */
-    input[type="checkbox"] + label,
-    input[type="radio"] + label,
-    label:has(input[type="checkbox"]),
-    label:has(input[type="radio"]) {
+    /* Make checkbox/radio labels easier to tap.
+       Scoped to inputs that are actually rendered: the peer-checked pattern
+       (`<label><input class="peer hidden"><div class="connect-selectable">`)
+       hides the control and styles the sibling, so there is no native box to
+       enlarge — and forcing the label to `display: flex` there turns the
+       styled child into a content-width flex item, which collapses the
+       Connect wizard's option tiles to the left instead of filling the row.
+       `:not(.sr-only):not(.hidden)` is the same guard `.connect-card`'s
+       checkbox rule already uses. */
+    input[type="checkbox"]:not(.sr-only):not(.hidden) + label,
+    input[type="radio"]:not(.sr-only):not(.hidden) + label,
+    label:has(input[type="checkbox"]:not(.sr-only):not(.hidden)),
+    label:has(input[type="radio"]:not(.sr-only):not(.hidden)) {
         min-height: 44px;
         display: flex;
         align-items: center;
