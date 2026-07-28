@@ -261,7 +261,28 @@ if os.environ.get("REDIS_URL"):
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
             "CONFIG": {
-                "hosts": [os.environ["REDIS_URL"]],
+                # socket_timeout MUST stay above channels-redis' brpop_timeout
+                # (`channels_redis/core.py`, class attribute, 5s). The layer
+                # listens with `BRPOP <channel> 5`, which on an idle channel
+                # blocks for the full five seconds by design — and redis-py 8.0
+                # applies `DEFAULT_SOCKET_TIMEOUT = 5` (`redis/_defaults.py`)
+                # where older releases defaulted to None. Two identical
+                # five-second timers race, the client one wins, and every idle
+                # WebSocket dies at exactly 5.0s with
+                # "Timeout reading from ...redis.cache.windows.net:6380".
+                #
+                # Passing the host as a dict keeps this scoped to the channel
+                # layer: `decode_hosts` forwards dict entries verbatim and
+                # `create_pool` calls `from_url(address, **host)`. Setting it
+                # on REDIS_URL instead would also raise the CACHES read
+                # timeout, slowing down how fast a wedged Redis surfaces on
+                # the page-render path.
+                "hosts": [
+                    {
+                        "address": os.environ["REDIS_URL"],
+                        "socket_timeout": 10,
+                    }
+                ],
             },
         },
     }
