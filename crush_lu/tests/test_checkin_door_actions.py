@@ -450,6 +450,31 @@ class TestDoorPageContext:
         assert response.context["waitlist_count"] == 1
         assert b"waitlist-reg-" in response.content
 
+    def test_waitlisted_rows_do_not_get_check_in_tokens(self, client):
+        """Promotion is addressed by registration id, so a waitlisted row
+        never needs a signed token — and minting one is not free.
+        _generate_checkin_token saves the registration, which fires the Wallet
+        pass refresh signal (the Google call allows 30s). Doing that per
+        waitlisted row would stall the one page that must load instantly."""
+        coach = _make_coach()
+        waiting = _make_attendee("wait@example.com")
+        confirmed = _make_attendee("conf@example.com")
+        event = _make_event()
+        wl = EventRegistration.objects.create(
+            event=event, user=waiting, status="waitlist"
+        )
+        cf = EventRegistration.objects.create(
+            event=event, user=confirmed, status="confirmed"
+        )
+        client.force_login(coach.user)
+
+        self._page(client, event)
+
+        wl.refresh_from_db()
+        cf.refresh_from_db()
+        assert not wl.checkin_token, "waitlisted row was given a token"
+        assert cf.checkin_token, "confirmed row lost its token"
+
     def test_counts_split_arrived_from_outstanding(self, client):
         coach = _make_coach()
         here = _make_attendee("here@example.com")

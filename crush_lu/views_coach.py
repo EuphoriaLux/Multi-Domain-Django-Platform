@@ -2467,11 +2467,17 @@ def coach_event_checkin(request, event_id):
     # Ensure all confirmed registrations have check-in tokens for manual fallback
     from crush_lu.views_ticket import _generate_checkin_token
 
-    # Waitlisted rows need a token too: promoting one checks it in, and the
-    # manual-checkin fallback reads the token off the row.
     door_rows = confirmed + waitlisted
 
-    for reg in door_rows:
+    # Tokens for confirmed/attended rows ONLY. Promotion is addressed by
+    # registration id, not a signed token, so a waitlisted row never needs
+    # one — and minting it is not free: _generate_checkin_token saves the
+    # registration, and that save fires
+    # trigger_wallet_pass_update_on_registration_change, which refreshes
+    # Apple/Google Wallet synchronously (the Google call allows 30s). Doing
+    # that for every waitlisted row would put a multi-second stall in front
+    # of the one page that has to load instantly at the door.
+    for reg in confirmed:
         if not reg.checkin_token:
             _generate_checkin_token(reg)
 
