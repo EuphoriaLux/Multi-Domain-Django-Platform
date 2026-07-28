@@ -20,6 +20,7 @@ from datetime import timedelta
 import pytest
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from django.core.files.base import ContentFile
 from django.urls import reverse
 from django.utils import timezone
 
@@ -34,7 +35,12 @@ from crush_lu.models import (
 
 # Reused rather than re-derived: building a member who clears every §5.1 gate
 # knob is exactly what these helpers already encode.
-from crush_lu.tests.test_event_lobby import _join, _make_member
+from crush_lu.tests.test_event_lobby import (
+    _end_event,
+    _handle_of,
+    _join,
+    _make_member,
+)
 
 User = get_user_model()
 
@@ -267,6 +273,84 @@ class TestCoachLobbyPreview:
         tiles = re.findall(r"<button[^>]*data-handle=[^>]*>", html)
         assert tiles, "roster tile did not render — the rest asserts nothing"
         assert all("disabled" in tile for tile in tiles)
+
+    def test_preview_can_load_roster_photos(self, client, settings, tmp_path):
+        """The faces ARE the preview. ``lobby_photo`` authorizes the viewer
+        against the roster, so without the coach exemption the grid renders
+        three broken images — a hole the page-level tests cannot see, because
+        the page itself returns 200 either way."""
+        coach = _make_coach()
+        event = _make_event(starts_in_minutes=-30)
+        member = _make_member("photoone")
+        settings.MEDIA_ROOT = str(tmp_path)
+        member.crushprofile.photo_1.save(
+            "lobby.jpg", ContentFile(b"jpegbytes"), save=True
+        )
+        _join(member, event)
+        client.force_login(coach)
+
+        response = client.get(
+            reverse(
+                "crush_lu:event_lobby_photo",
+                kwargs={"event_id": event.pk, "handle": _handle_of(member, event)},
+            )
+        )
+
+        assert response.status_code == 200
+        assert response["Content-Type"] == "image/jpeg"
+
+    def test_photo_exemption_ends_with_the_live_phase(self, client, settings, tmp_path):
+        """Narrower than the page it serves: the coach has no recap preview,
+        so the photo route must not stay open into the recap window."""
+        coach = _make_coach()
+        # Join while live — participations are only ever created live — then
+        # rewind the event into the recap window.
+        event = _make_event(starts_in_minutes=-30)
+        member = _make_member("photorecap")
+        settings.MEDIA_ROOT = str(tmp_path)
+        member.crushprofile.photo_1.save(
+            "lobby.jpg", ContentFile(b"jpegbytes"), save=True
+        )
+        _join(member, event)
+        handle = _handle_of(member, event)
+        _end_event(event)
+        client.force_login(coach)
+
+        response = client.get(
+            reverse(
+                "crush_lu:event_lobby_photo",
+                kwargs={"event_id": event.pk, "handle": handle},
+            )
+        )
+
+        assert response.status_code == 404
+
+    def test_non_coach_non_participant_still_denied_photos(
+        self, client, settings, tmp_path
+    ):
+        """§13 unchanged: the exemption is for coaches, not for everyone who
+        can guess a handle."""
+        outsider = User.objects.create_user(
+            username="nosy@example.com", email="nosy@example.com", password="pass12345"
+        )
+        _grant_consent(outsider)
+        event = _make_event(starts_in_minutes=-30)
+        member = _make_member("photoguard")
+        settings.MEDIA_ROOT = str(tmp_path)
+        member.crushprofile.photo_1.save(
+            "lobby.jpg", ContentFile(b"jpegbytes"), save=True
+        )
+        _join(member, event)
+        client.force_login(outsider)
+
+        response = client.get(
+            reverse(
+                "crush_lu:event_lobby_photo",
+                kwargs={"event_id": event.pk, "handle": _handle_of(member, event)},
+            )
+        )
+
+        assert response.status_code == 404
 
 
 class TestCheckinAttendeeSearch:

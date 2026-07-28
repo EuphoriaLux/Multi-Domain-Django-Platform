@@ -522,7 +522,15 @@ def lobby_photo(request, event_id, handle):
     event = _get_lobby_event(event_id)
 
     if viewer_participation(request.user, event) is None:
-        raise Http404("Photo not found")
+        # Coach preview (see ``event_lobby``): without this the coach gets a
+        # grid of broken images, which is the one thing the preview exists to
+        # show. Narrower than the page it serves — live phase only, where the
+        # preview is the only coach surface that renders these URLs.
+        if not (
+            _user_is_active_coach(request.user)
+            and event_lobby_phase(event) == PHASE_LIVE
+        ):
+            raise Http404("Photo not found")
     # Photos stay retrievable through live AND recap (the recap grid is
     # photo-only, §7.7); everything closes with the recap window.
     if event_lobby_phase(event) not in (PHASE_LIVE, "recap"):
