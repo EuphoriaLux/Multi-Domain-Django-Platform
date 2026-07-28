@@ -12,6 +12,7 @@ cross-event handles / pre-mutual identity leaks); and consumer authorization.
 """
 
 import json
+import re
 from datetime import date, timedelta
 
 import pytest
@@ -816,6 +817,28 @@ class TestLobbyPage:
         html = client.get(_lobby_url(event)).content.decode()
         for attr in ('x-show="!', 'x-if="!', 'x-bind:disabled="!'):
             assert attr not in html
+
+    def test_participant_page_is_not_read_only(self, client):
+        """The coach-preview switch must never reach a real participant: it
+        strips the signal ledger and disables every tile, so a member who
+        landed on it would silently lose the ability to signal."""
+        event = _make_event()
+        alice = _make_member("alice")
+        ben = _make_member("ben", gender="M")
+        _join(alice, event)
+        _join(ben, event)
+        _login(client, alice)
+        html = client.get(_lobby_url(event)).content.decode()
+        assert 'data-read-only="1"' not in html
+        assert "data-coach-preview-notice" not in html
+        # The ledger and the live socket both stay for participants.
+        assert "Your signals for tonight" in html
+        assert f'data-ws-path="/ws/event-lobby/{event.pk}/"' in html
+        # Ben's tile is pressable — the paired coach-preview test asserts the
+        # same tile ships disabled, so neither test can pass unconditionally.
+        tiles = re.findall(r"<button[^>]*data-handle=[^>]*>", html)
+        assert tiles, "roster tile did not render — the rest asserts nothing"
+        assert not any("disabled" in tile for tile in tiles)
 
     def test_participant_sees_photo_grid_without_pre_mutual_names(self, client):
         event = _make_event()

@@ -105,24 +105,76 @@ def _get_lobby_event(event_id):
     )
 
 
+def _user_is_active_coach(user):
+    """Same coach check ``views_quiz.quiz_live_view`` uses for its coach
+    viewer mode: any active CrushCoach (the coach panel itself is gated by
+    ``coach_required`` without a per-event assignment check)."""
+    from .models import CrushCoach
+
+    return CrushCoach.objects.filter(user=user, is_active=True).exists()
+
+
+def _render_coach_preview(request, event, phase, now):
+    """Read-only view of the live lobby for the coach running the event."""
+    # Live only — recap reads a frozen participation the coach does not have.
+    if phase != PHASE_LIVE:
+        return render(
+            request,
+            "crush_lu/event_lobby/lobby_closed.html",
+            {"event": event, "phase": phase},
+        )
+    context = {
+        "event": event,
+        "participation": None,
+        "state": lobby_state(request.user, event, now),
+        "roster": get_roster(request.user, event),
+        "mutuals": get_mutuals(request.user, event),
+        # No socket: EventLobbyConsumer._can_join requires a participation, so
+        # the connection would only be opened to be closed (5 bounded retries
+        # of noise). The 15s poll carries the preview.
+        "ws_path": "",
+        # Renders the page read-only: no signal ledger, inert tiles. Without it
+        # the coach sees a full "3 signals left" UI whose every action 403s,
+        # and the 403 makes event-lobby.js revokeAccess() the page.
+        "coach_preview": True,
+    }
+    response = render(request, "crush_lu/event_lobby/lobby.html", context)
+    response["Cache-Control"] = "private, no-store"
+    return response
+
+
 @crush_login_required
 def event_lobby(request, event_id):
     """The lobby page (§7.2). Attendance is the hard wall: guests without an
     ``attended`` registration get a plain 404 and can never infer the lobby
     exists (§5.3). Checked-in members who fail the Connect gate see only the
-    onboarding CTA — never the roster or any participant count."""
+    onboarding CTA — never the roster or any participant count.
+
+    One exemption: an active coach gets a read-only preview of the live lobby
+    so they can see what members see while running the event. The preview
+    never creates a participation, and the signal API still requires one, so
+    a coach cannot interact with the lobby — only view it."""
     event = _get_lobby_event(event_id)
     now = timezone.now()
     phase = event_lobby_phase(event, now)
+    is_coach = _user_is_active_coach(request.user)
 
     registration = EventRegistration.objects.filter(
         event=event, user=request.user, status="attended"
     ).first()
     if registration is None:
-        raise Http404("Event lobby not available")
+        if not is_coach:
+            raise Http404("Event lobby not available")
+        return _render_coach_preview(request, event, phase, now)
 
     ok, gate_reason = participant_gate(request.user)
     if not ok:
+        # A coach who checked themselves in at the door is still a coach:
+        # attendance must not cost them the preview and hand them the member
+        # lock page (or a 404) instead. Coaches who DO clear the gate fall
+        # through to the participant path — they are members like any other.
+        if is_coach:
+            return _render_coach_preview(request, event, phase, now)
         # §5.3: only a LuxID-capable, approved guest may even learn a lobby
         # exists. A plain non-Connect attendee gets the same 404 as someone
         # who never checked in — the CTA must not advertise the feature.
@@ -302,11 +354,32 @@ def lobby_state_api(request, event_id):
     post-broadcast refetches (§11). Never contains pre-mutual identity."""
     event = _get_lobby_event(event_id)
     participation = viewer_participation(request.user, event)
-    if participation is None:
-        return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
-
     now = timezone.now()
     phase = event_lobby_phase(event, now)
+    if participation is None:
+        # Coach preview (read-only): an active coach may poll live state so
+        # the preview page stays in sync; recap rosters stay member-only and
+        # signal sending still requires a participation row.
+        if not _user_is_active_coach(request.user):
+            return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+        if phase == PHASE_LIVE:
+            payload = {
+                "ok": True,
+                "state": lobby_state(request.user, event, now),
+                "roster": get_roster(request.user, event),
+                "mutuals": [],
+            }
+        else:
+            payload = {
+                "ok": True,
+                "state": {"phase": phase},
+                "roster": [],
+                "mutuals": [],
+            }
+        response = JsonResponse(payload)
+        response["Cache-Control"] = "private, no-store"
+        return response
+
     if phase == PHASE_LIVE:
         payload = {
             "ok": True,
@@ -460,7 +533,15 @@ def lobby_photo(request, event_id, handle):
     event = _get_lobby_event(event_id)
 
     if viewer_participation(request.user, event) is None:
-        raise Http404("Photo not found")
+        # Coach preview (see ``event_lobby``): without this the coach gets a
+        # grid of broken images, which is the one thing the preview exists to
+        # show. Narrower than the page it serves — live phase only, where the
+        # preview is the only coach surface that renders these URLs.
+        if not (
+            _user_is_active_coach(request.user)
+            and event_lobby_phase(event) == PHASE_LIVE
+        ):
+            raise Http404("Photo not found")
     # Photos stay retrievable through live AND recap (the recap grid is
     # photo-only, §7.7); everything closes with the recap window.
     if event_lobby_phase(event) not in (PHASE_LIVE, "recap"):

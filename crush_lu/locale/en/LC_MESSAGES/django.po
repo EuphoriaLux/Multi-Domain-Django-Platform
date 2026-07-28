@@ -26634,3 +26634,25 @@ msgstr ""
 
 msgid "Sign out of your account on this device"
 msgstr ""
+
+#: templates/crush_lu/coach_event_detail.html:56
+msgid "Quiz Live View"
+msgstr ""
+
+#: templates/crush_lu/coach_event_detail.html:122
+msgid "Event Lobby Preview"
+msgstr ""
+
+#: templates/crush_lu/coach_event_detail.html:123
+msgid "See the lobby as members do"
+msgstr ""
+
+#: templates/crush_lu/event_lobby/lobby.html:73
+msgid "Coach preview"
+msgstr ""
+
+#: templates/crush_lu/event_lobby/lobby.html:75
+msgid ""
+"This is the lobby as tonight's members see it. You can watch the room fill "
+"up, but you cannot send signals."
+msgstr ""

@@ -38469,3 +38469,27 @@ msgstr "Blitz an"
 
 msgid "Flash Off"
 msgstr "Blitz aus"
+
+#: templates/crush_lu/coach_event_detail.html:56
+msgid "Quiz Live View"
+msgstr "Quiz-Live-Ansicht"
+
+#: templates/crush_lu/coach_event_detail.html:122
+msgid "Event Lobby Preview"
+msgstr "Event-Lobby-Vorschau"
+
+#: templates/crush_lu/coach_event_detail.html:123
+msgid "See the lobby as members do"
+msgstr "Die Lobby sehen, wie Mitglieder sie sehen"
+
+#: templates/crush_lu/event_lobby/lobby.html:73
+msgid "Coach preview"
+msgstr "Coach-Vorschau"
+
+#: templates/crush_lu/event_lobby/lobby.html:75
+msgid ""
+"This is the lobby as tonight's members see it. You can watch the room fill "
+"up, but you cannot send signals."
+msgstr ""
+"So sehen die Mitglieder heute Abend die Lobby. Du kannst zusehen, wie sich "
+"der Raum füllt, aber du kannst keine Signale senden."

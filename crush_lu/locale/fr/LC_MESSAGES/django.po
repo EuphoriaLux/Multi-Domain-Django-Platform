@@ -38608,3 +38608,27 @@ msgstr "Activer le flash"
 
 msgid "Flash Off"
 msgstr "Éteindre le flash"
+
+#: templates/crush_lu/coach_event_detail.html:56
+msgid "Quiz Live View"
+msgstr "Vue live du quiz"
+
+#: templates/crush_lu/coach_event_detail.html:122
+msgid "Event Lobby Preview"
+msgstr "Aperçu du lobby"
+
+#: templates/crush_lu/coach_event_detail.html:123
+msgid "See the lobby as members do"
+msgstr "Voir le lobby comme les membres le voient"
+
+#: templates/crush_lu/event_lobby/lobby.html:73
+msgid "Coach preview"
+msgstr "Aperçu coach"
+
+#: templates/crush_lu/event_lobby/lobby.html:75
+msgid ""
+"This is the lobby as tonight's members see it. You can watch the room fill "
+"up, but you cannot send signals."
+msgstr ""
+"Voici le lobby tel que les membres le voient ce soir. Vous pouvez regarder "
+"la salle se remplir, mais vous ne pouvez pas envoyer de signaux."
