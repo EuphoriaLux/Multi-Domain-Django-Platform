@@ -68,6 +68,34 @@ def crush_connect_nav_visible(user):
     return candidate_access_open()
 
 
+@register.filter
+def crush_connect_is_receiver(user):
+    """
+    True if this user is on the RECEIVER track (Today's Drop) rather than the
+    candidate track ("In the Mix").
+
+    Delegates to ``_user_can_receive_now`` — the same predicate the views and
+    the access blocker use — so the nav can never disagree with where a click
+    actually lands. It previously branched on ``crushprofile.assigned_coach_id``,
+    which stopped being the Premium signal in PR #629: a coach is also assigned
+    without payment (the 0150 backfill, and the door's auto-assign on first
+    attendance), so every coach-assigned non-Premium member was shown a
+    "Today's Drop" tab that redirected them straight back to the catalogue.
+    """
+    if not user or not user.is_authenticated:
+        return False
+    try:
+        from crush_lu.views_crush_connect import _user_can_receive_now
+
+        return bool(_user_can_receive_now(user))
+    except Exception:
+        # Mirrors crush_connect_nav_visible: this runs DB queries during
+        # template rendering, and a backend fault must not 500 the page from
+        # the nav. Falling back to "candidate" is the safe side — the
+        # catalogue link is reachable by every onboarded member.
+        return False
+
+
 @register.simple_tag
 def crush_connect_launched():
     """Raw flag accessor for templates that need it directly."""

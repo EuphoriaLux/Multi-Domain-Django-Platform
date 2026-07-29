@@ -15,7 +15,7 @@ chip/pill utility classes already in the Tailwind build.
       {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}<span>{% trans "Home" %}</span>
     </a>
 
-    {% if user.crushprofile.assigned_coach_id %}
+    {% if user|crush_connect_is_receiver %}
     <a href="{% url 'crush_lu:crush_connect_home' %}"
        class="{{ base }} {% if active == 'crush_connect_home' %}{{ on }}{% else %}{{ off }}{% endif %}">
       {% include "shared/icons/heart.html" with class="w-4 h-4" %}<span>{% trans "Today's Drop" %}</span>

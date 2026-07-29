@@ -205,12 +205,19 @@ def _next_drop_at(now=None):
 
 def _connect_done_url(user) -> str:
     """Where a finished member lands: receivers (Premium) → Today's Drop,
-    candidates (LuxID-only) → catalogue status. Staff count as receivers so
-    they can preview the Drop."""
-    is_receiver = _user_can_receive_now(user) or user.is_staff
+    candidates (LuxID-only) → catalogue status.
+
+    Deliberately does NOT treat staff as receivers. "May this person open the
+    Drop page" (a staff preview concern, handled by ``_connect_access_blocker``)
+    and "does this person actually receive Drops" are different questions, and
+    conflating them sent every coach to a Drop that ``get_eligible_pool`` will
+    always return empty — it has no staff bypass and gates on
+    ``has_active_premium``. A coach without Premium is a candidate, and belongs
+    on the candidate surface.
+    """
     return (
         "crush_lu:crush_connect_home"
-        if is_receiver
+        if _user_can_receive_now(user)
         else "crush_lu:crush_connect_catalogue_status"
     )
 
@@ -767,7 +774,12 @@ def crush_connect_hub(request):
     if blocker is not None:
         return blocker
 
-    is_receiver = _user_can_receive_now(user) or user.is_staff
+    # Track follows the ENTITLEMENT only — no staff bypass. A coach without an
+    # active PremiumMembership is a candidate and gets the candidate hub, so
+    # "In the Mix" finally appears for them. Staff keep their preview of the
+    # Drop page via _connect_access_blocker + the staff_preview link below.
+    is_receiver = _user_can_receive_now(user)
+    staff_preview = bool(user.is_staff and not is_receiver)
     membership = getattr(user, "crush_connect_membership", None)
     coach = getattr(user, "crushcoach", None)
 
@@ -795,6 +807,7 @@ def crush_connect_hub(request):
         "membership": membership,
         "track": "receiver" if is_receiver else "candidate",
         "is_receiver": is_receiver,
+        "staff_preview": staff_preview,
         "is_coach": bool(coach and coach.is_active),
         "pending_sparks_count": pending_sparks_count,
         "coach_pick": coach_pick,
