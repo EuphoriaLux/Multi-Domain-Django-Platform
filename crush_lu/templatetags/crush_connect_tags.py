@@ -68,6 +68,40 @@ def crush_connect_nav_visible(user):
     return candidate_access_open()
 
 
+@register.filter
+def crush_connect_is_receiver(user):
+    """
+    True if this user is on the RECEIVER track (Today's Drop) right now, as
+    opposed to the CANDIDATE track (In the Mix).
+
+    Mirrors the view layer's source of truth exactly — ``_user_can_receive_now``
+    (active ``PremiumMembership`` AND a phase that lets them receive) with the
+    same ``or user.is_staff`` preview bypass the views apply.
+
+    Never branch a Connect track on ``assigned_coach``: a coach is also assigned
+    WITHOUT payment (the 0150 backfill, ``assign_coach_on_first_attendance`` on
+    first event check-in), so a coach-based test offers Today's Drop to members
+    whom ``_connect_access_blocker`` then bounces to their catalogue status.
+
+    This lives here rather than in view context because the Connect sub-nav is a
+    shared partial — only ``crush_connect_hub`` supplies ``is_receiver``, so a
+    context variable would silently read as False on every other Connect page.
+    """
+    from crush_lu.views_crush_connect import _user_can_receive_now
+
+    if not user or not user.is_authenticated:
+        return False
+    try:
+        return bool(_user_can_receive_now(user) or user.is_staff)
+    except Exception:
+        # Same defensive stance as crush_connect_nav_visible: this runs DB
+        # queries (profile + PremiumMembership) during template rendering, and
+        # a backend fault must not 500 the page from the nav. Falling back to
+        # the candidate tab is the safe default — it points at the surface a
+        # non-receiver would be redirected to anyway.
+        return False
+
+
 @register.simple_tag
 def crush_connect_launched():
     """Raw flag accessor for templates that need it directly."""
