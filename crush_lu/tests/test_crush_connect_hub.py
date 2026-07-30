@@ -7,11 +7,15 @@ use ``/en/crush-connect/…`` URLs which only resolve under ``urls_crush``.
 """
 
 import pytest
+from django.template.loader import render_to_string
 from django.urls import reverse
 
 pytestmark = pytest.mark.urls("azureproject.urls_crush")
 
-from crush_lu.models import CuriositySpark  # noqa: E402
+from crush_lu.models import CuriositySpark, PremiumMembership  # noqa: E402
+from crush_lu.templatetags.crush_connect_tags import (  # noqa: E402
+    crush_connect_is_receiver,
+)
 from crush_lu.tests.test_crush_connect import (  # noqa: E402
     _login_eligible,
     _make_user,
@@ -134,16 +138,116 @@ def test_hub_surfaces_pending_sparks(client, settings):
 
 
 # ---------------------------------------------------------------------------
-# Shared shell: member-facing pages render the Connect sub-nav
+# Shared shell: member-facing pages link back to the Connect hub
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.django_db
-def test_member_page_renders_connect_subnav(client, settings):
+def test_member_page_links_back_to_the_hub(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(username="me", onboarded=True, premium=True)
     _login_eligible(client, me)
-    # Today's Drop now extends the Connect shell → its sub-nav links to the hub.
+    # That link comes from the persistent navbar / bottom nav
+    # (crush_connect_nav_visible) — NOT from _connect_subnav.html, which no
+    # template has included since d5a8a891. The old name and comment here
+    # claimed the sub-nav, which is what made its stale predicate look live.
     resp = client.get(reverse("crush_lu:crush_connect_home"))
     assert resp.status_code == 200
     assert reverse("crush_lu:crush_connect_hub") in resp.content.decode()
+
+
+# ---------------------------------------------------------------------------
+# Sub-nav track tab: Premium entitlement, NOT assigned_coach
+#
+# The partial is rendered directly because no template includes it right now
+# (d5a8a891 dropped the include from _base_connect.html). These tests pin the
+# predicate so the coach-based test can't come back if it is ever wired in.
+# ---------------------------------------------------------------------------
+
+
+def _render_subnav(user):
+    return render_to_string(
+        "crush_lu/crush_connect/_connect_subnav.html", {"user": user}
+    )
+
+
+def _drop_coach_assigned_non_premium(username="coached"):
+    """A member the 0150 backfill / attendance auto-assign left with a coach but
+    no active PremiumMembership — the shape of every one of the ~464 affected
+    accounts on production (0 active memberships platform-wide)."""
+    user = _make_user(username=username, onboarded=True, premium=True)
+    PremiumMembership.objects.filter(user=user).delete()
+    user.crushprofile.refresh_from_db()
+    assert user.crushprofile.assigned_coach_id is not None
+    assert user.crushprofile.has_active_premium is False
+    return user
+
+
+@pytest.mark.django_db
+def test_subnav_shows_in_the_mix_for_coach_assigned_non_premium(settings):
+    """A coach without payment must NOT surface a 'Today's Drop' tab: it is
+    mislabeled and _connect_access_blocker bounces it straight back to the
+    catalogue status page."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _drop_coach_assigned_non_premium()
+
+    body = _render_subnav(me)
+
+    assert reverse("crush_lu:crush_connect_catalogue_status") in body
+    assert reverse("crush_lu:crush_connect_home") not in body
+
+
+@pytest.mark.django_db
+def test_subnav_shows_todays_drop_for_premium_receiver(settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", onboarded=True, premium=True)
+
+    body = _render_subnav(me)
+
+    assert reverse("crush_lu:crush_connect_home") in body
+    assert reverse("crush_lu:crush_connect_catalogue_status") not in body
+
+
+@pytest.mark.django_db
+def test_subnav_track_tab_matches_the_hub(client, settings):
+    """The sub-nav filter and the hub's view-supplied ``is_receiver`` must agree
+    — a coach-assigned non-premium member is a candidate on both surfaces."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _drop_coach_assigned_non_premium(username="me")
+    _login_eligible(client, me)
+
+    resp = client.get(HUB_URL)
+
+    assert resp.status_code == 200
+    assert resp.context["is_receiver"] is False
+    assert crush_connect_is_receiver(me) is False
+
+
+@pytest.mark.django_db
+def test_subnav_is_receiver_filter_tracks_membership_status(settings):
+    """Cancelling the membership revokes the receiver tab even though the coach
+    relationship survives — mirrors the view-layer gate."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", onboarded=True, premium=True)
+    assert crush_connect_is_receiver(me) is True
+
+    PremiumMembership.objects.filter(user=me).update(status="cancelled")
+
+    assert crush_connect_is_receiver(me) is False
+    assert me.crushprofile.assigned_coach_id is not None
+
+
+@pytest.mark.django_db
+def test_subnav_beta_premium_non_tester_is_a_candidate(settings):
+    """In beta the phase also gates the receiver track: a Premium member who
+    isn't a selected tester is a candidate, exactly as _user_can_receive_now
+    reports it."""
+    settings.CRUSH_CONNECT_LAUNCHED = False
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
+    me = _make_user(username="me", onboarded=True, premium=True)
+
+    body = _render_subnav(me)
+
+    assert crush_connect_is_receiver(me) is False
+    assert reverse("crush_lu:crush_connect_catalogue_status") in body
+    assert reverse("crush_lu:crush_connect_home") not in body
