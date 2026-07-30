@@ -9548,7 +9548,9 @@ msgstr "Choisir un modèle"
 msgid ""
 "The recipient's language picks the localized variant; missing variants fail "
 "per recipient."
-msgstr "La langue du destinataire sélectionne la variante localisée."
+msgstr ""
+"La langue du destinataire sélectionne la variante localisée ; les variantes "
+"manquantes échouent par destinataire."
 
 #: templates/admin/crush_lu/campaign_composer.html:151
 #, fuzzy
@@ -9566,7 +9568,9 @@ msgstr "Notes du coach (facultatif)"
 #, python-brace-format
 msgid ""
 "Merge tokens: {first_name}, {last_name}, {email}. URLs are click-tracked."
-msgstr "Jétons de fusion : {first_name}, {last_name}, {email}. Les URL sont suivies."
+msgstr ""
+"Jetons de fusion : {first_name}, {last_name}, {email}. Les URL sont suivies "
+"au clic."
 
 #: templates/admin/crush_lu/campaign_composer.html:163
 #, fuzzy
@@ -10021,7 +10025,8 @@ msgstr "Modifier"
 
 #: templates/admin/crush_lu/campaign_detail.html:89
 msgid "No tracked links yet — they appear once sending starts."
-msgstr "Aucun lien suivi pour l'instant."
+msgstr ""
+"Aucun lien suivi pour l'instant — ils apparaîtront dès le début de l'envoi."
 
 #: templates/admin/crush_lu/campaign_detail.html:96
 #, fuzzy

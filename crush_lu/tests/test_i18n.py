@@ -705,6 +705,161 @@ class JavaScriptI18nTests(TestCase):
         )
 
 
+class CompiledCatalogTests(TestCase):
+    """Guard the compiled .mo binaries against bad recompiles.
+
+    A hand-rolled compile once shipped .mo files with no metadata entry and
+    with fuzzy entries included. The first makes gettext fall back to ASCII,
+    so the first non-ASCII string raises UnicodeDecodeError and every DE/FR
+    request 500s; the second silently publishes translations that were
+    flagged as unreliable ("Stations" -> "Statut").
+    """
+
+    CATALOGS = [
+        (lang, domain)
+        for lang in ('de', 'fr')
+        for domain in ('django', 'djangojs')
+    ]
+
+    def _catalog_path(self, lang, domain, ext):
+        import os
+        crush_lu_dir = os.path.dirname(os.path.dirname(__file__))
+        return os.path.join(
+            crush_lu_dir, 'locale', lang, 'LC_MESSAGES', f'{domain}.{ext}'
+        )
+
+    def test_compiled_catalogs_declare_utf8(self):
+        """Every .mo must carry the metadata entry declaring charset=UTF-8."""
+        import gettext
+
+        for lang, domain in self.CATALOGS:
+            with self.subTest(lang=lang, domain=domain):
+                path = self._catalog_path(lang, domain, 'mo')
+                # This is the exact loader Django uses; without the metadata
+                # entry it raises UnicodeDecodeError on the first non-ASCII
+                # translation.
+                with open(path, 'rb') as fh:
+                    translation = gettext.GNUTranslations(fh)
+
+                charset = translation.info().get('content-type', '')
+                self.assertIn(
+                    'charset=UTF-8',
+                    charset,
+                    f"{lang}/{domain}.mo must declare charset=UTF-8; "
+                    f"recompile it from the .po with msgfmt or "
+                    f"polib.pofile(...).save_as_mofile(...)"
+                )
+
+    def test_compiled_catalogs_exclude_fuzzy_entries(self):
+        """Fuzzy entries are unreviewed guesses and must not be compiled in."""
+        import polib
+
+        for lang, domain in self.CATALOGS:
+            with self.subTest(lang=lang, domain=domain):
+                po = polib.pofile(self._catalog_path(lang, domain, 'po'))
+                mo = polib.mofile(self._catalog_path(lang, domain, 'mo'))
+
+                compiled = {entry.msgid_with_context for entry in mo}
+                leaked = sorted(
+                    entry.msgid
+                    for entry in po.fuzzy_entries()
+                    if entry.msgid_with_context in compiled
+                )
+
+                self.assertEqual(
+                    leaked, [],
+                    f"{lang}/{domain}.mo contains {len(leaked)} fuzzy "
+                    f"entries, e.g. {leaked[:3]}"
+                )
+
+
+@override_settings(ROOT_URLCONF='azureproject.urls_crush')
+class JavaScriptCatalogLanguageTests(SiteTestMixin, TestCase):
+    """The JS catalog must match the page that asked for it.
+
+    The catalog is mounted outside i18n_patterns, so LocaleMiddleware has no
+    prefix to read and negotiates from the cookie / Accept-Language instead.
+    Landing on /fr/ with an English Accept-Language and no cookie would
+    otherwise render every gettext() string in English on a French page.
+    """
+
+    # 'Update Now' as translated in each compiled djangojs catalog.
+    EXPECTED = {
+        'fr': 'Mettre à jour',
+        'de': 'Jetzt aktualisieren',
+    }
+    PROBE_MSGID = 'Update Now'
+
+    def _lookup(self, body, msgid):
+        """Read one msgid out of the served catalog.
+
+        Django emits the catalog as JSON with ensure_ascii=True, so accented
+        translations appear escaped ("Mettre \\u00e0 jour") and cannot be
+        substring-matched against the literal.
+        """
+        import json
+        import re
+
+        match = re.search(
+            r'"%s":\s*("(?:[^"\\]|\\.)*")' % re.escape(msgid), body
+        )
+        self.assertIsNotNone(
+            match, f"{msgid!r} missing from the served catalog"
+        )
+        return json.loads(match.group(1))
+
+    def test_language_comes_from_url_not_accept_language(self):
+        for lang, expected in self.EXPECTED.items():
+            with self.subTest(lang=lang):
+                # Accept-Language deliberately disagrees with the URL.
+                response = self.client.get(
+                    f'/jsi18n/{lang}/', headers={'accept-language': 'en'}
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    self._lookup(
+                        response.content.decode('utf-8'), self.PROBE_MSGID
+                    ),
+                    expected,
+                    f"/jsi18n/{lang}/ must serve the {lang} catalog "
+                    f"regardless of Accept-Language"
+                )
+
+    def test_unprefixed_route_still_follows_accept_language(self):
+        """The legacy route is unchanged — it is why the <lang> route exists."""
+        response = self.client.get(
+            '/jsi18n/', headers={'accept-language': 'fr'}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            self._lookup(response.content.decode('utf-8'), self.PROBE_MSGID),
+            self.EXPECTED['fr'],
+        )
+
+    def test_unsupported_language_is_404(self):
+        """An unknown code must 404 rather than quietly serve a default."""
+        for bad in ('xx', 'zz-ZZ', 'en-US-posix'):
+            with self.subTest(lang=bad):
+                response = self.client.get(f'/jsi18n/{bad}/')
+                self.assertEqual(response.status_code, 404)
+
+    def test_base_template_requests_the_page_language(self):
+        """base.html must pass LANGUAGE_CODE, not use the unprefixed route."""
+        import os
+        crush_lu_dir = os.path.dirname(os.path.dirname(__file__))
+        base_path = os.path.join(
+            crush_lu_dir, 'templates', 'crush_lu', 'base.html'
+        )
+        with open(base_path, encoding='utf-8') as fh:
+            content = fh.read()
+
+        self.assertIn(
+            "{% url 'javascript-catalog-lang' LANGUAGE_CODE %}",
+            content,
+            "base.html must request the catalog for the page's language"
+        )
+
+
 # =============================================================================
 # PART 8: EMAIL URL TESTS (HIGH)
 # =============================================================================
