@@ -23,6 +23,7 @@ from crush_lu.admin import crush_admin_site
 from crush_lu.admin.user_segments import user_segments_dashboard, segment_detail
 from crush_lu.admin.profile_reminders import profile_reminders_panel
 from crush_lu import admin_views, views, views_phone_verification, views_profile, views_profile_draft, views_event_polls
+from crush_lu.views_language import LanguageScopedJavaScriptCatalog
 from crush_lu.admin.poll_analytics import poll_analytics_dashboard, poll_analytics_detail
 from crush_lu.admin import campaign_dashboard as campaign_dashboard_views
 from crush_lu.admin_views import signup_trend_api, verification_trend_api, cumulative_growth_api, daily_active_users_api
@@ -94,7 +95,11 @@ urlpatterns = [
     path('robots.txt', robots_txt, name='robots_txt'),
     path('sitemap.xml', sitemap, {'sitemaps': crush_sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
 
-    # JavaScript i18n catalog (must be language-neutral for JavaScript to access)
+    # JavaScript i18n catalog (must be language-neutral for JavaScript to access).
+    # Prefer the <lang> route from templates: on this unprefixed path
+    # LocaleMiddleware negotiates from the cookie/Accept-Language, which can
+    # disagree with the language prefix of the page doing the fetching.
+    path('jsi18n/<str:lang>/', LanguageScopedJavaScriptCatalog.as_view(packages=['crush_lu']), name='javascript-catalog-lang'),
     path('jsi18n/', JavaScriptCatalog.as_view(packages=['crush_lu']), name='javascript-catalog'),
 
     # PWA: Service Worker, Manifest, and Offline page (must be at root for scope)

@@ -69,7 +69,7 @@ class PWAUpdater {
 
         const text = document.createElement("span");
         text.className = "pwa-update-text";
-        text.textContent = "A new version of Crush.lu is available!";
+        text.textContent = gettext("A new version of Crush.lu is available!");
 
         content.appendChild(icon);
         content.appendChild(text);
@@ -80,13 +80,13 @@ class PWAUpdater {
         const updateButton = document.createElement("button");
         updateButton.type = "button";
         updateButton.className = "pwa-update-btn pwa-update-btn-primary";
-        updateButton.textContent = "Update Now";
+        updateButton.textContent = gettext("Update Now");
         updateButton.addEventListener("click", () => this.update());
 
         const laterButton = document.createElement("button");
         laterButton.type = "button";
         laterButton.className = "pwa-update-btn pwa-update-btn-secondary";
-        laterButton.textContent = "Later";
+        laterButton.textContent = gettext("Later");
         laterButton.addEventListener("click", () => this.dismiss());
 
         actions.appendChild(updateButton);
