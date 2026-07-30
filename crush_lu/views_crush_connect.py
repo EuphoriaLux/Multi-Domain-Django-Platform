@@ -87,9 +87,14 @@ def _user_can_receive_now(user) -> bool:
     Single source of truth for the receiver/candidate split — used by the access
     blocker, the catalogue/hub routing, the onboarding-completion copy, and the
     Spark first-mover gate — so a beta non-tester is treated as a candidate
-    everywhere (and never bounced in a Drop ⇄ catalogue loop). Staff are handled
-    by callers via ``or user.is_staff``; ``receiver_access_open`` also lets staff
-    through, but a coachless staff member is not receiver-eligible here.
+    everywhere (and never bounced in a Drop ⇄ catalogue loop).
+
+    Callers must NOT widen this with ``or user.is_staff``. Creating a
+    ``CrushCoach`` grants is_staff, so that turned every coach into a "receiver"
+    for copy and routing purposes while ``get_eligible_pool`` — which has no
+    staff bypass and gates on ``has_active_premium`` — still returned them an
+    empty Drop. Staff previewing the Drop page is a separate question, answered
+    by ``_connect_access_blocker`` and the ``staff_preview`` flag.
     """
     return _user_is_connect_receiver_eligible(user) and receiver_access_open(user)
 
@@ -287,9 +292,16 @@ def crush_connect_onboarding(request):
 
 def _emit_onboarding_complete(request, done_url):
     """Success message (per track) + candidate welcome email. Ported from the
-    legacy single-page view."""
+    legacy single-page view.
+
+    Entitlement only, no staff bypass — matching ``_connect_done_url``, which
+    this immediately precedes. Creating a CrushCoach grants is_staff, so the
+    old ``or user.is_staff`` told every non-Premium coach their first Drop was
+    ready, then redirected them to the candidate page and skipped the welcome
+    email that explains the track they are actually on.
+    """
     user = request.user
-    is_receiver = _user_can_receive_now(user) or user.is_staff
+    is_receiver = _user_can_receive_now(user)
     if is_receiver:
         messages.success(
             request, _("Welcome to Crush Connect — your first Drop is ready.")
@@ -478,7 +490,10 @@ def crush_connect_onboarding_step(request, step: int):
                 initial["preferred_age_max"] = profile.preferred_age_max
         form = form_class(instance=membership, initial=initial)
 
-    is_receiver = _user_can_receive_now(request.user) or request.user.is_staff
+    # Entitlement only, no staff bypass: the wizard copy must describe the
+    # track the member will actually land on, and a coach without Premium is a
+    # candidate. See _emit_onboarding_complete / _connect_done_url.
+    is_receiver = _user_can_receive_now(request.user)
     context = {
         "form": form,
         "membership": membership,
@@ -681,9 +696,16 @@ def crush_connect_catalogue_status(request):
 
     from crush_lu.models import CrushConnectWaitlist, CuriositySpark
     from crush_lu.services.blocking import blocked_user_ids
+    from crush_lu.services.crush_connect import exclude_assigned_coach_pairs
 
+    # Mirrors the sparks_received listing, including the coach/member pair
+    # rule — a badge counting Sparks the list refuses to show is a dead end.
     pending_sparks_count = (
-        CuriositySpark.objects.filter(recipient=user, status="pending")
+        exclude_assigned_coach_pairs(
+            CuriositySpark.objects.filter(recipient=user, status="pending"),
+            user,
+            field="sender_id",
+        )
         .exclude(sender_id__in=blocked_user_ids(user))
         .count()
     )
@@ -767,7 +789,10 @@ def crush_connect_hub(request):
 
     from crush_lu.models import CuriositySpark
     from crush_lu.services.blocking import blocked_user_ids
-    from crush_lu.services.crush_connect import get_active_coach_pick
+    from crush_lu.services.crush_connect import (
+        exclude_assigned_coach_pairs,
+        get_active_coach_pick,
+    )
 
     user = request.user
     blocker = _hub_access_blocker(user)
@@ -783,8 +808,14 @@ def crush_connect_hub(request):
     membership = getattr(user, "crush_connect_membership", None)
     coach = getattr(user, "crushcoach", None)
 
+    # Mirrors the sparks_received listing, including the coach/member pair
+    # rule — a badge counting Sparks the list refuses to show is a dead end.
     pending_sparks_count = (
-        CuriositySpark.objects.filter(recipient=user, status="pending")
+        exclude_assigned_coach_pairs(
+            CuriositySpark.objects.filter(recipient=user, status="pending"),
+            user,
+            field="sender_id",
+        )
         .exclude(sender_id__in=blocked_user_ids(user))
         .count()
     )
@@ -858,14 +889,19 @@ def crush_connect_home(request):
     #   - coach-excluded members (the panic button promises "drops out now")
     #   - members who lost verified status (e.g. rejected after surfacing)
     #   - members who cleared their photo (nothing left to "read")
+    #   - a coach and their own assigned member, when the assignment landed
+    #     after the snapshot was pinned (the door assigns one on first
+    #     attendance, so this lands on ordinary event nights)
     from crush_lu.services.blocking import blocked_user_ids
+    from crush_lu.services.crush_connect import exclude_assigned_coach_pairs
 
     drop = None
     recipients = []
     if not coach_pick:
         drop = get_or_create_daily_drop(user)
         recipients = list(
-            drop.recipients.exclude(id__in=blocked_user_ids(user))
+            exclude_assigned_coach_pairs(drop.recipients, user, field="id")
+            .exclude(id__in=blocked_user_ids(user))
             .exclude(crush_connect_membership__excluded_by_coach=True)
             .filter(crushprofile__verification_status="verified")
             # Re-check photo-share consent at RENDER time: a Drop pinned before
@@ -1155,16 +1191,23 @@ def crush_connect_sparks_received(request):
     if not user.is_staff and not is_catalogue_eligible(user):
         return redirect("crush_lu:crush_connect_teaser")
 
+    from crush_lu.services.crush_connect import exclude_assigned_coach_pairs
+
     blocked_ids = blocked_user_ids(user)
     sparks = (
-        CuriositySpark.objects.filter(recipient=user, status="pending")
+        exclude_assigned_coach_pairs(
+            CuriositySpark.objects.filter(recipient=user, status="pending"),
+            user,
+            field="sender_id",
+        )
         .exclude(sender_id__in=blocked_ids)
         .select_related("sender__crushprofile", "sender__crush_connect_membership")
         .order_by("-created_at")
     )
     # Hide Sparks whose sender lost eligibility since sending (rejection,
     # Premium loss, exclusion) — accepting them is a no-op anyway, so they
-    # must not be offered. (Blocked senders are already excluded above.)
+    # must not be offered. (Blocked senders and the member's own coach are
+    # already excluded above.)
     visible_sparks = [s for s in sparks if is_sender_eligible(s.sender)]
     return render(
         request,
