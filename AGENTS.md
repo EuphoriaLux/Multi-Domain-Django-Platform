@@ -54,7 +54,7 @@ In `settings.py`, `MIDDLEWARE` ordering is commented per-line because it matters
 
 ### ASGI / WebSockets
 
-`manage.py runserver` **auto-switches to Uvicorn (ASGI)** when `REDIS_URL` is set, enabling Django Channels WebSockets (used by Quiz Night, `crush_lu/consumers.py`). Without `REDIS_URL` you get the normal WSGI dev server and an in-memory channel layer. Cache and channel layers both upgrade to Redis when `REDIS_URL` is present.
+`manage.py runserver` **auto-switches to Uvicorn (ASGI)** when `USE_ASGI_DEV` is set, enabling Django Channels WebSockets (used by Quiz Night, `crush_lu/consumers.py`). Without it you get the normal WSGI dev server. Cache and channel layers are a **separate** switch — they upgrade to Redis whenever `REDIS_URL` is present, ASGI or not, and fall back to in-memory otherwise. So `REDIS_URL` alone gives you a Redis-backed WSGI server; you need both to exercise WebSockets against real Redis.
 
 ### Storage: platform-namespaced, public vs private
 
