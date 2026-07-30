@@ -432,18 +432,15 @@ def promote_waitlist_on_capacity_increase(sender, instance, created, **kwargs):
     if created:
         return
 
-    # A past or cancelled event must never promote. This fires on *any* save of
-    # a MeetupEvent, not just a capacity change, so without these guards simply
-    # opening a finished event in the admin and hitting Save would confirm its
-    # leftover waitlist and email each of them a registration confirmation for
-    # a party that already happened. Mirrors the same condition the member
-    # cancellation path applies (`views_events._cancel_registration`).
+    # This fires on *any* save of a MeetupEvent, not just a capacity change, so
+    # without this guard simply opening a finished event in the admin and
+    # hitting Save would confirm its leftover waitlist and email each of them a
+    # registration confirmation for a party that already happened.
     #
     # Marking attendees as no_show makes this materially more likely, not less:
     # no_show rows drop out of get_confirmed_count(), so a full event reads as
     # having free seats again the moment the door work is tidied up.
-    now = timezone.now()
-    if instance.is_cancelled or instance.date_time <= now:
+    if not instance.accepts_waitlist_promotion:
         return
 
     # Quick check: any waitlisted registrations?
@@ -2401,7 +2398,7 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
         return
 
     event = instance.event
-    if event.is_cancelled or event.date_time <= timezone.now():
+    if not event.accepts_waitlist_promotion:
         return
     if not EventRegistration.objects.filter(event=event, status="waitlist").exists():
         return

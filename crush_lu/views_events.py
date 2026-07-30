@@ -1260,8 +1260,12 @@ def event_cancel(request, event_id):
 
             messages.success(request, _("Your registration has been cancelled."))
 
-            # Gender-aware waitlist promotion (DB only, inside transaction)
-            if locked_event.date_time > now:
+            # Gender-aware waitlist promotion (DB only, inside transaction).
+            # `accepts_waitlist_promotion` also covers is_cancelled, which this
+            # branch previously did not: a member cancelling their place at a
+            # cancelled event used to hand the seat to someone on the waitlist
+            # and email them a confirmation for it.
+            if locked_event.accepts_waitlist_promotion:
                 promoted = _promote_from_waitlist(locked_event, request.user)
 
         # Send emails OUTSIDE the transaction so they are only dispatched

@@ -457,6 +457,22 @@ class MeetupEvent(models.Model):
         )
 
     @property
+    def accepts_waitlist_promotion(self):
+        """Whether a freed seat may still be handed to this event's waitlist.
+
+        Promotion writes ``confirmed`` **and** sends a registration
+        confirmation email, so doing it for a finished event tells someone they
+        have a seat at a party that already happened, and for a cancelled event
+        that a cancelled party is on.
+
+        Deliberately a single definition: three call sites depend on this
+        condition (both promotion signals and the member cancel view), and the
+        incident that motivated it was one of them simply not having the check.
+        Keeping three hand-copied variants is how the next one goes missing.
+        """
+        return not self.is_cancelled and self.date_time > timezone.now()
+
+    @property
     def is_full(self):
         return self.get_confirmed_count() >= self.max_participants
 

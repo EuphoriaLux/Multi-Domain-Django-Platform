@@ -80,6 +80,27 @@ class _WaitlistFixture(TestCase):
             obj.save()
 
 
+class AcceptsWaitlistPromotionTests(_WaitlistFixture):
+    """The single definition the two signals and the cancel view all share."""
+
+    def test_future_published_event_accepts(self):
+        self.assertTrue(self._make_event().accepts_waitlist_promotion)
+
+    def test_past_event_rejects(self):
+        event = self._make_event(date_time=timezone.now() - timedelta(hours=1))
+        self.assertFalse(event.accepts_waitlist_promotion)
+
+    def test_cancelled_event_rejects(self):
+        event = self._make_event(is_cancelled=True)
+        self.assertFalse(event.accepts_waitlist_promotion)
+
+    def test_event_starting_right_now_rejects(self):
+        """Boundary: promotion stops the moment the event starts, matching the
+        'already started' branch in event_cancel."""
+        event = self._make_event(date_time=timezone.now())
+        self.assertFalse(event.accepts_waitlist_promotion)
+
+
 class CapacityIncreaseGuardTests(_WaitlistFixture):
     def setUp(self):
         self.event = self._make_event()
