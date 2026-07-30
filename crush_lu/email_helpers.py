@@ -681,6 +681,12 @@ def send_event_registration_confirmation(registration, request=None):
         html_message=html_message,
         recipient_list=[registration.user.email],
         request=request,
+        # Explicit domain for request-less callers (management commands, timer
+        # sweeps, signals): get_domain_email_config falls back to the PowerUp
+        # sender when it has neither a request nor a domain, so a Crush event
+        # email would leave from the wrong brand. `request` still wins when it
+        # is present, so this changes nothing for the view-driven paths.
+        domain="crush.lu",
         fail_silently=False,
     )
 
@@ -754,6 +760,12 @@ def send_event_waitlist_notification(registration, request):
         html_message=html_message,
         recipient_list=[registration.user.email],
         request=request,
+        # Explicit domain for request-less callers (management commands, timer
+        # sweeps, signals): get_domain_email_config falls back to the PowerUp
+        # sender when it has neither a request nor a domain, so a Crush event
+        # email would leave from the wrong brand. `request` still wins when it
+        # is present, so this changes nothing for the view-driven paths.
+        domain="crush.lu",
         fail_silently=False,
     )
 
@@ -809,13 +821,14 @@ def send_event_cancellation_confirmation(user, event, request):
     )
 
 
-def send_event_reminder(registration, request, days_until_event):
+def send_event_reminder(registration, request=None, days_until_event=1):
     """
     Send event reminder email.
 
     Args:
         registration: EventRegistration object
-        request: Django request object for domain detection
+        request: Optional Django request (None when called from the scheduled
+            `send_event_reminders` sweep, which has no HTTP context)
         days_until_event: Number of days until event
 
     Returns:
@@ -877,6 +890,12 @@ def send_event_reminder(registration, request, days_until_event):
         html_message=html_message,
         recipient_list=[registration.user.email],
         request=request,
+        # Explicit domain for request-less callers (management commands, timer
+        # sweeps, signals): get_domain_email_config falls back to the PowerUp
+        # sender when it has neither a request nor a domain, so a Crush event
+        # email would leave from the wrong brand. `request` still wins when it
+        # is present, so this changes nothing for the view-driven paths.
+        domain="crush.lu",
         fail_silently=False,
     )
 
@@ -1074,6 +1093,12 @@ def send_event_feedback_request(registration, request=None):
         html_message=html_message,
         recipient_list=[registration.user.email],
         request=request,
+        # Explicit domain for request-less callers (management commands, timer
+        # sweeps, signals): get_domain_email_config falls back to the PowerUp
+        # sender when it has neither a request nor a domain, so a Crush event
+        # email would leave from the wrong brand. `request` still wins when it
+        # is present, so this changes nothing for the view-driven paths.
+        domain="crush.lu",
         fail_silently=False,
     )
 

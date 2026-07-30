@@ -82,6 +82,10 @@ SETTINGS=(
   "DJANGO_CAMPAIGN_DISPATCH_URL=https://crush.lu/api/admin/campaigns/dispatch/"
   "DJANGO_PROFILE_REMINDERS_URL=https://crush.lu/api/admin/profile-reminders/"
   "DJANGO_GDPR_RETENTION_URL=https://crush.lu/api/admin/gdpr-retention/"
+  "DJANGO_CRUSH_LEAD_REMINDERS_URL=https://crush.lu/api/admin/crush-lead-reminders/"
+  "DJANGO_EVENT_REMINDERS_URL=https://crush.lu/api/admin/event-reminders/"
+  "DJANGO_EVENT_RECAPS_URL=https://crush.lu/api/admin/event-recaps/"
+  "DJANGO_EVENT_FEEDBACK_URL=https://crush.lu/api/admin/event-feedback/"
   # Safe default: functions deploy dark. Flip to 'true' once you've verified
   # the first invocation in Application Insights.
   "HYBRID_MAINTENANCE_ENABLED=false"

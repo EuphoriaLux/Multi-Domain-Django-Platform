@@ -38,7 +38,7 @@ from crush_lu.admin_views import (
     email_template_load_invitations,
     email_template_load_gifts,
 )
-from crush_lu import api_views, api_push, api_coach_push, api_pwa, api_ios_app, api_android_app, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, api_admin_hybrid, api_admin_metrics, api_admin_campaigns, api_admin_changelog, views_crush_spark, views_checkin, api_crush_connect, views_coach, api_quiz, views_quiz, views_notifications
+from crush_lu import api_views, api_push, api_coach_push, api_pwa, api_ios_app, api_android_app, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, api_admin_hybrid, api_admin_metrics, api_admin_events, api_admin_campaigns, api_admin_changelog, views_crush_spark, views_checkin, api_crush_connect, views_coach, api_quiz, views_quiz, views_notifications
 from crush_lu.views_campaign_click import campaign_click_redirect
 from crush_lu.wallet import passkit_service, google_callback
 from crush_lu.sitemaps import crush_sitemaps
@@ -316,6 +316,13 @@ urlpatterns = [
     # Weekly GDPR data-minimization retention sweep (GdprRetention Function
     # timer). Language-neutral so the Function App can hardcode it.
     path('api/admin/gdpr-retention/', api_admin_metrics.gdpr_retention_sweep, name='api_admin_gdpr_retention'),
+
+    # Event email lifecycle (EventReminders / EventRecaps / EventFeedback Function
+    # timers). Language-neutral so the Function App can hardcode them. Before these
+    # existed the three send_event_* commands had no scheduler of any kind.
+    path('api/admin/event-reminders/', api_admin_events.event_reminders_sweep, name='api_admin_event_reminders'),
+    path('api/admin/event-recaps/', api_admin_events.event_recaps_sweep, name='api_admin_event_recaps'),
+    path('api/admin/event-feedback/', api_admin_events.event_feedback_sweep, name='api_admin_event_feedback'),
 
     # Changelog ingest (called by the Claude Code changelog routine on PR merge).
     # Language-neutral path; auto-publishes to /changelog/. See docs/changelog-routine.md.
