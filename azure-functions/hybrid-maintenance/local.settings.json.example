@@ -11,6 +11,10 @@
     "DJANGO_CAMPAIGN_DISPATCH_URL": "http://localhost:8000/api/admin/campaigns/dispatch/",
     "DJANGO_PROFILE_REMINDERS_URL": "http://localhost:8000/api/admin/profile-reminders/",
     "DJANGO_GDPR_RETENTION_URL": "http://localhost:8000/api/admin/gdpr-retention/",
+    "DJANGO_CRUSH_LEAD_REMINDERS_URL": "http://localhost:8000/api/admin/crush-lead-reminders/",
+    "DJANGO_EVENT_REMINDERS_URL": "http://localhost:8000/api/admin/event-reminders/",
+    "DJANGO_EVENT_RECAPS_URL": "http://localhost:8000/api/admin/event-recaps/",
+    "DJANGO_EVENT_FEEDBACK_URL": "http://localhost:8000/api/admin/event-feedback/",
     "ADMIN_API_KEY": "your-admin-api-key-here",
     "HYBRID_MAINTENANCE_ENABLED": "true",
     "APPLICATIONINSIGHTS_CONNECTION_STRING": ""
