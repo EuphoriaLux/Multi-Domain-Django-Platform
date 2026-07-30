@@ -1,9 +1,9 @@
 {% load i18n crush_connect_tags %}
 {% comment %}
-Crush Connect sub-navigation — the dedicated menu shown across all Connect pages.
-Track-aware (receiver -> Today's Drop, candidate -> In the Mix) and coach-aware
-(Curation). Active tab via request.resolver_match.url_name. Reuses existing
-chip/pill utility classes already in the Tailwind build.
+Crush Connect sub-navigation (receiver -> Today's Drop, candidate -> In the Mix,
+coach -> Curation). Currently included by NO template: d5a8a891 dropped it from
+_base_connect.html. The track test must stay crush_connect_is_receiver (Premium)
+and never assigned_coach. Active tab via request.resolver_match.url_name.
 {% endcomment %}
 {% if user|crush_connect_nav_visible %}
 <nav class="max-w-2xl mx-auto px-4 pt-5" aria-label="{% trans 'Crush Connect' %}">

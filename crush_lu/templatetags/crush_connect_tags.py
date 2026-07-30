@@ -71,28 +71,42 @@ def crush_connect_nav_visible(user):
 @register.filter
 def crush_connect_is_receiver(user):
     """
-    True if this user is on the RECEIVER track (Today's Drop) rather than the
-    candidate track ("In the Mix").
+    True if this user is on the RECEIVER track (Today's Drop) right now, as
+    opposed to the CANDIDATE track (In the Mix).
 
-    Delegates to ``_user_can_receive_now`` — the same predicate the views and
-    the access blocker use — so the nav can never disagree with where a click
-    actually lands. It previously branched on ``crushprofile.assigned_coach_id``,
-    which stopped being the Premium signal in PR #629: a coach is also assigned
-    without payment (the 0150 backfill, and the door's auto-assign on first
-    attendance), so every coach-assigned non-Premium member was shown a
-    "Today's Drop" tab that redirected them straight back to the catalogue.
+    Mirrors the view layer's source of truth — ``_user_can_receive_now``
+    (active ``PremiumMembership`` AND a phase that lets them receive) — so the
+    nav can never disagree with where a click actually lands.
+
+    Deliberately NO ``or user.is_staff``. Creating a ``CrushCoach`` grants
+    is_staff, so that bypass handed every coach a "Today's Drop" tab pointing at
+    a page ``get_eligible_pool`` always renders empty for them — it has no staff
+    bypass and gates on ``has_active_premium``. A coach without Premium is a
+    candidate and belongs on In the Mix. Whether staff may PREVIEW the Drop page
+    is a separate question, answered by ``_connect_access_blocker``.
+
+    Never branch a Connect track on ``assigned_coach`` either: a coach is also
+    assigned WITHOUT payment (the 0150 backfill,
+    ``assign_coach_on_first_attendance`` on first event check-in), so a
+    coach-based test offers Today's Drop to members whom
+    ``_connect_access_blocker`` then bounces to their catalogue status.
+
+    This lives here rather than in view context because the Connect sub-nav is a
+    shared partial — only ``crush_connect_hub`` supplies ``is_receiver``, so a
+    context variable would silently read as False on every other Connect page.
     """
+    from crush_lu.views_crush_connect import _user_can_receive_now
+
     if not user or not user.is_authenticated:
         return False
     try:
-        from crush_lu.views_crush_connect import _user_can_receive_now
-
         return bool(_user_can_receive_now(user))
     except Exception:
-        # Mirrors crush_connect_nav_visible: this runs DB queries during
-        # template rendering, and a backend fault must not 500 the page from
-        # the nav. Falling back to "candidate" is the safe side — the
-        # catalogue link is reachable by every onboarded member.
+        # Same defensive stance as crush_connect_nav_visible: this runs DB
+        # queries (profile + PremiumMembership) during template rendering, and
+        # a backend fault must not 500 the page from the nav. Falling back to
+        # the candidate tab is the safe default — it points at the surface a
+        # non-receiver would be redirected to anyway.
         return False
 
 
