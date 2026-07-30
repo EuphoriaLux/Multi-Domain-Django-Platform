@@ -420,6 +420,57 @@ def auto_create_event_ticket_class_on_publish(sender, instance, created, **kwarg
         logger.error(f"Error creating EventTicketClass for event {instance.id}: {e}")
 
 
+@receiver(pre_save, sender=MeetupEvent)
+def remember_previous_event_start(sender, instance, **kwargs):
+    """Stash the stored start so post_save can detect a reschedule."""
+    if not instance.pk:
+        instance._previous_date_time = None
+        return
+    instance._previous_date_time = (
+        MeetupEvent.objects.filter(pk=instance.pk)
+        .values_list("date_time", flat=True)
+        .first()
+    )
+
+
+@receiver(post_save, sender=MeetupEvent)
+def reset_reminders_on_reschedule(sender, instance, created, **kwargs):
+    """Clear the day-before reminder markers when an event is moved.
+
+    ``date_time`` is editable in the admin, and the markers say "the reminder
+    for this event has been handled" without recording *which* start time it
+    described. Move an event to a later date after its reminders went out and
+    every registration stays stamped, so the sweep on the new day-before date
+    filters them all out and nobody is told the time changed.
+
+    Only forward-looking events are reset — re-reminding for an event that has
+    already happened would be worse than silence.
+    """
+    if created:
+        return
+    previous = getattr(instance, "_previous_date_time", None)
+    if previous is None or previous == instance.date_time:
+        return
+    if instance.date_time <= timezone.now():
+        return
+
+    # .update() so the wallet-pass receivers don't fire per registration.
+    cleared = (
+        EventRegistration.objects.filter(event=instance)
+        .exclude(reminder_notified_at__isnull=True, reminder_sent_at__isnull=True)
+        .update(reminder_notified_at=None, reminder_sent_at=None)
+    )
+    if cleared:
+        logger.info(
+            "Event %s rescheduled %s -> %s; cleared reminder markers on %s "
+            "registration(s)",
+            instance.pk,
+            previous.isoformat(),
+            instance.date_time.isoformat(),
+            cleared,
+        )
+
+
 @receiver(post_save, sender=MeetupEvent)
 def promote_waitlist_on_capacity_increase(sender, instance, created, **kwargs):
     """

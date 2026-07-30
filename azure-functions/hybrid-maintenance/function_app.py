@@ -355,7 +355,9 @@ def event_recaps(timer: func.TimerRequest) -> None:
 
 @app.function_name(name="EventFeedback")
 @app.timer_trigger(
-    schedule="0 0 10 * * *",  # Daily at 10:00 UTC (offset from EventReminders 09:00)
+    # Hourly at :55, 09:00–20:00 UTC. Clear of invites (:x0), campaigns
+    # (:x2/:x7), lead reminders (:45), recaps (:25) and reminders (:35).
+    schedule="0 55 9-20 * * *",
     arg_name="timer",
     run_on_startup=False,
     use_monitor=True,
@@ -363,10 +365,16 @@ def event_recaps(timer: func.TimerRequest) -> None:
 def event_feedback(timer: func.TimerRequest) -> None:
     """Send the post-event feedback survey to attendees.
 
-    Daily is sufficient here — unlike the recap, the 48h lookback is wide
-    enough that a once-a-day pass cannot miss an event.
+    A daily run looked sufficient — the command's lookback is 48h, so one
+    missed day seems survivable. It isn't: an attendee whose event was already
+    more than 24h old during a failed run falls past the 48h window before the
+    next attempt, and misses the request permanently. There is no retry policy
+    to catch that.
 
-    Idempotent via ``EventRegistration.feedback_request_sent_at``.
+    So the same daytime-window shape as EventReminders: repeated hourly so a
+    failure recovers within the hour, bounded to civilised hours, and made
+    free by the per-row ``feedback_request_sent_at`` marker which takes
+    already-served registrations out of the query.
     """
     ts = datetime.utcnow().isoformat()
     if timer.past_due:

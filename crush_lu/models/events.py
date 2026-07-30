@@ -786,12 +786,25 @@ class EventRegistration(models.Model):
 
     # Pre-event reminder tracking (idempotency for the send_event_reminders
     # mgmt command, now driven unattended by the EventReminders timer).
-    # Only the day-granularity mode stamps this: `--hours-before` is a
-    # different, same-day reminder and must not be suppressed by it.
+    # Only the day-granularity mode stamps these: `--hours-before` and
+    # `--days N` are different reminders and must not be suppressed by them.
+    #
+    # Two markers because the channels fail independently. The sweep repeats
+    # hourly through the day so a failed email is recoverable, but push and the
+    # in-app bell are fire-and-forget — replaying them would mean up to twelve
+    # pushes during an email outage. `reminder_notified_at` records that the
+    # non-email channels have had their turn, so later passes retry the email
+    # alone; `reminder_sent_at` records that the email itself is settled and
+    # takes the registration out of the sweep entirely.
+    reminder_notified_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("Timestamp push + in-app reminder channels were fired"),
+    )
     reminder_sent_at = models.DateTimeField(
         null=True,
         blank=True,
-        help_text=_("Timestamp the day-before reminder email was sent"),
+        help_text=_("Timestamp the day-before reminder email was settled"),
     )
 
     # Post-event feedback email tracking (idempotency for the

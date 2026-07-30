@@ -266,3 +266,83 @@ class ReminderFailureIsRetryableTests(_ReminderFixture):
         ) as helper:
             call_command("send_event_reminders", "--event-id", str(self.event.id))
         self.assertEqual(helper.call_count, 1, "the outage must be recoverable")
+
+    def test_retry_does_not_replay_push_and_bell(self):
+        """The sweep repeats hourly 09:00–20:00. If a retry went back through
+        NotificationService it would re-push and write another bell row every
+        hour — up to twelve during an email outage."""
+        self._run_with(
+            self._notify_result(
+                email_attempted=True, email_sent=False, inapp_created=True
+            )
+        )
+        self.assertIsNotNone(
+            self.reg.reminder_notified_at, "first pass records the fired channels"
+        )
+
+        with mock.patch(
+            "crush_lu.management.commands.send_event_reminders." "notify_event_reminder"
+        ) as notify, mock.patch(
+            "crush_lu.email_helpers.send_event_reminder", return_value=1
+        ) as email:
+            call_command("send_event_reminders", "--event-id", str(self.event.id))
+
+        notify.assert_not_called()
+        self.assertEqual(email.call_count, 1, "retry must be email-only")
+        self.reg.refresh_from_db()
+        self.assertIsNotNone(self.reg.reminder_sent_at)
+
+    def test_first_pass_records_the_fired_channels(self):
+        self._run_with(
+            self._notify_result(
+                email_attempted=True, email_sent=True, inapp_created=True
+            )
+        )
+        self.assertIsNotNone(self.reg.reminder_notified_at)
+        self.assertIsNotNone(self.reg.reminder_sent_at)
+
+
+class RescheduledEventTests(_ReminderFixture):
+    def test_moving_the_event_clears_the_reminder_markers(self):
+        with mock.patch("crush_lu.email_helpers.send_event_reminder", return_value=1):
+            call_command("send_event_reminders", "--event-id", str(self.event.id))
+        self.reg.refresh_from_db()
+        self.assertIsNotNone(self.reg.reminder_sent_at)
+
+        self.event.date_time = self.event.date_time + timedelta(days=3)
+        self.event.save()
+
+        self.reg.refresh_from_db()
+        self.assertIsNone(
+            self.reg.reminder_sent_at,
+            "a rescheduled event must re-remind on its new day-before date",
+        )
+        self.assertIsNone(self.reg.reminder_notified_at)
+
+    def test_a_save_that_does_not_move_the_event_keeps_the_markers(self):
+        with mock.patch("crush_lu.email_helpers.send_event_reminder", return_value=1):
+            call_command("send_event_reminders", "--event-id", str(self.event.id))
+        self.reg.refresh_from_db()
+        stamped = self.reg.reminder_sent_at
+
+        self.event.location = "Somewhere else"
+        self.event.save()
+
+        self.reg.refresh_from_db()
+        self.assertEqual(self.reg.reminder_sent_at, stamped)
+
+    def test_moving_an_event_into_the_past_does_not_re_remind(self):
+        with mock.patch("crush_lu.email_helpers.send_event_reminder", return_value=1):
+            call_command("send_event_reminders", "--event-id", str(self.event.id))
+        self.reg.refresh_from_db()
+        stamped = self.reg.reminder_sent_at
+
+        self.event.date_time = timezone.now() - timedelta(days=1)
+        self.event.save()
+
+        self.reg.refresh_from_db()
+        self.assertEqual(
+            self.reg.reminder_sent_at,
+            stamped,
+            "re-reminding for a finished event is worse than silence",
+        )

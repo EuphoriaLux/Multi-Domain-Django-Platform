@@ -26,69 +26,69 @@ Usage:
     # Verbose output
     python manage.py send_event_reminders -v 2
 """
+
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 from datetime import timedelta
 
+from crush_lu import email_helpers
 from crush_lu.models import EventRegistration, MeetupEvent
-from crush_lu.notification_service import notify_event_reminder
+from crush_lu.notification_service import NotificationResult, notify_event_reminder
 
 
 class Command(BaseCommand):
-    help = 'Send event reminders to users with confirmed event registrations'
+    help = "Send event reminders to users with confirmed event registrations"
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--days',
+            "--days",
             type=int,
             default=1,
-            help='Send reminders for events happening in this many days (default: 1)'
+            help="Send reminders for events happening in this many days (default: 1)",
         )
         parser.add_argument(
-            '--hours-before',
+            "--hours-before",
             type=int,
             default=None,
             help=(
-                'Same-day mode: send reminders for events starting in this many hours '
-                '(within --window-minutes). When set, --days is ignored.'
+                "Same-day mode: send reminders for events starting in this many hours "
+                "(within --window-minutes). When set, --days is ignored."
             ),
         )
         parser.add_argument(
-            '--window-minutes',
+            "--window-minutes",
             type=int,
             default=30,
-            help='Half-window (in minutes) for --hours-before mode (default: 30)',
+            help="Half-window (in minutes) for --hours-before mode (default: 30)",
         )
         parser.add_argument(
-            '--dry-run',
-            action='store_true',
-            help='Show what would be sent without actually sending'
+            "--dry-run",
+            action="store_true",
+            help="Show what would be sent without actually sending",
         )
         parser.add_argument(
-            '--force',
-            action='store_true',
+            "--force",
+            action="store_true",
             help=(
-                'Re-send the day-before reminder even to registrations already '
-                'stamped with reminder_sent_at (ops override; the scheduled '
-                'timer never passes this)'
+                "Re-send the day-before reminder even to registrations already "
+                "stamped with reminder_sent_at (ops override; the scheduled "
+                "timer never passes this)"
             ),
         )
         parser.add_argument(
-            '--event-id',
-            type=int,
-            help='Send reminders only for a specific event ID'
+            "--event-id", type=int, help="Send reminders only for a specific event ID"
         )
 
     def handle(self, *args, **options):
-        days = options['days']
-        hours_before = options.get('hours_before')
-        window_minutes = options['window_minutes']
-        dry_run = options['dry_run']
-        event_id = options.get('event_id')
-        verbosity = options['verbosity']
+        days = options["days"]
+        hours_before = options.get("hours_before")
+        window_minutes = options["window_minutes"]
+        dry_run = options["dry_run"]
+        event_id = options.get("event_id")
+        verbosity = options["verbosity"]
 
         if window_minutes <= 0:
-            raise CommandError('--window-minutes must be positive')
+            raise CommandError("--window-minutes must be positive")
 
         now = timezone.now()
 
@@ -109,8 +109,8 @@ class Command(BaseCommand):
                 date_time__lt=window_end,
             )
             target_label = (
-                f'~{hours_before}h from now '
-                f'({window_start.isoformat()} -> {window_end.isoformat()})'
+                f"~{hours_before}h from now "
+                f"({window_start.isoformat()} -> {window_end.isoformat()})"
             )
             days_until_for_notification = 0  # same-day
         else:
@@ -130,13 +130,11 @@ class Command(BaseCommand):
         events = list(events_query.select_related())
 
         if not events:
-            self.stdout.write(
-                self.style.WARNING(f'No events found for {target_label}')
-            )
+            self.stdout.write(self.style.WARNING(f"No events found for {target_label}"))
             return
 
         if verbosity >= 1:
-            self.stdout.write(f'Found {len(events)} event(s) for {target_label}')
+            self.stdout.write(f"Found {len(events)} event(s) for {target_label}")
 
         total_sent = 0
         total_failed = 0
@@ -144,12 +142,13 @@ class Command(BaseCommand):
 
         for event in events:
             if verbosity >= 1:
-                self.stdout.write(f'\nProcessing: {event.title} @ {event.date_time.isoformat()}')
+                self.stdout.write(
+                    f"\nProcessing: {event.title} @ {event.date_time.isoformat()}"
+                )
 
             registrations = EventRegistration.objects.filter(
-                event=event,
-                status='confirmed'
-            ).select_related('user', 'user__crushprofile')
+                event=event, status="confirmed"
+            ).select_related("user", "user__crushprofile")
 
             # Idempotency for the unattended EventReminders timer: without this
             # a catch-up invocation or an operational retry re-notifies every
@@ -166,7 +165,7 @@ class Command(BaseCommand):
             #                     registration and never send the real
             #                     day-before reminder
             stamps_reminder = (
-                hours_before is None and days == 1 and not options['force']
+                hours_before is None and days == 1 and not options["force"]
             )
             if stamps_reminder:
                 registrations = registrations.filter(reminder_sent_at__isnull=True)
@@ -174,33 +173,57 @@ class Command(BaseCommand):
             if not registrations.exists():
                 if verbosity >= 1:
                     self.stdout.write(
-                        self.style.WARNING('  No confirmed registrations')
+                        self.style.WARNING("  No confirmed registrations")
                     )
                 continue
 
             if verbosity >= 1:
-                self.stdout.write(f'  {registrations.count()} confirmed registrations')
+                self.stdout.write(f"  {registrations.count()} confirmed registrations")
 
             for registration in registrations:
                 user = registration.user
 
                 if dry_run:
                     self.stdout.write(
-                        self.style.SUCCESS(
-                            f'  [DRY RUN] Would notify: {user.email}'
-                        )
+                        self.style.SUCCESS(f"  [DRY RUN] Would notify: {user.email}")
                     )
                     total_sent += 1
                     continue
 
                 try:
-                    result = notify_event_reminder(
-                        user=user,
-                        registration=registration,
-                        event=event,
-                        days_until=days_until_for_notification,
-                        request=None,  # No request context for management command
+                    # A retry pass — push and the bell already fired on an
+                    # earlier pass, only the email is outstanding. Go straight
+                    # to the email helper: `NotificationService.notify` has no
+                    # channel selection, so calling it again would re-push and
+                    # write another bell row. With the sweep repeating hourly
+                    # 09:00–20:00, an email outage would otherwise deliver up
+                    # to twelve pushes in a day.
+                    email_only_retry = (
+                        stamps_reminder
+                        and registration.reminder_notified_at is not None
                     )
+
+                    if email_only_retry:
+                        sent = email_helpers.send_event_reminder(
+                            registration,
+                            None,
+                            days_until_event=days_until_for_notification,
+                        )
+                        result = NotificationResult(
+                            email_attempted=True, email_sent=bool(sent)
+                        )
+                    else:
+                        result = notify_event_reminder(
+                            user=user,
+                            registration=registration,
+                            event=event,
+                            days_until=days_until_for_notification,
+                            request=None,  # No request context for mgmt command
+                        )
+                        if stamps_reminder:
+                            EventRegistration.objects.filter(pk=registration.pk).update(
+                                reminder_notified_at=timezone.now()
+                            )
 
                     # Stamp only once the *email* is settled — delivered, or
                     # deliberately not going (unsubscribed / no address).
@@ -228,48 +251,42 @@ class Command(BaseCommand):
                     elif stamps_reminder and result.errors:
                         self.stdout.write(
                             self.style.WARNING(
-                                f'  Not stamping {user.email} — email unsettled: '
-                                f'{result.errors}'
+                                f"  Not stamping {user.email} — email unsettled: "
+                                f"{result.errors}"
                             )
                         )
 
                     if result.any_delivered:
                         total_sent += 1
                         if verbosity >= 2:
-                            channel = 'push' if result.push_success else 'email'
+                            channel = "push" if result.push_success else "email"
                             self.stdout.write(
                                 self.style.SUCCESS(
-                                    f'  Sent to {user.email} via {channel}'
+                                    f"  Sent to {user.email} via {channel}"
                                 )
                             )
                     else:
                         total_skipped += 1
                         if verbosity >= 2:
-                            reason = result.email_skipped_reason or 'unknown'
+                            reason = result.email_skipped_reason or "unknown"
                             self.stdout.write(
-                                self.style.WARNING(
-                                    f'  Skipped {user.email}: {reason}'
-                                )
+                                self.style.WARNING(f"  Skipped {user.email}: {reason}")
                             )
 
                 except Exception as e:
                     total_failed += 1
                     self.stdout.write(
-                        self.style.ERROR(
-                            f'  Error notifying {user.email}: {e}'
-                        )
+                        self.style.ERROR(f"  Error notifying {user.email}: {e}")
                     )
 
-        self.stdout.write('')
+        self.stdout.write("")
         if dry_run:
             self.stdout.write(
-                self.style.SUCCESS(
-                    f'[DRY RUN] Would send {total_sent} reminders'
-                )
+                self.style.SUCCESS(f"[DRY RUN] Would send {total_sent} reminders")
             )
         else:
             self.stdout.write(
                 self.style.SUCCESS(
-                    f'Sent: {total_sent}, Skipped: {total_skipped}, Failed: {total_failed}'
+                    f"Sent: {total_sent}, Skipped: {total_skipped}, Failed: {total_failed}"
                 )
             )
