@@ -74,14 +74,22 @@ def crush_connect_is_receiver(user):
     True if this user is on the RECEIVER track (Today's Drop) right now, as
     opposed to the CANDIDATE track (In the Mix).
 
-    Mirrors the view layer's source of truth exactly — ``_user_can_receive_now``
-    (active ``PremiumMembership`` AND a phase that lets them receive) with the
-    same ``or user.is_staff`` preview bypass the views apply.
+    Mirrors the view layer's source of truth — ``_user_can_receive_now``
+    (active ``PremiumMembership`` AND a phase that lets them receive) — so the
+    nav can never disagree with where a click actually lands.
 
-    Never branch a Connect track on ``assigned_coach``: a coach is also assigned
-    WITHOUT payment (the 0150 backfill, ``assign_coach_on_first_attendance`` on
-    first event check-in), so a coach-based test offers Today's Drop to members
-    whom ``_connect_access_blocker`` then bounces to their catalogue status.
+    Deliberately NO ``or user.is_staff``. Creating a ``CrushCoach`` grants
+    is_staff, so that bypass handed every coach a "Today's Drop" tab pointing at
+    a page ``get_eligible_pool`` always renders empty for them — it has no staff
+    bypass and gates on ``has_active_premium``. A coach without Premium is a
+    candidate and belongs on In the Mix. Whether staff may PREVIEW the Drop page
+    is a separate question, answered by ``_connect_access_blocker``.
+
+    Never branch a Connect track on ``assigned_coach`` either: a coach is also
+    assigned WITHOUT payment (the 0150 backfill,
+    ``assign_coach_on_first_attendance`` on first event check-in), so a
+    coach-based test offers Today's Drop to members whom
+    ``_connect_access_blocker`` then bounces to their catalogue status.
 
     This lives here rather than in view context because the Connect sub-nav is a
     shared partial — only ``crush_connect_hub`` supplies ``is_receiver``, so a
@@ -92,7 +100,7 @@ def crush_connect_is_receiver(user):
     if not user or not user.is_authenticated:
         return False
     try:
-        return bool(_user_can_receive_now(user) or user.is_staff)
+        return bool(_user_can_receive_now(user))
     except Exception:
         # Same defensive stance as crush_connect_nav_visible: this runs DB
         # queries (profile + PremiumMembership) during template rendering, and

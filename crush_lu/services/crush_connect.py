@@ -73,6 +73,97 @@ def _years_ago(years: int) -> date:
         return today.replace(year=today.year - years, day=28)
 
 
+def is_assigned_coach_pair(user_a, user_b) -> bool:
+    """True when either user is the ``CrushCoach`` assigned to the other.
+
+    Coaches are ordinary Connect candidates — they are members too, and
+    nothing excludes them from the pool at large. The one relationship that
+    must never become a dating surface is a coach and their OWN assigned
+    member: that coach curates the member's ``ConnectCoachPick``, reads their
+    Connect data, and holds ``is_staff``. Surfacing them to each other puts a
+    romantic proposition on top of that asymmetry.
+
+    Checked in BOTH directions, because either side can be the one browsing:
+    the member receiving a Drop, or a Premium coach sending a Spark.
+    """
+    from crush_lu.models import CrushCoach
+
+    if user_a is None or user_b is None or user_a.pk == user_b.pk:
+        return False
+
+    for viewer, target in ((user_a, user_b), (user_b, user_a)):
+        profile = getattr(viewer, "crushprofile", None)
+        coach_pk = getattr(profile, "assigned_coach_id", None)
+        if not coach_pk:
+            continue
+        coach_user_id = (
+            CrushCoach.objects.filter(pk=coach_pk)
+            .values_list("user_id", flat=True)
+            .first()
+        )
+        if coach_user_id == target.pk:
+            return True
+    return False
+
+
+def assigned_coach_pair_user_ids(user) -> set:
+    """User ids that may never form a romantic pair with ``user``.
+
+    The set form of :func:`is_assigned_coach_pair`, and it has to stay
+    symmetric with it. Both directions matter, because a coach may hold their
+    own Premium and browse a Drop like any other member:
+
+      - the ``CrushCoach`` assigned to ``user``, and
+      - when ``user`` IS a coach, every member assigned to them.
+
+    Returned as ids so the same rule can be applied to ``User`` querysets
+    (the pool, a persisted Drop) and to ``CuriositySpark`` querysets (pending
+    Sparks the pair rule has to retire), the way ``blocked_user_ids`` is used.
+    """
+    from crush_lu.models import CrushCoach, CrushProfile
+
+    if user is None or not getattr(user, "pk", None):
+        return set()
+
+    ids = set()
+
+    profile = getattr(user, "crushprofile", None)
+    assigned_coach_pk = getattr(profile, "assigned_coach_id", None)
+    if assigned_coach_pk:
+        ids.update(
+            CrushCoach.objects.filter(pk=assigned_coach_pk).values_list(
+                "user_id", flat=True
+            )
+        )
+
+    coach = getattr(user, "crushcoach", None)
+    if coach is not None:
+        ids.update(
+            CrushProfile.objects.filter(assigned_coach_id=coach.pk).values_list(
+                "user_id", flat=True
+            )
+        )
+
+    ids.discard(user.pk)
+    return ids
+
+
+def exclude_assigned_coach_pairs(qs, user, field="pk"):
+    """Drop ``user``'s coach/member counterparts from a queryset.
+
+    ``field`` selects the column holding the counterpart — ``pk`` for a
+    ``User`` queryset, ``sender_id`` for Sparks addressed to ``user``.
+
+    Applied to the live pool and again when rendering a persisted Drop: an
+    assignment made after the snapshot was pinned cannot retroactively change
+    what that snapshot contains.
+    """
+    pair_ids = assigned_coach_pair_user_ids(user)
+    if not pair_ids:
+        return qs
+    return qs.exclude(**{f"{field}__in": pair_ids})
+
+
 def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
     """
     Return the queryset of users eligible to appear in ``user``'s Crush Connect Drop.
@@ -165,6 +256,11 @@ def get_eligible_pool(user, candidate_pk=None) -> "QuerySet[User]":
         .exclude(pk=user.pk)
         .select_related("crushprofile", "crush_connect_membership")
     )
+
+    # A coach and their own assigned member are never candidates for each
+    # other, in either direction (see is_assigned_coach_pair). Coaches stay in
+    # every other member's pool.
+    qs = exclude_assigned_coach_pairs(qs, user)
 
     if candidate_pk is not None:
         qs = qs.filter(pk=candidate_pk)
@@ -579,6 +675,15 @@ def can_send_spark(sender, recipient) -> Tuple[bool, str]:
     if is_blocked_pair(sender, recipient):
         return False, "blocked"
 
+    # A coach and their own assigned member never surface to each other. This
+    # has to be re-checked here and not left to the pool: ConnectDailyDrop
+    # snapshots are immutable, so a pair that was surfaced BEFORE the coach
+    # assignment (the door assigns one on first attendance) would still pass
+    # the "was surfaced" test below. Reported as recipient_unavailable so the
+    # view layer needs no new reason branch.
+    if is_assigned_coach_pair(sender, recipient):
+        return False, "recipient_unavailable"
+
     if not is_catalogue_eligible(recipient):
         return False, "recipient_unavailable"
 
@@ -643,15 +748,21 @@ def respond_to_spark(spark, accept: bool, request=None):
         return spark
     if accept and (
         is_blocked_pair(spark.sender, spark.recipient)
+        # A coach assignment made AFTER the Spark was created (the door
+        # assigns one on first attendance) must retire it, not just hide the
+        # card. Otherwise the member still sees a pending Spark from the
+        # person who is now their coach and can accept it.
+        or is_assigned_coach_pair(spark.sender, spark.recipient)
         or not (
             is_catalogue_eligible(spark.recipient) and is_sender_eligible(spark.sender)
         )
     ):
         # Either party lost eligibility since the Spark was created
-        # (rejection, LuxID unlink, Premium loss, exclusion) or one blocked
-        # the other — an accept must not fire the mutual notification or land
-        # in the coach queue. Leave the Spark pending; the views filter these
-        # out, so this is the race-condition safety net.
+        # (rejection, LuxID unlink, Premium loss, exclusion, coach
+        # assignment) or one blocked the other — an accept must not fire the
+        # mutual notification or land in the coach queue. Leave the Spark
+        # pending; the views filter these out, so this is the race-condition
+        # safety net.
         return spark
     spark.status = "accepted" if accept else "declined"
     spark.responded_at = timezone.now()
@@ -747,6 +858,10 @@ def submit_gate_answers(
         # eligibility (candidates included); both parties must still be eligible.
         if (
             is_blocked_pair(responder, profile_owner)
+            # Same stale-Spark case as respond_to_spark: answering back is the
+            # other way to act on a pending Spark, so the pair rule has to
+            # cover it too or the coach/member match happens here instead.
+            or is_assigned_coach_pair(responder, profile_owner)
             or not is_catalogue_eligible(responder)
             or not is_sender_eligible(profile_owner)
         ):
