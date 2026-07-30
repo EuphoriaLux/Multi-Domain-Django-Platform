@@ -13,7 +13,7 @@ from django.contrib.auth.signals import user_logged_in
 from django.core.files.base import ContentFile
 from django.db.models import Q
 from django.db import transaction
-from django.db.models.signals import post_save, pre_delete
+from django.db.models.signals import post_save, pre_delete, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 from allauth.account.signals import email_confirmation_sent, email_confirmed
@@ -430,6 +430,20 @@ def promote_waitlist_on_capacity_increase(sender, instance, created, **kwargs):
     using the gender-aware _promote_from_waitlist() logic.
     """
     if created:
+        return
+
+    # A past or cancelled event must never promote. This fires on *any* save of
+    # a MeetupEvent, not just a capacity change, so without these guards simply
+    # opening a finished event in the admin and hitting Save would confirm its
+    # leftover waitlist and email each of them a registration confirmation for
+    # a party that already happened. Mirrors the same condition the member
+    # cancellation path applies (`views_events._cancel_registration`).
+    #
+    # Marking attendees as no_show makes this materially more likely, not less:
+    # no_show rows drop out of get_confirmed_count(), so a full event reads as
+    # having free seats again the moment the door work is tidied up.
+    now = timezone.now()
+    if instance.is_cancelled or instance.date_time <= now:
         return
 
     # Quick check: any waitlisted registrations?
@@ -2331,6 +2345,98 @@ def trigger_wallet_pass_update_on_profile_change(
             logger.error(
                 f"Error triggering wallet update for user {instance.user_id}: {e}"
             )
+
+
+@receiver(pre_save, sender=EventRegistration)
+def remember_previous_registration_status(sender, instance, **kwargs):
+    """Stash the stored status so post_save receivers can detect a *transition*.
+
+    Without this a receiver keyed on ``status == "cancelled"`` fires again every
+    later save of an already-cancelled row (an admin editing a note, a wallet
+    field being written), which for waitlist promotion means handing out a seat
+    per save rather than per cancellation.
+
+    One indexed primary-key lookup; deliberately fetches only the column.
+    """
+    if not instance.pk:
+        instance._previous_status = None
+        return
+    instance._previous_status = (
+        EventRegistration.objects.filter(pk=instance.pk)
+        .values_list("status", flat=True)
+        .first()
+    )
+
+
+@receiver(post_save, sender=EventRegistration)
+def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
+    """Give the freed seat to the waitlist when a registration is cancelled.
+
+    ``views_events`` promotes explicitly when a *member* cancels through the
+    site, but that was the only path that did. A status flipped to ``cancelled``
+    anywhere else — Django admin, a shell, a coach acting on someone's behalf —
+    freed a seat that nobody was ever offered. The 2026-07-29 mixer finished
+    with 23 cancellations and 3 people still waiting.
+
+    Promotes **one** candidate, because one cancellation frees exactly one seat.
+    (``promote_waitlist_on_capacity_increase`` loops instead, since a capacity
+    change frees an unknown number.) ``_promote_from_waitlist`` applies the
+    gender-pool and premium capacity rules, so this never over-fills a pool.
+
+    Runs on commit: the promotion must count seats against a *durable*
+    cancellation, and the confirmation email must not go out if the transaction
+    later rolls back.
+
+    Note: ``QuerySet.update()`` bypasses signals entirely, so a bulk status
+    change (e.g. marking no-shows after an event) deliberately does not promote.
+    """
+    if created or instance.status != "cancelled":
+        return
+    # Already cancelled before this save — something else on the row changed.
+    if getattr(instance, "_previous_status", None) == "cancelled":
+        return
+    # The member cancellation view promotes inside its own locked transaction
+    # and sends the email itself; without this flag that path promotes twice.
+    if getattr(instance, "_waitlist_promotion_handled", False):
+        return
+
+    event = instance.event
+    if event.is_cancelled or event.date_time <= timezone.now():
+        return
+    if not EventRegistration.objects.filter(event=event, status="waitlist").exists():
+        return
+
+    cancelled_user = instance.user
+    event_pk = event.pk
+
+    def _promote_after_commit():
+        from .email_helpers import send_event_registration_confirmation
+        from .views_events import _promote_from_waitlist
+
+        try:
+            with transaction.atomic():
+                locked_event = MeetupEvent.objects.select_for_update().get(pk=event_pk)
+                promoted = _promote_from_waitlist(locked_event, cancelled_user)
+        except Exception:
+            logger.exception(
+                "Waitlist promotion failed after cancellation of registration %s",
+                instance.pk,
+            )
+            return
+
+        if not promoted:
+            return
+        try:
+            send_event_registration_confirmation(promoted)
+        except Exception as e:
+            logger.error(
+                "Failed to send waitlist promotion email for user %s, event %s: %s",
+                promoted.user_id,
+                event_pk,
+                type(e).__name__,
+            )
+
+    transaction.on_commit(_promote_after_commit)
 
 
 @receiver(post_save, sender=EventRegistration)

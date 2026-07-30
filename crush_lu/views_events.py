@@ -1251,6 +1251,11 @@ def event_cancel(request, event_id):
                 return redirect("crush_lu:event_detail", event_id=event_id)
 
             registration.status = "cancelled"
+            # This view promotes explicitly below, inside the same locked
+            # transaction, and sends the confirmation email itself. Tell
+            # `signals.promote_waitlist_on_cancellation` to stand down, or the
+            # freed seat is handed out twice — once here and once on commit.
+            registration._waitlist_promotion_handled = True
             registration.save()
 
             messages.success(request, _("Your registration has been cancelled."))
