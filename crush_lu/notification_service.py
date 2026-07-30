@@ -593,7 +593,14 @@ class NotificationService:
             elif notification_type == NotificationType.EVENT_REMINDER:
                 registration = context.get('registration')
                 days_until = context.get('days_until', 1)
-                if registration and request:
+                # Deliberately NOT gated on `request`. The scheduled sweep
+                # (`send_event_reminders`, driven by the EventReminders timer)
+                # has no HTTP request, so requiring one meant the day-before
+                # email never left the building from the only path that runs
+                # unattended — members got a push and an in-app row and nothing
+                # in their inbox. `send_event_reminder` builds its URLs and
+                # picks the Crush sender without a request.
+                if registration:
                     result = email_helpers.send_event_reminder(
                         registration, request, days_until_event=days_until
                     )

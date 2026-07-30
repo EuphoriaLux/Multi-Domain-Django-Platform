@@ -60,10 +60,15 @@ class Command(BaseCommand):
         send_floor = now - timedelta(hours=min_hours)
         lookback_floor = now - timedelta(hours=lookback_hours)
 
+        # The one-day allowance this used to apply silently dropped multi-day
+        # events: durations are capped at MAX_DURATION_MINUTES (7 days), so an
+        # event that ended inside the window can have *started* up to a week
+        # before it. `live_lookback_cutoff` is the existing helper for exactly
+        # this bounded scan — it never drops an event whose end_time qualifies.
         events_qs = MeetupEvent.objects.filter(
             is_published=True,
             is_cancelled=False,
-            date_time__gte=lookback_floor - timedelta(days=1),
+            date_time__gte=MeetupEvent.live_lookback_cutoff(lookback_floor),
             date_time__lt=send_floor,
         )
         if event_id:

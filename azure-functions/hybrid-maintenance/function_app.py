@@ -15,15 +15,25 @@ on the Django side, so the Function just has to fire the HTTP request and
 log the outcome.
 
 Environment Variables Required:
+    **OPS — every URL below must be set manually on the Function App.** An unset
+    var logs an error and returns, so the timer invocation still reports
+    *Success* while the work silently never happens. On 2026-07-30 four of these
+    were found missing in production (campaign dispatch, crush lead reminders,
+    profile reminders, GDPR retention) — three of them absent from this very
+    list, which is how they escaped notice. **Add a new timer's variable here in
+    the same commit that adds the timer.**
+
     - DJANGO_PRE_SCREENING_INVITES_URL: e.g. https://crush.lu/api/admin/pre-screening-invites/
     - DJANGO_HYBRID_SLA_SWEEP_URL: e.g. https://crush.lu/api/admin/hybrid-coach-sla-sweep/
     - DJANGO_WEEKLY_KPIS_URL: e.g. https://crush.lu/api/admin/weekly-kpis/
     - DJANGO_ROTATE_CONNECT_QUESTIONS_URL: e.g. https://crush.lu/api/admin/rotate-connect-questions/
     - DJANGO_CAMPAIGN_DISPATCH_URL: e.g. https://crush.lu/api/admin/campaigns/dispatch/
     - DJANGO_CRUSH_LEAD_REMINDERS_URL: e.g. https://crush.lu/api/admin/crush-lead-reminders/
-      (OPS: like every URL here it must be set manually on the Function App —
-      an unset var logs an error and no-ops, so the 24h reminder silently
-      never fires.)
+    - DJANGO_PROFILE_REMINDERS_URL: e.g. https://crush.lu/api/admin/profile-reminders/
+    - DJANGO_GDPR_RETENTION_URL: e.g. https://crush.lu/api/admin/gdpr-retention/
+    - DJANGO_EVENT_REMINDERS_URL: e.g. https://crush.lu/api/admin/event-reminders/
+    - DJANGO_EVENT_RECAPS_URL: e.g. https://crush.lu/api/admin/event-recaps/
+    - DJANGO_EVENT_FEEDBACK_URL: e.g. https://crush.lu/api/admin/event-feedback/
     - ADMIN_API_KEY: Bearer token shared with the Django ADMIN_API_KEY setting
     - HYBRID_MAINTENANCE_ENABLED: Should be 'true' in production; anything
       else skips both triggers (safe-default: functions are deployed disabled
@@ -278,3 +288,96 @@ def crush_lead_reminders(timer: func.TimerRequest) -> None:
         logging.warning("CrushLeadReminders: timer past due at %s", ts)
     logging.info("CrushLeadReminders: starting at %s", ts)
     _call_admin_endpoint("CrushLeadReminders", "DJANGO_CRUSH_LEAD_REMINDERS_URL")
+
+
+@app.function_name(name="EventReminders")
+@app.timer_trigger(
+    # Hourly at :35, 09:00–20:00 UTC only. Clear of invites (:x0), SLA (:15),
+    # recaps (:25), campaigns (:x2/:x7) and lead reminders (:45).
+    schedule="0 35 9-20 * * *",
+    arg_name="timer",
+    run_on_startup=False,
+    use_monitor=True,
+)
+def event_reminders(timer: func.TimerRequest) -> None:
+    """Send the day-before reminder to confirmed registrants.
+
+    Until 2026-07-30 this had no scheduler at all, so no event ever sent a
+    reminder unless someone ran the command by hand. The 2026-07-29 mixer
+    went out with none and saw a 14% no-show rate — 19% among men, who
+    cancelled no more often than women but simply failed to appear.
+
+    **Why a daytime window rather than one daily run.** A single 09:00 fire
+    has no recovery: `use_monitor` records schedule occurrences but adds no
+    failure-retry policy, so a timeout or transient 5xx means the next attempt
+    is 24 hours later — by which point `--days 1` is selecting a different
+    calendar date and every event the failed run covered has silently lost its
+    reminder for good.
+
+    Repeating hourly through the day makes the schedule self-healing: the
+    first successful pass sends and stamps `reminder_sent_at`, every later
+    pass filters those registrations out in SQL and does nothing. Bounded to
+    09:00–20:00 so a member never receives "your event is tomorrow" at 01:35,
+    which is what a plain hourly schedule would do the moment the date rolls.
+    """
+    ts = datetime.utcnow().isoformat()
+    if timer.past_due:
+        logging.warning("EventReminders: timer past due at %s", ts)
+    logging.info("EventReminders: starting at %s", ts)
+    _call_admin_endpoint("EventReminders", "DJANGO_EVENT_REMINDERS_URL", timeout=110)
+
+
+@app.function_name(name="EventRecaps")
+@app.timer_trigger(
+    schedule="0 25 * * * *",  # Hourly at :25 (clear of invites :x0, SLA :15, campaigns :x2/:x7)
+    arg_name="timer",
+    run_on_startup=False,
+    use_monitor=True,
+)
+def event_recaps(timer: func.TimerRequest) -> None:
+    """Send the 24h post-event recap to attendees.
+
+    Hourly, deliberately. The command targets only events whose ``end_time``
+    sits between ``now - 36h`` and ``now - 24h`` — a 12-hour window. A daily
+    timer can land outside it depending on what time the event ended, and
+    would then skip that event permanently; the recap surface it links to is
+    itself only open for 48h, so there is no second chance.
+
+    Idempotent via ``EventRegistration.recap_sent_at``, which absorbs the
+    extra hourly invocations at no cost.
+    """
+    ts = datetime.utcnow().isoformat()
+    if timer.past_due:
+        logging.warning("EventRecaps: timer past due at %s", ts)
+    logging.info("EventRecaps: starting at %s", ts)
+    _call_admin_endpoint("EventRecaps", "DJANGO_EVENT_RECAPS_URL", timeout=110)
+
+
+@app.function_name(name="EventFeedback")
+@app.timer_trigger(
+    # Hourly at :55, 09:00–20:00 UTC. Clear of invites (:x0), campaigns
+    # (:x2/:x7), lead reminders (:45), recaps (:25) and reminders (:35).
+    schedule="0 55 9-20 * * *",
+    arg_name="timer",
+    run_on_startup=False,
+    use_monitor=True,
+)
+def event_feedback(timer: func.TimerRequest) -> None:
+    """Send the post-event feedback survey to attendees.
+
+    A daily run looked sufficient — the command's lookback is 48h, so one
+    missed day seems survivable. It isn't: an attendee whose event was already
+    more than 24h old during a failed run falls past the 48h window before the
+    next attempt, and misses the request permanently. There is no retry policy
+    to catch that.
+
+    So the same daytime-window shape as EventReminders: repeated hourly so a
+    failure recovers within the hour, bounded to civilised hours, and made
+    free by the per-row ``feedback_request_sent_at`` marker which takes
+    already-served registrations out of the query.
+    """
+    ts = datetime.utcnow().isoformat()
+    if timer.past_due:
+        logging.warning("EventFeedback: timer past due at %s", ts)
+    logging.info("EventFeedback: starting at %s", ts)
+    _call_admin_endpoint("EventFeedback", "DJANGO_EVENT_FEEDBACK_URL", timeout=110)

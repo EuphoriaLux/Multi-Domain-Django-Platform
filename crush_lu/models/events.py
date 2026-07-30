@@ -457,6 +457,32 @@ class MeetupEvent(models.Model):
         )
 
     @property
+    def accepts_waitlist_promotion(self):
+        """Whether a freed seat may still be handed to this event's waitlist.
+
+        Promotion writes ``confirmed`` **and** sends a registration
+        confirmation email, so doing it for a finished event tells someone they
+        have a seat at a party that already happened, and for a cancelled event
+        that a cancelled party is on.
+
+        Deliberately a single definition: three call sites depend on this
+        condition (both promotion signals and the member cancel view), and the
+        incident that motivated it was one of them simply not having the check.
+        Keeping three hand-copied variants is how the next one goes missing.
+
+        ``is_published`` counts for the same reason ``is_cancelled`` does: the
+        promoted member gets a confirmation email for an event that
+        ``event_detail`` rejects and ``my_events`` hides, both of which require
+        it — the same treatment ``event_lobby_phase`` gives an unpublished
+        event.
+        """
+        return (
+            self.is_published
+            and not self.is_cancelled
+            and self.date_time > timezone.now()
+        )
+
+    @property
     def is_full(self):
         return self.get_confirmed_count() >= self.max_participants
 
@@ -756,6 +782,29 @@ class EventRegistration(models.Model):
         blank=True,
         default="",
         help_text=_("Apple Wallet event ticket serial number"),
+    )
+
+    # Pre-event reminder tracking (idempotency for the send_event_reminders
+    # mgmt command, now driven unattended by the EventReminders timer).
+    # Only the day-granularity mode stamps these: `--hours-before` and
+    # `--days N` are different reminders and must not be suppressed by them.
+    #
+    # Two markers because the channels fail independently. The sweep repeats
+    # hourly through the day so a failed email is recoverable, but push and the
+    # in-app bell are fire-and-forget — replaying them would mean up to twelve
+    # pushes during an email outage. `reminder_notified_at` records that the
+    # non-email channels have had their turn, so later passes retry the email
+    # alone; `reminder_sent_at` records that the email itself is settled and
+    # takes the registration out of the sweep entirely.
+    reminder_notified_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("Timestamp push + in-app reminder channels were fired"),
+    )
+    reminder_sent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("Timestamp the day-before reminder email was settled"),
     )
 
     # Post-event feedback email tracking (idempotency for the
