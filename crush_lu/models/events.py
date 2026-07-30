@@ -774,6 +774,16 @@ class EventRegistration(models.Model):
         help_text=_("Apple Wallet event ticket serial number"),
     )
 
+    # Pre-event reminder tracking (idempotency for the send_event_reminders
+    # mgmt command, now driven unattended by the EventReminders timer).
+    # Only the day-granularity mode stamps this: `--hours-before` is a
+    # different, same-day reminder and must not be suppressed by it.
+    reminder_sent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_("Timestamp the day-before reminder email was sent"),
+    )
+
     # Post-event feedback email tracking (idempotency for the
     # send_event_feedback_requests mgmt command).
     feedback_request_sent_at = models.DateTimeField(

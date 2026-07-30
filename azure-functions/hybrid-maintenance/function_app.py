@@ -312,7 +312,7 @@ def event_reminders(timer: func.TimerRequest) -> None:
     if timer.past_due:
         logging.warning("EventReminders: timer past due at %s", ts)
     logging.info("EventReminders: starting at %s", ts)
-    _call_admin_endpoint("EventReminders", "DJANGO_EVENT_REMINDERS_URL")
+    _call_admin_endpoint("EventReminders", "DJANGO_EVENT_REMINDERS_URL", timeout=110)
 
 
 @app.function_name(name="EventRecaps")
@@ -338,7 +338,7 @@ def event_recaps(timer: func.TimerRequest) -> None:
     if timer.past_due:
         logging.warning("EventRecaps: timer past due at %s", ts)
     logging.info("EventRecaps: starting at %s", ts)
-    _call_admin_endpoint("EventRecaps", "DJANGO_EVENT_RECAPS_URL")
+    _call_admin_endpoint("EventRecaps", "DJANGO_EVENT_RECAPS_URL", timeout=110)
 
 
 @app.function_name(name="EventFeedback")
@@ -360,4 +360,4 @@ def event_feedback(timer: func.TimerRequest) -> None:
     if timer.past_due:
         logging.warning("EventFeedback: timer past due at %s", ts)
     logging.info("EventFeedback: starting at %s", ts)
-    _call_admin_endpoint("EventFeedback", "DJANGO_EVENT_FEEDBACK_URL")
+    _call_admin_endpoint("EventFeedback", "DJANGO_EVENT_FEEDBACK_URL", timeout=110)

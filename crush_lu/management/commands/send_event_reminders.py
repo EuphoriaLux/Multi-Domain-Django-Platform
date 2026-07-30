@@ -65,6 +65,15 @@ class Command(BaseCommand):
             help='Show what would be sent without actually sending'
         )
         parser.add_argument(
+            '--force',
+            action='store_true',
+            help=(
+                'Re-send the day-before reminder even to registrations already '
+                'stamped with reminder_sent_at (ops override; the scheduled '
+                'timer never passes this)'
+            ),
+        )
+        parser.add_argument(
             '--event-id',
             type=int,
             help='Send reminders only for a specific event ID'
@@ -142,6 +151,19 @@ class Command(BaseCommand):
                 status='confirmed'
             ).select_related('user', 'user__crushprofile')
 
+            # Idempotency for the unattended EventReminders timer: without this
+            # a catch-up invocation or an operational retry re-notifies every
+            # confirmed registration, and each pass creates another in-app row
+            # and re-sends the push and the email.
+            #
+            # Scoped to the day-granularity mode on purpose. `--hours-before`
+            # is a *different* reminder for the same event (a same-day nudge),
+            # so it must neither be suppressed by the day-before stamp nor
+            # consume it. That mode is manual and not on a timer.
+            stamps_reminder = hours_before is None and not options['force']
+            if stamps_reminder:
+                registrations = registrations.filter(reminder_sent_at__isnull=True)
+
             if not registrations.exists():
                 if verbosity >= 1:
                     self.stdout.write(
@@ -172,6 +194,21 @@ class Command(BaseCommand):
                         days_until=days_until_for_notification,
                         request=None,  # No request context for management command
                     )
+
+                    if stamps_reminder:
+                        # Stamped on any non-raising outcome, matching
+                        # send_event_recaps: an opt-out is "processed" and must
+                        # not be retried, while an exception skips this line
+                        # entirely so a genuine failure is picked up next run.
+                        #
+                        # queryset .update() rather than .save(): a save fires
+                        # trigger_wallet_pass_update_on_registration_change,
+                        # which performs a *synchronous* Apple/Google Wallet
+                        # refresh — one per reminder would put minutes of
+                        # network I/O inside the sweep.
+                        EventRegistration.objects.filter(pk=registration.pk).update(
+                            reminder_sent_at=timezone.now()
+                        )
 
                     if result.any_delivered:
                         total_sent += 1

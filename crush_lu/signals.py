@@ -2398,9 +2398,13 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
         return
 
     event = instance.event
+    # Cheap pre-filter only; the authoritative check is inside the callback,
+    # under the event lock. Deliberately does NOT also short-circuit on "no
+    # waitlist right now": that read happens before this transaction commits,
+    # so a registration joining the waitlist in the meantime would find the
+    # seat already given away to nobody, with nothing scheduled to retry.
+    # `_promote_from_waitlist` returns None cheaply when the waitlist is empty.
     if not event.accepts_waitlist_promotion:
-        return
-    if not EventRegistration.objects.filter(event=event, status="waitlist").exists():
         return
 
     cancelled_user = instance.user
@@ -2413,6 +2417,15 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
         try:
             with transaction.atomic():
                 locked_event = MeetupEvent.objects.select_for_update().get(pk=event_pk)
+                # Re-read eligibility *under the lock*. The checks above ran
+                # before this transaction committed, against a possibly stale
+                # instance: another transaction may have cancelled the event in
+                # between (promoting into it would confirm and email a seat at
+                # a cancelled party), and a registration may have joined the
+                # waitlist since (the early return would have left the freed
+                # seat unfilled indefinitely, because nothing re-runs).
+                if not locked_event.accepts_waitlist_promotion:
+                    return
                 promoted = _promote_from_waitlist(locked_event, cancelled_user)
         except Exception:
             logger.exception(

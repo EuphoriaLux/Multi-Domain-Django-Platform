@@ -126,6 +126,10 @@ $settings = @(
     "DJANGO_CAMPAIGN_DISPATCH_URL=https://$DJANGO_HOST/api/admin/campaigns/dispatch/",
     "DJANGO_PROFILE_REMINDERS_URL=https://$DJANGO_HOST/api/admin/profile-reminders/",
     "DJANGO_GDPR_RETENTION_URL=https://$DJANGO_HOST/api/admin/gdpr-retention/",
+    "DJANGO_CRUSH_LEAD_REMINDERS_URL=https://$DJANGO_HOST/api/admin/crush-lead-reminders/",
+    "DJANGO_EVENT_REMINDERS_URL=https://$DJANGO_HOST/api/admin/event-reminders/",
+    "DJANGO_EVENT_RECAPS_URL=https://$DJANGO_HOST/api/admin/event-recaps/",
+    "DJANGO_EVENT_FEEDBACK_URL=https://$DJANGO_HOST/api/admin/event-feedback/",
     "HYBRID_MAINTENANCE_ENABLED=false",
     "ApplicationInsightsAgent_EXTENSION_VERSION=disabled"
 )
