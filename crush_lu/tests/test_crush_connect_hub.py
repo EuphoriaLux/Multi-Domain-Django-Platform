@@ -138,16 +138,19 @@ def test_hub_surfaces_pending_sparks(client, settings):
 
 
 # ---------------------------------------------------------------------------
-# Shared shell: member-facing pages render the Connect sub-nav
+# Shared shell: member-facing pages link back to the Connect hub
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.django_db
-def test_member_page_renders_connect_subnav(client, settings):
+def test_member_page_links_back_to_the_hub(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(username="me", onboarded=True, premium=True)
     _login_eligible(client, me)
-    # Today's Drop now extends the Connect shell → its sub-nav links to the hub.
+    # That link comes from the persistent navbar / bottom nav
+    # (crush_connect_nav_visible) — NOT from _connect_subnav.html, which no
+    # template has included since d5a8a891. The old name and comment here
+    # claimed the sub-nav, which is what made its stale predicate look live.
     resp = client.get(reverse("crush_lu:crush_connect_home"))
     assert resp.status_code == 200
     assert reverse("crush_lu:crush_connect_hub") in resp.content.decode()
