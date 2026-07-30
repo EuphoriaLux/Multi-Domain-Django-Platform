@@ -469,8 +469,18 @@ class MeetupEvent(models.Model):
         condition (both promotion signals and the member cancel view), and the
         incident that motivated it was one of them simply not having the check.
         Keeping three hand-copied variants is how the next one goes missing.
+
+        ``is_published`` counts for the same reason ``is_cancelled`` does: the
+        promoted member gets a confirmation email for an event that
+        ``event_detail`` rejects and ``my_events`` hides, both of which require
+        it — the same treatment ``event_lobby_phase`` gives an unpublished
+        event.
         """
-        return not self.is_cancelled and self.date_time > timezone.now()
+        return (
+            self.is_published
+            and not self.is_cancelled
+            and self.date_time > timezone.now()
+        )
 
     @property
     def is_full(self):

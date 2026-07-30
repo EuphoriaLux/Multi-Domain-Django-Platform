@@ -57,10 +57,12 @@ class Command(BaseCommand):
 
         # Pre-filter events that *might* have ended in window. We must compute
         # end_time in Python because it's a property (date_time + duration).
+        # See send_event_recaps: a one-day allowance drops multi-day events,
+        # whose start can precede their end by up to MAX_DURATION_MINUTES.
         events_qs = MeetupEvent.objects.filter(
             is_published=True,
             is_cancelled=False,
-            date_time__gte=lookback_cutoff - timedelta(days=1),
+            date_time__gte=MeetupEvent.live_lookback_cutoff(lookback_cutoff),
             date_time__lt=now,
         )
         if event_id:
