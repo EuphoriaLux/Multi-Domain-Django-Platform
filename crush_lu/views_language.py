@@ -9,11 +9,37 @@ This ensures email notifications and push notifications use the user's
 preferred language, not just the browsing language.
 """
 import logging
+from django.http import Http404
+from django.utils import translation
 from django.views.decorators.http import require_POST
+from django.views.i18n import JavaScriptCatalog
 from django.views.i18n import set_language as django_set_language
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
+
+
+class LanguageScopedJavaScriptCatalog(JavaScriptCatalog):
+    """Serve the JS catalog for the language named in the URL.
+
+    The catalog is mounted outside ``i18n_patterns`` so scripts can fetch it
+    from a stable path (see the comment on the route). The cost is that
+    ``LocaleMiddleware`` has no prefix to read on that request and falls back
+    to the cookie or ``Accept-Language``, which need not match the page that
+    asked for the catalog: open ``/fr/`` with no language cookie and an
+    English ``Accept-Language`` and every ``gettext()`` string renders in
+    English on a French page. Naming the language in the URL keeps the catalog
+    in step with the page that requested it.
+    """
+
+    def get(self, request, *args, **kwargs):
+        lang = kwargs.pop("lang", None)
+        if lang not in {code for code, _name in settings.LANGUAGES}:
+            raise Http404(f"Unsupported language catalog: {lang!r}")
+        # JavaScriptCatalog reads get_language() and renders eagerly, so the
+        # override only has to span the super() call.
+        with translation.override(lang):
+            return super().get(request, *args, **kwargs)
 
 
 @require_POST

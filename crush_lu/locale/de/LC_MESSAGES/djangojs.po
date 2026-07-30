@@ -308,3 +308,15 @@ msgstr "Test senden"
 #: static/crush_lu/js/alpine-components.js:2634
 msgid "Disable Notifications"
 msgstr "Benachrichtigungen deaktivieren"
+
+#: static/crush_lu/js/pwa-update.js:72
+msgid "A new version of Crush.lu is available!"
+msgstr "Eine neue Version von Crush.lu ist verfügbar!"
+
+#: static/crush_lu/js/pwa-update.js:83
+msgid "Update Now"
+msgstr "Jetzt aktualisieren"
+
+#: static/crush_lu/js/pwa-update.js:89
+msgid "Later"
+msgstr "Später"

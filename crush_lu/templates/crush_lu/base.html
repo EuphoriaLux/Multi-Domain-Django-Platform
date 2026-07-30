@@ -1337,8 +1337,11 @@
     <!-- Confirmation sheet (replaces window.confirm for hx-confirm) -->
     {% include "crush_lu/partials/confirm_sheet.html" %}
 
-    <!-- JavaScript i18n catalog (must load before components that use gettext()) -->
-    <script src="{% url 'javascript-catalog' %}"></script>
+    <!-- JavaScript i18n catalog (must load before components that use gettext()).
+         Pass the page's language explicitly: the catalog route sits outside
+         i18n_patterns, so it would otherwise be negotiated from the cookie /
+         Accept-Language and could disagree with this page. -->
+    <script src="{% url 'javascript-catalog-lang' LANGUAGE_CODE %}"></script>
 
     <!-- HTMX (HTML-driven interactivity) - deferred for non-blocking load -->
     <script defer src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js"
