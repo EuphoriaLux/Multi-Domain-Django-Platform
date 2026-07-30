@@ -133,6 +133,26 @@ class CapacityIncreaseGuardTests(_WaitlistFixture):
         self._save_event()
         self.assertEqual(self.waiting.status, "waitlist")
 
+    def test_capacity_handler_rechecks_under_the_lock(self):
+        """The pre-lock check reads the post-save snapshot. If the event is
+        cancelled between that read and the row lock, the locked row is what
+        must decide — otherwise the loop confirms and emails for a cancelled
+        event."""
+        from crush_lu.models import MeetupEvent
+
+        # Committed row says cancelled; the in-memory instance still says live.
+        # `update_fields` is essential — a bare save() writes every field and
+        # would push the stale is_cancelled=False straight back over it,
+        # destroying the very interleaving under test.
+        MeetupEvent.objects.filter(pk=self.event.pk).update(is_cancelled=True)
+        self.assertTrue(self.event.accepts_waitlist_promotion)  # stale view
+
+        self.event.max_participants = 5
+        self.event.save(update_fields=["max_participants"])
+
+        self.waiting.refresh_from_db()
+        self.assertEqual(self.waiting.status, "waitlist")
+
     def test_past_event_with_free_seats_does_not_promote(self):
         """The exact production shape: an event that has ended, whose seats
         freed up because attendees were marked no_show afterwards."""

@@ -458,6 +458,15 @@ def promote_waitlist_on_capacity_increase(sender, instance, created, **kwargs):
     with transaction.atomic():
         locked_event = MeetupEvent.objects.select_for_update().get(pk=instance.pk)
 
+        # Re-read eligibility from the *locked* row. The check above ran
+        # against the post-save instance, which is a snapshot: another
+        # transaction may have cancelled or unpublished the event between that
+        # read and this lock, and the loop below would then confirm and email
+        # waitlisted members for it. Same reasoning as
+        # `promote_waitlist_on_cancellation._promote_after_commit`.
+        if not locked_event.accepts_waitlist_promotion:
+            return
+
         promoted_registrations = []
         while not locked_event.is_full:
             promoted = _promote_from_waitlist(locked_event)

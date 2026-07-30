@@ -156,11 +156,18 @@ class Command(BaseCommand):
             # confirmed registration, and each pass creates another in-app row
             # and re-sends the push and the email.
             #
-            # Scoped to the day-granularity mode on purpose. `--hours-before`
-            # is a *different* reminder for the same event (a same-day nudge),
-            # so it must neither be suppressed by the day-before stamp nor
-            # consume it. That mode is manual and not on a timer.
-            stamps_reminder = hours_before is None and not options['force']
+            # Scoped to the *scheduled* shape only: the default `--days 1`
+            # day-before sweep. Every other mode is a different reminder for
+            # the same event and must neither be suppressed by the day-before
+            # stamp nor consume it:
+            #   `--hours-before`  a same-day nudge, hours out
+            #   `--days N` (N!=1) an early heads-up; stamping here would make
+            #                     the following day's scheduled sweep skip the
+            #                     registration and never send the real
+            #                     day-before reminder
+            stamps_reminder = (
+                hours_before is None and days == 1 and not options['force']
+            )
             if stamps_reminder:
                 registrations = registrations.filter(reminder_sent_at__isnull=True)
 
@@ -195,12 +202,21 @@ class Command(BaseCommand):
                         request=None,  # No request context for management command
                     )
 
-                    if stamps_reminder:
-                        # Stamped on any non-raising outcome, matching
-                        # send_event_recaps: an opt-out is "processed" and must
-                        # not be retried, while an exception skips this line
-                        # entirely so a genuine failure is picked up next run.
-                        #
+                    # Stamp only once the *email* is settled — delivered, or
+                    # deliberately not going (unsubscribed / no address).
+                    #
+                    # `any_delivered` is the wrong test: it is true whenever the
+                    # in-app bell row was written, and that row is written
+                    # unconditionally. NotificationService also swallows a
+                    # Graph failure rather than raising, returning
+                    # email_sent=False with no skip reason. Stamping on either
+                    # of those would mean one provider outage during the daily
+                    # sweep permanently suppresses the reminder for everyone it
+                    # touched, with no retry able to see it.
+                    email_settled = (
+                        result.email_sent or result.email_skipped_reason is not None
+                    )
+                    if stamps_reminder and email_settled:
                         # queryset .update() rather than .save(): a save fires
                         # trigger_wallet_pass_update_on_registration_change,
                         # which performs a *synchronous* Apple/Google Wallet
@@ -208,6 +224,13 @@ class Command(BaseCommand):
                         # network I/O inside the sweep.
                         EventRegistration.objects.filter(pk=registration.pk).update(
                             reminder_sent_at=timezone.now()
+                        )
+                    elif stamps_reminder and result.errors:
+                        self.stdout.write(
+                            self.style.WARNING(
+                                f'  Not stamping {user.email} — email unsettled: '
+                                f'{result.errors}'
+                            )
                         )
 
                     if result.any_delivered:

@@ -292,7 +292,9 @@ def crush_lead_reminders(timer: func.TimerRequest) -> None:
 
 @app.function_name(name="EventReminders")
 @app.timer_trigger(
-    schedule="0 0 9 * * *",  # Daily at 09:00 UTC (clear of ProfileReminders 08:00)
+    # Hourly at :35, 09:00–20:00 UTC only. Clear of invites (:x0), SLA (:15),
+    # recaps (:25), campaigns (:x2/:x7) and lead reminders (:45).
+    schedule="0 35 9-20 * * *",
     arg_name="timer",
     run_on_startup=False,
     use_monitor=True,
@@ -305,8 +307,18 @@ def event_reminders(timer: func.TimerRequest) -> None:
     went out with none and saw a 14% no-show rate — 19% among men, who
     cancelled no more often than women but simply failed to appear.
 
-    Idempotent per registration on the Django side, so a catch-up invocation
-    never double-mails.
+    **Why a daytime window rather than one daily run.** A single 09:00 fire
+    has no recovery: `use_monitor` records schedule occurrences but adds no
+    failure-retry policy, so a timeout or transient 5xx means the next attempt
+    is 24 hours later — by which point `--days 1` is selecting a different
+    calendar date and every event the failed run covered has silently lost its
+    reminder for good.
+
+    Repeating hourly through the day makes the schedule self-healing: the
+    first successful pass sends and stamps `reminder_sent_at`, every later
+    pass filters those registrations out in SQL and does nothing. Bounded to
+    09:00–20:00 so a member never receives "your event is tomorrow" at 01:35,
+    which is what a plain hourly schedule would do the moment the date rolls.
     """
     ts = datetime.utcnow().isoformat()
     if timer.past_due:
