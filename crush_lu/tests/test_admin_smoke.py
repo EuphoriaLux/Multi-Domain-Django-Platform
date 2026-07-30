@@ -341,6 +341,23 @@ class EventRegistrationChangelistQueryTests(SiteTestMixin, TestCase):
     def test_query_count_stays_flat_as_rows_grow(self):
         self.client.force_login(self.superuser)
 
+        # Discard one request before measuring anything. The first admin request
+        # in a process pays one-off warm-up costs that have nothing to do with
+        # row count: it populates django.contrib.sites' SITE_CACHE (no SITE_ID is
+        # set, so the site is looked up by domain) and it creates + caches the
+        # CrushSiteConfig singleton — get_config() is a get_or_create(pk=1), and
+        # crush_lu.context_processors holds the result in a module-level cache
+        # with a 5-minute TTL. That is 5 fixed queries (site lookup, config
+        # SELECT, SAVEPOINT/INSERT/RELEASE).
+        #
+        # Neither cache is reset between tests, so whether those 5 queries landed
+        # inside the *first* measurement depended purely on what had run before:
+        # the whole file passed (an earlier changelist test warmed them) while
+        # this test alone failed with "22 -> 17" — i.e. the count going *down* as
+        # rows grew, which is the opposite of the N+1 it claims to detect.
+        # Warming up first makes the comparison measure only row-count scaling.
+        self._changelist_query_count()
+
         for i in range(3):
             user = User.objects.create_user(username=f"reg_user_{i}", password="x")
             EventRegistration.objects.create(
