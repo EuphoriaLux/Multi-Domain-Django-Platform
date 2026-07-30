@@ -183,7 +183,7 @@ msgstr "Expéditeur"
 
 #: admin/crush_cache.py:72
 msgid "Select exactly one hunt to generate a QR sheet."
-msgstr ""
+msgstr "Sélectionnez exactement une chasse pour générer une fiche QR."
 
 #: admin/crush_cache.py:78
 #, fuzzy, python-format
@@ -206,7 +206,7 @@ msgstr ""
 
 #: admin/crush_cache.py:120
 msgid "Generate printable QR sheet (PDF)"
-msgstr ""
+msgstr "Générer une fiche QR imprimable (PDF)"
 
 #: admin/crush_cache.py:139
 #, python-format
@@ -229,7 +229,7 @@ msgstr "Statut"
 
 #: admin/crush_cache.py:182
 msgid "Will be checked after saving."
-msgstr ""
+msgstr "Sera vérifié après enregistrement."
 
 #: admin/crush_cache.py:204 admin/quiz.py:283
 #: templates/crush_lu/coach_quiz_config.html:105
@@ -243,17 +243,17 @@ msgstr "Défis"
 
 #: admin/crush_cache.py:231
 msgid "Save the station first to get its QR code."
-msgstr ""
+msgstr "Enregistrez d'abord la station pour obtenir son code QR."
 
 #: admin/crush_cache.py:233
 #, python-format
 msgid "No QR needed — this station unlocks by “%(mode)s”."
-msgstr ""
+msgstr "Aucun QR nécessaire — cette station se déverrouille par « %(mode)s »."
 
 #: admin/crush_cache.py:245
 #, python-format
 msgid "Manual code: %(code)s"
-msgstr ""
+msgstr "Code manuel : %(code)s"
 
 #: admin/crush_cache.py:248
 #: templates/crush_lu/emails/journey_gift_notification.html:37
@@ -921,7 +921,7 @@ msgstr ""
 #: admin/moderation.py:120
 #, python-format
 msgid "%(n)d user(s) excluded; %(r)d report(s) marked actioned."
-msgstr ""
+msgstr "%(n)d utilisateur(s) exclu(s) ; %(r)d signalement(s) traité(s)."
 
 #: admin/notifications.py:107 admin/notifications.py:219
 #: coach_notifications.py:566 push_notifications.py:451
@@ -3482,11 +3482,11 @@ msgstr ""
 #: models/campaigns.py:129 templates/admin/crush_lu/campaign_dashboard.html:100
 #: templates/admin/crush_lu/campaign_detail.html:4
 msgid "Campaign"
-msgstr ""
+msgstr "Campagne"
 
 #: models/campaigns.py:130 templates/admin/crush_lu/campaign_dashboard.html:30
 msgid "Campaigns"
-msgstr ""
+msgstr "Campagnes"
 
 #: models/campaigns.py:257 models/newsletter.py:138
 #: templates/admin/crush_lu/profile_reminders_panel.html:539
@@ -3506,7 +3506,7 @@ msgstr "WhatsApp"
 #: models/campaigns.py:262 templates/admin/crush_lu/campaign_composer.html:93
 #: templates/admin/crush_lu/campaign_composer.html:161
 msgid "Web Push"
-msgstr ""
+msgstr "Web Push"
 
 #: models/campaigns.py:296
 #, fuzzy
@@ -9399,7 +9399,7 @@ msgstr "Retour au tableau de bord coach"
 
 #: templates/admin/crush_lu/campaign_composer.html:23
 msgid "Compose once, send across email, WhatsApp and push."
-msgstr ""
+msgstr "Rédigez une fois, envoyez par e-mail, WhatsApp et push."
 
 #: templates/admin/crush_lu/campaign_composer.html:31
 #: templates/admin/crush_lu/campaign_composer.html:49
@@ -9425,23 +9425,23 @@ msgstr "Vérifier et soumettre"
 
 #: templates/admin/crush_lu/campaign_composer.html:39
 msgid "Who is this campaign for?"
-msgstr ""
+msgstr "À qui s'adresse cette campagne ?"
 
 #: templates/admin/crush_lu/campaign_composer.html:42
 msgid "Campaign name"
-msgstr ""
+msgstr "Nom de la campagne"
 
 #: templates/admin/crush_lu/campaign_composer.html:44
 msgid "e.g. Spring event push — inactive members"
-msgstr ""
+msgstr "ex: Push événement de printemps — membres inactifs"
 
 #: templates/admin/crush_lu/campaign_composer.html:45
 msgid "Internal name; also used for the tracking slug."
-msgstr ""
+msgstr "Nom interne ; également utilisé pour le slug de suivi."
 
 #: templates/admin/crush_lu/campaign_composer.html:58
 msgid "Segment (when audience is a segment)"
-msgstr ""
+msgstr "Segment (lorsque l'audience est un segment)"
 
 #: templates/admin/crush_lu/campaign_composer.html:60
 #, fuzzy
@@ -9497,12 +9497,12 @@ msgstr "Bio du coach (anglais)"
 msgid ""
 "Rendered inside the standard newsletter template. Links are click-tracked "
 "automatically."
-msgstr ""
+msgstr "Rendu dans le modèle de newsletter standard. Les liens sont suivis automatiquement."
 
 #: templates/admin/crush_lu/campaign_composer.html:111
 #: templates/admin/crush_lu/campaign_composer.html:176
 msgid "German / French variants (optional — falls back to English)"
-msgstr ""
+msgstr "Variantes allemande / française (optionnel — repli sur l'anglais)"
 
 #: templates/admin/crush_lu/campaign_composer.html:113
 #, fuzzy
@@ -9530,7 +9530,7 @@ msgstr "Bio du coach (français)"
 
 #: templates/admin/crush_lu/campaign_composer.html:134
 msgid "Could not load approved templates:"
-msgstr ""
+msgstr "Impossible de charger les modèles approuvés :"
 
 #: templates/admin/crush_lu/campaign_composer.html:137
 #, fuzzy
@@ -9548,7 +9548,7 @@ msgstr "Choisir un modèle"
 msgid ""
 "The recipient's language picks the localized variant; missing variants fail "
 "per recipient."
-msgstr ""
+msgstr "La langue du destinataire sélectionne la variante localisée."
 
 #: templates/admin/crush_lu/campaign_composer.html:151
 #, fuzzy
@@ -9566,7 +9566,7 @@ msgstr "Notes du coach (facultatif)"
 #, python-brace-format
 msgid ""
 "Merge tokens: {first_name}, {last_name}, {email}. URLs are click-tracked."
-msgstr ""
+msgstr "Jétons de fusion : {first_name}, {last_name}, {email}. Les URL sont suivies."
 
 #: templates/admin/crush_lu/campaign_composer.html:163
 #, fuzzy
@@ -9588,7 +9588,7 @@ msgstr "URL Reddit"
 
 #: templates/admin/crush_lu/campaign_composer.html:173
 msgid "Where a tap takes the user (click-tracked)."
-msgstr ""
+msgstr "Destination lors d'un clic (suivi des clics)."
 
 #: templates/admin/crush_lu/campaign_composer.html:178
 #, fuzzy
@@ -9661,11 +9661,11 @@ msgstr "Aperçu du cadeau"
 
 #: templates/admin/crush_lu/campaign_composer.html:223
 msgid "Recipient estimate appears here."
-msgstr ""
+msgstr "L'estimation des destinataires apparaît ici."
 
 #: templates/admin/crush_lu/campaign_composer.html:226
 msgid "Content preview appears here."
-msgstr ""
+msgstr "L'aperçu du contenu apparaît ici."
 
 #: templates/admin/crush_lu/campaign_composer.html:231
 #, fuzzy
@@ -9675,7 +9675,7 @@ msgstr "Scène suivante"
 
 #: templates/admin/crush_lu/campaign_composer.html:237
 msgid "When should it go out?"
-msgstr ""
+msgstr "Quand doit-elle être envoyée ?"
 
 #: templates/admin/crush_lu/campaign_composer.html:241
 #, fuzzy
@@ -9692,11 +9692,11 @@ msgstr "Envoyer le message"
 
 #: templates/admin/crush_lu/campaign_composer.html:245
 msgid "Sending starts with the next dispatch tick (within ~5 minutes)."
-msgstr ""
+msgstr "L'envoi commence au prochain cycle (~5 minutes)."
 
 #: templates/admin/crush_lu/campaign_composer.html:249
 msgid "Send at (UTC)"
-msgstr ""
+msgstr "Envoyer à (UTC)"
 
 # Coach Dashboard translations
 #: templates/admin/crush_lu/campaign_dashboard.html:4
@@ -9714,7 +9714,7 @@ msgstr "Panneau Coach"
 
 #: templates/admin/crush_lu/campaign_dashboard.html:23
 msgid "Run and track outreach across email, WhatsApp and push."
-msgstr ""
+msgstr "Gérez et suivez vos campagnes par e-mail, WhatsApp et push."
 
 #: templates/admin/crush_lu/campaign_dashboard.html:25
 #: templates/admin/crush_lu/campaign_dashboard.html:94
@@ -9778,7 +9778,7 @@ msgstr "Clique sur \\"
 
 #: templates/admin/crush_lu/campaign_dashboard.html:84
 msgid "Campaign messages per week"
-msgstr ""
+msgstr "Messages de campagne par semaine"
 
 #: templates/admin/crush_lu/campaign_dashboard.html:93
 #, fuzzy
@@ -9822,7 +9822,7 @@ msgstr "Clique sur \\"
 
 #: templates/admin/crush_lu/campaign_dashboard.html:131
 msgid "No campaigns yet — launch your first one!"
-msgstr ""
+msgstr "Aucune campagne pour le moment — lancez votre première !"
 
 #: templates/admin/crush_lu/campaign_dashboard.html:143
 #, fuzzy
@@ -9832,7 +9832,7 @@ msgstr "Total des connexions"
 
 #: templates/admin/crush_lu/campaign_dashboard.html:161
 msgid "Inbound replies"
-msgstr ""
+msgstr "Réponses entrantes"
 
 #: templates/admin/crush_lu/campaign_dashboard.html:162
 #, fuzzy
@@ -9986,19 +9986,19 @@ msgstr "Annuler à tout moment"
 
 #: templates/admin/crush_lu/campaign_detail.html:54
 msgid "Launch this draft"
-msgstr ""
+msgstr "Lancer ce brouillon"
 
 #: templates/admin/crush_lu/campaign_detail.html:58
 msgid "Send at (UTC) — leave empty to send now"
-msgstr ""
+msgstr "Envoyer à (UTC) — laissez vide pour envoyer maintenant"
 
 #: templates/admin/crush_lu/campaign_detail.html:61
 msgid "Launch campaign"
-msgstr ""
+msgstr "Lancer la campagne"
 
 #: templates/admin/crush_lu/campaign_detail.html:67
 msgid "Clicks per day"
-msgstr ""
+msgstr "Clics par jour"
 
 #: templates/admin/crush_lu/campaign_detail.html:72
 #, fuzzy
@@ -10021,7 +10021,7 @@ msgstr "Modifier"
 
 #: templates/admin/crush_lu/campaign_detail.html:89
 msgid "No tracked links yet — they appear once sending starts."
-msgstr ""
+msgstr "Aucun lien suivi pour l'instant."
 
 #: templates/admin/crush_lu/campaign_detail.html:96
 #, fuzzy
@@ -10055,7 +10055,7 @@ msgstr "Ignoré"
 
 #: templates/admin/crush_lu/campaign_detail.html:112
 msgid "Recent recipients (WhatsApp / push)"
-msgstr ""
+msgstr "Destinataires récents (WhatsApp / push)"
 
 #: templates/admin/crush_lu/campaign_detail.html:116
 #, fuzzy
@@ -16802,7 +16802,7 @@ msgstr "Note de %(name)s"
 
 #: templates/crush_lu/coach_connection_review.html:130
 msgid "Claim this lead to read the note."
-msgstr ""
+msgstr "Prenez en charge ce contact pour lire la note."
 
 #: templates/crush_lu/coach_connection_review.html:134
 msgid "No note provided."
@@ -16866,7 +16866,7 @@ msgstr "Jour %(day)s"
 
 #: templates/crush_lu/coach_connection_review.html:226
 msgid "This lead has no active coach"
-msgstr ""
+msgstr "Ce contact n'a pas de coach actif"
 
 #: templates/crush_lu/coach_connection_review.html:227
 msgid ""
@@ -16881,11 +16881,11 @@ msgstr "Réclamation échouée"
 
 #: templates/crush_lu/coach_connection_review.html:238
 msgid "This lead is closed — no further action is possible."
-msgstr ""
+msgstr "Ce contact est fermé — aucune autre action n'est possible."
 
 #: templates/crush_lu/coach_connection_review.html:248
 msgid "Claim this lead to start working it."
-msgstr ""
+msgstr "Prenez en charge ce contact pour commencer à le traiter."
 
 #: templates/crush_lu/coach_connection_review.html:256
 #, fuzzy
@@ -16895,7 +16895,7 @@ msgstr "Démarrer l'examen"
 
 #: templates/crush_lu/coach_connection_review.html:262
 msgid "The call"
-msgstr ""
+msgstr "L'appel"
 
 #: templates/crush_lu/coach_connection_review.html:266
 #, fuzzy, python-format
@@ -16929,7 +16929,7 @@ msgstr "en bas"
 
 #: templates/crush_lu/coach_connection_review.html:296
 msgid "Record"
-msgstr ""
+msgstr "Enregistrer"
 
 #: templates/crush_lu/coach_connection_review.html:299
 msgid ""
@@ -16970,7 +16970,7 @@ msgstr "Email du destinataire (Optionnel)"
 
 #: templates/crush_lu/coach_connection_review.html:329
 msgid "They consented on the call"
-msgstr ""
+msgstr "Ils ont donné leur consentement lors de l'appel"
 
 #: templates/crush_lu/coach_connection_review.html:335
 #, fuzzy
@@ -16980,7 +16980,7 @@ msgstr "Spark refusé — ils ne seront pas prévenus."
 
 #: templates/crush_lu/coach_connection_review.html:348
 msgid "Recipient's answer is recorded and final."
-msgstr ""
+msgstr "La réponse du destinataire est enregistrée et définitive."
 
 #: templates/crush_lu/coach_connection_review.html:352
 msgid ""
@@ -16991,12 +16991,12 @@ msgstr ""
 #: templates/crush_lu/coach_connection_review.html:359
 #: templates/crush_lu/coach_crush_outreach_task.html:109
 msgid "They said yes"
-msgstr ""
+msgstr "Ils ont dit oui"
 
 #: templates/crush_lu/coach_connection_review.html:365
 #: templates/crush_lu/coach_crush_outreach_task.html:114
 msgid "They said no"
-msgstr ""
+msgstr "Ils ont dit non"
 
 #: templates/crush_lu/coach_connection_review.html:376
 #, fuzzy
@@ -17006,7 +17006,7 @@ msgstr "Rédiger l'introduction"
 
 #: templates/crush_lu/coach_connection_review.html:381
 msgid "Needs both consents and an approved lead."
-msgstr ""
+msgstr "Nécessite les deux consentements et un contact approuvé."
 
 #: templates/crush_lu/coach_connection_review.html:385
 #, fuzzy
@@ -33695,7 +33695,7 @@ msgstr "Mon crush"
 
 #: templates/crush_lu/request_connection.html:43
 msgid "Tell your coach what happened (optional)"
-msgstr ""
+msgstr "Racontez à votre coach ce qu'il s'est passé (optionnel)"
 
 #: templates/crush_lu/request_connection.html:52
 msgid "What did you talk about?"
@@ -33707,19 +33707,19 @@ msgstr "Nous avons parlé de randonnée au Mullerthal..."
 
 #: templates/crush_lu/request_connection.html:59
 msgid "Optional — it helps your coach make a great introduction"
-msgstr ""
+msgstr "Optionnel — cela aide votre coach à réussir la mise en relation"
 
 #: templates/crush_lu/request_connection.html:65
 msgid "Your crush stays completely private — they are never notified"
-msgstr ""
+msgstr "Votre coup de cœur reste totalement privé — la personne n'est jamais notifiée"
 
 #: templates/crush_lu/request_connection.html:66
 msgid "Your Crush Coach will call you within 48 hours to talk about it"
-msgstr ""
+msgstr "Votre Crush Coach vous appellera sous 48h pour en discuter"
 
 #: templates/crush_lu/request_connection.html:67
 msgid "Your coach personally arranges the introduction if it makes sense"
-msgstr ""
+msgstr "Votre coach organise personnellement la rencontre si cela a du sens"
 
 #: templates/crush_lu/request_connection.html:68
 msgid ""
@@ -37386,7 +37386,7 @@ msgstr "Vous ne pouvez pas vous connecter avec vous-même."
 
 #: views_connections.py:345 views_connections.py:523
 msgid "You'll find them in your event recap — confirm you met."
-msgstr ""
+msgstr "Vous les trouverez dans le récapitulatif de votre événement — confirmez votre rencontre."
 
 #: views_connections.py:361 views_connections.py:426 views_connections.py:544
 #: views_connections.py:606
@@ -37696,7 +37696,7 @@ msgstr "Vous avez déjà répondu à cette question et gagné <strong>"
 
 #: views_crush_connect.py:1008
 msgid "First, pick your own 3 questions so people can match with you."
-msgstr ""
+msgstr "Choisissez d'abord vos 3 questions personnelles pour que les autres puissent vous correspondre."
 
 #: views_crush_connect.py:1061
 #, fuzzy
