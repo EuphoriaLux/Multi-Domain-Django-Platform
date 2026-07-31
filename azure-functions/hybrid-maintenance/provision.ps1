@@ -114,9 +114,27 @@ if ([string]::IsNullOrWhiteSpace($APPINSIGHTS_CONN)) {
 }
 
 Write-Host "==> Setting app settings on $FUNC_APP"
-# HYBRID_MAINTENANCE_ENABLED stays false so the timers deploy dark.
-# Flip it to true only after the first invocation has appeared cleanly
-# in Application Insights.
+# Capture the CURRENT target before the settings below overwrite every URL, so
+# the master-switch logic further down can tell "re-run to add a URL for the
+# same slot" from "-Slot flipped the target to the other slot".
+$queryPrevUrl = '[?name==''DJANGO_PRE_SCREENING_INVITES_URL''].value | [0]'
+$previousUrl = az functionapp config appsettings list -n $FUNC_APP -g $RG `
+    --query $queryPrevUrl -o tsv
+$previousHost = ""
+if (-not [string]::IsNullOrWhiteSpace($previousUrl)) {
+    $previousHost = ([System.Uri]$previousUrl).Host
+}
+
+# HYBRID_MAINTENANCE_ENABLED is deliberately NOT in the array below -- it is
+# written separately, and only when it does not already exist.
+#
+# It used to be pinned to "false" here so the timers "deploy dark". That is
+# right for a first provision and a trap on every run after it: this script is
+# also the documented home of every DJANGO_*_URL, so the natural way to add a
+# new URL is to re-run it -- which would have re-set the master switch to false
+# and silently stopped all eleven timers. `_call_admin_endpoint` checks that
+# flag before anything else and returns quietly, so every invocation would keep
+# reporting *Success* while nothing ran at all.
 $settings = @(
     "ADMIN_API_KEY=$ADMIN_API_KEY",
     "DJANGO_PRE_SCREENING_INVITES_URL=https://$DJANGO_HOST/api/admin/pre-screening-invites/",
@@ -130,7 +148,6 @@ $settings = @(
     "DJANGO_EVENT_REMINDERS_URL=https://$DJANGO_HOST/api/admin/event-reminders/",
     "DJANGO_EVENT_RECAPS_URL=https://$DJANGO_HOST/api/admin/event-recaps/",
     "DJANGO_EVENT_FEEDBACK_URL=https://$DJANGO_HOST/api/admin/event-feedback/",
-    "HYBRID_MAINTENANCE_ENABLED=false",
     "ApplicationInsightsAgent_EXTENSION_VERSION=disabled"
 )
 if (-not [string]::IsNullOrWhiteSpace($APPINSIGHTS_CONN)) {
@@ -142,6 +159,39 @@ az functionapp config appsettings set `
     --settings $settings `
     --output none
 if ($LASTEXITCODE -ne 0) { throw "appsettings set failed" }
+
+# Master switch. Two cases deploy dark, one preserves.
+#
+# Preserving an existing "true" is right when the run only adds or refreshes a
+# URL for the SAME target -- that is the re-run this change exists to make
+# safe. It is WRONG when -Slot flips the target: every URL was just repointed,
+# so leaving the timers on swings all eleven -- including the production
+# campaign dispatcher -- onto the other slot on the next tick, using an
+# ADMIN_API_KEY that may not even be valid there (see the staging warning
+# above). Retargeting therefore deploys dark, exactly like a first provision,
+# and the operator re-enables after verifying one clean tick.
+$queryEnabled = '[?name==''HYBRID_MAINTENANCE_ENABLED''].value | [0]'
+$existingEnabled = az functionapp config appsettings list -n $FUNC_APP -g $RG `
+    --query $queryEnabled -o tsv
+$retargeted = (-not [string]::IsNullOrWhiteSpace($previousHost)) -and ($previousHost -ne $DJANGO_HOST)
+
+if ([string]::IsNullOrWhiteSpace($existingEnabled)) {
+    Write-Host "==> HYBRID_MAINTENANCE_ENABLED not present -- seeding to false (timers deploy dark)"
+    az functionapp config appsettings set `
+        -n $FUNC_APP -g $RG `
+        --settings "HYBRID_MAINTENANCE_ENABLED=false" `
+        --output none
+    if ($LASTEXITCODE -ne 0) { throw "appsettings set failed" }
+} elseif ($retargeted) {
+    Write-Warning "Target changed from $previousHost to $DJANGO_HOST - forcing HYBRID_MAINTENANCE_ENABLED=false so the timers do not start hitting the new slot before you have verified it. Re-enable with: az functionapp config appsettings set -n $FUNC_APP -g $RG --settings HYBRID_MAINTENANCE_ENABLED=true"
+    az functionapp config appsettings set `
+        -n $FUNC_APP -g $RG `
+        --settings "HYBRID_MAINTENANCE_ENABLED=false" `
+        --output none
+    if ($LASTEXITCODE -ne 0) { throw "appsettings set failed" }
+} else {
+    Write-Host "==> HYBRID_MAINTENANCE_ENABLED already set to '$existingEnabled', target unchanged ($DJANGO_HOST) -- left unchanged"
+}
 
 Write-Host ""
 Write-Host "==> Done. Function App is now pointed at: https://$DJANGO_HOST ($Slot slot)"
