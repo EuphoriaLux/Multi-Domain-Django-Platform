@@ -283,17 +283,12 @@ def crush_connect_onboarding(request):
     current step. URL name unchanged so every existing redirect target still
     points here.
     """
-    response, membership, _done = _onboarding_gate(request)
-    if response is not None:
-        return response
-
-    # An Event Lobby CTA carries the event it came from. Keep that validated
-    # origin in the session while the seven-step wizard advances through named
-    # step URLs, so overlapping recaps cannot redirect the member to whichever
-    # EventRegistration happened to be created first.
+    # An Event Lobby CTA carries the event it came from. Record that origin in the
+    # session BEFORE any gate redirects (e.g. edit_profile for a missing photo),
+    # so resuming onboarding after photo upload preserves the originating event.
     request.session.pop(ONBOARDING_EVENT_SESSION_KEY, None)
     raw_event_id = request.GET.get("event_id")
-    if raw_event_id:
+    if raw_event_id and getattr(request.user, "is_authenticated", False):
         try:
             event_id = int(raw_event_id)
         except (TypeError, ValueError):
@@ -315,6 +310,11 @@ def crush_connect_onboarding(request):
 
                 if lobby_admission_open(registration.event):
                     request.session[ONBOARDING_EVENT_SESSION_KEY] = event_id
+
+    response, membership, _done = _onboarding_gate(request)
+    if response is not None:
+        return response
+
     return redirect(
         "crush_lu:crush_connect_onboarding_step",
         step=clamp_step(membership.onboarding_step),

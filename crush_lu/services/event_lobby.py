@@ -348,6 +348,76 @@ CRUSH_FLOW_CRUSH = "crush"  # My Crush! applies (fallback)
 CRUSH_FLOW_UNAVAILABLE = "unavailable"  # neither flow (removal pair)
 
 
+def is_recap_admissible(user, event, now=None) -> bool:
+    """True if user is already a participant or is an attended guest who can
+    become a participant during the open recap window."""
+    if resolve_participation(user, event, now) is not None:
+        return True
+    from crush_lu.models import EventRegistration
+
+    reg = EventRegistration.objects.filter(
+        user=user, event=event, status="attended"
+    ).first()
+    if reg is None:
+        return False
+    return may_learn_lobby_exists(user)
+
+
+def resolve_participations_bulk(users, event, now=None) -> set[int]:
+    """Bulk-resolve and admit attended users to event lobby during recap/live phase.
+    Returns set of user IDs who are valid participants."""
+    if not users or not lobby_feature_enabled():
+        return set()
+    now = now or timezone.now()
+    if not lobby_admission_open(event, now):
+        return set()
+
+    from crush_lu.models import EventRegistration, EventLobbyParticipation
+
+    users_list = list(users)
+    user_ids = {u.pk if hasattr(u, "pk") else u for u in users_list}
+
+    existing_ids = set(
+        EventLobbyParticipation.objects.filter(
+            event=event, user_id__in=user_ids
+        ).values_list("user_id", flat=True)
+    )
+
+    missing_ids = user_ids - existing_ids
+    if not missing_ids:
+        return existing_ids
+
+    attended_regs = list(
+        EventRegistration.objects.filter(
+            event=event, user_id__in=missing_ids, status="attended"
+        ).select_related("user", "user__crushprofile", "user__crush_connect_membership")
+    )
+
+    new_participations = []
+    admitted_ids = set(existing_ids)
+    for reg in attended_regs:
+        ok, _reason = participant_gate(reg.user)
+        if ok:
+            admitted_ids.add(reg.user_id)
+            new_participations.append(
+                EventLobbyParticipation(
+                    event=event,
+                    event_registration=reg,
+                    user=reg.user,
+                    joined_at=now,
+                    eligibility_source="recap_bulk",
+                )
+            )
+
+    if new_participations:
+        with transaction.atomic():
+            EventLobbyParticipation.objects.bulk_create(
+                new_participations, ignore_conflicts=True
+            )
+
+    return admitted_ids
+
+
 def crush_flow_decision(requester, target, event, now=None) -> str:
     """
     One pair, one flow (§9.1): should a "My Crush!" declaration from
@@ -370,11 +440,9 @@ def crush_flow_decision(requester, target, event, now=None) -> str:
       event's longer connection window is still running — My Crush is the
       fallback then, and after a flag-off);
     - the requester must currently pass the viewer gate (eligibility + own
-      participation), otherwise the redirect would dead-end in a locked
-      lobby — My Crush applies;
-    - the target must also be admitted when eligible, then actually be present
-      in the requester's recap roster. Resolving only the requester would still
-      let a row-less target enter My Crush first and the recap later.
+      participation or pending recap onboarding capability);
+    - the target must also be admitted when eligible or onboardable. Resolving
+      both prevents a row-less user from entering My Crush first and the recap later.
 
     Blocked pairs are rejected by the callers before this runs.
     """
@@ -384,17 +452,12 @@ def crush_flow_decision(requester, target, event, now=None) -> str:
         return CRUSH_FLOW_CRUSH
     if event_lobby_phase(event, now) != PHASE_RECAP:
         return CRUSH_FLOW_CRUSH
-    # #741: admit first, then decide. A late-admissible attendee who has not
-    # opened the lobby yet has no row, and falling back to My Crush here would
-    # start a coach-routed lead for a pair the recap will also let them
-    # confirm — both flows for one pair.
-    if resolve_participation(requester, event, now) is None:
+    # #741: admit/check eligibility first, then decide.
+    if not is_recap_admissible(requester, event, now):
         return CRUSH_FLOW_CRUSH
-    if resolve_participation(target, event, now) is None:
+    if not is_recap_admissible(target, event, now):
         return CRUSH_FLOW_CRUSH
-    if eligible_participations(event).filter(user=target).exists():
-        return CRUSH_FLOW_REDIRECT
-    return CRUSH_FLOW_CRUSH
+    return CRUSH_FLOW_REDIRECT
 
 
 def _mutual_user_ids(user, event) -> set[int]:
