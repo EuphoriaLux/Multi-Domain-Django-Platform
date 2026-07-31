@@ -27,6 +27,16 @@ on:
       # reachable from every path — see the note above.
       - '**.css'
       - '**.md'
+      # The Function App provisioning sources. test_function_app_env_drift.py
+      # asserts the timers, both provisioning scripts and
+      # local.settings.json.example declare the same DJANGO_*_URL set — but a
+      # PR touching only a .sh / .ps1 / .json.example matched none of the paths
+      # above, so the guard could not fire on exactly the changes it exists to
+      # guard. Same required-checks reachability argument as mobile/ and CSS.
+      - 'azure-functions/**'
+      - '**.sh'
+      - '**.ps1'
+      - '**.json.example'
   workflow_dispatch:
 
 # Cancel any in-progress or queued run for the same branch when a new one starts.

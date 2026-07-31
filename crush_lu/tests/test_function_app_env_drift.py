@@ -128,6 +128,48 @@ def test_provisioning_sources_declare_no_unknown_env_vars(declared):
         )
 
 
+def _assigned_paths(path: Path) -> dict[str, str]:
+    """Map each DJANGO_*_URL to the URL *path* the source assigns it.
+
+    Handles all three shapes: `"VAR=https://$DJANGO_HOST/api/..."` (ps1),
+    `"VAR=https://crush.lu/api/..."` (sh) and `"VAR": "http://localhost:8000/api/..."`
+    (json). The host differs per source and per slot by design, so only the
+    path after it is compared.
+    """
+    text = path.read_text(encoding="utf-8")
+    found: dict[str, str] = {}
+    pattern = r"(DJANGO_[A-Z0-9_]*_URL)\"?\s*[=:]\s*\"?https?://[^/\"]+(/[^\"',\s]*)"
+    for var, url_path in re.findall(pattern, text):
+        found[var] = url_path
+    return found
+
+
+def test_provisioning_sources_agree_on_each_url_path(declared):
+    """Matching variable *names* is not enough.
+
+    A script can assign a typo'd path, or another timer's perfectly valid
+    endpoint, and every name-level check still passes — while re-running that
+    script would deploy the wrong mapping. Compare the values too, against
+    local.settings.json.example as the canonical map.
+    """
+    canonical = _assigned_paths(LOCAL_SETTINGS_EXAMPLE)
+    missing_canonical = declared - canonical.keys()
+    assert not missing_canonical, (
+        f"local.settings.json.example has no parseable URL for {sorted(missing_canonical)} "
+        "— it is the canonical map, so it must define every timer's path."
+    )
+    for source in (PROVISION_PS1, PROVISION_SH):
+        for var, url_path in _assigned_paths(source).items():
+            if var not in declared:
+                continue
+            assert url_path == canonical[var], (
+                f"{source.name} points {var} at {url_path!r}, but "
+                f"local.settings.json.example says {canonical[var]!r}. "
+                "Provisioning from that script would deploy the wrong endpoint "
+                "for this timer."
+            )
+
+
 def test_every_timer_url_resolves_to_a_real_django_route():
     """The far end of the chain.
 

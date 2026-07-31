@@ -73,6 +73,19 @@ if [[ -z "$APPINSIGHTS_CONN" ]]; then
 fi
 
 echo "==> Setting app settings on $FUNC_APP"
+# Capture the CURRENT target before the settings below overwrite every URL, so
+# the master-switch logic can tell "re-run against the same slot" from "moved
+# to a different slot". This script always targets crush.lu, but provision.ps1
+# can point the same Function App at test.crush.lu with -Slot staging, so
+# running this one afterwards IS a retarget.
+PREVIOUS_URL=$(az functionapp config appsettings list \
+  -n "$FUNC_APP" -g "$RG" \
+  --query "[?name=='DJANGO_PRE_SCREENING_INVITES_URL'].value | [0]" -o tsv)
+PREVIOUS_HOST=""
+if [[ -n "$PREVIOUS_URL" ]]; then
+  PREVIOUS_HOST=$(printf '%s' "$PREVIOUS_URL" | sed -E 's#^https?://([^/]+)/.*#\1#')
+fi
+
 SETTINGS=(
   "ADMIN_API_KEY=$ADMIN_API_KEY"
   "DJANGO_PRE_SCREENING_INVITES_URL=https://crush.lu/api/admin/pre-screening-invites/"
@@ -107,8 +120,14 @@ az functionapp config appsettings set \
   --settings "${SETTINGS[@]}" \
   --output none
 
-# Seed the master switch to false on a FIRST provision only; never touch an
-# existing value (see the note in the settings array).
+# Master switch. Two cases deploy dark, one preserves.
+#
+# Preserving an existing "true" is right when the run only adds or refreshes a
+# URL for the SAME target — that is the re-run this change exists to make safe.
+# It is wrong when the target moved: every URL was just repointed, so leaving
+# the timers on swings all eleven — including the production campaign
+# dispatcher — onto the new slot on the next tick. A retarget deploys dark,
+# exactly like a first provision.
 EXISTING_ENABLED=$(az functionapp config appsettings list \
   -n "$FUNC_APP" -g "$RG" \
   --query "[?name=='HYBRID_MAINTENANCE_ENABLED'].value | [0]" --output tsv)
@@ -118,8 +137,15 @@ if [[ -z "$EXISTING_ENABLED" ]]; then
     -n "$FUNC_APP" -g "$RG" \
     --settings "HYBRID_MAINTENANCE_ENABLED=false" \
     --output none
+elif [[ -n "$PREVIOUS_HOST" && "$PREVIOUS_HOST" != "crush.lu" ]]; then
+  echo "WARN: target changed from $PREVIOUS_HOST to crush.lu — forcing HYBRID_MAINTENANCE_ENABLED=false so the timers do not start hitting the new slot before you have verified it." >&2
+  echo "      Re-enable with: az functionapp config appsettings set -n $FUNC_APP -g $RG --settings HYBRID_MAINTENANCE_ENABLED=true" >&2
+  az functionapp config appsettings set \
+    -n "$FUNC_APP" -g "$RG" \
+    --settings "HYBRID_MAINTENANCE_ENABLED=false" \
+    --output none
 else
-  echo "==> HYBRID_MAINTENANCE_ENABLED already set to '$EXISTING_ENABLED' — left unchanged"
+  echo "==> HYBRID_MAINTENANCE_ENABLED already set to '$EXISTING_ENABLED', target unchanged — left unchanged"
 fi
 
 echo "==> Done."
