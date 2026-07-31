@@ -114,9 +114,16 @@ if ([string]::IsNullOrWhiteSpace($APPINSIGHTS_CONN)) {
 }
 
 Write-Host "==> Setting app settings on $FUNC_APP"
-# HYBRID_MAINTENANCE_ENABLED stays false so the timers deploy dark.
-# Flip it to true only after the first invocation has appeared cleanly
-# in Application Insights.
+# HYBRID_MAINTENANCE_ENABLED is deliberately NOT in the array below — it is
+# written separately, and only when it does not already exist.
+#
+# It used to be pinned to "false" here so the timers "deploy dark". That is
+# right for a first provision and a trap on every run after it: this script is
+# also the documented home of every DJANGO_*_URL, so the natural way to add a
+# new URL is to re-run it — which would have re-set the master switch to false
+# and silently stopped all eleven timers. `_call_admin_endpoint` checks that
+# flag before anything else and returns quietly, so every invocation would keep
+# reporting *Success* while nothing ran at all.
 $settings = @(
     "ADMIN_API_KEY=$ADMIN_API_KEY",
     "DJANGO_PRE_SCREENING_INVITES_URL=https://$DJANGO_HOST/api/admin/pre-screening-invites/",
@@ -130,7 +137,6 @@ $settings = @(
     "DJANGO_EVENT_REMINDERS_URL=https://$DJANGO_HOST/api/admin/event-reminders/",
     "DJANGO_EVENT_RECAPS_URL=https://$DJANGO_HOST/api/admin/event-recaps/",
     "DJANGO_EVENT_FEEDBACK_URL=https://$DJANGO_HOST/api/admin/event-feedback/",
-    "HYBRID_MAINTENANCE_ENABLED=false",
     "ApplicationInsightsAgent_EXTENSION_VERSION=disabled"
 )
 if (-not [string]::IsNullOrWhiteSpace($APPINSIGHTS_CONN)) {
@@ -142,6 +148,21 @@ az functionapp config appsettings set `
     --settings $settings `
     --output none
 if ($LASTEXITCODE -ne 0) { throw "appsettings set failed" }
+
+# Seed the master switch to false on a FIRST provision only; never touch an
+# existing value (see the note above the settings array).
+$existingEnabled = az functionapp config appsettings list -n $FUNC_APP -g $RG `
+    --query "[?name=='HYBRID_MAINTENANCE_ENABLED'].value | [0]" --output tsv
+if ([string]::IsNullOrWhiteSpace($existingEnabled)) {
+    Write-Host "==> HYBRID_MAINTENANCE_ENABLED not present — seeding to false (timers deploy dark)"
+    az functionapp config appsettings set `
+        -n $FUNC_APP -g $RG `
+        --settings "HYBRID_MAINTENANCE_ENABLED=false" `
+        --output none
+    if ($LASTEXITCODE -ne 0) { throw "appsettings set failed" }
+} else {
+    Write-Host "==> HYBRID_MAINTENANCE_ENABLED already set to '$existingEnabled' — left unchanged"
+}
 
 Write-Host ""
 Write-Host "==> Done. Function App is now pointed at: https://$DJANGO_HOST ($Slot slot)"

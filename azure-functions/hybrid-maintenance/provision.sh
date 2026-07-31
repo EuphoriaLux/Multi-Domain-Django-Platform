@@ -86,9 +86,16 @@ SETTINGS=(
   "DJANGO_EVENT_REMINDERS_URL=https://crush.lu/api/admin/event-reminders/"
   "DJANGO_EVENT_RECAPS_URL=https://crush.lu/api/admin/event-recaps/"
   "DJANGO_EVENT_FEEDBACK_URL=https://crush.lu/api/admin/event-feedback/"
-  # Safe default: functions deploy dark. Flip to 'true' once you've verified
-  # the first invocation in Application Insights.
-  "HYBRID_MAINTENANCE_ENABLED=false"
+  # HYBRID_MAINTENANCE_ENABLED is deliberately NOT in this array — it is
+  # written separately below, and only when it does not already exist.
+  #
+  # It used to be pinned to "false" here so the timers deploy dark. That is
+  # right for a first provision and a trap on every run after it: this script
+  # is also the documented home of every DJANGO_*_URL, so the natural way to
+  # add a new URL is to re-run it — which would have re-set the master switch
+  # to false and silently stopped all eleven timers. _call_admin_endpoint
+  # checks that flag first and returns quietly, so every invocation would keep
+  # reporting Success while nothing ran at all.
   "ApplicationInsightsAgent_EXTENSION_VERSION=disabled"
 )
 if [[ -n "$APPINSIGHTS_CONN" ]]; then
@@ -99,6 +106,21 @@ az functionapp config appsettings set \
   -n "$FUNC_APP" -g "$RG" \
   --settings "${SETTINGS[@]}" \
   --output none
+
+# Seed the master switch to false on a FIRST provision only; never touch an
+# existing value (see the note in the settings array).
+EXISTING_ENABLED=$(az functionapp config appsettings list \
+  -n "$FUNC_APP" -g "$RG" \
+  --query "[?name=='HYBRID_MAINTENANCE_ENABLED'].value | [0]" --output tsv)
+if [[ -z "$EXISTING_ENABLED" ]]; then
+  echo "==> HYBRID_MAINTENANCE_ENABLED not present — seeding to false (timers deploy dark)"
+  az functionapp config appsettings set \
+    -n "$FUNC_APP" -g "$RG" \
+    --settings "HYBRID_MAINTENANCE_ENABLED=false" \
+    --output none
+else
+  echo "==> HYBRID_MAINTENANCE_ENABLED already set to '$EXISTING_ENABLED' — left unchanged"
+fi
 
 echo "==> Done."
 echo

@@ -64,13 +64,24 @@ def daily_contact_sync(timer: func.TimerRequest) -> None:
         logging.info("OUTLOOK_CONTACT_SYNC_ENABLED is not true - skipping sync")
         return
 
+    # Enabled but unconfigured is a deployment defect, not a benign skip.
+    # Returning here would mark the invocation Success while doing nothing --
+    # the same silence that hid four dead timers on the sibling
+    # hybrid-maintenance app for two weeks. Raise so it lands in the failure
+    # count an alert can watch.
     if not command_url:
-        logging.error("DJANGO_MANAGEMENT_COMMAND_URL not configured")
-        return
+        raise RuntimeError(
+            "DJANGO_MANAGEMENT_COMMAND_URL is not configured on this Function "
+            "App (OUTLOOK_CONTACT_SYNC_ENABLED is true, so this timer is "
+            "expected to do work)."
+        )
 
     if not api_key:
-        logging.error("ADMIN_API_KEY not configured")
-        return
+        raise RuntimeError(
+            "ADMIN_API_KEY is not configured on this Function App "
+            "(OUTLOOK_CONTACT_SYNC_ENABLED is true). It must match the Django "
+            "ADMIN_API_KEY setting on the target slot."
+        )
 
     try:
         # Call Django admin API endpoint to trigger sync

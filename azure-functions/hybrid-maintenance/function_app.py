@@ -16,12 +16,15 @@ log the outcome.
 
 Environment Variables Required:
     **OPS — every URL below must be set manually on the Function App.** An unset
-    var logs an error and returns, so the timer invocation still reports
-    *Success* while the work silently never happens. On 2026-07-30 four of these
-    were found missing in production (campaign dispatch, crush lead reminders,
+    var now **raises**, so the invocation is marked *Failed* and shows up in the
+    failure count. It used to log an error and return, which reported *Success*
+    while the work silently never happened: on 2026-07-30 four of these were
+    found missing in production (campaign dispatch, crush lead reminders,
     profile reminders, GDPR retention) — three of them absent from this very
     list, which is how they escaped notice. **Add a new timer's variable here in
-    the same commit that adds the timer.**
+    the same commit that adds the timer**; `crush_lu/tests/test_function_app_env_drift.py`
+    fails the build if you forget, and also checks the provisioning scripts and
+    that each URL resolves to a real Django route.
 
     - DJANGO_PRE_SCREENING_INVITES_URL: e.g. https://crush.lu/api/admin/pre-screening-invites/
     - DJANGO_HYBRID_SLA_SWEEP_URL: e.g. https://crush.lu/api/admin/hybrid-coach-sla-sweep/
@@ -58,8 +61,18 @@ def _call_admin_endpoint(name: str, url_env_var: str, timeout: int = 60) -> None
     """Shared body: POST to a Django admin endpoint with bearer auth.
 
     Raises so Azure Functions marks the invocation as Failed on any
-    network / auth / server error — missing config just early-returns
-    (logged as an error) since it isn't a retryable runtime fault.
+    network / auth / server error — **and on missing configuration too.**
+
+    Missing config used to early-return with a logged error, on the reasoning
+    that it is not a retryable runtime fault. That reasoning optimises the
+    wrong axis: the point of raising is not retry, it is *visibility*. An
+    early return marks the invocation Success, so on 2026-07-30 CampaignDispatch
+    was found to have logged **2705 consecutive green invocations while its URL
+    was unset**, doing nothing at all. A Failed invocation is the only signal
+    that reaches the failure count an alert can watch.
+
+    ``HYBRID_MAINTENANCE_ENABLED`` stays a quiet return, because that one is a
+    deliberate off-switch rather than a misconfiguration.
 
     The URL's own host is sent in the Host header (requests' default).
     DomainURLRoutingMiddleware treats `test.crush.lu` as an alias of
@@ -76,12 +89,21 @@ def _call_admin_endpoint(name: str, url_env_var: str, timeout: int = 60) -> None
     if not enabled:
         logging.info("%s: HYBRID_MAINTENANCE_ENABLED is not true — skipping", name)
         return
+    # Enabled but unconfigured is a deployment defect, not a benign skip.
     if not url:
-        logging.error("%s: %s not configured", name, url_env_var)
-        return
+        raise RuntimeError(
+            f"{name}: {url_env_var} is not configured on this Function App "
+            f"(HYBRID_MAINTENANCE_ENABLED is true, so this timer is expected "
+            f"to do work). Set it with: az functionapp config appsettings set "
+            f"-g django-app-rg -n crush-hybrid-maintenance --settings "
+            f"{url_env_var}=https://crush.lu/api/admin/..."
+        )
     if not api_key:
-        logging.error("%s: ADMIN_API_KEY not configured", name)
-        return
+        raise RuntimeError(
+            f"{name}: ADMIN_API_KEY is not configured on this Function App "
+            f"(HYBRID_MAINTENANCE_ENABLED is true). It must match the Django "
+            f"ADMIN_API_KEY setting on the target slot."
+        )
 
     try:
         response = requests.post(
@@ -103,7 +125,21 @@ def _call_admin_endpoint(name: str, url_env_var: str, timeout: int = 60) -> None
                 body = response.json()
             except ValueError:
                 body = {"raw": response.text[:200]}
-            logging.info("%s: %s body=%s", name, response.status_code, body)
+            if isinstance(body, dict) and body.get("skipped"):
+                # WARNING, not error: a Django-side feature gate being off is a
+                # legitimate state. But it is indistinguishable from a healthy
+                # run at INFO — three timers were found answering
+                # 200 {"skipped": true} for a week while looking perfectly
+                # green. The reason string is the whole point: it names the
+                # exact flag, so "deliberately dormant" can be told apart from
+                # "switched off by accident" without reading any source.
+                logging.warning(
+                    "%s: endpoint reported SKIPPED — no work done. reason=%s",
+                    name,
+                    body.get("reason", body),
+                )
+            else:
+                logging.info("%s: %s body=%s", name, response.status_code, body)
 
     except requests.exceptions.Timeout:
         logging.error("%s: request timed out", name)
@@ -130,9 +166,7 @@ def pre_screening_invites(timer: func.TimerRequest) -> None:
     if timer.past_due:
         logging.warning("PreScreeningInvites: timer past due at %s", ts)
     logging.info("PreScreeningInvites: starting at %s", ts)
-    _call_admin_endpoint(
-        "PreScreeningInvites", "DJANGO_PRE_SCREENING_INVITES_URL"
-    )
+    _call_admin_endpoint("PreScreeningInvites", "DJANGO_PRE_SCREENING_INVITES_URL")
 
 
 @app.function_name(name="HybridSLASweep")
