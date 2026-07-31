@@ -103,11 +103,18 @@ class SocialPostSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_by", "created_at", "updated_at"]
+        read_only_fields = [
+            "id",
+            "created_by",
+            "buffer_id",
+            "article_id",
+            "status_history",
+            "created_at",
+            "updated_at",
+        ]
 
     def get_created_by(self, obj):
         return obj.user.get_username() if obj.user else "system"
-
 
 
 class WhatsAppInboundMessageSerializer(serializers.ModelSerializer):

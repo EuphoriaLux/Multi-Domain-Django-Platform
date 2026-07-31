@@ -1,562 +1,256 @@
-"""
-HTML/CSS Headless Playwright Graphic Card Generator for hub.crush.lu.
+"""Self-contained 1080px social-card renderer for the Crush Hub planner."""
 
-Generates agency-grade, high-conversion 1080x1080px PNG image cards:
-- CSS3 glassmorphism (backdrop-filter: blur)
-- Radial ambient lighting & neon drop-shadows
-- Google Fonts ('Playfair Display', 'Outfit', 'Plus Jakarta Sans')
-- Native SVG iconography & zero glyph truncation
-- Fast Playwright Headless Chromium rendering (<200ms)
-"""
+from __future__ import annotations
+
 import io
-import os
 import logging
-from playwright.sync_api import sync_playwright
+import os
+from pathlib import Path
+from urllib.parse import urlparse
+
+import requests
 from django.conf import settings
 from django.core.files.base import ContentFile
-from django.core.files.storage import default_storage
+from django.core.files.storage import storages
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
 logger = logging.getLogger(__name__)
 
+SIZE = 1080
+ROSE = (225, 29, 72)
+PURPLE = (147, 51, 234)
+WHITE = (255, 255, 255)
+MUTED = (188, 190, 207)
+CARD = (31, 29, 49, 225)
+MAX_BACKGROUND_BYTES = 12 * 1024 * 1024
 
-def _render_html_to_png(html_content: str) -> bytes:
-    """Render HTML string to 1080x1080px PNG using Playwright Headless Chromium."""
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        context = browser.new_context(viewport={"width": 1080, "height": 1080}, device_scale_factor=1)
-        page = context.new_page()
-        page.set_content(html_content, wait_until="networkidle")
-        png_bytes = page.screenshot(type="png")
-        browser.close()
-        return png_bytes
+
+def _font(size: int, *, bold: bool = False) -> ImageFont.FreeTypeFont:
+    filenames = (
+        ["segoeuib.ttf", "arialbd.ttf", "DejaVuSans-Bold.ttf"]
+        if bold
+        else ["segoeui.ttf", "arial.ttf", "DejaVuSans.ttf"]
+    )
+    roots = [
+        Path("C:/Windows/Fonts"),
+        Path("/usr/share/fonts/truetype/dejavu"),
+        Path("/usr/share/fonts/truetype/liberation2"),
+    ]
+    for filename in filenames:
+        for root in roots:
+            path = root / filename
+            if path.exists():
+                return ImageFont.truetype(str(path), size)
+        try:
+            return ImageFont.truetype(filename, size)
+        except OSError:
+            continue
+    logger.warning("No scalable system font found; using Pillow's fallback font")
+    return ImageFont.load_default()
+
+
+def _wrap(draw: ImageDraw.ImageDraw, text: str, font, max_width: int) -> list[str]:
+    words = str(text).split()
+    lines: list[str] = []
+    current: list[str] = []
+    for word in words:
+        candidate = " ".join([*current, word])
+        if draw.textbbox((0, 0), candidate, font=font)[2] <= max_width or not current:
+            current.append(word)
+        else:
+            lines.append(" ".join(current))
+            current = [word]
+    if current:
+        lines.append(" ".join(current))
+    return lines or [""]
+
+
+def _gradient() -> Image.Image:
+    image = Image.new("RGB", (SIZE, SIZE))
+    pixels = image.load()
+    for y in range(SIZE):
+        ratio = y / (SIZE - 1)
+        start = (13, 12, 27)
+        end = (32, 15, 47)
+        color = tuple(round(start[i] * (1 - ratio) + end[i] * ratio) for i in range(3))
+        for x in range(SIZE):
+            pixels[x, y] = color
+    return image.convert("RGBA")
+
+
+def _background_image(url: str | None) -> Image.Image | None:
+    parsed = urlparse(url or "")
+    if parsed.scheme not in {"http", "https"}:
+        return None
+    try:
+        response = requests.get(url, timeout=6)
+        response.raise_for_status()
+        content_length = int(response.headers.get("content-length") or 0)
+        if (
+            content_length > MAX_BACKGROUND_BYTES
+            or len(response.content) > MAX_BACKGROUND_BYTES
+        ):
+            raise ValueError("background image exceeds 12 MB")
+        image = Image.open(io.BytesIO(response.content)).convert("RGBA")
+        scale = max(SIZE / image.width, SIZE / image.height)
+        resized = image.resize(
+            (round(image.width * scale), round(image.height * scale)),
+            Image.Resampling.LANCZOS,
+        )
+        left = (resized.width - SIZE) // 2
+        top = (resized.height - SIZE) // 2
+        return resized.crop((left, top, left + SIZE, top + SIZE))
+    except (requests.RequestException, OSError, ValueError):
+        logger.warning("Could not load event background image", exc_info=True)
+        return None
+
+
+def _canvas(background_url: str | None = None) -> Image.Image:
+    background = _background_image(background_url) or _gradient()
+    if background_url and background:
+        background = ImageEnhance.Brightness(background).enhance(0.38)
+        background = background.filter(ImageFilter.GaussianBlur(radius=1.2))
+        background.alpha_composite(Image.new("RGBA", background.size, (10, 8, 25, 125)))
+    draw = ImageDraw.Draw(background, "RGBA")
+    draw.ellipse((-180, -220, 520, 480), fill=(*PURPLE, 52))
+    draw.ellipse((690, 700, 1290, 1300), fill=(*ROSE, 55))
+    return background
+
+
+def _pill(draw, xy, text: str, *, fill=(*PURPLE, 72), font_size=27):
+    font = _font(font_size, bold=True)
+    bbox = draw.textbbox((0, 0), text, font=font)
+    width = bbox[2] - bbox[0] + 42
+    height = bbox[3] - bbox[1] + 28
+    x, y = xy
+    draw.rounded_rectangle((x, y, x + width, y + height), radius=height // 2, fill=fill)
+    draw.text((x + 21, y + 10), text, fill=WHITE, font=font)
+    return width, height
+
+
+def _brand_footer(draw):
+    draw.line((70, 990, 1010, 990), fill=(255, 255, 255, 38), width=2)
+    draw.text((70, 1017), "CRUSH.LU", font=_font(27, bold=True), fill=WHITE)
+    draw.text(
+        (1010, 1017),
+        "RENCONTRES AUTHENTIQUES",
+        font=_font(19, bold=True),
+        fill=MUTED,
+        anchor="ra",
+    )
+
+
+def _save(image: Image.Image, prefix: str) -> str:
+    output = io.BytesIO()
+    image.convert("RGB").save(output, format="PNG", optimize=True)
+    storage = storages["crush_media"]
+    path = storage.save(
+        f"social/{prefix}_{os.urandom(4).hex()}.png",
+        ContentFile(output.getvalue()),
+    )
+    url = storage.url(path)
+    if url.startswith("/"):
+        return f"{settings.BACKEND_BASE_URL.rstrip('/')}{url}"
+    return url
 
 
 def generate_event_flyer(
-    title="Soirée rencontre Crush.lu & dégustation de vins",
-    date_str="Jeudi 30 Juillet @ 19:30",
-    location="Casino 2000, Mondorf-les-Bains",
-    background_url: str = None
+    title="Soirée rencontre Crush.lu",
+    date_str="Jeudi · 19:30",
+    location="Luxembourg",
+    background_url: str | None = None,
 ) -> str:
-    """Generate a 1080x1080px agency-grade event flyer card."""
-    bg_style = f"background-image: url('{background_url}'); background-size: cover; background-position: center;" if background_url else ""
+    image = _canvas(background_url)
+    draw = ImageDraw.Draw(image, "RGBA")
+    draw.rounded_rectangle((55, 55, 1025, 970), radius=44, fill=(15, 13, 30, 178))
+    _pill(draw, (92, 92), "ÉVÉNEMENT CRUSH.LU", fill=(*ROSE, 205), font_size=25)
 
-    html = f"""
-    <!DOCTYPE html>
-    <html lang="fr">
-    <head>
-      <meta charset="UTF-8">
-      <link rel="preconnect" href="https://fonts.googleapis.com">
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-      <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Playfair+Display:ital,wght@0,700;1,600&display=swap" rel="stylesheet">
-      <style>
-        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-        body {{
-          width: 1080px;
-          height: 1080px;
-          background: #0b0b14;
-          font-family: 'Outfit', sans-serif;
-          color: #ffffff;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          overflow: hidden;
-          position: relative;
-        }}
-        .bg-layer {{
-          position: absolute;
-          inset: 0;
-          {bg_style}
-          filter: blur(8px) brightness(0.6);
-          transform: scale(1.05);
-        }}
-        .radial-glow-1 {{
-          position: absolute;
-          top: -150px;
-          left: -150px;
-          width: 600px;
-          height: 600px;
-          background: radial-gradient(circle, rgba(225, 29, 72, 0.45) 0%, rgba(0, 0, 0, 0) 70%);
-          border-radius: 50%;
-        }}
-        .radial-glow-2 {{
-          position: absolute;
-          bottom: -150px;
-          right: -150px;
-          width: 650px;
-          height: 650px;
-          background: radial-gradient(circle, rgba(147, 51, 234, 0.45) 0%, rgba(0, 0, 0, 0) 70%);
-          border-radius: 50%;
-        }}
-        .card-container {{
-          position: relative;
-          z-index: 10;
-          width: 960px;
-          height: 960px;
-          background: rgba(22, 22, 38, 0.75);
-          backdrop-filter: blur(30px);
-          -webkit-backdrop-filter: blur(30px);
-          border: 1.5px solid rgba(255, 255, 255, 0.15);
-          border-radius: 36px;
-          padding: 70px 65px;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          box-shadow: 0 40px 100px rgba(0, 0, 0, 0.8), inset 0 0 40px rgba(225, 29, 72, 0.15);
-        }}
-        .badge-pill {{
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-          padding: 10px 22px;
-          background: rgba(225, 29, 72, 0.2);
-          border: 1px solid rgba(225, 29, 72, 0.6);
-          border-radius: 50px;
-          font-size: 20px;
-          font-weight: 700;
-          letter-spacing: 2px;
-          color: #f43f5e;
-          width: fit-content;
-        }}
-        .badge-dot {{
-          width: 10px;
-          height: 10px;
-          background: #e11d48;
-          border-radius: 50%;
-          box-shadow: 0 0 10px #e11d48;
-        }}
-        .title-box {{
-          margin-top: 25px;
-          margin-bottom: 25px;
-        }}
-        .title {{
-          font-family: 'Playfair Display', serif;
-          font-size: 54px;
-          font-weight: 700;
-          line-height: 1.25;
-          color: #ffffff;
-          text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-        }}
-        .meta-list {{
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-        }}
-        .meta-item {{
-          display: flex;
-          align-items: center;
-          gap: 18px;
-          padding: 22px 28px;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 20px;
-          font-size: 26px;
-          font-weight: 600;
-        }}
-        .meta-icon {{
-          width: 32px;
-          height: 32px;
-          fill: #38bdf8;
-          flex-shrink: 0;
-        }}
-        .cta-row {{
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-top: 30px;
-        }}
-        .cta-button {{
-          padding: 24px 48px;
-          background: linear-gradient(135deg, #e11d48 0%, #9333ea 100%);
-          border-radius: 24px;
-          font-size: 26px;
-          font-weight: 800;
-          letter-spacing: 1px;
-          color: #ffffff;
-          box-shadow: 0 15px 40px rgba(225, 29, 72, 0.5);
-          display: flex;
-          align-items: center;
-          gap: 14px;
-        }}
-        .brand-footer {{
-          font-size: 24px;
-          color: rgba(255, 255, 255, 0.5);
-          font-weight: 600;
-        }}
-      </style>
-    </head>
-    <body>
-      <div class="bg-layer"></div>
-      <div class="radial-glow-1"></div>
-      <div class="radial-glow-2"></div>
+    title_font = _font(73, bold=True)
+    lines = _wrap(draw, title, title_font, 870)[:4]
+    y = 250
+    for line in lines:
+        draw.text((92, y), line, font=title_font, fill=WHITE)
+        y += 91
 
-      <div class="card-container">
-        <div>
-          <div class="badge-pill">
-            <div class="badge-dot"></div>
-            CRUSH.LU EXCLUSIVE EVENT
-          </div>
-          <div class="title-box">
-            <h1 class="title">{title}</h1>
-          </div>
-        </div>
-
-        <div class="meta-list">
-          <div class="meta-item">
-            <svg class="meta-icon" viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2z"/></svg>
-            <span>DATE : {date_str}</span>
-          </div>
-          <div class="meta-item">
-            <svg class="meta-icon" style="fill: #f43f5e;" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-            <span>LIEU : {location}</span>
-          </div>
-        </div>
-
-        <div class="cta-row">
-          <div class="cta-button">
-            <span>RÉSERVER MA PLACE</span>
-            <span>&rarr;</span>
-          </div>
-          <div class="brand-footer">crush.lu</div>
-        </div>
-      </div>
-    </body>
-    </html>
-    """
-    png_bytes = _render_html_to_png(html)
-    return _save_bytes_to_storage(png_bytes, "event_flyer")
+    draw.rounded_rectangle((92, 680, 988, 855), radius=30, fill=CARD)
+    draw.text((130, 714), date_str, font=_font(36, bold=True), fill=WHITE)
+    draw.text((130, 775), location, font=_font(31), fill=MUTED)
+    draw.rounded_rectangle((92, 885, 450, 950), radius=30, fill=(*ROSE, 255))
+    draw.text(
+        (271, 916),
+        "RÉSERVER MA PLACE",
+        font=_font(24, bold=True),
+        fill=WHITE,
+        anchor="mm",
+    )
+    _brand_footer(draw)
+    return _save(image, "event_flyer")
 
 
 def generate_kpi_card(title="CHIFFRES DE LA SEMAINE", stats=None) -> str:
-    """Generate a 1080x1080px agency-grade KPI statistic graphic card."""
-    if not stats:
-        stats = [
-            {"value": "+140", "label": "Nouveaux Inscrits cette semaine"},
-            {"value": "52", "label": "Matchs Confirmés à Luxembourg"},
-            {"value": "50 / 50", "label": "Taux de Parité Hommes / Femmes"},
-        ]
+    stats = stats or []
+    image = _canvas()
+    draw = ImageDraw.Draw(image, "RGBA")
+    _pill(draw, (70, 68), "COMMUNAUTÉ CRUSH.LU", font_size=23)
+    draw.text((70, 166), title, font=_font(58, bold=True), fill=WHITE)
+    draw.text(
+        (70, 238),
+        "Les données réelles de notre communauté",
+        font=_font(28),
+        fill=MUTED,
+    )
 
-    stats_html = ""
-    for st in stats[:3]:
-        stats_html += f"""
-        <div class="stat-card">
-          <div class="stat-value">{st.get("value", "")}</div>
-          <div class="stat-label">{st.get("label", "")}</div>
-        </div>
-        """
-
-    html = f"""
-    <!DOCTYPE html>
-    <html lang="fr">
-    <head>
-      <meta charset="UTF-8">
-      <link rel="preconnect" href="https://fonts.googleapis.com">
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-      <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
-      <style>
-        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-        body {{
-          width: 1080px;
-          height: 1080px;
-          background: #0b0b14;
-          font-family: 'Outfit', sans-serif;
-          color: #ffffff;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          overflow: hidden;
-          position: relative;
-        }}
-        .radial-glow-1 {{
-          position: absolute;
-          top: -150px;
-          right: -150px;
-          width: 650px;
-          height: 650px;
-          background: radial-gradient(circle, rgba(147, 51, 234, 0.45) 0%, rgba(0, 0, 0, 0) 70%);
-          border-radius: 50%;
-        }}
-        .radial-glow-2 {{
-          position: absolute;
-          bottom: -150px;
-          left: -150px;
-          width: 600px;
-          height: 600px;
-          background: radial-gradient(circle, rgba(225, 29, 72, 0.45) 0%, rgba(0, 0, 0, 0) 70%);
-          border-radius: 50%;
-        }}
-        .card-container {{
-          position: relative;
-          z-index: 10;
-          width: 960px;
-          height: 960px;
-          background: rgba(22, 22, 38, 0.8);
-          backdrop-filter: blur(30px);
-          -webkit-backdrop-filter: blur(30px);
-          border: 1.5px solid rgba(147, 51, 234, 0.4);
-          border-radius: 36px;
-          padding: 65px;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          box-shadow: 0 40px 100px rgba(0, 0, 0, 0.8);
-        }}
-        .header-tag {{
-          font-size: 22px;
-          font-weight: 800;
-          letter-spacing: 2px;
-          color: #c084fc;
-          text-transform: uppercase;
-          margin-bottom: 12px;
-        }}
-        .title {{
-          font-size: 46px;
-          font-weight: 800;
-          color: #ffffff;
-        }}
-        .stats-grid {{
-          display: flex;
-          flex-direction: column;
-          gap: 22px;
-          margin-top: 30px;
-          margin-bottom: 30px;
-        }}
-        .stat-card {{
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 30px 40px;
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(225, 29, 72, 0.3);
-          border-radius: 24px;
-        }}
-        .stat-value {{
-          font-size: 64px;
-          font-weight: 800;
-          background: linear-gradient(135deg, #e11d48, #f43f5e);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }}
-        .stat-label {{
-          font-size: 28px;
-          font-weight: 600;
-          color: #e2e8f0;
-          text-align: right;
-          max-width: 450px;
-        }}
-        .footer {{
-          font-size: 24px;
-          color: rgba(255, 255, 255, 0.5);
-          font-weight: 600;
-          text-align: center;
-        }}
-      </style>
-    </head>
-    <body>
-      <div class="radial-glow-1"></div>
-      <div class="radial-glow-2"></div>
-
-      <div class="card-container">
-        <div>
-          <div class="header-tag">◆ CRUSH.LU COMMUNITY METRICS</div>
-          <h1 class="title">{title}</h1>
-        </div>
-
-        <div class="stats-grid">
-          {stats_html}
-        </div>
-
-        <div class="footer">
-          Rejoignez la communauté sur crush.lu &bull; Rencontres & Événements à Luxembourg
-        </div>
-      </div>
-    </body>
-    </html>
-    """
-    png_bytes = _render_html_to_png(html)
-    return _save_bytes_to_storage(png_bytes, "kpi_card")
+    y = 330
+    for item in stats[:3]:
+        draw.rounded_rectangle((70, y, 1010, y + 180), radius=34, fill=CARD)
+        value = str(item.get("value", ""))
+        label = str(item.get("label", ""))
+        draw.text(
+            (115, y + 82), value, font=_font(55, bold=True), fill=WHITE, anchor="lm"
+        )
+        draw.text((430, y + 82), label, font=_font(31), fill=MUTED, anchor="lm")
+        y += 205
+    _brand_footer(draw)
+    return _save(image, "kpi_card")
 
 
-def generate_profile_card(first_name="Sophie", age=31, region="Luxembourg-Ville", passions=None, bio_quote=None) -> str:
-    """Generate an anonymized member profile card (1080x1080px)."""
-    if not passions:
-        passions = ["Œnologie", "Randonnée", "Gastronomie"]
-    if not bio_quote:
-        bio_quote = "Recherche une belle histoire basée sur la complicité et le rire."
+def generate_profile_card(
+    first_name="Membre",
+    age="30-34",
+    region="Luxembourg",
+    passions=None,
+    bio_quote="",
+) -> str:
+    passions = passions or []
+    image = _canvas()
+    draw = ImageDraw.Draw(image, "RGBA")
+    draw.rounded_rectangle((55, 55, 1025, 970), radius=44, fill=CARD)
+    _pill(
+        draw, (90, 88), "PROFIL CONSENTANT & VÉRIFIÉ", fill=(*ROSE, 185), font_size=22
+    )
 
-    passions_html = "".join([f'<div class="pill">{p}</div>' for p in passions[:4]])
+    initial = str(first_name)[:1].upper() or "C"
+    draw.ellipse((90, 205, 290, 405), fill=(*PURPLE, 210))
+    draw.text((190, 305), initial, font=_font(88, bold=True), fill=WHITE, anchor="mm")
+    draw.text((335, 250), f"{first_name}, {age}", font=_font(55, bold=True), fill=WHITE)
+    draw.text((335, 330), region, font=_font(31), fill=MUTED)
 
-    html = f"""
-    <!DOCTYPE html>
-    <html lang="fr">
-    <head>
-      <meta charset="UTF-8">
-      <link rel="preconnect" href="https://fonts.googleapis.com">
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-      <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Playfair+Display:ital@1&display=swap" rel="stylesheet">
-      <style>
-        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-        body {{
-          width: 1080px;
-          height: 1080px;
-          background: #0b0b14;
-          font-family: 'Outfit', sans-serif;
-          color: #ffffff;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          overflow: hidden;
-          position: relative;
-        }}
-        .radial-glow-1 {{
-          position: absolute;
-          top: -150px;
-          left: -150px;
-          width: 650px;
-          height: 650px;
-          background: radial-gradient(circle, rgba(225, 29, 72, 0.45) 0%, rgba(0, 0, 0, 0) 70%);
-          border-radius: 50%;
-        }}
-        .card-container {{
-          position: relative;
-          z-index: 10;
-          width: 960px;
-          height: 960px;
-          background: rgba(22, 22, 38, 0.8);
-          backdrop-filter: blur(30px);
-          -webkit-backdrop-filter: blur(30px);
-          border: 1.5px solid rgba(225, 29, 72, 0.4);
-          border-radius: 36px;
-          padding: 65px;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          box-shadow: 0 40px 100px rgba(0, 0, 0, 0.8);
-        }}
-        .header-tag {{
-          font-size: 22px;
-          font-weight: 800;
-          letter-spacing: 2px;
-          color: #f43f5e;
-          text-transform: uppercase;
-        }}
-        .profile-row {{
-          display: flex;
-          align-items: center;
-          gap: 35px;
-          margin-top: 25px;
-        }}
-        .avatar {{
-          width: 150px;
-          height: 150px;
-          border-radius: 50%;
-          background: linear-gradient(135deg, #9333ea, #e11d48);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 72px;
-          font-weight: 800;
-          color: #ffffff;
-          box-shadow: 0 15px 35px rgba(225, 29, 72, 0.4);
-        }}
-        .name {{
-          font-size: 52px;
-          font-weight: 800;
-          color: #ffffff;
-        }}
-        .region {{
-          font-size: 28px;
-          font-weight: 600;
-          color: #38bdf8;
-          margin-top: 6px;
-        }}
-        .section-label {{
-          font-size: 22px;
-          font-weight: 700;
-          letter-spacing: 1px;
-          color: rgba(255, 255, 255, 0.6);
-          margin-bottom: 14px;
-        }}
-        .pills-row {{
-          display: flex;
-          flex-wrap: wrap;
-          gap: 14px;
-        }}
-        .pill {{
-          padding: 14px 28px;
-          background: rgba(147, 51, 234, 0.2);
-          border: 1px solid rgba(147, 51, 234, 0.5);
-          border-radius: 50px;
-          font-size: 26px;
-          font-weight: 600;
-          color: #ffffff;
-        }}
-        .quote-box {{
-          font-family: 'Playfair Display', serif;
-          font-style: italic;
-          font-size: 36px;
-          line-height: 1.4;
-          color: #f1f5f9;
-          padding: 30px;
-          background: rgba(255, 255, 255, 0.03);
-          border-left: 4px solid #e11d48;
-          border-radius: 0 20px 20px 0;
-        }}
-        .footer {{
-          font-size: 22px;
-          color: rgba(255, 255, 255, 0.5);
-          font-weight: 600;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }}
-      </style>
-    </head>
-    <body>
-      <div class="radial-glow-1"></div>
+    draw.text((90, 475), "CENTRES D'INTÉRÊT", font=_font(24, bold=True), fill=MUTED)
+    x, y = 90, 525
+    for passion in passions[:4]:
+        width, height = _pill(draw, (x, y), str(passion), font_size=23)
+        x += width + 16
+        if x > 900:
+            x = 90
+            y += height + 16
 
-      <div class="card-container">
-        <div>
-          <div class="header-tag">🔒 MEMBRE CERTIFIÉ CRUSH.LU</div>
-          <div class="profile-row">
-            <div class="avatar">{first_name[0].upper()}</div>
-            <div>
-              <div class="name">{first_name}, {age} ans</div>
-              <div class="region">📍 {region}</div>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <div class="section-label">CENTRES D'INTÉRÊT</div>
-          <div class="pills-row">
-            {passions_html}
-          </div>
-        </div>
-
-        <div>
-          <div class="section-label">CE QU'IL / ELLE RECHERCHE</div>
-          <div class="quote-box">« {bio_quote} »</div>
-        </div>
-
-        <div class="footer">
-          <span>🔒 Profil anonymisé & certifié par Crush.lu &bull; Protection de la vie privée</span>
-        </div>
-      </div>
-    </body>
-    </html>
-    """
-    png_bytes = _render_html_to_png(html)
-    return _save_bytes_to_storage(png_bytes, "profile_card")
-
-
-def _save_bytes_to_storage(png_bytes: bytes, prefix="graphic") -> str:
-    """Save PNG bytes to media storage and return public absolute URL."""
-    file_name = f"social/{prefix}_{os.urandom(4).hex()}.png"
-    saved_path = default_storage.save(file_name, ContentFile(png_bytes))
-    media_url = default_storage.url(saved_path)
-
-    if media_url.startswith("/"):
-        backend_host = getattr(settings, "BACKEND_BASE_URL", "http://localhost:8000")
-        media_url = f"{backend_host.rstrip('/')}{media_url}"
-
-    return media_url
+    draw.text((90, 690), "AMBIANCE EN ÉVÉNEMENT", font=_font(24, bold=True), fill=MUTED)
+    draw.rounded_rectangle((90, 735, 990, 900), radius=28, fill=(255, 255, 255, 20))
+    quote_font = _font(34)
+    quote_lines = _wrap(draw, str(bio_quote), quote_font, 800)[:3]
+    quote_y = 770
+    for line in quote_lines:
+        draw.text((135, quote_y), line, font=quote_font, fill=WHITE)
+        quote_y += 43
+    _brand_footer(draw)
+    return _save(image, "profile_card")
