@@ -100,7 +100,11 @@ class Command(BaseCommand):
             is_cancelled=False,
         )
 
-        if hours_before is not None:
+        if event_id:
+            events_query = events_query.filter(id=event_id)
+            target_label = f"event {event_id}"
+            days_until_for_notification = days
+        elif hours_before is not None:
             # Hour-granularity window for same-day reminders
             target_time = now + timedelta(hours=hours_before)
             window_start = target_time - timedelta(minutes=window_minutes)
@@ -131,9 +135,6 @@ class Command(BaseCommand):
             )
             target_label = str(target_date)
             days_until_for_notification = days
-
-        if event_id:
-            events_query = events_query.filter(id=event_id)
 
         events = list(events_query.select_related())
 

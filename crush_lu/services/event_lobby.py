@@ -360,7 +360,12 @@ def is_recap_admissible(user, event, now=None) -> bool:
     ).first()
     if reg is None:
         return False
-    return may_learn_lobby_exists(user)
+    ok, reason = participant_gate(user)
+    if ok:
+        return True
+    if reason in (GATE_NOT_ONBOARDED, GATE_NO_MEMBERSHIP) and may_learn_lobby_exists(user):
+        return True
+    return False
 
 
 def resolve_participations_bulk(users, event, now=None) -> set[int]:
