@@ -89,6 +89,23 @@ def event_lobby_phase(event, now=None) -> str:
     return PHASE_CLOSED
 
 
+def _admission_lookback() -> timedelta:
+    """How far back a DB pre-filter must reach to catch every still-open lobby.
+
+    ``end_time`` is a Python property, so candidate queries filter on
+    ``date_time`` and derive the exact end afterwards. The window therefore has
+    to cover the longest event the model permits *plus* the recap that follows
+    it — `MeetupEvent.MAX_DURATION_MINUTES` is 7 days, so a legal event can
+    still be in recap 9 days after it started. The previous flat 7-day cutoff
+    silently dropped anyone finishing onboarding late in a long event's recap.
+    """
+    from crush_lu.models.events import MAX_EVENT_DURATION_MINUTES
+
+    return timedelta(minutes=MAX_EVENT_DURATION_MINUTES) + timedelta(
+        hours=RECAP_WINDOW_HOURS
+    )
+
+
 def lobby_admission_open(event, now=None) -> bool:
     """§5.3 (#741): may an attended member still be admitted to this lobby?
 
@@ -216,13 +233,14 @@ def handle_onboarding_completed(user, now=None):
     now = now or timezone.now()
     created_participations = []
     # Generous DB cutoff, exact end computed in Python (end_time is a property;
-    # mirrors the context_processors idiom for SQLite compatibility).
+    # mirrors the context_processors idiom for SQLite compatibility). The window
+    # must span the longest legal event plus its recap — see _admission_lookback.
     candidates = EventRegistration.objects.filter(
         user=user,
         status="attended",
         event__is_published=True,
         event__is_cancelled=False,
-        event__date_time__gte=now - timedelta(days=7),
+        event__date_time__gte=now - _admission_lookback(),
     ).select_related("event")
     for registration in candidates:
         if not lobby_admission_open(registration.event, now):
@@ -281,10 +299,52 @@ def viewer_participation(user, event):
     ).first()
 
 
+def resolve_participation(user, event, now=None):
+    """The viewer's participation, admitting them first if they are still
+    admissible (§5.3, #741).
+
+    Since admission runs through the whole recap, "has a row" and "may have a
+    row" are no longer the same question — and every surface that decides what
+    a member may do MUST reach the same answer. Where they disagree, one pair
+    can enter two flows at once: the attendees page would offer My Crush
+    (creating a coach-routed lead) because no row exists yet, and the recap the
+    hub advertises would then create the row and let the same pair confirm a
+    meeting, breaking the one-pair-one-flow invariant (§9.1).
+
+    So this is the single read-time entry point for "is this viewer a
+    participant". It is idempotent and safe to call from a GET — the lobby view
+    has always self-healed on entry the same way; this just makes the other
+    surfaces agree with it instead of trailing behind it.
+
+    ``source`` stays ``checkin``: the member became eligible at check-in, the
+    row is merely written later. That matches the existing self-heal and needs
+    no new choice on the model.
+    """
+    participation = viewer_participation(user, event)
+    if participation is not None:
+        return participation
+    if not getattr(user, "is_authenticated", False):
+        return None
+    if not lobby_admission_open(event, now):
+        return None
+
+    from crush_lu.models import EventRegistration
+
+    registration = (
+        EventRegistration.objects.filter(event=event, user=user, status="attended")
+        .select_related("event")
+        .first()
+    )
+    if registration is None:
+        return None
+    participation, _created = evaluate_participation(registration, now=now)
+    return participation
+
+
 # "My Crush!" one-pair-one-flow decisions (spec
 # 2026-07-21-crush-my-crush-post-event-flow §9.1, O7)
 CRUSH_FLOW_REDIRECT = "redirect"  # pair is recap-visible -> recap, not a crush
-CRUSH_FLOW_CRUSH = "crush"        # My Crush! applies (fallback)
+CRUSH_FLOW_CRUSH = "crush"  # My Crush! applies (fallback)
 CRUSH_FLOW_UNAVAILABLE = "unavailable"  # neither flow (removal pair)
 
 
@@ -322,7 +382,11 @@ def crush_flow_decision(requester, target, event, now=None) -> str:
         return CRUSH_FLOW_CRUSH
     if event_lobby_phase(event, now) != PHASE_RECAP:
         return CRUSH_FLOW_CRUSH
-    if viewer_participation(requester, event) is None:
+    # #741: admit first, then decide. A late-admissible attendee who has not
+    # opened the lobby yet has no row, and falling back to My Crush here would
+    # start a coach-routed lead for a pair the recap will also let them
+    # confirm — both flows for one pair.
+    if resolve_participation(requester, event, now) is None:
         return CRUSH_FLOW_CRUSH
     if eligible_participations(event).filter(user=target).exists():
         return CRUSH_FLOW_REDIRECT
@@ -650,8 +714,10 @@ def get_active_live_lobby(user, now=None):
             status="attended",
             event__is_published=True,
             event__is_cancelled=False,
-            # Generous DB cutoff; exact end derived below (end_time is a property).
-            event__date_time__gte=now - timedelta(days=7),
+            # Generous DB cutoff; exact end derived below (end_time is a
+            # property). Spans the longest legal event plus its recap so the
+            # hub card cannot miss a lobby the lobby view would still admit.
+            event__date_time__gte=now - _admission_lookback(),
         )
         .select_related("event")
         .order_by("-event__date_time")
@@ -660,21 +726,18 @@ def get_active_live_lobby(user, now=None):
         phase = event_lobby_phase(registration.event, now)
         if phase not in (PHASE_LIVE, PHASE_RECAP):
             continue
-        if phase == PHASE_LIVE:
-            participation, _created = evaluate_participation(
-                registration,
-                source="checkin",
-                now=now,
-            )
-        else:
-            # Recap membership is frozen at the scheduled end. Never create a
-            # late participation, but keep the existing participant's route
-            # back to the 48-hour confirmation grid visible from the hub.
-            participation = (
-                registration.lobby_participation
-                if hasattr(registration, "lobby_participation")
-                else None
-            )
+        # #741: recap membership is no longer frozen at the scheduled end, so
+        # live and recap admit on identical terms and the branch that used to
+        # read only the existing row is gone. Keeping it would have advertised
+        # ENTER_RECAP on the event surfaces while the hub silently showed the
+        # late joiner nothing. evaluate_participation is idempotent and returns
+        # None once the lobby closes, which the phase guard above already
+        # covers.
+        participation, _created = evaluate_participation(
+            registration,
+            source="checkin",
+            now=now,
+        )
         if participation is not None:
             participation.lobby_phase = phase
             return participation

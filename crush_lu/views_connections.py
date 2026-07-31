@@ -218,14 +218,18 @@ def event_attendees(request, event_id):
         eligible_participations,
         event_lobby_phase,
         lobby_feature_enabled,
-        viewer_participation,
+        resolve_participation,
     )
 
     recap_eligible_ids = set()
     if (
         lobby_feature_enabled()
         and event_lobby_phase(event) == PHASE_RECAP
-        and viewer_participation(request.user, event) is not None
+        # #741: admit before deciding, exactly as crush_flow_decision does. A
+        # late-admissible viewer with no row yet would otherwise get the My
+        # Crush CTA on every attendee here, while the recap advertised on the
+        # event surfaces let them confirm the same pair -- two flows, one pair.
+        and resolve_participation(request.user, event) is not None
     ):
         recap_eligible_ids = set(
             eligible_participations(event).values_list("user_id", flat=True)

@@ -1555,3 +1555,107 @@ class TestLobbyCta:
         event = _make_event()
         _attend(member, event)
         assert lobby.lobby_cta(member, event) == lobby.CTA_PROMO_ONLY
+
+
+# ---------------------------------------------------------------------------
+# #741 follow-up: every surface must agree on who is a recap participant
+# ---------------------------------------------------------------------------
+
+
+class TestLateAdmissionConsistency:
+    """Admission runs through the recap, so "has a row" and "may have a row"
+    are different questions. Any surface that answers them differently lets one
+    pair enter two flows at once (§9.1)."""
+
+    def test_resolve_participation_admits_during_recap(self):
+        event = _make_event()
+        member = _make_member("late_resolve")
+        _attend(member, event)  # attended, but no participation row
+        _end_event(event)
+        assert lobby.viewer_participation(member, event) is None
+        assert lobby.resolve_participation(member, event) is not None
+
+    def test_resolve_participation_is_idempotent(self):
+        event = _make_event()
+        member = _make_member("late_idem")
+        _attend(member, event)
+        _end_event(event)
+        first = lobby.resolve_participation(member, event)
+        second = lobby.resolve_participation(member, event)
+        assert first.pk == second.pk
+        assert EventLobbyParticipation.objects.filter(event=event).count() == 1
+
+    def test_resolve_participation_refuses_once_closed(self):
+        event = _make_event()
+        member = _make_member("late_closed")
+        _attend(member, event)
+        _end_event(event, hours_ago=49)
+        assert lobby.resolve_participation(member, event) is None
+        assert not EventLobbyParticipation.objects.filter(event=event).exists()
+
+    def test_resolve_participation_refuses_a_non_attendee(self):
+        event = _make_event()
+        member = _make_member("late_noshow")
+        EventRegistration.objects.create(event=event, user=member, status="registered")
+        _end_event(event)
+        assert lobby.resolve_participation(member, event) is None
+
+    def test_hub_card_admits_the_same_late_joiner_as_the_lobby(self):
+        """get_active_live_lobby used to read only an existing row during
+        recap, so the event surfaces advertised ENTER_RECAP while the hub card
+        showed the late joiner nothing."""
+        event = _make_event()
+        member = _make_member("late_hub")
+        _attend(member, event)
+        _end_event(event)
+        assert lobby.lobby_cta(member, event) == lobby.CTA_ENTER_RECAP
+        card = lobby.get_active_live_lobby(member)
+        assert card is not None
+        assert card.lobby_phase == lobby.PHASE_RECAP
+
+    def test_long_event_still_in_recap_is_within_the_db_lookback(self):
+        """A legal event may run 7 days, so its recap can close 9 days after it
+        starts. The old flat 7-day pre-filter dropped those candidates."""
+        event = _make_event(starts_in_minutes=-8 * 24 * 60, duration=7 * 24 * 60)
+        assert lobby.event_lobby_phase(event) == lobby.PHASE_RECAP
+        guest = _make_member("late_long", membership=False)
+        _attend(guest, event)
+        CrushConnectMembership.objects.create(
+            user=guest, onboarded_at=timezone.now(), photo_share_consent=True
+        )
+        guest = User.objects.select_related(
+            "crushprofile", "crush_connect_membership"
+        ).get(pk=guest.pk)
+        created = lobby.handle_onboarding_completed(guest)
+        assert len(created) == 1
+
+    def test_late_joiner_is_routed_to_recap_not_my_crush(self):
+        """The invariant that actually corrupts data: without admitting first,
+        crush_flow_decision falls back to My Crush and a coach-routed lead is
+        created for a pair the recap will also let them confirm."""
+        event = _make_event()
+        requester = _make_member("flow_late")
+        target = _make_member("flow_target")
+        _attend(requester, event)  # attended, no row yet
+        _join(target, event)  # target joined while live
+        _end_event(event)
+        assert lobby.viewer_participation(requester, event) is None
+        assert (
+            lobby.crush_flow_decision(requester, target, event)
+            == lobby.CRUSH_FLOW_REDIRECT
+        )
+
+    def test_my_crush_still_applies_once_the_recap_has_closed(self):
+        """The fallback must survive: past the recap window My Crush is
+        correct again, and no participation may be created."""
+        event = _make_event()
+        requester = _make_member("flow_closed")
+        target = _make_member("flow_closed_target")
+        _attend(requester, event)
+        _join(target, event)
+        _end_event(event, hours_ago=49)
+        assert (
+            lobby.crush_flow_decision(requester, target, event)
+            == lobby.CRUSH_FLOW_CRUSH
+        )
+        assert lobby.viewer_participation(requester, event) is None
