@@ -55,17 +55,19 @@
         } catch (e) {
             return null;
         }
-        if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+        var scheme = u.protocol.toLowerCase();
+        if (scheme !== "http:" && scheme !== "https:") return null;
+
         if (source === "external") {
             var host = u.hostname.toLowerCase();
             for (var i = 0; i < EMBED_HOSTS.length; i++) {
-                if (host === EMBED_HOSTS[i]) return url;
+                if (host === EMBED_HOSTS[i]) return u.href;
             }
             return null;
         }
         // upload: same-origin (dev /media/) always allowed, otherwise require https.
-        if (u.origin === global.location.origin) return url;
-        return u.protocol === "https:" ? url : null;
+        if (u.origin === global.location.origin) return u.href;
+        return scheme === "https:" ? u.href : null;
     }
 
     function clearChildren(node) {
