@@ -726,14 +726,9 @@ class TestCoachQuestionMedia:
         # Stored raw; normalized only at broadcast time
         assert "watch?v=" in q.media_url
 
-    @override_settings(
-        DEFAULT_FILE_STORAGE="django.core.files.storage.InMemoryStorage",
-        STORAGES={
-            "default": {"BACKEND": "django.core.files.storage.InMemoryStorage"},
-            "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
-        },
-    )
     def test_create_with_image_upload(self, quiz_event, quiz_round):
+        from unittest import mock
+        from django.core.files.storage import InMemoryStorage
         from django.core.files.uploadedfile import SimpleUploadedFile
 
         coach = self._make_coach("mediaimg", quiz_event.event)
@@ -742,15 +737,18 @@ class TestCoachQuestionMedia:
         img = SimpleUploadedFile(
             "q.png", b"\x89PNG\r\n\x1a\n payload", content_type="image/png"
         )
-        response = client.post(
-            self._add_url(quiz_event, quiz_round),
-            data={
-                "text_en": "What city?",
-                "question_type": "open_ended",
-                "media_kind": "image",
-                "media_file": img,
-            },
-        )
+        storage_instance = InMemoryStorage()
+        with mock.patch("crush_lu.models.quiz.crush_media_storage", return_value=storage_instance), \
+             mock.patch("crush_lu.views_quiz_config.crush_media_storage", return_value=storage_instance):
+            response = client.post(
+                self._add_url(quiz_event, quiz_round),
+                data={
+                    "text_en": "What city?",
+                    "question_type": "open_ended",
+                    "media_kind": "image",
+                    "media_file": img,
+                },
+            )
         assert response.status_code == 302
         q = QuizQuestion.objects.filter(round=quiz_round, text="What city?").get()
         assert q.media_kind == "image"
