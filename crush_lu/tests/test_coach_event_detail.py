@@ -247,8 +247,8 @@ class TestCoachLobbyPreview:
         assert EventLobbyParticipation.objects.count() == 0
 
     def test_coach_preview_after_event_end_shows_closed_not_404(self, client):
-        """Recap requires a frozen participation the coach cannot have, so
-        the preview degrades to the closed page instead of a 404."""
+        """Recap requires member participation, which the coach preview cannot
+        have, so it degrades to the closed page instead of a 404."""
         coach = _make_coach()
         event = _make_event(starts_in_minutes=-180, duration=120)  # recap phase
         client.force_login(coach)

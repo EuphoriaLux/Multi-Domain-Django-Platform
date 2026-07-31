@@ -27,9 +27,10 @@ Usage:
     python manage.py send_event_reminders -v 2
 """
 
+from datetime import datetime, time, timedelta
+
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
-from datetime import timedelta
 
 from crush_lu import email_helpers
 from crush_lu.models import EventRegistration, MeetupEvent
@@ -99,7 +100,11 @@ class Command(BaseCommand):
             is_cancelled=False,
         )
 
-        if hours_before is not None:
+        if event_id:
+            events_query = events_query.filter(id=event_id)
+            target_label = f"event {event_id}"
+            days_until_for_notification = days
+        elif hours_before is not None:
             # Hour-granularity window for same-day reminders
             target_time = now + timedelta(hours=hours_before)
             window_start = target_time - timedelta(minutes=window_minutes)
@@ -114,18 +119,22 @@ class Command(BaseCommand):
             )
             days_until_for_notification = 0  # same-day
         else:
-            # Day-granularity window (legacy behavior)
-            target_start = now + timedelta(days=days)
+            # Calendar-day window in the configured local timezone. Building
+            # this from the UTC date makes the sweep target the wrong day after
+            # local midnight but before UTC midnight (for example 00:05 in
+            # Luxembourg is still 22:05 UTC during summer time).
+            target_date = timezone.localdate(now) + timedelta(days=days)
+            target_start = timezone.make_aware(
+                datetime.combine(target_date, time.min),
+                timezone.get_current_timezone(),
+            )
             target_end = target_start + timedelta(days=1)
             events_query = events_query.filter(
-                date_time__date__gte=target_start.date(),
-                date_time__date__lt=target_end.date(),
+                date_time__gte=target_start,
+                date_time__lt=target_end,
             )
-            target_label = str(target_start.date())
+            target_label = str(target_date)
             days_until_for_notification = days
-
-        if event_id:
-            events_query = events_query.filter(id=event_id)
 
         events = list(events_query.select_related())
 

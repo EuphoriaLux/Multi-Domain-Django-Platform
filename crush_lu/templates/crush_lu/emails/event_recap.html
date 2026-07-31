@@ -52,7 +52,11 @@
 <div class="info-box">
     <p style="margin: 0 0 10px 0;">
         {% trans "Crush Connect members get the live Event Lobby at every event — quietly signal who you'd like to meet, and keep the people you both confirm." %}
+        {% if connect_nudge_opens_recap %}
+        <strong>{% trans "Finish Crush Connect now to join this event's open recap and confirm who you met." %}</strong>
+        {% else %}
         <strong>{% trans "Finish Crush Connect before your next event and you'll join instantly." %}</strong>
+        {% endif %}
     </p>
     <a href="{{ connect_nudge_url }}" class="button">{% trans "Finish Crush Connect" %}</a>
 </div>

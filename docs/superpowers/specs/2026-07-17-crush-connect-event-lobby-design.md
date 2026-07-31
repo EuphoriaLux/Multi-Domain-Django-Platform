@@ -49,7 +49,7 @@ These decisions are the agreed source of truth for implementation.
 | Event coverage | The lobby exists automatically for every published, non-cancelled Crush.lu event; there is no per-event enable switch. |
 | Normal event check-in | All guests can still be checked in. The new feature must not change registration, ticket, attendance, voting, quiz, or coach-scanner behavior. |
 | Feature eligibility | Only checked-in members with an active, fully onboarded, non-excluded, LuxID-backed Crush Connect membership may enter or appear. |
-| Mid-event onboarding | A checked-in guest who completes Crush Connect onboarding before the scheduled event end joins immediately and receives full access. |
+| Lobby/recap onboarding | A checked-in guest who completes Crush Connect onboarding while the live lobby or its 48-hour recap is open joins immediately and receives phase-appropriate access. |
 | Lobby roster | All eligible checked-in members see all other eligible checked-in members, regardless of dating preferences, arrival time, Premium tier, or temporal overlap. |
 | Lobby identity | Before mutual interest, the grid displays the current primary profile photo only. No first name, age, event metadata, profile fields, or exact check-in time. |
 | Live interest | Three outgoing signals per user per event. Each signal is private, anonymous, and irrevocable. Incoming signals are unlimited. |
@@ -107,7 +107,7 @@ These decisions are the agreed source of truth for implementation.
 | Product term | Meaning |
 |---|---|
 | Event Lobby | The protected live photo grid for one active event. |
-| Lobby participant | A checked-in guest who also satisfies the current Crush Connect feature gate before the scheduled event end. |
+| Lobby participant | A checked-in guest who satisfies the current Crush Connect feature gate while the live lobby or its 48-hour recap is open. |
 | Meet signal | The live, anonymous, irrevocable "I'd like to meet you" action; maximum three outgoing per participant per event. |
 | Live mutual | Both people sent a meet signal to each other during the live event. Identity is revealed for the in-person prompt only. |
 | Meeting confirmation | The post-event, anonymous, irrevocable "Yes, we met" action. Unlimited during the recap window. |
@@ -173,11 +173,11 @@ are created. A stale browser session must not preserve roster access.
 - They cannot infer whether a lobby exists or who is in it.
 - A checked-in, LuxID-capable guest who is not onboarded sees an onboarding CTA
   instead of the lobby.
-- If onboarding finishes before scheduled event end, create participation
-  idempotently, publish "Someone new joined the event lobby", and grant three
-  meet signals.
-- Finishing onboarding after the exact event end does not retroactively grant
-  access to that event's recap.
+- If onboarding finishes while the live lobby or its 48-hour recap is open,
+  create participation idempotently, publish the neutral "Someone new joined
+  the event lobby" refetch hint, and grant phase-appropriate access.
+- Finishing onboarding after the recap closes does not retroactively grant
+  access to that event.
 
 **Amendment 2026-07-18 (funnel unification decisions):**
 
@@ -205,6 +205,7 @@ are created. A stale browser session must not preserve roster access.
 stateDiagram-v2
     [*] --> NotEligible
     NotEligible --> Live: Checked in + active Connect before event end
+    NotEligible --> Recap: Checked in + active Connect during recap
     Live --> Live: Eligible onboarding completed mid-event
     Live --> Recap: Exact scheduled event end
     Recap --> Closed: 48 hours after event end
@@ -441,7 +442,8 @@ invariants.
 
 ### 9.1 `EventLobbyParticipation`
 
-One row per eligible `EventRegistration` that joined before scheduled end.
+One row per eligible `EventRegistration` admitted while the live lobby or its
+48-hour recap is open.
 
 Proposed fields:
 
@@ -456,12 +458,13 @@ Constraints:
 - unique `(event, user)`;
 - user must match the registration user;
 - registration must belong to the event;
-- created only before exact event end;
+- created only before the recap closes;
 - never created for non-Connect attendees.
 
-This row freezes recap membership while all current access checks remain
-dynamic. It must not snapshot the person's photo, name, preferences, or profile
-details.
+Admission stays open throughout recap and is idempotently self-healed from the
+attended registration on every entry surface. All current access checks remain
+dynamic. The row must not snapshot the person's photo, name, preferences, or
+profile details.
 
 ### 9.2 `EventMeetSignal`
 
@@ -550,7 +553,7 @@ Integration points:
    after attendance commits successfully. A lobby failure must be logged and
    retried but must not roll back a valid event check-in.
 2. Crush Connect onboarding completion calls the same idempotent service for
-   any currently attended, not-yet-ended event.
+   any attended event whose live lobby or 48-hour recap is still open.
 3. Connect exclusion/deactivation and existing blocking are rechecked on every
    list/write operation; optional broadcasts prompt open clients to refetch.
 4. Hub context uses a single query/service for active lobby and recap cards.
@@ -605,7 +608,7 @@ email dispatch even if a member has those channels enabled.
 | Trigger | Persistence | Copy shape |
 |---|---|---|
 | Participant joins live lobby | Ephemeral banner, coalescible | "Someone new arrived" / "3 new people joined" |
-| Mid-event onboarding joins lobby | Ephemeral banner | "Someone new joined the Event Lobby" |
+| Lobby/recap onboarding creates participation | Ephemeral banner | "Someone new joined the Event Lobby" |
 | Incoming live signal | Ephemeral banner + live exact counter | "2 people here would like to meet you" |
 | Live mutual | Persist until event end in lobby UI | "You and {first_name} would like to meet. Say hello now." |
 | Recap opens | Persisted in-app notification | "Who did you meet? You have 48 hours." |
