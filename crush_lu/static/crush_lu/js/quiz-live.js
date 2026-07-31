@@ -301,6 +301,15 @@ document.addEventListener("alpine:init", function () {
                     this._renderCoachTables();
                     this.fetchAssignment();
                 }
+                // Tear down media playback whenever we leave the question
+                // screen so audio/video/iframe embeds don't bleed into review,
+                // leaderboard, pause, or finished screens.
+                var self = this;
+                this.$watch("screen", function (val) {
+                    if (val !== "question" && window.QuizMedia) {
+                        window.QuizMedia.clear(self.$refs.media);
+                    }
+                });
             },
 
             fetchAssignment: function (retries) {

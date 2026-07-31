@@ -100,6 +100,19 @@ def normalize_embed_url(url):
         if vid and re.match(rf"^{_YOUTUBE_ID}$", vid):
             return f"https://www.youtube-nocookie.com/embed/{vid}"
 
+    # SoundCloud track URL -> player embed. SoundCloud's share URL is
+    # soundcloud.com/<artist>/<track>; the embeddable form is the player at
+    # w.soundcloud.com/player/?url=<encoded source>. Leave existing player
+    # URLs (host w.soundcloud.com) untouched.
+    if host in ("soundcloud.com", "www.soundcloud.com") and path.count("/") >= 2:
+        from urllib.parse import quote
+
+        return (
+            "https://w.soundcloud.com/player/?url="
+            + quote(urlunparse(parsed), safe="")
+            + "&color=%23ff5500&auto_play=false"
+        )
+
     for rule_host, rule_re, tmpl in _EMBED_RULES:
         if host != rule_host or tmpl is None:
             continue
@@ -481,6 +494,15 @@ class QuizQuestion(models.Model):
             "Watch URLs are normalized to their embed form on save."
         ),
     )
+    media_description = models.CharField(
+        max_length=300,
+        blank=True,
+        help_text=_(
+            "Accessible description of the media (alt text for images / "
+            "label for audio). Used by screen readers so the stimulus isn't "
+            "hidden from participants who need it."
+        ),
+    )
     sort_order = models.PositiveIntegerField(default=0)
     points = models.PositiveIntegerField(default=10)
 
@@ -523,24 +545,32 @@ class QuizQuestion(models.Model):
 
         External URLs are normalized to their embed form so the client only
         ever receives a ready-to-embed URL from a trusted host.
+
+        ``description`` (alt text / accessible label) is always included so the
+        client can hand it to <img alt>/<audio aria-label>/<iframe title>.
         """
+        base = {"kind": "none", "url": None, "source": None}
+        description = (self.media_description or "").strip()
         if self.media_kind == "none":
-            return {"kind": "none", "url": None, "source": None}
+            return base
+        payload = None
         if self.media_file:
-            return {
+            payload = {
                 "kind": self.media_kind,
                 "url": self.media_file.url,
                 "source": "upload",
             }
-        if self.media_url:
-            normalized = normalize_embed_url(self.media_url)
-            return {
+        elif self.media_url:
+            payload = {
                 "kind": self.media_kind,
-                "url": normalized,
+                "url": normalize_embed_url(self.media_url),
                 "source": "external",
             }
-        # Inconsistent state (kind set but no file/URL) — degrade gracefully.
-        return {"kind": "none", "url": None, "source": None}
+        if payload is None:
+            # Inconsistent state (kind set but no file/URL) — degrade gracefully.
+            return base
+        payload["description"] = description
+        return payload
 
 
 class QuizTable(models.Model):

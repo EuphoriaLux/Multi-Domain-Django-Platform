@@ -23,7 +23,7 @@
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-6"
          x-data="quizQuestionForm"
          data-question-type="{{ question.question_type|default:'multiple_choice' }}"
-         data-media-kind="{% if media_kind_post %}{{ media_kind_post }}{% elif question %}{{ question.media_kind }}{% else %}none{% endif %}"
+         data-media-kind="{{ media_kind_selected|default:'none' }}"
          data-choices-en="{{ choices_json_en|default:'[]' }}"
          data-choices-de="{{ choices_json_de|default:'[]' }}"
          data-choices-fr="{{ choices_json_fr|default:'[]' }}">
@@ -66,10 +66,10 @@
                 <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">{% trans "Show an image, video, or audio clip alongside the prompt. Combine with any answer type above (e.g. audio + open-ended for 'guess the song')." %}</p>
                 <select name="media_kind" id="media_kind" x-ref="mediaKindSelect" @change="selectMediaKind"
                         class="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent">
-                    <option value="none" {% if media_kind_post == "none" or not question and not media_kind_post or question.media_kind == "none" %}selected{% endif %}>{% trans "No media" %}</option>
-                    <option value="image" {% if media_kind_post == "image" or question.media_kind == "image" %}selected{% endif %}>{% trans "Image" %}</option>
-                    <option value="video" {% if media_kind_post == "video" or question.media_kind == "video" %}selected{% endif %}>{% trans "Video" %}</option>
-                    <option value="audio" {% if media_kind_post == "audio" or question.media_kind == "audio" %}selected{% endif %}>{% trans "Audio" %}</option>
+                    <option value="none" {% if media_kind_selected == "none" %}selected{% endif %}>{% trans "No media" %}</option>
+                    <option value="image" {% if media_kind_selected == "image" %}selected{% endif %}>{% trans "Image" %}</option>
+                    <option value="video" {% if media_kind_selected == "video" %}selected{% endif %}>{% trans "Video" %}</option>
+                    <option value="audio" {% if media_kind_selected == "audio" %}selected{% endif %}>{% trans "Audio" %}</option>
                 </select>
             </div>
 
@@ -99,6 +99,16 @@
                     <input type="url" name="media_url" id="media_url" maxlength="500"
                            value="{% if media_url_post %}{{ media_url_post }}{% else %}{{ question.media_url|default:'' }}{% endif %}"
                            placeholder="https://www.youtube.com/watch?v=..."
+                           class="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent">
+                </div>
+
+                <!-- Accessible description (alt text / audio label) -->
+                <div>
+                    <label for="media_description" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{% trans "Media description (accessibility)" %}</label>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">{% trans "Short text describing the media for screen readers. Required when the media itself is the question (e.g. an image the table must identify)." %}</p>
+                    <input type="text" name="media_description" id="media_description" maxlength="300"
+                           value="{% if media_description_post %}{{ media_description_post }}{% else %}{{ question.media_description|default:'' }}{% endif %}"
+                           placeholder="{% trans "e.g. Aerial photo of a European capital at dusk" %}"
                            class="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-crush-purple focus:border-transparent">
                 </div>
             </div>

@@ -13,7 +13,7 @@ from django.contrib.auth.signals import user_logged_in
 from django.core.files.base import ContentFile
 from django.db.models import Q
 from django.db import transaction
-from django.db.models.signals import post_save, pre_delete, pre_save
+from django.db.models.signals import post_delete, post_save, pre_delete, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 from allauth.account.signals import email_confirmation_sent, email_confirmed
@@ -3091,3 +3091,26 @@ def stash_confirmed_email_for_login_prefill(sender, request, email_address, **kw
         request,
         _("Email verified — please sign in to continue."),
     )
+
+
+# ---------------------------------------------------------------------------
+# Quiz media cleanup
+# ---------------------------------------------------------------------------
+@receiver(post_delete, sender="crush_lu.QuizQuestion")
+def delete_quiz_question_media(sender, instance, **kwargs):
+    """Remove the uploaded media Blob when a QuizQuestion is deleted.
+
+    Django's FileField does not delete the underlying storage object on row
+    deletion, so without this the public crush_media container accumulates
+    orphaned uploads whenever a question, round, or quiz is removed (the
+    coach delete endpoint and admin both hit this path via CASCADE).
+    Best-effort: storage errors must not block the delete.
+    """
+    field = instance.media_file
+    name = field.name if field else ""
+    if not name:
+        return
+    try:
+        field.storage.delete(name)
+    except Exception:
+        logger.exception("Failed to delete quiz media Blob: %s", name)

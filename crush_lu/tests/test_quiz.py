@@ -615,6 +615,36 @@ class TestQuizMedia:
         assert payload["source"] == "upload"
         assert payload["url"].endswith("quiz/abc.png")
 
+    def test_soundcloud_embed_url_is_normalized(self, quiz_round):
+        q = QuizQuestion.objects.create(
+            round=quiz_round,
+            text="Guess the track",
+            question_type="open_ended",
+            media_kind="audio",
+            media_url="https://soundcloud.com/artist/track-title",
+            media_description="A tropical house melody",
+        )
+        payload = q.get_media_payload()
+        assert payload["source"] == "external"
+        assert payload["kind"] == "audio"
+        assert "w.soundcloud.com/player/" in payload["url"]
+        assert payload["description"] == "A tropical house melody"
+
+    def test_media_file_deletion_signal(self, quiz_round, mocker):
+        q = QuizQuestion.objects.create(
+            round=quiz_round,
+            text="Question to delete",
+            question_type="open_ended",
+            media_kind="image",
+        )
+        q.media_file.name = "quiz/to_delete.png"
+        q.save()
+
+        mock_delete = mocker.patch.object(q.media_file.storage, "delete")
+        q.delete()
+        mock_delete.assert_called_once_with("quiz/to_delete.png")
+
+
 
 class TestQuizQuestionBroadcast:
     """The media key must be present in every broadcast shape."""
@@ -747,6 +777,31 @@ class TestCoachQuestionMedia:
         )
         assert response.status_code == 200
         assert not QuizQuestion.objects.filter(round=quiz_round, text="Host").exists()
+
+    def test_oversized_media_file_rejected(self, quiz_event, quiz_round, mocker):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        mocker.patch("crush_lu.views_quiz_config.QUIZ_MEDIA_MAX_BYTES", 50)
+        coach = self._make_coach("bigfileauthor", quiz_event.event)
+        client = APIClient()
+        client.force_login(coach)
+        big_file = SimpleUploadedFile(
+            "huge.mp4", b"x" * 100, content_type="video/mp4"
+        )
+        response = client.post(
+            self._add_url(quiz_event, quiz_round),
+            data={
+                "text_en": "Big video question",
+                "question_type": "open_ended",
+                "media_kind": "video",
+                "media_file": big_file,
+            },
+        )
+        assert response.status_code == 200
+        assert not QuizQuestion.objects.filter(
+            round=quiz_round, text="Big video question"
+        ).exists()
+
 
 
 class TestQuizTableModel:

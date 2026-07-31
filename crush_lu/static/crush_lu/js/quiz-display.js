@@ -258,6 +258,14 @@ document.addEventListener("alpine:init", function () {
                     self.renderLeaderboard();
                     self.renderFinishedIndividuals();
                 });
+                // Tear down media playback whenever we leave the question
+                // screen so audio/video/iframe embeds don't bleed into the
+                // scoring, reveal, or leaderboard screens.
+                this.$watch("screen", function (val) {
+                    if (val !== "question" && window.QuizMedia) {
+                        window.QuizMedia.clear(self.$refs.media);
+                    }
+                });
 
                 if (!pinRequired) {
                     this.startDisplay();
@@ -762,6 +770,11 @@ document.addEventListener("alpine:init", function () {
                             self.questionType =
                                 data.question.question_type || "multiple_choice";
                             self.questionPoints = data.question.points || 10;
+                            self.questionMedia =
+                                data.question.media || {
+                                    kind: "none",
+                                    url: null,
+                                };
                             self.questionIndex = data.question_index || 0;
                             self.questionTotal = data.question_total || 0;
                             self.isBonusRound = data.is_bonus || false;
@@ -790,14 +803,18 @@ document.addEventListener("alpine:init", function () {
                                 self.screen = "reveal";
                             } else if (
                                 self.screen === "waiting" ||
-                                self.screen === "loading"
+                                self.screen === "loading" ||
+                                self.screen === "question"
                             ) {
-                                // Only switch to question if we're on waiting/loading screen
+                                // Switch to (or refresh) the question screen on
+                                // the polling path so media/choices render even
+                                // without a WebSocket (local WSGI dev, fallback).
                                 if (!self._countdownTimer) {
                                     self.countdownTotal = data.time_per_question || 30;
                                     self.countdown = 0; // No timer sync via polling
                                 }
                                 self.screen = "question";
+                                self._renderMedia();
                             }
                         } else if (
                             !data.question &&
