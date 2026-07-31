@@ -65,9 +65,11 @@
             }
             return null;
         }
-        // upload: same-origin (dev /media/) always allowed, otherwise require https.
+        // upload: same-origin, https (Azure Blob in prod), or Azurite local emulator (127.0.0.1 / localhost)
         if (u.origin === global.location.origin) return u.href;
-        return scheme === "https:" ? u.href : null;
+        if (scheme === "https:") return u.href;
+        if (u.hostname === "127.0.0.1" || u.hostname === "localhost") return u.href;
+        return null;
     }
 
     function clearChildren(node) {

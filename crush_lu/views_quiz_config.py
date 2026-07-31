@@ -477,6 +477,22 @@ def _save_question(request, event, quiz_round, question=None):
         )
         return _render_question_form(request, event, quiz_round, question)
 
+    allowed_mime_prefixes = {
+        "image": ("image/",),
+        "video": ("video/",),
+        "audio": ("audio/", "application/ogg"),
+    }
+    if media_file and media_kind in allowed_mime_prefixes:
+        content_type = getattr(media_file, "content_type", "") or ""
+        allowed = allowed_mime_prefixes[media_kind]
+        if not any(content_type.startswith(prefix) for prefix in allowed):
+            messages.error(
+                request,
+                _("Uploaded file type (%s) does not match the selected media kind (%s).")
+                % (content_type or "unknown", media_kind),
+            )
+            return _render_question_form(request, event, quiz_round, question)
+
     if media_url and not is_embed_url_allowed(media_url):
         messages.error(
             request,
@@ -519,8 +535,10 @@ def _save_question(request, event, quiz_round, question=None):
     if question is not None and question.media_file:
         stale_file_names.append(question.media_file.name)
 
+    media_description = (request.POST.get("media_description") or "").strip()
     q.media_kind = media_kind
     q.media_url = media_url if media_kind != "none" else ""
+    q.media_description = media_description if media_kind != "none" else ""
     if media_kind == "none" or media_clear or media_file:
         # None, clear, or replacement all drop the current file from the row.
         q.media_file = None
@@ -537,7 +555,12 @@ def _save_question(request, event, quiz_round, question=None):
         new_name = q.media_file.name if q.media_file else ""
         if name != new_name:
             try:
-                crush_media_storage.delete(name)
+                storage = (
+                    crush_media_storage()
+                    if callable(crush_media_storage)
+                    else crush_media_storage
+                )
+                storage.delete(name)
             except Exception:
                 # Best-effort cleanup; the row is already correct.
                 pass
