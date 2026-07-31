@@ -96,6 +96,9 @@
                 <p class="mt-1 text-sm text-crush-purple" x-text="pointsLabel"></p>
             </div>
 
+            {# Optional media stimulus (image/video/audio) - rendered via JS #}
+            <div x-ref="media"></div>
+
             {# Answer choices (rendered via JS for CSP compliance) #}
             <div class="space-y-3" x-ref="choices"></div>
 
@@ -216,8 +219,10 @@
 {% block pre_alpine_js %}
 {% if debug %}
     {% now "U" as ts %}
+    <script defer src="{% static 'crush_lu/js/quiz-media.js' %}?v={{ ts }}"></script>
     <script defer src="{% static 'crush_lu/js/quiz-live.js' %}?v={{ ts }}"></script>
 {% else %}
+    <script defer src="{% static 'crush_lu/js/quiz-media.js' %}"></script>
     <script defer src="{% static 'crush_lu/js/quiz-live.js' %}"></script>
 {% endif %}
 {% endblock %}

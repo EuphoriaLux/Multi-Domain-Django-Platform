@@ -8,7 +8,12 @@ from django.views.decorators.http import require_POST
 
 from crush_lu.decorators import coach_required
 from crush_lu.models.events import MeetupEvent
-from crush_lu.models.quiz import QuizEvent, QuizQuestion, QuizRound
+from crush_lu.models.quiz import (
+    QuizEvent,
+    QuizQuestion,
+    QuizRound,
+    is_embed_url_allowed,
+)
 
 LANGUAGES = ("en", "de", "fr")
 
@@ -396,6 +401,47 @@ def _save_question(request, event, quiz_round, question=None):
         for lang in LANGUAGES:
             choices_by_lang[lang] = []
 
+    # --- Optional media stimulus (orthogonal to question_type) -------------
+    media_kind = request.POST.get("media_kind", "none")
+    media_url = request.POST.get("media_url", "").strip()
+    media_file = request.FILES.get("media_file")
+    media_clear = request.POST.get("media_clear") == "1"
+
+    if media_kind not in dict(QuizQuestion.MEDIA_KIND_CHOICES):
+        media_kind = "none"
+
+    # A non-none kind requires either an upload or an external URL. On edit,
+    # an existing file/URL still satisfies the requirement unless cleared.
+    has_existing_media = (
+        question is not None
+        and (question.media_file or question.media_url)
+        and not (media_clear and not media_file and not media_url)
+    )
+    if (
+        media_kind != "none"
+        and not media_file
+        and not media_url
+        and not has_existing_media
+    ):
+        messages.error(
+            request,
+            _(
+                "Upload a file or provide an external URL for the selected "
+                "media kind, or set media to None."
+            ),
+        )
+        return _render_question_form(request, event, quiz_round, question)
+
+    if media_url and not is_embed_url_allowed(media_url):
+        messages.error(
+            request,
+            _(
+                "External media URLs must come from YouTube, Vimeo, Spotify, "
+                "or SoundCloud."
+            ),
+        )
+        return _render_question_form(request, event, quiz_round, question)
+
     if question is None:
         next_order = (quiz_round.questions.aggregate(m=Max("sort_order"))["m"] or 0) + 1
         q = QuizQuestion(
@@ -419,6 +465,24 @@ def _save_question(request, event, quiz_round, question=None):
             setattr(q, f"choices_{lang}", choices_by_lang[lang])
         elif question is None:
             setattr(q, f"choices_{lang}", [])
+
+    # Apply media. Deleting the old Blob object before reassigning avoids
+    # orphaned uploads when replacing/clearing.
+    q.media_kind = media_kind
+    q.media_url = media_url if media_kind != "none" else ""
+    if media_clear and question is not None and question.media_file:
+        question.media_file.delete(save=False)
+        q.media_file = None
+    if media_file:
+        if question is not None and question.media_file:
+            question.media_file.delete(save=False)
+        q.media_file = media_file
+    if media_kind == "none":
+        # Kind set to None: clear any persisted media too.
+        if question is not None and question.media_file and not media_clear:
+            question.media_file.delete(save=False)
+        q.media_file = None
+        q.media_url = ""
 
     q.save()
 
@@ -447,6 +511,10 @@ def _render_question_form(request, event, quiz_round, question):
             "choices_json_en": choices_by_lang.get("en", "[]"),
             "choices_json_de": choices_by_lang.get("de", "[]"),
             "choices_json_fr": choices_by_lang.get("fr", "[]"),
+            # Preserve media POST data on validation failure so the coach
+            # doesn't lose their selections.
+            "media_kind_post": request.POST.get("media_kind", "none"),
+            "media_url_post": request.POST.get("media_url", ""),
             "coach": request.coach,
         },
     )

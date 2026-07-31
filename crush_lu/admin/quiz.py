@@ -44,6 +44,8 @@ class QuizQuestionInline(TranslationTabularInline):
         "question_type",
         "choices",
         "correct_answer",
+        "media_kind",
+        "media_url",
         "sort_order",
         "points",
     )
@@ -105,7 +107,9 @@ def generate_quiz_night_tables(modeladmin, request, queryset):
                 men, women, num_rounds, num_tables=quiz.num_tables
             )
         except Exception as e:
-            messages.error(request, _("'%(event)s': %(error)s") % {"event": event, "error": e})
+            messages.error(
+                request, _("'%(event)s': %(error)s") % {"event": event, "error": e}
+            )
             continue
 
         schedule = result["schedule"]
@@ -113,7 +117,10 @@ def generate_quiz_night_tables(modeladmin, request, queryset):
 
         # Display any warnings from the algorithm
         for warning in result["warnings"]:
-            messages.warning(request, _("'%(event)s': %(warning)s") % {"event": event, "warning": warning})
+            messages.warning(
+                request,
+                _("'%(event)s': %(warning)s") % {"event": event, "warning": warning},
+            )
 
         # Clear existing rotation data and memberships (but preserve tables
         # to avoid cascade-deleting TableRoundScore records)
@@ -276,9 +283,7 @@ class QuizEventAdmin(admin.ModelAdmin):
                 for c in checks
             ),
         )
-        return format_html(
-            '<table style="border-collapse:collapse">{}</table>', rows
-        )
+        return format_html('<table style="border-collapse:collapse">{}</table>', rows)
 
     readiness_check_display.short_description = _("Readiness Check")
 
@@ -296,9 +301,16 @@ class QuizRoundAdmin(AutoTranslateMixin, TranslationAdmin):
 
 
 class QuizQuestionAdmin(AutoTranslateMixin, TranslationAdmin):
-    list_display = ("text", "round", "question_type", "points", "sort_order")
+    list_display = (
+        "text",
+        "round",
+        "question_type",
+        "media_kind",
+        "points",
+        "sort_order",
+    )
     list_select_related = ["round__quiz__event"]
-    list_filter = ("question_type", "round__quiz__event")
+    list_filter = ("question_type", "media_kind", "round__quiz__event")
 
 
 class QuizTableAdmin(admin.ModelAdmin):

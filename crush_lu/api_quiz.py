@@ -84,6 +84,7 @@ def quiz_state(request, quiz_id):
             "text": question.text,
             "question_type": question.question_type,
             "points": question.points,
+            "media": question.get_media_payload(),
         }
         if question.question_type in ("multiple_choice", "true_false"):
             choices = _parse_choices(question.choices)

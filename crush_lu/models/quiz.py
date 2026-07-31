@@ -1,8 +1,113 @@
 import json
+import re
+from urllib.parse import urlparse, urlunparse
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+
+from crush_lu.storage import crush_media_storage, crush_upload_path
+
+#: Per-path upload factory for quiz media (image/video/audio).
+quiz_upload_path = crush_upload_path("quiz")
+
+#: Hosts allowed for external media embeds (YouTube/Vimeo/Spotify/SoundCloud).
+#: Used by both the model validation and the client-side iframe renderer.
+QUIZ_EMBED_HOSTS = {
+    "youtube.com",
+    "www.youtube.com",
+    "youtu.be",
+    "youtube-nocookie.com",
+    "www.youtube-nocookie.com",
+    "vimeo.com",
+    "player.vimeo.com",
+    "open.spotify.com",
+    "soundcloud.com",
+    "w.soundcloud.com",
+}
+
+
+def is_embed_url_allowed(url):
+    """Return True if *url*'s host is on the quiz embed allowlist."""
+    if not url:
+        return False
+    try:
+        host = (urlparse(url).hostname or "").lower()
+    except (ValueError, TypeError):
+        return False
+    return host in QUIZ_EMBED_HOSTS
+
+
+# --- URL → embed normalization -------------------------------------------
+# Each entry: (host_match, path_regex, embed_template). Tested via the model
+# tests; only well-known canonical forms are rewritten. Unknown hosts already
+# failed the allowlist check above, so the fallback is the URL unchanged.
+_YOUTUBE_ID = r"([A-Za-z0-9_-]{11})"
+_SPOTIFY_PATH = r"/(track|album|playlist|episode|show)/([A-Za-z0-9]+)"
+_EMBED_RULES = [
+    # youtu.be/<id>  ->  youtube-nocookie.com/embed/<id>
+    (
+        "youtu.be",
+        re.compile(rf"^/{_YOUTUBE_ID}$"),
+        "https://www.youtube-nocookie.com/embed/{0}",
+    ),
+    # youtube.com/watch?v=<id>  ->  youtube-nocookie.com/embed/<id>
+    ("www.youtube.com", re.compile(r"^/watch$"), None),  # handled via query below
+    ("youtube.com", re.compile(r"^/watch$"), None),
+    # youtube.com/embed/<id>  ->  youtube-nocookie.com/embed/<id>
+    (
+        "www.youtube.com",
+        re.compile(rf"^/embed/{_YOUTUBE_ID}$"),
+        "https://www.youtube-nocookie.com/embed/{0}",
+    ),
+    (
+        "youtube.com",
+        re.compile(rf"^/embed/{_YOUTUBE_ID}$"),
+        "https://www.youtube-nocookie.com/embed/{0}",
+    ),
+    # vimeo.com/<id>  ->  player.vimeo.com/video/<id>
+    ("vimeo.com", re.compile(r"^/(\d+)$"), "https://player.vimeo.com/video/{0}"),
+    # open.spotify.com/<type>/<id>  ->  embed.spotify.com/<type>/<id> via /embed/
+    (
+        "open.spotify.com",
+        re.compile(_SPOTIFY_PATH),
+        "https://open.spotify.com/embed/{0}/{1}",
+    ),
+]
+
+
+def normalize_embed_url(url):
+    """Rewrite a watch URL into its canonical embed form.
+
+    Returns the URL unchanged when no rule matches (the host was already
+    allowlisted, e.g. an existing player.vimeo.com or w.soundcloud.com URL).
+    """
+    if not url:
+        return url
+    try:
+        parsed = urlparse(url)
+    except (ValueError, TypeError):
+        return url
+    host = (parsed.hostname or "").lower()
+    path = parsed.path or ""
+
+    # YouTube watch?v=<id> (needs the query string)
+    if host in ("www.youtube.com", "youtube.com") and path == "/watch":
+        from urllib.parse import parse_qs
+
+        vid = (parse_qs(parsed.query).get("v") or [None])[0]
+        if vid and re.match(rf"^{_YOUTUBE_ID}$", vid):
+            return f"https://www.youtube-nocookie.com/embed/{vid}"
+
+    for rule_host, rule_re, tmpl in _EMBED_RULES:
+        if host != rule_host or tmpl is None:
+            continue
+        m = rule_re.match(path)
+        if m:
+            return tmpl.format(*m.groups())
+
+    return urlunparse(parsed)
 
 
 def parse_choices(choices):
@@ -162,22 +267,27 @@ class QuizEvent(models.Model):
 
         # 1. Has rounds?
         round_count = self.rounds.count()
-        checks.append({
-            "label": _("Rounds"),
-            "ok": round_count > 0,
-            "detail": str(round_count) if round_count else _("No rounds created"),
-        })
+        checks.append(
+            {
+                "label": _("Rounds"),
+                "ok": round_count > 0,
+                "detail": str(round_count) if round_count else _("No rounds created"),
+            }
+        )
 
         # 2. Has questions?
         question_count = sum(
-            r.questions.count()
-            for r in self.rounds.prefetch_related("questions").all()
+            r.questions.count() for r in self.rounds.prefetch_related("questions").all()
         )
-        checks.append({
-            "label": _("Questions"),
-            "ok": question_count > 0,
-            "detail": str(question_count) if question_count else _("No questions created"),
-        })
+        checks.append(
+            {
+                "label": _("Questions"),
+                "ok": question_count > 0,
+                "detail": (
+                    str(question_count) if question_count else _("No questions created")
+                ),
+            }
+        )
 
         # 3. Questions have correct answers?
         bad_questions = []
@@ -186,63 +296,73 @@ class QuizEvent(models.Model):
                 if q.question_type in ("multiple_choice", "true_false"):
                     choices = q.choices or []
                     has_correct = any(
-                        isinstance(c, dict) and c.get("is_correct")
-                        for c in choices
+                        isinstance(c, dict) and c.get("is_correct") for c in choices
                     )
                     if not has_correct:
                         bad_questions.append(q.text[:40])
-        checks.append({
-            "label": _("Correct answers"),
-            "ok": len(bad_questions) == 0 and question_count > 0,
-            "detail": (
-                _("All questions have a correct answer")
-                if not bad_questions and question_count > 0
-                else ", ".join(bad_questions[:3]) + ("..." if len(bad_questions) > 3 else "")
-                if bad_questions
-                else _("No questions to check")
-            ),
-        })
+        checks.append(
+            {
+                "label": _("Correct answers"),
+                "ok": len(bad_questions) == 0 and question_count > 0,
+                "detail": (
+                    _("All questions have a correct answer")
+                    if not bad_questions and question_count > 0
+                    else (
+                        ", ".join(bad_questions[:3])
+                        + ("..." if len(bad_questions) > 3 else "")
+                        if bad_questions
+                        else _("No questions to check")
+                    )
+                ),
+            }
+        )
 
         # 4. Tables configured?
         table_count = QuizTable.objects.filter(quiz=self).count()
-        checks.append({
-            "label": _("Tables"),
-            "ok": table_count >= 2,
-            "detail": (
-                str(table_count)
-                if table_count >= 2
-                else _("Need at least 2 tables")
-            ),
-        })
+        checks.append(
+            {
+                "label": _("Tables"),
+                "ok": table_count >= 2,
+                "detail": (
+                    str(table_count)
+                    if table_count >= 2
+                    else _("Need at least 2 tables")
+                ),
+            }
+        )
 
         # 5. Registrations?
         reg_count = EventRegistration.objects.filter(
             event=self.event, status__in=["confirmed", "attended"]
         ).count()
-        checks.append({
-            "label": _("Registrations"),
-            "ok": reg_count >= 4,
-            "detail": (
-                _("%(count)d confirmed/attended") % {"count": reg_count}
-                if reg_count >= 4
-                else _("%(count)d (need at least 4)") % {"count": reg_count}
-            ),
-        })
+        checks.append(
+            {
+                "label": _("Registrations"),
+                "ok": reg_count >= 4,
+                "detail": (
+                    _("%(count)d confirmed/attended") % {"count": reg_count}
+                    if reg_count >= 4
+                    else _("%(count)d (need at least 4)") % {"count": reg_count}
+                ),
+            }
+        )
 
         # 6. Table members assigned?
         member_count = QuizTableMembership.objects.filter(table__quiz=self).count()
         rotation_count = QuizRotationSchedule.objects.filter(quiz=self).count()
         has_assignments = member_count > 0 or rotation_count > 0
-        checks.append({
-            "label": _("Table assignments"),
-            "ok": has_assignments,
-            "detail": (
-                _("%(members)d members (%(rotations)d rotations)")
-                % {"members": member_count, "rotations": rotation_count}
-                if has_assignments
-                else _("No members assigned to tables")
-            ),
-        })
+        checks.append(
+            {
+                "label": _("Table assignments"),
+                "ok": has_assignments,
+                "detail": (
+                    _("%(members)d members (%(rotations)d rotations)")
+                    % {"members": member_count, "rotations": rotation_count}
+                    if has_assignments
+                    else _("No members assigned to tables")
+                ),
+            }
+        )
 
         # 7. Members have photos?
         if has_assignments:
@@ -260,17 +380,22 @@ class QuizEvent(models.Model):
                     .values_list("user_id", flat=True)
                     .distinct()
                 )
-            profiles_with_photo = CrushProfile.objects.filter(
-                user_id__in=user_ids
-            ).exclude(photo_1="").exclude(photo_1__isnull=True).count()
-            checks.append({
-                "label": _("Profile photos"),
-                "ok": profiles_with_photo == len(user_ids),
-                "detail": (
-                    _("%(with)d/%(total)d participants have photos")
-                    % {"with": profiles_with_photo, "total": len(user_ids)}
-                ),
-            })
+            profiles_with_photo = (
+                CrushProfile.objects.filter(user_id__in=user_ids)
+                .exclude(photo_1="")
+                .exclude(photo_1__isnull=True)
+                .count()
+            )
+            checks.append(
+                {
+                    "label": _("Profile photos"),
+                    "ok": profiles_with_photo == len(user_ids),
+                    "detail": (
+                        _("%(with)d/%(total)d participants have photos")
+                        % {"with": profiles_with_photo, "total": len(user_ids)}
+                    ),
+                }
+            )
 
         return checks
 
@@ -306,6 +431,13 @@ class QuizQuestion(models.Model):
         ("open_ended", _("Open Ended")),
     ]
 
+    MEDIA_KIND_CHOICES = [
+        ("none", _("No media")),
+        ("image", _("Image")),
+        ("video", _("Video")),
+        ("audio", _("Audio")),
+    ]
+
     round = models.ForeignKey(
         QuizRound, on_delete=models.CASCADE, related_name="questions"
     )
@@ -323,6 +455,32 @@ class QuizQuestion(models.Model):
         blank=True,
         help_text=_("Reference answer for host (used for open-ended questions)"),
     )
+    # --- Optional media stimulus (orthogonal to question_type) ---------------
+    # Media is language-neutral, so these fields are NOT translated.
+    media_kind = models.CharField(
+        max_length=10,
+        choices=MEDIA_KIND_CHOICES,
+        default="none",
+        help_text=_("Optional media (image/video/audio) shown alongside the prompt."),
+    )
+    media_file = models.FileField(
+        upload_to=quiz_upload_path,
+        storage=crush_media_storage,
+        blank=True,
+        null=True,
+        help_text=_(
+            "Uploaded image/video/audio (public Azure Blob). Recommended for "
+            "images and short clips — use an external embed URL for long video/audio."
+        ),
+    )
+    media_url = models.URLField(
+        max_length=500,
+        blank=True,
+        help_text=_(
+            "External embed URL (YouTube / Vimeo / Spotify / SoundCloud). "
+            "Watch URLs are normalized to their embed form on save."
+        ),
+    )
     sort_order = models.PositiveIntegerField(default=0)
     points = models.PositiveIntegerField(default=10)
 
@@ -333,6 +491,56 @@ class QuizQuestion(models.Model):
 
     def __str__(self):
         return self.text[:80]
+
+    # ------------------------------------------------------------------ media
+    def clean(self):
+        """Validate media: a non-none kind requires a file or an external URL."""
+        super().clean()
+        if self.media_kind != "none" and not self.media_file and not self.media_url:
+            raise ValidationError(
+                {
+                    "media_file": _(
+                        "Upload a file or provide an external URL for this media kind."
+                    )
+                }
+            )
+        if self.media_url and not is_embed_url_allowed(self.media_url):
+            raise ValidationError(
+                {
+                    "media_url": _(
+                        "External media URLs must come from YouTube, Vimeo, "
+                        "Spotify, or SoundCloud."
+                    )
+                }
+            )
+
+    def get_media_payload(self):
+        """Normalized media dict broadcast to clients.
+
+        Always returns the same shape so every broadcast site (WebSocket
+        consumer, REST state endpoint, projector display JSON) stays in sync.
+        A file upload takes precedence over an external URL when both exist.
+
+        External URLs are normalized to their embed form so the client only
+        ever receives a ready-to-embed URL from a trusted host.
+        """
+        if self.media_kind == "none":
+            return {"kind": "none", "url": None, "source": None}
+        if self.media_file:
+            return {
+                "kind": self.media_kind,
+                "url": self.media_file.url,
+                "source": "upload",
+            }
+        if self.media_url:
+            normalized = normalize_embed_url(self.media_url)
+            return {
+                "kind": self.media_kind,
+                "url": normalized,
+                "source": "external",
+            }
+        # Inconsistent state (kind set but no file/URL) — degrade gracefully.
+        return {"kind": "none", "url": None, "source": None}
 
 
 class QuizTable(models.Model):

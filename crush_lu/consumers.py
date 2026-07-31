@@ -26,6 +26,10 @@ def _build_question_data(question, include_answers=False):
         "text": question.text,
         "question_type": question.question_type,
         "points": question.points,
+        # Media stimulus (image/video/audio) is language-neutral and safe for
+        # all viewers — it is NOT stripped for non-hosts (only the answer keys
+        # choices_with_answers* / correct_answer* are). See quiz_question handler.
+        "media": question.get_media_payload(),
     }
 
     # Add per-language text

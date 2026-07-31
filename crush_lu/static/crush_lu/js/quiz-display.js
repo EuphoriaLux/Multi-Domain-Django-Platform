@@ -513,6 +513,7 @@ document.addEventListener("alpine:init", function () {
                 this.questionText = data.text || "";
                 this.questionType = data.question_type || "multiple_choice";
                 this.questionPoints = data.points || 10;
+                this.questionMedia = data.media || { kind: "none", url: null };
                 this.questionIndex = data.index || 0;
                 this.questionTotal = data.total || 0;
                 this.isBonusRound = data.is_bonus || false;
@@ -539,6 +540,7 @@ document.addEventListener("alpine:init", function () {
                 this.startCountdown(time);
 
                 this.screen = "question";
+                this._renderMedia();
             },
 
             showQuestion: function (data) {
@@ -548,6 +550,7 @@ document.addEventListener("alpine:init", function () {
                 this.questionText = q.text || "";
                 this.questionType = q.question_type || "multiple_choice";
                 this.questionPoints = q.points || 10;
+                this.questionMedia = q.media || { kind: "none", url: null };
                 this.questionIndex = data.index || 0;
                 this.questionTotal = data.total || 0;
                 this.isBonusRound = data.is_bonus || false;
@@ -567,6 +570,17 @@ document.addEventListener("alpine:init", function () {
                 this.startCountdown(time);
 
                 this.screen = "question";
+                this._renderMedia();
+            },
+
+            _renderMedia: function () {
+                var container = this.$refs.media;
+                if (!container) return;
+                if (window.QuizMedia) {
+                    window.QuizMedia.render(container, this.questionMedia, {
+                        size: "display",
+                    });
+                }
             },
 
             handleStatus: function (data) {

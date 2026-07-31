@@ -1234,6 +1234,13 @@ SECURE_CSP_REPORT_ONLY = {
         "https://appleid.apple.com",
         "https://www.google.com",
         "https://*.firebaseapp.com",
+        # Quiz Night media embeds (external video/audio stimuli). The server
+        # normalizes watch URLs to these canonical embed hosts — see
+        # normalize_embed_url() in crush_lu/models/quiz.py.
+        "https://www.youtube-nocookie.com",
+        "https://player.vimeo.com",
+        "https://open.spotify.com",
+        "https://w.soundcloud.com",
     ],
     "form-action": [CSP.SELF],
     "base-uri": [CSP.SELF],
