@@ -89,6 +89,24 @@ def event_lobby_phase(event, now=None) -> str:
     return PHASE_CLOSED
 
 
+def lobby_admission_open(event, now=None) -> bool:
+    """§5.3 (#741): may an attended member still be admitted to this lobby?
+
+    Admission stays open for as long as the lobby exists at all — the whole
+    live phase *and* the 48h recap. It is derived from the phase rather than
+    compared against ``end_time`` directly so that the admission rule and the
+    phase can never disagree.
+
+    Why it is not the exact scheduled end: ``end_time`` is a pure property of
+    ``date_time + duration_minutes``, so a single mis-set duration silently
+    voided both the lobby and the recap for everyone who checked in or
+    finished onboarding after it, with no backfill. Late joiners land in the
+    recap — never in a live lobby that has already closed — so no live-phase
+    invariant moves.
+    """
+    return event_lobby_phase(event, now) != PHASE_CLOSED
+
+
 def participant_gate(user) -> tuple[bool, str]:
     """§5.1 conditions 4–9: is this user an active, lobby-capable Crush
     Connect member *right now*? (Conditions 1–3 — auth, attendance, event
@@ -162,11 +180,10 @@ def evaluate_participation(registration, source="checkin", now=None):
         return None, False
     if registration.status != "attended":
         return None, False
-    if event.is_cancelled or not event.is_published:
-        return None, False
-    # §5.3: finishing onboarding (or scanning in) after the exact scheduled
-    # end never grants access to that event's lobby or recap.
-    if now >= event.end_time:
+    # §5.3 (#741): admission runs to the end of the recap window, not to the
+    # exact scheduled end. Cancelled and unpublished events are PHASE_CLOSED,
+    # so this single check covers them too.
+    if not lobby_admission_open(event, now):
         return None, False
     ok, _reason = participant_gate(registration.user)
     if not ok:
@@ -192,8 +209,8 @@ def handle_checkin(registration):
 
 def handle_onboarding_completed(user, now=None):
     """Integration point for Connect onboarding completion (§10.2): join every
-    currently-attended, not-yet-ended event idempotently. Returns the list of
-    newly created participations."""
+    currently-attended event whose lobby is still open idempotently. Returns
+    the list of newly created participations."""
     from crush_lu.models import EventRegistration
 
     now = now or timezone.now()
@@ -208,7 +225,7 @@ def handle_onboarding_completed(user, now=None):
         event__date_time__gte=now - timedelta(days=7),
     ).select_related("event")
     for registration in candidates:
-        if now >= registration.event.end_time:
+        if not lobby_admission_open(registration.event, now):
             continue
         participation, created = evaluate_participation(
             registration, source="onboarding_completed", now=now
@@ -534,8 +551,12 @@ def send_meet_signal(sender, event, target_handle, now=None) -> dict:
         if recipient.pk not in locked_user_ids:
             return {"result": "unknown_participant"}
 
-        # §6: compare server time inside the same transaction as the write.
-        if timezone.now() >= event.end_time:
+        # §6: re-derive the phase from server time inside the same transaction
+        # as the write. Signals stay strictly live-only — admission may now run
+        # into the recap (#741), but sending must not. Derived through
+        # event_lobby_phase rather than a second raw end_time comparison so
+        # this check can never desync from the pre-check above.
+        if event_lobby_phase(event, timezone.now()) != PHASE_LIVE:
             return {"result": "phase_closed"}
 
         # §7.3 step 2 / §2: an existing permanent encounter is non-actionable —
@@ -714,23 +735,24 @@ def lobby_cta(user, event, registration=None, now=None):
         if phase == PHASE_LIVE:
             # The lobby view itself creates/self-heals participation on entry.
             return CTA_ENTER_LIVE
-        # Recap membership is frozen at the scheduled end (§5.3) — only a
-        # member who joined during the live phase has a recap to open.
-        if viewer_participation(user, event) is not None:
-            return CTA_ENTER_RECAP
-        return CTA_PROMO_ONLY
+        # #741: recap membership is no longer frozen at the scheduled end. An
+        # eligible attendee who never joined live is admitted on entry (the
+        # view's self-heal calls handle_checkin, and admission is open for the
+        # whole recap), so offer the CTA whether or not a row exists yet.
+        return CTA_ENTER_RECAP
 
     # Gate failed. Only the §5.3 "LuxID-capable guest" who genuinely hasn't
     # onboarded may see the onboarding CTA, and only while finishing it would
-    # still grant access (never during recap — late onboarding can't join).
+    # still grant access. #741: that now includes the recap — late onboarding
+    # joins the recap, so the prompt has to survive the scheduled end or the
+    # very people the grace exists for are never invited to use it.
+    # PHASE_CLOSED already returned above, so no phase test is needed here.
     # Every other denial (coach exclusion, lost verification, revoked photo
     # consent, …) renders as if the member had no personal state at all —
     # mirrors lobby_locked.html's gate_reason handling and the dashboard's
     # excluded-member rule.
-    if (
-        phase == PHASE_LIVE
-        and reason in (GATE_NO_MEMBERSHIP, GATE_NOT_ONBOARDED)
-        and may_learn_lobby_exists(user)
+    if reason in (GATE_NO_MEMBERSHIP, GATE_NOT_ONBOARDED) and may_learn_lobby_exists(
+        user
     ):
         return CTA_FINISH_CONNECT
     return CTA_PROMO_ONLY

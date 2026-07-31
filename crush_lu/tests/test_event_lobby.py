@@ -271,10 +271,34 @@ class TestEligibility:
         member = _make_member("alice")
         assert _join(member, event) is None
 
-    def test_checkin_after_event_end_denies(self):
+    def test_checkin_during_recap_admits(self):
+        """#741: a scan after the scheduled end still joins, because the end is
+        derived from ``duration_minutes`` and a mis-set duration used to void
+        the lobby *and* the recap with no backfill."""
         event = _make_event(starts_in_minutes=-200, duration=120)  # ended 80m ago
         member = _make_member("alice")
+        participation = _join(member, event)
+        assert participation is not None
+        assert lobby.event_lobby_phase(event) == lobby.PHASE_RECAP
+
+    def test_checkin_after_recap_closes_denies(self):
+        """The grace is the recap window, not an open door: once the lobby is
+        PHASE_CLOSED nothing may be admitted."""
+        minutes_48h = 48 * 60
+        event = _make_event(
+            starts_in_minutes=-(minutes_48h + 200), duration=120
+        )  # recap closed 80m ago
+        member = _make_member("alice")
+        assert lobby.event_lobby_phase(event) == lobby.PHASE_CLOSED
         assert _join(member, event) is None
+
+    def test_checkin_on_cancelled_event_denies(self):
+        """lobby_admission_open folds the cancelled/unpublished checks into the
+        phase — pin that the fold did not lose them."""
+        event = _make_event(cancelled=True)
+        assert _join(_make_member("alice"), event) is None
+        unpublished = _make_event(published=False)
+        assert _join(_make_member("ben"), unpublished) is None
 
     def test_premium_and_preferences_do_not_matter(self):
         """§5.1: Premium and dating preferences are never part of this gate —
@@ -304,7 +328,9 @@ class TestEligibility:
         assert len(created) == 1
         assert created[0].eligibility_source == "onboarding_completed"
 
-        # A second member finishing only after the exact end joins nothing (§5.3).
+        # #741: a second member finishing just after the exact end is now
+        # admitted to the recap. This is the 2m34s case from the 2026-07-29
+        # event, where the scheduled end was wrong rather than the attendee.
         late = _make_member("late", membership=False)
         _attend(late, event)
         CrushConnectMembership.objects.create(
@@ -314,7 +340,28 @@ class TestEligibility:
             "crushprofile", "crush_connect_membership"
         ).get(pk=late.pk)
         after_end = event.end_time + timedelta(seconds=1)
-        assert lobby.handle_onboarding_completed(late, now=after_end) == []
+        late_created = lobby.handle_onboarding_completed(late, now=after_end)
+        assert len(late_created) == 1
+        assert late_created[0].eligibility_source == "onboarding_completed"
+
+    def test_onboarding_after_recap_closes_joins_nothing(self):
+        """The far edge of the #741 grace: once the recap window has elapsed,
+        finishing onboarding grants nothing."""
+        event = _make_event()
+        late = _make_member("late", membership=False)
+        _attend(late, event)
+        CrushConnectMembership.objects.create(
+            user=late, onboarded_at=timezone.now(), photo_share_consent=True
+        )
+        late = User.objects.select_related(
+            "crushprofile", "crush_connect_membership"
+        ).get(pk=late.pk)
+        after_recap = (
+            event.end_time
+            + timedelta(hours=lobby.RECAP_WINDOW_HOURS)
+            + timedelta(minutes=1)
+        )
+        assert lobby.handle_onboarding_completed(late, now=after_recap) == []
 
 
 class TestCheckinNeverDependsOnLobby:
@@ -1440,14 +1487,16 @@ class TestLobbyCta:
         _end_event(event)
         assert lobby.lobby_cta(member, event) == lobby.CTA_ENTER_RECAP
 
-    def test_member_who_never_joined_gets_promo_only_in_recap(self):
-        """Attended but no participation row (e.g. checked in, feature hook
-        missed, event already over): recap membership is frozen — no CTA."""
+    def test_member_who_never_joined_gets_enter_recap(self):
+        """#741: attended but no participation row (checked in after the
+        scheduled end, or the hook missed). Recap membership is no longer
+        frozen — the lobby view admits them on entry, so the CTA must invite
+        them in rather than pretend they have nothing."""
         member = _make_member("cta_late")
         event = _make_event()
         _attend(member, event)
         _end_event(event)
-        assert lobby.lobby_cta(member, event) == lobby.CTA_PROMO_ONLY
+        assert lobby.lobby_cta(member, event) == lobby.CTA_ENTER_RECAP
 
     def test_closed_phase_gets_promo_only(self):
         member = _make_member("cta_closed")
@@ -1468,13 +1517,23 @@ class TestLobbyCta:
         _attend(guest, event)
         assert lobby.lobby_cta(guest, event) == lobby.CTA_FINISH_CONNECT
 
-    def test_luxid_guest_gets_promo_only_in_recap(self):
-        """Late onboarding can never join (§5.3), so the onboarding CTA must
-        not render once the live phase is over."""
+    def test_luxid_guest_gets_finish_connect_in_recap(self):
+        """#741: late onboarding now joins the recap, so the onboarding CTA has
+        to survive the scheduled end — otherwise the very people the grace
+        exists for are never invited to use it."""
         guest = _make_member("cta_guest_recap", membership=False)
         event = _make_event()
         _attend(guest, event)
         _end_event(event)
+        assert lobby.lobby_cta(guest, event) == lobby.CTA_FINISH_CONNECT
+
+    def test_luxid_guest_gets_promo_only_once_closed(self):
+        """...but only while the lobby exists. Past the recap window the CTA
+        must stop advertising a lobby nobody can enter."""
+        guest = _make_member("cta_guest_closed", membership=False)
+        event = _make_event()
+        _attend(guest, event)
+        _end_event(event, hours_ago=49)
         assert lobby.lobby_cta(guest, event) == lobby.CTA_PROMO_ONLY
 
     def test_plain_guest_without_luxid_gets_promo_only(self):

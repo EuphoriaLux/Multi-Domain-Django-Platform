@@ -200,9 +200,10 @@ def event_lobby(request, event_id):
         )
 
     # Idempotent self-heal (§10: evaluate/create participation is idempotent):
-    # covers members whose check-in predates the feature rollout. Creates only
-    # while the live phase lasts — never retroactively (§5.3). During recap it
-    # returns None, so read the member's frozen participation directly.
+    # covers members whose check-in predates the feature rollout, and — since
+    # #741 — anyone admitted during the recap. Creation is open for the whole
+    # live phase *and* the recap, so this is the single point that admits a
+    # late joiner; it still returns None once the lobby is closed.
     participation, created = handle_checkin(registration)
     if created:
         broadcast_participant_joined(event.pk)
@@ -211,8 +212,9 @@ def event_lobby(request, event_id):
             event=event, user=request.user
         ).first()
 
-    # Recap phase (§7.7): the live lobby is closed, but the member joined
-    # before the exact end so their frozen participation grants recap access.
+    # Recap phase (§7.7): the live lobby is closed, but an attended member who
+    # clears the gate has recap access — whether they joined while live or were
+    # admitted just now by the self-heal above (#741).
     if phase == PHASE_RECAP and participation is not None:
         context = {
             "event": event,
