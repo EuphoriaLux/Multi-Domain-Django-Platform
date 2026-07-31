@@ -119,6 +119,26 @@ class SocialPostSerializer(serializers.ModelSerializer):
     def get_created_by(self, obj):
         return obj.user.get_username() if obj.user else "system"
 
+    def validate_platforms(self, value):
+        allowed = {"instagram", "facebook", "linkedin"}
+        if not isinstance(value, list) or any(
+            not isinstance(item, str) or item not in allowed for item in value
+        ):
+            raise serializers.ValidationError(
+                "Platforms must be a list of supported platform names."
+            )
+        return list(dict.fromkeys(value))
+
+    def validate_buffer_profile_ids(self, value):
+        if not isinstance(value, list) or any(
+            not isinstance(item, str) or not item.strip() or len(item) > 255
+            for item in value
+        ):
+            raise serializers.ValidationError(
+                "Buffer channel IDs must be a list of non-empty strings."
+            )
+        return list(dict.fromkeys(value))
+
 
 class WhatsAppInboundMessageSerializer(serializers.ModelSerializer):
     id = serializers.CharField(read_only=True)

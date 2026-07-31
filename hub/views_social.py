@@ -209,9 +209,10 @@ class SocialPostsView(APIView):
 class SocialPostDetailView(APIView):
     permission_classes = [IsAdminUser]
 
+    @transaction.atomic
     def patch(self, request, pk):
         try:
-            post = SocialPost.objects.get(pk=pk)
+            post = SocialPost.objects.select_for_update().get(pk=pk)
         except SocialPost.DoesNotExist:
             return Response(
                 {"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND

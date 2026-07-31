@@ -41,6 +41,8 @@ def _messages_request(*, prompt: str, schema: dict, max_tokens: int) -> dict:
             "facts. Keep supplied personal details anonymized and do not add any."
         ),
         "messages": [{"role": "user", "content": prompt}],
+        # GA request shape for Claude 4.5+; no beta header is required:
+        # https://platform.claude.com/docs/en/build-with-claude/structured-outputs
         "output_config": {
             "format": {
                 "type": "json_schema",

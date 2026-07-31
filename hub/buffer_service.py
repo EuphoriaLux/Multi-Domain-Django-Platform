@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import logging
+from ipaddress import ip_address
+from urllib.parse import urlparse
 
 import requests
 from django.conf import settings
@@ -23,6 +25,19 @@ class BufferPartialFailure(BufferServiceError):
     def __init__(self, created_post_ids: list[str]):
         super().__init__("Buffer created only some requested channel posts")
         self.created_post_ids = created_post_ids
+
+
+def _is_public_media_url(url: str) -> bool:
+    parsed = urlparse(url)
+    hostname = parsed.hostname
+    if parsed.scheme not in {"http", "https"} or not hostname:
+        return False
+    if hostname == "localhost" or hostname.endswith(".local"):
+        return False
+    try:
+        return ip_address(hostname).is_global
+    except ValueError:
+        return "." in hostname
 
 
 def _graphql(query: str, variables: dict | None = None) -> dict:
@@ -118,8 +133,10 @@ def _create_channel_post(
     if scheduled_at:
         post_input["dueAt"] = scheduled_at
     if media_url:
-        if not media_url.startswith(("http://", "https://")):
-            raise BufferServiceError("Buffer media must use a public HTTP(S) URL")
+        if not _is_public_media_url(media_url):
+            raise BufferServiceError(
+                "Buffer media must use a publicly reachable HTTP(S) URL"
+            )
         post_input["assets"] = [{"image": {"url": media_url}}]
 
     data = _graphql(

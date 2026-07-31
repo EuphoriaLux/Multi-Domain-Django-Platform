@@ -125,6 +125,21 @@ class SocialMediaTests(TestCase):
         self.assertEqual(post.status, SocialPost.Status.DRAFT)
         self.assertEqual(post.status_history[-1]["status"], SocialPost.Status.DRAFT)
 
+    def test_manual_creation_validates_platform_and_buffer_id_shapes(self):
+        bad_platform = self.client.post(
+            "/hub/social/posts",
+            {"content": "Post", "platforms": ["unsupported"]},
+            format="json",
+        )
+        bad_channels = self.client.post(
+            "/hub/social/posts",
+            {"content": "Post", "buffer_profile_ids": {"channel": "one"}},
+            format="json",
+        )
+
+        self.assertEqual(bad_platform.status_code, 400)
+        self.assertEqual(bad_channels.status_code, 400)
+
     @patch("hub.views_social.generate_social_copy")
     def test_batch_generation_uses_claude_copy(self, generate_copy):
         generate_copy.return_value = {
@@ -424,16 +439,22 @@ class SocialMediaTests(TestCase):
             content="Publication prête",
             status=SocialPost.Status.PENDING_REVIEW,
         )
-        response = self.client.patch(
-            f"/hub/social/posts/{post.pk}",
-            {
-                "status": "scheduled",
-                "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
-                "buffer_profile_ids": ["channel_1", "channel_2"],
-            },
-            format="json",
-        )
+        with patch.object(
+            SocialPost.objects,
+            "select_for_update",
+            wraps=SocialPost.objects.select_for_update,
+        ) as select_for_update:
+            response = self.client.patch(
+                f"/hub/social/posts/{post.pk}",
+                {
+                    "status": "scheduled",
+                    "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
+                    "buffer_profile_ids": ["channel_1", "channel_2"],
+                },
+                format="json",
+            )
         self.assertEqual(response.status_code, 200)
+        select_for_update.assert_called_once()
         post.refresh_from_db()
         self.assertEqual(post.buffer_id, "post_1,post_2")
         self.assertEqual(post.status, SocialPost.Status.SCHEDULED)
@@ -596,6 +617,16 @@ class BufferServiceTests(SimpleTestCase):
     def test_missing_buffer_key_fails_closed(self):
         with self.assertRaises(BufferServiceError):
             create_buffer_update(text="Hello", profile_ids=["channel_1"])
+
+    def test_localhost_media_is_rejected_before_buffer_dispatch(self):
+        with self.assertRaisesMessage(
+            BufferServiceError, "publicly reachable HTTP(S) URL"
+        ):
+            create_buffer_update(
+                text="Hello",
+                profile_ids=["channel_1"],
+                media_url="http://localhost:8000/media/social/card.png",
+            )
 
 
 @override_settings(
