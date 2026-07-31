@@ -206,6 +206,13 @@ class SocialPost(models.Model):
         on_delete=models.CASCADE,
         related_name="hub_social_posts",
     )
+    featured_profile = models.ForeignKey(
+        "crush_lu.CrushProfile",
+        on_delete=models.CASCADE,
+        related_name="hub_social_posts",
+        blank=True,
+        null=True,
+    )
     pillar = models.CharField(
         max_length=32, choices=Pillar.choices, default=Pillar.EVENT_RECAP
     )
@@ -232,4 +239,3 @@ class SocialPost(models.Model):
 
     def __str__(self):
         return f"[{self.language.upper()}] {self.hook or self.content[:30]} ({self.status})"
-

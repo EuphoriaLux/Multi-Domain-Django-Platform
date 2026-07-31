@@ -17,6 +17,14 @@ class BufferServiceError(RuntimeError):
     """Raised for Buffer configuration, transport, or GraphQL errors."""
 
 
+class BufferPartialFailure(BufferServiceError):
+    """Raised when Buffer created some channel posts before a later failure."""
+
+    def __init__(self, created_post_ids: list[str]):
+        super().__init__("Buffer created only some requested channel posts")
+        self.created_post_ids = created_post_ids
+
+
 def _graphql(query: str, variables: dict | None = None) -> dict:
     api_key = settings.BUFFER_API_KEY
     if not api_key:
@@ -147,13 +155,19 @@ def create_buffer_update(
     if not profile_ids:
         raise BufferServiceError("Select at least one Buffer channel")
 
-    post_ids = [
-        _create_channel_post(
-            channel_id=channel_id,
-            text=text,
-            scheduled_at=scheduled_at,
-            media_url=media_url,
-        )
-        for channel_id in profile_ids
-    ]
+    post_ids = []
+    for channel_id in profile_ids:
+        try:
+            post_ids.append(
+                _create_channel_post(
+                    channel_id=channel_id,
+                    text=text,
+                    scheduled_at=scheduled_at,
+                    media_url=media_url,
+                )
+            )
+        except BufferServiceError as exc:
+            if post_ids:
+                raise BufferPartialFailure(post_ids) from exc
+            raise
     return {"success": True, "buffer_ids": post_ids, "buffer_id": ",".join(post_ids)}

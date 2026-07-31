@@ -23,6 +23,45 @@ WHITE = (255, 255, 255)
 MUTED = (188, 190, 207)
 CARD = (31, 29, 49, 225)
 MAX_BACKGROUND_BYTES = 12 * 1024 * 1024
+CARD_COPY = {
+    "fr": {
+        "tagline": "RENCONTRES AUTHENTIQUES",
+        "event_badge": "ÉVÉNEMENT CRUSH.LU",
+        "event_cta": "RÉSERVER MA PLACE",
+        "community_badge": "COMMUNAUTÉ CRUSH.LU",
+        "kpi_title": "CHIFFRES DE LA SEMAINE",
+        "kpi_subtitle": "Les données réelles de notre communauté",
+        "profile_badge": "CONSENTANT & VÉRIFIÉ",
+        "interests": "CENTRES D'INTÉRÊT",
+        "event_vibe": "AMBIANCE EN ÉVÉNEMENT",
+    },
+    "en": {
+        "tagline": "AUTHENTIC CONNECTIONS",
+        "event_badge": "CRUSH.LU EVENT",
+        "event_cta": "RESERVE MY SPOT",
+        "community_badge": "CRUSH.LU COMMUNITY",
+        "kpi_title": "THIS WEEK'S NUMBERS",
+        "kpi_subtitle": "Real data from our community",
+        "profile_badge": "CONSENTING & VERIFIED",
+        "interests": "INTERESTS",
+        "event_vibe": "EVENT VIBE",
+    },
+    "de": {
+        "tagline": "ECHTE BEGEGNUNGEN",
+        "event_badge": "CRUSH.LU EVENT",
+        "event_cta": "PLATZ RESERVIEREN",
+        "community_badge": "CRUSH.LU COMMUNITY",
+        "kpi_title": "ZAHLEN DER WOCHE",
+        "kpi_subtitle": "Echte Daten aus unserer Community",
+        "profile_badge": "EINVERSTANDEN & VERIFIZIERT",
+        "interests": "INTERESSEN",
+        "event_vibe": "EVENT-STIMMUNG",
+    },
+}
+
+
+def _card_copy(language: str) -> dict[str, str]:
+    return CARD_COPY.get(language, CARD_COPY["fr"])
 
 
 def _font(size: int, *, bold: bool = False) -> ImageFont.FreeTypeFont:
@@ -82,16 +121,21 @@ def _background_image(url: str | None) -> Image.Image | None:
     parsed = urlparse(url or "")
     if parsed.scheme not in {"http", "https"}:
         return None
+    response = None
     try:
-        response = requests.get(url, timeout=6)
+        response = requests.get(url, timeout=6, stream=True)
         response.raise_for_status()
         content_length = int(response.headers.get("content-length") or 0)
-        if (
-            content_length > MAX_BACKGROUND_BYTES
-            or len(response.content) > MAX_BACKGROUND_BYTES
-        ):
+        if content_length > MAX_BACKGROUND_BYTES:
             raise ValueError("background image exceeds 12 MB")
-        image = Image.open(io.BytesIO(response.content)).convert("RGBA")
+        content = bytearray()
+        for chunk in response.iter_content(chunk_size=64 * 1024):
+            if not chunk:
+                continue
+            content.extend(chunk)
+            if len(content) > MAX_BACKGROUND_BYTES:
+                raise ValueError("background image exceeds 12 MB")
+        image = Image.open(io.BytesIO(content)).convert("RGBA")
         scale = max(SIZE / image.width, SIZE / image.height)
         resized = image.resize(
             (round(image.width * scale), round(image.height * scale)),
@@ -103,6 +147,9 @@ def _background_image(url: str | None) -> Image.Image | None:
     except (requests.RequestException, OSError, ValueError):
         logger.warning("Could not load event background image", exc_info=True)
         return None
+    finally:
+        if response is not None:
+            response.close()
 
 
 def _canvas(background_url: str | None = None) -> Image.Image:
@@ -128,12 +175,13 @@ def _pill(draw, xy, text: str, *, fill=(*PURPLE, 72), font_size=27):
     return width, height
 
 
-def _brand_footer(draw):
+def _brand_footer(draw, *, language: str):
+    copy = _card_copy(language)
     draw.line((70, 990, 1010, 990), fill=(255, 255, 255, 38), width=2)
     draw.text((70, 1017), "CRUSH.LU", font=_font(27, bold=True), fill=WHITE)
     draw.text(
         (1010, 1017),
-        "RENCONTRES AUTHENTIQUES",
+        copy["tagline"],
         font=_font(19, bold=True),
         fill=MUTED,
         anchor="ra",
@@ -159,11 +207,13 @@ def generate_event_flyer(
     date_str="Jeudi · 19:30",
     location="Luxembourg",
     background_url: str | None = None,
+    language: str = "fr",
 ) -> str:
+    copy = _card_copy(language)
     image = _canvas(background_url)
     draw = ImageDraw.Draw(image, "RGBA")
     draw.rounded_rectangle((55, 55, 1025, 970), radius=44, fill=(15, 13, 30, 178))
-    _pill(draw, (92, 92), "ÉVÉNEMENT CRUSH.LU", fill=(*ROSE, 205), font_size=25)
+    _pill(draw, (92, 92), copy["event_badge"], fill=(*ROSE, 205), font_size=25)
 
     title_font = _font(73, bold=True)
     lines = _wrap(draw, title, title_font, 870)[:4]
@@ -178,24 +228,26 @@ def generate_event_flyer(
     draw.rounded_rectangle((92, 885, 450, 950), radius=30, fill=(*ROSE, 255))
     draw.text(
         (271, 916),
-        "RÉSERVER MA PLACE",
+        copy["event_cta"],
         font=_font(24, bold=True),
         fill=WHITE,
         anchor="mm",
     )
-    _brand_footer(draw)
+    _brand_footer(draw, language=language)
     return _save(image, "event_flyer")
 
 
-def generate_kpi_card(title="CHIFFRES DE LA SEMAINE", stats=None) -> str:
+def generate_kpi_card(title=None, stats=None, *, language: str = "fr") -> str:
+    copy = _card_copy(language)
+    title = title or copy["kpi_title"]
     stats = stats or []
     image = _canvas()
     draw = ImageDraw.Draw(image, "RGBA")
-    _pill(draw, (70, 68), "COMMUNAUTÉ CRUSH.LU", font_size=23)
+    _pill(draw, (70, 68), copy["community_badge"], font_size=23)
     draw.text((70, 166), title, font=_font(58, bold=True), fill=WHITE)
     draw.text(
         (70, 238),
-        "Les données réelles de notre communauté",
+        copy["kpi_subtitle"],
         font=_font(28),
         fill=MUTED,
     )
@@ -210,7 +262,7 @@ def generate_kpi_card(title="CHIFFRES DE LA SEMAINE", stats=None) -> str:
         )
         draw.text((430, y + 82), label, font=_font(31), fill=MUTED, anchor="lm")
         y += 205
-    _brand_footer(draw)
+    _brand_footer(draw, language=language)
     return _save(image, "kpi_card")
 
 
@@ -220,14 +272,14 @@ def generate_profile_card(
     region="Luxembourg",
     passions=None,
     bio_quote="",
+    language: str = "fr",
 ) -> str:
+    copy = _card_copy(language)
     passions = passions or []
     image = _canvas()
     draw = ImageDraw.Draw(image, "RGBA")
     draw.rounded_rectangle((55, 55, 1025, 970), radius=44, fill=CARD)
-    _pill(
-        draw, (90, 88), "PROFIL CONSENTANT & VÉRIFIÉ", fill=(*ROSE, 185), font_size=22
-    )
+    _pill(draw, (90, 88), copy["profile_badge"], fill=(*ROSE, 185), font_size=22)
 
     initial = str(first_name)[:1].upper() or "C"
     draw.ellipse((90, 205, 290, 405), fill=(*PURPLE, 210))
@@ -235,7 +287,7 @@ def generate_profile_card(
     draw.text((335, 250), f"{first_name}, {age}", font=_font(55, bold=True), fill=WHITE)
     draw.text((335, 330), region, font=_font(31), fill=MUTED)
 
-    draw.text((90, 475), "CENTRES D'INTÉRÊT", font=_font(24, bold=True), fill=MUTED)
+    draw.text((90, 475), copy["interests"], font=_font(24, bold=True), fill=MUTED)
     x, y = 90, 525
     for passion in passions[:4]:
         width, height = _pill(draw, (x, y), str(passion), font_size=23)
@@ -244,7 +296,7 @@ def generate_profile_card(
             x = 90
             y += height + 16
 
-    draw.text((90, 690), "AMBIANCE EN ÉVÉNEMENT", font=_font(24, bold=True), fill=MUTED)
+    draw.text((90, 690), copy["event_vibe"], font=_font(24, bold=True), fill=MUTED)
     draw.rounded_rectangle((90, 735, 990, 900), radius=28, fill=(255, 255, 255, 20))
     quote_font = _font(34)
     quote_lines = _wrap(draw, str(bio_quote), quote_font, 800)[:3]
@@ -252,5 +304,5 @@ def generate_profile_card(
     for line in quote_lines:
         draw.text((135, quote_y), line, font=quote_font, fill=WHITE)
         quote_y += 43
-    _brand_footer(draw)
+    _brand_footer(draw, language=language)
     return _save(image, "profile_card")

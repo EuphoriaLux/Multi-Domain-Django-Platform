@@ -82,12 +82,14 @@ class WhatsAppMessageSerializer(serializers.ModelSerializer):
 class SocialPostSerializer(serializers.ModelSerializer):
     id = serializers.CharField(read_only=True)
     created_by = serializers.SerializerMethodField()
+    featured_profile_id = serializers.CharField(read_only=True)
 
     class Meta:
         model = SocialPost
         fields = [
             "id",
             "created_by",
+            "featured_profile_id",
             "pillar",
             "language",
             "platforms",
@@ -106,6 +108,7 @@ class SocialPostSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "id",
             "created_by",
+            "featured_profile_id",
             "buffer_id",
             "article_id",
             "status_history",

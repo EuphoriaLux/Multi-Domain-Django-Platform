@@ -10,15 +10,25 @@ from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from crush_lu.models import CrushProfile, Interest, MeetupEvent, UserDataConsent
-from hub.buffer_service import BufferServiceError, create_buffer_update
+from crush_lu.models import (
+    CrushProfile,
+    EventConnection,
+    Interest,
+    MeetupEvent,
+    UserDataConsent,
+)
+from hub.buffer_service import (
+    BufferPartialFailure,
+    BufferServiceError,
+    create_buffer_update,
+)
 from hub.claude_service import (
     ClaudeServiceError,
     GeneratedArticle,
     generate_social_copy,
 )
-from hub.image_generator import generate_kpi_card
-from hub.models import SocialPost
+from hub.image_generator import _background_image, generate_kpi_card
+from hub.models import HubResource, SocialPost
 
 User = get_user_model()
 
@@ -49,6 +59,36 @@ class SocialMediaTests(TestCase):
         values.update(overrides)
         return MeetupEvent.objects.create(**values)
 
+    def _eligible_profile(self, username="eligible@example.com"):
+        member = User.objects.create_user(
+            username=username,
+            email=username,
+            first_name="Sophie",
+        )
+        profile, _ = CrushProfile.objects.update_or_create(
+            user=member,
+            defaults={
+                "verification_status": "verified",
+                "is_active": True,
+                "approved_at": timezone.now(),
+                "date_of_birth": date(1992, 4, 12),
+                "location": "Luxembourg",
+                "event_vibe": "quiet_corner",
+            },
+        )
+        interest, _ = Interest.objects.update_or_create(
+            slug="wine", defaults={"label": "Œnologie", "category": "food"}
+        )
+        profile.interests_new.add(interest)
+        consent, _ = UserDataConsent.objects.update_or_create(
+            user=member,
+            defaults={
+                "crushlu_consent_given": True,
+                "marketing_consent": True,
+            },
+        )
+        return member, profile, consent
+
     def test_non_staff_cannot_access_marketing_endpoints(self):
         non_staff = User.objects.create_user(username="member", password="password123")
         self.client.force_authenticate(user=non_staff)
@@ -67,6 +107,23 @@ class SocialMediaTests(TestCase):
         response = self.client.get("/hub/social/posts")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["items"][0]["hook"], "Soirée œnologique")
+
+    def test_manual_creation_always_starts_as_draft(self):
+        response = self.client.post(
+            "/hub/social/posts",
+            {
+                "content": "Publication manuelle",
+                "status": SocialPost.Status.SCHEDULED,
+                "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
+                "buffer_profile_ids": ["channel_1"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        post = SocialPost.objects.get(pk=response.data["post"]["id"])
+        self.assertEqual(post.status, SocialPost.Status.DRAFT)
+        self.assertEqual(post.status_history[-1]["status"], SocialPost.Status.DRAFT)
 
     @patch("hub.views_social.generate_social_copy")
     def test_batch_generation_uses_claude_copy(self, generate_copy):
@@ -140,6 +197,49 @@ class SocialMediaTests(TestCase):
             response.data["posts"][0]["media_url"], "https://media.test/kpi.png"
         )
 
+    @patch("hub.views_social.generate_kpi_card")
+    @patch("hub.views_social.generate_social_copy")
+    def test_graphics_are_rendered_and_labeled_per_language(
+        self, generate_copy, generate_card
+    ):
+        generate_copy.return_value = {
+            "fr": "Publication française.",
+            "en": "English publication.",
+            "de": "Deutsche Veröffentlichung.",
+        }
+        generate_card.side_effect = lambda **kwargs: (
+            f"https://media.test/{kwargs['language']}.png"
+        )
+
+        response = self.client.post(
+            "/hub/social/generate",
+            {
+                "category": "kpis",
+                "hook": "Croissance hebdomadaire",
+                "pillar": "milestone",
+                "platforms": ["linkedin"],
+                "languages": ["fr", "en", "de"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(
+            {post["language"]: post["media_url"] for post in response.data["posts"]},
+            {
+                "fr": "https://media.test/fr.png",
+                "en": "https://media.test/en.png",
+                "de": "https://media.test/de.png",
+            },
+        )
+        calls = {
+            call.kwargs["language"]: call.kwargs
+            for call in generate_card.call_args_list
+        }
+        self.assertEqual(calls["fr"]["stats"][0]["label"], "Nouveaux membres")
+        self.assertEqual(calls["en"]["stats"][0]["label"], "New members")
+        self.assertEqual(calls["de"]["stats"][0]["label"], "Neue Mitglieder")
+
     @patch("hub.views_social.list_buffer_profiles")
     def test_buffer_profiles_list(self, list_profiles):
         list_profiles.return_value = [
@@ -182,12 +282,19 @@ class SocialMediaTests(TestCase):
             language="fr",
             content="Les secrets d'un profil attrayant sur Crush.lu",
         )
-        first = self.client.post(f"/hub/social/posts/{post.pk}/expand-article")
-        second = self.client.post(f"/hub/social/posts/{post.pk}/expand-article")
+        with patch.object(
+            SocialPost.objects,
+            "select_for_update",
+            wraps=SocialPost.objects.select_for_update,
+        ) as select_for_update:
+            first = self.client.post(f"/hub/social/posts/{post.pk}/expand-article")
+            second = self.client.post(f"/hub/social/posts/{post.pk}/expand-article")
         self.assertEqual(first.status_code, 201)
         self.assertEqual(second.status_code, 200)
         self.assertEqual(first.data["article_id"], second.data["article_id"])
         expand.assert_called_once()
+        self.assertEqual(select_for_update.call_count, 2)
+        self.assertEqual(HubResource.objects.count(), 1)
 
     @patch(
         "hub.views_social.expand_social_post",
@@ -221,43 +328,93 @@ class SocialMediaTests(TestCase):
         )
 
     def test_kpis_summary_endpoint_reads_database(self):
+        recent_member, _recent_profile, _consent = self._eligible_profile(
+            "recent@example.com"
+        )
+        old_member, old_profile, _old_consent = self._eligible_profile(
+            "old@example.com"
+        )
+        old_profile.approved_at = timezone.now() - timedelta(days=8)
+        old_profile.save(update_fields=["approved_at"])
+        User.objects.create_user(
+            username="profile-shell@example.com",
+            email="profile-shell@example.com",
+        )
+        event = self._event()
+        EventConnection.objects.create(
+            requester=recent_member,
+            recipient=self.user,
+            event=event,
+            status="shared",
+            shared_at=timezone.now(),
+        )
+        EventConnection.objects.create(
+            requester=old_member,
+            recipient=self.user,
+            event=event,
+            status="pending",
+        )
+
         response = self.client.get("/hub/social/kpis-summary")
+
         self.assertEqual(response.status_code, 200)
-        self.assertIn("new_members_week", response.data["kpis"])
+        self.assertEqual(response.data["kpis"]["new_members_week"], "+1")
+        self.assertEqual(response.data["kpis"]["matches_created_week"], "1")
         self.assertIn("parity_ratio", response.data["kpis"])
 
     def test_featured_profiles_requires_crush_and_marketing_consent(self):
-        member = User.objects.create_user(
-            username="eligible@example.com",
-            email="eligible@example.com",
-            first_name="Sophie",
-        )
-        profile, _ = CrushProfile.objects.update_or_create(
-            user=member,
-            defaults={
-                "verification_status": "verified",
-                "is_active": True,
-                "date_of_birth": date(1992, 4, 12),
-                "location": "Luxembourg",
-                "event_vibe": "quiet_corner",
-            },
-        )
-        interest, _ = Interest.objects.update_or_create(
-            slug="wine", defaults={"label": "Œnologie", "category": "food"}
-        )
-        profile.interests_new.add(interest)
-        UserDataConsent.objects.update_or_create(
-            user=member,
-            defaults={
-                "crushlu_consent_given": True,
-                "marketing_consent": True,
-            },
-        )
+        _member, _profile, _consent = self._eligible_profile()
 
         response = self.client.get("/hub/social/featured-profiles")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["items"][0]["first_name"], "Sophie")
         self.assertEqual(response.data["items"][0]["passions"], ["Œnologie"])
+
+    @patch("hub.views_social.create_buffer_update")
+    @patch(
+        "hub.views_social.generate_profile_card",
+        return_value="https://media.test/profile.png",
+    )
+    @patch(
+        "hub.views_social.generate_social_copy",
+        return_value={"fr": "Portrait de membre consenti."},
+    )
+    def test_profile_consent_is_rechecked_before_scheduling(
+        self, _generate_copy, _graphic, dispatch
+    ):
+        _member, profile, consent = self._eligible_profile()
+        generated = self.client.post(
+            "/hub/social/generate",
+            {
+                "category": "profiles",
+                "profile_id": str(profile.pk),
+                "hook": "Membre de la semaine",
+                "pillar": "community",
+                "platforms": ["instagram"],
+                "languages": ["fr"],
+            },
+            format="json",
+        )
+        self.assertEqual(generated.status_code, 201)
+        post = SocialPost.objects.get(pk=generated.data["posts"][0]["id"])
+        self.assertEqual(post.featured_profile_id, profile.pk)
+
+        consent.marketing_consent = False
+        consent.save(update_fields=["marketing_consent"])
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}",
+            {
+                "status": SocialPost.Status.SCHEDULED,
+                "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
+                "buffer_profile_ids": ["channel_1"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 409)
+        dispatch.assert_not_called()
+        post.refresh_from_db()
+        self.assertEqual(post.status, SocialPost.Status.DRAFT)
 
     @patch("hub.views_social.create_buffer_update")
     def test_scheduling_dispatches_to_buffer(self, dispatch):
@@ -280,6 +437,59 @@ class SocialMediaTests(TestCase):
         post.refresh_from_db()
         self.assertEqual(post.buffer_id, "post_1,post_2")
         self.assertEqual(post.status, SocialPost.Status.SCHEDULED)
+
+    def test_scheduled_delivery_fields_are_immutable(self):
+        post = SocialPost.objects.create(
+            user=self.user,
+            content="Version envoyée à Buffer",
+            status=SocialPost.Status.SCHEDULED,
+            scheduled_for=timezone.now() + timedelta(days=1),
+            buffer_profile_ids=["channel_1"],
+            buffer_id="buffer_post_1",
+        )
+
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}",
+            {"content": "Version locale divergente"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.data["fields"], ["content"])
+        post.refresh_from_db()
+        self.assertEqual(post.content, "Version envoyée à Buffer")
+
+    @patch(
+        "hub.views_social.create_buffer_update",
+        side_effect=BufferPartialFailure(["buffer_post_1"]),
+    )
+    def test_partial_buffer_failure_preserves_ids_and_blocks_duplicate_retry(
+        self, dispatch
+    ):
+        post = SocialPost.objects.create(
+            user=self.user,
+            content="Publication prête",
+            status=SocialPost.Status.PENDING_REVIEW,
+        )
+        payload = {
+            "status": SocialPost.Status.SCHEDULED,
+            "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
+            "buffer_profile_ids": ["channel_1", "channel_2"],
+        }
+
+        first = self.client.patch(
+            f"/hub/social/posts/{post.pk}", payload, format="json"
+        )
+        retry = self.client.patch(
+            f"/hub/social/posts/{post.pk}", payload, format="json"
+        )
+
+        self.assertEqual(first.status_code, 502)
+        self.assertEqual(retry.status_code, 409)
+        self.assertEqual(dispatch.call_count, 1)
+        post.refresh_from_db()
+        self.assertEqual(post.status, SocialPost.Status.FAILED)
+        self.assertEqual(post.buffer_id, "buffer_post_1")
 
     @patch(
         "hub.views_social.create_buffer_update",
@@ -367,6 +577,21 @@ class BufferServiceTests(SimpleTestCase):
             [{"image": {"url": "https://media.crush.lu/social/card.png"}}],
         )
 
+    @patch("hub.buffer_service._create_channel_post")
+    def test_partial_failure_reports_already_created_post_ids(self, create_post):
+        create_post.side_effect = [
+            "buffer_post_1",
+            BufferServiceError("second channel failed"),
+        ]
+
+        with self.assertRaises(BufferPartialFailure) as raised:
+            create_buffer_update(
+                text="Hello Luxembourg",
+                profile_ids=["channel_1", "channel_2"],
+            )
+
+        self.assertEqual(raised.exception.created_post_ids, ["buffer_post_1"])
+
     @override_settings(BUFFER_API_KEY="")
     def test_missing_buffer_key_fails_closed(self):
         with self.assertRaises(BufferServiceError):
@@ -409,6 +634,22 @@ class ClaudeServiceTests(SimpleTestCase):
 
 
 class ImageGeneratorTests(SimpleTestCase):
+    @patch("hub.image_generator.requests.get")
+    def test_remote_background_stops_streaming_at_size_limit(self, get):
+        response = Mock()
+        response.headers = {}
+        response.iter_content.return_value = [b"1234", b"5"]
+        get.return_value = response
+
+        with patch("hub.image_generator.MAX_BACKGROUND_BYTES", 4):
+            image = _background_image("https://media.test/oversized.png")
+
+        self.assertIsNone(image)
+        get.assert_called_once_with(
+            "https://media.test/oversized.png", timeout=6, stream=True
+        )
+        response.close.assert_called_once()
+
     def test_pillow_renderer_creates_public_png_without_browser_runtime(self):
         with TemporaryDirectory() as media_root:
             with self.settings(

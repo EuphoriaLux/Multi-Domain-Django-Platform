@@ -6,6 +6,7 @@ import logging
 from datetime import datetime, timedelta
 from functools import partial
 
+from django.db import transaction
 from django.db.models import Count
 from django.utils import timezone
 from rest_framework import status
@@ -16,6 +17,7 @@ from rest_framework.views import APIView
 from crush_lu.models import CrushProfile, EventConnection, MeetupEvent
 
 from .buffer_service import (
+    BufferPartialFailure,
     BufferServiceError,
     create_buffer_update,
     list_buffer_profiles,
@@ -40,6 +42,22 @@ BUFFER_SCHEDULE_ERROR = "Buffer could not schedule this post. Try again later."
 COPY_GENERATION_ERROR = "Social copy generation is temporarily unavailable."
 BUFFER_PROFILES_ERROR = "Buffer channels are temporarily unavailable."
 ARTICLE_GENERATION_ERROR = "Article generation is temporarily unavailable."
+BUFFER_PARTIAL_ERROR = (
+    "Some Buffer channels were scheduled before another channel failed. "
+    "Reconcile the saved Buffer IDs before retrying."
+)
+PROFILE_INELIGIBLE_ERROR = (
+    "The featured profile is no longer eligible for marketing publication."
+)
+SCHEDULED_EDIT_ERROR = (
+    "Delivery fields cannot be changed after a post has been scheduled in Buffer."
+)
+SCHEDULING_FIELDS = {"content", "scheduled_for", "media_url", "buffer_profile_ids"}
+KPI_LABELS = {
+    "fr": ("Nouveaux membres", "Connexions créées", "Répartition des profils"),
+    "en": ("New members", "Connections made", "Profile distribution"),
+    "de": ("Neue Mitglieder", "Neue Verbindungen", "Profilverteilung"),
+}
 
 
 def _history_entry(request, state: str, *, note: str = "") -> dict:
@@ -68,8 +86,11 @@ def _kpi_snapshot() -> dict[str, str]:
     week_ago = now - timedelta(days=7)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
-    new_members = CrushProfile.objects.filter(created_at__gte=week_ago).count()
-    connections = EventConnection.objects.filter(requested_at__gte=week_ago).count()
+    new_members = CrushProfile.objects.filter(
+        verification_status="verified",
+        approved_at__gte=week_ago,
+    ).count()
+    connections = EventConnection.objects.filter(shared_at__gte=week_ago).count()
     events = MeetupEvent.objects.filter(
         is_published=True,
         is_cancelled=False,
@@ -87,9 +108,9 @@ def _kpi_snapshot() -> dict[str, str]:
         male = round(gender_counts.get("M", 0) * 100 / known_total)
         female = round(gender_counts.get("F", 0) * 100 / known_total)
         other = max(0, 100 - male - female)
-        parity = f"{male}% H / {female}% F"
+        parity = f"{male}% ♂ / {female}% ♀"
         if other:
-            parity += f" / {other}% autre"
+            parity += f" / {other}% ⚧"
     else:
         parity = "N/D"
 
@@ -99,6 +120,18 @@ def _kpi_snapshot() -> dict[str, str]:
         "parity_ratio": parity,
         "events_hosted_month": str(events),
     }
+
+
+def _generate_kpi_graphic(context: dict[str, str], *, language: str) -> str:
+    member_label, connection_label, parity_label = KPI_LABELS[language]
+    return generate_kpi_card(
+        language=language,
+        stats=[
+            {"value": context["new_members_week"], "label": member_label},
+            {"value": context["matches_created_week"], "label": connection_label},
+            {"value": context["parity_ratio"], "label": parity_label},
+        ],
+    )
 
 
 def _eligible_profiles():
@@ -165,6 +198,7 @@ class SocialPostsView(APIView):
         serializer.is_valid(raise_exception=True)
         post = serializer.save(
             user=request.user,
+            status=SocialPost.Status.DRAFT,
             status_history=[_history_entry(request, SocialPost.Status.DRAFT)],
         )
         return Response(
@@ -185,6 +219,26 @@ class SocialPostDetailView(APIView):
 
         requested_status = request.data.get("status", post.status)
         if requested_status == SocialPost.Status.SCHEDULED:
+            if post.buffer_id and post.status != SocialPost.Status.SCHEDULED:
+                return Response(
+                    {
+                        "error": (
+                            "This post already has Buffer publications. "
+                            "Reconcile them before retrying."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            if (
+                post.featured_profile_id
+                and not _eligible_profiles()
+                .filter(pk=post.featured_profile_id)
+                .exists()
+            ):
+                return Response(
+                    {"error": PROFILE_INELIGIBLE_ERROR},
+                    status=status.HTTP_409_CONFLICT,
+                )
             scheduling_errors = {}
             if not request.data.get("scheduled_for", post.scheduled_for):
                 scheduling_errors["scheduled_for"] = "Choose a publication time"
@@ -198,6 +252,21 @@ class SocialPostDetailView(APIView):
         old_status = post.status
         serializer = SocialPostSerializer(post, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
+        if post.status == SocialPost.Status.SCHEDULED:
+            changed_delivery_fields = sorted(
+                field
+                for field in SCHEDULING_FIELDS
+                if field in serializer.validated_data
+                and serializer.validated_data[field] != getattr(post, field)
+            )
+            if changed_delivery_fields:
+                return Response(
+                    {
+                        "error": SCHEDULED_EDIT_ERROR,
+                        "fields": changed_delivery_fields,
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
         updated_post = serializer.save()
         new_status = updated_post.status
 
@@ -214,6 +283,32 @@ class SocialPostDetailView(APIView):
                     profile_ids=updated_post.buffer_profile_ids or [],
                     scheduled_at=updated_post.scheduled_for.isoformat(),
                     media_url=updated_post.media_url,
+                )
+            except BufferPartialFailure as exc:
+                logger.exception(
+                    "Buffer scheduling partially failed for social post %s",
+                    updated_post.pk,
+                )
+                updated_post.status = SocialPost.Status.FAILED
+                updated_post.buffer_id = ",".join(exc.created_post_ids)
+                history = list(updated_post.status_history or [])
+                history.append(
+                    _history_entry(
+                        request,
+                        SocialPost.Status.FAILED,
+                        note=BUFFER_PARTIAL_ERROR,
+                    )
+                )
+                updated_post.status_history = history
+                updated_post.save(
+                    update_fields=["status", "buffer_id", "status_history"]
+                )
+                return Response(
+                    {
+                        "error": BUFFER_PARTIAL_ERROR,
+                        "post": SocialPostSerializer(updated_post).data,
+                    },
+                    status=status.HTTP_502_BAD_GATEWAY,
                 )
             except BufferServiceError:
                 logger.exception(
@@ -270,6 +365,7 @@ class SocialGenerateView(APIView):
 
         context: dict = {"topic": hook}
         graphic = None
+        featured_profile = None
         warnings = []
 
         if category == "events":
@@ -301,17 +397,7 @@ class SocialGenerateView(APIView):
             )
         elif category == "kpis":
             context = _kpi_snapshot()
-            stats = [
-                {"value": context["new_members_week"], "label": "Nouveaux membres"},
-                {
-                    "value": context["matches_created_week"],
-                    "label": "Connexions créées",
-                },
-                {"value": context["parity_ratio"], "label": "Répartition des profils"},
-            ]
-            graphic = partial(
-                generate_kpi_card, title="CHIFFRES DE LA SEMAINE", stats=stats
-            )
+            graphic = partial(_generate_kpi_graphic, context)
         elif category == "profiles":
             profile = (
                 _eligible_profiles().filter(pk=request.data.get("profile_id")).first()
@@ -322,6 +408,7 @@ class SocialGenerateView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             context = _profile_payload(profile)
+            featured_profile = profile
             hook = f"Membre de la semaine : {context['first_name']}"
             graphic = partial(
                 generate_profile_card,
@@ -348,26 +435,30 @@ class SocialGenerateView(APIView):
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
-        media_url = None
+        media_urls = {}
         if graphic:
-            try:
-                media_url = graphic()
-            except Exception:
-                logger.exception("Social graphic generation failed")
-                warnings.append(
-                    "Copy was generated, but the graphic renderer was unavailable"
-                )
+            for language in languages:
+                try:
+                    media_urls[language] = graphic(language=language)
+                except Exception:
+                    logger.exception(
+                        "Social graphic generation failed for language %s", language
+                    )
+                    warnings.append(
+                        f"Copy was generated for {language}, but its graphic was unavailable"
+                    )
 
         scheduled_for = _next_friday_at_1600()
         posts = [
             SocialPost.objects.create(
                 user=request.user,
+                featured_profile=featured_profile,
                 hook=hook,
                 pillar=pillar,
                 language=language,
                 platforms=platforms,
                 content=generated_copy[language],
-                media_url=media_url,
+                media_url=media_urls.get(language),
                 status=SocialPost.Status.DRAFT,
                 scheduled_for=scheduled_for,
                 status_history=[_history_entry(request, SocialPost.Status.DRAFT)],
@@ -438,53 +529,54 @@ class SocialExpandArticleView(APIView):
     permission_classes = [IsAdminUser]
 
     def post(self, request, pk):
-        try:
-            post = SocialPost.objects.get(pk=pk)
-        except SocialPost.DoesNotExist:
-            return Response(
-                {"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND
-            )
-
-        if post.article_id:
-            existing = HubResource.objects.filter(pk=post.article_id).first()
-            if existing:
+        with transaction.atomic():
+            try:
+                post = SocialPost.objects.select_for_update().get(pk=pk)
+            except SocialPost.DoesNotExist:
                 return Response(
-                    {
-                        "article_id": str(existing.pk),
-                        "title": existing.title,
-                        "content": existing.summary,
-                    }
+                    {"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND
                 )
 
-        try:
-            article = expand_social_post(
-                hook=post.hook,
-                pillar=post.pillar,
-                language=post.language,
-                content=post.content,
-            )
-        except ClaudeServiceError:
-            logger.exception(
-                "Claude article expansion failed for social post %s", post.pk
-            )
-            return Response(
-                {"error": ARTICLE_GENERATION_ERROR},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
+            if post.article_id:
+                existing = HubResource.objects.filter(pk=post.article_id).first()
+                if existing:
+                    return Response(
+                        {
+                            "article_id": str(existing.pk),
+                            "title": existing.title,
+                            "content": existing.summary,
+                        }
+                    )
 
-        resource = HubResource.objects.create(
-            title=article.title,
-            summary=article.content,
-            type=HubResource.Type.GUIDE,
-            is_public=True,
-        )
-        post.article_id = str(resource.pk)
-        post.save(update_fields=["article_id"])
-        return Response(
-            {
-                "article_id": str(resource.pk),
-                "title": resource.title,
-                "content": resource.summary,
-            },
-            status=status.HTTP_201_CREATED,
-        )
+            try:
+                article = expand_social_post(
+                    hook=post.hook,
+                    pillar=post.pillar,
+                    language=post.language,
+                    content=post.content,
+                )
+            except ClaudeServiceError:
+                logger.exception(
+                    "Claude article expansion failed for social post %s", post.pk
+                )
+                return Response(
+                    {"error": ARTICLE_GENERATION_ERROR},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
+
+            resource = HubResource.objects.create(
+                title=article.title,
+                summary=article.content,
+                type=HubResource.Type.GUIDE,
+                is_public=True,
+            )
+            post.article_id = str(resource.pk)
+            post.save(update_fields=["article_id"])
+            return Response(
+                {
+                    "article_id": str(resource.pk),
+                    "title": resource.title,
+                    "content": resource.summary,
+                },
+                status=status.HTTP_201_CREATED,
+            )
