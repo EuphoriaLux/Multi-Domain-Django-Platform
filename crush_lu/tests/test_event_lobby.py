@@ -271,10 +271,34 @@ class TestEligibility:
         member = _make_member("alice")
         assert _join(member, event) is None
 
-    def test_checkin_after_event_end_denies(self):
+    def test_checkin_during_recap_admits(self):
+        """#741: a scan after the scheduled end still joins, because the end is
+        derived from ``duration_minutes`` and a mis-set duration used to void
+        the lobby *and* the recap with no backfill."""
         event = _make_event(starts_in_minutes=-200, duration=120)  # ended 80m ago
         member = _make_member("alice")
+        participation = _join(member, event)
+        assert participation is not None
+        assert lobby.event_lobby_phase(event) == lobby.PHASE_RECAP
+
+    def test_checkin_after_recap_closes_denies(self):
+        """The grace is the recap window, not an open door: once the lobby is
+        PHASE_CLOSED nothing may be admitted."""
+        minutes_48h = 48 * 60
+        event = _make_event(
+            starts_in_minutes=-(minutes_48h + 200), duration=120
+        )  # recap closed 80m ago
+        member = _make_member("alice")
+        assert lobby.event_lobby_phase(event) == lobby.PHASE_CLOSED
         assert _join(member, event) is None
+
+    def test_checkin_on_cancelled_event_denies(self):
+        """lobby_admission_open folds the cancelled/unpublished checks into the
+        phase — pin that the fold did not lose them."""
+        event = _make_event(cancelled=True)
+        assert _join(_make_member("alice"), event) is None
+        unpublished = _make_event(published=False)
+        assert _join(_make_member("ben"), unpublished) is None
 
     def test_premium_and_preferences_do_not_matter(self):
         """§5.1: Premium and dating preferences are never part of this gate —
@@ -304,7 +328,9 @@ class TestEligibility:
         assert len(created) == 1
         assert created[0].eligibility_source == "onboarding_completed"
 
-        # A second member finishing only after the exact end joins nothing (§5.3).
+        # #741: a second member finishing just after the exact end is now
+        # admitted to the recap. This is the 2m34s case from the 2026-07-29
+        # event, where the scheduled end was wrong rather than the attendee.
         late = _make_member("late", membership=False)
         _attend(late, event)
         CrushConnectMembership.objects.create(
@@ -314,7 +340,28 @@ class TestEligibility:
             "crushprofile", "crush_connect_membership"
         ).get(pk=late.pk)
         after_end = event.end_time + timedelta(seconds=1)
-        assert lobby.handle_onboarding_completed(late, now=after_end) == []
+        late_created = lobby.handle_onboarding_completed(late, now=after_end)
+        assert len(late_created) == 1
+        assert late_created[0].eligibility_source == "onboarding_completed"
+
+    def test_onboarding_after_recap_closes_joins_nothing(self):
+        """The far edge of the #741 grace: once the recap window has elapsed,
+        finishing onboarding grants nothing."""
+        event = _make_event()
+        late = _make_member("late", membership=False)
+        _attend(late, event)
+        CrushConnectMembership.objects.create(
+            user=late, onboarded_at=timezone.now(), photo_share_consent=True
+        )
+        late = User.objects.select_related(
+            "crushprofile", "crush_connect_membership"
+        ).get(pk=late.pk)
+        after_recap = (
+            event.end_time
+            + timedelta(hours=lobby.RECAP_WINDOW_HOURS)
+            + timedelta(minutes=1)
+        )
+        assert lobby.handle_onboarding_completed(late, now=after_recap) == []
 
 
 class TestCheckinNeverDependsOnLobby:
@@ -1440,14 +1487,16 @@ class TestLobbyCta:
         _end_event(event)
         assert lobby.lobby_cta(member, event) == lobby.CTA_ENTER_RECAP
 
-    def test_member_who_never_joined_gets_promo_only_in_recap(self):
-        """Attended but no participation row (e.g. checked in, feature hook
-        missed, event already over): recap membership is frozen — no CTA."""
+    def test_member_who_never_joined_gets_enter_recap(self):
+        """#741: attended but no participation row (checked in after the
+        scheduled end, or the hook missed). Recap membership is no longer
+        frozen — the lobby view admits them on entry, so the CTA must invite
+        them in rather than pretend they have nothing."""
         member = _make_member("cta_late")
         event = _make_event()
         _attend(member, event)
         _end_event(event)
-        assert lobby.lobby_cta(member, event) == lobby.CTA_PROMO_ONLY
+        assert lobby.lobby_cta(member, event) == lobby.CTA_ENTER_RECAP
 
     def test_closed_phase_gets_promo_only(self):
         member = _make_member("cta_closed")
@@ -1468,13 +1517,23 @@ class TestLobbyCta:
         _attend(guest, event)
         assert lobby.lobby_cta(guest, event) == lobby.CTA_FINISH_CONNECT
 
-    def test_luxid_guest_gets_promo_only_in_recap(self):
-        """Late onboarding can never join (§5.3), so the onboarding CTA must
-        not render once the live phase is over."""
+    def test_luxid_guest_gets_finish_connect_in_recap(self):
+        """#741: late onboarding now joins the recap, so the onboarding CTA has
+        to survive the scheduled end — otherwise the very people the grace
+        exists for are never invited to use it."""
         guest = _make_member("cta_guest_recap", membership=False)
         event = _make_event()
         _attend(guest, event)
         _end_event(event)
+        assert lobby.lobby_cta(guest, event) == lobby.CTA_FINISH_CONNECT
+
+    def test_luxid_guest_gets_promo_only_once_closed(self):
+        """...but only while the lobby exists. Past the recap window the CTA
+        must stop advertising a lobby nobody can enter."""
+        guest = _make_member("cta_guest_closed", membership=False)
+        event = _make_event()
+        _attend(guest, event)
+        _end_event(event, hours_ago=49)
         assert lobby.lobby_cta(guest, event) == lobby.CTA_PROMO_ONLY
 
     def test_plain_guest_without_luxid_gets_promo_only(self):
@@ -1496,3 +1555,136 @@ class TestLobbyCta:
         event = _make_event()
         _attend(member, event)
         assert lobby.lobby_cta(member, event) == lobby.CTA_PROMO_ONLY
+
+
+# ---------------------------------------------------------------------------
+# #741 follow-up: every surface must agree on who is a recap participant
+# ---------------------------------------------------------------------------
+
+
+class TestLateAdmissionConsistency:
+    """Admission runs through the recap, so "has a row" and "may have a row"
+    are different questions. Any surface that answers them differently lets one
+    pair enter two flows at once (§9.1)."""
+
+    def test_resolve_participation_admits_during_recap(self):
+        event = _make_event()
+        member = _make_member("late_resolve")
+        _attend(member, event)  # attended, but no participation row
+        _end_event(event)
+        assert lobby.viewer_participation(member, event) is None
+        assert lobby.resolve_participation(member, event) is not None
+
+    def test_resolve_participation_is_idempotent(self):
+        event = _make_event()
+        member = _make_member("late_idem")
+        _attend(member, event)
+        _end_event(event)
+        first = lobby.resolve_participation(member, event)
+        second = lobby.resolve_participation(member, event)
+        assert first.pk == second.pk
+        assert EventLobbyParticipation.objects.filter(event=event).count() == 1
+
+    def test_resolve_participation_refuses_once_closed(self):
+        event = _make_event()
+        member = _make_member("late_closed")
+        _attend(member, event)
+        _end_event(event, hours_ago=49)
+        assert lobby.resolve_participation(member, event) is None
+        assert not EventLobbyParticipation.objects.filter(event=event).exists()
+
+    def test_resolve_participation_refuses_a_non_attendee(self):
+        event = _make_event()
+        member = _make_member("late_noshow")
+        EventRegistration.objects.create(event=event, user=member, status="registered")
+        _end_event(event)
+        assert lobby.resolve_participation(member, event) is None
+
+    def test_hub_card_admits_the_same_late_joiner_as_the_lobby(self):
+        """get_active_live_lobby used to read only an existing row during
+        recap, so the event surfaces advertised ENTER_RECAP while the hub card
+        showed the late joiner nothing."""
+        event = _make_event()
+        member = _make_member("late_hub")
+        _attend(member, event)
+        _end_event(event)
+        assert lobby.lobby_cta(member, event) == lobby.CTA_ENTER_RECAP
+        card = lobby.get_active_live_lobby(member)
+        assert card is not None
+        assert card.lobby_phase == lobby.PHASE_RECAP
+
+    def test_long_event_still_in_recap_is_within_the_db_lookback(self):
+        """A legal event may run 7 days, so its recap can close 9 days after it
+        starts. The old flat 7-day pre-filter dropped those candidates."""
+        event = _make_event(starts_in_minutes=-8 * 24 * 60, duration=7 * 24 * 60)
+        assert lobby.event_lobby_phase(event) == lobby.PHASE_RECAP
+        guest = _make_member("late_long", membership=False)
+        _attend(guest, event)
+        CrushConnectMembership.objects.create(
+            user=guest, onboarded_at=timezone.now(), photo_share_consent=True
+        )
+        guest = User.objects.select_related(
+            "crushprofile", "crush_connect_membership"
+        ).get(pk=guest.pk)
+        created = lobby.handle_onboarding_completed(guest)
+        assert len(created) == 1
+
+    def test_two_rowless_attendees_are_routed_to_recap_not_my_crush(self):
+        """The invariant that actually corrupts data: admitting only the
+        requester still leaves a row-less target in My Crush until they open
+        the recap themselves, allowing both flows for the same pair."""
+        event = _make_event()
+        requester = _make_member("flow_late")
+        target = _make_member("flow_target")
+        _attend(requester, event)  # attended, no row yet
+        _attend(target, event)  # also attended with no row
+        _end_event(event)
+        assert lobby.viewer_participation(requester, event) is None
+        assert lobby.viewer_participation(target, event) is None
+        assert (
+            lobby.crush_flow_decision(requester, target, event)
+            == lobby.CRUSH_FLOW_REDIRECT
+        )
+        assert EventLobbyParticipation.objects.filter(event=event).count() == 2
+
+    def test_attendees_page_admits_rowless_targets_before_rendering_actions(
+        self, client
+    ):
+        event = _make_event()
+        requester = _make_member("page_late")
+        target = _make_member("page_target")
+        _attend(requester, event)
+        _attend(target, event)
+        _end_event(event)
+        _login(client, requester)
+
+        response = client.get(
+            reverse("crush_lu:event_attendees", kwargs={"event_id": event.pk})
+        )
+
+        assert response.status_code == 200
+        html = response.content.decode()
+        target_actions = re.search(
+            rf'<div id="connection-actions-{target.pk}"[^>]*>(.*?)</div>',
+            html,
+            re.DOTALL,
+        )
+        assert target_actions is not None
+        assert "Find them in your event recap" in target_actions.group(1)
+        assert "My Crush!" not in target_actions.group(1)
+        assert EventLobbyParticipation.objects.filter(event=event).count() == 2
+
+    def test_my_crush_still_applies_once_the_recap_has_closed(self):
+        """The fallback must survive: past the recap window My Crush is
+        correct again, and no participation may be created."""
+        event = _make_event()
+        requester = _make_member("flow_closed")
+        target = _make_member("flow_closed_target")
+        _attend(requester, event)
+        _join(target, event)
+        _end_event(event, hours_ago=49)
+        assert (
+            lobby.crush_flow_decision(requester, target, event)
+            == lobby.CRUSH_FLOW_CRUSH
+        )
+        assert lobby.viewer_participation(requester, event) is None

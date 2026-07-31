@@ -977,14 +977,15 @@ def send_event_recap(registration, request=None):
         lobby_feature_enabled,
         may_learn_lobby_exists,
         participant_gate,
-        viewer_participation,
+        resolve_participation,
     )
 
     lobby_recap_url = ""
     connect_nudge_url = ""
+    connect_nudge_opens_recap = False
     if lobby_feature_enabled():
         in_recap = event_lobby_phase(event) == PHASE_RECAP
-        if in_recap and viewer_participation(user, event) is not None:
+        if in_recap and resolve_participation(user, event) is not None:
             lobby_recap_url = get_user_language_url(
                 user,
                 "crush_lu:event_lobby",
@@ -1006,6 +1007,9 @@ def send_event_recap(registration, request=None):
                     "crush_lu:crush_connect_onboarding",
                     request,
                 )
+                if in_recap:
+                    connect_nudge_url = f"{connect_nudge_url}?event_id={event.pk}"
+                    connect_nudge_opens_recap = True
 
     context = get_email_context_with_unsubscribe(
         user,
@@ -1020,6 +1024,7 @@ def send_event_recap(registration, request=None):
         events_url=events_url,
         lobby_recap_url=lobby_recap_url,
         connect_nudge_url=connect_nudge_url,
+        connect_nudge_opens_recap=connect_nudge_opens_recap,
     )
 
     with translation.override(lang):

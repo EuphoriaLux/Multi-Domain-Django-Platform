@@ -5,9 +5,9 @@
 {% block mobile_page_title %}{% trans "Event Lobby" %}{% endblock %}
 
 {% comment %}
-Shown when the lobby is closed, or during the 48-hour recap to a member who
-never joined before the exact event end (§5.3 — recap access requires a
-frozen live participation; participants get recap.html instead).
+Shown when the lobby is closed, or when an attended member does not pass the
+current admission gate. Eligible attendees are admitted throughout the recap
+and get recap.html instead (§5.3).
 {% endcomment %}
 
 {% block content %}
