@@ -84,6 +84,28 @@ class ReminderEmailReachesRequestlessCallersTests(_ReminderFixture):
         helper.assert_called_once()
         self.assertEqual(helper.call_args[0][0].pk, self.reg.pk)
 
+    def test_day_sweep_uses_the_local_date_across_utc_midnight(self):
+        """At 00:05 Luxembourg time the UTC date is still yesterday. The
+        day-before sweep must nevertheless target tomorrow's local date."""
+        frozen_now = datetime.fromisoformat("2026-07-31T22:05:00+00:00")
+        target_local = timezone.make_aware(
+            datetime(2026, 8, 2, 19, 0),
+            timezone.get_current_timezone(),
+        )
+        from crush_lu.models import MeetupEvent
+
+        MeetupEvent.objects.filter(pk=self.event.pk).update(date_time=target_local)
+
+        with mock.patch(
+            "crush_lu.management.commands.send_event_reminders.timezone.now",
+            return_value=frozen_now,
+        ), mock.patch(
+            "crush_lu.email_helpers.send_event_reminder", return_value=1
+        ) as helper:
+            call_command("send_event_reminders", "--event-id", str(self.event.id))
+
+        helper.assert_called_once()
+
     def test_notification_service_no_longer_requires_a_request(self):
         from crush_lu.notification_service import notify_event_reminder
 

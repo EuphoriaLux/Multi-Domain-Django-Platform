@@ -19,10 +19,14 @@ count, or any hint of who is inside (§13).
                 {% trans "Finish Crush Connect to join the Event Lobby" %}
             </h1>
             <p class="text-sm leading-relaxed text-gray-600 dark:text-gray-300 mb-5">
+                {% if phase == "recap" %}
+                {% trans "Finish Crush Connect now to join this event's open recap and confirm who you met." %}
+                {% else %}
                 {% trans "The Event Lobby is where checked-in Crush Connect members can quietly signal who they'd like to meet tonight. Complete your Crush Connect profile before the event ends and you'll join instantly." %}
+                {% endif %}
             </p>
             {% if gate_reason == "not_onboarded" or gate_reason == "no_membership" %}
-            <a href="{% url 'crush_lu:crush_connect_onboarding' %}" class="btn-crush-primary inline-flex">
+            <a href="{% url 'crush_lu:crush_connect_onboarding' %}?event_id={{ event.pk }}" class="btn-crush-primary inline-flex">
                 {% trans "Finish Crush Connect" %}
             </a>
             {% else %}

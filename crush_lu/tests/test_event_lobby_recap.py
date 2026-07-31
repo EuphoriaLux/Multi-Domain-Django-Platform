@@ -2,7 +2,7 @@
 Tests for the Crush Connect Event Lobby recap & People I've Met slice (Phase C).
 
 Spec: docs/superpowers/specs/2026-07-17-crush-connect-event-lobby-design.md
-Covers the §18 rows for this phase: recap membership frozen at scheduled end;
+Covers the §18 rows for this phase: recap admission remains open for 48 hours;
 unlimited immutable confirmations; anonymous recap counter excluding
 blocked/ineligible; reciprocal confirmations create exactly one permanent
 encounter; repeated events never reorder/update it; live mutuals sort first
@@ -274,17 +274,19 @@ class TestRecapRoster:
         UserBlock.objects.create(blocker=alice, blocked=ben)
         assert lobby.get_recap_roster(alice, event) == []
 
-    def test_recap_membership_frozen_at_scheduled_end(self):
-        """§6/§9.1: recap includes everyone who joined before the exact end —
-        including people who may already have left."""
+    def test_recap_admits_an_eligible_attendee_after_scheduled_end(self):
+        """§6/§9.1: the recap includes existing participants and an eligible
+        attended member whose row is first resolved after the scheduled end."""
         event = _recap_event()
         alice = _make_member("alice")
         ben = _make_member("ben", gender="M")
         _join(alice, event)
         _join(ben, event)
         _to_recap(event)
-        # A late-onboarding member after end never joins the recap (§5.3).
-        assert len(lobby.get_recap_roster(alice, event)) == 1
+        late = _make_member("late", gender="M")
+        _attend(late, event)
+        assert lobby.resolve_participation(late, event) is not None
+        assert len(lobby.get_recap_roster(alice, event)) == 2
 
 
 # ---------------------------------------------------------------------------
@@ -614,8 +616,8 @@ class TestConfirmApi:
 class TestRecapPage:
     def test_recap_page_renders_grid_for_participant(self, client):
         """The lobby page renders the recap grid during the 48h window — the
-        member's frozen participation grants access even though the live
-        self-heal no longer creates one after the end."""
+        member's existing participation grants access, and the same self-heal
+        also admits eligible attendees whose row is missing."""
         event = _recap_event()
         alice = _make_member("alice")
         ben = _make_member("ben", gender="M")
@@ -640,8 +642,12 @@ class TestRecapPage:
         _login(client, guest)
         response = client.get(reverse("crush_lu:event_lobby", args=[event.pk]))
         assert response.status_code == 200
-        assert "Finish Crush Connect" in response.content.decode()
-        assert "recap-grid" not in response.content.decode()
+        html = response.content.decode()
+        assert "Finish Crush Connect" in html
+        assert "join this event" in html
+        assert "open recap" in html
+        assert f"event_id={event.pk}" in html
+        assert "recap-grid" not in html
 
     def test_recap_component_loads_before_alpine(self, client):
         event = _recap_event()

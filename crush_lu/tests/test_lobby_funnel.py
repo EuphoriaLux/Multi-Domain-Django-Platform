@@ -107,8 +107,9 @@ class TestLiveOverlapGate:
         assert not EventConnection.objects.filter(event=event).exists()
 
     def test_request_connection_allowed_after_end(self, client):
-        member = _make_member("gate_e")
-        other = _make_member("gate_e2")
+        # Non-Connect attendees use the classic post-event connection flow.
+        member = _make_member("gate_e", membership=False, luxid=False)
+        other = _make_member("gate_e2", membership=False, luxid=False)
         event = _make_event()
         _attend(member, event)
         _attend(other, event)
@@ -120,6 +121,26 @@ class TestLiveOverlapGate:
         assert EventConnection.objects.filter(
             event=event, requester=member, recipient=other
         ).exists()
+
+    def test_request_connection_redirects_two_rowless_members_to_recap(self, client):
+        from crush_lu.models import EventLobbyParticipation
+
+        member = _make_member("gate_recap")
+        other = _make_member("gate_recap2")
+        event = _make_event()
+        _attend(member, event)
+        _attend(other, event)
+        _end_event(event)
+        _login(client, member)
+
+        response = client.post(_request_url(event, other), {"note": "hi"})
+
+        assert response.status_code == 302
+        assert response.url == reverse(
+            "crush_lu:event_lobby", kwargs={"event_id": event.pk}
+        )
+        assert not EventConnection.objects.filter(event=event).exists()
+        assert EventLobbyParticipation.objects.filter(event=event).count() == 2
 
 
 class TestConnectionWindowFromEnd:
@@ -186,6 +207,20 @@ class TestRecapEmailBranching:
         assert "Confirm who you met" in html
         assert "Finish Crush Connect" not in html
 
+    def test_rowless_eligible_attendee_is_admitted_before_recap_email(self):
+        from crush_lu.models import EventLobbyParticipation
+
+        member = _make_member("mail_late")
+        event = _make_event()
+        registration = _attend(member, event)
+        _end_event(event)
+
+        html = self._send(registration)
+
+        assert f"/events/{event.pk}/lobby/" in html
+        assert "Confirm who you met" in html
+        assert EventLobbyParticipation.objects.filter(event=event, user=member).exists()
+
     def test_luxid_guest_gets_connect_nudge(self):
         guest = _make_member("mail_b", membership=False)
         event = _make_event()
@@ -193,6 +228,9 @@ class TestRecapEmailBranching:
         _end_event(event)
         html = self._send(registration)
         assert "Finish Crush Connect" in html
+        assert f"event_id={event.pk}" in html
+        assert "join this event" in html
+        assert "open recap" in html
         assert f"/events/{event.pk}/lobby/" not in html
 
     def test_plain_guest_gets_neither(self):

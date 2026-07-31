@@ -26464,6 +26464,11 @@ msgstr ""
 msgid "This event's lobby is closed."
 msgstr "Die Event Lobby ist live"
 
+#: templates/crush_lu/emails/event_recap.html:56
+#: templates/crush_lu/event_lobby/lobby_locked.html:23
+msgid "Finish Crush Connect now to join this event's open recap and confirm who you met."
+msgstr "Schließe Crush Connect jetzt ab, um an der noch offenen Zusammenfassung dieses Events teilzunehmen und zu bestätigen, wen du getroffen hast."
+
 #: templates/crush_lu/event_lobby/lobby_locked.html:22
 msgid ""
 "The Event Lobby is where checked-in Crush Connect members can quietly signal "
