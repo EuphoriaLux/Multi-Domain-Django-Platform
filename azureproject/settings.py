@@ -445,9 +445,13 @@ ANDROID_APP_PACKAGE = os.getenv("ANDROID_APP_PACKAGE", "lu.crush.app")
 ANDROID_APP_NAME = os.getenv("ANDROID_APP_NAME", "Crush.lu")
 ANDROID_APP_VERSION = os.getenv("ANDROID_APP_VERSION", "1.0.0")
 ANDROID_APP_BUILD = os.getenv("ANDROID_APP_BUILD", "1")
-ANDROID_APP_MIN_SUPPORTED_VERSION = os.getenv("ANDROID_APP_MIN_SUPPORTED_VERSION", "1.0.0")
+ANDROID_APP_MIN_SUPPORTED_VERSION = os.getenv(
+    "ANDROID_APP_MIN_SUPPORTED_VERSION", "1.0.0"
+)
 ANDROID_PLAY_STORE_URL = os.getenv("ANDROID_PLAY_STORE_URL", "")
-ANDROID_NATIVE_COMMERCE_ENABLED = _env_bool("ANDROID_NATIVE_COMMERCE_ENABLED", default=False)
+ANDROID_NATIVE_COMMERCE_ENABLED = _env_bool(
+    "ANDROID_NATIVE_COMMERCE_ENABLED", default=False
+)
 ANDROID_AUTH_REDIRECT_URIS = [
     uri.strip()
     for uri in os.getenv("ANDROID_AUTH_REDIRECT_URIS", "crushlu://auth").split(",")
@@ -756,6 +760,18 @@ META_PHONE_NUMBER_ID = os.environ.get("META_PHONE_NUMBER_ID", "")
 META_WABA_ID = os.environ.get("META_WABA_ID", "")
 META_WHATSAPP_APP_SECRET = os.environ.get("META_WHATSAPP_APP_SECRET", "")
 META_WHATSAPP_VERIFY_TOKEN = os.environ.get("META_WHATSAPP_VERIFY_TOKEN", "")
+
+# Hub marketing planner integrations. Credentials remain server-side; missing
+# values fail closed with a clear 503 instead of simulating a successful post.
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+ANTHROPIC_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5")
+ANTHROPIC_TIMEOUT_SECONDS = int(os.environ.get("ANTHROPIC_TIMEOUT_SECONDS", "60"))
+BUFFER_API_KEY = os.environ.get(
+    "BUFFER_API_KEY", os.environ.get("BUFFER_ACCESS_TOKEN", "")
+)
+BUFFER_ORGANIZATION_ID = os.environ.get("BUFFER_ORGANIZATION_ID", "")
+BUFFER_TIMEOUT_SECONDS = int(os.environ.get("BUFFER_TIMEOUT_SECONDS", "20"))
+BACKEND_BASE_URL = os.environ.get("BACKEND_BASE_URL", "http://localhost:8000")
 
 # WhatsApp phone-verification (OTP) — sends an approved Authentication-category
 # template. The template is named "<prefix>_phone_verification" and exists once
