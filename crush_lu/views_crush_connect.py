@@ -25,7 +25,7 @@ from django.utils.translation import ngettext
 from crush_lu.connect_phase import candidate_access_open, receiver_access_open
 from crush_lu.decorators import coach_required, crush_login_required
 from crush_lu.email_helpers import send_crush_connect_catalogue_welcome
-from crush_lu.models import CrushConnectMembership, CrushProfile
+from crush_lu.models import CrushConnectMembership, CrushProfile, EventRegistration
 from crush_lu.onboarding_connect import (
     CONNECT_STEPS,
     TOTAL_STEPS,
@@ -41,6 +41,8 @@ from crush_lu.services import get_or_create_daily_drop
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
+
+ONBOARDING_EVENT_SESSION_KEY = "crush_connect_onboarding_event_id"
 
 
 @staff_member_required
@@ -284,6 +286,35 @@ def crush_connect_onboarding(request):
     response, membership, _done = _onboarding_gate(request)
     if response is not None:
         return response
+
+    # An Event Lobby CTA carries the event it came from. Keep that validated
+    # origin in the session while the seven-step wizard advances through named
+    # step URLs, so overlapping recaps cannot redirect the member to whichever
+    # EventRegistration happened to be created first.
+    request.session.pop(ONBOARDING_EVENT_SESSION_KEY, None)
+    raw_event_id = request.GET.get("event_id")
+    if raw_event_id:
+        try:
+            event_id = int(raw_event_id)
+        except (TypeError, ValueError):
+            event_id = None
+        if event_id is not None:
+            registration = (
+                EventRegistration.objects.filter(
+                    event_id=event_id,
+                    user=request.user,
+                    status="attended",
+                    event__is_published=True,
+                    event__is_cancelled=False,
+                )
+                .select_related("event")
+                .first()
+            )
+            if registration is not None:
+                from crush_lu.services.event_lobby import lobby_admission_open
+
+                if lobby_admission_open(registration.event):
+                    request.session[ONBOARDING_EVENT_SESSION_KEY] = event_id
     return redirect(
         "crush_lu:crush_connect_onboarding_step",
         step=clamp_step(membership.onboarding_step),
@@ -419,9 +450,12 @@ def crush_connect_onboarding_step(request, step: int):
                 # their first Drop (and theirs in others') reflects their traits.
                 _recompute_member_match_scores(request.user)
                 # Crush Connect Event Lobby: a checked-in guest who completes
-                # onboarding before the scheduled event end joins the lobby
-                # immediately (spec §5.3/§10.2). Best-effort — never let the
-                # lobby break onboarding completion.
+                # onboarding while a lobby or recap is open joins immediately
+                # (spec §5.3/§10.2). Best-effort — never let the lobby break
+                # onboarding completion.
+                originating_event_id = request.session.pop(
+                    ONBOARDING_EVENT_SESSION_KEY, None
+                )
                 joined_participations = []
                 try:
                     from crush_lu.services.event_lobby import (
@@ -451,9 +485,24 @@ def crush_connect_onboarding_step(request, step: int):
                             participation.event_id,
                         )
                 if joined_participations:
+                    selected_participation = joined_participations[0]
+                    if originating_event_id is not None:
+                        selected_participation = next(
+                            (
+                                participation
+                                for participation in joined_participations
+                                if participation.event_id == originating_event_id
+                            ),
+                            None,
+                        )
+                        # The origin may have closed while a member completed
+                        # the wizard. Do not surprise them by landing in an
+                        # unrelated overlapping recap.
+                        if selected_participation is None:
+                            return redirect(done_url)
                     return redirect(
                         "crush_lu:event_lobby",
-                        event_id=joined_participations[0].event_id,
+                        event_id=selected_participation.event_id,
                     )
                 return redirect(done_url)
 

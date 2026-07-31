@@ -1629,21 +1629,50 @@ class TestLateAdmissionConsistency:
         created = lobby.handle_onboarding_completed(guest)
         assert len(created) == 1
 
-    def test_late_joiner_is_routed_to_recap_not_my_crush(self):
-        """The invariant that actually corrupts data: without admitting first,
-        crush_flow_decision falls back to My Crush and a coach-routed lead is
-        created for a pair the recap will also let them confirm."""
+    def test_two_rowless_attendees_are_routed_to_recap_not_my_crush(self):
+        """The invariant that actually corrupts data: admitting only the
+        requester still leaves a row-less target in My Crush until they open
+        the recap themselves, allowing both flows for the same pair."""
         event = _make_event()
         requester = _make_member("flow_late")
         target = _make_member("flow_target")
         _attend(requester, event)  # attended, no row yet
-        _join(target, event)  # target joined while live
+        _attend(target, event)  # also attended with no row
         _end_event(event)
         assert lobby.viewer_participation(requester, event) is None
+        assert lobby.viewer_participation(target, event) is None
         assert (
             lobby.crush_flow_decision(requester, target, event)
             == lobby.CRUSH_FLOW_REDIRECT
         )
+        assert EventLobbyParticipation.objects.filter(event=event).count() == 2
+
+    def test_attendees_page_admits_rowless_targets_before_rendering_actions(
+        self, client
+    ):
+        event = _make_event()
+        requester = _make_member("page_late")
+        target = _make_member("page_target")
+        _attend(requester, event)
+        _attend(target, event)
+        _end_event(event)
+        _login(client, requester)
+
+        response = client.get(
+            reverse("crush_lu:event_attendees", kwargs={"event_id": event.pk})
+        )
+
+        assert response.status_code == 200
+        html = response.content.decode()
+        target_actions = re.search(
+            rf'<div id="connection-actions-{target.pk}"[^>]*>(.*?)</div>',
+            html,
+            re.DOTALL,
+        )
+        assert target_actions is not None
+        assert "Find them in your event recap" in target_actions.group(1)
+        assert "My Crush!" not in target_actions.group(1)
+        assert EventLobbyParticipation.objects.filter(event=event).count() == 2
 
     def test_my_crush_still_applies_once_the_recap_has_closed(self):
         """The fallback must survive: past the recap window My Crush is

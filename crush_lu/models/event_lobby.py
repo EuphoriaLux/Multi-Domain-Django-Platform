@@ -4,9 +4,10 @@ Event Lobby models — the live, event-scoped "I'd like to meet you" surface.
 Spec: docs/superpowers/specs/2026-07-17-crush-connect-event-lobby-design.md
 
 - ``EventLobbyParticipation``: one row per eligible checked-in Crush Connect
-  member who joined the lobby before the exact scheduled event end. The row
-  freezes recap membership (§9.1) while every access check stays dynamic —
-  it deliberately snapshots NO photo, name, or profile data.
+  member admitted while the live lobby or its 48-hour recap is open. Admission
+  remains idempotent throughout recap so a mis-set scheduled duration cannot
+  silently lock out a real attendee; every access check stays dynamic and the
+  row deliberately snapshots NO photo, name, or profile data.
 - ``EventMeetSignal``: one immutable, anonymous, directional "I'd like to
   meet you" per event pair (§9.2). Three distinct recipients per sender per
   event, enforced in ``services.event_lobby.send_meet_signal`` inside a

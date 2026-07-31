@@ -116,7 +116,7 @@ def _user_is_active_coach(user):
 
 def _render_coach_preview(request, event, phase, now):
     """Read-only view of the live lobby for the coach running the event."""
-    # Live only — recap reads a frozen participation the coach does not have.
+    # Live only — coaches do not get member recap participation.
     if phase != PHASE_LIVE:
         return render(
             request,
@@ -228,7 +228,7 @@ def event_lobby(request, event_id):
         return response
 
     if phase != PHASE_LIVE or participation is None:
-        # Closed, or a member who never joined before the end (§5.3).
+        # Closed, or a member who is no longer admissible (§5.3).
         return render(
             request,
             "crush_lu/event_lobby/lobby_closed.html",

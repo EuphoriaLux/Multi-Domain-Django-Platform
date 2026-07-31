@@ -215,25 +215,30 @@ def event_attendees(request, event_id):
     # once per event (not per attendee) — the decision inputs are set-valued.
     from .services.event_lobby import (
         PHASE_RECAP,
-        eligible_participations,
         event_lobby_phase,
         lobby_feature_enabled,
         resolve_participation,
     )
 
     recap_eligible_ids = set()
+    lobby_now = timezone.now()
     if (
         lobby_feature_enabled()
-        and event_lobby_phase(event) == PHASE_RECAP
+        and event_lobby_phase(event, lobby_now) == PHASE_RECAP
         # #741: admit before deciding, exactly as crush_flow_decision does. A
         # late-admissible viewer with no row yet would otherwise get the My
         # Crush CTA on every attendee here, while the recap advertised on the
         # event surfaces let them confirm the same pair -- two flows, one pair.
-        and resolve_participation(request.user, event) is not None
+        and resolve_participation(request.user, event, lobby_now) is not None
     ):
-        recap_eligible_ids = set(
-            eligible_participations(event).values_list("user_id", flat=True)
-        )
+        # Resolve every visible target too. If only the requester is admitted,
+        # a target with no row still gets a My Crush action now and can enter
+        # the recap later, which recreates the dual-flow bug this gate prevents.
+        recap_eligible_ids = {
+            attendee["user"].pk
+            for attendee in attendee_data
+            if resolve_participation(attendee["user"], event, lobby_now) is not None
+        }
 
     for attendee in attendee_data:
         # Removal pairs are already absent from the list (block semantics), so

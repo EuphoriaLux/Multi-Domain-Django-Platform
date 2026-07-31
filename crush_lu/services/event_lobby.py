@@ -372,7 +372,9 @@ def crush_flow_decision(requester, target, event, now=None) -> str:
     - the requester must currently pass the viewer gate (eligibility + own
       participation), otherwise the redirect would dead-end in a locked
       lobby — My Crush applies;
-    - the target must actually be present in the requester's recap roster.
+    - the target must also be admitted when eligible, then actually be present
+      in the requester's recap roster. Resolving only the requester would still
+      let a row-less target enter My Crush first and the recap later.
 
     Blocked pairs are rejected by the callers before this runs.
     """
@@ -387,6 +389,8 @@ def crush_flow_decision(requester, target, event, now=None) -> str:
     # start a coach-routed lead for a pair the recap will also let them
     # confirm — both flows for one pair.
     if resolve_participation(requester, event, now) is None:
+        return CRUSH_FLOW_CRUSH
+    if resolve_participation(target, event, now) is None:
         return CRUSH_FLOW_CRUSH
     if eligible_participations(event).filter(user=target).exists():
         return CRUSH_FLOW_REDIRECT
@@ -769,7 +773,8 @@ def lobby_cta(user, event, registration=None, now=None):
       CTA ("finish before the event ends and join instantly").
     - ``"enter_live"`` — eligible member with an attended registration while
       the lobby is live.
-    - ``"enter_recap"`` — frozen participant while the 48-hour recap is open.
+    - ``"enter_recap"`` — eligible attendee while the 48-hour recap is open;
+      participation is created idempotently on entry when it does not exist.
 
     ``registration`` may be passed when the caller already fetched the
     viewer's registration (any status; only ``attended`` counts).

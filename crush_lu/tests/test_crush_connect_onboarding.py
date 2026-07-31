@@ -16,9 +16,11 @@ from django.utils import timezone
 pytestmark = pytest.mark.urls("azureproject.urls_crush")
 
 from crush_lu.models import (
+    EventRegistration,
     Interest,
     CrushConnectMembership,
     CrushProfile,
+    MeetupEvent,
     Trait,
 )
 from crush_lu.services.crush_connect import (
@@ -176,6 +178,44 @@ def test_resume_redirects_to_pointer_step(client, settings):
     resp = client.get(ONBOARDING_URL)
     assert resp.status_code in (301, 302)
     assert "/crush-connect/onboarding/4/" in resp.url
+
+
+@pytest.mark.django_db
+def test_event_origin_selects_the_right_overlapping_recap(client, settings):
+    """Completing from one event CTA must not land in the older overlapping
+    recap merely because its registration was created first."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    settings.CRUSH_EVENT_LOBBY_ENABLED = True
+    settings.AZURE_ACCOUNT_NAME = ""
+    me = _make_user(username="recap_origin", onboarded=False)
+    _login_eligible(client, me)
+
+    def recap_event(title):
+        now = timezone.now()
+        return MeetupEvent.objects.create(
+            title=title,
+            description="x",
+            event_type="mixer",
+            date_time=now - timedelta(hours=2),
+            duration_minutes=60,
+            location="Luxembourg",
+            address="1 Test St",
+            max_participants=20,
+            registration_deadline=now - timedelta(days=1),
+            is_published=True,
+        )
+
+    older = recap_event("Older overlapping recap")
+    origin = recap_event("CTA origin recap")
+    EventRegistration.objects.create(event=older, user=me, status="attended")
+    EventRegistration.objects.create(event=origin, user=me, status="attended")
+
+    entry = client.get(f"{ONBOARDING_URL}?event_id={origin.pk}")
+    assert entry.status_code in (301, 302)
+    response = _complete_steps(client)
+
+    assert response.status_code in (301, 302)
+    assert response.url.endswith(f"/events/{origin.pk}/lobby/")
 
 
 @pytest.mark.django_db
