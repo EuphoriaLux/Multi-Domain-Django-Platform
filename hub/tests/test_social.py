@@ -12,7 +12,11 @@ from rest_framework.test import APIClient
 
 from crush_lu.models import CrushProfile, Interest, MeetupEvent, UserDataConsent
 from hub.buffer_service import BufferServiceError, create_buffer_update
-from hub.claude_service import GeneratedArticle, generate_social_copy
+from hub.claude_service import (
+    ClaudeServiceError,
+    GeneratedArticle,
+    generate_social_copy,
+)
 from hub.image_generator import generate_kpi_card
 from hub.models import SocialPost
 
@@ -87,6 +91,30 @@ class SocialMediaTests(TestCase):
         generate_copy.assert_called_once()
 
     @patch(
+        "hub.views_social.generate_social_copy",
+        side_effect=ClaudeServiceError("sensitive Claude diagnostic"),
+    )
+    def test_generation_does_not_expose_service_exception(self, _generate_copy):
+        response = self.client.post(
+            "/hub/social/generate",
+            {
+                "category": "tips",
+                "hook": "Conversation",
+                "pillar": "dating_tip",
+                "platforms": ["instagram"],
+                "languages": ["fr"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.data["error"],
+            "Social copy generation is temporarily unavailable.",
+        )
+        self.assertNotIn("sensitive Claude diagnostic", str(response.data))
+
+    @patch(
         "hub.views_social.generate_kpi_card", return_value="https://media.test/kpi.png"
     )
     @patch("hub.views_social.generate_social_copy")
@@ -127,6 +155,19 @@ class SocialMediaTests(TestCase):
         self.assertEqual(response.data["items"][0]["id"], "channel_1")
 
     @patch(
+        "hub.views_social.list_buffer_profiles",
+        side_effect=BufferServiceError("sensitive Buffer diagnostic"),
+    )
+    def test_buffer_profiles_does_not_expose_service_exception(self, _list_profiles):
+        response = self.client.get("/hub/social/buffer-profiles")
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.data["error"], "Buffer channels are temporarily unavailable."
+        )
+        self.assertNotIn("sensitive Buffer diagnostic", str(response.data))
+
+    @patch(
         "hub.views_social.expand_social_post",
         return_value=GeneratedArticle(
             title="Guide Crush.lu",
@@ -147,6 +188,28 @@ class SocialMediaTests(TestCase):
         self.assertEqual(second.status_code, 200)
         self.assertEqual(first.data["article_id"], second.data["article_id"])
         expand.assert_called_once()
+
+    @patch(
+        "hub.views_social.expand_social_post",
+        side_effect=ClaudeServiceError("sensitive article diagnostic"),
+    )
+    def test_article_expansion_does_not_expose_service_exception(self, _expand):
+        post = SocialPost.objects.create(
+            user=self.user,
+            hook="Spotlight Guide",
+            pillar="dating_tip",
+            language="fr",
+            content="Contenu à développer",
+        )
+
+        response = self.client.post(f"/hub/social/posts/{post.pk}/expand-article")
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.data["error"],
+            "Article generation is temporarily unavailable.",
+        )
+        self.assertNotIn("sensitive article diagnostic", str(response.data))
 
     def test_upcoming_events_endpoint_reads_published_events(self):
         event = self._event()
@@ -217,6 +280,37 @@ class SocialMediaTests(TestCase):
         post.refresh_from_db()
         self.assertEqual(post.buffer_id, "post_1,post_2")
         self.assertEqual(post.status, SocialPost.Status.SCHEDULED)
+
+    @patch(
+        "hub.views_social.create_buffer_update",
+        side_effect=BufferServiceError("sensitive scheduling diagnostic"),
+    )
+    def test_scheduling_does_not_expose_or_persist_service_exception(self, _dispatch):
+        post = SocialPost.objects.create(
+            user=self.user,
+            content="Publication prête",
+            status=SocialPost.Status.PENDING_REVIEW,
+        )
+
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}",
+            {
+                "status": "scheduled",
+                "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
+                "buffer_profile_ids": ["channel_1"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(
+            response.data["error"],
+            "Buffer could not schedule this post. Try again later.",
+        )
+        self.assertNotIn("sensitive scheduling diagnostic", str(response.data))
+        post.refresh_from_db()
+        self.assertEqual(post.status, SocialPost.Status.FAILED)
+        self.assertNotIn("sensitive scheduling diagnostic", str(post.status_history))
 
     def test_scheduling_requires_time_and_channel_without_mutating_status(self):
         post = SocialPost.objects.create(

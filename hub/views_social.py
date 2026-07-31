@@ -36,6 +36,11 @@ ALLOWED_PLATFORMS = {"instagram", "facebook", "linkedin"}
 ALLOWED_LANGUAGES = {choice for choice, _label in SocialPost.Language.choices}
 ALLOWED_PILLARS = {choice for choice, _label in SocialPost.Pillar.choices}
 
+BUFFER_SCHEDULE_ERROR = "Buffer could not schedule this post. Try again later."
+COPY_GENERATION_ERROR = "Social copy generation is temporarily unavailable."
+BUFFER_PROFILES_ERROR = "Buffer channels are temporarily unavailable."
+ARTICLE_GENERATION_ERROR = "Article generation is temporarily unavailable."
+
 
 def _history_entry(request, state: str, *, note: str = "") -> dict:
     entry = {
@@ -210,17 +215,24 @@ class SocialPostDetailView(APIView):
                     scheduled_at=updated_post.scheduled_for.isoformat(),
                     media_url=updated_post.media_url,
                 )
-            except BufferServiceError as exc:
+            except BufferServiceError:
+                logger.exception(
+                    "Buffer scheduling failed for social post %s", updated_post.pk
+                )
                 updated_post.status = SocialPost.Status.FAILED
                 history = list(updated_post.status_history or [])
                 history.append(
-                    _history_entry(request, SocialPost.Status.FAILED, note=str(exc))
+                    _history_entry(
+                        request,
+                        SocialPost.Status.FAILED,
+                        note=BUFFER_SCHEDULE_ERROR,
+                    )
                 )
                 updated_post.status_history = history
                 updated_post.save(update_fields=["status", "status_history"])
                 return Response(
                     {
-                        "error": str(exc),
+                        "error": BUFFER_SCHEDULE_ERROR,
                         "post": SocialPostSerializer(updated_post).data,
                     },
                     status=status.HTTP_502_BAD_GATEWAY,
@@ -329,9 +341,11 @@ class SocialGenerateView(APIView):
                 languages=languages,
                 context=context,
             )
-        except ClaudeServiceError as exc:
+        except ClaudeServiceError:
+            logger.exception("Claude social copy generation failed")
             return Response(
-                {"error": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE
+                {"error": COPY_GENERATION_ERROR},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
         media_url = None
@@ -411,9 +425,11 @@ class SocialBufferProfilesView(APIView):
                 for profile in list_buffer_profiles()
                 if profile.get("service") in ALLOWED_PLATFORMS
             ]
-        except BufferServiceError as exc:
+        except BufferServiceError:
+            logger.exception("Buffer channel discovery failed")
             return Response(
-                {"error": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE
+                {"error": BUFFER_PROFILES_ERROR},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         return Response({"items": profiles})
 
@@ -447,9 +463,13 @@ class SocialExpandArticleView(APIView):
                 language=post.language,
                 content=post.content,
             )
-        except ClaudeServiceError as exc:
+        except ClaudeServiceError:
+            logger.exception(
+                "Claude article expansion failed for social post %s", post.pk
+            )
             return Response(
-                {"error": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE
+                {"error": ARTICLE_GENERATION_ERROR},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
         resource = HubResource.objects.create(
