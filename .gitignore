@@ -72,6 +72,13 @@ crm_plan/
 # Django stuff:
 *.log
 local_settings.py
+
+# Azure Functions local config. Both function READMEs tell you to create one
+# of these holding ADMIN_API_KEY — the bearer token for every /api/admin/
+# endpoint, including the GDPR sweep that hard-deletes personal data. Only
+# `local_settings.py` above was ignored, which does not match this filename.
+local.settings.json
+**/local.settings.json
 db.sqlite3
 db.sqlite3-journal
 # pytest --reuse-db files (per-xdist-worker: test_db.sqlite3_gw0, ...)
