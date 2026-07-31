@@ -8,6 +8,16 @@ from .views_whatsapp import (
     WhatsAppSendView,
     WhatsAppTemplatesView,
 )
+from .views_social import (
+    SocialBufferProfilesView,
+    SocialExpandArticleView,
+    SocialFeaturedProfilesView,
+    SocialGenerateView,
+    SocialKpisSummaryView,
+    SocialPostDetailView,
+    SocialPostsView,
+    SocialUpcomingEventsView,
+)
 
 app_name = "hub"
 
@@ -20,6 +30,25 @@ urlpatterns = [
     path("resources/", views.ResourcesView.as_view()),
     path("timeline", views.TimelineView.as_view(), name="timeline"),
     path("timeline/", views.TimelineView.as_view()),
+
+    # Social Media Marketing Routes
+    path("social/posts", SocialPostsView.as_view(), name="social_posts"),
+    path("social/posts/", SocialPostsView.as_view()),
+    path("social/posts/<int:pk>", SocialPostDetailView.as_view(), name="social_post_detail"),
+    path("social/posts/<int:pk>/", SocialPostDetailView.as_view()),
+    path("social/generate", SocialGenerateView.as_view(), name="social_generate"),
+    path("social/generate/", SocialGenerateView.as_view()),
+    path("social/upcoming-events", SocialUpcomingEventsView.as_view(), name="social_upcoming_events"),
+    path("social/upcoming-events/", SocialUpcomingEventsView.as_view()),
+    path("social/kpis-summary", SocialKpisSummaryView.as_view(), name="social_kpis_summary"),
+    path("social/kpis-summary/", SocialKpisSummaryView.as_view()),
+    path("social/featured-profiles", SocialFeaturedProfilesView.as_view(), name="social_featured_profiles"),
+    path("social/featured-profiles/", SocialFeaturedProfilesView.as_view()),
+    path("social/buffer-profiles", SocialBufferProfilesView.as_view(), name="social_buffer_profiles"),
+    path("social/buffer-profiles/", SocialBufferProfilesView.as_view()),
+    path("social/posts/<int:pk>/expand-article", SocialExpandArticleView.as_view(), name="social_expand_article"),
+    path("social/posts/<int:pk>/expand-article/", SocialExpandArticleView.as_view()),
+
     path(
         "whatsapp/templates",
         WhatsAppTemplatesView.as_view(),
