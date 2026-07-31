@@ -672,6 +672,9 @@ class TestQuizQuestionBroadcast:
         assert "embed" in data["media"]["url"]
 
 
+from django.test import override_settings
+
+
 class TestCoachQuestionMedia:
     """Coach authoring endpoint: create/edit questions with media.
 
@@ -723,6 +726,13 @@ class TestCoachQuestionMedia:
         # Stored raw; normalized only at broadcast time
         assert "watch?v=" in q.media_url
 
+    @override_settings(
+        DEFAULT_FILE_STORAGE="django.core.files.storage.InMemoryStorage",
+        STORAGES={
+            "default": {"BACKEND": "django.core.files.storage.InMemoryStorage"},
+            "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+        },
+    )
     def test_create_with_image_upload(self, quiz_event, quiz_round):
         from django.core.files.uploadedfile import SimpleUploadedFile
 
