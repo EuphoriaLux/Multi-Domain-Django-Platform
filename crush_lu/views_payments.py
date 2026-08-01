@@ -6,13 +6,14 @@ from decimal import Decimal
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import redirect_to_login
 from django.db import transaction
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST, require_http_methods
+from django.views.decorators.http import require_POST
 
 from crush_lu.models.events import EventRegistration
 from crush_lu.models.payments import PaymentTransaction
@@ -168,12 +169,93 @@ def create_sumup_premium_checkout(request, membership_id):
     })
 
 
+def _apply_paid_checkout(tx_obj, data):
+    """Mark the transaction paid and unlock whatever it bought.
+
+    Callers must have read the paid state *from SumUp* — never from a request
+    body. Idempotent under concurrency: the browser return and SumUp's server
+    callback routinely race each other, so the row is locked and re-checked
+    before any side effect (a second run would re-issue the check-in token).
+    """
+    with transaction.atomic():
+        # select_for_update() has to run inside a transaction — ATOMIC_REQUESTS
+        # is off, so locking outside one raises TransactionManagementError.
+        locked = PaymentTransaction.objects.select_for_update().get(pk=tx_obj.pk)
+        if locked.status == PaymentTransaction.Status.PAID:
+            return
+
+        locked.status = PaymentTransaction.Status.PAID
+        locked.raw_response = data
+        locked.save()
+
+        if (
+            locked.purpose == PaymentTransaction.Purpose.EVENT_REGISTRATION
+            and locked.event_registration
+        ):
+            reg = locked.event_registration
+            if reg.status != "confirmed" or not reg.payment_confirmed:
+                reg.payment_confirmed = True
+                reg.payment_date = timezone.now()
+                reg.status = "confirmed"
+                reg.save()
+                _generate_checkin_token(reg)
+                logger.info("Confirmed EventRegistration %s via SumUp", reg.id)
+
+        elif (
+            locked.purpose == PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP
+            and locked.premium_membership
+        ):
+            pm = locked.premium_membership
+            if pm.status == "pending":
+                pm.payment_confirmed = True
+                pm.payment_date = timezone.now()
+                try:
+                    pm.confirm()
+                    logger.info("Confirmed PremiumMembership %s via SumUp", pm.id)
+                except ValueError as exc:
+                    logger.error("Could not confirm PremiumMembership %s: %s", pm.id, exc)
+
+
+def _sync_checkout_with_sumup(tx_obj):
+    """Re-read the checkout from SumUp and apply whatever it reports.
+
+    Every path that can mark a payment complete funnels through here, so no
+    caller has to be trusted — both the webhook and the return URL are public,
+    unauthenticated endpoints.
+    """
+    if tx_obj.status != PaymentTransaction.Status.PENDING:
+        return
+
+    try:
+        data = SumUpClient().get_checkout(tx_obj.sumup_checkout_id)
+    except SumUpError as exc:
+        logger.warning(
+            "SumUp verification failed for checkout %s: %s", tx_obj.sumup_checkout_id, exc
+        )
+        return
+
+    sumup_status = (data.get("status") or "").upper()
+    if sumup_status in ("PAID", "SUCCESSFUL"):
+        _apply_paid_checkout(tx_obj, data)
+    elif sumup_status in ("FAILED", "CANCELLED", "EXPIRED"):
+        tx_obj.status = PaymentTransaction.Status.FAILED
+        tx_obj.raw_response = data
+        tx_obj.save()
+
+    tx_obj.refresh_from_db()
+
+
 @csrf_exempt
 @require_POST
 def sumup_webhook(request):
     """
-    Asynchronous Webhook receiver endpoint for SumUp Payment Status notifications.
+    Asynchronous webhook receiver for SumUp payment status notifications.
     Endpoint: POST /payments/sumup/webhook/
+
+    The endpoint is public and unauthenticated, so the posted status is a
+    *hint only* — it names a checkout to go and re-read. Acting on
+    payload["status"] directly would let anyone confirm a registration, and
+    mint themselves a check-in token, with a forged POST.
     """
     try:
         payload = json.loads(request.body.decode("utf-8"))
@@ -181,59 +263,35 @@ def sumup_webhook(request):
         return HttpResponse("Invalid payload", status=400)
 
     checkout_id = payload.get("id") or payload.get("checkout_id")
-    status_str = (payload.get("status") or payload.get("event_type") or "").upper()
-
     if not checkout_id:
         return HttpResponse("Missing checkout_id", status=400)
 
-    logger.info("Received SumUp webhook for checkout %s with status %s", checkout_id, status_str)
+    logger.info(
+        "Received SumUp webhook for checkout %s with status %s",
+        checkout_id,
+        (payload.get("status") or payload.get("event_type") or "").upper(),
+    )
 
-    try:
-        tx_obj = PaymentTransaction.objects.select_for_update().get(sumup_checkout_id=checkout_id)
-    except PaymentTransaction.DoesNotExist:
+    tx_obj = PaymentTransaction.objects.filter(sumup_checkout_id=checkout_id).first()
+    if not tx_obj:
         logger.warning("PaymentTransaction not found for SumUp checkout ID %s", checkout_id)
         return JsonResponse({"status": "ignored", "reason": "transaction not found"})
 
-    if status_str in ["PAID", "SUCCESSFUL", "CHECKOUT_COMPLETED"]:
-        with transaction.atomic():
-            tx_obj.status = PaymentTransaction.Status.PAID
-            tx_obj.raw_response = payload
-            tx_obj.save()
-
-            if tx_obj.purpose == PaymentTransaction.Purpose.EVENT_REGISTRATION and tx_obj.event_registration:
-                reg = tx_obj.event_registration
-                if reg.status != "confirmed" or not reg.payment_confirmed:
-                    reg.payment_confirmed = True
-                    reg.payment_date = timezone.now()
-                    reg.status = "confirmed"
-                    reg.save()
-                    _generate_checkin_token(reg)
-                    logger.info("Confirmed EventRegistration %s via SumUp Webhook", reg.id)
-
-            elif tx_obj.purpose == PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP and tx_obj.premium_membership:
-                pm = tx_obj.premium_membership
-                if pm.status == "pending":
-                    pm.payment_confirmed = True
-                    pm.payment_date = timezone.now()
-                    try:
-                        pm.confirm()
-                        logger.info("Confirmed PremiumMembership %s via SumUp Webhook", pm.id)
-                    except ValueError as exc:
-                        logger.error("Could not confirm PremiumMembership %s: %s", pm.id, exc)
-
-    elif status_str in ["FAILED", "CANCELLED", "EXPIRED"]:
-        tx_obj.status = PaymentTransaction.Status.FAILED
-        tx_obj.raw_response = payload
-        tx_obj.save()
-
+    _sync_checkout_with_sumup(tx_obj)
     return JsonResponse({"status": "ok"})
 
 
-@login_required
+@csrf_exempt
 def sumup_payment_return(request):
     """
-    Return URL endpoint after completing the SumUp Checkout widget.
-    Verifies payment state server-side and redirects user with confirmation.
+    Return URL for a SumUp checkout.
+
+    Two very different callers land here. The browser arrives by GET once the
+    widget reports success. SumUp's platform *also* POSTs the checkout status
+    server-to-server (user agent ReactorNetty, no session, no CSRF token) —
+    that request was being rejected with 403, so a customer who closed the tab
+    before the redirect never had their registration confirmed. Neither path
+    trusts the request: both re-read the checkout from SumUp.
     """
     ref = request.GET.get("ref") or request.GET.get("checkout_reference")
     checkout_id = request.GET.get("checkout_id")
@@ -244,45 +302,34 @@ def sumup_payment_return(request):
     elif checkout_id:
         tx_obj = PaymentTransaction.objects.filter(sumup_checkout_id=checkout_id).first()
 
+    if request.method == "POST":
+        if not tx_obj:
+            logger.warning("SumUp return POST for unknown reference %s", ref or checkout_id)
+            return JsonResponse({"status": "ignored", "reason": "transaction not found"})
+        _sync_checkout_with_sumup(tx_obj)
+        return JsonResponse({"status": "ok"})
+
+    # Everything below is the human-facing page, so the login gate applies here
+    # rather than as a decorator — a decorator would bounce SumUp's POST to the
+    # login form and silently drop the notification.
+    if not request.user.is_authenticated:
+        return redirect_to_login(request.get_full_path())
+
     if not tx_obj:
         messages.error(request, _("Payment transaction reference not found."))
         return redirect("crush_lu:home")
 
-    # Verify status directly with SumUp API if still pending
-    if tx_obj.status == PaymentTransaction.Status.PENDING:
-        client = SumUpClient()
-        try:
-            data = client.get_checkout(tx_obj.sumup_checkout_id)
-            sumup_status = (data.get("status") or "").upper()
-            if sumup_status in ["PAID", "SUCCESSFUL"]:
-                with transaction.atomic():
-                    tx_obj.status = PaymentTransaction.Status.PAID
-                    tx_obj.raw_response = data
-                    tx_obj.save()
-
-                    if tx_obj.purpose == PaymentTransaction.Purpose.EVENT_REGISTRATION and tx_obj.event_registration:
-                        reg = tx_obj.event_registration
-                        reg.payment_confirmed = True
-                        reg.payment_date = timezone.now()
-                        reg.status = "confirmed"
-                        reg.save()
-                        _generate_checkin_token(reg)
-                    elif tx_obj.purpose == PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP and tx_obj.premium_membership:
-                        pm = tx_obj.premium_membership
-                        if pm.status == "pending":
-                            pm.payment_confirmed = True
-                            pm.payment_date = timezone.now()
-                            try:
-                                pm.confirm()
-                            except ValueError:
-                                pass
-        except SumUpError as exc:
-            logger.warning("Return verification get_checkout failed: %s", exc)
+    _sync_checkout_with_sumup(tx_obj)
 
     if tx_obj.status == PaymentTransaction.Status.PAID:
         messages.success(request, _("Payment completed successfully! Thank you."))
         if tx_obj.event_registration:
-            return redirect("crush_lu:event_detail", pk=tx_obj.event_registration.event.pk)
+            # The route is events/<int:event_id>/ — passing pk raises
+            # NoReverseMatch, and it fires *after* the payment is recorded, so
+            # the user sees a 500 on a purchase that actually succeeded.
+            return redirect(
+                "crush_lu:event_detail", event_id=tx_obj.event_registration.event.pk
+            )
         elif tx_obj.premium_membership:
             return redirect("crush_lu:crush_connect_hub")
     else:
