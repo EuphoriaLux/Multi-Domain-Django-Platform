@@ -68,7 +68,7 @@ WALLET_APPLE_CERT_PATH=certs/apple/crush-pass-cert.pem
 WALLET_APPLE_KEY_PATH=certs/apple/crush-pass-key.pem
 WALLET_APPLE_KEY_PASSWORD=
 WALLET_APPLE_WWDR_CERT_PATH=certs/apple/wwdr-g4.pem
-WALLET_APPLE_WEB_SERVICE_URL=https://crush.lu/wallet/v1
+WALLET_APPLE_WEB_SERVICE_URL=https://crush.lu/wallet  # service ROOT, unversioned: Apple appends /v1 itself
 ```
 
 - [ ] **Step 4: Verify server starts**
@@ -122,7 +122,7 @@ APPLE_WALLET_SETTINGS = {
     "WALLET_APPLE_KEY_PATH": os.path.join(CERT_DIR, "crush-pass-key.pem"),
     "WALLET_APPLE_KEY_PASSWORD": "",
     "WALLET_APPLE_WWDR_CERT_PATH": os.path.join(CERT_DIR, "wwdr-g4.pem"),
-    "WALLET_APPLE_WEB_SERVICE_URL": "https://crush.lu/wallet/v1",
+    "WALLET_APPLE_WEB_SERVICE_URL": "https://crush.lu/wallet",
     "WALLET_APPLE_CERT_BASE64": "",
     "WALLET_APPLE_KEY_BASE64": "",
     "WALLET_APPLE_WWDR_CERT_BASE64": "",

@@ -4,10 +4,52 @@ import time
 import httpx
 import jwt
 from django.conf import settings
+from django.utils import timezone
 
 from ..models import PasskitDeviceRegistration
 
 logger = logging.getLogger(__name__)
+
+
+def mark_passes_updated_bulk(pass_type_identifier, serial_numbers):
+    """Advance the update tag for many passes in ONE query.
+
+    The tag is what actually makes an update land — Wallet's periodic poll
+    picks it up with no push involved. Bulk event changes therefore mark
+    everything here (cheap, no network) and treat the APNs fan-out as a
+    best-effort "make it instant" step that can be bounded without losing the
+    update. See refresh_event_tickets.
+    """
+    serial_numbers = list(serial_numbers)
+    if not serial_numbers:
+        return 0
+    return PasskitDeviceRegistration.objects.filter(
+        pass_type_identifier=pass_type_identifier,
+        serial_number__in=serial_numbers,
+    ).update(updated_at=timezone.now())
+
+
+def mark_passes_updated(pass_type_identifier, serial_number):
+    """Advance the update tag for a pass whose CONTENT changed.
+
+    Wallet polls GET /devices/<id>/registrations/<type>?passesUpdatedSince=<tag>
+    and we answer that from PasskitDeviceRegistration.updated_at — which
+    auto_now only bumps when the device registers or refreshes its push token.
+    A content change therefore left the timestamp untouched, so the poll
+    filtered the pass out, returned 204, and the rebuilt package was never
+    fetched: pushes fired and nothing ever updated.
+
+    Deliberately run BEFORE (and independently of) the APNs send, because the
+    content changed whether or not a push goes out. Wallet also polls on its own
+    schedule, and that is the only path that works at all while PASSKIT_APNS_*
+    is unconfigured — which it currently is in production.
+
+    Uses .update() rather than .save(), so auto_now must be set explicitly.
+    """
+    return PasskitDeviceRegistration.objects.filter(
+        pass_type_identifier=pass_type_identifier,
+        serial_number=serial_number,
+    ).update(updated_at=timezone.now())
 
 APNS_PRODUCTION_HOST = "https://api.push.apple.com"
 APNS_SANDBOX_HOST = "https://api.sandbox.push.apple.com"
@@ -40,7 +82,23 @@ def _build_apns_jwt(config):
     )
 
 
-def send_passkit_push_notifications(pass_type_identifier, serial_number):
+def send_passkit_push_notifications(
+    pass_type_identifier, serial_number, mark_updated=True, deadline=None
+):
+    # deadline: a time.monotonic() value past which no further device request
+    # is started. One serial fans out to EVERY device that registered it, each
+    # a request with a 10s timeout, so a caller that only checks its budget
+    # before this function can still be blocked for an arbitrary multiple of
+    # it. The bound has to reach inside the per-device loop.
+    # Advance the update tag first: without it the subsequent poll answers 204
+    # and the push is wasted. Must happen even when APNs is unconfigured, so
+    # Wallet's own periodic poll still picks the change up.
+    #
+    # mark_updated=False is for callers that already advanced the tag in bulk
+    # (refresh_ticket_serials), so the pushed subset is not written twice.
+    if mark_updated:
+        mark_passes_updated(pass_type_identifier, serial_number)
+
     config = _get_apns_config()
     if not config:
         logger.warning("PassKit APNS settings are not configured.")
@@ -65,8 +123,16 @@ def send_passkit_push_notifications(pass_type_identifier, serial_number):
     success_count = 0
     failed_count = 0
 
+    skipped_for_budget = 0
+
     with httpx.Client(http2=True, timeout=10.0) as client:
         for registration in registrations:
+            if deadline is not None and time.monotonic() >= deadline:
+                # Out of budget. These devices still get the update on Wallet's
+                # next poll — the tag was already advanced — so stopping here
+                # costs immediacy, not correctness.
+                skipped_for_budget += 1
+                continue
             url = f"{config['host']}/3/device/{registration.push_token}"
             response = client.post(url, headers=headers, json=payload)
 
@@ -89,4 +155,17 @@ def send_passkit_push_notifications(pass_type_identifier, serial_number):
                     response.text,
                 )
 
-    return {"success": success_count, "failed": failed_count, "total": total}
+    if skipped_for_budget:
+        logger.info(
+            "PassKit push budget exhausted for %s: %s device(s) left to "
+            "Wallet's periodic poll",
+            serial_number,
+            skipped_for_budget,
+        )
+
+    return {
+        "success": success_count,
+        "failed": failed_count,
+        "total": total,
+        "skipped": skipped_for_budget,
+    }

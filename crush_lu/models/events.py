@@ -795,6 +795,40 @@ class EventRegistration(models.Model):
         default="",
         help_text=_("Apple Wallet event ticket serial number"),
     )
+    apple_wallet_auth_token = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        help_text=_(
+            "Apple Wallet PassKit auth token for this ticket. Set when the "
+            "ticket is built so the web service can authenticate update "
+            "requests for it, including for attendees with no CrushProfile."
+        ),
+    )
+    apple_wallet_language = models.CharField(
+        max_length=10,
+        blank=True,
+        default="",
+        help_text=_(
+            "Language this Apple ticket was issued in. A PassKit rebuild "
+            "carries no locale, so without this the pass would come back in "
+            "English — and an open-event attendee may have no CrushProfile "
+            "whose preference could stand in."
+        ),
+    )
+    apple_wallet_checkin_origin = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text=_(
+            "scheme://host that issued this ticket's check-in QR. A check-in "
+            "token only validates in the environment that minted it, and a "
+            "PassKit rebuild has no request to derive the host from — the "
+            "forwarded webServiceURL points at whatever the setting names, "
+            "which may be a different slot. Persisted so rebuilds keep the "
+            "original check-in host."
+        ),
+    )
 
     # Pre-event reminder tracking (idempotency for the send_event_reminders
     # mgmt command, now driven unattended by the EventReminders timer).

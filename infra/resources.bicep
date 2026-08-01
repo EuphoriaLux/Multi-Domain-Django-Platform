@@ -230,7 +230,14 @@ resource web 'Microsoft.Web/sites@2022-03-01' = {
       //   WALLET_APPLE_KEY_PATH=/home/site/wwwroot/certs/pass-key.pem
       //   WALLET_APPLE_WWDR_CERT_PATH=/home/site/wwwroot/certs/AppleWWDRCA.pem
       //   WALLET_APPLE_KEY_PASSWORD=<your-key-password>
-      //   WALLET_APPLE_WEB_SERVICE_URL=https://crush.lu/wallet/v1
+      //   WALLET_APPLE_WEB_SERVICE_URL=https://crush.lu/wallet
+      //     ^ PassKit service ROOT, UNVERSIONED. Apple appends its own
+      //       "/v1/devices/...", "/v1/passes/..." paths, and the Django routes
+      //       live at /wallet/v1/... — so a value ending in /v1 makes every
+      //       registration and update request hit /wallet/v1/v1/... and 404.
+      //       This setting has highest precedence in resolve_web_service_url,
+      //       so a stale "/wallet/v1" value in App Service configuration
+      //       overrides the corrected code and silently keeps the flow broken.
       //   PASSKIT_APNS_KEY_ID=<your-apns-key-id>
       //   PASSKIT_APNS_TEAM_ID=<your-apple-team-id>
       //   PASSKIT_APNS_PRIVATE_KEY=<your-apns-private-key>

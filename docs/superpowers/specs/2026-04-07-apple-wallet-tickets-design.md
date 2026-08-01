@@ -69,7 +69,7 @@ WALLET_APPLE_CERT_PATH=certs/apple/crush-pass-cert.pem
 WALLET_APPLE_KEY_PATH=certs/apple/crush-pass-key.pem
 WALLET_APPLE_KEY_PASSWORD=
 WALLET_APPLE_WWDR_CERT_PATH=certs/apple/wwdr-g4.pem
-WALLET_APPLE_WEB_SERVICE_URL=https://crush.lu/wallet/v1
+WALLET_APPLE_WEB_SERVICE_URL=https://crush.lu/wallet  # service ROOT, unversioned: Apple appends /v1 itself
 ```
 
 ## 4. Architecture Changes

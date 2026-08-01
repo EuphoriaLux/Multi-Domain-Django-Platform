@@ -8,6 +8,8 @@ Includes:
 - Event inlines (registrations, invitations, voting, presentations, speed dating)
 """
 
+import logging
+
 from django import forms
 from django.contrib import admin
 from django.contrib import messages as django_messages
@@ -30,6 +32,8 @@ from crush_lu.models import (
 from crush_lu.models.events import SEAT_HOLDING_STATUSES
 from .filters import EventCapacityFilter
 from .quiz import QuizEventInline
+
+logger = logging.getLogger(__name__)
 
 
 class RegistrationAudienceWidget(forms.RadioSelect):
@@ -591,7 +595,46 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
 
     @admin.action(description=_("🚫 Cancel selected events"))
     def cancel_events(self, request, queryset):
+        # Snapshot before .update() — the queryset is lazy and its filter may
+        # well be is_cancelled=False, which would match nothing afterwards.
+        events = list(queryset)
         updated = queryset.update(is_cancelled=True)
+
+        # .update() emits no signals, so nothing else tells Apple Wallet these
+        # tickets are dead. Without this, a cancelled event's installed passes
+        # keep rendering as valid at the door (the rebuild sets `voided`, but
+        # only once Wallet is told to fetch it), and member cards keep showing
+        # the cancelled event as the holder's next one.
+        #
+        # ONE call for the whole action, deliberately. Each refresh_* helper
+        # starts its own push budget, so refreshing per event — twice per event,
+        # tickets then member passes — restarted the deadline 2N times and let
+        # total request time grow with the size of the selection. Batching
+        # shares a single budget across everything the action touches.
+        try:
+            from crush_lu.models import CrushProfile
+            from crush_lu.wallet.passkit_service import refresh_ticket_serials
+
+            serials = list(
+                EventRegistration.objects.filter(event__in=events)
+                .exclude(apple_wallet_ticket_serial="")
+                .values_list("apple_wallet_ticket_serial", flat=True)
+            )
+            serials += list(
+                CrushProfile.objects.filter(user__eventregistration__event__in=events)
+                .exclude(apple_pass_serial="")
+                .values_list("apple_pass_serial", flat=True)
+                .distinct()
+            )
+            refresh_ticket_serials(
+                serials, context=f"Admin cancel_events ({len(events)} event(s))"
+            )
+        except Exception:
+            logger.exception(
+                "Failed scheduling Apple wallet refresh for %s cancelled event(s)",
+                len(events),
+            )
+
         django_messages.success(
             request, _("Cancelled {count} event(s)").format(count=updated)
         )
@@ -931,9 +974,54 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                     skipped += 1
                     continue
             eligible_ids.append(reg.pk)
+        # Serials of seats being restored from ANY invalid status — their Apple
+        # ticket is currently `voided` and has to be told it is live again.
+        # Keyed off SEAT_HOLDING_STATUSES rather than "cancelled" alone, to
+        # match what the payload actually voids: `waitlist` and `no_show` are
+        # equally invalid, and confirming one of those would otherwise leave a
+        # visibly voided ticket on a now-valid seat. Collected before the
+        # update, while the old status is still readable.
+        restoring = EventRegistration.objects.filter(pk__in=eligible_ids).exclude(
+            status__in=SEAT_HOLDING_STATUSES
+        )
+        restored_serials = list(
+            restoring.exclude(apple_wallet_ticket_serial="").values_list(
+                "apple_wallet_ticket_serial", flat=True
+            )
+        )
+        # ...and their MEMBER passes. Restoring a seat makes the event eligible
+        # for get_next_event_for_pass again, so the card has to stop showing
+        # the previous next event (or "No upcoming events"). A holder who never
+        # downloaded the ticket has only this serial.
+        from crush_lu.models import CrushProfile
+
+        restored_serials += list(
+            CrushProfile.objects.filter(user__eventregistration__in=restoring)
+            .exclude(apple_pass_serial="")
+            .values_list("apple_pass_serial", flat=True)
+            .distinct()
+        )
+
         updated = EventRegistration.objects.filter(pk__in=eligible_ids).update(
             status="confirmed"
         )
+
+        # .update() emits no signals, so the per-registration receiver never
+        # runs here and the restored tickets would stay voided forever.
+        if restored_serials:
+            try:
+                from crush_lu.wallet.passkit_service import refresh_ticket_serials
+
+                refresh_ticket_serials(
+                    restored_serials, context="Admin confirm_registrations"
+                )
+            except Exception:
+                logger.exception(
+                    "Failed scheduling Apple ticket refresh for %s restored "
+                    "registration(s)",
+                    len(restored_serials),
+                )
+
         django_messages.success(
             request, _("Confirmed %(count)s registration(s).") % {"count": updated}
         )
@@ -949,7 +1037,33 @@ class EventRegistrationAdmin(admin.ModelAdmin):
     @admin.action(description=_("⏳ Move to waitlist"))
     def move_to_waitlist(self, request, queryset):
         """Move selected registrations to waitlist"""
+        # Serials losing their seat, collected before the update while the old
+        # status is still readable. Waitlist is not a seat-holding status, so
+        # the rebuilt ticket is `voided` — but .update() emits no signals, so
+        # without this the holder keeps a ticket that still looks valid at the
+        # door.
+        voiding_serials = list(
+            queryset.filter(status__in=SEAT_HOLDING_STATUSES)
+            .exclude(apple_wallet_ticket_serial="")
+            .values_list("apple_wallet_ticket_serial", flat=True)
+        )
+
         updated = queryset.update(status="waitlist")
+
+        if voiding_serials:
+            try:
+                from crush_lu.wallet.passkit_service import refresh_ticket_serials
+
+                refresh_ticket_serials(
+                    voiding_serials, context="Admin move_to_waitlist"
+                )
+            except Exception:
+                logger.exception(
+                    "Failed scheduling Apple ticket refresh for %s waitlisted "
+                    "registration(s)",
+                    len(voiding_serials),
+                )
+
         django_messages.success(
             request, f"Moved {updated} registration(s) to waitlist."
         )

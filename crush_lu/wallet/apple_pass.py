@@ -12,8 +12,10 @@ from cryptography.hazmat.primitives.serialization import pkcs7
 from cryptography.x509 import load_pem_x509_certificate
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+from django.utils import translation
 
 from ..wallet_pass import build_wallet_pass_data
+from .passkit_service import resolve_web_service_url
 
 # Placeholder 1x1 transparent PNG for icon (fallback if static assets missing)
 ICON_PNG_BASE64 = (
@@ -115,20 +117,50 @@ def _sign_manifest(manifest_bytes):
     )
 
 
+def claim_field_once(instance, field, value):
+    """Compare-and-set a write-once identifier on a row.
+
+    Two concurrent pass downloads — a double-tap on the dashboard link while
+    the first in-page fetch is still pending — would otherwise both read the
+    empty field, both generate a value, and both sign a package with their own.
+    The last save wins, so whichever package the native sheet actually presents
+    may carry an identifier the web service can never resolve: every
+    registration and update request for it then fails, permanently and with no
+    signal to the user beyond a pass that never updates.
+
+    The conditional UPDATE lets exactly one writer win; everyone else adopts
+    the winner's value, so every package signed is consistent with the row.
+    Shared by the member pass (CrushProfile) and event tickets
+    (EventRegistration).
+    """
+    claimed = type(instance)._default_manager.filter(
+        pk=instance.pk, **{field: ""}
+    ).update(**{field: value})
+    if not claimed:
+        value = (
+            type(instance)
+            ._default_manager.filter(pk=instance.pk)
+            .values_list(field, flat=True)
+            .first()
+        ) or value
+    setattr(instance, field, value)
+    return value
+
+
 def _ensure_pass_identifiers(profile):
-    updated_fields = []
+    # Claimed atomically — see claim_field_once. Racing downloads used to
+    # generate two serial/token pairs and let the last save win, stranding the
+    # earlier (possibly presented) package with credentials nothing resolves.
     if not profile.apple_pass_serial:
-        profile.apple_pass_serial = secrets.token_hex(8)
-        updated_fields.append("apple_pass_serial")
+        claim_field_once(profile, "apple_pass_serial", secrets.token_hex(8))
     if not profile.apple_auth_token:
-        profile.apple_auth_token = secrets.token_hex(16)
-        updated_fields.append("apple_auth_token")
-    if updated_fields:
-        profile.save(update_fields=updated_fields)
+        claim_field_once(profile, "apple_auth_token", secrets.token_hex(16))
     return profile.apple_pass_serial, profile.apple_auth_token
 
 
-def _build_pass_payload(profile, serial_number, auth_token, request=None):
+def _build_pass_payload(
+    profile, serial_number, auth_token, request=None, web_service_url=None
+):
     """
     Build the pass.json payload for Apple Wallet.
 
@@ -141,7 +173,12 @@ def _build_pass_payload(profile, serial_number, auth_token, request=None):
     pass_type_identifier = _require_setting("WALLET_APPLE_PASS_TYPE_IDENTIFIER")
     team_identifier = _require_setting("WALLET_APPLE_TEAM_IDENTIFIER")
     organization_name = _require_setting("WALLET_APPLE_ORGANIZATION_NAME")
-    web_service_url = getattr(settings, "WALLET_APPLE_WEB_SERVICE_URL", "")
+    # Prefer the issuing request, then a caller-supplied URL (forwarded by the
+    # PassKit update path), then the setting, so the pass always advertises a
+    # webServiceURL alongside its authenticationToken — pointing at the slot
+    # whose database can resolve this serial.
+    # See passkit_service.resolve_web_service_url for the full rationale.
+    web_service_url = resolve_web_service_url(request, web_service_url)
 
     pass_data = build_wallet_pass_data(profile, request=request)
 
@@ -331,20 +368,27 @@ def _build_pkpass(pass_payload, files=None):
     return buffer.getvalue()
 
 
-def build_apple_pass(profile, request=None):
+def build_apple_pass(profile, request=None, web_service_url=None):
     """
     Build a complete Apple Wallet .pkpass file for the given profile.
 
     Args:
         profile: CrushProfile instance
         request: Optional HttpRequest for building absolute URLs
+        web_service_url: Optional explicit webServiceURL — forwarded by the
+            PassKit web-service provider when rebuilding a pass on update, so
+            a request-less rebuild still carries the right URL.
 
     Returns:
         bytes: The .pkpass file contents
     """
     serial_number, auth_token = _ensure_pass_identifiers(profile)
     pass_payload = _build_pass_payload(
-        profile, serial_number, auth_token, request=request
+        profile,
+        serial_number,
+        auth_token,
+        request=request,
+        web_service_url=web_service_url,
     )
     return _build_pkpass(pass_payload)
 
@@ -362,22 +406,54 @@ def provide_pass_for_serial(
     an updated pass after an APNS push notification.
 
     Handles both member passes and event tickets (evt-* serial prefix).
+
+    Apple's update request carries no browser locale, so without an explicit
+    activation the rebuild runs under LANGUAGE_CODE ("en") and every
+    modeltranslation descriptor it reads — notably event.title — resolves to
+    English. The first refresh would then silently replace a French or German
+    holder's installed pass with an English one. Each branch therefore
+    activates the language the pass was issued in.
     """
     # Event ticket serials start with "evt-"
     if serial_number.startswith("evt-"):
         from ..models import EventRegistration
         from .apple_event_ticket import build_apple_event_ticket
 
-        registration = EventRegistration.objects.filter(
-            apple_wallet_ticket_serial=serial_number
-        ).select_related("event", "user").first()
+        registration = (
+            EventRegistration.objects.filter(apple_wallet_ticket_serial=serial_number)
+            .select_related("event", "user__crushprofile")
+            .first()
+        )
         if not registration:
             return None
-        return build_apple_event_ticket(registration)
+        # Forward the caller-supplied web_service_url (already derived from the
+        # live request in get_latest_pass) so a rebuilt ticket keeps its
+        # webServiceURL even though there is no request here.
+        with translation.override(_ticket_language(registration)):
+            return build_apple_event_ticket(
+                registration, web_service_url=web_service_url
+            )
 
     from ..models import CrushProfile
 
     profile = CrushProfile.objects.filter(apple_pass_serial=serial_number).first()
     if not profile:
         return None
-    return build_apple_pass(profile)
+    # See the evt- branch: forward web_service_url so the rebuilt member pass
+    # does not silently drop webServiceURL.
+    with translation.override(getattr(profile, "preferred_language", "") or None):
+        return build_apple_pass(profile, web_service_url=web_service_url)
+
+
+def _ticket_language(registration):
+    """The language an event ticket was issued in, or None to leave the default.
+
+    Prefers the language stamped on the registration at download time, since an
+    open-event attendee may have no CrushProfile at all; falls back to the
+    holder's profile preference for tickets issued before that field existed.
+    """
+    stamped = getattr(registration, "apple_wallet_language", "")
+    if stamped:
+        return stamped
+    profile = getattr(registration.user, "crushprofile", None)
+    return getattr(profile, "preferred_language", "") or None

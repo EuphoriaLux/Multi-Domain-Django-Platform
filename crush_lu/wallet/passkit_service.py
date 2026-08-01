@@ -2,12 +2,13 @@ import secrets
 import importlib
 import json
 import logging
+import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 
 from django.conf import settings
+from django.db import transaction
 from django.http import HttpResponse, JsonResponse
-from django.utils import timezone
 from django.utils.http import http_date, parse_http_date
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -32,22 +33,55 @@ def _load_callable(path):
 
 def _resolve_auth_token_from_profile(pass_type_identifier, serial_number):
     """
-    Resolve PassKit auth token by looking up the CrushProfile with matching serial number.
+    Resolve the PassKit auth token for a pass serial number.
 
-    Each Apple Wallet pass is generated with a unique auth token stored on the profile.
-    This resolver looks up that token so PassKit web service requests can be authenticated.
+    Each Apple Wallet pass is generated with a unique auth token stored on the
+    owner's CrushProfile. Member passes carry their profile's apple_pass_serial;
+    event tickets carry an `evt-*` serial on the EventRegistration and normally
+    reuse the owner's profile token, except for open-event attendees who have no
+    CrushProfile at all — those carry a per-ticket token persisted on the
+    registration. Resolve every shape so the web service can authenticate update
+    requests for either pass type — otherwise those tickets can never register.
     """
     if not serial_number:
         return None
 
-    from ..models import CrushProfile
-
     try:
+        # Event tickets: serial lives on EventRegistration. The token is the
+        # registration's own apple_wallet_auth_token when set (profile-less
+        # attendees), otherwise the owner profile's apple_auth_token. This
+        # precedence must match build_apple_event_ticket, which keeps using an
+        # already-persisted registration token even if a profile appears later.
+        if serial_number.startswith("evt-"):
+            from ..models import EventRegistration
+
+            registration = (
+                EventRegistration.objects.filter(
+                    apple_wallet_ticket_serial=serial_number
+                )
+                .select_related("user__crushprofile")
+                .first()
+            )
+            if registration:
+                if registration.apple_wallet_auth_token:
+                    return registration.apple_wallet_auth_token
+                profile = getattr(registration.user, "crushprofile", None)
+                if profile and profile.apple_auth_token:
+                    return profile.apple_auth_token
+            return None
+
+        # Member passes: serial is the profile's apple_pass_serial.
+        from ..models import CrushProfile
+
         profile = CrushProfile.objects.filter(apple_pass_serial=serial_number).first()
         if profile and profile.apple_auth_token:
             return profile.apple_auth_token
     except Exception as e:
-        logger.error("Error resolving PassKit auth token for serial %s: %s", serial_number, e)
+        logger.error(
+            "Error resolving PassKit auth token for serial %s: %s",
+            serial_number,
+            e,
+        )
 
     return None
 
@@ -93,9 +127,19 @@ def _is_authorized(request, expected_token):
 
 
 def _require_authorization(request, pass_type_identifier, serial_number):
+    """Authorize a per-pass web-service request (register/unregister/get-pass).
+
+    Apple sends `Authorization: ApplePass <authenticationToken>` on these
+    endpoints, so we resolve the per-pass token by serial and compare.
+    NOTE: the GET "list registrations" poll is NOT authenticated this way and
+    must NOT call this helper — see list_device_registrations.
+    """
     expected_token = _get_expected_auth_token(pass_type_identifier, serial_number)
     if not expected_token:
-        logger.error("PassKit authentication token is not configured.")
+        logger.error(
+            "PassKit authentication token is not configured for serial %s",
+            serial_number,
+        )
         return HttpResponse(status=500)
     if not _is_authorized(request, expected_token):
         return HttpResponse(status=401)
@@ -103,12 +147,110 @@ def _require_authorization(request, pass_type_identifier, serial_number):
 
 
 def build_web_service_url(request):
-    base_path = getattr(settings, "PASSKIT_WEB_SERVICE_BASE_PATH", "/wallet/v1")
+    # IMPORTANT: this is the webServiceURL embedded in pass.json, and Apple
+    # treats it as a BASE to which it appends its own protocol version
+    # ("/v1/devices/...", "/v1/passes/...", "/v1/log"). Our routes live under
+    # /wallet/v1/... (see urls_crush.py), so the base MUST be the unversioned
+    # root "/wallet" — anything versioned here produces /wallet/v1/v1/... and
+    # every PassKit web-service request 404s.
+    base_path = getattr(settings, "PASSKIT_WEB_SERVICE_BASE_PATH", "/wallet")
     return request.build_absolute_uri(base_path.rstrip("/"))
 
 
+def _normalize_service_root(url):
+    """Coerce a webServiceURL into a valid PassKit service ROOT.
+
+    Apple appends its own "/v1/devices/...", "/v1/passes/..." paths to whatever
+    webServiceURL a pass advertises, so a root ending in "/v1" always produces
+    /wallet/v1/v1/... and 404s — there is no configuration in which that
+    trailing segment is correct. A trailing slash is equally bad (it yields
+    //v1/... which matches no Django route).
+
+    This normalization exists because WALLET_APPLE_WEB_SERVICE_URL has the
+    highest precedence AND the live App Service configuration has carried the
+    versioned value since the feature shipped. Without this, correcting the code
+    alone would leave production broken until someone also edited the setting.
+    Logged at WARNING so the misconfiguration stays visible at its source.
+    """
+    if not url:
+        return url
+
+    trimmed = url.rstrip("/")
+    if trimmed.endswith("/v1"):
+        corrected = trimmed[: -len("/v1")]
+        logger.warning(
+            "PassKit webServiceURL %r ends in /v1, but Apple appends its own "
+            "/v1 — that would make every web-service request 404. Using %r "
+            "instead; drop the trailing /v1 from WALLET_APPLE_WEB_SERVICE_URL.",
+            url,
+            corrected,
+        )
+        return corrected
+    return trimmed
+
+
+def resolve_web_service_url(request=None, web_service_url=None):
+    """
+    Resolve the webServiceURL (the PassKit service ROOT) to embed in a pass.
+
+    A pass that carries an authenticationToken MUST also advertise a
+    webServiceURL, otherwise iOS silently rejects it. Apple appends its own
+    "/v1/..." protocol paths to this URL, so the value must be the unversioned
+    root (e.g. https://crush.lu/wallet), NOT include /v1.
+
+    THE SERVICE ROOT IS SLOT-BOUND, so the issuing host wins. Prefer:
+      1. Derived from the current request via build_web_service_url(request) —
+         the host that served the pass is the only host that can answer for it.
+      2. An explicit caller-supplied web_service_url, forwarded by the PassKit
+         provider on rebuilds (get_latest_pass derives it from Apple's own live
+         request, so it names the slot Apple is already talking to).
+      3. The WALLET_APPLE_WEB_SERVICE_URL setting — the fallback for builds with
+         no request context at all (management commands, background rebuilds).
+      4. "" (nothing available) — the caller's `if url:` guard then omits the
+         field, matching the long-standing behaviour.
+
+    Why the request beats the setting: the whole PassKit web service resolves a
+    pass by serial against the DATABASE of whichever slot Apple contacts, and
+    the slots have isolated databases (prod `pythonapp`, staging
+    `pythonapp_staging`). A pass downloaded from test.crush.lu that advertises
+    the production root sends Apple to production, which has never heard of that
+    serial — registration 500s and the pass can never update. The DEBUG iOS
+    target points at test.crush.lu, so this is the normal path for every
+    developer build. A host-stable setting is precisely the wrong thing here.
+
+    This reverses the earlier "setting must win" rule, and safely: that rule
+    existed because request derivation used to produce a VERSIONED base
+    (PASSKIT_WEB_SERVICE_BASE_PATH defaulted to /wallet/v1), so a rebuild could
+    rewrite a correct root into the /v1/v1 trap. The base path is now the
+    unversioned root and _normalize_service_root strips a stray /v1 from every
+    branch, so derivation can no longer drift — the setting no longer needs to
+    defend against it, and the operator override survives as the no-request
+    fallback.
+    """
+    if request is not None:
+        try:
+            derived = build_web_service_url(request)
+        except Exception:
+            # build_absolute_uri can raise on pathological host headers; never
+            # let URL derivation turn a pass build into a 500. Fall through to
+            # the forwarded value / setting rather than returning "" — a pass
+            # with an authenticationToken and no webServiceURL is rejected.
+            derived = ""
+        if derived:
+            return _normalize_service_root(derived)
+    if web_service_url:
+        return _normalize_service_root(web_service_url)
+    explicit = getattr(settings, "WALLET_APPLE_WEB_SERVICE_URL", "")
+    if explicit:
+        return _normalize_service_root(explicit)
+    return ""
+
+
 def inject_web_service_fields(pass_json, request, authentication_token):
-    pass_json["webServiceURL"] = build_web_service_url(request)
+    # Route through the resolver rather than build_web_service_url directly, so
+    # this path gets the same /v1 normalization and the same slot-bound
+    # precedence as every other pass builder.
+    pass_json["webServiceURL"] = resolve_web_service_url(request)
     pass_json["authenticationToken"] = authentication_token
     return pass_json
 
@@ -199,10 +341,12 @@ def device_registration(request, device_library_identifier, pass_type_identifier
 @csrf_exempt
 @require_http_methods(["GET"])
 def list_device_registrations(request, device_library_identifier, pass_type_identifier):
+    # Per the PassKit Web Service spec, this GET poll is NOT authenticated with
+    # an `Authorization: ApplePass ...` header — Apple identifies the caller
+    # solely by deviceLibraryIdentifier in the URL. Requiring auth here made
+    # every device poll return 500/401, so passes never received update
+    # notifications. Auth happens at register/unregister/get-pass instead.
     passes_updated_since = request.GET.get("passesUpdatedSince")
-    auth_response = _require_authorization(request, pass_type_identifier, serial_number=None)
-    if auth_response:
-        return auth_response
 
     registrations = PasskitDeviceRegistration.objects.filter(
         device_library_identifier=device_library_identifier,
@@ -211,22 +355,40 @@ def list_device_registrations(request, device_library_identifier, pass_type_iden
 
     if passes_updated_since:
         try:
+            # datetime.UTC, NOT django.utils.timezone.utc — the latter was
+            # removed in Django 5.0 and raises AttributeError here, which this
+            # except never caught. Every cursor-bearing poll (i.e. every poll
+            # after the first) 500'd, so installed passes stopped updating.
             updated_since = datetime.fromtimestamp(
                 float(passes_updated_since),
-                tz=timezone.utc,
+                tz=UTC,
             )
             registrations = registrations.filter(updated_at__gt=updated_since)
-        except (ValueError, OSError):
+        except (ValueError, OSError, OverflowError):
             return JsonResponse({"error": "Invalid passesUpdatedSince"}, status=400)
 
-    serial_numbers = list(registrations.values_list("serial_number", flat=True))
-    if not serial_numbers:
+    # ONE snapshot for both response fields. Reading the serials and the
+    # cursor in two queries let a pass marked updated in between be excluded
+    # from serialNumbers while still raising lastUpdated past it — Wallet
+    # echoes that cursor back and the unlisted pass stays invisible until some
+    # later content change. The bulk event refresh makes that interleaving
+    # entirely reachable.
+    rows = list(registrations.values_list("serial_number", "updated_at"))
+    if not rows:
         return HttpResponse(status=204)
 
-    last_updated = registrations.order_by("-updated_at").first().updated_at
+    serial_numbers = [row[0] for row in rows]
+    last_updated = max(row[1] for row in rows)
     response_payload = {
         "serialNumbers": serial_numbers,
-        "lastUpdated": int(last_updated.timestamp()),
+        # Apple treats lastUpdated as an OPAQUE tag and echoes it back as
+        # passesUpdatedSince, so it must round-trip losslessly. int() truncated
+        # the sub-second part, which put the reconstructed cursor BEFORE the
+        # stored updated_at — `updated_at__gt` then matched the same row on
+        # every subsequent poll and Wallet redownloaded an unchanged pass
+        # forever. float() on the way back in parses either form, so cursors
+        # already held by installed passes still work.
+        "lastUpdated": f"{last_updated.timestamp():.6f}",
     }
     return JsonResponse(response_payload)
 
@@ -304,5 +466,120 @@ def log_endpoint(request):
     return HttpResponse(status=200)
 
 
-def trigger_pass_refresh(pass_type_identifier, serial_number):
-    return send_passkit_push_notifications(pass_type_identifier, serial_number)
+def trigger_pass_refresh(
+    pass_type_identifier, serial_number, mark_updated=True, deadline=None
+):
+    return send_passkit_push_notifications(
+        pass_type_identifier,
+        serial_number,
+        mark_updated=mark_updated,
+        deadline=deadline,
+    )
+
+
+def refresh_ticket_serials(serials, context=""):
+    """Bulk-refresh a set of Apple ticket serials. See refresh_event_tickets
+    for why the work is split between a guaranteed bulk marker advance and a
+    capped best-effort push."""
+    serials = [s for s in serials if s]
+    if not serials:
+        return 0
+
+    pass_type_id = getattr(settings, "WALLET_APPLE_PASS_TYPE_IDENTIFIER", None)
+    if not pass_type_id:
+        return 0
+
+    push_limit = getattr(settings, "PASSKIT_BULK_PUSH_LIMIT", 20)
+    push_budget = getattr(settings, "PASSKIT_BULK_PUSH_BUDGET_SECONDS", 5.0)
+
+    def _after_commit():
+        from .passkit_apns import mark_passes_updated_bulk
+
+        # Guaranteed part: one query, no network.
+        mark_passes_updated_bulk(pass_type_id, serials)
+
+        # Best-effort part, bounded by BOTH a serial count and a wall-clock
+        # budget. The count alone is not a bound on the work: one serial fans
+        # out to every device that registered it, each an HTTP call with a 10s
+        # timeout, so 20 serials is 20*N requests and an unreachable APNs could
+        # hold the admin request for minutes after the row already committed.
+        # Time is the only thing that actually bounds it — and the deadline is
+        # forwarded INTO the per-device loop, because checking it only here
+        # would let a single serial with many devices overrun by an arbitrary
+        # multiple of the budget.
+        #
+        # mark_updated=False because the bulk query above already advanced
+        # every tag — otherwise the pushed subset gets written twice.
+        deadline = time.monotonic() + push_budget
+        pushed = 0
+        for serial in serials[:push_limit]:
+            if time.monotonic() >= deadline:
+                break
+            try:
+                trigger_pass_refresh(
+                    pass_type_id, serial, mark_updated=False, deadline=deadline
+                )
+                pushed += 1
+            except Exception:
+                # One unreachable device must not strand the rest.
+                logger.exception("Failed refreshing Apple event ticket %s", serial)
+
+        skipped = len(serials) - pushed
+        if skipped > 0:
+            # Never silent: these passes still update, just on Wallet's next
+            # poll, because their tag was advanced in the bulk query above.
+            logger.info(
+                "%s: pushed %s of %s Apple ticket refresh(es); %s left to "
+                "Wallet's periodic poll (limit=%s, budget=%ss)",
+                context or "bulk refresh",
+                pushed,
+                len(serials),
+                skipped,
+                push_limit,
+                push_budget,
+            )
+
+    transaction.on_commit(_after_commit)
+    return len(serials)
+
+
+def refresh_event_tickets(event):
+    """Refresh every installed Apple ticket for an event.
+
+    Event-level changes rewrite the pass payload — date, time, location, and
+    `voided` — but never touch an EventRegistration row, so the per-registration
+    receiver never fires. Worse, both paths that make those changes use
+    `queryset.update()` (the admin's bulk cancel action, and the reschedule
+    handler, which does so deliberately to avoid per-registration receivers),
+    and that emits no signals at all. So this has to be called explicitly.
+
+    Deferred to commit for the same reason as the registration receiver: the
+    marker advance and the push must not be visible to Wallet before the event
+    change itself is. on_commit runs inline outside a transaction.
+
+    The fan-out is deliberately split in two, because on_commit runs INSIDE the
+    admin request and this project has no background worker (production leaves
+    DJANGO_TASKS_BACKEND unset, so TASKS falls back to ImmediateBackend and
+    enqueuing would still run inline):
+
+      * every ticket's update tag is advanced in ONE bulk query — no network,
+        no per-ticket cost, and this is what actually makes the update land via
+        Wallet's own periodic poll;
+      * the APNs pushes, which only make it *instant*, are capped. Each one
+        opens an HTTP client and can wait up to 10s per registered device, so
+        an unbounded loop over a well-attended event could outlast the request
+        after the database change has already committed.
+
+    Anything past the cap still updates — just on Wallet's next poll instead of
+    immediately — and the skipped count is logged rather than silently dropped.
+    """
+    from ..models import EventRegistration
+
+    serials = list(
+        EventRegistration.objects.filter(event=event)
+        .exclude(apple_wallet_ticket_serial="")
+        .values_list("apple_wallet_ticket_serial", flat=True)
+    )
+    return refresh_ticket_serials(
+        serials, context=f"Event {getattr(event, 'pk', '?')}"
+    )
