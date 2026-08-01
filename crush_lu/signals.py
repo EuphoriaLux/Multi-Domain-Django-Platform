@@ -2621,7 +2621,6 @@ def trigger_wallet_pass_update_on_profile_change(
             )
 
 
-
 @receiver(pre_save, sender=EventRegistration)
 def remember_previous_registration_status(sender, instance, **kwargs):
     """Stash the stored status so post_save receivers can detect a *transition*.
