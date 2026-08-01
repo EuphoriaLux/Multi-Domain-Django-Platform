@@ -1,6 +1,12 @@
+import PassKit
 import SafariServices
 import SwiftUI
 import WebKit
+
+/// Message-handler name used to ferry the downloaded .pkpass bytes (base64)
+/// from the WKWebView's JS fetch back into Swift. Declared here so the
+/// Coordinator registration and the injected JS stay in sync.
+private let pkpassMessageName = "pkpassDownload"
 
 struct CrushWebView: UIViewRepresentable {
     @ObservedObject var appState: AppState
@@ -12,6 +18,11 @@ struct CrushWebView: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
+        // Bridge for ferrying the .pkpass bytes (base64) from an in-page JS
+        // fetch back to Swift. Fetching inside the web view is what lets the
+        // download carry the authenticated session cookie — a plain
+        // URLSession.shared request would arrive unauthenticated.
+        configuration.userContentController.add(context.coordinator, name: pkpassMessageName)
         configuration.allowsInlineMediaPlayback = true
         // The scanner's <video> is fed by a MediaStream and started from inside a
         // promise chain, so the tap's user-gesture no longer counts by the time
@@ -34,7 +45,7 @@ struct CrushWebView: UIViewRepresentable {
         context.coordinator.load(appState.currentURL)
     }
 
-    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
+    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, PKAddPassesViewControllerDelegate {
         weak var webView: WKWebView?
         private let appState: AppState
         private var lastLoadedURL: URL?
@@ -79,6 +90,133 @@ struct CrushWebView: UIViewRepresentable {
             }
         }
 
+        // MARK: - Apple Wallet (.pkpass)
+
+        /// Callback from the injected JS fetch: the downloaded `.pkpass` bytes,
+        /// base64-encoded, or an error payload. This runs on the page origin so
+        /// `credentials: 'same-origin'` carried the session cookie.
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            guard message.name == pkpassMessageName else { return }
+            guard let body = message.body as? [String: Any] else { return }
+            let error = body["error"] as? String
+            let base64 = body["data"] as? String
+
+            if let base64, let data = Data(base64: base64) {
+                presentAddPassesVC(with: data)
+            } else {
+                showAddPassFailure(message: error)
+            }
+        }
+
+        /// Kick off an authenticated `.pkpass` download by evaluating a fetch
+        /// inside the web view. The fetch shares the page's cookie jar, so the
+        /// wallet endpoint's `@login_required` lets the request through.
+        func presentAddPassController(for url: URL) {
+            guard let webView else { return }
+            pendingPassURL = url
+            // Escape backslashes and single quotes so the URL is safe to drop
+            // into a JS single-quoted string literal. These site URLs are plain
+            // HTTP(S) with no such characters, but the guard is cheap.
+            let escaped = url.absoluteString
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "'", with: "\\'")
+
+            let script = """
+            (function () {
+              var url = '\(escaped)';
+              fetch(url, { credentials: 'same-origin' })
+                .then(function (resp) {
+                  if (!resp.ok) { throw new Error('HTTP ' + resp.status); }
+                  return resp.blob();
+                })
+                .then(function (blob) {
+                  var reader = new FileReader();
+                  reader.onload = function () {
+                    // result is "data:application/vnd.apple.pkpass;base64,AAAA..."
+                    var b64 = String(reader.result).split(',')[1] || '';
+                    window.webkit.messageHandlers.\(pkpassMessageName).postMessage({ data: b64 });
+                  };
+                  reader.onerror = function () {
+                    window.webkit.messageHandlers.\(pkpassMessageName).postMessage({ error: 'read failed' });
+                  };
+                  reader.readAsDataURL(blob);
+                })
+                .catch(function (err) {
+                  window.webkit.messageHandlers.\(pkpassMessageName).postMessage({ error: String(err && err.message || err) });
+                });
+            })();
+            """
+            // The JS fetch posts back asynchronously via the message handler.
+            webView.evaluateJavaScript(script, completionHandler: nil)
+        }
+
+        /// Parse the downloaded bytes and present the native Add-Pass sheet.
+        /// Falls back to Safari if the pass can't be parsed (e.g. the server
+        /// returned an error page instead of a real `.pkpass`).
+        private func presentAddPassesVC(with data: Data) {
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                guard PKAddPassesViewController.canAddPasses() else {
+                    self.showAddPassFailure(message: "Wallet isn't available on this device.")
+                    return
+                }
+                do {
+                    let pass = try PKPass(data: data)
+                    guard let presentingVC = self.topViewController() else { return }
+                    let controller = PKAddPassesViewController(pass: pass)
+                    controller.delegate = self
+                    presentingVC.present(controller, animated: true)
+                } catch {
+                    self.showAddPassFailure(message: "Couldn't read the pass: \(error.localizedDescription)")
+                }
+            }
+        }
+
+        // MARK: - PKAddPassesViewControllerDelegate
+
+        func addPassViewController(_ controller: PKAddPassesViewController, didFinishWith pass: PKPass?) {
+            controller.dismiss(animated: true)
+        }
+
+        // MARK: - Add-pass UI helpers
+
+        private func showAddPassFailure(message: String? = nil, fallbackURL: URL? = nil) {
+            DispatchQueue.main.async { [weak self] in
+                guard let self, let presentingVC = self.topViewController() else { return }
+                let alert = UIAlertController(
+                    title: "Couldn't Add Pass",
+                    message: message ?? "Apple Wallet could not be reached. Try again from Safari.",
+                    preferredStyle: .alert
+                )
+                if let url = fallbackURL ?? self.pendingPassURL {
+                    alert.addAction(UIAlertAction(title: "Open in Safari", style: .default) { _ in
+                        UIApplication.shared.open(url)
+                    })
+                }
+                alert.addAction(UIAlertAction(title: "OK", style: .cancel))
+                presentingVC.present(alert, animated: true)
+            }
+        }
+
+        /// The `.pkpass` URL we asked the JS bridge to fetch, retained so the
+        /// failure fallback can still hand it to Safari if parsing fails.
+        private var pendingPassURL: URL?
+
+        /// Walk the presented-VC chain to find the topmost controller to
+        /// present from. SwiftUI's hosting controller sits at the root.
+        private func topViewController() -> UIViewController? {
+            guard let scene = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .first(where: { $0.activationState == .foregroundActive }),
+                let window = scene.windows.first(where: { $0.isKeyWindow }) ?? scene.windows.first,
+                let root = window.rootViewController else {
+                return nil
+            }
+            var top = root
+            while let presented = top.presentedViewController { top = presented }
+            return top
+        }
+
         func webView(
             _ webView: WKWebView,
             decidePolicyFor navigationAction: WKNavigationAction,
@@ -91,6 +229,17 @@ struct CrushWebView: UIViewRepresentable {
 
             if url.scheme == "crushlu" {
                 handleCustomScheme(url)
+                decisionHandler(.cancel)
+                return
+            }
+
+            // .pkpass URLs must NOT be handed to WKWebView — it can't render or
+            // add a wallet pass and silently swallows the download (the cause of
+            // "Add to Apple Wallet button does nothing" in the native shell).
+            // Fetch the bytes through the web view's cookie store and present the
+            // native PKAddPassesViewController.
+            if url.pathExtension == "pkpass" {
+                presentAddPassController(for: url)
                 decisionHandler(.cancel)
                 return
             }
