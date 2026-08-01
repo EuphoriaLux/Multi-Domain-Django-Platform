@@ -448,7 +448,10 @@ def dashboard(request):
             _reg.can_cancel = bool(
                 _reg.event
                 and _reg.event.date_time > _now
-                and _reg.status in ("confirmed", "waitlist")
+                # A pending (unpaid) seat can be given up like any other --
+                # omitting it hid the Cancel button from the dashboard, even
+                # though event_cancel() itself accepts the status.
+                and _reg.status in (*SEAT_HOLDING_STATUSES, "waitlist")
             )
             if (
                 _reg.status == "attended"

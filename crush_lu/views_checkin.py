@@ -579,7 +579,10 @@ def coach_mark_verified(request, event_id, registration_id):
                 {"success": False, "error": str(_("Registration not found."))},
                 status=404,
             )
-        if registration.status not in ("confirmed", "attended"):
+        # A pending seat is admitted at the door, so a coach must be able to
+        # verify that person too -- otherwise the cash-at-the-door attendee
+        # can be scanned in but not verified.
+        if registration.status not in SEAT_HOLDING_STATUSES:
             return JsonResponse(
                 {
                     "success": False,

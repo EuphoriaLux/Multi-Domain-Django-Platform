@@ -44,6 +44,7 @@ from .models import (
 from .models.journey import JourneyProgress
 from .utils.i18n import is_valid_language
 
+from crush_lu.models.events import SEAT_HOLDING_STATUSES
 logger = logging.getLogger(__name__)
 
 # Thread-local storage to pass domain context between signals
@@ -2552,7 +2553,8 @@ def trigger_wallet_pass_update_on_registration_change(
     # Only trigger for status changes that affect "next event" display
     # - New confirmed/waitlist registration (shows new event)
     # - Status change to/from confirmed/waitlist (changes next event)
-    relevant_statuses = {"confirmed", "waitlist"}
+    # A pending (unpaid) seat is still the member's next event.
+    relevant_statuses = {*SEAT_HOLDING_STATUSES, "waitlist"}
 
     if created and instance.status in relevant_statuses:
         # New registration for upcoming event

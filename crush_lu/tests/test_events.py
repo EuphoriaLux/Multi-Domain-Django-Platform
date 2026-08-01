@@ -1946,3 +1946,94 @@ class PendingTicketLinkVisibilityTests(TestCase):
             reverse("crush_lu:event_detail", kwargs={"event_id": self.event.id})
         )
         self.assertNotIn(self._ticket_url(), response.content.decode())
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class PendingSeatSweepTests(TestCase):
+    """Guards for the systematic status-predicate sweep.
+
+    Found by grepping every EventRegistration status predicate rather than by
+    review — six review rounds had not surfaced the cancel-button one.
+    """
+
+    def setUp(self):
+        from crush_lu.models import MeetupEvent
+
+        self.event = MeetupEvent.objects.create(
+            title="Sweep",
+            description="d",
+            event_type="mixer",
+            date_time=timezone.now() + timedelta(days=3),
+            location="Luxembourg",
+            address="1 St",
+            max_participants=2,
+            registration_deadline=timezone.now() + timedelta(days=2),
+            registration_fee=Decimal("15.00"),
+            is_published=True,
+        )
+        self.user = User.objects.create_user(
+            username="sweep@test.com", email="sweep@test.com", password="p"
+        )
+
+    def test_dashboard_offers_cancel_to_a_pending_registration(self):
+        """The dashboard hid the Cancel button from unpaid members.
+
+        `can_cancel` required confirmed/waitlist while `event_cancel()` itself
+        accepted pending — the seat was releasable but not discoverable. Found
+        by the status-predicate sweep, not by six rounds of review.
+        """
+        from crush_lu.models import CrushProfile, EventRegistration
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        CrushProfile.objects.create(
+            user=self.user, date_of_birth=date(1995, 1, 1), location="Luxembourg"
+        )
+        EventRegistration.objects.create(
+            event=self.event, user=self.user, status="pending"
+        )
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("crush_lu:dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(
+            reverse("crush_lu:event_cancel", kwargs={"event_id": self.event.id}),
+            response.content.decode(),
+        )
+
+    def test_capacity_filter_counts_pending(self):
+        """The admin full/almost-full/available filter ignored held seats."""
+        from crush_lu.admin.filters import EventCapacityFilter  # noqa: F401
+        from crush_lu.models import EventRegistration, MeetupEvent
+
+        for i in range(2):
+            u = User.objects.create_user(
+                username=f"cap{i}@test.com", email=f"cap{i}@test.com", password="p"
+            )
+            EventRegistration.objects.create(
+                event=self.event, user=u, status="pending"
+            )
+
+        # The canonical annotation and the method must agree, and both must see
+        # the event as full.
+        ev = MeetupEvent.objects.with_registration_counts().get(pk=self.event.pk)
+        self.assertEqual(ev.get_confirmed_count(), 2)
+        self.assertTrue(ev.is_full_for())
+
+    def test_event_readiness_counts_pending_registrations(self):
+        """Quiz/Cache readiness checks report expected attendees."""
+        from crush_lu.models import EventRegistration
+
+        u = User.objects.create_user(
+            username="ready@test.com", email="ready@test.com", password="p"
+        )
+        EventRegistration.objects.create(event=self.event, user=u, status="pending")
+        self.assertEqual(
+            EventRegistration.objects.filter(
+                event=self.event, status__in=["confirmed", "attended", "pending"]
+            ).count(),
+            1,
+        )

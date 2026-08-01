@@ -256,7 +256,7 @@ class CacheHunt(models.Model):
         )
 
         reg_count = EventRegistration.objects.filter(
-            event=self.event, status__in=["confirmed", "attended"]
+            event=self.event, status__in=SEAT_HOLDING_STATUSES
         ).count()
         checks.append(
             {
