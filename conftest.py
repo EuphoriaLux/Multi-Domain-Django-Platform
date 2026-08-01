@@ -146,43 +146,31 @@ def _user_model():
 # one file). The upstream fixture chain must stay in effect.
 
 
-def _test_database_was_created(alias='default'):
-    """Report whether pytest-django actually created a test database for `alias`.
+@pytest.fixture(scope='session')
+def django_db_setup(django_db_setup, django_db_blocker):
+    """
+    Seed Site objects once per worker, right after the test databases are built.
 
-    pytest-django only creates the databases the *collected* tests ask for (see
-    its ``_get_databases_for_setup``). A session made up entirely of DB-less
-    unit tests — e.g. ``pytest crush_lu/tests/test_asgi_static.py``, which is
-    what you run while iterating on that file — gets no test database at all,
-    and ``settings.DATABASES`` is left pointing at the real development
-    database. Touching the ORM in that state either blows up with
-    ``no such table: django_site`` or, worse, quietly writes into the
+    This overrides pytest-django's own ``django_db_setup`` — its documented
+    extension point for loading initial data — and the ``django_db_setup``
+    argument resolves to the plugin's fixture, so the databases are fully
+    created and migrated by the time the body runs.
+
+    Overriding it is also what keeps the seeding *lazy*, which matters more than
+    it looks. pytest-django only creates the databases the collected tests ask
+    for, and only tests that actually touch the DB pull ``django_db_setup`` in
+    (``_django_db_helper``, ``live_server``, and Django ``TestCase`` classes with
+    a non-empty ``databases``). A session of pure unit tests — e.g.
+    ``pytest crush_lu/tests/test_asgi_static.py``, which is what you run while
+    iterating on that file — never triggers it. Seeding from an autouse fixture
+    instead meant such a session ran this against ``settings.DATABASES`` still
+    pointing at the *real* development database, which either blew up with
+    ``no such table: django_site`` or quietly wrote Site rows into the
     developer's dev DB.
-
-    ``BaseDatabaseCreation.create_test_db()`` rewrites ``settings_dict["NAME"]``
-    to the test database name as part of setup, so comparing the live name
-    against the expected test name tells us whether setup really ran. That holds
-    under ``--reuse-db`` and for the per-xdist-worker suffixed names too.
-    """
-    from django.db import connections
-
-    connection = connections[alias]
-    return connection.settings_dict['NAME'] == connection.creation._get_test_db_name()
-
-
-@pytest.fixture(scope='session', autouse=True)
-def setup_site_for_live_server(django_db_setup, django_db_blocker):
-    """
-    Seed Site objects once per worker after pytest-django prepares the DB.
 
     pytest-django already handles database creation/migrations and DB reuse.
     Re-running `migrate` here adds startup cost without helping normal runs.
-
-    No-ops when the session created no test database — see
-    ``_test_database_was_created``.
     """
-    if not _test_database_was_created():
-        return
-
     with django_db_blocker.unblock():
         from django.contrib.sites.models import Site
 
