@@ -370,9 +370,7 @@ class TestQuizStartRotationFailure:
         Django closes the connection mid-transaction. In-memory SQLite only
         survives because close() is a no-op there — a file-based test DB dies
         with "Cannot operate on a closed database"."""
-        monkeypatch.setattr(
-            "channels.db.close_old_connections", lambda *a, **kw: None
-        )
+        monkeypatch.setattr("channels.db.close_old_connections", lambda *a, **kw: None)
 
     def _make_consumer(self, quiz):
         """Build a QuizConsumer instance bound to ``quiz`` without
@@ -558,6 +556,261 @@ class TestQuizQuestionModel:
         q = quiz_questions[2]
         assert q.question_type == "open_ended"
         assert q.correct_answer == "Judd mat Gaardebounen"
+
+
+class TestQuizMedia:
+    """Media stimulus on QuizQuestion (image/video/audio, upload or embed)."""
+
+    def test_default_is_none(self, quiz_questions):
+        q = quiz_questions[0]
+        assert q.media_kind == "none"
+        assert q.get_media_payload() == {
+            "kind": "none",
+            "url": None,
+            "source": None,
+        }
+
+    def test_embed_url_is_normalized(self, quiz_round):
+        q = QuizQuestion.objects.create(
+            round=quiz_round,
+            text="Guess the song",
+            question_type="open_ended",
+            media_kind="video",
+            media_url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        )
+        payload = q.get_media_payload()
+        assert payload["source"] == "external"
+        assert payload["kind"] == "video"
+        # watch?v= URL is rewritten to the nocookie embed form
+        assert payload["url"] == "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"
+
+    def test_kind_without_file_or_url_is_invalid(self, quiz_round):
+        q = QuizQuestion(
+            round=quiz_round, text="x", media_kind="audio"  # no file, no URL
+        )
+        with pytest.raises(ValidationError):
+            q.full_clean()
+
+    def test_disallowed_embed_host_is_invalid(self, quiz_round):
+        q = QuizQuestion(
+            round=quiz_round,
+            text="x",
+            media_kind="video",
+            media_url="https://evil.example.com/clip",
+        )
+        with pytest.raises(ValidationError):
+            q.full_clean()
+
+    def test_file_takes_precedence_over_url(self, db, quiz_round):
+        # media_file with a stored name simulates an existing upload without
+        # hitting the (Azure/local) storage backend in tests.
+        q = QuizQuestion(
+            round=quiz_round,
+            text="x",
+            media_kind="image",
+            media_url="https://youtu.be/dQw4w9WgXcQ",
+        )
+        q.media_file.name = "quiz/abc.png"
+        payload = q.get_media_payload()
+        assert payload["source"] == "upload"
+        assert payload["url"].endswith("quiz/abc.png")
+
+    def test_soundcloud_embed_url_is_normalized(self, quiz_round):
+        q = QuizQuestion.objects.create(
+            round=quiz_round,
+            text="Guess the track",
+            question_type="open_ended",
+            media_kind="audio",
+            media_url="https://soundcloud.com/artist/track-title",
+            media_description="A tropical house melody",
+        )
+        payload = q.get_media_payload()
+        assert payload["source"] == "external"
+        assert payload["kind"] == "audio"
+        assert "w.soundcloud.com/player/" in payload["url"]
+        assert payload["description"] == "A tropical house melody"
+
+    def test_media_file_deletion_signal(self, quiz_round, mocker):
+        q = QuizQuestion.objects.create(
+            round=quiz_round,
+            text="Question to delete",
+            question_type="open_ended",
+            media_kind="image",
+        )
+        q.media_file.name = "quiz/to_delete.png"
+        q.save()
+
+        mock_delete = mocker.patch.object(q.media_file.storage, "delete")
+        q.delete()
+        mock_delete.assert_called_once_with("quiz/to_delete.png")
+
+
+
+class TestQuizQuestionBroadcast:
+    """The media key must be present in every broadcast shape."""
+
+    def test_build_question_data_includes_media(self, quiz_questions):
+        from crush_lu.consumers import _build_question_data
+
+        # Default question (no media) still carries the key, as "none".
+        data = _build_question_data(quiz_questions[0])
+        assert data["media"] == {"kind": "none", "url": None, "source": None}
+
+    def test_build_question_data_with_media(self, quiz_round):
+        from crush_lu.consumers import _build_question_data
+
+        q = QuizQuestion.objects.create(
+            round=quiz_round,
+            text="Identify the clip",
+            question_type="multiple_choice",
+            media_kind="audio",
+            media_url="https://open.spotify.com/track/abc",
+        )
+        data = _build_question_data(q, include_answers=True)
+        assert data["media"]["kind"] == "audio"
+        assert data["media"]["source"] == "external"
+        assert "embed" in data["media"]["url"]
+
+
+from django.test import override_settings
+
+
+class TestCoachQuestionMedia:
+    """Coach authoring endpoint: create/edit questions with media.
+
+    Covers the previously-untested views_quiz_config._save_question path.
+    Uses the coach_required decorator, so the client must hold an active
+    CrushCoach assigned to the event (mirrors TestHostAuthority._make_coach).
+    """
+
+    def _make_coach(self, username, event):
+        from crush_lu.models import CrushCoach
+
+        user = User.objects.create_user(
+            username=f"{username}@test.com",
+            email=f"{username}@test.com",
+            password="test",
+        )
+        _grant_consent(user)
+        coach = CrushCoach.objects.create(user=user, is_active=True)
+        event.coaches.add(coach)
+        return user
+
+    def _add_url(self, quiz_event, quiz_round):
+        # crush_lu URLs are mounted domain-dependently (with or without a
+        # /crush/ prefix) and live under i18n_patterns, so build the path the
+        # same way TestQuizViews does rather than relying on reverse().
+        return (
+            f"/en/coach/events/{quiz_event.event.id}/quiz/config/"
+            f"round/{quiz_round.id}/question/add/"
+        )
+
+    def test_create_with_embed_url(self, quiz_event, quiz_round):
+        coach = self._make_coach("mediaauthor", quiz_event.event)
+        client = APIClient()
+        client.force_login(coach)
+        response = client.post(
+            self._add_url(quiz_event, quiz_round),
+            data={
+                "text_en": "Guess the song",
+                "question_type": "open_ended",
+                "correct_answer_en": "Never Gonna Give You Up",
+                "media_kind": "video",
+                "media_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            },
+        )
+        # Redirect back to config on success
+        assert response.status_code == 302
+        q = QuizQuestion.objects.filter(round=quiz_round, text="Guess the song").get()
+        assert q.media_kind == "video"
+        # Stored raw; normalized only at broadcast time
+        assert "watch?v=" in q.media_url
+
+    def test_create_with_image_upload(self, quiz_event, quiz_round):
+        from unittest import mock
+        from django.core.files.storage import InMemoryStorage
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        coach = self._make_coach("mediaimg", quiz_event.event)
+        client = APIClient()
+        client.force_login(coach)
+        img = SimpleUploadedFile(
+            "q.png", b"\x89PNG\r\n\x1a\n payload", content_type="image/png"
+        )
+        storage_instance = InMemoryStorage()
+        with mock.patch.object(QuizQuestion._meta.get_field("media_file"), "storage", storage_instance), \
+             mock.patch("crush_lu.views_quiz_config.crush_media_storage", return_value=storage_instance), \
+             mock.patch("crush_lu.models.quiz.crush_media_storage", return_value=storage_instance):
+            response = client.post(
+                self._add_url(quiz_event, quiz_round),
+                data={
+                    "text_en": "What city?",
+                    "question_type": "open_ended",
+                    "media_kind": "image",
+                    "media_file": img,
+                },
+            )
+        assert response.status_code == 302
+        q = QuizQuestion.objects.filter(round=quiz_round, text="What city?").get()
+        assert q.media_kind == "image"
+        assert bool(q.media_file)
+
+    def test_kind_without_file_or_url_rejected(self, quiz_event, quiz_round):
+        coach = self._make_coach("mediabad", quiz_event.event)
+        client = APIClient()
+        client.force_login(coach)
+        response = client.post(
+            self._add_url(quiz_event, quiz_round),
+            data={
+                "text_en": "Bad",
+                "question_type": "open_ended",
+                "media_kind": "audio",  # kind set, but no file/URL
+            },
+        )
+        # Re-renders the form (200), no row created
+        assert response.status_code == 200
+        assert not QuizQuestion.objects.filter(round=quiz_round, text="Bad").exists()
+
+    def test_disallowed_embed_url_rejected(self, quiz_event, quiz_round):
+        coach = self._make_coach("mediahost", quiz_event.event)
+        client = APIClient()
+        client.force_login(coach)
+        response = client.post(
+            self._add_url(quiz_event, quiz_round),
+            data={
+                "text_en": "Host",
+                "question_type": "open_ended",
+                "media_kind": "video",
+                "media_url": "https://evil.example.com/clip",
+            },
+        )
+        assert response.status_code == 200
+        assert not QuizQuestion.objects.filter(round=quiz_round, text="Host").exists()
+
+    def test_oversized_media_file_rejected(self, quiz_event, quiz_round, mocker):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        mocker.patch("crush_lu.views_quiz_config.QUIZ_MEDIA_MAX_BYTES", 50)
+        coach = self._make_coach("bigfileauthor", quiz_event.event)
+        client = APIClient()
+        client.force_login(coach)
+        big_file = SimpleUploadedFile(
+            "huge.mp4", b"x" * 100, content_type="video/mp4"
+        )
+        response = client.post(
+            self._add_url(quiz_event, quiz_round),
+            data={
+                "text_en": "Big video question",
+                "question_type": "open_ended",
+                "media_kind": "video",
+                "media_file": big_file,
+            },
+        )
+        assert response.status_code == 200
+        assert not QuizQuestion.objects.filter(
+            round=quiz_round, text="Big video question"
+        ).exists()
+
 
 
 class TestQuizTableModel:
@@ -3761,9 +4014,7 @@ class TestConnectAuthorization:
     def _keep_test_connection_open(self, monkeypatch):
         """Same pytest-django atomic-wrapper guard as the other consumer
         tests (see TestRotateGuard)."""
-        monkeypatch.setattr(
-            "channels.db.close_old_connections", lambda *a, **kw: None
-        )
+        monkeypatch.setattr("channels.db.close_old_connections", lambda *a, **kw: None)
 
     def _make_consumer(self, quiz, user):
         """Build a QuizConsumer wired to ``quiz`` without WebsocketCommunicator
@@ -3899,9 +4150,7 @@ class TestHostGroupSubscription:
     def _keep_test_connection_open(self, monkeypatch):
         """Same pytest-django atomic-wrapper guard as the other consumer
         tests (see TestRotateGuard)."""
-        monkeypatch.setattr(
-            "channels.db.close_old_connections", lambda *a, **kw: None
-        )
+        monkeypatch.setattr("channels.db.close_old_connections", lambda *a, **kw: None)
 
     def _make_consumer(self, quiz, user):
         from unittest.mock import AsyncMock
@@ -3921,7 +4170,9 @@ class TestHostGroupSubscription:
         return consumer
 
     def _groups_joined(self, consumer):
-        return [call.args[0] for call in consumer.channel_layer.group_add.await_args_list]
+        return [
+            call.args[0] for call in consumer.channel_layer.group_add.await_args_list
+        ]
 
     def test_the_host_joins_the_host_group(self, quiz_event, coach_user):
         from asgiref.sync import async_to_sync
@@ -4008,9 +4259,7 @@ class TestScoringSeatRace:
         """Same pytest-django atomic-wrapper guard as the other consumer
         tests (see TestRotateGuard) — score_table_for_question is a
         database_sync_to_async hop."""
-        monkeypatch.setattr(
-            "channels.db.close_old_connections", lambda *a, **kw: None
-        )
+        monkeypatch.setattr("channels.db.close_old_connections", lambda *a, **kw: None)
 
     def _setup(self, quiz):
         round1 = QuizRound.objects.create(
@@ -4158,9 +4407,7 @@ class TestSeatChangeReauthorization:
 
     @pytest.fixture(autouse=True)
     def _keep_test_connection_open(self, monkeypatch):
-        monkeypatch.setattr(
-            "channels.db.close_old_connections", lambda *a, **kw: None
-        )
+        monkeypatch.setattr("channels.db.close_old_connections", lambda *a, **kw: None)
 
     def _make_consumer(self, quiz, user):
         from unittest.mock import AsyncMock

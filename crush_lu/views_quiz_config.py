@@ -8,9 +8,39 @@ from django.views.decorators.http import require_POST
 
 from crush_lu.decorators import coach_required
 from crush_lu.models.events import MeetupEvent
-from crush_lu.models.quiz import QuizEvent, QuizQuestion, QuizRound
+from crush_lu.models.quiz import (
+    QuizEvent,
+    QuizQuestion,
+    QuizRound,
+    is_embed_url_allowed,
+)
+from crush_lu.storage import crush_media_storage
 
 LANGUAGES = ("en", "de", "fr")
+
+# Per-file upload limit for quiz media stimuli. Large video/audio uploads tie
+# up a synchronous request worker and inflate the public Blob container; long
+# media should be supplied as an external embed URL instead. 25 MB covers a
+# short clip and a high-res image comfortably.
+QUIZ_MEDIA_MAX_BYTES = 25 * 1024 * 1024
+
+_VALID_MEDIA_KINDS = dict(QuizQuestion.MEDIA_KIND_CHOICES)
+
+
+def _effective_media_kind(request, question):
+    """The media-kind to mark selected in the form.
+
+    POST value wins (so a failed edit re-renders with the coach's new pick,
+    not the stale stored kind), falling back to the question's existing kind,
+    then 'none'. Always validated against the choice set to avoid emitting a
+    bogus selected attribute.
+    """
+    posted = request.POST.get("media_kind")
+    if posted in _VALID_MEDIA_KINDS:
+        return posted
+    if question is not None and question.media_kind in _VALID_MEDIA_KINDS:
+        return question.media_kind
+    return "none"
 
 
 def _parse_choices_json(raw_json, question_type):
@@ -291,6 +321,7 @@ def coach_quiz_question_add(request, event_id, round_id):
             "event": event,
             "quiz": quiz,
             "quiz_round": quiz_round,
+            "media_kind_selected": "none",
             "coach": request.coach,
         },
     )
@@ -324,6 +355,7 @@ def coach_quiz_question_edit(request, event_id, question_id):
             "choices_json_en": choices_by_lang["en"],
             "choices_json_de": choices_by_lang["de"],
             "choices_json_fr": choices_by_lang["fr"],
+            "media_kind_selected": _effective_media_kind(request, question),
             "coach": request.coach,
         },
     )
@@ -396,6 +428,81 @@ def _save_question(request, event, quiz_round, question=None):
         for lang in LANGUAGES:
             choices_by_lang[lang] = []
 
+    # --- Optional media stimulus (orthogonal to question_type) -------------
+    media_kind = request.POST.get("media_kind", "none")
+    media_url = request.POST.get("media_url", "").strip()
+    media_file = request.FILES.get("media_file")
+    media_clear = request.POST.get("media_clear") == "1"
+    media_description = request.POST.get("media_description", "").strip()[:300]
+
+    if media_kind not in dict(QuizQuestion.MEDIA_KIND_CHOICES):
+        media_kind = "none"
+
+    # Compute the media state that will ACTUALLY be persisted, so the
+    # "requires a source" check reflects the post-save row rather than the
+    # stale existing one. A kind of "none" clears everything; otherwise an
+    # existing file survives unless the clear checkbox is set or a new upload
+    # replaces it, and an existing URL survives unless the field is cleared.
+    will_have_file = False
+    will_have_url = False
+    if media_kind != "none":
+        if media_file:
+            will_have_file = True  # new upload replaces the old file
+        elif question is not None and question.media_file and not media_clear:
+            will_have_file = True  # keep existing upload
+        if media_url:
+            will_have_url = True
+    if (
+        media_kind != "none"
+        and not will_have_file
+        and not will_have_url
+    ):
+        messages.error(
+            request,
+            _(
+                "Upload a file or provide an external URL for the selected "
+                "media kind, or set media to None."
+            ),
+        )
+        return _render_question_form(request, event, quiz_round, question)
+
+    # Guard against oversized uploads before they reach storage: a large video
+    # can tie up a synchronous worker, blow the request timeout, and leave an
+    # unexpectedly large public Blob. See QUIZ_MEDIA_MAX_BYTES.
+    if media_file and media_file.size > QUIZ_MEDIA_MAX_BYTES:
+        messages.error(
+            request,
+            _("Media file is too large. Maximum size is %d MB.")
+            % (QUIZ_MEDIA_MAX_BYTES // (1024 * 1024)),
+        )
+        return _render_question_form(request, event, quiz_round, question)
+
+    allowed_mime_prefixes = {
+        "image": ("image/",),
+        "video": ("video/",),
+        "audio": ("audio/", "application/ogg"),
+    }
+    if media_file and media_kind in allowed_mime_prefixes:
+        content_type = getattr(media_file, "content_type", "") or ""
+        allowed = allowed_mime_prefixes[media_kind]
+        if not any(content_type.startswith(prefix) for prefix in allowed):
+            messages.error(
+                request,
+                _("Uploaded file type (%s) does not match the selected media kind (%s).")
+                % (content_type or "unknown", media_kind),
+            )
+            return _render_question_form(request, event, quiz_round, question)
+
+    if media_url and not is_embed_url_allowed(media_url):
+        messages.error(
+            request,
+            _(
+                "External media URLs must come from YouTube, Vimeo, Spotify, "
+                "or SoundCloud."
+            ),
+        )
+        return _render_question_form(request, event, quiz_round, question)
+
     if question is None:
         next_order = (quiz_round.questions.aggregate(m=Max("sort_order"))["m"] or 0) + 1
         q = QuizQuestion(
@@ -420,7 +527,43 @@ def _save_question(request, event, quiz_round, question=None):
         elif question is None:
             setattr(q, f"choices_{lang}", [])
 
+    # Apply media fields WITHOUT deleting any old Blob yet. We defer deletion
+    # until after q.save() succeeds so a failed write/save can't leave the
+    # persisted row pointing at a Blob we've already destroyed. Capture the
+    # stale file name first, then overwrite the field on the instance.
+    stale_file_names = []
+    if question is not None and question.media_file:
+        stale_file_names.append(question.media_file.name)
+
+    media_description = (request.POST.get("media_description") or "").strip()
+    q.media_kind = media_kind
+    q.media_url = media_url if media_kind != "none" else ""
+    q.media_description = media_description if media_kind != "none" else ""
+    if media_kind == "none" or media_clear or media_file:
+        # None, clear, or replacement all drop the current file from the row.
+        q.media_file = None
+    if media_file:
+        q.media_file = media_file
+
     q.save()
+
+    # Now that the row (and any new upload) is committed, delete the stale
+    # Blobs that are no longer referenced.
+    for name in stale_file_names:
+        if not name:
+            continue
+        new_name = q.media_file.name if q.media_file else ""
+        if name != new_name:
+            try:
+                storage = (
+                    crush_media_storage()
+                    if callable(crush_media_storage)
+                    else crush_media_storage
+                )
+                storage.delete(name)
+            except Exception:
+                # Best-effort cleanup; the row is already correct.
+                pass
 
     if question is None:
         messages.success(request, _("Question added."))
@@ -447,6 +590,10 @@ def _render_question_form(request, event, quiz_round, question):
             "choices_json_en": choices_by_lang.get("en", "[]"),
             "choices_json_de": choices_by_lang.get("de", "[]"),
             "choices_json_fr": choices_by_lang.get("fr", "[]"),
+            # Preserve media POST data on validation failure so the coach
+            # doesn't lose their selections.
+            "media_kind_selected": _effective_media_kind(request, question),
+            "media_url_post": request.POST.get("media_url", ""),
             "coach": request.coach,
         },
     )

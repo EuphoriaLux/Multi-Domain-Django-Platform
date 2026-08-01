@@ -13058,11 +13058,14 @@ document.addEventListener("alpine:init", function () {
             choicesDe: [],
             choicesFr: [],
             correctTrueFalse: "true",
+            mediaKind: "none",
 
             init: function () {
                 var el = this.$el;
                 this.questionType =
                     el.getAttribute("data-question-type") || "multiple_choice";
+                this.mediaKind =
+                    el.getAttribute("data-media-kind") || "none";
 
                 var langs = ["en", "de", "fr"];
                 var props = ["choicesEn", "choicesDe", "choicesFr"];
@@ -13120,6 +13123,15 @@ document.addEventListener("alpine:init", function () {
             },
             get isOpenEnded() {
                 return this.questionType === "open_ended";
+            },
+
+            // Media stimulus visibility
+            get hasMedia() {
+                return this.mediaKind !== "none";
+            },
+            selectMediaKind: function () {
+                var sel = this.$refs.mediaKindSelect;
+                this.mediaKind = sel ? sel.value : "none";
             },
 
             // Language tab switching

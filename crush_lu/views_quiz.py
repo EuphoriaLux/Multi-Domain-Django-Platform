@@ -384,6 +384,7 @@ def quiz_table_display_data(request, event_id):
             "text": question.text,
             "question_type": question.question_type,
             "points": question.points,
+            "media": question.get_media_payload(),
         }
         if question.question_type in ("multiple_choice", "true_false"):
             from crush_lu.models.quiz import parse_choices

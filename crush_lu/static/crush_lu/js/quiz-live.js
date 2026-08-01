@@ -301,6 +301,15 @@ document.addEventListener("alpine:init", function () {
                     this._renderCoachTables();
                     this.fetchAssignment();
                 }
+                // Tear down media playback whenever we leave the question
+                // screen so audio/video/iframe embeds don't bleed into review,
+                // leaderboard, pause, or finished screens.
+                var self = this;
+                this.$watch("screen", function (val) {
+                    if (val !== "question" && window.QuizMedia) {
+                        window.QuizMedia.clear(self.$refs.media);
+                    }
+                });
             },
 
             fetchAssignment: function (retries) {
@@ -563,7 +572,19 @@ document.addEventListener("alpine:init", function () {
                 }
                 this.screen = "question";
                 this._renderChoices();
+                this._renderMedia();
                 this.startCountdown();
+            },
+
+            _renderMedia: function () {
+                var container = this.$refs.media;
+                if (!container) return;
+                var media = this.question && this.question.media;
+                if (window.QuizMedia) {
+                    window.QuizMedia.render(container, media, {
+                        size: "player",
+                    });
+                }
             },
 
             startCountdown: function () {
@@ -1164,9 +1185,14 @@ document.addEventListener("alpine:init", function () {
                 }
                 this.connectWebSocket();
                 this._renderTableOverview();
+                // Render media stimulus whenever the current question changes
+                // (covers quiz.question, quiz.state reconnect, and clear-on-end).
+                var self = this;
+                this.$watch("currentQuestion", function () {
+                    self._renderMedia();
+                });
                 // Poll table overview for live check-in updates
                 if (this.isQuizNight) {
-                    var self = this;
                     this._tableInterval = setInterval(function () {
                         self._fetchTableOverview();
                     }, 5000);
@@ -1904,6 +1930,17 @@ document.addEventListener("alpine:init", function () {
                     }
                 }
                 this._renderRoundButtons();
+            },
+
+            _renderMedia: function () {
+                var container = this.$refs.media;
+                if (!container) return;
+                var media = this.currentQuestion && this.currentQuestion.media;
+                if (window.QuizMedia) {
+                    window.QuizMedia.render(container, media, {
+                        size: "player",
+                    });
+                }
             },
 
             _renderRoundButtons: function () {
