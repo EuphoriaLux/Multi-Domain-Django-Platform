@@ -885,6 +885,25 @@ class TestAppleEventTicketRefreshSignal:
 
         refresh.assert_not_called()
 
+    def test_attendance_does_not_push(
+        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+    ):
+        # The door writes `attended` for every scan, and on_commit runs inside
+        # the request/response cycle — with APNs configured this would put a
+        # synchronous 10s-timeout round trip in front of the coach's scanner.
+        # The rebuilt payload is byte-identical for `attended` (only `cancelled`
+        # sets `voided`), so there is nothing to gain for that cost.
+        registration = self._prepared(event_with_registrations)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ) as refresh:
+            with django_capture_on_commit_callbacks(execute=True):
+                registration.status = "attended"
+                registration.save(update_fields=["status"])
+
+        refresh.assert_not_called()
+
     def test_plain_confirmed_save_does_not_push(
         self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
     ):

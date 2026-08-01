@@ -2757,10 +2757,20 @@ def refresh_apple_event_ticket_on_registration_change(
     door's ``select_for_update`` path, the two wallets have independent enable
     flags and ID fields, and an exception in one must not skip the other.
 
-    Gated identically to Google so the two stay predictable — ``cancelled`` and
-    ``attended`` always, ``confirmed``/``pending`` only when the undo path sets
-    ``_reactivate_ticket`` (plenty of saves leave a row confirmed without any
-    transition, and each would otherwise fire a push).
+    Deliberately NOT gated identically to Google, and ``attended`` is the
+    difference. Google's handler has real work to do there (it completes the
+    ticket, a visible change); the Apple payload carries no status beyond
+    ``voided``, which only ``cancelled`` sets — so an attendance rebuild is
+    byte-identical and the push is pure waste. That waste lands on the worst
+    possible path: ``event_checkin_api`` saves ``attended`` for every scan at
+    the door, and on_commit runs inside the request/response cycle, so once
+    PASSKIT_APNS_* is configured each scan would carry a synchronous APNs round
+    trip (httpx timeout 10s) before the coach's scanner gets its answer.
+
+    So: ``cancelled`` always, and ``confirmed``/``pending`` only when the undo
+    path sets ``_reactivate_ticket`` — the transitions that actually flip
+    ``voided``. Plenty of saves leave a row confirmed with no transition at
+    all, and each would otherwise fire a push.
     """
     if created or not instance.apple_wallet_ticket_serial:
         return
@@ -2769,7 +2779,7 @@ def refresh_apple_event_ticket_on_registration_change(
     if not pass_type_id:
         return
 
-    should_refresh = instance.status in ("cancelled", "attended") or (
+    should_refresh = instance.status == "cancelled" or (
         instance.status in ("confirmed", "pending")
         and getattr(instance, "_reactivate_ticket", False)
     )
