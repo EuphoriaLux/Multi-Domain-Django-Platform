@@ -1636,6 +1636,63 @@ class TestEventLevelGoogleRefresh:
 
         assert patch_object.call_count == 1
 
+    def test_payload_comes_from_committed_state_not_the_captured_instance(
+        self, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # This call ships the payload itself, so PATCHing from the instance
+        # captured at schedule time would put Google back on a stale tier or
+        # point total that another transaction has since moved. Same rule the
+        # per-profile path follows in _trigger_google_wallet_object_update.
+        from crush_lu.models import CrushProfile
+        from crush_lu.wallet.google_api import refresh_google_wallet_objects
+
+        _event, profile = self._google_holder(event_with_registrations)
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                refresh_google_wallet_objects([profile])
+                # Committed after the batch was scheduled, exactly the window
+                # the re-read exists to cover.
+                CrushProfile.objects.filter(pk=profile.pk).update(
+                    membership_tier="gold"
+                )
+
+        assert patch_object.call_args.args[0].membership_tier == "gold"
+
+    def test_a_profile_that_vanishes_before_commit_is_skipped(
+        self, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # Unlinked (or deleted) between scheduling and running: there is
+        # nothing left to PATCH, and the captured object id would target a
+        # pass the holder no longer has.
+        from crush_lu.models import CrushProfile
+        from crush_lu.wallet.google_api import refresh_google_wallet_objects
+
+        _event, profile = self._google_holder(event_with_registrations)
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ) as token, mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object"
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                # Still reports 1 scheduled — the row was there at the time.
+                assert refresh_google_wallet_objects([profile]) == 1
+                CrushProfile.objects.filter(pk=profile.pk).update(
+                    google_wallet_object_id=""
+                )
+
+        patch_object.assert_not_called()
+        # Not even a token: the batch finds nothing to do and stops first.
+        token.assert_not_called()
+
     def test_single_profile_path_still_mints_its_own_token(
         self, _google_identity, event_with_registrations
     ):

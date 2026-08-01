@@ -409,10 +409,17 @@ def refresh_google_wallet_objects(profiles, context=""):
     request either way — production leaves DJANGO_TASKS_BACKEND unset, so TASKS
     falls back to ImmediateBackend and enqueuing would not move the work off it.
 
-    Returns the number of profiles scheduled; the work itself runs on commit.
+    Takes profiles but keeps only their pks, re-reading committed rows in the
+    callback — see there for why a captured instance is the wrong thing to
+    PATCH from.
+
+    Returns the number of profiles scheduled; the work itself runs on commit,
+    by which point some of them may legitimately no longer need it.
     """
-    profiles = [p for p in profiles if getattr(p, "google_wallet_object_id", "")]
-    if not profiles:
+    profile_ids = [
+        p.pk for p in profiles if getattr(p, "google_wallet_object_id", "")
+    ]
+    if not profile_ids:
         return 0
 
     class_id = getattr(settings, "WALLET_GOOGLE_CLASS_ID", None)
@@ -421,7 +428,7 @@ def refresh_google_wallet_objects(profiles, context=""):
             "%s: skipping Google Wallet refresh for %s pass(es) — "
             "WALLET_GOOGLE_CLASS_ID is not configured",
             context or "bulk refresh",
-            len(profiles),
+            len(profile_ids),
         )
         return 0
 
@@ -431,6 +438,28 @@ def refresh_google_wallet_objects(profiles, context=""):
     )
 
     def _after_commit():
+        from ..models import CrushProfile
+
+        # Re-read from COMMITTED state instead of PATCHing the instances the
+        # caller captured, for the reason spelled out in
+        # signals._trigger_google_wallet_object_update: this call ships the
+        # payload itself, and between scheduling and running here another
+        # transaction can have committed a newer tier or point total — or
+        # deleted the profile outright, or unlinked its object — and the
+        # captured copy would put Google back on the older state indefinitely.
+        # ONE query for the whole batch, so the correctness the per-profile
+        # path pays a query each for is actually cheaper here.
+        #
+        # Ordered by pk so the cap below and the stale report are reproducible
+        # rather than dependent on however the database returned the rows.
+        profiles = list(
+            CrushProfile.objects.filter(pk__in=profile_ids)
+            .exclude(google_wallet_object_id="")
+            .order_by("pk")
+        )
+        if not profiles:
+            return
+
         deadline = time.monotonic() + update_budget
         updated = 0
         failed = 0
@@ -520,7 +549,7 @@ def refresh_google_wallet_objects(profiles, context=""):
             )
 
     transaction.on_commit(_after_commit)
-    return len(profiles)
+    return len(profile_ids)
 
 
 def update_all_google_wallet_passes():
