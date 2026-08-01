@@ -56,7 +56,13 @@ _thread_local = threading.local()
 # WALLET PASS UPDATE TRIGGERS
 # =============================================================================
 
-# Fields that should trigger a wallet pass update when changed
+# Every input a wallet pass renders from, INCLUDING the three that are
+# properties rather than columns. No receiver reads this set any more — they
+# gate on the two subsets below, which are what can actually be compared — so
+# treat it as the inventory the subsets are checked against:
+# test_member_pass_fields_are_real_columns asserts the split, which turns
+# "added a field here and forgot the subset" into a failing test rather than a
+# pass that silently never refreshes.
 WALLET_UPDATE_PROFILE_FIELDS = {
     "referral_points",
     "membership_tier",
