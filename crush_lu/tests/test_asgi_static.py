@@ -1,8 +1,11 @@
 import asyncio
+import os
 from http import HTTPStatus
 from io import BytesIO
 from types import SimpleNamespace
 from wsgiref.headers import Headers
+
+from django.conf import settings
 
 from azureproject.asgi import StaticFilesASGI, whitenoise_app
 
@@ -44,8 +47,16 @@ def test_static_asgi_retries_uncompressed_when_precompressed_file_missing():
 
 
 def _cache_control(url):
+    """Return the Cache-Control WhiteNoise would set for ``url``.
+
+    ``path`` is derived from the real STATIC_ROOT rather than fabricated. The
+    regex form of ``immutable_file_test`` only inspects ``url`` today, but a
+    callable form -- or a future WhiteNoise -- may consult ``path`` too, and a
+    bogus value would silently mask that.
+    """
     headers = Headers([])
-    whitenoise_app.add_cache_headers(headers, f"/app/staticfiles{url[8:]}", url)
+    path = os.path.join(settings.STATIC_ROOT, url[len(settings.STATIC_URL):])
+    whitenoise_app.add_cache_headers(headers, path, url)
     return headers["Cache-Control"]
 
 
