@@ -48,51 +48,112 @@ def create_sumup_event_checkout(request, registration_id):
             {"error": _("This registration is already paid.")}, status=400
         )
 
-    if registration.status == "cancelled":
+    # Allow-list, not a deny-list. Only a registration that actually holds a seat
+    # may pay. "waitlist" is the case that matters: the Pay button renders for any
+    # unpaid registration, and _apply_paid_checkout unconditionally promotes the
+    # payer to "confirmed" -- so a deny-list would let a waitlisted member buy
+    # their way past the capacity decision into an over-capacity seat.
+    # "confirmed" stays payable for rows created before paid signups became
+    # "pending"; they are legitimately unpaid and must still be able to settle.
+    if registration.status not in ("pending", "confirmed"):
         return JsonResponse(
-            {"error": _("This registration has been cancelled.")}, status=400
+            {
+                "error": _("This registration cannot be paid for in its current state.")
+            },
+            status=400,
+        )
+
+    # The parent event can be cancelled after registration; the admin action only
+    # touches the event row, and the Pay button keeps rendering.
+    if registration.event.is_cancelled:
+        return JsonResponse(
+            {"error": _("This event has been cancelled.")}, status=400
         )
 
     amount = registration.event.registration_fee
     if amount <= Decimal("0.00"):
         return JsonResponse({"error": _("This event does not require payment.")}, status=400)
 
-    checkout_ref = f"CRUSH-EVT-{registration.id}-{uuid.uuid4().hex[:6]}"
-    description = f"Crush.lu Event: {registration.event.title[:50]}"
-    return_url = request.build_absolute_uri(f"/payments/sumup/return/?ref={checkout_ref}")
+    # One live checkout per registration.
+    #
+    # Nothing stopped a double-click (or two tabs) from creating two checkouts
+    # and two PaymentTransaction rows -- there is no uniqueness on the
+    # event_registration FK. If both were completed, _apply_paid_checkout marks
+    # each paid independently and the attendee is charged twice for one seat.
+    #
+    # The registration row is locked for the whole check-and-create so two
+    # concurrent requests serialise: the loser sees the winner's transaction and
+    # is handed the same widget instead of opening a second one. The lock is
+    # held across the SumUp call, which is deliberate -- it is a single row,
+    # contended only by the same user clicking twice.
+    with transaction.atomic():
+        EventRegistration.objects.select_for_update().get(pk=registration.pk)
 
-    client = SumUpClient()
-    try:
-        checkout_data = client.create_checkout(
-            amount=float(amount),
+        existing = (
+            PaymentTransaction.objects.filter(
+                event_registration=registration,
+                purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+                status=PaymentTransaction.Status.PENDING,
+            )
+            .exclude(sumup_checkout_id="")
+            .order_by("-created_at")
+            .first()
+        )
+        if existing:
+            logger.info(
+                "Reusing pending SumUp checkout %s for registration %s",
+                existing.sumup_checkout_id,
+                registration.id,
+            )
+            return JsonResponse(
+                {
+                    "success": True,
+                    "checkout_id": existing.sumup_checkout_id,
+                    "checkout_reference": existing.transaction_reference,
+                    "amount": float(existing.amount),
+                    "currency": existing.currency,
+                    "widget_url": f"/payments/sumup/widget/{existing.sumup_checkout_id}/",
+                }
+            )
+
+        checkout_ref = f"CRUSH-EVT-{registration.id}-{uuid.uuid4().hex[:6]}"
+        description = f"Crush.lu Event: {registration.event.title[:50]}"
+        return_url = request.build_absolute_uri(
+            f"/payments/sumup/return/?ref={checkout_ref}"
+        )
+
+        client = SumUpClient()
+        try:
+            checkout_data = client.create_checkout(
+                amount=float(amount),
+                currency="EUR",
+                checkout_reference=checkout_ref,
+                description=description,
+                return_url=return_url,
+            )
+        except SumUpError as exc:
+            logger.error("Failed to create SumUp event checkout: %s", exc)
+            return JsonResponse(
+                {"error": _("Unable to initiate payment at the moment. Please try again later.")},
+                status=500,
+            )
+
+        checkout_id = checkout_data.get("id")
+        if not checkout_id:
+            return JsonResponse({"error": _("SumUp did not return a valid checkout ID.")}, status=500)
+
+        PaymentTransaction.objects.create(
+            transaction_reference=checkout_ref,
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id=checkout_id,
+            amount=amount,
             currency="EUR",
-            checkout_reference=checkout_ref,
-            description=description,
-            return_url=return_url,
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=request.user,
+            event_registration=registration,
+            raw_response=checkout_data,
         )
-    except SumUpError as exc:
-        logger.error("Failed to create SumUp event checkout: %s", exc)
-        return JsonResponse(
-            {"error": _("Unable to initiate payment at the moment. Please try again later.")},
-            status=500,
-        )
-
-    checkout_id = checkout_data.get("id")
-    if not checkout_id:
-        return JsonResponse({"error": _("SumUp did not return a valid checkout ID.")}, status=500)
-
-    PaymentTransaction.objects.create(
-        transaction_reference=checkout_ref,
-        provider=PaymentTransaction.Provider.SUMUP,
-        sumup_checkout_id=checkout_id,
-        amount=amount,
-        currency="EUR",
-        status=PaymentTransaction.Status.PENDING,
-        purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
-        user=request.user,
-        event_registration=registration,
-        raw_response=checkout_data,
-    )
 
     return JsonResponse({
         "success": True,
@@ -184,6 +245,24 @@ def create_sumup_premium_checkout(request, membership_id):
     })
 
 
+def _send_registration_confirmation_safely(registration):
+    """Send the post-payment confirmation without letting it break the payment.
+
+    The money is already captured by the time this runs; a mail failure must not
+    surface as an error to SumUp's callback or to the returning browser.
+    """
+    from .email_helpers import send_event_registration_confirmation
+
+    try:
+        send_event_registration_confirmation(registration)
+    except Exception as exc:
+        logger.error(
+            "Failed to send post-payment confirmation for registration %s: %s",
+            registration.id,
+            type(exc).__name__,
+        )
+
+
 def _apply_paid_checkout(tx_obj, data):
     """Mark the transaction paid and unlock whatever it bought.
 
@@ -215,6 +294,17 @@ def _apply_paid_checkout(tx_obj, data):
                 reg.save()
                 _generate_checkin_token(reg)
                 logger.info("Confirmed EventRegistration %s via SumUp", reg.id)
+
+                # The payment-pending email promises "you'll receive a
+                # confirmation email once payment is received" -- nothing was
+                # keeping that promise, so a paying customer heard nothing.
+                # on_commit, because this runs inside the atomic block above and
+                # the mail must not go out if the transaction rolls back. It sits
+                # inside the idempotency guard, so the browser return racing
+                # SumUp's callback still sends exactly one.
+                transaction.on_commit(
+                    lambda r=reg: _send_registration_confirmation_safely(r)
+                )
 
         elif (
             locked.purpose == PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP

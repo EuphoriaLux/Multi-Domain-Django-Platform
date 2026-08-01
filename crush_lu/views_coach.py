@@ -39,6 +39,7 @@ from .models import (
     UserActivity,
     CrushSpark,
 )
+from .models.events import SEAT_HOLDING_STATUSES
 from .matching import (
     get_western_zodiac,
     get_western_element,
@@ -2457,7 +2458,10 @@ def coach_event_checkin(request, event_id):
         .order_by("registered_at")
     )
 
-    confirmed = [r for r in registrations if r.status in ("confirmed", "attended")]
+    # "pending" (Pending Payment) holds a seat on a paid event, so those people
+    # are expected at the door and must appear on the coach's roster -- omitting
+    # them would leave a scannable ticket with no matching row on screen.
+    confirmed = [r for r in registrations if r.status in SEAT_HOLDING_STATUSES]
     attended_count = sum(1 for r in confirmed if r.status == "attended")
     # Waitlisted walk-ups: shown in their own section so a coach can promote
     # and check one in without leaving the scanner (the common move once

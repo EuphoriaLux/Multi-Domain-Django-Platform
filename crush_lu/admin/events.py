@@ -795,6 +795,15 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         if "payment_confirmed" in form.changed_data:
             if obj.payment_confirmed:
                 obj.payment_date = obj.payment_date or timezone.now()
+                # Money recorded out of band (bank transfer, cash) has to make
+                # the same pending -> confirmed transition the SumUp return
+                # handler makes. Without it the attendee stays labelled "Pending
+                # Payment" forever: no confirmation email, and excluded from
+                # every confirmed-only reminder and report even though they paid.
+                # Only "pending" is promoted -- never a cancelled or waitlisted
+                # row, where staff ticking a box must not conjure a seat.
+                if obj.status == "pending":
+                    obj.status = "confirmed"
             else:
                 obj.payment_date = None
         super().save_model(request, obj, form, change)

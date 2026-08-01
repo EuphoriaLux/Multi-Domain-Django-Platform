@@ -482,3 +482,130 @@ class PremiumPriceConsistencyTests(SiteTestMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         tx = PaymentTransaction.objects.get(sumup_checkout_id="CHK_PRICE_001")
         self.assertEqual(tx.amount, Decimal("15.00"))
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class CheckoutGuardTests(SiteTestMixin, TestCase):
+    """Guards on who may open a checkout (Codex P1 findings on #757)."""
+
+    def setUp(self):
+        super().setUp()
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        self.user = User.objects.create_user(
+            username="guard@crush.lu", email="guard@crush.lu", password="password123"
+        )
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        CrushProfile.objects.create(
+            user=self.user, verification_status="verified", completion_status="step4"
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Guarded Event",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("15.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+
+    def _post(self):
+        return self.client.post(
+            reverse(
+                "crush_lu:sumup_create_event_checkout",
+                kwargs={"registration_id": self.registration.id},
+            )
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_waitlisted_registration_cannot_pay(self, mock_create_checkout):
+        """A waitlisted member must not buy past the capacity decision.
+
+        The Pay button renders for any unpaid registration and
+        _apply_paid_checkout promotes the payer to "confirmed" -- so allowing
+        this would sell an over-capacity seat.
+        """
+        self.registration.status = "waitlist"
+        self.registration.save()
+        self.client.force_login(self.user)
+
+        self.assertEqual(self._post().status_code, 400)
+        mock_create_checkout.assert_not_called()
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_cannot_pay_for_a_cancelled_event(self, mock_create_checkout):
+        self.event.is_cancelled = True
+        self.event.save()
+        self.client.force_login(self.user)
+
+        self.assertEqual(self._post().status_code, 400)
+        mock_create_checkout.assert_not_called()
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_second_click_reuses_the_existing_checkout(self, mock_create_checkout):
+        """Two clicks must not open two checkouts -- that is a double charge.
+
+        There is no uniqueness on the event_registration FK, so without reuse
+        both transactions can be completed and each is marked paid independently.
+        """
+        mock_create_checkout.return_value = {"id": "CHK_ONCE", "status": "PENDING"}
+        self.client.force_login(self.user)
+
+        first = self._post()
+        second = self._post()
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(first.json()["checkout_id"], second.json()["checkout_id"])
+        self.assertEqual(mock_create_checkout.call_count, 1)
+        self.assertEqual(
+            PaymentTransaction.objects.filter(
+                event_registration=self.registration
+            ).count(),
+            1,
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_successful_payment_sends_the_promised_confirmation(self, mock_get_checkout):
+        """The payment-pending email promises a confirmation once paid."""
+        from django.core import mail
+
+        tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-CONF",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_CONF",
+            amount=Decimal("15.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+        mail.outbox = []
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        # The send is deferred with transaction.on_commit so a rolled-back
+        # payment cannot email a confirmation; TestCase never commits, so the
+        # callbacks have to be run explicitly.
+        with self.captureOnCommitCallbacks(execute=True):
+            _apply_paid_checkout(tx, {"status": "PAID"})
+
+        self.registration.refresh_from_db()
+        self.assertEqual(self.registration.status, "confirmed")
+        self.assertTrue(self.registration.payment_confirmed)
+        self.assertEqual(len(mail.outbox), 1)
+
+        # Idempotent: the browser return and SumUp's callback race routinely.
+        mail.outbox = []
+        with self.captureOnCommitCallbacks(execute=True):
+            _apply_paid_checkout(tx, {"status": "PAID"})
+        self.assertEqual(len(mail.outbox), 0)

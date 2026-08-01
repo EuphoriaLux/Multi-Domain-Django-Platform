@@ -29,7 +29,7 @@ from .email_helpers import (
 )
 
 
-def _admitted_status(event):
+def _admitted_status(event, registration=None):
     """The status an admitted registration takes on this event.
 
     A paid event holds the seat as "pending" (Pending Payment) until the SumUp
@@ -37,7 +37,17 @@ def _admitted_status(event):
     both the signup path and waitlist promotion so the two cannot disagree --
     promoting someone off the waitlist must not hand them a confirmed seat on a
     paid event they have not paid for.
+
+    An already-paid registration stays "confirmed". This matters when a
+    cancelled row is reused on re-registration: the row keeps
+    ``payment_confirmed``, so forcing it back to "pending" would ask the member
+    to pay a second time for money we still hold, mail them a payment request,
+    and then have the checkout reject them as already paid. Re-registration is
+    "brand new" for *queue position* (registered_at is reset); that is a
+    separate question from whether the seat has been paid for.
     """
+    if registration is not None and registration.payment_confirmed:
+        return "confirmed"
     return "pending" if event.registration_fee > 0 else "confirmed"
 
 
@@ -93,7 +103,7 @@ def _promote_from_waitlist(event, cancelled_user=None):
     if not event.gender_limits_active:
         for candidate in waitlisted_list:
             if not event.is_full_for(is_premium=_is_premium(candidate)):
-                candidate.status = _admitted_status(event)
+                candidate.status = _admitted_status(event, candidate)
                 candidate.save()
                 return candidate
         return None
@@ -116,7 +126,7 @@ def _promote_from_waitlist(event, cancelled_user=None):
                     if not event.is_full_for(
                         is_premium=_is_premium(candidate)
                     ) and not event.is_gender_pool_full(cand_gender):
-                        candidate.status = _admitted_status(event)
+                        candidate.status = _admitted_status(event, candidate)
                         candidate.save()
                         return candidate
 
@@ -127,7 +137,7 @@ def _promote_from_waitlist(event, cancelled_user=None):
             continue
         if event.is_full_for(is_premium=_is_premium(candidate)):
             continue
-        candidate.status = _admitted_status(event)
+        candidate.status = _admitted_status(event, candidate)
         candidate.save()
         return candidate
 
@@ -1166,7 +1176,7 @@ def event_register(request, event_id):
                     # "pending" still counts toward capacity and still yields a
                     # door ticket (see SEAT_HOLDING_STATUSES); it only changes
                     # what the status *claims*. Free events are unaffected.
-                    registration.status = _admitted_status(locked_event)
+                    registration.status = _admitted_status(locked_event, registration)
                     if registration.status == "pending":
                         messages.success(
                             request,
