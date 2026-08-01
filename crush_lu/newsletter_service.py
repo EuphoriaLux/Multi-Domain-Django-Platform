@@ -18,6 +18,7 @@ from .email_helpers import can_send_email, get_social_links
 from .models.newsletter import NewsletterRecipient
 from .utils.i18n import build_absolute_url, get_user_preferred_language
 
+from crush_lu.models.events import SEAT_HOLDING_STATUSES
 logger = logging.getLogger(__name__)
 
 # Rate limiting: 25 emails per batch, 62s pause (Graph API limit is 30/min)
@@ -109,7 +110,7 @@ def get_newsletter_recipients(newsletter):
         from .models.events import EventRegistration
         registered_user_ids = EventRegistration.objects.filter(
             event=newsletter.event,
-            status__in=['confirmed', 'waitlist', 'attended'],
+            status__in=[*SEAT_HOLDING_STATUSES, 'waitlist'],
         ).values_list('user_id', flat=True)
         users = users.exclude(id__in=registered_user_ids)
 

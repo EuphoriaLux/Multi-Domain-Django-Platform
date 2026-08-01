@@ -1035,7 +1035,9 @@ def cache_coach_auto_teams(request, event_id):
         # Nobody checked in yet — fall back to confirmed so teams can be
         # pre-formed before the doors open.
         registrations = list(
-            EventRegistration.objects.filter(event=hunt.event, status="confirmed")
+            EventRegistration.objects.filter(
+                event=hunt.event, status__in=SEAT_HOLDING_STATUSES
+            )
             .exclude(cache_memberships__hunt=hunt)
             .order_by("?")
         )

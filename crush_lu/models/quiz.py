@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+from crush_lu.models.events import SEAT_HOLDING_STATUSES
 from crush_lu.storage import crush_media_storage, crush_upload_path
 
 #: Per-path upload factory for quiz media (image/video/audio).
@@ -346,7 +347,7 @@ class QuizEvent(models.Model):
 
         # 5. Registrations?
         reg_count = EventRegistration.objects.filter(
-            event=self.event, status__in=["confirmed", "attended"]
+            event=self.event, status__in=SEAT_HOLDING_STATUSES
         ).count()
         checks.append(
             {
