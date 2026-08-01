@@ -4224,6 +4224,69 @@ class TestAdminBulkActionsRefreshWallets:
 
         refresh_google.assert_not_called()
 
+    def test_a_tied_restore_that_cannot_win_is_not_queued(
+        self, _apple_identity, _google_identity, event_with_registrations
+    ):
+        from crush_lu.models import EventRegistration
+
+        # Once the selector gained its (date_time, event_id, id) tie-break,
+        # "same start time" stopped meaning "might take the card". The restored
+        # event here ties on start but sorts AFTER the displayed one, so it
+        # cannot win and the holder's card does not change.
+        event, registrations = event_with_registrations
+        registration = registrations[0]
+        # Created second, so its pk is higher and it loses the tie-break.
+        twin = self._second_event(7, title="Ties but sorts second")
+        twin.date_time = event.date_time
+        twin.save()
+        restored = EventRegistration.objects.create(
+            event=twin, user=registration.user, status="cancelled"
+        )
+        self._google_member(registration, "google-obj-tiedrestore")
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ), mock.patch(
+            "crush_lu.wallet.google_api.refresh_google_wallet_objects"
+        ) as refresh_google:
+            with mock.patch("crush_lu.admin.events.django_messages"):
+                self._admin(EventRegistration).confirm_registrations(
+                    RequestFactory().post("/"),
+                    EventRegistration.objects.filter(pk=restored.pk),
+                )
+
+        refresh_google.assert_not_called()
+
+    def test_cancel_uses_the_state_it_locked_not_the_state_it_read(
+        self, _apple_identity, _google_identity, event_with_registrations
+    ):
+        from crush_lu.models import MeetupEvent
+
+        # `events = list(queryset)` happens before the lock, so those instances
+        # can be stale by the time the selection runs — and the selection turns
+        # on is_cancelled. Here the caller hands over an instance that still
+        # says cancelled while the database says otherwise; reading the stale
+        # copy would drop it from `transitioning` and refresh nobody.
+        event, registrations = event_with_registrations
+        registration = registrations[0]
+        profile = self._google_member(registration, "google-obj-restored")
+
+        stale = MeetupEvent.objects.get(pk=event.pk)
+        stale.is_cancelled = True  # in memory only — never saved
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ), mock.patch(
+            "crush_lu.wallet.google_api.refresh_google_wallet_objects"
+        ) as refresh_google:
+            with mock.patch("crush_lu.admin.events.django_messages"):
+                self._admin(MeetupEvent).cancel_events(
+                    RequestFactory().post("/"), [stale]
+                )
+
+        assert refresh_google.call_count == 1
+        assert [p.pk for p in refresh_google.call_args.args[0]] == [profile.pk]
+
     def test_the_two_next_event_selectors_agree_on_a_tie(
         self, _google_identity, event_with_registrations
     ):

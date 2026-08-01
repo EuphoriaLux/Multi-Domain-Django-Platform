@@ -698,13 +698,18 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         # their card. Google never polls, so that would be permanent.
         google_profiles = []
         with transaction.atomic():
-            list(
-                MeetupEvent.objects.select_for_update()
-                .filter(pk__in=event_ids)
-                .values_list("pk", flat=True)
+            # Use the rows the lock returned, not the ones read before it.
+            # Between `list(queryset)` and this line another admin can change
+            # is_cancelled, and the selection below turns on exactly that
+            # field: an event read as cancelled but restored since would be
+            # dropped from `transitioning`, re-cancelled here anyway, and its
+            # holders — whose cards the restore may just have PATCHed to show
+            # it — would get no refresh at all.
+            locked = list(
+                MeetupEvent.objects.select_for_update().filter(pk__in=event_ids)
             )
             try:
-                google_profiles = self._google_holders_for_cancellation(events)
+                google_profiles = self._google_holders_for_cancellation(locked)
             except Exception:
                 logger.exception(
                     "Failed selecting Google wallet holders for %s "
@@ -1178,24 +1183,30 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         )
         restored_google_profiles = []
         if restored_rows:
+            # Keyed on the FULL ordering key, not the start time alone. Once
+            # _next_event_candidates gained its (date_time, event_id, id)
+            # tie-break, "same start time" stopped meaning "might win": on a
+            # tie the restored event takes the card only if it also sorts
+            # first. Comparing dates alone queued every tied holder — no-ops
+            # spending a cap whose overflow is permanent.
+            def _key(row):
+                return (row.event.date_time, row.event_id, row.pk)
+
             by_user = {}
             for row in restored_rows:
                 event = row.event
                 if event.is_cancelled or event.end_time < now:
                     continue  # restoring the seat still leaves it off the card
-                earliest = by_user.get(row.user_id)
-                if earliest is None or event.date_time < earliest:
-                    by_user[row.user_id] = event.date_time
+                best = by_user.get(row.user_id)
+                if best is None or _key(row) < best:
+                    by_user[row.user_id] = _key(row)
             displayed = get_next_event_registrations(list(by_user), now=now)
             candidates = CrushProfile.objects.filter(
                 user_id__in=list(by_user)
             ).exclude(google_wallet_object_id="")
             for profile in candidates:
                 showing = displayed.get(profile.user_id)
-                if (
-                    showing is None
-                    or by_user[profile.user_id] <= showing.event.date_time
-                ):
+                if showing is None or by_user[profile.user_id] < _key(showing):
                     restored_google_profiles.append(profile)
 
         updated = EventRegistration.objects.filter(pk__in=eligible_ids).update(
