@@ -602,37 +602,38 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
 
         # .update() emits no signals, so nothing else tells Apple Wallet these
         # tickets are dead. Without this, a cancelled event's installed passes
-        # keep rendering as valid at the door (the rebuild now sets `voided`,
-        # but only once Wallet is told to fetch it).
-        from crush_lu.wallet.passkit_service import refresh_event_tickets
+        # keep rendering as valid at the door (the rebuild sets `voided`, but
+        # only once Wallet is told to fetch it), and member cards keep showing
+        # the cancelled event as the holder's next one.
+        #
+        # ONE call for the whole action, deliberately. Each refresh_* helper
+        # starts its own push budget, so refreshing per event — twice per event,
+        # tickets then member passes — restarted the deadline 2N times and let
+        # total request time grow with the size of the selection. Batching
+        # shares a single budget across everything the action touches.
+        try:
+            from crush_lu.models import CrushProfile
+            from crush_lu.wallet.passkit_service import refresh_ticket_serials
 
-        from crush_lu.models import CrushProfile
-        from crush_lu.wallet.passkit_service import refresh_ticket_serials
-
-        for event in events:
-            try:
-                event.is_cancelled = True
-                refresh_event_tickets(event)
-
-                # Member cards show the holder's NEXT event, and
-                # get_next_event_for_pass now excludes cancelled events — but
-                # only if something tells Wallet to refetch. The post_save
-                # receiver that normally collects these serials never runs
-                # here, because the update above emits no signals.
-                member_serials = list(
-                    CrushProfile.objects.filter(user__eventregistration__event=event)
-                    .exclude(apple_pass_serial="")
-                    .values_list("apple_pass_serial", flat=True)
-                    .distinct()
-                )
-                refresh_ticket_serials(
-                    member_serials, context=f"Event {event.pk} cancelled (member)"
-                )
-            except Exception:
-                logger.exception(
-                    "Failed scheduling Apple ticket refresh for cancelled event %s",
-                    event.pk,
-                )
+            serials = list(
+                EventRegistration.objects.filter(event__in=events)
+                .exclude(apple_wallet_ticket_serial="")
+                .values_list("apple_wallet_ticket_serial", flat=True)
+            )
+            serials += list(
+                CrushProfile.objects.filter(user__eventregistration__event__in=events)
+                .exclude(apple_pass_serial="")
+                .values_list("apple_pass_serial", flat=True)
+                .distinct()
+            )
+            refresh_ticket_serials(
+                serials, context=f"Admin cancel_events ({len(events)} event(s))"
+            )
+        except Exception:
+            logger.exception(
+                "Failed scheduling Apple wallet refresh for %s cancelled event(s)",
+                len(events),
+            )
 
         django_messages.success(
             request, _("Cancelled {count} event(s)").format(count=updated)
@@ -973,11 +974,16 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                     skipped += 1
                     continue
             eligible_ids.append(reg.pk)
-        # Serials of seats being restored FROM cancelled — their Apple ticket
-        # is currently `voided` and has to be told it is live again. Collected
-        # before the update, while the old status is still readable.
+        # Serials of seats being restored from ANY invalid status — their Apple
+        # ticket is currently `voided` and has to be told it is live again.
+        # Keyed off SEAT_HOLDING_STATUSES rather than "cancelled" alone, to
+        # match what the payload actually voids: `waitlist` and `no_show` are
+        # equally invalid, and confirming one of those would otherwise leave a
+        # visibly voided ticket on a now-valid seat. Collected before the
+        # update, while the old status is still readable.
         restored_serials = list(
-            EventRegistration.objects.filter(pk__in=eligible_ids, status="cancelled")
+            EventRegistration.objects.filter(pk__in=eligible_ids)
+            .exclude(status__in=SEAT_HOLDING_STATUSES)
             .exclude(apple_wallet_ticket_serial="")
             .values_list("apple_wallet_ticket_serial", flat=True)
         )

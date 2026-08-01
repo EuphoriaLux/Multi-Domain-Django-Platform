@@ -1438,6 +1438,95 @@ class TestTicketStampsAreSignalFree:
 
 
 @pytest.mark.django_db
+class TestAdminBulkActionsRefreshWallets:
+    """Every one of these actions uses QuerySet.update(), which emits no
+    signals — so each has to schedule its own refresh, and they must agree
+    with what the payload actually voids."""
+
+    def _admin(self, model):
+        # These live on the project's custom admin site, not django's default.
+        from crush_lu.admin.site import crush_admin_site
+
+        return crush_admin_site._registry[model]
+
+    def _ticketed(self, registration, serial):
+        registration.apple_wallet_ticket_serial = serial
+        registration.save(update_fields=["apple_wallet_ticket_serial"])
+        return registration
+
+    def test_confirm_restores_tickets_from_any_invalid_status(
+        self, _apple_identity, event_with_registrations
+    ):
+        from crush_lu.models import EventRegistration
+
+        # waitlist is invalid, so its ticket is voided — confirming it must
+        # un-void. Collecting only "cancelled" left it visibly dead.
+        _event, registrations = event_with_registrations
+        registration = self._ticketed(registrations[0], "evt-1-reg-1-abcd")
+        registration.status = "waitlist"
+        registration.save(update_fields=["status"])
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            with mock.patch("crush_lu.admin.events.django_messages"):
+                self._admin(EventRegistration).confirm_registrations(
+                    RequestFactory().post("/"),
+                    EventRegistration.objects.filter(pk=registration.pk),
+                )
+
+        assert "evt-1-reg-1-abcd" in refresh.call_args.args[0]
+
+    def test_cancel_events_batches_into_one_refresh(
+        self, _apple_identity, event_with_registrations
+    ):
+        from crush_lu.models import MeetupEvent
+
+        # One call for the whole action: each helper starts its own push
+        # budget, so a per-event loop restarted the deadline 2N times and let
+        # request time grow with the selection.
+        event, registrations = event_with_registrations
+        self._ticketed(registrations[0], "evt-1-reg-1-abcd")
+        profile = registrations[0].user.crushprofile
+        profile.apple_pass_serial = "member-serial"
+        profile.save(update_fields=["apple_pass_serial"])
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            with mock.patch("crush_lu.admin.events.django_messages"):
+                self._admin(MeetupEvent).cancel_events(
+                    RequestFactory().post("/"),
+                    MeetupEvent.objects.filter(pk=event.pk),
+                )
+
+        assert refresh.call_count == 1
+        assert set(refresh.call_args.args[0]) == {
+            "evt-1-reg-1-abcd",
+            "member-serial",
+        }
+
+    def test_move_to_waitlist_voids_the_ticket(
+        self, _apple_identity, event_with_registrations
+    ):
+        from crush_lu.models import EventRegistration
+
+        _event, registrations = event_with_registrations
+        registration = self._ticketed(registrations[0], "evt-1-reg-1-abcd")
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            with mock.patch("crush_lu.admin.events.django_messages"):
+                self._admin(EventRegistration).move_to_waitlist(
+                    RequestFactory().post("/"),
+                    EventRegistration.objects.filter(pk=registration.pk),
+                )
+
+        assert "evt-1-reg-1-abcd" in refresh.call_args.args[0]
+
+
+@pytest.mark.django_db
 class TestPasskitRowsAreCleanedUp:
     """PasskitDeviceRegistration keys off the pass serial with no FK, so
     nothing cascades. Orphans keep an APNs push token alive past the
