@@ -39,25 +39,48 @@ class TestResolveWebServiceUrl:
     iOS silently rejects it. resolve_web_service_url is what guarantees that,
     and it MUST produce the unversioned PassKit root (Apple appends /v1)."""
 
-    def test_setting_wins_over_forwarded_arg_and_request(self, settings):
+    def test_issuing_request_wins_over_setting(self, settings):
         from crush_lu.wallet.passkit_service import resolve_web_service_url
 
-        # The setting is canonical (operator-controlled, can't drift into /v1).
-        # It must beat the caller arg forwarded from get_latest_pass, otherwise
-        # a rebuild could rewrite a correct root to a versioned path.
-        request = RequestFactory().get("/", HTTP_HOST="other.example", secure=True)
+        # THE slot-routing invariant. The web service resolves a pass by serial
+        # against the database of whichever slot Apple contacts, and the slots
+        # have isolated databases. A ticket downloaded from test.crush.lu that
+        # advertised the production root would send Apple to production, which
+        # has never heard of that serial -> registration 500s forever.
+        request = RequestFactory().get("/", HTTP_HOST="test.crush.lu", secure=True)
+        assert resolve_web_service_url(request) == "https://test.crush.lu/wallet"
+
+    def test_issuing_request_wins_over_forwarded_arg_too(self, settings):
+        from crush_lu.wallet.passkit_service import resolve_web_service_url
+
+        request = RequestFactory().get("/", HTTP_HOST="test.crush.lu", secure=True)
         assert (
             resolve_web_service_url(
                 request, web_service_url="https://forwarded.lu/wallet"
             )
-            == "https://crush.lu/wallet"
+            == "https://test.crush.lu/wallet"
         )
 
-    def test_setting_used_when_no_explicit_url(self, settings):
+    def test_forwarded_arg_wins_over_setting_on_requestless_rebuild(self, settings):
+        from crush_lu.wallet.passkit_service import resolve_web_service_url
+
+        # get_latest_pass derives the forwarded value from Apple's own live
+        # request, so it names the slot Apple is already talking to — which is
+        # the slot that just resolved this serial. The setting must not drag the
+        # rebuilt pass to a different slot.
+        assert (
+            resolve_web_service_url(
+                None, web_service_url="https://test.crush.lu/wallet"
+            )
+            == "https://test.crush.lu/wallet"
+        )
+
+    def test_setting_used_when_no_request_and_no_forwarded_url(self, settings):
         from crush_lu.wallet.passkit_service import resolve_web_service_url
 
         settings.WALLET_APPLE_WEB_SERVICE_URL = "https://crush.lu/wallet"
-        # No request either — the setting alone must satisfy.
+        # The operator override survives as the no-request-context fallback
+        # (management commands, background rebuilds).
         assert resolve_web_service_url() == "https://crush.lu/wallet"
 
     def test_derives_unversioned_root_from_request(self, settings):
@@ -78,6 +101,18 @@ class TestResolveWebServiceUrl:
             resolve_web_service_url(None, web_service_url="https://forwarded.lu/wallet")
             == "https://forwarded.lu/wallet"
         )
+
+    def test_unusable_request_host_falls_back_instead_of_dropping_the_field(
+        self, settings
+    ):
+        from crush_lu.wallet.passkit_service import resolve_web_service_url
+
+        settings.WALLET_APPLE_WEB_SERVICE_URL = "https://crush.lu/wallet"
+        request = RequestFactory().get("/", HTTP_HOST="[invalid")
+        # A pass carrying an authenticationToken with no webServiceURL is
+        # rejected by iOS, so a broken host must fall through to the setting,
+        # not return "".
+        assert resolve_web_service_url(request) == "https://crush.lu/wallet"
 
     def test_returns_empty_when_neither_available(self, settings):
         from crush_lu.wallet.passkit_service import resolve_web_service_url

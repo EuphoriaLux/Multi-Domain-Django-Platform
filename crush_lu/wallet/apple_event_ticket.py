@@ -156,10 +156,11 @@ def build_apple_event_ticket(registration, request=None, web_service_url=None):
     pass_type_identifier = _require_setting("WALLET_APPLE_PASS_TYPE_IDENTIFIER")
     team_identifier = _require_setting("WALLET_APPLE_TEAM_IDENTIFIER")
     organization_name = _require_setting("WALLET_APPLE_ORGANIZATION_NAME")
-    # The webServiceURL embedded in the pass: the setting wins (operator-
-    # controlled root), then an explicit caller-supplied URL (forwarded by the
-    # PassKit update path), then the request — so the ticket always advertises
-    # a webServiceURL alongside its authenticationToken.
+    # The webServiceURL embedded in the pass: the issuing request wins, then a
+    # caller-supplied URL (forwarded by the PassKit update path), then the
+    # setting — so the ticket always advertises a webServiceURL alongside its
+    # authenticationToken, and always points at the slot whose database can
+    # actually resolve this serial.
     resolved_web_service_url = resolve_web_service_url(request, web_service_url)
 
     event = registration.event

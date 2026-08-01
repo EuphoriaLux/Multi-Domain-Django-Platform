@@ -197,43 +197,59 @@ def resolve_web_service_url(request=None, web_service_url=None):
     "/v1/..." protocol paths to this URL, so the value must be the unversioned
     root (e.g. https://crush.lu/wallet), NOT include /v1.
 
-    Prefer (in order):
-      1. The WALLET_APPLE_WEB_SERVICE_URL setting — host-stable across
-         instances and survives behind proxies, and the operator controls the
-         exact root so it can't drift into the /v1/v1 trap.
-      2. An explicit caller-supplied web_service_url, when it differs from the
-         versioned route base (forwarded by the PassKit provider on rebuilds).
-      3. Derived from the current request via build_web_service_url(request)
-         (which itself produces the unversioned root).
+    THE SERVICE ROOT IS SLOT-BOUND, so the issuing host wins. Prefer:
+      1. Derived from the current request via build_web_service_url(request) —
+         the host that served the pass is the only host that can answer for it.
+      2. An explicit caller-supplied web_service_url, forwarded by the PassKit
+         provider on rebuilds (get_latest_pass derives it from Apple's own live
+         request, so it names the slot Apple is already talking to).
+      3. The WALLET_APPLE_WEB_SERVICE_URL setting — the fallback for builds with
+         no request context at all (management commands, background rebuilds).
       4. "" (nothing available) — the caller's `if url:` guard then omits the
          field, matching the long-standing behaviour.
 
-    The setting wins over the caller arg deliberately: get_latest_pass derives
-    a value from its live request and passes it here; if that derivation ever
-    drifts to a versioned path, the setting must be able to override it rather
-    than the rebuild silently corrupting every subsequent pass.
+    Why the request beats the setting: the whole PassKit web service resolves a
+    pass by serial against the DATABASE of whichever slot Apple contacts, and
+    the slots have isolated databases (prod `pythonapp`, staging
+    `pythonapp_staging`). A pass downloaded from test.crush.lu that advertises
+    the production root sends Apple to production, which has never heard of that
+    serial — registration 500s and the pass can never update. The DEBUG iOS
+    target points at test.crush.lu, so this is the normal path for every
+    developer build. A host-stable setting is precisely the wrong thing here.
 
-    Every branch is passed through _normalize_service_root, so a configured (or
-    forwarded) value that still carries the legacy "/v1" suffix is corrected
-    rather than silently 404ing the whole update flow.
+    This reverses the earlier "setting must win" rule, and safely: that rule
+    existed because request derivation used to produce a VERSIONED base
+    (PASSKIT_WEB_SERVICE_BASE_PATH defaulted to /wallet/v1), so a rebuild could
+    rewrite a correct root into the /v1/v1 trap. The base path is now the
+    unversioned root and _normalize_service_root strips a stray /v1 from every
+    branch, so derivation can no longer drift — the setting no longer needs to
+    defend against it, and the operator override survives as the no-request
+    fallback.
     """
+    if request is not None:
+        try:
+            derived = build_web_service_url(request)
+        except Exception:
+            # build_absolute_uri can raise on pathological host headers; never
+            # let URL derivation turn a pass build into a 500. Fall through to
+            # the forwarded value / setting rather than returning "" — a pass
+            # with an authenticationToken and no webServiceURL is rejected.
+            derived = ""
+        if derived:
+            return _normalize_service_root(derived)
+    if web_service_url:
+        return _normalize_service_root(web_service_url)
     explicit = getattr(settings, "WALLET_APPLE_WEB_SERVICE_URL", "")
     if explicit:
         return _normalize_service_root(explicit)
-    if web_service_url:
-        return _normalize_service_root(web_service_url)
-    if request is not None:
-        try:
-            return _normalize_service_root(build_web_service_url(request))
-        except Exception:
-            # build_absolute_uri can raise on pathological host headers; never
-            # let URL derivation turn a pass build into a 500.
-            return ""
     return ""
 
 
 def inject_web_service_fields(pass_json, request, authentication_token):
-    pass_json["webServiceURL"] = build_web_service_url(request)
+    # Route through the resolver rather than build_web_service_url directly, so
+    # this path gets the same /v1 normalization and the same slot-bound
+    # precedence as every other pass builder.
+    pass_json["webServiceURL"] = resolve_web_service_url(request)
     pass_json["authenticationToken"] = authentication_token
     return pass_json
 

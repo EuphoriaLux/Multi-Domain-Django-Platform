@@ -144,9 +144,10 @@ def _build_pass_payload(
     pass_type_identifier = _require_setting("WALLET_APPLE_PASS_TYPE_IDENTIFIER")
     team_identifier = _require_setting("WALLET_APPLE_TEAM_IDENTIFIER")
     organization_name = _require_setting("WALLET_APPLE_ORGANIZATION_NAME")
-    # Prefer an explicit caller-supplied URL (forwarded by the PassKit update
-    # path), then the setting, then derive from the request so the pass always
-    # advertises a webServiceURL alongside its authenticationToken.
+    # Prefer the issuing request, then a caller-supplied URL (forwarded by the
+    # PassKit update path), then the setting, so the pass always advertises a
+    # webServiceURL alongside its authenticationToken — pointing at the slot
+    # whose database can resolve this serial.
     # See passkit_service.resolve_web_service_url for the full rationale.
     web_service_url = resolve_web_service_url(request, web_service_url)
 
