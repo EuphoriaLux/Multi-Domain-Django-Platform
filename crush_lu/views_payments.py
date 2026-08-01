@@ -8,7 +8,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import redirect_to_login
 from django.db import transaction
-from django.http import HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.translation import gettext as _
@@ -87,7 +87,27 @@ def create_sumup_event_checkout(request, registration_id):
     # held across the SumUp call, which is deliberate -- it is a single row,
     # contended only by the same user clicking twice.
     with transaction.atomic():
-        EventRegistration.objects.select_for_update().get(pk=registration.pk)
+        # Bind the locked row and re-run the checks on IT. Taking the lock and
+        # throwing the result away was the bug: this call blocks until a racing
+        # webhook commits, then the code below carried on with the pre-lock
+        # in-memory copy, still showing payment_confirmed=False, and opened a
+        # second payable checkout for a registration that had just been paid.
+        registration = EventRegistration.objects.select_for_update().get(
+            pk=registration.pk
+        )
+        if registration.payment_confirmed:
+            return JsonResponse(
+                {"error": _("This registration is already paid.")}, status=400
+            )
+        if registration.status not in ("pending", "confirmed"):
+            return JsonResponse(
+                {
+                    "error": _(
+                        "This registration cannot be paid for in its current state."
+                    )
+                },
+                status=400,
+            )
 
         existing = (
             PaymentTransaction.objects.filter(
@@ -99,6 +119,23 @@ def create_sumup_event_checkout(request, registration_id):
             .order_by("-created_at")
             .first()
         )
+        # Only reuse a checkout that is still for the right money. registration_fee
+        # is editable in the admin, so an abandoned checkout can outlive the price
+        # it was opened at -- reusing it blindly would charge the old amount and
+        # then confirm the seat as if the current fee had been paid. A stale one is
+        # abandoned (left PENDING for the record) and replaced.
+        if existing and (existing.amount != amount or existing.currency != "EUR"):
+            logger.info(
+                "Discarding stale SumUp checkout %s for registration %s: "
+                "%s %s no longer matches the event fee %s EUR",
+                existing.sumup_checkout_id,
+                registration.id,
+                existing.amount,
+                existing.currency,
+                amount,
+            )
+            existing = None
+
         if existing:
             logger.info(
                 "Reusing pending SumUp checkout %s for registration %s",
@@ -286,7 +323,14 @@ def _apply_paid_checkout(tx_obj, data):
             locked.purpose == PaymentTransaction.Purpose.EVENT_REGISTRATION
             and locked.event_registration
         ):
-            reg = locked.event_registration
+            # Lock and re-read the registration before deciding anything about
+            # it. Locking only the PaymentTransaction left the revalidation
+            # non-atomic: event_cancel() locks and updates the registration
+            # independently, so this could read "pending", block behind that
+            # cancellation committing, and then overwrite it with "confirmed".
+            reg = EventRegistration.objects.select_for_update().get(
+                pk=locked.event_registration_id
+            )
 
             # Re-validate at completion, not just at checkout creation. A member
             # can open the widget and then cancel (or the organiser can cancel
@@ -312,7 +356,14 @@ def _apply_paid_checkout(tx_obj, data):
             if reg.status != "confirmed" or not reg.payment_confirmed:
                 reg.payment_confirmed = True
                 reg.payment_date = timezone.now()
-                reg.status = "confirmed"
+                # Never walk "attended" back to "confirmed". A pending seat can
+                # be scanned at the door while its payment is still settling
+                # (that is the whole point of admitting pending at check-in), and
+                # downgrading here would drop a person who physically attended
+                # out of every attended-only report, the lobby and the recap --
+                # while checked_in_at still says they were there.
+                if reg.status != "attended":
+                    reg.status = "confirmed"
                 reg.save()
                 _generate_checkin_token(reg)
                 logger.info("Confirmed EventRegistration %s via SumUp", reg.id)
@@ -470,7 +521,19 @@ def sumup_widget_view(request, checkout_id):
     """
     Renders the standalone SumUp Payment Card Widget page.
     """
-    tx_obj = get_object_or_404(PaymentTransaction, sumup_checkout_id=checkout_id, user=request.user)
+    # Authorise by who the payment is FOR, not by who happened to create the row.
+    # create_sumup_event_checkout explicitly lets staff act for a member, and
+    # stamps user=request.user -- so a staff-opened checkout stored the staff
+    # user and 404'd when the member clicked Pay and was handed it for reuse (and
+    # vice versa). The registration's owner is the authority; staff keep access.
+    tx_obj = get_object_or_404(PaymentTransaction, sumup_checkout_id=checkout_id)
+    owner_ids = {tx_obj.user_id}
+    if tx_obj.event_registration_id:
+        owner_ids.add(tx_obj.event_registration.user_id)
+    if tx_obj.premium_membership_id:
+        owner_ids.add(tx_obj.premium_membership.user_id)
+    if request.user.id not in owner_ids and not request.user.is_staff:
+        raise Http404("No payment found.")
     context = {
         "checkout_id": checkout_id,
         "transaction": tx_obj,

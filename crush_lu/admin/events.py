@@ -27,6 +27,7 @@ from crush_lu.models import (
     MeetupEvent,
     PresentationQueue,
 )
+from crush_lu.models.events import SEAT_HOLDING_STATUSES
 from .filters import EventCapacityFilter
 from .quiz import QuizEventInline
 
@@ -613,7 +614,11 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             else:
                 days_until = 1
 
-            registrations = event.eventregistration_set.filter(status="confirmed")
+            # Seat-holding: an unpaid cash-at-the-door attendee still needs the
+            # reminder (see send_event_reminders for the same reasoning).
+            registrations = event.eventregistration_set.filter(
+                status__in=SEAT_HOLDING_STATUSES
+            )
 
             for registration in registrations:
                 try:
@@ -672,8 +677,12 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         )
 
         for event in queryset:
+            # The venue list must match who will actually walk in. A pending
+            # seat holder is expected at the door, so omitting them dropped
+            # their dietary, accessibility, guest and contact details from the
+            # operational export.
             registrations = event.eventregistration_set.filter(
-                status__in=["confirmed", "attended"]
+                status__in=SEAT_HOLDING_STATUSES
             ).select_related("user__crushprofile")
 
             for reg in registrations:
@@ -792,6 +801,7 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         # through save_model. Without this the weekly "paid event registrations"
         # KPI, which windows on payment_date, silently drops confirmed-but-undated
         # rows (mirrors the CrushConnect / PremiumMembership admins).
+        promoted = False
         if "payment_confirmed" in form.changed_data:
             if obj.payment_confirmed:
                 obj.payment_date = obj.payment_date or timezone.now()
@@ -804,9 +814,23 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                 # row, where staff ticking a box must not conjure a seat.
                 if obj.status == "pending":
                     obj.status = "confirmed"
+                    promoted = True
             else:
                 obj.payment_date = None
         super().save_model(request, obj, form, change)
+
+        # The payment-pending email promises a confirmation "once payment is
+        # received" — that promise has to hold for money recorded by hand, not
+        # just for SumUp. Deferred to on_commit so a failed admin save sends
+        # nothing, and wrapped so a mail error cannot break the admin page.
+        if promoted:
+            from django.db import transaction as _transaction
+
+            from ..views_payments import _send_registration_confirmation_safely
+
+            _transaction.on_commit(
+                lambda r=obj: _send_registration_confirmation_safely(r)
+            )
 
     def get_user_display(self, obj):
         full_name = obj.user.get_full_name()

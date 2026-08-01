@@ -698,3 +698,138 @@ class PaymentCompletionRevalidationTests(SiteTestMixin, TestCase):
         self.registration.refresh_from_db()
         self.assertEqual(self.registration.status, "confirmed")
         self.assertTrue(self.registration.payment_confirmed)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class PaymentRaceAndStaleStateTests(SiteTestMixin, TestCase):
+    """Round-4 Codex findings: stale reads, downgrades and stale amounts."""
+
+    def setUp(self):
+        super().setUp()
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        self.user = User.objects.create_user(
+            username="r4@crush.lu", email="r4@crush.lu", password="password123"
+        )
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        CrushProfile.objects.create(
+            user=self.user, verification_status="verified", completion_status="step4"
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Race4",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("15.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+
+    def _post(self):
+        return self.client.post(
+            reverse(
+                "crush_lu:sumup_create_event_checkout",
+                kwargs={"registration_id": self.registration.id},
+            )
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_checks_run_against_the_locked_row_not_a_stale_copy(
+        self, mock_create_checkout
+    ):
+        """A paid registration is refused, checked against the database row.
+
+        HONEST LIMIT: this does not reproduce the actual race, and it passes
+        against the pre-fix code too. Genuinely exercising it needs two
+        connections interleaved around the SELECT ... FOR UPDATE, which the
+        test client cannot express. It is kept as a guard on the outcome --
+        that a paid row cannot open a checkout however it became paid -- while
+        the fix itself (binding the locked row instead of discarding it) is
+        verified by reading the code.
+        """
+        EventRegistration.objects.filter(pk=self.registration.pk).update(
+            payment_confirmed=True
+        )
+        self.client.force_login(self.user)
+
+        response = self._post()
+
+        self.assertEqual(response.status_code, 400)
+        mock_create_checkout.assert_not_called()
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_stale_priced_checkout_is_not_reused(self, mock_create_checkout):
+        """registration_fee is admin-editable and can outlive an open checkout."""
+        mock_create_checkout.side_effect = [
+            {"id": "CHK_OLD", "status": "PENDING"},
+            {"id": "CHK_NEW", "status": "PENDING"},
+        ]
+        self.client.force_login(self.user)
+
+        first = self._post()
+        self.assertEqual(first.json()["checkout_id"], "CHK_OLD")
+
+        self.event.registration_fee = Decimal("25.00")
+        self.event.save()
+
+        second = self._post()
+        self.assertEqual(second.json()["checkout_id"], "CHK_NEW")
+        self.assertEqual(second.json()["amount"], 25.00)
+
+    def test_late_payment_does_not_downgrade_an_attendee(self):
+        """A pending seat can be scanned while its payment is still settling."""
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        self.registration.status = "attended"
+        self.registration.save()
+        tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-LATE",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_LATE",
+            amount=Decimal("15.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            _apply_paid_checkout(tx, {"status": "PAID"})
+
+        self.registration.refresh_from_db()
+        self.assertEqual(self.registration.status, "attended")
+        self.assertTrue(self.registration.payment_confirmed)
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_member_can_open_a_staff_created_checkout(self, mock_create_checkout):
+        """The widget authorises by who the payment is for, not who opened it."""
+        mock_create_checkout.return_value = {"id": "CHK_STAFF", "status": "PENDING"}
+        from crush_lu.models.profiles import UserDataConsent
+
+        staff = User.objects.create_user(
+            username="staff@crush.lu",
+            email="staff@crush.lu",
+            password="password123",
+            is_staff=True,
+        )
+        # consent_middleware 302s any crush_lu request without this.
+        UserDataConsent.objects.update_or_create(
+            user=staff,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        self.client.force_login(staff)
+        self._post()
+
+        self.client.force_login(self.user)
+        response = self.client.get("/payments/sumup/widget/CHK_STAFF/")
+        self.assertEqual(response.status_code, 200)
