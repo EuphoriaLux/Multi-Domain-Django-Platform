@@ -1,0 +1,66 @@
+{% extends "crush_lu/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Complete Payment" %} - Crush.lu{% endblock %}
+
+{% block content %}
+<div class="container py-5 max-w-xl mx-auto px-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-6 sm:p-8 border border-slate-200 dark:border-slate-700">
+        <div class="text-center mb-6">
+            <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 mb-3">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold text-slate-900 dark:text-white">{% trans "Complete Your Payment" %}</h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                {% trans "Total Amount" %}: <span class="font-bold text-rose-600 dark:text-rose-400">{{ amount }} {{ currency }}</span>
+            </p>
+        </div>
+
+        <!-- SumUp Card Widget Mount Target -->
+        <div id="sumup-card-container" class="my-6 min-h-[280px] flex items-center justify-center">
+            <div id="sumup-loading" class="text-center text-slate-400 py-8">
+                <svg class="animate-spin h-8 w-8 mx-auto text-rose-500 mb-2" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p class="text-sm">{% trans "Loading secure SumUp payment checkout..." %}</p>
+            </div>
+        </div>
+
+        <div class="text-center text-xs text-slate-400 dark:text-slate-500 mt-4 flex items-center justify-center gap-2">
+            <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+            </svg>
+            {% trans "Encrypted & PCI-DSS Compliant via SumUp" %}
+        </div>
+    </div>
+</div>
+
+<!-- SumUp Card Widget JS SDK -->
+<script type="text/javascript" src="https://gateway.sumup.com/gateway/ecom/card/v2/sdk.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const checkoutId = "{{ checkout_id }}";
+        const returnUrl = "{{ return_url }}";
+
+        if (typeof SumUpCard !== "undefined") {
+            document.getElementById("sumup-loading").style.display = "none";
+            SumUpCard.mount({
+                id: "sumup-card-container",
+                checkoutId: checkoutId,
+                onResponse: function (type, body) {
+                    console.log("SumUp Response:", type, body);
+                    if (type === "success" || type === "sent") {
+                        window.location.href = returnUrl;
+                    }
+                },
+            });
+        } else {
+            console.error("SumUp SDK failed to load.");
+            document.getElementById("sumup-loading").innerHTML = "<p class='text-rose-500'>Failed to load payment module. Please refresh or contact support.</p>";
+        }
+    });
+</script>
+{% endblock %}

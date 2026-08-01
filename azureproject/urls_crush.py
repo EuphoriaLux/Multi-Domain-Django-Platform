@@ -38,7 +38,7 @@ from crush_lu.admin_views import (
     email_template_load_invitations,
     email_template_load_gifts,
 )
-from crush_lu import api_views, api_push, api_coach_push, api_pwa, api_ios_app, api_android_app, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, api_admin_hybrid, api_admin_metrics, api_admin_events, api_admin_campaigns, api_admin_changelog, views_crush_spark, views_checkin, api_crush_connect, views_coach, api_quiz, views_quiz, views_notifications
+from crush_lu import api_views, api_push, api_coach_push, api_pwa, api_ios_app, api_android_app, views_oauth_popup, api_journey, views_wallet, api_referral, api_admin_sync, api_admin_hybrid, api_admin_metrics, api_admin_events, api_admin_campaigns, api_admin_changelog, views_crush_spark, views_checkin, api_crush_connect, views_coach, api_quiz, views_quiz, views_notifications, views_payments
 from crush_lu.views_campaign_click import campaign_click_redirect
 from crush_lu.wallet import passkit_service, google_callback
 from crush_lu.sitemaps import crush_sitemaps
@@ -200,6 +200,13 @@ urlpatterns = [
 
     # Crush Spark API (language-neutral for JS polling)
     path('api/sparks/<int:spark_id>/status/', views_crush_spark.api_spark_status, name='api_spark_status'),
+
+    # Payments (SumUp)
+    path('payments/sumup/create-event-checkout/<int:registration_id>/', views_payments.create_sumup_event_checkout, name='sumup_create_event_checkout'),
+    path('payments/sumup/create-premium-checkout/<int:membership_id>/', views_payments.create_sumup_premium_checkout, name='sumup_create_premium_checkout'),
+    path('payments/sumup/widget/<str:checkout_id>/', views_payments.sumup_widget_view, name='sumup_widget'),
+    path('payments/sumup/return/', views_payments.sumup_payment_return, name='sumup_payment_return'),
+    path('payments/sumup/webhook/', views_payments.sumup_webhook, name='sumup_webhook'),
 
     # Crush Connect Waitlist API (language-neutral for JS calls)
     path('api/crush-connect/join/', api_crush_connect.join_waitlist, name='crush_connect_join'),
