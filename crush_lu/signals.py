@@ -567,19 +567,28 @@ _TICKET_PAYLOAD_FIELDS = _TICKET_PAYLOAD_BASE_FIELDS + tuple(
 
 # The subset of the above that can actually change the GOOGLE member object.
 # _build_generic_object_payload renders only the next event's title and date,
-# so a venue move, address fix, coordinate correction, event-type change or
-# duration edit rewrites the Apple ticket while leaving the Google object
-# byte-identical — and paying an OAuth exchange plus up to
-# WALLET_GOOGLE_BULK_UPDATE_LIMIT synchronous PATCHes to write an unchanged
-# object is exactly the budget spend the cap exists to protect.
+# so a venue move, address fix, coordinate correction or event-type change
+# rewrites the Apple ticket while leaving the Google object byte-identical —
+# and paying an OAuth exchange plus up to WALLET_GOOGLE_BULK_UPDATE_LIMIT
+# synchronous PATCHes to write an unchanged object is exactly the budget spend
+# the cap exists to protect.
 #
-# `is_cancelled` belongs here: get_next_event_for_pass drops a cancelled event,
-# so the block flips to "Browse events on crush.lu". The translated title
-# columns belong here for the reason given above — the card renders whichever
-# language its holder reads. Keep in sync with
-# google_api._build_generic_object_payload.
+# Membership in this set has TWO grounds, and missing the second is the easy
+# mistake: a field belongs here if the card PRINTS it (the translated title
+# columns — the card renders whichever language its holder reads — and
+# date_time), or if it decides whether this event is ON the card at all:
+#
+#   * is_cancelled — get_next_event_for_pass excludes cancelled events, so the
+#     block flips to "Browse events on crush.lu";
+#   * duration_minutes — nothing prints it, but the same helper keeps an event
+#     only while `end_time >= now`, and end_time is date_time + duration. So
+#     shortening a running event past now drops it off the card, and extending
+#     one that just ended puts it back.
+#
+# Keep in sync with google_api._build_generic_object_payload AND with
+# wallet_pass.get_next_event_for_pass, which between them decide both grounds.
 _GOOGLE_PAYLOAD_FIELDS = frozenset(
-    ("date_time", "is_cancelled")
+    ("date_time", "duration_minutes", "is_cancelled")
     + tuple(
         f"title_{code.replace('-', '_')}" for code, _label in settings.LANGUAGES
     )

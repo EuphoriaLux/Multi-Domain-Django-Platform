@@ -1275,7 +1275,7 @@ class TestEventLevelGoogleRefresh:
             ("location", "A different bar"),
             ("address", "1 New Street"),
             ("latitude", 49.61),
-            ("duration_minutes", 999),
+            ("event_type", "mixer"),
         ],
     )
     def test_apple_only_field_changes_do_not_patch_google(
@@ -1306,6 +1306,7 @@ class TestEventLevelGoogleRefresh:
             ("date_time", None),  # replaced below — needs a real datetime
             ("is_cancelled", True),
             ("title_fr", "Soirée renommée"),
+            ("duration_minutes", 999),
         ],
     )
     def test_google_rendered_field_changes_do_patch(
@@ -1700,6 +1701,45 @@ class TestEventLevelGoogleRefresh:
             with django_capture_on_commit_callbacks(execute=True):
                 assert refresh_google_wallet_objects([profile, other]) == 1
 
+        assert patch_object.call_count == 1
+
+    def test_shortening_a_running_event_off_the_card_patches_google(
+        self, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # duration_minutes is printed nowhere on the card, which is exactly why
+        # it is easy to misfile as Apple-only. get_next_event_for_pass keeps an
+        # event only while end_time >= now, and end_time is date_time +
+        # duration — so shortening one that is currently running drops it off
+        # the card without a single rendered field changing.
+        from datetime import timedelta
+
+        from django.utils import timezone as dj_timezone
+
+        from crush_lu.wallet_pass import get_next_event_for_pass
+
+        event, profile = self._google_holder(event_with_registrations)
+        # Running right now: started 30 minutes ago, due to end in 90.
+        event.date_time = dj_timezone.now() - timedelta(minutes=30)
+        event.duration_minutes = 120
+        event.save()
+        assert get_next_event_for_pass(profile) is not None
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                # Now ended 20 minutes ago.
+                event.duration_minutes = 10
+                event.save()
+
+        # It really did leave the card...
+        assert get_next_event_for_pass(profile) is None
+        # ...so Google has to be told, or the holder keeps a finished event as
+        # their "Next Event" indefinitely.
         assert patch_object.call_count == 1
 
     def _register_for_another_event(self, profile, when, status="confirmed"):
