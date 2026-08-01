@@ -1287,6 +1287,10 @@ class TestEventLevelGoogleRefresh:
         # these rewrite the Apple ticket while leaving it byte-identical. An
         # OAuth exchange plus up to 50 PATCHes to write an unchanged object is
         # the exact budget spend the cap exists to protect.
+        #
+        # "Apple-only" means "changes nothing the Google card shows OR selects"
+        # — a field that only fails the first half still belongs in
+        # _GOOGLE_PAYLOAD_FIELDS.
         event, _profile = self._google_holder(event_with_registrations)
 
         with mock.patch(
@@ -1354,6 +1358,82 @@ class TestEventLevelGoogleRefresh:
                 event.save()
 
         patch_object.assert_not_called()
+
+    def test_shortening_a_running_event_patches_the_member_object(
+        self, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from crush_lu.wallet_pass import get_next_event_for_pass
+
+        # duration_minutes reads like an Apple-only field — its Apple job is
+        # expirationDate, pure rendering, and the Google card never prints a
+        # duration. But get_next_event_for_pass keeps a candidate only while
+        # `event.end_time >= now`, and end_time is date_time + duration, so
+        # shortening a RUNNING event past the current moment takes it off the
+        # card entirely. Google has no poll to heal that.
+        event, profile = self._google_holder(event_with_registrations)
+        event.date_time = timezone.now() - timedelta(minutes=30)
+        event.duration_minutes = 120
+        event.save()
+        assert get_next_event_for_pass(profile) is not None
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                event.duration_minutes = 10  # ended 20 minutes ago
+                event.save()
+
+        # The card genuinely changed — this is the PATCH that carries it.
+        assert get_next_event_for_pass(profile) is None
+        assert patch_object.call_count == 1
+
+    def test_extending_a_just_ended_event_patches_the_member_object(
+        self, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from crush_lu.wallet_pass import get_next_event_for_pass
+
+        # The mirror image: an event that just ended is off the card, and
+        # extending it puts it back.
+        event, profile = self._google_holder(event_with_registrations)
+        event.date_time = timezone.now() - timedelta(minutes=30)
+        event.duration_minutes = 10
+        event.save()
+        assert get_next_event_for_pass(profile) is None
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                event.duration_minutes = 120
+                event.save()
+
+        assert get_next_event_for_pass(profile) is not None
+        assert patch_object.call_count == 1
+
+    def test_the_two_next_event_status_sets_are_one_object(self):
+        # signals and wallet_pass each used to keep their own copy under a
+        # "keep in sync" note. Identity, not equality: a future edit to one
+        # literal must not be able to leave the other behind.
+        from crush_lu import signals
+        from crush_lu.wallet_pass import PASS_NEXT_EVENT_STATUSES
+
+        assert signals._NEXT_EVENT_STATUSES is PASS_NEXT_EVENT_STATUSES
 
     def test_nothing_runs_before_the_event_change_commits(
         self, _google_identity, event_with_registrations,

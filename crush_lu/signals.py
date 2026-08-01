@@ -46,6 +46,7 @@ from .models.journey import JourneyProgress
 from .utils.i18n import is_valid_language
 
 from crush_lu.models.events import SEAT_HOLDING_STATUSES
+from crush_lu.wallet_pass import PASS_NEXT_EVENT_STATUSES
 
 logger = logging.getLogger(__name__)
 
@@ -594,11 +595,13 @@ _GOOGLE_PAYLOAD_FIELDS = frozenset(
     )
 )
 
-# Registration statuses under which an event can appear on a MEMBER card.
-# Keep in sync with wallet_pass.get_next_event_for_pass, which is what actually
-# decides whether the card renders this event — anything outside this set is a
-# holder the event-change fan-outs must not spend their budget on.
-_NEXT_EVENT_STATUSES = (*SEAT_HOLDING_STATUSES, "waitlist")
+# Registration statuses under which an event can appear on a MEMBER card —
+# imported, not restated. This and wallet_pass.get_next_event_for_pass each
+# used to carry their own copy under a "keep in sync" note, which is the
+# arrangement that lets them drift; the admin bulk actions consume the same
+# rule. Anything outside this set is a holder the event-change fan-outs must
+# not spend their budget on.
+_NEXT_EVENT_STATUSES = PASS_NEXT_EVENT_STATUSES
 
 
 @receiver(pre_save, sender=MeetupEvent)
