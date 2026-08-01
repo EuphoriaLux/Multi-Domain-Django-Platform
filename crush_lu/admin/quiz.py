@@ -193,8 +193,12 @@ def mark_unattended_as_no_show(modeladmin, request, queryset):
     from crush_lu.models.events import EventRegistration
 
     for quiz in queryset:
+        # Include "pending" seat holders: on a paid quiz a cash-at-the-door
+        # registrant who never arrives would otherwise sit as Pending Payment
+        # forever, still consuming a seat and never reaching no-show reporting.
+        # "attended", "cancelled" and "waitlist" stay excluded.
         updated = EventRegistration.objects.filter(
-            event=quiz.event, status="confirmed"
+            event=quiz.event, status__in=["confirmed", "pending"]
         ).update(status="no_show")
         messages.success(
             request,

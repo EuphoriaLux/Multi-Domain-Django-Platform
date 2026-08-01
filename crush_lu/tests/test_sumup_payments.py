@@ -833,3 +833,84 @@ class PaymentRaceAndStaleStateTests(SiteTestMixin, TestCase):
         self.client.force_login(self.user)
         response = self.client.get("/payments/sumup/widget/CHK_STAFF/")
         self.assertEqual(response.status_code, 200)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class ExpiredCheckoutReuseTests(SiteTestMixin, TestCase):
+    """A locally-PENDING row is not proof the checkout is still payable."""
+
+    def setUp(self):
+        super().setUp()
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        self.user = User.objects.create_user(
+            username="exp@crush.lu", email="exp@crush.lu", password="password123"
+        )
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Expiry",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("15.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_expired_checkout_is_replaced_not_handed_back(
+        self, mock_create_checkout, mock_get_checkout
+    ):
+        """Abandoned checkouts expire at SumUp without any webhook landing.
+
+        The local row stays PENDING, so reuse would return the same dead widget
+        on every future Pay click.
+        """
+        mock_create_checkout.side_effect = [
+            {"id": "CHK_DEAD", "status": "PENDING"},
+            {"id": "CHK_FRESH", "status": "PENDING"},
+        ]
+        self.client.force_login(self.user)
+
+        url = reverse(
+            "crush_lu:sumup_create_event_checkout",
+            kwargs={"registration_id": self.registration.id},
+        )
+        first = self.client.post(url)
+        self.assertEqual(first.json()["checkout_id"], "CHK_DEAD")
+
+        # SumUp now reports the abandoned checkout as expired.
+        mock_get_checkout.return_value = {"id": "CHK_DEAD", "status": "EXPIRED"}
+        second = self.client.post(url)
+
+        self.assertEqual(second.json()["checkout_id"], "CHK_FRESH")
+        dead = PaymentTransaction.objects.get(sumup_checkout_id="CHK_DEAD")
+        self.assertEqual(dead.status, PaymentTransaction.Status.FAILED)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_still_live_checkout_is_reused(self, mock_create_checkout, mock_get_checkout):
+        """Reconciling must not break the ordinary double-click case."""
+        mock_create_checkout.return_value = {"id": "CHK_LIVE", "status": "PENDING"}
+        mock_get_checkout.return_value = {"id": "CHK_LIVE", "status": "PENDING"}
+        self.client.force_login(self.user)
+
+        url = reverse(
+            "crush_lu:sumup_create_event_checkout",
+            kwargs={"registration_id": self.registration.id},
+        )
+        first = self.client.post(url)
+        second = self.client.post(url)
+
+        self.assertEqual(first.json()["checkout_id"], second.json()["checkout_id"])
+        self.assertEqual(mock_create_checkout.call_count, 1)

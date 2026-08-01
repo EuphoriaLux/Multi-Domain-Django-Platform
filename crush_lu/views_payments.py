@@ -136,6 +136,29 @@ def create_sumup_event_checkout(request, registration_id):
             )
             existing = None
 
+        # A locally-PENDING row is not proof the checkout is still payable. If
+        # the member abandoned it and SumUp expired or cancelled it without a
+        # webhook or return ever landing, we would hand back the same dead widget
+        # on every future Pay click. Reconcile with SumUp first -- the helper
+        # marks it FAILED on a terminal provider state (and applies it if it
+        # turns out to have been paid), so a non-PENDING result means replace.
+        if existing:
+            _sync_checkout_with_sumup(existing)
+            if existing.status != PaymentTransaction.Status.PENDING:
+                logger.info(
+                    "Discarding checkout %s for registration %s: SumUp reports it "
+                    "is no longer payable (local status now %s)",
+                    existing.sumup_checkout_id,
+                    registration.id,
+                    existing.status,
+                )
+                existing = None
+                registration.refresh_from_db()
+                if registration.payment_confirmed:
+                    return JsonResponse(
+                        {"error": _("This registration is already paid.")}, status=400
+                    )
+
         if existing:
             logger.info(
                 "Reusing pending SumUp checkout %s for registration %s",
