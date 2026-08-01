@@ -17,6 +17,7 @@ from datetime import timedelta
 import logging
 import traceback
 
+from crush_lu.models.events import SEAT_HOLDING_STATUSES
 logger = logging.getLogger(__name__)
 
 from .models import (
@@ -532,7 +533,7 @@ def crush_admin_dashboard(request):
         .annotate(
             fill_confirmed=Count(
                 "eventregistration",
-                filter=Q(eventregistration__status__in=["confirmed", "attended"]),
+                filter=Q(eventregistration__status__in=SEAT_HOLDING_STATUSES),
             )
         )
         .aggregate(
@@ -567,7 +568,7 @@ def crush_admin_dashboard(request):
         .annotate(
             confirmed_count=Count(
                 "eventregistration",
-                filter=Q(eventregistration__status__in=["confirmed", "attended"]),
+                filter=Q(eventregistration__status__in=SEAT_HOLDING_STATUSES),
             ),
             attended_reg=Count(
                 "eventregistration",

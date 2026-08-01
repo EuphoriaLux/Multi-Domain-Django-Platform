@@ -15,7 +15,11 @@ from django.utils.translation import gettext as _
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from crush_lu.models.events import EventRegistration
+from crush_lu.models.events import (
+    SEAT_HOLDING_STATUSES,
+    EventRegistration,
+    MeetupEvent,
+)
 from crush_lu.models.payments import PaymentTransaction
 from crush_lu.models.profiles import PremiumMembership
 from crush_lu.services.sumup import SumUpClient, SumUpError
@@ -35,66 +39,44 @@ def create_sumup_event_checkout(request, registration_id):
     if registration.user != request.user and not request.user.is_staff:
         return JsonResponse({"error": _("Unauthorized access to this registration.")}, status=403)
 
-    # Gate on payment_confirmed, not status. A normal signup lands in
-    # status="confirmed" long before it is paid (views_events.py), and the
-    # payment return handler also sets status="confirmed" once it *is* paid --
-    # so status cannot tell the two apart and only the flag can. This mirrors
-    # the condition the templates use to show the Pay button. The old check
-    # (`status != "pending" and not payment_confirmed`) was wrong both ways:
-    # it rejected every unpaid confirmed registration, and it let an already
-    # paid one start a second checkout.
-    if registration.payment_confirmed:
-        return JsonResponse(
-            {"error": _("This registration is already paid.")}, status=400
-        )
+    # Every eligibility check lives inside the lock below, on re-read rows --
+    # duplicating them out here only invites the two copies to drift.
 
-    # Allow-list, not a deny-list. Only a registration that actually holds a seat
-    # may pay. "waitlist" is the case that matters: the Pay button renders for any
-    # unpaid registration, and _apply_paid_checkout unconditionally promotes the
-    # payer to "confirmed" -- so a deny-list would let a waitlisted member buy
-    # their way past the capacity decision into an over-capacity seat.
-    # "confirmed" stays payable for rows created before paid signups became
-    # "pending"; they are legitimately unpaid and must still be able to settle.
-    if registration.status not in ("pending", "confirmed"):
-        return JsonResponse(
-            {
-                "error": _("This registration cannot be paid for in its current state.")
-            },
-            status=400,
-        )
-
-    # The parent event can be cancelled after registration; the admin action only
-    # touches the event row, and the Pay button keeps rendering.
-    if registration.event.is_cancelled:
-        return JsonResponse(
-            {"error": _("This event has been cancelled.")}, status=400
-        )
-
-    amount = registration.event.registration_fee
-    if amount <= Decimal("0.00"):
-        return JsonResponse({"error": _("This event does not require payment.")}, status=400)
-
-    # One live checkout per registration.
+    # Always open a FRESH checkout; supersede any older one.
     #
-    # Nothing stopped a double-click (or two tabs) from creating two checkouts
-    # and two PaymentTransaction rows -- there is no uniqueness on the
-    # event_registration FK. If both were completed, _apply_paid_checkout marks
-    # each paid independently and the attendee is charged twice for one seat.
+    # Reuse-and-reconcile was removed because it required asking SumUp whether
+    # an old checkout was still payable, and that call can itself apply a
+    # payment -- sequencing it against an editable price, a cancellable event
+    # and a concurrent webhook produced a new defect three rounds running.
+    # Creating a new checkout every time removes the question: nothing to
+    # reconcile, no staleness, no provider call on this path.
     #
-    # The registration row is locked for the whole check-and-create so two
-    # concurrent requests serialise: the loser sees the winner's transaction and
-    # is handed the same widget instead of opening a second one. The lock is
-    # held across the SumUp call, which is deliberate -- it is a single row,
-    # contended only by the same user clicking twice.
+    # Superseding is what replaces reuse as double-charge protection: the old
+    # checkout is deactivated at SumUp so only the newest is payable.
+    #
+    # LOCK ORDER: PaymentTransaction rows FIRST, then EventRegistration -- the
+    # same order _apply_paid_checkout uses. Taking them the other way round is
+    # an ABBA deadlock against a webhook for one of those very rows, and
+    # PostgreSQL resolves it by aborting somebody. This has been got wrong more
+    # than once here; the order is the invariant, not the comment.
     with transaction.atomic():
-        # Bind the locked row and re-run the checks on IT. Taking the lock and
-        # throwing the result away was the bug: this call blocks until a racing
-        # webhook commits, then the code below carried on with the pre-lock
-        # in-memory copy, still showing payment_confirmed=False, and opened a
-        # second payable checkout for a registration that had just been paid.
+        superseded = list(
+            PaymentTransaction.objects.select_for_update()
+            .filter(
+                event_registration_id=registration.pk,
+                purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+                status=PaymentTransaction.Status.PENDING,
+            )
+            .exclude(sumup_checkout_id="")
+        )
         registration = EventRegistration.objects.select_for_update().get(
             pk=registration.pk
         )
+        event = MeetupEvent.objects.only("registration_fee", "is_cancelled").get(
+            pk=registration.event_id
+        )
+        amount = event.registration_fee
+
         if registration.payment_confirmed:
             return JsonResponse(
                 {"error": _("This registration is already paid.")}, status=400
@@ -108,73 +90,50 @@ def create_sumup_event_checkout(request, registration_id):
                 },
                 status=400,
             )
-
-        existing = (
-            PaymentTransaction.objects.filter(
-                event_registration=registration,
-                purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
-                status=PaymentTransaction.Status.PENDING,
-            )
-            .exclude(sumup_checkout_id="")
-            .order_by("-created_at")
-            .first()
-        )
-        # Only reuse a checkout that is still for the right money. registration_fee
-        # is editable in the admin, so an abandoned checkout can outlive the price
-        # it was opened at -- reusing it blindly would charge the old amount and
-        # then confirm the seat as if the current fee had been paid. A stale one is
-        # abandoned (left PENDING for the record) and replaced.
-        if existing and (existing.amount != amount or existing.currency != "EUR"):
-            logger.info(
-                "Discarding stale SumUp checkout %s for registration %s: "
-                "%s %s no longer matches the event fee %s EUR",
-                existing.sumup_checkout_id,
-                registration.id,
-                existing.amount,
-                existing.currency,
-                amount,
-            )
-            existing = None
-
-        # A locally-PENDING row is not proof the checkout is still payable. If
-        # the member abandoned it and SumUp expired or cancelled it without a
-        # webhook or return ever landing, we would hand back the same dead widget
-        # on every future Pay click. Reconcile with SumUp first -- the helper
-        # marks it FAILED on a terminal provider state (and applies it if it
-        # turns out to have been paid), so a non-PENDING result means replace.
-        if existing:
-            _sync_checkout_with_sumup(existing)
-            if existing.status != PaymentTransaction.Status.PENDING:
-                logger.info(
-                    "Discarding checkout %s for registration %s: SumUp reports it "
-                    "is no longer payable (local status now %s)",
-                    existing.sumup_checkout_id,
-                    registration.id,
-                    existing.status,
-                )
-                existing = None
-                registration.refresh_from_db()
-                if registration.payment_confirmed:
-                    return JsonResponse(
-                        {"error": _("This registration is already paid.")}, status=400
-                    )
-
-        if existing:
-            logger.info(
-                "Reusing pending SumUp checkout %s for registration %s",
-                existing.sumup_checkout_id,
-                registration.id,
-            )
+        if event.is_cancelled:
             return JsonResponse(
-                {
-                    "success": True,
-                    "checkout_id": existing.sumup_checkout_id,
-                    "checkout_reference": existing.transaction_reference,
-                    "amount": float(existing.amount),
-                    "currency": existing.currency,
-                    "widget_url": f"/payments/sumup/widget/{existing.sumup_checkout_id}/",
-                }
+                {"error": _("This event has been cancelled.")}, status=400
             )
+        if amount <= Decimal("0.00"):
+            return JsonResponse(
+                {"error": _("This event does not require payment.")}, status=400
+            )
+
+        client = SumUpClient()
+        for old in superseded:
+            if client.deactivate_checkout(old.sumup_checkout_id):
+                old.status = PaymentTransaction.Status.FAILED
+                old.save(update_fields=["status"])
+                logger.info(
+                    "Superseded SumUp checkout %s for registration %s",
+                    old.sumup_checkout_id,
+                    registration.id,
+                )
+            else:
+                # Deactivation failed -- SumUp unreachable, or the checkout was
+                # just PAID and can no longer be cancelled. Leave the row
+                # PENDING: _sync_checkout_with_sumup returns immediately for any
+                # non-PENDING row, so marking it terminal here would make a
+                # captured payment permanently invisible to both the webhook and
+                # the browser return, leaving the member unpaid and chargeable
+                # again on the new checkout.
+                logger.warning(
+                    "Could not deactivate SumUp checkout %s for registration %s "
+                    "— left PENDING so reconciliation can still apply it",
+                    old.sumup_checkout_id,
+                    registration.id,
+                )
+
+        # Re-read immediately before exposing a payable widget. The deactivate
+        # calls above are network I/O, and an organiser can cancel the event
+        # while they are in flight -- returning a widget then means a captured
+        # charge with no seat and a manual refund.
+        event.refresh_from_db()
+        if event.is_cancelled:
+            return JsonResponse(
+                {"error": _("This event has been cancelled.")}, status=400
+            )
+        amount = event.registration_fee
 
         checkout_ref = f"CRUSH-EVT-{registration.id}-{uuid.uuid4().hex[:6]}"
         description = f"Crush.lu Event: {registration.event.title[:50]}"
@@ -182,7 +141,6 @@ def create_sumup_event_checkout(request, registration_id):
             f"/payments/sumup/return/?ref={checkout_ref}"
         )
 
-        client = SumUpClient()
         try:
             checkout_data = client.create_checkout(
                 amount=float(amount),
@@ -365,14 +323,39 @@ def _apply_paid_checkout(tx_obj, data):
             # transaction is still marked PAID -- dropping it would lose the only
             # record of a real charge. What we refuse to do is hand back the
             # seat. Logged at error level because this needs a human refund.
-            if reg.status == "cancelled" or reg.event.is_cancelled:
+            # Allow-list, not "reject cancelled". Staff can move a row to
+            # waitlist or no_show while the widget is open; confirming those
+            # would hand a waitlisted member an over-capacity seat or erase a
+            # recorded no-show. Only a seat-holding status may be confirmed by
+            # a payment ("confirmed" covers legacy unpaid rows).
+            if reg.status not in SEAT_HOLDING_STATUSES or reg.event.is_cancelled:
                 logger.error(
-                    "SumUp payment %s completed for registration %s but the "
-                    "%s is cancelled — payment recorded, seat NOT restored, "
-                    "refund required.",
+                    "SumUp payment %s completed for registration %s but it "
+                    "no longer holds a seat (registration=%s, event_cancelled=%s) "
+                    "— payment recorded, seat NOT restored, refund required.",
                     locked.transaction_reference,
                     reg.id,
-                    "event" if reg.event.is_cancelled else "registration",
+                    reg.status,
+                    reg.event.is_cancelled,
+                )
+                return
+
+            # The seat must have been paid for at its CURRENT price. A widget
+            # left open across an admin fee change captures the old amount, and
+            # the fresh-checkout refactor removed the pre-payment price check
+            # without leaving anything at completion -- so a stale-priced
+            # payment bought the seat outright. Judged here, where the amount
+            # actually captured is known.
+            if locked.amount != reg.event.registration_fee:
+                logger.error(
+                    "SumUp payment %s completed for registration %s at %s %s but "
+                    "the event fee is now %s EUR — payment recorded, seat NOT "
+                    "confirmed, refund or top-up required.",
+                    locked.transaction_reference,
+                    reg.id,
+                    locked.amount,
+                    locked.currency,
+                    reg.event.registration_fee,
                 )
                 return
 

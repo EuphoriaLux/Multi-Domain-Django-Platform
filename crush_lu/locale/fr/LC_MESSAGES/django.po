@@ -38847,3 +38847,15 @@ msgstr "Cette inscription a été annulée."
 #: crush_lu/templates/crush_lu/premium/choose_coach.html
 msgid "Pay Premium Subscription (€%(amount)s / month)"
 msgstr "Payer l'abonnement Premium (€%(amount)s / mois)"
+
+#: crush_lu/templates/crush_lu/_event_registration_success.html
+msgid "Your Spot Is Reserved!"
+msgstr "Votre place est réservée !"
+
+#: crush_lu/templates/crush_lu/_event_registration_success.html
+msgid ""
+"Complete your payment to confirm your registration. We've emailed you the "
+"details."
+msgstr ""
+"Finalisez votre paiement pour confirmer votre inscription. Nous vous avons "
+"envoyé les détails par e-mail."

@@ -44,6 +44,8 @@ from .models import (
 from .models.journey import JourneyProgress
 from .utils.i18n import is_valid_language
 
+from crush_lu.models.events import SEAT_HOLDING_STATUSES
+
 logger = logging.getLogger(__name__)
 
 # Thread-local storage to pass domain context between signals
@@ -2552,7 +2554,8 @@ def trigger_wallet_pass_update_on_registration_change(
     # Only trigger for status changes that affect "next event" display
     # - New confirmed/waitlist registration (shows new event)
     # - Status change to/from confirmed/waitlist (changes next event)
-    relevant_statuses = {"confirmed", "waitlist"}
+    # A pending (unpaid) seat is still the member's next event.
+    relevant_statuses = {*SEAT_HOLDING_STATUSES, "waitlist"}
 
     if created and instance.status in relevant_statuses:
         # New registration for upcoming event
@@ -2610,6 +2613,11 @@ def handle_event_ticket_on_registration_change(sender, instance, created, **kwar
             "cancelled": (expire_event_ticket, "Expired"),
             "attended": (complete_event_ticket, "Completed"),
             "confirmed": (activate_event_ticket, "Reactivated"),
+            # Undo can restore an unpaid seat to "pending", which is just as
+            # valid a door pass. Without this entry the branch below schedules
+            # the callback and the callback then finds no patch and returns,
+            # leaving the wallet ticket stuck on Completed.
+            "pending": (activate_event_ticket, "Reactivated"),
         }
 
         def _after_commit():
@@ -2658,12 +2666,14 @@ def handle_event_ticket_on_registration_change(sender, instance, created, **kwar
         # in _after_commit, from committed state.
         if instance.status in ("cancelled", "attended"):
             transaction.on_commit(_after_commit)
-        elif instance.status == "confirmed" and getattr(
+        elif instance.status in ("confirmed", "pending") and getattr(
             instance, "_reactivate_ticket", False
         ):
-            # Undoing a mis-scan sends the row back to confirmed. Without this
-            # the member keeps a pass marked used while still holding a valid
-            # registration, so their own ticket stops being a door pass.
+            # Undoing a mis-scan sends the row back to confirmed -- or to
+            # "pending" for an unpaid seat, which is equally a valid door pass.
+            # Without this the member keeps a wallet pass marked used while
+            # still holding a valid registration, so their own ticket stops
+            # working at the door.
             #
             # Explicitly flagged by the undo path rather than derived from the
             # status, because plenty of saves leave a row confirmed without any

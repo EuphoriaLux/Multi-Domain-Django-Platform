@@ -10,6 +10,8 @@ from django.utils import timezone
 from datetime import timedelta, date
 from django.db.models import Exists, OuterRef, Q, Count
 
+from crush_lu.models.events import SEAT_HOLDING_STATUSES
+
 
 class ReviewTimeFilter(admin.SimpleListFilter):
     """Filter submissions by how long they've been pending"""
@@ -232,18 +234,18 @@ class EventCapacityFilter(admin.SimpleListFilter):
 
         if self.value() == 'full':
             return queryset.annotate(
-                confirmed_count=Count('eventregistration', filter=models.Q(eventregistration__status='confirmed'))
+                confirmed_count=Count('eventregistration', filter=models.Q(eventregistration__status__in=SEAT_HOLDING_STATUSES))
             ).filter(confirmed_count__gte=F('max_participants'))
         elif self.value() == 'almost_full':
             return queryset.annotate(
-                confirmed_count=Count('eventregistration', filter=models.Q(eventregistration__status='confirmed'))
+                confirmed_count=Count('eventregistration', filter=models.Q(eventregistration__status__in=SEAT_HOLDING_STATUSES))
             ).filter(
                 confirmed_count__lt=F('max_participants'),
                 confirmed_count__gte=F('max_participants') - 5
             )
         elif self.value() == 'available':
             return queryset.annotate(
-                confirmed_count=Count('eventregistration', filter=models.Q(eventregistration__status='confirmed'))
+                confirmed_count=Count('eventregistration', filter=models.Q(eventregistration__status__in=SEAT_HOLDING_STATUSES))
             ).filter(confirmed_count__lt=F('max_participants') - 5)
         return queryset
 
@@ -445,7 +447,7 @@ class EventParticipationFilter(admin.SimpleListFilter):
         annotated = queryset.annotate(
             event_count=Count(
                 'user__eventregistration',
-                filter=models.Q(user__eventregistration__status='confirmed')
+                filter=models.Q(user__eventregistration__status__in=SEAT_HOLDING_STATUSES)
             )
         )
 

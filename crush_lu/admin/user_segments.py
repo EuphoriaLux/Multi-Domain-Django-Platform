@@ -22,6 +22,8 @@ from django.utils.translation import gettext_lazy as _
 from django.contrib import messages
 from django.http import HttpResponse
 from datetime import timedelta, date
+
+from crush_lu.models.events import SEAT_HOLDING_STATUSES
 import csv
 
 from crush_lu.models import (
@@ -347,7 +349,7 @@ def get_segment_definitions():
         if event.end_time >= now
     ]
     event_upcoming_registrants = approved.filter(
-        user__eventregistration__status__in=["confirmed", "waitlist"],
+        user__eventregistration__status__in=[*SEAT_HOLDING_STATUSES, "waitlist"],
         user__eventregistration__event_id__in=current_event_ids,
     ).distinct()
 

@@ -812,8 +812,15 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                 # every confirmed-only reminder and report even though they paid.
                 # Only "pending" is promoted -- never a cancelled or waitlisted
                 # row, where staff ticking a box must not conjure a seat.
+                # Promote only "pending" -- staff ticking the box on a
+                # cancelled or waitlisted row must not conjure a seat.
                 if obj.status == "pending":
                     obj.status = "confirmed"
+                # ...but notify for any seat holder. In the cash-at-the-door
+                # flow the attendee is scanned to "attended" BEFORE staff record
+                # the cash, so keying the email off the promotion alone left
+                # exactly that case without the confirmation it was promised.
+                if obj.status in SEAT_HOLDING_STATUSES:
                     promoted = True
             else:
                 obj.payment_date = None

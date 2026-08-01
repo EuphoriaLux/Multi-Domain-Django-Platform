@@ -149,6 +149,30 @@ class SumUpClient:
             logger.error("SumUp get_checkout failed for ID %s: %s", checkout_id, exc)
             raise SumUpError(f"Failed to fetch SumUp checkout {checkout_id}") from exc
 
+    def deactivate_checkout(self, checkout_id: str) -> bool:
+        """Deactivate a checkout so it can no longer be paid.
+
+        Endpoint: DELETE /v0.1/checkouts/{id}
+
+        Used when a fresh checkout supersedes an older one: without this the old
+        widget URL stays payable at SumUp and the member could complete both.
+        Returns True when SumUp accepted it. Deliberately does NOT raise -- a
+        checkout that is already gone, already paid, or briefly unreachable must
+        not stop the caller opening a new one. The caller marks the local row
+        FAILED regardless, and _apply_paid_checkout stays idempotent, so a
+        payment that slips through an unreachable deactivation is still handled.
+        """
+        url = f"{self.BASE_URL}/v0.1/checkouts/{checkout_id}"
+        try:
+            response = requests.delete(url, headers=self._get_headers(), timeout=10)
+            response.raise_for_status()
+            return True
+        except requests.RequestException as exc:
+            logger.warning(
+                "SumUp deactivate_checkout failed for ID %s: %s", checkout_id, exc
+            )
+            return False
+
     def create_customer(self, customer_id: str, email: str, name: Optional[str] = None) -> Dict[str, Any]:
         """
         Registers a customer record on SumUp for card tokenization.

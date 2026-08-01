@@ -55,7 +55,7 @@ def compute_weekly_snapshot(week_start: date) -> dict:
         CrushConnectMembership,
         CrushConnectWaitlist,
     )
-    from crush_lu.models.events import EventRegistration, MeetupEvent
+    from crush_lu.models.events import SEAT_HOLDING_STATUSES, EventRegistration, MeetupEvent
     from crush_lu.models.profiles import (
         DailyUserActivity,
         PremiumMembership,
@@ -192,7 +192,7 @@ def compute_weekly_snapshot(week_start: date) -> dict:
         .annotate(
             confirmed_count=Count(
                 "eventregistration",
-                filter=Q(eventregistration__status__in=["confirmed", "attended"]),
+                filter=Q(eventregistration__status__in=SEAT_HOLDING_STATUSES),
             )
         )
         .annotate(
