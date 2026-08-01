@@ -16,7 +16,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .models import CrushProfile, ReferralCode
-from .referrals import get_referral_stats
+from .referrals import get_referral_stats, refresh_passes_after_points_change
 from .qr_utils import generate_qr_code_base64
 
 logger = logging.getLogger(__name__)
@@ -188,6 +188,12 @@ def redeem_points(request):
             referral_points=F("referral_points") - points_required
         )
         profile.refresh_from_db()
+
+        # Spending points lowers the balance printed on both passes, and the
+        # deduction above is a QuerySet.update() — no signal. Deferred to
+        # commit inside, so the select_for_update above is released before any
+        # network call.
+        refresh_passes_after_points_change(profile)
 
         # Record the redemption (for auditing)
         # Note: In a full implementation, you'd create a PointsRedemption model
