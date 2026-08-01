@@ -25,8 +25,10 @@ class SumUpClient:
     BASE_URL = "https://api.sumup.com"
 
     def __init__(self, api_key: Optional[str] = None, merchant_code: Optional[str] = None):
-        self.api_key = api_key or getattr(settings, "SUMUP_API_KEY", "")
-        self.merchant_code = merchant_code or getattr(settings, "SUMUP_MERCHANT_CODE", "")
+        raw_key = api_key or getattr(settings, "SUMUP_API_KEY", "") or ""
+        self.api_key = raw_key.strip().strip("'").strip('"')
+        raw_code = merchant_code or getattr(settings, "SUMUP_MERCHANT_CODE", "") or ""
+        self.merchant_code = raw_code.strip().strip("'").strip('"')
 
     def _get_headers(self) -> Dict[str, str]:
         if not self.api_key:
