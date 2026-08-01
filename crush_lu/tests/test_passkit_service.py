@@ -1230,6 +1230,90 @@ class TestAppleEventTicketRefreshSignal:
 
 
 @pytest.mark.django_db
+class TestProfileRenameRefreshesTickets:
+    """The holder's name is printed on the ticket, which carries its own
+    evt-* serial. The member-pass guards must not gate that refresh — an
+    open-event attendee can hold a ticket and no member pass at all."""
+
+    def _ticketed(self, event_with_registrations):
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        registration.apple_wallet_ticket_serial = "evt-1-reg-1-abcd"
+        registration.save(update_fields=["apple_wallet_ticket_serial"])
+        return registration
+
+    def test_rename_refreshes_tickets_without_a_member_pass(
+        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+    ):
+        registration = self._ticketed(event_with_registrations)
+        profile = registration.user.crushprofile
+        # No member pass and no Google object: the old placement returned
+        # before ever reaching the ticket query.
+        assert profile.apple_pass_serial == ""
+        assert not profile.google_wallet_object_id
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ) as refresh:
+            with django_capture_on_commit_callbacks(execute=True):
+                # show_full_name feeds display_name, which is what the ticket
+                # prints. (display_name/first_name/last_name are properties,
+                # not fields, so they can never appear in update_fields.)
+                profile.show_full_name = not profile.show_full_name
+                profile.save(update_fields=["show_full_name"])
+
+        assert "evt-1-reg-1-abcd" in {c.args[1] for c in refresh.call_args_list}
+
+    def test_non_identity_save_does_not_refresh_tickets(
+        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+    ):
+        registration = self._ticketed(event_with_registrations)
+        profile = registration.user.crushprofile
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ) as refresh:
+            with django_capture_on_commit_callbacks(execute=True):
+                profile.bio = "A new bio"
+                profile.save(update_fields=["bio"])
+
+        refresh.assert_not_called()
+
+
+@pytest.mark.django_db
+class TestTicketStampsAreSignalFree:
+    """Stamping ticket-only metadata must not emit post_save: the generic
+    registration receiver treats any non-created save as a next-event change
+    and synchronously refreshes both wallet backends — two network rounds
+    hung off a ticket download."""
+
+    def test_stamps_do_not_fire_the_registration_receiver(
+        self, _apple_identity, event_with_registrations
+    ):
+        from crush_lu.wallet import apple_event_ticket
+
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        request = RequestFactory().get("/", HTTP_HOST="test.crush.lu", secure=True)
+
+        with mock.patch(
+            "crush_lu.signals.trigger_wallet_pass_updates"
+        ) as wallet_update:
+            with mock.patch.object(
+                apple_event_ticket, "_build_pkpass", return_value=b""
+            ):
+                apple_event_ticket.build_apple_event_ticket(
+                    registration, request=request
+                )
+
+        wallet_update.assert_not_called()
+        # ...and the stamps still landed.
+        registration.refresh_from_db()
+        assert registration.apple_wallet_checkin_origin == "https://test.crush.lu"
+        assert registration.apple_wallet_language
+
+
+@pytest.mark.django_db
 class TestRebuildLanguage:
     """Apple's update request carries no locale. Without an explicit
     activation the rebuild reads modeltranslation descriptors under `en`, so a

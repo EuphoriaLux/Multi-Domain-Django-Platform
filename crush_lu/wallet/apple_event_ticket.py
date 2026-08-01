@@ -21,7 +21,25 @@ from .apple_pass import (
     claim_field_once as _claim_once,
     resolve_web_service_url,
 )
-from ..models import CrushProfile
+from ..models import CrushProfile, EventRegistration
+
+
+def _stamp_ticket_field(registration, field, value):
+    """Persist a ticket-only stamp WITHOUT emitting post_save.
+
+    Deliberately .update() rather than .save(): a save here fires
+    trigger_wallet_pass_update_on_registration_change, which treats ANY
+    non-created registration save as a next-event change and synchronously
+    refreshes both wallet backends. That would hang a full network round —
+    APNs (10s timeout) plus the Google Wallet API (30s) — off a ticket
+    download, once per stamp. These fields are pure ticket metadata; nothing
+    about the member pass changed. claim_field_once avoids signals the same way.
+    """
+    if getattr(registration, field, None) == value:
+        return value
+    EventRegistration.objects.filter(pk=registration.pk).update(**{field: value})
+    setattr(registration, field, value)
+    return value
 
 
 def _ensure_event_ticket_serial(registration):
@@ -85,10 +103,7 @@ def _ensure_checkin_origin(registration, request):
     that survives the round trip.
     """
     origin = f"{request.scheme}://{request.get_host()}"
-    if registration.apple_wallet_checkin_origin != origin:
-        registration.apple_wallet_checkin_origin = origin
-        registration.save(update_fields=["apple_wallet_checkin_origin"])
-    return origin
+    return _stamp_ticket_field(registration, "apple_wallet_checkin_origin", origin)
 
 
 def _stamp_ticket_language(registration):
@@ -100,10 +115,9 @@ def _stamp_ticket_language(registration):
     and the installed pass in agreement.
     """
     language = translation.get_language() or ""
-    if language and registration.apple_wallet_language != language:
-        registration.apple_wallet_language = language
-        registration.save(update_fields=["apple_wallet_language"])
-    return language
+    if not language:
+        return language
+    return _stamp_ticket_field(registration, "apple_wallet_language", language)
 
 
 def _resolve_checkin_base_url(

@@ -2485,6 +2485,30 @@ def auto_approve_profile_on_luxid_connect(sender, request, sociallogin, **kwargs
 # =============================================================================
 
 
+def _refresh_user_event_tickets(profile):
+    """Refresh this user's installed Apple event tickets.
+
+    The member pass and the event tickets carry different serials, so
+    trigger_wallet_pass_updates — which only ever targets
+    profile.apple_pass_serial — leaves the tickets showing the old name.
+    """
+    try:
+        from .wallet.passkit_service import refresh_ticket_serials
+
+        serials = list(
+            EventRegistration.objects.filter(user_id=profile.user_id)
+            .exclude(apple_wallet_ticket_serial="")
+            .values_list("apple_wallet_ticket_serial", flat=True)
+        )
+        refresh_ticket_serials(
+            serials, context=f"Profile {profile.pk} identity change"
+        )
+    except Exception as e:
+        logger.error(
+            f"Error refreshing event tickets for user {profile.user_id}: {e}"
+        )
+
+
 @receiver(post_save, sender=CrushProfile)
 def trigger_wallet_pass_update_on_profile_change(
     sender, instance, created, update_fields, **kwargs
@@ -2501,6 +2525,22 @@ def trigger_wallet_pass_update_on_profile_change(
     - show_photo_on_wallet, photo_1 (appearance)
     - display_name, first_name, last_name, show_full_name (identity)
     """
+    identity_changed = update_fields is None or bool(
+        set(update_fields) & WALLET_UPDATE_PROFILE_FIELDS
+    )
+
+    # Event tickets print the holder's name and carry their own evt-* serials,
+    # so they must be refreshed BEFORE the two guards below — both of which are
+    # about the MEMBER pass and neither of which holds for a ticket holder:
+    #   * `created` — an open-event attendee can download a ticket with no
+    #     profile at all (the name falls back to the username), and creating
+    #     the profile afterwards is exactly when that name changes;
+    #   * the serial guard — such an attendee has no member pass or Google
+    #     object, so every later rename returned here and their installed
+    #     ticket kept the old name forever.
+    if identity_changed:
+        _refresh_user_event_tickets(instance)
+
     # Skip if this is a new profile (no pass exists yet)
     if created:
         return
@@ -2538,25 +2578,6 @@ def trigger_wallet_pass_update_on_profile_change(
                 f"Error triggering wallet update for user {instance.user_id}: {e}"
             )
 
-        # The holder's name is printed on their event TICKETS too, and those
-        # carry their own evt-* serials — trigger_wallet_pass_updates only
-        # targets the member pass, so a rename left every installed ticket
-        # showing the old name until something else refreshed it.
-        try:
-            from .wallet.passkit_service import refresh_ticket_serials
-
-            ticket_serials = list(
-                EventRegistration.objects.filter(user_id=instance.user_id)
-                .exclude(apple_wallet_ticket_serial="")
-                .values_list("apple_wallet_ticket_serial", flat=True)
-            )
-            refresh_ticket_serials(
-                ticket_serials, context=f"Profile {instance.pk} identity change"
-            )
-        except Exception as e:
-            logger.error(
-                f"Error refreshing event tickets for user {instance.user_id}: {e}"
-            )
 
 
 @receiver(pre_save, sender=EventRegistration)
