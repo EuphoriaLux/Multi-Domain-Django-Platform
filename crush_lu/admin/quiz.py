@@ -201,6 +201,11 @@ def mark_unattended_as_no_show(modeladmin, request, queryset):
     # helper opens its own push budget, so refreshing per quiz would restart
     # the deadline for every selected row.
     voiding_serials = []
+    # The Google half of the same accumulation, keyed by pk to DEDUPE. One
+    # holder can be registered for two of the selected quizzes, and unlike a
+    # repeated Apple serial each duplicate here is a real extra PATCH spent out
+    # of a budget whose overflow leaves other passes permanently stale.
+    voiding_google_profiles = {}
 
     for quiz in queryset:
         # Include "pending" seat holders: on a paid quiz a cash-at-the-door
@@ -230,6 +235,16 @@ def mark_unattended_as_no_show(modeladmin, request, queryset):
             .values_list("apple_pass_serial", flat=True)
             .distinct()
         )
+        # ...and their GOOGLE member objects, which print the same "Next Event"
+        # block and have no Google ticket to carry the change instead. Every
+        # row here qualifies without further filtering: "confirmed" and
+        # "pending" are both inside PASS_NEXT_EVENT_STATUSES and "no_show" is
+        # outside it, so each of these genuinely stops being the holder's next
+        # event. Collected before the update, while `affected` still matches.
+        for profile in CrushProfile.objects.filter(
+            user__eventregistration__in=affected
+        ).exclude(google_wallet_object_id=""):
+            voiding_google_profiles[profile.pk] = profile
         updated = affected.update(status="no_show")
         messages.success(
             request,
@@ -248,6 +263,21 @@ def mark_unattended_as_no_show(modeladmin, request, queryset):
                 "Failed scheduling Apple ticket refresh for %s no-show "
                 "registration(s)",
                 len(voiding_serials),
+            )
+
+    if voiding_google_profiles:
+        try:
+            from crush_lu.wallet.google_api import refresh_google_wallet_objects
+
+            refresh_google_wallet_objects(
+                list(voiding_google_profiles.values()),
+                context="Admin mark_unattended_as_no_show",
+            )
+        except Exception:
+            logger.exception(
+                "Failed scheduling Google wallet refresh for %s no-show "
+                "registration(s)",
+                len(voiding_google_profiles),
             )
 
 

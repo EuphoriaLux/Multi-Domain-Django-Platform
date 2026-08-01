@@ -6,6 +6,18 @@ from .models import ReferralCode, EventRegistration, MeetupEvent
 from .models.events import SEAT_HOLDING_STATUSES
 from .referrals import build_referral_url
 
+# Registration statuses that can still make an event somebody's "next event" on
+# a wallet pass. "waitlist" counts: a waitlisted member is still going, pending
+# a seat, and the card names the event either way.
+#
+# Defined once because the admin bulk actions consume it too. They decide
+# whether a status change is worth a wallet refresh by asking whether it moves
+# a registration ACROSS this boundary — the member surfaces render only the
+# event's title and date, never the registration status, so a move *within* the
+# set rebuilds a byte-identical pass. A stale copy of this list would either
+# miss real changes or spend a capped refresh budget on no-ops.
+PASS_NEXT_EVENT_STATUSES = [*SEAT_HOLDING_STATUSES, "waitlist"]
+
 
 def build_wallet_pass_barcode_value(profile, request=None, base_url=None):
     """
@@ -38,7 +50,7 @@ def get_next_event_for_pass(profile):
         EventRegistration.objects.filter(
             user=profile.user,
             event__date_time__gte=MeetupEvent.live_lookback_cutoff(now),
-            status__in=[*SEAT_HOLDING_STATUSES, "waitlist"],
+            status__in=PASS_NEXT_EVENT_STATUSES,
         )
         # A cancelled event is not anybody's next event. Without this the
         # member card kept advertising it — and worse, cancelling an event

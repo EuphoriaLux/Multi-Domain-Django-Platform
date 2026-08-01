@@ -635,6 +635,43 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 len(events),
             )
 
+        # The GOOGLE member object prints the same "Next Event" block, and
+        # get_next_event_for_pass drops cancelled events outright — so every
+        # attendee's card is now advertising an event that will not happen.
+        # There is no Google ticket to carry the change instead; the member
+        # object is the only Google surface this event appears on.
+        #
+        # Its own try/except, and ONE call for the whole action, for the same
+        # two reasons as the Apple half above: independent APIs must not skip
+        # each other, and each helper opens its own budget.
+        try:
+            from crush_lu.models import CrushProfile
+            from crush_lu.wallet.google_api import refresh_google_wallet_objects
+            from crush_lu.wallet_pass import PASS_NEXT_EVENT_STATUSES
+
+            refresh_google_wallet_objects(
+                list(
+                    CrushProfile.objects.filter(
+                        # Both conditions in ONE filter() so they constrain the
+                        # SAME registration row — split across two calls they
+                        # would match any registration for the event plus any
+                        # live registration anywhere, which is every attendee.
+                        user__eventregistration__event__in=events,
+                        user__eventregistration__status__in=(
+                            PASS_NEXT_EVENT_STATUSES
+                        ),
+                    )
+                    .exclude(google_wallet_object_id="")
+                    .distinct()
+                ),
+                context=f"Admin cancel_events ({len(events)} event(s))",
+            )
+        except Exception:
+            logger.exception(
+                "Failed scheduling Google wallet refresh for %s cancelled event(s)",
+                len(events),
+            )
+
         django_messages.success(
             request, _("Cancelled {count} event(s)").format(count=updated)
         )
@@ -1001,6 +1038,30 @@ class EventRegistrationAdmin(admin.ModelAdmin):
             .values_list("apple_pass_serial", flat=True)
             .distinct()
         )
+        # ...and the GOOGLE member objects, for exactly the reason above: a
+        # restored seat is eligible for get_next_event_for_pass again, so the
+        # card has to stop showing whatever it fell back to. Materialised HERE,
+        # before the update, for the same reason as the serials — `restoring`
+        # is a lazy queryset keyed on the old status, and the flip to
+        # "confirmed" is about to make it match nothing.
+        #
+        # NARROWER than `restoring`, which also carries waitlist rows. Their
+        # Apple TICKET is voided and does need un-voiding, but a waitlisted
+        # registration is already inside PASS_NEXT_EVENT_STATUSES, so the
+        # member card already names this event and the rebuild would be
+        # byte-identical. Only a seat coming back from OUTSIDE that set
+        # (cancelled, no_show) actually changes what the card says.
+        from crush_lu.wallet_pass import PASS_NEXT_EVENT_STATUSES
+
+        restored_google_profiles = list(
+            CrushProfile.objects.filter(
+                user__eventregistration__in=restoring.exclude(
+                    status__in=PASS_NEXT_EVENT_STATUSES
+                )
+            )
+            .exclude(google_wallet_object_id="")
+            .distinct()
+        )
 
         updated = EventRegistration.objects.filter(pk__in=eligible_ids).update(
             status="confirmed"
@@ -1020,6 +1081,21 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                     "Failed scheduling Apple ticket refresh for %s restored "
                     "registration(s)",
                     len(restored_serials),
+                )
+
+        if restored_google_profiles:
+            try:
+                from crush_lu.wallet.google_api import refresh_google_wallet_objects
+
+                refresh_google_wallet_objects(
+                    restored_google_profiles,
+                    context="Admin confirm_registrations",
+                )
+            except Exception:
+                logger.exception(
+                    "Failed scheduling Google wallet refresh for %s restored "
+                    "registration(s)",
+                    len(restored_google_profiles),
                 )
 
         django_messages.success(
@@ -1063,6 +1139,18 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                     "registration(s)",
                     len(voiding_serials),
                 )
+
+        # No Google refresh here, unlike the other three bulk actions, and NOT
+        # an oversight: this action moves a registration from one member of
+        # PASS_NEXT_EVENT_STATUSES to another ("waitlist" is in the set), so it
+        # cannot change which event the member card names — and the card prints
+        # only that event's title and date, never the registration status. The
+        # rebuild would be byte-identical, which is also why the Apple half
+        # above refreshes the TICKET serials only and leaves member passes
+        # alone. PATCHing anyway would spend a capped budget on no-ops and log a
+        # false "left STALE" warning about passes that were never wrong.
+        # Revisit if the payload ever starts printing next_event["status"] —
+        # TestAdminBulkActionsRefreshWallets pins this.
 
         django_messages.success(
             request, f"Moved {updated} registration(s) to waitlist."

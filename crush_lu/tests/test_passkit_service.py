@@ -16,6 +16,7 @@ the PassKit service ROOT (e.g. https://crush.lu/wallet). Apple appends its own
 
 from unittest import mock
 
+import httpx
 import pytest
 from django.test import RequestFactory
 
@@ -2017,6 +2018,225 @@ class TestEventLevelGoogleRefresh:
 
 
 @pytest.mark.django_db
+class TestUpdateAllGoogleWalletPasses:
+    """The maintenance sweep looped the per-profile entry point, so it minted a
+    fresh token and opened a fresh connection for every pass.
+
+    It reuses both now — but it keeps running UNCAPPED. The bulk refresh's
+    limit and budget exist because that path runs inline in an admin request;
+    this one has no request attached, and stopping early would just leave
+    passes stale with nothing left to finish them.
+    """
+
+    def _holders(self, count, start=0):
+        from datetime import date
+
+        from django.contrib.auth import get_user_model
+
+        from crush_lu.models import CrushProfile
+
+        User = get_user_model()
+        profiles = []
+        for i in range(start, start + count):
+            user = User.objects.create_user(
+                username=f"sweep{i}@example.com",
+                email=f"sweep{i}@example.com",
+                password="x",
+            )
+            profile = CrushProfile.objects.create(
+                user=user,
+                date_of_birth=date(1995, 5, 15),
+                gender="M",
+                location="Luxembourg City",
+                is_approved=True,
+                verification_status="verified",
+                is_active=True,
+            )
+            profile.google_wallet_object_id = f"google-sweep-{i}"
+            profile.save(update_fields=["google_wallet_object_id"])
+            profiles.append(profile)
+        return profiles
+
+    def test_one_token_and_one_client_serve_the_whole_sweep(
+        self, _google_identity
+    ):
+        from crush_lu.wallet.google_api import update_all_google_wallet_passes
+
+        self._holders(3)
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ) as token, mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
+        ) as patch_object, mock.patch(
+            "crush_lu.wallet.google_api.httpx.Client", wraps=httpx.Client
+        ) as client_cls:
+            results = update_all_google_wallet_passes()
+
+        assert results == {"updated": 3, "failed": 0, "skipped": 0}
+        assert token.call_count == 1
+        assert client_cls.call_count == 1
+        assert patch_object.call_count == 3
+        # Every PATCH borrowed the same token and the same connection.
+        assert {call.args[2] for call in patch_object.call_args_list} == {"tok"}
+        assert len({id(call.args[3]) for call in patch_object.call_args_list}) == 1
+
+    def test_the_sweep_is_not_capped(self, _google_identity, settings):
+        from crush_lu.wallet.google_api import update_all_google_wallet_passes
+
+        # The bulk-refresh bounds must not leak into the sweep: it is the only
+        # thing that would ever fix the passes they skipped.
+        self._holders(4)
+        settings.WALLET_GOOGLE_BULK_UPDATE_LIMIT = 1
+        settings.WALLET_GOOGLE_BULK_UPDATE_BUDGET_SECONDS = 0.0
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
+        ) as patch_object:
+            results = update_all_google_wallet_passes()
+
+        assert patch_object.call_count == 4
+        assert results["updated"] == 4
+
+    def test_results_classify_success_deleted_and_failed(self, _google_identity):
+        from crush_lu.wallet.google_api import update_all_google_wallet_passes
+
+        self._holders(3)
+        outcomes = [
+            {"success": True, "message": "Pass updated successfully"},
+            {"success": False, "message": "Pass not found (may have been deleted)"},
+            {"success": False, "message": "API error: 500"},
+        ]
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object", side_effect=outcomes
+        ):
+            results = update_all_google_wallet_passes()
+
+        # Unchanged from the per-profile version: a 404 is the holder deleting
+        # their pass, not a failure to chase.
+        assert results == {"updated": 1, "failed": 1, "skipped": 1}
+
+    def test_one_failing_object_does_not_strand_the_rest(self, _google_identity):
+        from crush_lu.wallet.google_api import update_all_google_wallet_passes
+
+        # Per-profile isolation used to come free from the per-profile try in
+        # update_google_wallet_pass; sharing the client had to keep it.
+        self._holders(3)
+        ok = {"success": True, "message": "Pass updated successfully"}
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            side_effect=[RuntimeError("boom"), ok, ok],
+        ) as patch_object:
+            results = update_all_google_wallet_passes()
+
+        assert patch_object.call_count == 3
+        assert results == {"updated": 2, "failed": 1, "skipped": 0}
+
+    def test_token_failure_counts_every_pass_as_failed(self, _google_identity):
+        from crush_lu.wallet.google_api import update_all_google_wallet_passes
+
+        # Nothing can be PATCHed without a token. The old loop reported one
+        # failure per profile; the totals still have to add up to the estate.
+        self._holders(3)
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token",
+            side_effect=RuntimeError("oauth down"),
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object"
+        ) as patch_object:
+            results = update_all_google_wallet_passes()
+
+        patch_object.assert_not_called()
+        assert results == {"updated": 0, "failed": 3, "skipped": 0}
+
+    def test_a_token_failure_part_way_through_only_fails_the_remainder(
+        self, _google_identity
+    ):
+        from crush_lu.wallet.google_api import update_all_google_wallet_passes
+
+        # A re-mint can fail mid-sweep. The passes already updated are real and
+        # must not be counted as failures.
+        self._holders(3)
+        ok = {"success": True, "message": "Pass updated successfully"}
+
+        with mock.patch(
+            "crush_lu.wallet.google_api.GOOGLE_WALLET_TOKEN_REUSE_SECONDS", 0
+        ), mock.patch(
+            "crush_lu.wallet.google_api._get_access_token",
+            side_effect=["tok", "tok", RuntimeError("oauth down")],
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object", return_value=ok
+        ) as patch_object:
+            results = update_all_google_wallet_passes()
+
+        assert patch_object.call_count == 2
+        assert results == {"updated": 2, "failed": 1, "skipped": 0}
+
+    def test_the_shared_token_is_re_minted_before_it_expires(self, _google_identity):
+        from crush_lu.wallet.google_api import update_all_google_wallet_passes
+
+        # A token lasts an hour. Minting per profile used to make expiry
+        # impossible; reuse brings it back, and an uncapped sweep is exactly
+        # the caller that can outlive one.
+        self._holders(3)
+
+        with mock.patch(
+            "crush_lu.wallet.google_api.GOOGLE_WALLET_TOKEN_REUSE_SECONDS", 0
+        ), mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ) as token, mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
+        ):
+            update_all_google_wallet_passes()
+
+        assert token.call_count == 3
+
+    def test_missing_class_id_costs_no_token_and_fails_everything(
+        self, _google_identity, settings
+    ):
+        from crush_lu.wallet.google_api import update_all_google_wallet_passes
+
+        self._holders(2)
+        settings.WALLET_GOOGLE_CLASS_ID = ""
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ) as token, mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object"
+        ) as patch_object:
+            results = update_all_google_wallet_passes()
+
+        token.assert_not_called()
+        patch_object.assert_not_called()
+        # Same total as when every profile went through the per-profile entry
+        # point and came back with this as its failure.
+        assert results == {"updated": 0, "failed": 2, "skipped": 0}
+
+    def test_an_empty_estate_costs_nothing(self, _google_identity):
+        from crush_lu.wallet.google_api import update_all_google_wallet_passes
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ) as token:
+            results = update_all_google_wallet_passes()
+
+        token.assert_not_called()
+        assert results == {"updated": 0, "failed": 0, "skipped": 0}
+
+
+@pytest.mark.django_db
 class TestAppleEventTicketRefreshSignal:
     """Every repo-wide Apple refresh path went through the MEMBER pass serial,
     so an event ticket was never pushed when its registration changed."""
@@ -3192,6 +3412,388 @@ class TestAdminBulkActionsRefreshWallets:
                 )
 
         assert "evt-1-reg-1-abcd" in refresh.call_args.args[0]
+
+    # ------------------------------------------------------------------
+    # The GOOGLE half. Same three actions, same one-call-per-action rule —
+    # and the member object is the ONLY Google surface an event appears on,
+    # so nothing else can carry these changes.
+    # ------------------------------------------------------------------
+
+    def _google_member(self, registration, object_id):
+        profile = registration.user.crushprofile
+        profile.google_wallet_object_id = object_id
+        # update_fields names a field outside WALLET_UPDATE_PROFILE_FIELDS, so
+        # the setup save does not itself fire a refresh and skew the counts.
+        profile.save(update_fields=["google_wallet_object_id"])
+        return profile
+
+    def test_cancel_events_refreshes_google_member_objects(
+        self, _apple_identity, _google_identity, event_with_registrations
+    ):
+        from crush_lu.models import MeetupEvent
+
+        # get_next_event_for_pass drops cancelled events, so every attendee's
+        # card is left advertising an event that will not happen — and .update()
+        # emits no signals, so nothing else notices.
+        event, registrations = event_with_registrations
+        profile = self._google_member(registrations[0], "google-obj-cancel")
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ), mock.patch(
+            "crush_lu.wallet.google_api.refresh_google_wallet_objects"
+        ) as refresh_google:
+            with mock.patch("crush_lu.admin.events.django_messages"):
+                self._admin(MeetupEvent).cancel_events(
+                    RequestFactory().post("/"),
+                    MeetupEvent.objects.filter(pk=event.pk),
+                )
+
+        # ONE call for the whole action: the helper opens its own budget, so a
+        # per-event loop would restart the deadline N times.
+        assert refresh_google.call_count == 1
+        assert [p.pk for p in refresh_google.call_args.args[0]] == [profile.pk]
+
+    def test_cancel_events_google_refresh_survives_an_apple_outage(
+        self, _apple_identity, _google_identity, event_with_registrations
+    ):
+        from crush_lu.models import MeetupEvent
+
+        # Two independent APIs. They get separate try blocks so an APNs outage
+        # cannot swallow the Google refresh with it.
+        event, registrations = event_with_registrations
+        self._google_member(registrations[0], "google-obj-cancel")
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials",
+            side_effect=RuntimeError("apns down"),
+        ), mock.patch(
+            "crush_lu.wallet.google_api.refresh_google_wallet_objects"
+        ) as refresh_google:
+            with mock.patch("crush_lu.admin.events.django_messages"):
+                self._admin(MeetupEvent).cancel_events(
+                    RequestFactory().post("/"),
+                    MeetupEvent.objects.filter(pk=event.pk),
+                )
+
+        assert refresh_google.call_count == 1
+
+    def test_cancel_events_patches_google_end_to_end(
+        self, _apple_identity, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        from crush_lu.models import MeetupEvent
+
+        # The tests above stop at the helper. This one runs the whole chain —
+        # admin action, on_commit, one shared token, a real PATCH call — so a
+        # break anywhere between them is caught.
+        event, registrations = event_with_registrations
+        self._google_member(registrations[0], "google-obj-cancel")
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ) as token, mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
+        ) as patch_object:
+            with mock.patch("crush_lu.admin.events.django_messages"):
+                with django_capture_on_commit_callbacks(execute=True):
+                    self._admin(MeetupEvent).cancel_events(
+                        RequestFactory().post("/"),
+                        MeetupEvent.objects.filter(pk=event.pk),
+                    )
+
+        assert token.call_count == 1
+        assert patch_object.call_count == 1
+        assert (
+            patch_object.call_args.args[0].google_wallet_object_id
+            == "google-obj-cancel"
+        )
+
+    def test_confirm_registrations_refreshes_google_member_objects(
+        self, _apple_identity, _google_identity, event_with_registrations
+    ):
+        from crush_lu.models import EventRegistration
+
+        # Restored from "cancelled", which is OUTSIDE
+        # get_next_event_for_pass's candidate set — so confirming genuinely
+        # changes which event the card names.
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        registration.status = "cancelled"
+        registration.save(update_fields=["status"])
+        profile = self._google_member(registration, "google-obj-confirm")
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ), mock.patch(
+            "crush_lu.wallet.google_api.refresh_google_wallet_objects"
+        ) as refresh_google:
+            with mock.patch("crush_lu.admin.events.django_messages"):
+                self._admin(EventRegistration).confirm_registrations(
+                    RequestFactory().post("/"),
+                    EventRegistration.objects.filter(pk=registration.pk),
+                )
+
+        assert refresh_google.call_count == 1
+        assert [p.pk for p in refresh_google.call_args.args[0]] == [profile.pk]
+
+    def test_confirm_from_waitlist_leaves_google_alone(
+        self, _apple_identity, _google_identity, event_with_registrations
+    ):
+        from crush_lu.models import EventRegistration
+        from crush_lu.wallet_pass import get_next_event_for_pass
+
+        # The Google set is NARROWER than the Apple one on this action, and
+        # this is the difference: a waitlisted registration is already inside
+        # PASS_NEXT_EVENT_STATUSES, so confirming it un-voids the ticket (Apple
+        # needs it) while leaving the member card byte-identical.
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        registration.status = "waitlist"
+        registration.save(update_fields=["status"])
+        self._ticketed(registration, "evt-1-reg-1-abcd")
+        profile = self._google_member(registration, "google-obj-fromwaitlist")
+        before = get_next_event_for_pass(profile)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh_apple, mock.patch(
+            "crush_lu.wallet.google_api.refresh_google_wallet_objects"
+        ) as refresh_google:
+            with mock.patch("crush_lu.admin.events.django_messages"):
+                self._admin(EventRegistration).confirm_registrations(
+                    RequestFactory().post("/"),
+                    EventRegistration.objects.filter(pk=registration.pk),
+                )
+
+        refresh_google.assert_not_called()
+        # Not "nothing happened" — the Apple half still ran on the same row.
+        assert refresh_apple.call_count == 1
+
+        after = get_next_event_for_pass(profile)
+        assert (before["title"], before["date"]) == (after["title"], after["date"])
+
+    def test_cancel_events_skips_holders_who_had_already_cancelled(
+        self, _apple_identity, _google_identity, event_with_registrations
+    ):
+        from crush_lu.models import MeetupEvent
+
+        # This event was never their next event — a cancelled registration is
+        # outside PASS_NEXT_EVENT_STATUSES — so cancelling it changes nothing
+        # on their card.
+        event, registrations = event_with_registrations
+        registration = registrations[0]
+        registration.status = "cancelled"
+        registration.save(update_fields=["status"])
+        self._google_member(registration, "google-obj-alreadygone")
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ), mock.patch(
+            "crush_lu.wallet.google_api.refresh_google_wallet_objects"
+        ) as refresh_google:
+            with mock.patch("crush_lu.admin.events.django_messages"):
+                self._admin(MeetupEvent).cancel_events(
+                    RequestFactory().post("/"),
+                    MeetupEvent.objects.filter(pk=event.pk),
+                )
+
+        # Still one call for the action, carrying nobody.
+        assert refresh_google.call_count == 1
+        assert list(refresh_google.call_args.args[0]) == []
+
+    def test_cancel_events_matches_status_on_the_same_registration(
+        self, _apple_identity, _google_identity, event_with_registrations
+    ):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from crush_lu.models import EventRegistration, MeetupEvent
+
+        # The event filter and the status filter must constrain the SAME
+        # registration row. Split across two .filter() calls Django joins the
+        # relation twice, and this holder — cancelled here, confirmed for an
+        # unrelated event — would be swept in on a card that did not change.
+        event, registrations = event_with_registrations
+        registration = registrations[0]
+        registration.status = "cancelled"
+        registration.save(update_fields=["status"])
+
+        other_event = MeetupEvent.objects.create(
+            title="Unrelated event",
+            date_time=timezone.now() + timedelta(days=9),
+            location="Luxembourg City",
+            max_participants=20,
+            registration_deadline=timezone.now() + timedelta(days=8),
+        )
+        EventRegistration.objects.create(
+            event=other_event, user=registration.user, status="confirmed"
+        )
+        self._google_member(registration, "google-obj-otherevent")
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ), mock.patch(
+            "crush_lu.wallet.google_api.refresh_google_wallet_objects"
+        ) as refresh_google:
+            with mock.patch("crush_lu.admin.events.django_messages"):
+                self._admin(MeetupEvent).cancel_events(
+                    RequestFactory().post("/"),
+                    MeetupEvent.objects.filter(pk=event.pk),
+                )
+
+        assert list(refresh_google.call_args.args[0]) == []
+
+    def test_confirm_collects_google_profiles_before_the_status_flips(
+        self, _apple_identity, _google_identity, event_with_registrations
+    ):
+        from crush_lu.models import EventRegistration
+
+        # The `restoring` queryset is lazy and keyed on the OLD status. Read
+        # after .update(status="confirmed") it matches nothing, and the refresh
+        # would silently receive an empty list — a green test suite and a
+        # permanently stale card.
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        registration.status = "no_show"
+        registration.save(update_fields=["status"])
+        self._google_member(registration, "google-obj-late")
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ), mock.patch(
+            "crush_lu.wallet.google_api.refresh_google_wallet_objects"
+        ) as refresh_google:
+            with mock.patch("crush_lu.admin.events.django_messages"):
+                self._admin(EventRegistration).confirm_registrations(
+                    RequestFactory().post("/"),
+                    EventRegistration.objects.filter(pk=registration.pk),
+                )
+
+        registration.refresh_from_db()
+        assert registration.status == "confirmed"
+        assert [
+            p.google_wallet_object_id for p in refresh_google.call_args.args[0]
+        ] == ["google-obj-late"]
+
+    def test_quiz_no_show_refreshes_google_member_objects(
+        self, _apple_identity, _google_identity, event_with_registrations
+    ):
+        from crush_lu.admin.quiz import mark_unattended_as_no_show
+        from crush_lu.models.quiz import QuizEvent
+
+        # "no_show" is outside the candidate set, so the card must stop naming
+        # a quiz the holder was just marked absent from.
+        event, registrations = event_with_registrations
+        registration = registrations[0]
+        profile = self._google_member(registration, "google-obj-noshow")
+        quiz = QuizEvent.objects.create(event=event, created_by=registration.user)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ), mock.patch(
+            "crush_lu.wallet.google_api.refresh_google_wallet_objects"
+        ) as refresh_google:
+            with mock.patch("crush_lu.admin.quiz.messages"):
+                mark_unattended_as_no_show(
+                    None,
+                    RequestFactory().post("/"),
+                    QuizEvent.objects.filter(pk=quiz.pk),
+                )
+
+        assert refresh_google.call_count == 1
+        assert [p.pk for p in refresh_google.call_args.args[0]] == [profile.pk]
+
+    def test_quiz_no_show_batches_and_dedupes_across_quizzes(
+        self, _apple_identity, _google_identity, event_with_registrations
+    ):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from crush_lu.admin.quiz import mark_unattended_as_no_show
+        from crush_lu.models import EventRegistration, MeetupEvent
+        from crush_lu.models.quiz import QuizEvent
+
+        # One holder registered for BOTH selected quizzes. The action must send
+        # ONE call carrying ONE profile: a second PATCH of the same object
+        # changes nothing and is spent out of a budget whose overflow leaves
+        # other people's passes permanently stale.
+        event, registrations = event_with_registrations
+        registration = registrations[0]
+
+        second_event = MeetupEvent.objects.create(
+            title="Second quiz",
+            date_time=timezone.now() + timedelta(days=3),
+            location="Luxembourg City",
+            max_participants=20,
+            registration_deadline=timezone.now() + timedelta(days=2),
+        )
+        EventRegistration.objects.create(
+            event=second_event, user=registration.user, status="confirmed"
+        )
+        # Object id set LAST: the registration receiver bails on a profile with
+        # no pass, so setup stays free of wallet calls.
+        profile = self._google_member(registration, "google-obj-dupe")
+        quiz_a = QuizEvent.objects.create(event=event, created_by=registration.user)
+        quiz_b = QuizEvent.objects.create(
+            event=second_event, created_by=registration.user
+        )
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ), mock.patch(
+            "crush_lu.wallet.google_api.refresh_google_wallet_objects"
+        ) as refresh_google:
+            with mock.patch("crush_lu.admin.quiz.messages"):
+                mark_unattended_as_no_show(
+                    None,
+                    RequestFactory().post("/"),
+                    QuizEvent.objects.filter(pk__in=[quiz_a.pk, quiz_b.pk]),
+                )
+
+        assert refresh_google.call_count == 1
+        assert [p.pk for p in refresh_google.call_args.args[0]] == [profile.pk]
+
+    def test_move_to_waitlist_leaves_google_alone(
+        self, _apple_identity, _google_identity, event_with_registrations
+    ):
+        from crush_lu.models import EventRegistration
+        from crush_lu.wallet_pass import get_next_event_for_pass
+
+        # The one bulk action with NO Google refresh, pinned so its absence
+        # reads as a decision rather than an omission: "waitlist" is inside
+        # get_next_event_for_pass's candidate set, and the member surfaces print
+        # only the event's title and date — never the status — so the rebuilt
+        # object would be byte-identical. PATCHing anyway would burn a capped
+        # budget on no-ops and warn about passes that were never stale.
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        profile = self._google_member(registration, "google-obj-waitlist")
+        before = get_next_event_for_pass(profile)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ), mock.patch(
+            "crush_lu.wallet.google_api.refresh_google_wallet_objects"
+        ) as refresh_google:
+            with mock.patch("crush_lu.admin.events.django_messages"):
+                self._admin(EventRegistration).move_to_waitlist(
+                    RequestFactory().post("/"),
+                    EventRegistration.objects.filter(pk=registration.pk),
+                )
+
+        refresh_google.assert_not_called()
+        # The premise, asserted rather than assumed: everything the Google
+        # object actually renders is unchanged by the move. If this starts
+        # failing, move_to_waitlist owes Google a refresh after all.
+        after = get_next_event_for_pass(profile)
+        assert after is not None
+        assert (before["title"], before["date"]) == (after["title"], after["date"])
 
 
 @pytest.mark.django_db
