@@ -1288,7 +1288,11 @@ URLIZE_ASSUME_HTTPS = True
 # =============================================================================
 # PASSKIT (APPLE WALLET) SETTINGS
 # =============================================================================
-PASSKIT_WEB_SERVICE_BASE_PATH = "/wallet/v1"
+# The PassKit webServiceURL ROOT. Apple appends its own "/v1/..." protocol
+# paths to this (e.g. /wallet + /v1/devices/... -> /wallet/v1/devices/...),
+# so this must be the unversioned root, not /wallet/v1 — otherwise every
+# PassKit web-service request 404s with /wallet/v1/v1/...
+PASSKIT_WEB_SERVICE_BASE_PATH = os.getenv("PASSKIT_WEB_SERVICE_BASE_PATH", "/wallet")
 PASSKIT_AUTH_TOKEN = os.getenv("PASSKIT_AUTH_TOKEN")
 PASSKIT_AUTH_TOKEN_RESOLVER = os.getenv("PASSKIT_AUTH_TOKEN_RESOLVER")
 PASSKIT_PASS_PROVIDER = os.getenv(

@@ -10,6 +10,7 @@ Reuses signing infrastructure from apple_pass.py.
 
 import secrets
 from datetime import timedelta
+from urllib.parse import urlparse
 
 from .apple_pass import (
     _build_pkpass,
@@ -17,6 +18,7 @@ from .apple_pass import (
     _require_setting,
     resolve_web_service_url,
 )
+from ..models import CrushProfile
 
 
 def _ensure_event_ticket_serial(registration):
@@ -35,19 +37,38 @@ def _ensure_event_ticket_serial(registration):
     return serial
 
 
-def _build_checkin_url(registration, request=None):
+def _origin_from_url(url):
+    """Return scheme://host for a URL, or None if it can't be parsed.
+
+    Used to carry the originating host (e.g. test.crush.lu vs crush.lu) from the
+    forwarded PassKit web_service_url into the rebuilt ticket's check-in URL.
+    """
+    if not url:
+        return None
+    parsed = urlparse(url)
+    if parsed.scheme and parsed.netloc:
+        return f"{parsed.scheme}://{parsed.netloc}"
+    return None
+
+
+def _build_checkin_url(registration, request=None, base_url=None):
     """
     Build the signed check-in URL for a registration.
 
     Reuses the same token generation as the web ticket page and Google Wallet.
+
+    base_url, when supplied, is used as the host origin (scheme://host) —
+    forwarded by the PassKit rebuild path so a ticket installed from a staging
+    slot keeps its original check-in host instead of flipping to crush.lu.
     """
     from crush_lu.views_ticket import _generate_checkin_token
 
     token = _generate_checkin_token(registration)
 
-    base_url = "https://crush.lu"
-    if request:
-        base_url = f"{request.scheme}://{request.get_host()}"
+    if not base_url:
+        base_url = "https://crush.lu"
+        if request:
+            base_url = f"{request.scheme}://{request.get_host()}"
 
     return f"{base_url}/api/events/checkin/{registration.id}/{token}/"
 
@@ -75,17 +96,24 @@ def build_apple_event_ticket(registration, request=None, web_service_url=None):
 
     event = registration.event
     serial_number = _ensure_event_ticket_serial(registration)
-    checkin_url = _build_checkin_url(registration, request)
+    # When rebuilding via the PassKit web service there is no request, so derive
+    # the check-in origin from the forwarded web_service_url — otherwise the QR
+    # silently flips to the hardcoded https://crush.lu and a staging ticket's
+    # check-in token won't validate in production.
+    checkin_base_url = _origin_from_url(web_service_url)
+    checkin_url = _build_checkin_url(
+        registration, request, base_url=checkin_base_url
+    )
 
-    # Get display name (privacy-aware)
-    try:
-        profile = registration.user.crushprofile
-        display_name = profile.display_name
-        # Reuse profile auth token for PassKit web service
-        _, auth_token = _ensure_pass_identifiers(profile)
-    except Exception:
-        display_name = registration.user.first_name or registration.user.username
-        auth_token = secrets.token_hex(16)
+    # Get display name (privacy-aware). Open-event registration can create a
+    # user with no CrushProfile; get_or_create one so the PassKit auth token is
+    # PERSISTED and resolvable by the web service. The previous fallback
+    # generated a token with secrets.token_hex(16) but never saved it, so the
+    # resolver could never find it and every such ticket's update request 401'd.
+    profile, _ = CrushProfile.objects.get_or_create(user=registration.user)
+    display_name = profile.display_name or registration.user.first_name or registration.user.username
+    # Reuse profile auth token for PassKit web service
+    _, auth_token = _ensure_pass_identifiers(profile)
 
     # Format date/time
     event_date = event.date_time.strftime("%a, %b %d, %Y")

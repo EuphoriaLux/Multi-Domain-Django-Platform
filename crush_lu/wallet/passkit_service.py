@@ -121,46 +121,72 @@ def _is_authorized(request, expected_token):
 
 def _require_authorization(request, pass_type_identifier, serial_number):
     expected_token = _get_expected_auth_token(pass_type_identifier, serial_number)
-    if not expected_token:
-        logger.error("PassKit authentication token is not configured.")
-        return HttpResponse(status=500)
-    if not _is_authorized(request, expected_token):
+    if expected_token:
+        if _is_authorized(request, expected_token):
+            return None
         return HttpResponse(status=401)
-    return None
+
+    # No per-pass token resolved. For the serial-less "list registrations"
+    # endpoint (GET /devices/.../registrations/<passTypeIdentifier>) there is
+    # no serial in the URL, so a per-profile token cannot be looked up at all;
+    # fall back to the shared PASSKIT_AUTH_TOKEN, which is the documented Apple
+    # pattern for authenticating that poll. Per-serial endpoints still require
+    # their own per-profile token.
+    if serial_number is None:
+        shared_token = getattr(settings, "PASSKIT_AUTH_TOKEN", None)
+        if shared_token and _is_authorized(request, shared_token):
+            return None
+        logger.error(
+            "PassKit list-registrations auth failed: no per-pass token and no "
+            "shared PASSKIT_AUTH_TOKEN configured."
+        )
+        return HttpResponse(status=401 if shared_token else 500)
+
+    logger.error("PassKit authentication token is not configured for serial %s", serial_number)
+    return HttpResponse(status=500)
 
 
 def build_web_service_url(request):
-    base_path = getattr(settings, "PASSKIT_WEB_SERVICE_BASE_PATH", "/wallet/v1")
+    # IMPORTANT: this is the webServiceURL embedded in pass.json, and Apple
+    # treats it as a BASE to which it appends its own protocol version
+    # ("/v1/devices/...", "/v1/passes/...", "/v1/log"). Our routes live under
+    # /wallet/v1/... (see urls_crush.py), so the base MUST be the unversioned
+    # root "/wallet" — anything versioned here produces /wallet/v1/v1/... and
+    # every PassKit web-service request 404s.
+    base_path = getattr(settings, "PASSKIT_WEB_SERVICE_BASE_PATH", "/wallet")
     return request.build_absolute_uri(base_path.rstrip("/"))
 
 
 def resolve_web_service_url(request=None, web_service_url=None):
     """
-    Resolve the webServiceURL to embed in a generated pass.
+    Resolve the webServiceURL (the PassKit service ROOT) to embed in a pass.
 
     A pass that carries an authenticationToken MUST also advertise a
-    webServiceURL, otherwise iOS silently rejects it. To make that impossible
-    to regress, prefer (in order):
+    webServiceURL, otherwise iOS silently rejects it. Apple appends its own
+    "/v1/..." protocol paths to this URL, so the value must be the unversioned
+    root (e.g. https://crush.lu/wallet), NOT include /v1.
 
-      1. An explicit caller-supplied web_service_url (e.g. forwarded by the
-         PassKit web-service provider, which already derived it from the live
-         request in get_latest_pass). Highest precedence so a rebuilt pass
-         never loses its URL.
-      2. The WALLET_APPLE_WEB_SERVICE_URL setting (host-stable across
-         instances and survives behind proxies).
-      3. Derived from the current request via build_web_service_url(request).
+    Prefer (in order):
+      1. The WALLET_APPLE_WEB_SERVICE_URL setting — host-stable across
+         instances and survives behind proxies, and the operator controls the
+         exact root so it can't drift into the /v1/v1 trap.
+      2. An explicit caller-supplied web_service_url, when it differs from the
+         versioned route base (forwarded by the PassKit provider on rebuilds).
+      3. Derived from the current request via build_web_service_url(request)
+         (which itself produces the unversioned root).
       4. "" (nothing available) — the caller's `if url:` guard then omits the
          field, matching the long-standing behaviour.
 
-    The pass builders accept request=None (e.g. provide_pass_for_serial and
-    the test suite both call them without a request), so the request-derived
-    branch is best-effort and never raises.
+    The setting wins over the caller arg deliberately: get_latest_pass derives
+    a value from its live request and passes it here; if that derivation ever
+    drifts to a versioned path, the setting must be able to override it rather
+    than the rebuild silently corrupting every subsequent pass.
     """
-    if web_service_url:
-        return web_service_url
     explicit = getattr(settings, "WALLET_APPLE_WEB_SERVICE_URL", "")
     if explicit:
         return explicit
+    if web_service_url:
+        return web_service_url
     if request is not None:
         try:
             return build_web_service_url(request)
