@@ -183,12 +183,23 @@ def _trigger_google_wallet_object_update(profile):
             # the write carries what the database actually says.
             #
             # This narrows the window rather than closing it: two overlapping
-            # callbacks can still complete their network calls out of order.
-            # Closing that needs a per-profile mutex or server-side versioning,
-            # both of which put blocking back in the request (on_commit runs
-            # inline) — not worth it for a payload that only changes on a tier
-            # upgrade, since points move via QuerySet.update() and emit no
-            # signal at all.
+            # callbacks can still finish their network calls out of order, and
+            # the loser is whichever re-read first — it lands last and writes
+            # the older balance.
+            #
+            # Do NOT reason about this as a rare case. An earlier version of
+            # this comment argued the payload only changes on a tier upgrade,
+            # since points move via QuerySet.update() and emit no signal; that
+            # stopped being true when refresh_passes_after_points_change()
+            # started scheduling one for every award and redemption. Any two
+            # overlapping points transactions for the same profile can hit it.
+            #
+            # Closing it needs per-profile serialization or server-side
+            # versioning: a mutex puts blocking back in the request (on_commit
+            # runs inline), and a queue is not available — production leaves
+            # DJANGO_TASKS_BACKEND unset, so .enqueue() would run inline too.
+            # Left open deliberately, and written down rather than assumed
+            # away.
             fresh = CrushProfile.objects.filter(pk=profile.pk).first()
             if fresh is None or not fresh.google_wallet_object_id:
                 # Deleted, or the object was unlinked, while the callback was

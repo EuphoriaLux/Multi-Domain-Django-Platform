@@ -1760,6 +1760,42 @@ class TestPointsChangesReachThePasses:
         assert referrer.membership_tier != "basic"
         assert update.call_count == 1
 
+    def test_the_profile_approval_bonus_refreshes_the_passes(
+        self, test_user_with_profile, settings
+    ):
+        from datetime import date
+
+        from crush_lu.models import CrushProfile
+        from crush_lu.referrals import check_and_apply_profile_approved_reward
+
+        # The bonus is a second QuerySet.update() site with the same shape as
+        # the award above. Pinning the point settings rather than inheriting
+        # them keeps the tier arithmetic below deterministic.
+        settings.REFERRAL_POINTS_PER_SIGNUP = 100
+        settings.REFERRAL_POINTS_PER_PROFILE_APPROVED = 50
+        settings.MEMBERSHIP_TIER_THRESHOLDS = {
+            "bronze": 200,
+            "silver": 500,
+            "gold": 1000,
+        }
+        referrer, attribution = self._referred(test_user_with_profile)
+        # Reached only once the signup reward has already landed.
+        attribution.reward_applied = True
+        attribution.reward_points = 100
+        attribution.save(update_fields=["reward_applied", "reward_points"])
+        referred_profile = CrushProfile.objects.create(
+            user=attribution.referred_user, date_of_birth=date(1995, 5, 15)
+        )
+
+        with mock.patch("crush_lu.signals.trigger_wallet_pass_updates") as update:
+            check_and_apply_profile_approved_reward(referred_profile)
+
+        referrer.refresh_from_db()
+        assert referrer.referral_points == 50
+        # Well short of bronze, so no tier save fired the receiver for us.
+        assert referrer.membership_tier == "basic"
+        assert update.call_count == 1
+
     def test_redeeming_points_refreshes_the_passes(self, test_user_with_profile):
         from crush_lu.referrals import refresh_passes_after_points_change
 
