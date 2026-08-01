@@ -1225,20 +1225,73 @@ class TestAppleEventTicketRefreshSignal:
         # Once for the void, once for the un-void.
         assert refresh.call_count == 2
 
-    def test_undo_reactivation_pushes(
+    def test_undo_from_attended_does_not_push(
         self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
     ):
+        from crush_lu.models import EventRegistration
+
+        # The scanner's undo sends attended -> confirmed. BOTH are seat-holding,
+        # so neither voids the pass and the rebuild is byte-identical — there is
+        # nothing to push. (This used to fire off `_reactivate_ticket`; deriving
+        # from validity instead makes that flag redundant for Apple.)
+        registration = self._prepared(event_with_registrations)
+        registration.status = "attended"
+        registration.save(update_fields=["status"])
+        reloaded = EventRegistration.objects.get(pk=registration.pk)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ) as refresh:
+            with django_capture_on_commit_callbacks(execute=True):
+                reloaded._reactivate_ticket = True
+                reloaded.status = "confirmed"
+                reloaded.save(update_fields=["status"])
+
+        refresh.assert_not_called()
+
+    @pytest.mark.parametrize("invalid_status", ["waitlist", "no_show", "cancelled"])
+    def test_losing_the_seat_voids_and_pushes(
+        self,
+        invalid_status,
+        _apple_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # views_checkin rejects all three at the door, and staff can reach
+        # waitlist/no_show through the admin — so all three must void the pass,
+        # not just `cancelled`.
         registration = self._prepared(event_with_registrations)
 
         with mock.patch(
             "crush_lu.wallet.passkit_service.trigger_pass_refresh"
         ) as refresh:
             with django_capture_on_commit_callbacks(execute=True):
-                registration._reactivate_ticket = True
-                registration.status = "confirmed"
+                registration.status = invalid_status
                 registration.save(update_fields=["status"])
 
-        refresh.assert_called_once_with("pass.lu.crush", "evt-1-reg-1-abcd")
+        assert refresh.call_count == 1
+
+    def test_reassigning_the_owner_pushes(
+        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+    ):
+        from django.contrib.auth import get_user_model
+
+        # account_merge moves a registration with save(update_fields=['user']).
+        # The status never changes, but the attendee NAME the rebuild prints
+        # does — a validity-only test would ignore it.
+        registration = self._prepared(event_with_registrations)
+        keeper = get_user_model().objects.create_user(
+            username="keeper@example.com", email="keeper@example.com", password="x"
+        )
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ) as refresh:
+            with django_capture_on_commit_callbacks(execute=True):
+                registration.user = keeper
+                registration.save(update_fields=["user"])
+
+        assert refresh.call_count == 1
 
 
 @pytest.mark.django_db
@@ -1297,6 +1350,24 @@ class TestProfileRenameRefreshesTickets:
 
         pushed = {c.args[1] for c in refresh.call_args_list}
         assert pushed == {"evt-1-reg-1-abcd", "member-serial"}
+
+    def test_password_change_does_not_refresh(
+        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+    ):
+        # CrushSetPasswordForm.save() calls user.save() with no update_fields.
+        # Treating every full save as a rename made password changes fan out
+        # APNs pushes.
+        registration = self._ticketed(event_with_registrations)
+        user = registration.user
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ) as refresh:
+            with django_capture_on_commit_callbacks(execute=True):
+                user.set_password("a-brand-new-password")
+                user.save()
+
+        refresh.assert_not_called()
 
     def test_login_does_not_refresh(
         self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
@@ -1364,6 +1435,70 @@ class TestTicketStampsAreSignalFree:
         registration.refresh_from_db()
         assert registration.apple_wallet_checkin_origin == "https://test.crush.lu"
         assert registration.apple_wallet_language
+
+
+@pytest.mark.django_db
+class TestPasskitRowsAreCleanedUp:
+    """PasskitDeviceRegistration keys off the pass serial with no FK, so
+    nothing cascades. Orphans keep an APNs push token alive past the
+    account-deletion flow and keep answering the poll with a serial the web
+    service can only 500 on."""
+
+    def _row(self, serial):
+        from crush_lu.models import PasskitDeviceRegistration
+
+        return PasskitDeviceRegistration.objects.create(
+            device_library_identifier="device-abc",
+            pass_type_identifier="pass.lu.crush",
+            serial_number=serial,
+            push_token="push-tok",
+        )
+
+    def test_deleting_a_registration_drops_its_device_rows(
+        self, event_with_registrations
+    ):
+        from crush_lu.models import PasskitDeviceRegistration
+
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        registration.apple_wallet_ticket_serial = "evt-1-reg-1-abcd"
+        registration.save(update_fields=["apple_wallet_ticket_serial"])
+        self._row("evt-1-reg-1-abcd")
+
+        registration.delete()
+        assert not PasskitDeviceRegistration.objects.filter(
+            serial_number="evt-1-reg-1-abcd"
+        ).exists()
+
+    def test_deleting_a_profile_drops_its_member_device_rows(
+        self, test_user_with_profile
+    ):
+        from crush_lu.models import PasskitDeviceRegistration
+
+        _user, profile = test_user_with_profile
+        profile.apple_pass_serial = "member-serial"
+        profile.save(update_fields=["apple_pass_serial"])
+        self._row("member-serial")
+
+        profile.delete()
+        assert not PasskitDeviceRegistration.objects.filter(
+            serial_number="member-serial"
+        ).exists()
+
+    def test_unrelated_rows_survive(self, event_with_registrations):
+        from crush_lu.models import PasskitDeviceRegistration
+
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        registration.apple_wallet_ticket_serial = "evt-1-reg-1-abcd"
+        registration.save(update_fields=["apple_wallet_ticket_serial"])
+        self._row("evt-1-reg-1-abcd")
+        self._row("someone-elses-serial")
+
+        registration.delete()
+        assert PasskitDeviceRegistration.objects.filter(
+            serial_number="someone-elses-serial"
+        ).exists()
 
 
 @pytest.mark.django_db

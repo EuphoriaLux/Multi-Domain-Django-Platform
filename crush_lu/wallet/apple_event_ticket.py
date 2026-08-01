@@ -22,6 +22,7 @@ from .apple_pass import (
     resolve_web_service_url,
 )
 from ..models import CrushProfile, EventRegistration
+from ..models.events import SEAT_HOLDING_STATUSES
 
 
 def _stamp_ticket_field(registration, field, value):
@@ -341,16 +342,22 @@ def build_apple_event_ticket(registration, request=None, web_service_url=None):
     # would produce something visually identical — `voided` is what actually
     # makes Wallet show it as invalid.
     #
-    # BOTH levels count: the seat can be cancelled (registration.status) or the
-    # whole event can be (event.is_cancelled, set by the admin's bulk action).
-    # An event-level cancellation leaves every registration "confirmed", so
+    # Validity is derived from SEAT_HOLDING_STATUSES rather than a hand-rolled
+    # list, so it stays in step with what the door actually accepts:
+    # `waitlist` and `no_show` are just as invalid as `cancelled` (views_checkin
+    # rejects all three), and staff can move a seat to either through the admin.
+    # `attended` IS seat-holding, so a used ticket keeps rendering as the
+    # legitimate record it is — reuse is prevented server-side by the check-in
+    # token, not by the pass appearance.
+    #
+    # BOTH levels count: the seat can lose validity, or the whole event can be
+    # cancelled (event.is_cancelled, set by the admin's bulk action). An
+    # event-level cancellation leaves every registration "confirmed", so
     # checking only the seat would let a cancelled event's tickets still read
     # as valid at the door.
-    #
-    # `attended` deliberately does NOT void: it is a used but legitimate
-    # record, and reuse is prevented server-side by the check-in token, not by
-    # the pass appearance.
-    if registration.status == "cancelled" or getattr(event, "is_cancelled", False):
+    if registration.status not in SEAT_HOLDING_STATUSES or getattr(
+        event, "is_cancelled", False
+    ):
         payload["voided"] = True
 
     # Add venue location for lock-screen surfacing

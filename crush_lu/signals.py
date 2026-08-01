@@ -68,6 +68,12 @@ WALLET_UPDATE_PROFILE_FIELDS = {
     "show_full_name",
 }
 
+# The subset that appears on an EVENT TICKET, whose only profile input is the
+# attendee name. `display_name` is a property (not a field, so it can never
+# reach update_fields) computed from `show_full_name` plus the User's names —
+# and User renames are handled by refresh_wallet_passes_on_user_rename.
+WALLET_TICKET_IDENTITY_FIELDS = {"show_full_name"}
+
 
 def _trigger_apple_pass_refresh(profile):
     """
@@ -2485,6 +2491,59 @@ def auto_approve_profile_on_luxid_connect(sender, request, sociallogin, **kwargs
 # =============================================================================
 
 
+def _delete_passkit_registrations(*serials):
+    """Drop PassKit device rows for serials whose owner is going away.
+
+    PasskitDeviceRegistration keys off the pass SERIAL, with no FK to the
+    profile or registration, so nothing cascades. Left behind, those rows keep
+    the device's APNs push token alive past the account-deletion flow that
+    promises to remove Crush.lu data, and they keep answering the device poll
+    with a serial nothing can resolve — which the web service then answers 500
+    (no expected token) on every fetch and unregister.
+    """
+    serials = [s for s in serials if s]
+    if not serials:
+        return 0
+    from .models import PasskitDeviceRegistration
+
+    deleted, _ = PasskitDeviceRegistration.objects.filter(
+        serial_number__in=serials
+    ).delete()
+    return deleted
+
+
+@receiver(post_delete, sender=CrushProfile)
+def cleanup_passkit_registrations_on_profile_delete(sender, instance, **kwargs):
+    _delete_passkit_registrations(instance.apple_pass_serial)
+
+
+@receiver(post_delete, sender=EventRegistration)
+def cleanup_passkit_registrations_on_registration_delete(sender, instance, **kwargs):
+    _delete_passkit_registrations(instance.apple_wallet_ticket_serial)
+
+
+_USER_NAME_FIELDS = {"first_name", "last_name"}
+
+
+@receiver(pre_save, sender=User)
+def remember_previous_user_name(sender, instance, update_fields=None, **kwargs):
+    """Snapshot the stored name so post_save can tell a rename from any save.
+
+    Only queries when a rename is actually possible: login writes
+    ``update_fields=["last_login"]`` on every sign-in and must not pay for this.
+    """
+    instance._previous_name = None
+    if not instance.pk:
+        return
+    if update_fields is not None and not (set(update_fields) & _USER_NAME_FIELDS):
+        return
+    instance._previous_name = (
+        User.objects.filter(pk=instance.pk)
+        .values_list("first_name", "last_name")
+        .first()
+    )
+
+
 @receiver(post_save, sender=User)
 def refresh_wallet_passes_on_user_rename(
     sender, instance, created, update_fields, **kwargs
@@ -2500,14 +2559,16 @@ def refresh_wallet_passes_on_user_rename(
     appear in a profile ``update_fields`` either. Renames therefore left stale
     names in Wallet indefinitely.
 
-    Login writes ``update_fields=["last_login"]``, so gating on the name fields
-    keeps this off that path entirely.
+    Compares the persisted name rather than assuming a full save is a rename:
+    ``CrushSetPasswordForm.save()`` calls ``user.save()`` after changing only
+    the password, and treating that as a rename made every password change fan
+    out APNs pushes. Login writes ``update_fields=["last_login"]``, which the
+    pre_save above skips entirely.
     """
     if created:
         return
-    if update_fields is not None and not (
-        set(update_fields) & {"first_name", "last_name"}
-    ):
+    previous = getattr(instance, "_previous_name", None)
+    if previous is None or previous == (instance.first_name, instance.last_name):
         return
 
     try:
@@ -2567,8 +2628,16 @@ def trigger_wallet_pass_update_on_profile_change(
     - show_photo_on_wallet, photo_1 (appearance)
     - display_name, first_name, last_name, show_full_name (identity)
     """
-    identity_changed = update_fields is None or bool(
-        set(update_fields) & WALLET_UPDATE_PROFILE_FIELDS
+    # Narrower than WALLET_UPDATE_PROFILE_FIELDS on purpose: that set also
+    # carries member-pass-only fields (referral_points, membership_tier,
+    # show_photo_on_wallet, photo_1), none of which appears in a ticket. Gating
+    # tickets on it meant a tier bump or a photo upload refreshed every
+    # historical ticket the user owns and burned the APNs budget downloading
+    # byte-identical packages. The only profile input to a ticket is the
+    # attendee name; the User half of that is handled by the rename receiver
+    # above.
+    ticket_identity_changed = update_fields is None or bool(
+        set(update_fields) & WALLET_TICKET_IDENTITY_FIELDS
     )
 
     # Event tickets print the holder's name and carry their own evt-* serials,
@@ -2580,7 +2649,7 @@ def trigger_wallet_pass_update_on_profile_change(
     #   * the serial guard — such an attendee has no member pass or Google
     #     object, so every later rename returned here and their installed
     #     ticket kept the old name forever.
-    if identity_changed:
+    if ticket_identity_changed:
         _refresh_user_event_tickets(instance)
 
     # Skip if this is a new profile (no pass exists yet)
@@ -2896,7 +2965,7 @@ def handle_event_ticket_on_registration_change(sender, instance, created, **kwar
 
 @receiver(post_save, sender=EventRegistration)
 def refresh_apple_event_ticket_on_registration_change(
-    sender, instance, created, **kwargs
+    sender, instance, created, update_fields=None, **kwargs
 ):
     """
     Push an Apple Wallet refresh when an event ticket's meaning changes.
@@ -2938,22 +3007,29 @@ def refresh_apple_event_ticket_on_registration_change(
         return
 
     # Fire when the pass's VOIDED state flips — in either direction — rather
-    # than whenever the row happens to be cancelled. Editing any other field on
+    # than whenever the row happens to be invalid. Editing any other field on
     # an already-cancelled registration used to push a rebuild that could not
     # differ from the installed pass.
+    #
+    # Validity tracks SEAT_HOLDING_STATUSES, matching what build_apple_event_
+    # ticket encodes, so moving a seat to `waitlist` or `no_show` un-voids or
+    # voids the pass exactly like `cancelled` does.
     #
     # _previous_status (remember_previous_registration_status, above) is
     # re-read before EVERY save, so it stays correct when one in-memory
     # instance is put through several transitions — confirmed -> cancelled ->
     # confirmed on the same object would otherwise still report the status the
     # row was first loaded with, and the restoration would emit no refresh.
-    was_cancelled = getattr(instance, "_previous_status", None) == "cancelled"
-    is_cancelled = instance.status == "cancelled"
-    should_refresh = was_cancelled != is_cancelled or (
-        instance.status in ("confirmed", "pending")
-        and getattr(instance, "_reactivate_ticket", False)
-    )
-    if not should_refresh:
+    previous_status = getattr(instance, "_previous_status", None)
+    was_valid = previous_status in SEAT_HOLDING_STATUSES
+    is_valid = instance.status in SEAT_HOLDING_STATUSES
+
+    # An account merge reassigns the row (save(update_fields=['user'])), which
+    # changes the attendee NAME the rebuild prints while leaving the status
+    # untouched — a validity-only test would ignore it entirely.
+    owner_changed = update_fields is not None and "user" in set(update_fields)
+
+    if not (was_valid != is_valid or owner_changed):
         return
 
     serial = instance.apple_wallet_ticket_serial
