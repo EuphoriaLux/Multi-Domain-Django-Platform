@@ -31,6 +31,20 @@
         <p class="text-gray-600 dark:text-gray-300 mb-6">
             {% trans "The event is currently full, but we'll notify you if a spot opens up." %}
         </p>
+    {% elif registration.status == 'pending' %}
+        {% comment %}
+          A paid event's signup lands in "pending" and is sent the
+          payment-required email, not the confirmation one. Without this branch
+          the screen said "We've sent a confirmation email" while the email in
+          their inbox asked them to pay — directly contradicting each other.
+        {% endcomment %}
+        <div class="mb-4">
+            {% include "shared/icons/clock.html" with class="w-16 h-16 text-emerald-500 mx-auto" %}
+        </div>
+        <h3 class="text-2xl font-bold mb-2">{% trans "Your Spot Is Reserved!" %}</h3>
+        <p class="text-gray-600 dark:text-gray-300 mb-6">
+            {% trans "Complete your payment to confirm your registration. We've emailed you the details." %}
+        </p>
     {% else %}
         <div class="mb-4">
             {% include "shared/icons/check-circle.html" with class="w-16 h-16 text-green-500 mx-auto" %}

@@ -3,6 +3,7 @@ from datetime import timedelta
 from django.utils import timezone
 
 from .models import ReferralCode, EventRegistration, MeetupEvent
+from .models.events import SEAT_HOLDING_STATUSES
 from .referrals import build_referral_url
 
 
@@ -37,7 +38,7 @@ def get_next_event_for_pass(profile):
         EventRegistration.objects.filter(
             user=profile.user,
             event__date_time__gte=MeetupEvent.live_lookback_cutoff(now),
-            status__in=["confirmed", "waitlist"],
+            status__in=[*SEAT_HOLDING_STATUSES, "waitlist"],
         )
         .select_related("event")
         .order_by("event__date_time")

@@ -18,6 +18,8 @@ import uuid
 
 from django.conf import settings
 from django.db import models
+
+from .events import SEAT_HOLDING_STATUSES
 from django.utils.translation import gettext_lazy as _
 
 from .profiles import get_crush_photo_storage
@@ -256,7 +258,7 @@ class CacheHunt(models.Model):
         )
 
         reg_count = EventRegistration.objects.filter(
-            event=self.event, status__in=["confirmed", "attended"]
+            event=self.event, status__in=SEAT_HOLDING_STATUSES
         ).count()
         checks.append(
             {
@@ -537,8 +539,11 @@ class CacheTeam(models.Model):
         return f"{self.name} ({self.hunt.event})"
 
     def member_count(self):
+        # Pending seat holders can join a team, so they must count against
+        # team_size_max -- otherwise several of them all pass the capacity
+        # check and the team is over the limit once they pay.
         return self.members.filter(
-            registration__status__in=["confirmed", "attended"]
+            registration__status__in=SEAT_HOLDING_STATUSES
         ).count()
 
 

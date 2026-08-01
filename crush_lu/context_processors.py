@@ -22,6 +22,7 @@ from .models import (
     MeetupEvent,
 )
 
+from crush_lu.models.events import SEAT_HOLDING_STATUSES
 logger = logging.getLogger(__name__)
 
 # Simple in-memory cache for site config (avoids DB hit on every request)
@@ -268,7 +269,7 @@ def crush_user_context(request):
             EventRegistration.objects.filter(
                 user=request.user,
                 event__date_time__gte=generous_cutoff,
-                status__in=["confirmed", "waitlist", "attended"],
+                status__in=[*SEAT_HOLDING_STATUSES, "waitlist"],
             )
             .select_related("event")
             .order_by("event__date_time")

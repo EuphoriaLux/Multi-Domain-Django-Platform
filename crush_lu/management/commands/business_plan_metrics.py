@@ -10,6 +10,7 @@ Supports --since / --until date filters and --monthly breakdown.
 import json
 from datetime import date, datetime, timedelta
 
+from crush_lu.models.events import SEAT_HOLDING_STATUSES
 from django.core.management.base import BaseCommand
 from django.db.models import Avg, Count, F, FloatField, ExpressionWrapper, Exists, OuterRef, Q
 from django.utils import timezone
@@ -400,7 +401,7 @@ class Command(BaseCommand):
         fill_data = active_events.filter(max_participants__gt=0).annotate(
             confirmed_count=Count(
                 "eventregistration",
-                filter=Q(eventregistration__status__in=["confirmed", "attended"]),
+                filter=Q(eventregistration__status__in=SEAT_HOLDING_STATUSES),
             )
         ).annotate(
             fill_pct=ExpressionWrapper(

@@ -65,7 +65,10 @@ _CHECKIN_UPDATE_FIELDS = [
 #: requires `waitlist`. Anything else on the row is a stale or hand-written
 #: value and falls back to `confirmed`, which is what the undo did for every
 #: row before provenance existed.
-UNDO_RESTORABLE_STATUSES = frozenset({"confirmed", "waitlist"})
+# "pending" is restorable now that a Pending Payment seat can be scanned:
+# without it, undoing an accidental scan silently converted an unpaid
+# registration into a confirmed one.
+UNDO_RESTORABLE_STATUSES = frozenset({"confirmed", "waitlist", "pending"})
 
 
 def _record_checkin_provenance(registration):
@@ -576,7 +579,10 @@ def coach_mark_verified(request, event_id, registration_id):
                 {"success": False, "error": str(_("Registration not found."))},
                 status=404,
             )
-        if registration.status not in ("confirmed", "attended"):
+        # A pending seat is admitted at the door, so a coach must be able to
+        # verify that person too -- otherwise the cash-at-the-door attendee
+        # can be scanned in but not verified.
+        if registration.status not in SEAT_HOLDING_STATUSES:
             return JsonResponse(
                 {
                     "success": False,
@@ -826,6 +832,12 @@ def coach_undo_checkin(request, event_id, registration_id):
         # capacity and registration priority are counted from.
         restored_status = registration.checkin_prior_status
         if restored_status not in UNDO_RESTORABLE_STATUSES:
+            restored_status = "confirmed"
+        # The provenance value is a snapshot from scan time. Payment can land
+        # between the scan and the undo (SumUp settling, or staff recording
+        # cash), so restoring a stale "pending" would relabel a paid seat as
+        # Pending Payment and drop it out of every confirmed-only workflow.
+        if restored_status == "pending" and registration.payment_confirmed:
             restored_status = "confirmed"
 
         registration.status = restored_status

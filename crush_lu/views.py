@@ -25,6 +25,8 @@ from django.views.decorators.http import require_http_methods
 import logging
 import json
 
+from crush_lu.models.events import SEAT_HOLDING_STATUSES
+
 logger = logging.getLogger(__name__)
 
 AUTOSAVE_ABOUT_FIELDS = {
@@ -314,7 +316,11 @@ def _verification_path_context(profile, user):
         now = timezone.now()
         candidate_registrations = EventRegistration.objects.filter(
             user=user,
-            status__in=("confirmed", "waitlist"),
+            # A pending (unpaid) seat is just as much a commitment to be
+            # verified at the event as a confirmed one -- omitting it showed the
+            # generic "Verify now" prompt to someone who had already chosen the
+            # event path and holds a seat.
+            status__in=(*SEAT_HOLDING_STATUSES, "waitlist"),
             event__is_cancelled=False,
             event__date_time__gte=MeetupEvent.live_lookback_cutoff(now),
         ).select_related("event")
@@ -442,7 +448,15 @@ def dashboard(request):
             _reg.can_cancel = bool(
                 _reg.event
                 and _reg.event.date_time > _now
-                and _reg.status in ("confirmed", "waitlist")
+                # A pending (unpaid) seat can be given up like any other --
+                # omitting it hid the Cancel button from the dashboard, even
+                # though event_cancel() itself accepts the status.
+                #
+                # Deliberately NOT SEAT_HOLDING_STATUSES: that set means "holds
+                # a seat" and includes "attended", but event_cancel rejects an
+                # attended registration outright, so offering Cancel to someone
+                # who checked in early is a button that cannot work.
+                and _reg.status in ("confirmed", "pending", "waitlist")
             )
             if (
                 _reg.status == "attended"
