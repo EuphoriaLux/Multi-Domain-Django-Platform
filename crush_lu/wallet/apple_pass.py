@@ -12,6 +12,7 @@ from cryptography.hazmat.primitives.serialization import pkcs7
 from cryptography.x509 import load_pem_x509_certificate
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+from django.utils import translation
 
 from ..wallet_pass import build_wallet_pass_data
 from .passkit_service import resolve_web_service_url
@@ -405,23 +406,33 @@ def provide_pass_for_serial(
     an updated pass after an APNS push notification.
 
     Handles both member passes and event tickets (evt-* serial prefix).
+
+    Apple's update request carries no browser locale, so without an explicit
+    activation the rebuild runs under LANGUAGE_CODE ("en") and every
+    modeltranslation descriptor it reads — notably event.title — resolves to
+    English. The first refresh would then silently replace a French or German
+    holder's installed pass with an English one. Each branch therefore
+    activates the language the pass was issued in.
     """
     # Event ticket serials start with "evt-"
     if serial_number.startswith("evt-"):
         from ..models import EventRegistration
         from .apple_event_ticket import build_apple_event_ticket
 
-        registration = EventRegistration.objects.filter(
-            apple_wallet_ticket_serial=serial_number
-        ).select_related("event", "user").first()
+        registration = (
+            EventRegistration.objects.filter(apple_wallet_ticket_serial=serial_number)
+            .select_related("event", "user__crushprofile")
+            .first()
+        )
         if not registration:
             return None
         # Forward the caller-supplied web_service_url (already derived from the
         # live request in get_latest_pass) so a rebuilt ticket keeps its
         # webServiceURL even though there is no request here.
-        return build_apple_event_ticket(
-            registration, web_service_url=web_service_url
-        )
+        with translation.override(_ticket_language(registration)):
+            return build_apple_event_ticket(
+                registration, web_service_url=web_service_url
+            )
 
     from ..models import CrushProfile
 
@@ -430,4 +441,19 @@ def provide_pass_for_serial(
         return None
     # See the evt- branch: forward web_service_url so the rebuilt member pass
     # does not silently drop webServiceURL.
-    return build_apple_pass(profile, web_service_url=web_service_url)
+    with translation.override(getattr(profile, "preferred_language", "") or None):
+        return build_apple_pass(profile, web_service_url=web_service_url)
+
+
+def _ticket_language(registration):
+    """The language an event ticket was issued in, or None to leave the default.
+
+    Prefers the language stamped on the registration at download time, since an
+    open-event attendee may have no CrushProfile at all; falls back to the
+    holder's profile preference for tickets issued before that field existed.
+    """
+    stamped = getattr(registration, "apple_wallet_language", "")
+    if stamped:
+        return stamped
+    profile = getattr(registration.user, "crushprofile", None)
+    return getattr(profile, "preferred_language", "") or None

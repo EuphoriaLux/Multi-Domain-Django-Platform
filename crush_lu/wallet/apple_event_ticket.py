@@ -12,6 +12,8 @@ import secrets
 from datetime import timedelta
 from urllib.parse import urlparse
 
+from django.utils import translation
+
 from .apple_pass import (
     _build_pkpass,
     _ensure_pass_identifiers,
@@ -87,6 +89,21 @@ def _ensure_checkin_origin(registration, request):
         registration.apple_wallet_checkin_origin = origin
         registration.save(update_fields=["apple_wallet_checkin_origin"])
     return origin
+
+
+def _stamp_ticket_language(registration):
+    """Record the language this ticket is being rendered in.
+
+    The PassKit rebuild has no request and therefore no locale, so without this
+    a French or German holder's first refresh would return an English pass.
+    Re-downloading in another language re-stamps it, keeping the stored value
+    and the installed pass in agreement.
+    """
+    language = translation.get_language() or ""
+    if language and registration.apple_wallet_language != language:
+        registration.apple_wallet_language = language
+        registration.save(update_fields=["apple_wallet_language"])
+    return language
 
 
 def _resolve_checkin_base_url(
@@ -168,6 +185,10 @@ def build_apple_event_ticket(registration, request=None, web_service_url=None):
         # Stamp the issuing host now; a later rebuild has no request and the
         # forwarded webServiceURL may name a different slot entirely.
         _ensure_checkin_origin(registration, request)
+        # Same reasoning for the language: the rebuild carries no locale, and
+        # an open-event attendee may have no profile preference to fall back
+        # on, so record what this download actually rendered.
+        _stamp_ticket_language(registration)
     checkin_base_url = _resolve_checkin_base_url(
         request,
         issued_origin=registration.apple_wallet_checkin_origin,

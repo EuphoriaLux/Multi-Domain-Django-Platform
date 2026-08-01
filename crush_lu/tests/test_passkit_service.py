@@ -911,6 +911,29 @@ class TestEventLevelTicketRefresh:
             "pass.lu.crush", "evt-1-reg-1-abcd", mark_updated=False
         )
 
+    def test_event_change_also_refreshes_member_passes(
+        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+    ):
+        # The member card shows the holder's NEXT event, so an event edit makes
+        # it stale too — and it carries a different serial from the ticket.
+        event, registrations = event_with_registrations
+        registration = registrations[0]
+        registration.apple_wallet_ticket_serial = "evt-1-reg-1-abcd"
+        registration.save(update_fields=["apple_wallet_ticket_serial"])
+        profile = registration.user.crushprofile
+        profile.apple_pass_serial = "member-serial"
+        profile.save(update_fields=["apple_pass_serial"])
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ) as refresh:
+            with django_capture_on_commit_callbacks(execute=True):
+                event.location = "A different bar"
+                event.save()
+
+        pushed = {call.args[1] for call in refresh.call_args_list}
+        assert pushed == {"evt-1-reg-1-abcd", "member-serial"}
+
     def test_no_payload_change_does_not_push(
         self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
     ):
@@ -1169,6 +1192,27 @@ class TestAppleEventTicketRefreshSignal:
 
         refresh.assert_not_called()
 
+    def test_multiple_transitions_on_one_instance_still_push(
+        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+    ):
+        # _previous_status is re-read before EVERY save. A snapshot taken once
+        # at load would still report "confirmed" on the second save here, so
+        # the restoration would emit no refresh and the ticket would stay
+        # voided.
+        registration = self._prepared(event_with_registrations)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ) as refresh:
+            with django_capture_on_commit_callbacks(execute=True):
+                registration.status = "cancelled"
+                registration.save(update_fields=["status"])
+                registration.status = "confirmed"
+                registration.save(update_fields=["status"])
+
+        # Once for the void, once for the un-void.
+        assert refresh.call_count == 2
+
     def test_undo_reactivation_pushes(
         self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
     ):
@@ -1183,6 +1227,61 @@ class TestAppleEventTicketRefreshSignal:
                 registration.save(update_fields=["status"])
 
         refresh.assert_called_once_with("pass.lu.crush", "evt-1-reg-1-abcd")
+
+
+@pytest.mark.django_db
+class TestRebuildLanguage:
+    """Apple's update request carries no locale. Without an explicit
+    activation the rebuild reads modeltranslation descriptors under `en`, so a
+    French holder's first refresh would silently return an English pass."""
+
+    def test_issuance_language_is_stamped(
+        self, _apple_identity, event_with_registrations
+    ):
+        from django.utils import translation
+
+        from crush_lu.wallet import apple_event_ticket
+
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        request = RequestFactory().get("/", HTTP_HOST="crush.lu", secure=True)
+
+        with translation.override("fr"):
+            with mock.patch.object(
+                apple_event_ticket, "_build_pkpass", return_value=b""
+            ):
+                apple_event_ticket.build_apple_event_ticket(
+                    registration, request=request
+                )
+
+        registration.refresh_from_db()
+        assert registration.apple_wallet_language == "fr"
+
+    def test_rebuild_uses_the_stamped_language(
+        self, _apple_identity, event_with_registrations
+    ):
+        from crush_lu.wallet.apple_pass import _ticket_language
+
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        registration.apple_wallet_language = "de"
+        registration.save(update_fields=["apple_wallet_language"])
+
+        assert _ticket_language(registration) == "de"
+
+    def test_falls_back_to_the_profile_preference(
+        self, _apple_identity, event_with_registrations
+    ):
+        from crush_lu.wallet.apple_pass import _ticket_language
+
+        # Tickets issued before the field existed have no stamp.
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        profile = registration.user.crushprofile
+        profile.preferred_language = "fr"
+        profile.save(update_fields=["preferred_language"])
+
+        assert _ticket_language(registration) == "fr"
 
 
 @pytest.mark.django_db

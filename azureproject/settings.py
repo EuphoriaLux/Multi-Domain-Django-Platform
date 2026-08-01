@@ -1302,6 +1302,13 @@ PASSKIT_AUTH_TOKEN_RESOLVER = os.getenv("PASSKIT_AUTH_TOKEN_RESOLVER")
 # update — their tag is advanced in the same bulk query — just on Wallet's next
 # periodic poll rather than instantly.
 PASSKIT_BULK_PUSH_LIMIT = int(os.getenv("PASSKIT_BULK_PUSH_LIMIT", "20"))
+# The count above is not itself a bound on the work: one serial fans out to
+# every device that registered it, each an HTTP call with a 10s timeout. This
+# wall-clock budget is what actually stops a slow or unreachable APNs from
+# holding the admin request open after the row has already committed.
+PASSKIT_BULK_PUSH_BUDGET_SECONDS = float(
+    os.getenv("PASSKIT_BULK_PUSH_BUDGET_SECONDS", "5")
+)
 PASSKIT_PASS_PROVIDER = os.getenv(
     "PASSKIT_PASS_PROVIDER",
     "crush_lu.wallet.apple_pass.provide_pass_for_serial",

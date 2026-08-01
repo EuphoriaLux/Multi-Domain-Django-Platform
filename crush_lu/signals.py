@@ -560,14 +560,35 @@ def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
         return
 
     try:
-        from .wallet.passkit_service import refresh_event_tickets
+        from .wallet.passkit_service import (
+            refresh_event_tickets,
+            refresh_ticket_serials,
+        )
 
         refreshed = refresh_event_tickets(instance)
-        if refreshed:
+
+        # Member passes embed this event too — build_wallet_pass_data puts the
+        # holder's NEXT event (title, date, time, location) on the card — and
+        # they carry a different serial, so refreshing only the ticket serials
+        # leaves every attendee's member pass showing the old details.
+        member_serials = list(
+            CrushProfile.objects.filter(
+                user__eventregistration__event=instance
+            )
+            .exclude(apple_pass_serial="")
+            .values_list("apple_pass_serial", flat=True)
+            .distinct()
+        )
+        refresh_ticket_serials(
+            member_serials, context=f"Event {instance.pk} member passes"
+        )
+
+        if refreshed or member_serials:
             logger.info(
-                "Scheduled Apple ticket refresh for %s registration(s) on "
-                "event %s (changed: %s)",
+                "Scheduled Apple refresh for %s ticket(s) and %s member "
+                "pass(es) on event %s (changed: %s)",
                 refreshed,
+                len(member_serials),
                 instance.pk,
                 ", ".join(changed),
             )
@@ -2517,6 +2538,26 @@ def trigger_wallet_pass_update_on_profile_change(
                 f"Error triggering wallet update for user {instance.user_id}: {e}"
             )
 
+        # The holder's name is printed on their event TICKETS too, and those
+        # carry their own evt-* serials — trigger_wallet_pass_updates only
+        # targets the member pass, so a rename left every installed ticket
+        # showing the old name until something else refreshed it.
+        try:
+            from .wallet.passkit_service import refresh_ticket_serials
+
+            ticket_serials = list(
+                EventRegistration.objects.filter(user_id=instance.user_id)
+                .exclude(apple_wallet_ticket_serial="")
+                .values_list("apple_wallet_ticket_serial", flat=True)
+            )
+            refresh_ticket_serials(
+                ticket_serials, context=f"Profile {instance.pk} identity change"
+            )
+        except Exception as e:
+            logger.error(
+                f"Error refreshing event tickets for user {instance.user_id}: {e}"
+            )
+
 
 @receiver(pre_save, sender=EventRegistration)
 def remember_previous_registration_status(sender, instance, **kwargs):
@@ -2838,7 +2879,13 @@ def refresh_apple_event_ticket_on_registration_change(
     # than whenever the row happens to be cancelled. Editing any other field on
     # an already-cancelled registration used to push a rebuild that could not
     # differ from the installed pass.
-    was_cancelled = getattr(instance, "_loaded_status", None) == "cancelled"
+    #
+    # _previous_status (remember_previous_registration_status, above) is
+    # re-read before EVERY save, so it stays correct when one in-memory
+    # instance is put through several transitions — confirmed -> cancelled ->
+    # confirmed on the same object would otherwise still report the status the
+    # row was first loaded with, and the restoration would emit no refresh.
+    was_cancelled = getattr(instance, "_previous_status", None) == "cancelled"
     is_cancelled = instance.status == "cancelled"
     should_refresh = was_cancelled != is_cancelled or (
         instance.status in ("confirmed", "pending")

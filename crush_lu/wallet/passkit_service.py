@@ -2,6 +2,7 @@ import secrets
 import importlib
 import json
 import logging
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -484,6 +485,7 @@ def refresh_ticket_serials(serials, context=""):
         return 0
 
     push_limit = getattr(settings, "PASSKIT_BULK_PUSH_LIMIT", 20)
+    push_budget = getattr(settings, "PASSKIT_BULK_PUSH_BUDGET_SECONDS", 5.0)
 
     def _after_commit():
         from .passkit_apns import mark_passes_updated_bulk
@@ -491,25 +493,40 @@ def refresh_ticket_serials(serials, context=""):
         # Guaranteed part: one query, no network.
         mark_passes_updated_bulk(pass_type_id, serials)
 
-        # Best-effort part: bounded. mark_updated=False because the bulk query
-        # above already advanced every tag — otherwise the pushed subset gets
-        # written twice.
+        # Best-effort part, bounded by BOTH a serial count and a wall-clock
+        # budget. The count alone is not a bound on the work: one serial fans
+        # out to every device that registered it, each an HTTP call with a 10s
+        # timeout, so 20 serials is 20*N requests and an unreachable APNs could
+        # hold the admin request for minutes after the row already committed.
+        # Time is the only thing that actually bounds it.
+        #
+        # mark_updated=False because the bulk query above already advanced
+        # every tag — otherwise the pushed subset gets written twice.
+        deadline = time.monotonic() + push_budget
+        pushed = 0
         for serial in serials[:push_limit]:
+            if time.monotonic() >= deadline:
+                break
             try:
                 trigger_pass_refresh(pass_type_id, serial, mark_updated=False)
+                pushed += 1
             except Exception:
                 # One unreachable device must not strand the rest.
                 logger.exception("Failed refreshing Apple event ticket %s", serial)
 
-        skipped = len(serials) - push_limit
+        skipped = len(serials) - pushed
         if skipped > 0:
+            # Never silent: these passes still update, just on Wallet's next
+            # poll, because their tag was advanced in the bulk query above.
             logger.info(
-                "%s: pushed %s Apple ticket refresh(es), %s left to Wallet's "
-                "periodic poll (PASSKIT_BULK_PUSH_LIMIT=%s)",
+                "%s: pushed %s of %s Apple ticket refresh(es); %s left to "
+                "Wallet's periodic poll (limit=%s, budget=%ss)",
                 context or "bulk refresh",
-                push_limit,
+                pushed,
+                len(serials),
                 skipped,
                 push_limit,
+                push_budget,
             )
 
     transaction.on_commit(_after_commit)
