@@ -2660,12 +2660,14 @@ def handle_event_ticket_on_registration_change(sender, instance, created, **kwar
         # in _after_commit, from committed state.
         if instance.status in ("cancelled", "attended"):
             transaction.on_commit(_after_commit)
-        elif instance.status == "confirmed" and getattr(
+        elif instance.status in ("confirmed", "pending") and getattr(
             instance, "_reactivate_ticket", False
         ):
-            # Undoing a mis-scan sends the row back to confirmed. Without this
-            # the member keeps a pass marked used while still holding a valid
-            # registration, so their own ticket stops being a door pass.
+            # Undoing a mis-scan sends the row back to confirmed -- or to
+            # "pending" for an unpaid seat, which is equally a valid door pass.
+            # Without this the member keeps a wallet pass marked used while
+            # still holding a valid registration, so their own ticket stops
+            # working at the door.
             #
             # Explicitly flagged by the undo path rather than derived from the
             # status, because plenty of saves leave a row confirmed without any

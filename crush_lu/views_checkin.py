@@ -833,6 +833,12 @@ def coach_undo_checkin(request, event_id, registration_id):
         restored_status = registration.checkin_prior_status
         if restored_status not in UNDO_RESTORABLE_STATUSES:
             restored_status = "confirmed"
+        # The provenance value is a snapshot from scan time. Payment can land
+        # between the scan and the undo (SumUp settling, or staff recording
+        # cash), so restoring a stale "pending" would relabel a paid seat as
+        # Pending Payment and drop it out of every confirmed-only workflow.
+        if restored_status == "pending" and registration.payment_confirmed:
+            restored_status = "confirmed"
 
         registration.status = restored_status
         registration.checked_in_at = None

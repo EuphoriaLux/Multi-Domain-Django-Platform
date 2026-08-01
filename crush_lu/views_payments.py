@@ -78,49 +78,56 @@ def create_sumup_event_checkout(request, registration_id):
     if registration.event.registration_fee <= Decimal("0.00"):
         return JsonResponse({"error": _("This event does not require payment.")}, status=400)
 
-    # Reconcile any open checkout with SumUp BEFORE taking the registration lock.
+    # One live checkout per registration, decided entirely under lock.
     #
-    # Lock ORDER matters here. _sync_checkout_with_sumup may call
-    # _apply_paid_checkout, which locks the PaymentTransaction and then the
-    # registration. Doing that while already holding the registration lock gave
-    # the two paths opposite orders -- reuse held registration→transaction, the
-    # webhook held transaction→registration -- a textbook ABBA deadlock that
-    # PostgreSQL resolves by aborting one side. Reconciling out here keeps every
-    # path on transaction→registration.
-    candidate = (
-        PaymentTransaction.objects.filter(
-            event_registration=registration,
-            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
-            status=PaymentTransaction.Status.PENDING,
-        )
-        .exclude(sumup_checkout_id="")
-        .order_by("-created_at")
-        .first()
-    )
-    if candidate:
-        _sync_checkout_with_sumup(candidate)
-
-    # One live checkout per registration.
+    # Nothing constrains PaymentTransaction to one live checkout per registration
+    # (no uniqueness on the FK), so a double-click could open two and, if both
+    # completed, the attendee was charged twice for one seat.
     #
-    # Nothing stopped a double-click (or two tabs) from creating two checkouts
-    # and two PaymentTransaction rows -- there is no uniqueness on the
-    # event_registration FK. If both were completed, _apply_paid_checkout marks
-    # each paid independently and the attendee is charged twice for one seat.
-    #
-    # The registration row is locked for the whole check-and-create so two
-    # concurrent requests serialise: the loser sees the winner's transaction and
-    # is handed the same widget instead of opening a second one. The lock is
-    # held across the SumUp call, which is deliberate -- it is a single row,
-    # contended only by the same user clicking twice.
+    # LOCK ORDER: PaymentTransaction, then EventRegistration -- the same order
+    # _apply_paid_checkout uses. An earlier attempt fixed an ABBA deadlock by
+    # moving reconciliation *outside* this block, which removed the deadlock but
+    # opened a window: the fee could change or the event could be cancelled
+    # during the (slow) SumUp call, and nothing re-checked afterwards. Holding
+    # both locks in the canonical order gets atomicity without the deadlock. The
+    # HTTP call runs under lock deliberately -- contention is one registration
+    # row, between the same user clicking twice and its own webhook.
     with transaction.atomic():
-        # Bind the locked row and re-run the checks on IT. Taking the lock and
-        # throwing the result away was the bug: this call blocks until a racing
-        # webhook commits, then the code below carried on with the pre-lock
-        # in-memory copy, still showing payment_confirmed=False, and opened a
-        # second payable checkout for a registration that had just been paid.
+        candidate = (
+            PaymentTransaction.objects.select_for_update()
+            .filter(
+                event_registration=registration,
+                purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+                status=PaymentTransaction.Status.PENDING,
+            )
+            .exclude(sumup_checkout_id="")
+            .order_by("-created_at")
+            .first()
+        )
         registration = EventRegistration.objects.select_for_update().get(
             pk=registration.pk
         )
+
+        # Only reconcile a checkout that is still for the current price. An
+        # unconditional sync could discover that a checkout opened at an
+        # obsolete fee had been paid and confirm the seat at that old amount --
+        # the staleness comparison below would never see it, because the
+        # registration is already marked paid by then.
+        event = MeetupEvent.objects.only(
+            "registration_fee", "is_cancelled"
+        ).get(pk=registration.event_id)
+        amount = event.registration_fee
+
+        if candidate and candidate.amount == amount and candidate.currency == "EUR":
+            # A locally-PENDING row is not proof the checkout is still payable:
+            # SumUp may have expired or cancelled it with no webhook or return
+            # ever landing, and we would hand back the same dead widget forever.
+            _sync_checkout_with_sumup(candidate)
+            registration.refresh_from_db()
+            event.refresh_from_db()
+            amount = event.registration_fee
+
+        # Everything below is judged on state read AFTER the provider call.
         if registration.payment_confirmed:
             return JsonResponse(
                 {"error": _("This registration is already paid.")}, status=400
@@ -134,16 +141,10 @@ def create_sumup_event_checkout(request, registration_id):
                 },
                 status=400,
             )
-
-        # Re-read the fee inside the lock. Reading it before meant an organiser
-        # editing registration_fee between the initial load and the lock left
-        # `amount` holding the obsolete price -- both the staleness comparison
-        # below and any replacement checkout would then use the old number.
-        amount = (
-            MeetupEvent.objects.only("registration_fee")
-            .get(pk=registration.event_id)
-            .registration_fee
-        )
+        if event.is_cancelled:
+            return JsonResponse(
+                {"error": _("This event has been cancelled.")}, status=400
+            )
         if amount <= Decimal("0.00"):
             return JsonResponse(
                 {"error": _("This event does not require payment.")}, status=400

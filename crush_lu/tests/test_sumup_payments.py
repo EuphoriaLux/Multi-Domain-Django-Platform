@@ -987,3 +987,97 @@ class SeatStatusAtCompletionTests(SiteTestMixin, TestCase):
 
         self.assertEqual(self.registration.status, "confirmed")
         self.assertTrue(self.registration.payment_confirmed)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class CheckoutStateAfterProviderCallTests(SiteTestMixin, TestCase):
+    """Round-7: state read AFTER the SumUp call is what decides.
+
+    Reconciliation was moved outside the lock in round 6 to break a deadlock.
+    That removed the deadlock but opened a window -- the fee could change or the
+    event could be cancelled during the (slow) provider call with nothing
+    re-checking afterwards.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        self.user = User.objects.create_user(
+            username="r7@crush.lu", email="r7@crush.lu", password="password123"
+        )
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        self.event = MeetupEvent.objects.create(
+            title="R7",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("15.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        self.url = reverse(
+            "crush_lu:sumup_create_event_checkout",
+            kwargs={"registration_id": self.registration.id},
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_stale_priced_checkout_is_never_reconciled(
+        self, mock_create_checkout, mock_get_checkout
+    ):
+        """An obsolete-price checkout must not be able to confirm the seat.
+
+        Reconciling it unconditionally could discover it had been paid and
+        confirm at the old amount -- the staleness comparison never sees that,
+        because the registration is already marked paid by then.
+        """
+        mock_create_checkout.side_effect = [
+            {"id": "CHK_OLDPRICE", "status": "PENDING"},
+            {"id": "CHK_NEWPRICE", "status": "PENDING"},
+        ]
+        self.client.force_login(self.user)
+        self.client.post(self.url)
+
+        self.event.registration_fee = Decimal("25.00")
+        self.event.save()
+        # If the stale checkout were reconciled, this would confirm at 15.00.
+        mock_get_checkout.return_value = {"id": "CHK_OLDPRICE", "status": "PAID"}
+
+        response = self.client.post(self.url)
+
+        mock_get_checkout.assert_not_called()
+        self.registration.refresh_from_db()
+        self.assertFalse(self.registration.payment_confirmed)
+        self.assertEqual(response.json()["amount"], 25.00)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_event_cancelled_during_the_provider_call_is_caught(
+        self, mock_create_checkout, mock_get_checkout
+    ):
+        """The organiser can cancel while the SumUp call is in flight."""
+        mock_create_checkout.return_value = {"id": "CHK_R7", "status": "PENDING"}
+        self.client.force_login(self.user)
+        self.client.post(self.url)
+
+        event_id = self.event.id
+
+        def cancel_midway(_checkout_id):
+            MeetupEvent.objects.filter(pk=event_id).update(is_cancelled=True)
+            return {"id": "CHK_R7", "status": "PENDING"}
+
+        mock_get_checkout.side_effect = cancel_midway
+
+        response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 400)
