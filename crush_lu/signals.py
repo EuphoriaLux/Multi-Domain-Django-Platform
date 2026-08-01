@@ -503,6 +503,20 @@ def auto_create_event_ticket_class_on_publish(sender, instance, created, **kwarg
     if not getattr(settings, "WALLET_GOOGLE_ISSUER_ID", ""):
         return
 
+    # create_event_ticket_class persists the new class id with
+    # event.save(update_fields=[...]) on THIS instance, and that nested save
+    # re-runs remember_previous_event_start — which re-reads the row the outer
+    # save has already written and overwrites the "before" snapshot with the
+    # new values. Every later receiver then compares new against new: reminder
+    # markers are not cleared on a reschedule, and no wallet refresh is
+    # scheduled at all. It bites precisely the first edit of a published event
+    # that has no class yet, which is exactly when a coach reschedules one.
+    #
+    # Preserving it across the call also keeps the nested receiver chain inert
+    # (it sees the clobbered snapshot, finds nothing changed, and no-ops), so
+    # the outer chain still schedules exactly ONE fan-out rather than two.
+    snapshot_fields = getattr(instance, "_previous_ticket_fields", None)
+    snapshot_start = getattr(instance, "_previous_date_time", None)
     try:
         from .wallet.google_event_ticket_api import create_event_ticket_class
 
@@ -517,6 +531,9 @@ def auto_create_event_ticket_class_on_publish(sender, instance, created, **kwarg
             )
     except Exception as e:
         logger.error(f"Error creating EventTicketClass for event {instance.id}: {e}")
+    finally:
+        instance._previous_ticket_fields = snapshot_fields
+        instance._previous_date_time = snapshot_start
 
 
 # Every MeetupEvent field the Apple Wallet ticket payload embeds. A change to
@@ -546,6 +563,26 @@ _TICKET_PAYLOAD_FIELDS = _TICKET_PAYLOAD_BASE_FIELDS + tuple(
     f"{field}_{code.replace('-', '_')}"
     for field in _TICKET_TRANSLATED_FIELDS
     for code, _label in settings.LANGUAGES
+)
+
+# The subset of the above that can actually change the GOOGLE member object.
+# _build_generic_object_payload renders only the next event's title and date,
+# so a venue move, address fix, coordinate correction, event-type change or
+# duration edit rewrites the Apple ticket while leaving the Google object
+# byte-identical — and paying an OAuth exchange plus up to
+# WALLET_GOOGLE_BULK_UPDATE_LIMIT synchronous PATCHes to write an unchanged
+# object is exactly the budget spend the cap exists to protect.
+#
+# `is_cancelled` belongs here: get_next_event_for_pass drops a cancelled event,
+# so the block flips to "Browse events on crush.lu". The translated title
+# columns belong here for the reason given above — the card renders whichever
+# language its holder reads. Keep in sync with
+# google_api._build_generic_object_payload.
+_GOOGLE_PAYLOAD_FIELDS = frozenset(
+    ("date_time", "is_cancelled")
+    + tuple(
+        f"title_{code.replace('-', '_')}" for code, _label in settings.LANGUAGES
+    )
 )
 
 # Registration statuses under which an event can appear on a MEMBER card.
@@ -716,9 +753,18 @@ def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
     # Google ticket to carry the change instead — the member object is the only
     # Google surface this event appears on.
     #
+    # Gated on its OWN field subset, not the Apple one: the Google object
+    # renders far less of the event, so most edits that rewrite a ticket leave
+    # it identical, and this fan-out is far more expensive per pass than
+    # advancing an Apple update tag.
+    #
     # Its own try/except, not the Apple block's: these are independent
     # fan-outs over independent APIs, and a Google outage must not skip the
     # Apple refresh (nor be reported as an Apple failure).
+    google_changed = [field for field in changed if field in _GOOGLE_PAYLOAD_FIELDS]
+    if not google_changed:
+        return
+
     try:
         from .wallet.google_api import refresh_google_wallet_objects
 
@@ -734,7 +780,7 @@ def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
                 "(changed: %s)",
                 scheduled,
                 instance.pk,
-                ", ".join(changed),
+                ", ".join(google_changed),
             )
     except Exception as e:
         logger.error(

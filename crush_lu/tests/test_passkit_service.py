@@ -1154,6 +1154,16 @@ class TestEventLevelGoogleRefresh:
     stays wrong rather than merely arriving late.
     """
 
+    def _retitle(self, event):
+        """Make an edit the Google member object actually renders, and save.
+
+        The card prints only the next event's title and date, so a venue or
+        address edit deliberately does NOT reach Google (see
+        _GOOGLE_PAYLOAD_FIELDS) — these tests need one that does.
+        """
+        event.title_en = f"{event.title_en or event.title} (renamed)"
+        event.save()
+
     def _google_holder(self, event_with_registrations, object_id="google-obj-1"):
         event, registrations = event_with_registrations
         profile = registrations[0].user.crushprofile
@@ -1212,8 +1222,7 @@ class TestEventLevelGoogleRefresh:
             return_value={"success": True, "message": "Pass updated successfully"},
         ) as patch_object:
             with django_capture_on_commit_callbacks(execute=True):
-                event.location = "A different bar"
-                event.save()
+                self._retitle(event)
 
         assert patch_object.call_count == 1
         assert patch_object.call_args.args[0].pk == profile.pk
@@ -1236,8 +1245,7 @@ class TestEventLevelGoogleRefresh:
             return_value={"success": True, "message": "Pass updated successfully"},
         ) as patch_object:
             with django_capture_on_commit_callbacks(execute=True):
-                event.location = "A different bar"
-                event.save()
+                self._retitle(event)
 
         assert patch_object.call_count == 3
         assert token.call_count == 1
@@ -1256,11 +1264,76 @@ class TestEventLevelGoogleRefresh:
             "crush_lu.wallet.google_api._patch_generic_object"
         ) as patch_object:
             with django_capture_on_commit_callbacks(execute=True):
-                event.location = "A different bar"
-                event.save()
+                self._retitle(event)
 
         assert token.call_count == 0
         assert patch_object.call_count == 0
+
+    @pytest.mark.parametrize(
+        "field,value",
+        [
+            ("location", "A different bar"),
+            ("address", "1 New Street"),
+            ("latitude", 49.61),
+            ("duration_minutes", 999),
+        ],
+    )
+    def test_apple_only_field_changes_do_not_patch_google(
+        self, field, value, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # The Google object renders only the next event's title and date, so
+        # these rewrite the Apple ticket while leaving it byte-identical. An
+        # OAuth exchange plus up to 50 PATCHes to write an unchanged object is
+        # the exact budget spend the cap exists to protect.
+        event, _profile = self._google_holder(event_with_registrations)
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ) as token, mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object"
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                setattr(event, field, value)
+                event.save()
+
+        token.assert_not_called()
+        patch_object.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "field,value",
+        [
+            ("date_time", None),  # replaced below — needs a real datetime
+            ("is_cancelled", True),
+            ("title_fr", "Soirée renommée"),
+        ],
+    )
+    def test_google_rendered_field_changes_do_patch(
+        self, field, value, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # The other half of the gate: what the card actually prints must still
+        # reach Google. is_cancelled counts because get_next_event_for_pass
+        # drops a cancelled event, flipping the block to "Browse events".
+        from datetime import timedelta
+
+        from django.utils import timezone as dj_timezone
+
+        event, _profile = self._google_holder(event_with_registrations)
+        if field == "date_time":
+            value = dj_timezone.now() + timedelta(days=21)
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                setattr(event, field, value)
+                event.save()
+
+        assert patch_object.call_count == 1
 
     def test_no_payload_change_does_not_patch(
         self, _google_identity, event_with_registrations,
@@ -1295,8 +1368,7 @@ class TestEventLevelGoogleRefresh:
             return_value={"success": True, "message": "Pass updated successfully"},
         ) as patch_object:
             with django_capture_on_commit_callbacks(execute=False) as callbacks:
-                event.location = "A different bar"
-                event.save()
+                self._retitle(event)
 
             assert patch_object.call_count == 0
             for callback in callbacks:
@@ -1325,7 +1397,7 @@ class TestEventLevelGoogleRefresh:
                 return_value={"success": True, "message": "Pass updated successfully"},
             ) as patch_object:
                 with django_capture_on_commit_callbacks(execute=True):
-                    event.location = "A different bar"
+                    self._retitle(event)
                     event.save()
 
         assert patch_object.call_count == 2
@@ -1365,8 +1437,7 @@ class TestEventLevelGoogleRefresh:
             side_effect=_slow_patch,
         ) as patch_object:
             with django_capture_on_commit_callbacks(execute=True):
-                event.location = "A different bar"
-                event.save()
+                self._retitle(event)
 
         # One overran the budget, so the remaining two are never started —
         # under the limit of 50, purely on time.
@@ -1388,8 +1459,7 @@ class TestEventLevelGoogleRefresh:
             return_value={"success": True, "message": "Pass updated successfully"},
         ) as patch_object:
             with django_capture_on_commit_callbacks(execute=True):
-                event.location = "A different bar"
-                event.save()
+                self._retitle(event)
 
         assert 0 < patch_object.call_args.kwargs["timeout"] <= 2.0
         # The token exchange is inside the same budget — a stalled OAuth
@@ -1517,8 +1587,7 @@ class TestEventLevelGoogleRefresh:
             return_value={"success": True, "message": "Pass updated successfully"},
         ) as patch_object:
             with django_capture_on_commit_callbacks(execute=True):
-                event.location = "A different bar"
-                event.save()
+                self._retitle(event)
 
         patched = {
             call.args[0].google_wallet_object_id
@@ -1541,8 +1610,7 @@ class TestEventLevelGoogleRefresh:
             side_effect=[RuntimeError("boom"), ok, ok],
         ) as patch_object:
             with django_capture_on_commit_callbacks(execute=True):
-                event.location = "A different bar"
-                event.save()
+                self._retitle(event)
 
         assert patch_object.call_count == 3
 
@@ -1565,7 +1633,7 @@ class TestEventLevelGoogleRefresh:
                 "crush_lu.wallet.google_api._patch_generic_object"
             ) as patch_object:
                 with django_capture_on_commit_callbacks(execute=True):
-                    event.location = "A different bar"
+                    self._retitle(event)
                     event.save()
 
         patch_object.assert_not_called()
@@ -1585,8 +1653,7 @@ class TestEventLevelGoogleRefresh:
             "crush_lu.wallet.google_api._patch_generic_object"
         ) as patch_object:
             with django_capture_on_commit_callbacks(execute=True):
-                event.location = "A different bar"
-                event.save()
+                self._retitle(event)
 
         assert token.call_count == 0
         assert patch_object.call_count == 0
@@ -1609,8 +1676,7 @@ class TestEventLevelGoogleRefresh:
             return_value={"success": True, "message": "Pass updated successfully"},
         ) as patch_object:
             with django_capture_on_commit_callbacks(execute=True):
-                event.location = "A different bar"
-                event.save()
+                self._retitle(event)
 
         assert patch_object.call_count == 1
 
@@ -1634,6 +1700,57 @@ class TestEventLevelGoogleRefresh:
             with django_capture_on_commit_callbacks(execute=True):
                 assert refresh_google_wallet_objects([profile, other]) == 1
 
+        assert patch_object.call_count == 1
+
+    def test_nested_class_creation_does_not_swallow_the_refresh(
+        self, _google_identity, settings, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # auto_create_event_ticket_class_on_publish runs FIRST and persists the
+        # new class id with a nested event.save() on the same instance. That
+        # save re-runs remember_previous_event_start, which re-reads the row
+        # this save has already written — so without preserving the snapshot,
+        # every later receiver compares new against new, finds nothing changed,
+        # and silently skips the whole fan-out. It bites the first edit of a
+        # published event with no class yet: exactly a coach rescheduling one.
+        from datetime import timedelta
+
+        from django.utils import timezone as dj_timezone
+
+        event, _profile = self._google_holder(event_with_registrations)
+
+        def _fake_create_class(target):
+            # The real create_event_ticket_class does exactly this after its
+            # HTTP call; the nested save is the whole point of the test.
+            target.google_wallet_event_class_id = "class-1"
+            target.save(update_fields=["google_wallet_event_class_id"])
+            return {"success": True, "message": "Class created", "class_id": "class-1"}
+
+        # Set only now: with the issuer unset, the setup saves above returned
+        # early and never reached the class-creation branch.
+        settings.WALLET_GOOGLE_ISSUER_ID = "3388000000022222222"
+        settings.WALLET_GOOGLE_EVENT_TICKET_ENABLED = True
+        assert not event.google_wallet_event_class_id and event.is_published
+
+        with mock.patch(
+            "crush_lu.wallet.google_event_ticket_api.create_event_ticket_class",
+            side_effect=_fake_create_class,
+        ), mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                event.date_time = dj_timezone.now() + timedelta(days=21)
+                event.save()
+
+        event.refresh_from_db()
+        # The nested save really happened...
+        assert event.google_wallet_event_class_id == "class-1"
+        # ...and the refresh survived it — exactly once, not twice: the nested
+        # receiver chain sees the clobbered snapshot and no-ops, so only the
+        # outer one schedules a fan-out.
         assert patch_object.call_count == 1
 
     def test_payload_comes_from_committed_state_not_the_captured_instance(
