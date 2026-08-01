@@ -146,6 +146,29 @@ def _user_model():
 # one file). The upstream fixture chain must stay in effect.
 
 
+def _test_database_was_created(alias='default'):
+    """Report whether pytest-django actually created a test database for `alias`.
+
+    pytest-django only creates the databases the *collected* tests ask for (see
+    its ``_get_databases_for_setup``). A session made up entirely of DB-less
+    unit tests — e.g. ``pytest crush_lu/tests/test_asgi_static.py``, which is
+    what you run while iterating on that file — gets no test database at all,
+    and ``settings.DATABASES`` is left pointing at the real development
+    database. Touching the ORM in that state either blows up with
+    ``no such table: django_site`` or, worse, quietly writes into the
+    developer's dev DB.
+
+    ``BaseDatabaseCreation.create_test_db()`` rewrites ``settings_dict["NAME"]``
+    to the test database name as part of setup, so comparing the live name
+    against the expected test name tells us whether setup really ran. That holds
+    under ``--reuse-db`` and for the per-xdist-worker suffixed names too.
+    """
+    from django.db import connections
+
+    connection = connections[alias]
+    return connection.settings_dict['NAME'] == connection.creation._get_test_db_name()
+
+
 @pytest.fixture(scope='session', autouse=True)
 def setup_site_for_live_server(django_db_setup, django_db_blocker):
     """
@@ -153,7 +176,13 @@ def setup_site_for_live_server(django_db_setup, django_db_blocker):
 
     pytest-django already handles database creation/migrations and DB reuse.
     Re-running `migrate` here adds startup cost without helping normal runs.
+
+    No-ops when the session created no test database — see
+    ``_test_database_was_created``.
     """
+    if not _test_database_was_created():
+        return
+
     with django_db_blocker.unblock():
         from django.contrib.sites.models import Site
 
