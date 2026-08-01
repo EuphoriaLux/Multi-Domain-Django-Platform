@@ -132,5 +132,5 @@
 {% endblock %}
 
 {% block pre_alpine_js %}
-<script defer src="{% static 'crush_lu/js/event-recap.js' %}"></script>
+<script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/event-recap.js' %}"></script>
 {% endblock %}

@@ -138,12 +138,15 @@
         <!-- Fallback button (shown if auto-close fails) -->
         <div id="fallback-container" class="hidden">
             <p class="small" style="margin-top: 1rem;">{% trans "Your main tab is ready to use." %}</p>
-            <button onclick="window.close()" class="btn">{% trans "Close This Window" %}</button>
+            <button id="btn-close-window" class="btn">{% trans "Close This Window" %}</button>
         </div>
     </div>
 
     {{ oauth_result|json_script:"oauth-data" }}
     <script nonce="{{ csp_nonce }}">
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('btn-close-window')?.addEventListener('click', function() { window.close(); });
+    });
     (function() {
         'use strict';
 

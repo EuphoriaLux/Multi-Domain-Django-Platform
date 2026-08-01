@@ -418,13 +418,13 @@
                             </div>
                         </div>
                         {% if event.registration_fee > 0 and not user_registration.payment_confirmed %}
-                        <button onclick="startSumUpCheckout({{ user_registration.id }})" class="flex items-center justify-center gap-2 w-full py-3 sm:py-4 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-lg transition-all hover:shadow-lg text-sm sm:text-base mb-3 cursor-pointer">
+                        <button data-sumup-reg-id="{{ user_registration.id }}" class="js-sumup-checkout-detail flex items-center justify-center gap-2 w-full py-3 sm:py-4 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-lg transition-all hover:shadow-lg text-sm sm:text-base mb-3 cursor-pointer">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
                             </svg>
                             <span>{% trans "Pay with Card" %} ({{ event.registration_fee }} EUR)</span>
                         </button>
-                        <script>
+                        <script nonce="{{ csp_nonce }}">
                             // CSRF_COOKIE_HTTPONLY is True, so document.cookie can't see csrftoken.
                             // Read the hidden input base.html renders instead (same as HTMX does).
                             function getCsrfToken() {
@@ -455,6 +455,16 @@
                                     alert('An error occurred launching payment.');
                                 });
                             }
+
+                            document.addEventListener('click', function(e) {
+                                const btn = e.target.closest('.js-sumup-checkout-detail');
+                                if (btn) {
+                                    const regId = btn.getAttribute('data-sumup-reg-id');
+                                    if (regId) {
+                                        startSumUpCheckout(regId);
+                                    }
+                                }
+                            });
                         </script>
                         {% endif %}
 
@@ -865,7 +875,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     // Web Share functionality
     const shareBtn = document.getElementById('shareEventBtn');

@@ -377,7 +377,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'crush_lu/js/oauth-popup.js' %}"></script>
+<script nonce="{{ csp_nonce }}" src="{% static 'crush_lu/js/oauth-popup.js' %}"></script>
 <script nonce="{{ csp_nonce }}">
 var _i18n = {
     loggingIn: '{% filter escapejs %}{% trans "Logging in..." %}{% endfilter %}',

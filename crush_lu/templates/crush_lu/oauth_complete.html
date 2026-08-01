@@ -41,8 +41,7 @@
 
             <!-- PWA Return Button (hidden by default, shown on Android) -->
             <button id="pwa-return-btn"
-                    class="hidden w-full py-3 px-4 border border-purple-500 text-purple-600 hover:bg-purple-50 rounded-lg font-medium transition-colors"
-                    onclick="returnToPWA()">
+                    class="hidden w-full py-3 px-4 border border-purple-500 text-purple-600 hover:bg-purple-50 rounded-lg font-medium transition-colors">
                 {% include "shared/icons/device-mobile.html" with class="w-4 h-4" %}
                 {% trans "Open in Crush.lu App" %}
             </button>
@@ -112,6 +111,9 @@
 
 {% block extra_js %}
 <script nonce="{{ csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('pwa-return-btn')?.addEventListener('click', returnToPWA);
+});
 (function() {
     'use strict';
 

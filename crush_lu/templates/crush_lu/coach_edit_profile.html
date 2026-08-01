@@ -5,7 +5,7 @@
 {% block title %}{% trans "Edit Coach Profile" %} - Crush.lu{% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'crush_lu/js/photo-preview.js' %}"></script>
+<script nonce="{{ csp_nonce }}" src="{% static 'crush_lu/js/photo-preview.js' %}"></script>
 {% endblock %}
 
 {% block content %}

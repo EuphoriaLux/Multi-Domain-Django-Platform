@@ -219,10 +219,10 @@
 {% block pre_alpine_js %}
 {% if debug %}
     {% now "U" as ts %}
-    <script defer src="{% static 'crush_lu/js/quiz-media.js' %}?v={{ ts }}"></script>
-    <script defer src="{% static 'crush_lu/js/quiz-live.js' %}?v={{ ts }}"></script>
+    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/quiz-media.js' %}?v={{ ts }}"></script>
+    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/quiz-live.js' %}?v={{ ts }}"></script>
 {% else %}
-    <script defer src="{% static 'crush_lu/js/quiz-media.js' %}"></script>
-    <script defer src="{% static 'crush_lu/js/quiz-live.js' %}"></script>
+    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/quiz-media.js' %}"></script>
+    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/quiz-live.js' %}"></script>
 {% endif %}
 {% endblock %}

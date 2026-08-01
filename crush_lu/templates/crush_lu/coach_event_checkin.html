@@ -448,8 +448,8 @@
 </style>
 
 {# qr-scanner (nimiq) — vendored so the door scanner works without internet; the worker file is resolved relative to this script's URL, so both files live side by side under vendor/qr-scanner/ #}
-<script src="{% static 'crush_lu/vendor/qr-scanner/qr-scanner.umd.min.js' %}"></script>
-<script>
+<script nonce="{{ csp_nonce }}" src="{% static 'crush_lu/vendor/qr-scanner/qr-scanner.umd.min.js' %}"></script>
+<script nonce="{{ csp_nonce }}">
 window._checkinI18n = {
     checkedIn: '{% filter escapejs %}{% trans "Checked In" %}{% endfilter %}',
     checkIn: '{% filter escapejs %}{% trans "Check In" %}{% endfilter %}',

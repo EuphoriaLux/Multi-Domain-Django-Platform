@@ -73,7 +73,7 @@
 
             <!-- Retry Button -->
             <div class="flex flex-col gap-3">
-                <button class="btn-crush-primary py-4 text-lg inline-flex items-center justify-center gap-2" onclick="location.reload()">
+                <button id="btn-retry-offline" class="btn-crush-primary py-4 text-lg inline-flex items-center justify-center gap-2">
                     {% include "shared/icons/arrow-path.html" with class="w-5 h-5" %}
                     {% trans "Try Again" %}
                 </button>
@@ -110,4 +110,12 @@
         }
     }
 </style>
+
+<script nonce="{{ csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('btn-retry-offline')?.addEventListener('click', function() {
+        location.reload();
+    });
+});
+</script>
 {% endblock %}

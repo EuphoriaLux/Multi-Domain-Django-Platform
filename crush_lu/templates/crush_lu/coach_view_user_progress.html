@@ -778,7 +778,7 @@
         <a href="{% url 'crush_lu:coach_journey_dashboard' %}" class="bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
             {% include "shared/icons/arrow-left.html" with class="w-5 h-5" %} {% trans "Back to Journeys" %}
         </a>
-        <button onclick="window.print()" class="border border-purple-500 dark:border-purple-400 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
+        <button id="btn-print-report" class="border border-purple-500 dark:border-purple-400 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
             {% include "shared/icons/printer.html" with class="w-5 h-5" %} {% trans "Print Report" %}
         </button>
         <a href="{% url 'crush_admin:crush_lu_journeyprogress_change' progress.id %}" class="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 font-semibold py-3 px-6 rounded-lg transition-colors inline-flex items-center gap-2">
@@ -786,4 +786,12 @@
         </a>
     </div>
 </div>
+
+<script nonce="{{ csp_nonce }}">
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('btn-print-report')?.addEventListener('click', function() {
+        window.print();
+    });
+});
+</script>
 {% endblock %}
