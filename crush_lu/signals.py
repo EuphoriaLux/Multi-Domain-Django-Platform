@@ -793,15 +793,34 @@ def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
         #
         # One EXISTS subquery, not a per-profile get_next_event_for_pass call —
         # the whole point of the batch is to keep this off a per-attendee
-        # query. The date_time__gte bound mirrors the same helper's, so a
-        # finished event cannot count as somebody's nearer one.
+        # query.
+        #
+        # The lower bound is `now`, NOT live_lookback_cutoff. That helper is
+        # get_next_event_for_pass's coarse DB-side pre-filter — a 7-day window
+        # it then narrows with a precise per-candidate `end_time >= now`, which
+        # SQL cannot express portably (timedelta * F() is unsupported on
+        # SQLite). Borrowing only the coarse half would count an event that
+        # started inside the window but has already FINISHED as somebody's
+        # nearer event, excluding a holder whose card really does show the
+        # changed event — precisely the permanent staleness this filter exists
+        # to prevent, reintroduced from the other side.
+        #
+        # `>= now` counts only events that have not started yet, which are
+        # therefore certainly still live, so every exclusion is provably safe.
+        # The price is that a nearer event running RIGHT NOW no longer
+        # suppresses anything and its holders get a redundant PATCH — the
+        # correct direction to err: over-refreshing spends budget, while
+        # under-refreshing leaves a wrong card with nothing to correct it.
+        # (Refining the coarse set in Python instead would mean loading and
+        # checking end_time per candidate, which is the per-attendee work the
+        # batch exists to avoid.)
         previous_start = (previous or {}).get("date_time") or instance.date_time
         nearer_event = EventRegistration.objects.filter(
             user_id=OuterRef("user_id"),
             status__in=_NEXT_EVENT_STATUSES,
             event__is_cancelled=False,
             event__date_time__lt=min(previous_start, instance.date_time),
-            event__date_time__gte=MeetupEvent.live_lookback_cutoff(timezone.now()),
+            event__date_time__gte=timezone.now(),
         )
         google_profiles = list(
             attendee_profiles.exclude(google_wallet_object_id="")
