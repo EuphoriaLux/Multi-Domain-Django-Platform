@@ -225,6 +225,94 @@ class SumUpPaymentViewsTests(SiteTestMixin, TestCase):
         self.assertTrue(bool(self.registration.checkin_token))
 
     @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_return_redirects_to_event_detail_after_payment(self, mock_get_checkout):
+        """The route is events/<int:event_id>/. Passing pk raised NoReverseMatch
+        *after* the payment was recorded, so a successful purchase 500'd."""
+        PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-REF-300",
+            sumup_checkout_id="CHK_EVT_300",
+            amount=Decimal("15.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+        mock_get_checkout.return_value = {"id": "CHK_EVT_300", "status": "PAID"}
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse("sumup_payment_return"), {"ref": "CRUSH-EVT-REF-300"}
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response["Location"],
+            reverse("crush_lu:event_detail", kwargs={"event_id": self.event.id}),
+        )
+        self.registration.refresh_from_db()
+        self.assertEqual(self.registration.status, "confirmed")
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_return_accepts_sumup_server_post(self, mock_get_checkout):
+        """SumUp POSTs the result server-to-server with no session and no CSRF
+        token. That used to 403, losing the confirmation for any customer who
+        closed the tab before the browser redirect."""
+        tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-REF-400",
+            sumup_checkout_id="CHK_EVT_400",
+            amount=Decimal("15.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+        mock_get_checkout.return_value = {"id": "CHK_EVT_400", "status": "PAID"}
+
+        response = self.client.post(
+            reverse("sumup_payment_return") + "?ref=CRUSH-EVT-REF-400"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        tx.refresh_from_db()
+        self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+        self.registration.refresh_from_db()
+        self.assertEqual(self.registration.status, "confirmed")
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_webhook_ignores_forged_paid_status(self, mock_get_checkout):
+        """The webhook is public and unauthenticated. It must re-read the
+        checkout from SumUp rather than believe payload["status"], or anyone
+        could confirm a registration and mint a check-in token for free."""
+        tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-REF-500",
+            sumup_checkout_id="CHK_EVT_500",
+            amount=Decimal("15.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+        # SumUp says it is still unpaid; the forged POST claims otherwise.
+        mock_get_checkout.return_value = {"id": "CHK_EVT_500", "status": "PENDING"}
+
+        response = self.client.post(
+            reverse("sumup_webhook"),
+            data=json.dumps({"id": "CHK_EVT_500", "status": "PAID"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        mock_get_checkout.assert_called_once_with("CHK_EVT_500")
+        tx.refresh_from_db()
+        self.assertEqual(tx.status, PaymentTransaction.Status.PENDING)
+        self.registration.refresh_from_db()
+        self.assertEqual(self.registration.status, "pending")
+        self.assertFalse(self.registration.payment_confirmed)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
     def test_sumup_webhook_premium_membership(self, mock_get_checkout):
         tx = PaymentTransaction.objects.create(
             transaction_reference="CRUSH-PREM-REF-200",
