@@ -45,6 +45,7 @@ from .models.journey import JourneyProgress
 from .utils.i18n import is_valid_language
 
 from crush_lu.models.events import SEAT_HOLDING_STATUSES
+
 logger = logging.getLogger(__name__)
 
 # Thread-local storage to pass domain context between signals

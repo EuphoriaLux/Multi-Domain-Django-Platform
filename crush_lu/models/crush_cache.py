@@ -18,6 +18,8 @@ import uuid
 
 from django.conf import settings
 from django.db import models
+
+from .events import SEAT_HOLDING_STATUSES
 from django.utils.translation import gettext_lazy as _
 
 from .profiles import get_crush_photo_storage
@@ -502,7 +504,6 @@ class CacheChallenge(models.Model):
         return False
 
 
-from .events import SEAT_HOLDING_STATUSES
 class CacheTeam(models.Model):
     """A group of attendees hunting together with shared progress."""
 

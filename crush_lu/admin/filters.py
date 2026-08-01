@@ -10,6 +10,8 @@ from django.utils import timezone
 from datetime import timedelta, date
 from django.db.models import Exists, OuterRef, Q, Count
 
+from crush_lu.models.events import SEAT_HOLDING_STATUSES
+
 
 class ReviewTimeFilter(admin.SimpleListFilter):
     """Filter submissions by how long they've been pending"""
@@ -215,7 +217,6 @@ class LastLoginFilter(admin.SimpleListFilter):
         return queryset
 
 
-from crush_lu.models.events import SEAT_HOLDING_STATUSES
 class EventCapacityFilter(admin.SimpleListFilter):
     """Filter events by capacity status"""
     title = 'Capacity Status'

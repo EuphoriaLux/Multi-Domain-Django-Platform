@@ -20,7 +20,6 @@ from crush_lu.models.events import (
     EventRegistration,
     MeetupEvent,
 )
-from crush_lu.models.events import MeetupEvent, SEAT_HOLDING_STATUSES
 from crush_lu.models.payments import PaymentTransaction
 from crush_lu.models.profiles import PremiumMembership
 from crush_lu.services.sumup import SumUpClient, SumUpError
