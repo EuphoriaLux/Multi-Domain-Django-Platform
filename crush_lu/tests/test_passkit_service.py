@@ -4185,6 +4185,79 @@ class TestAdminBulkActionsRefreshWallets:
         assert refresh_google.call_count == 1
         assert [p.pk for p in refresh_google.call_args.args[0]] == [profile.pk]
 
+    def test_an_already_cancelled_ended_event_does_not_enter_the_fallback(
+        self, _apple_identity, _google_identity, event_with_registrations
+    ):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from crush_lu.models import EventRegistration, MeetupEvent
+
+        # The ended fallback must not re-admit rows the action changes nothing
+        # for. This event is finished AND already cancelled, so cancelling it
+        # again rewrites nobody's card — but it has attendees, and letting them
+        # through would spend the cap that a genuinely-cancelled event's
+        # holders need.
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        dead = self._second_event(1, title="Finished and already cancelled")
+        dead.date_time = timezone.now() - timedelta(hours=4)
+        dead.duration_minutes = 60
+        dead.is_cancelled = True
+        dead.save()
+        EventRegistration.objects.create(
+            event=dead, user=registration.user, status="confirmed"
+        )
+        self._google_member(registration, "google-obj-deadevent")
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ), mock.patch(
+            "crush_lu.wallet.google_api.refresh_google_wallet_objects"
+        ) as refresh_google:
+            with mock.patch("crush_lu.admin.events.django_messages"):
+                self._admin(MeetupEvent).cancel_events(
+                    RequestFactory().post("/"),
+                    MeetupEvent.objects.filter(pk=dead.pk),
+                )
+
+        refresh_google.assert_not_called()
+
+    def test_the_two_next_event_selectors_agree_on_a_tie(
+        self, _google_identity, event_with_registrations
+    ):
+        from crush_lu.models import EventRegistration
+        from crush_lu.wallet_pass import (
+            get_next_event_for_pass,
+            get_next_event_registrations,
+        )
+
+        # Two eligible registrations sharing a start time. Ordering by
+        # date_time alone left the winner to the database, and the two
+        # selectors run different queries — the single-user one builds the card
+        # a holder sees, the bulk one decides whether an admin action must
+        # refresh them. Disagree here and the action skips somebody whose card
+        # really did change, permanently.
+        event, registrations = event_with_registrations
+        registration = registrations[0]
+        twin = self._second_event(7, title="Same slot, different room")
+        twin.date_time = event.date_time
+        twin.save()
+        EventRegistration.objects.create(
+            event=twin, user=registration.user, status="confirmed"
+        )
+        profile = self._google_member(registration, "google-obj-tie")
+
+        single = get_next_event_for_pass(profile)
+        bulk = get_next_event_registrations([profile.user_id])[profile.user_id]
+
+        assert single is not None
+        assert single["title"] == bulk.event.title
+        # Stable across repeated calls too, so a rebuild cannot flip the card
+        # between two tied events on its own.
+        assert get_next_event_for_pass(profile)["title"] == single["title"]
+
     def test_confirm_skips_a_restored_seat_behind_an_earlier_event(
         self, _apple_identity, _google_identity, event_with_registrations
     ):

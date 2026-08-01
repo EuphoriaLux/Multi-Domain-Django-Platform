@@ -48,7 +48,16 @@ def _next_event_candidates(user_ids, now):
         # triggers accomplished nothing.
         .exclude(event__is_cancelled=True)
         .select_related("event")
-        .order_by("event__date_time")
+        # Tie-broken, not just sorted by start. Two eligible registrations
+        # sharing a `date_time` would otherwise be returned in whatever order
+        # the database felt like, and the choice has to be REPRODUCIBLE across
+        # queries: the single-user call builds the pass a holder is looking at,
+        # while the bulk call decides whether an admin action needs to refresh
+        # them. Disagree on a tie and the action skips a holder whose card
+        # really does show the changed event — stale for good, since Google
+        # never polls. It also keeps successive rebuilds of one card from
+        # flipping between two tied events.
+        .order_by("event__date_time", "event_id", "id")
     )
 
 

@@ -13,6 +13,7 @@ import logging
 from django import forms
 from django.contrib import admin
 from django.contrib import messages as django_messages
+from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
@@ -593,94 +594,129 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             request, _("Unpublished {count} event(s)").format(count=updated)
         )
 
+    @staticmethod
+    def _google_holders_for_cancellation(events):
+        """Google holders whose card this cancellation actually changes.
+
+        Two ways in, and the second exists because the first goes blind on a
+        finished event:
+
+          * the holder's card is currently SHOWING one of the selected events.
+            A holder with an earlier eligible registration is looking at that
+            one instead, so cancelling this event would rebuild a
+            byte-identical object — and the fan-out is capped with no
+            Google-side poll behind it, so each no-op can push somebody whose
+            card IS wrong out of the batch and strand it.
+          * the holder has a live seat on a selected event that has already
+            ENDED. get_next_event_for_pass stopped selecting it when it
+            finished, so it is nobody's displayed event and the first test says
+            "nobody" — but the Google object was last written while the event
+            was still upcoming and can still be advertising it, with nothing
+            else in the estate recomputing that.
+
+        The ended branch is scoped to that event's OWN attendees rather than
+        switching the filter off selection-wide: one ended event, even with no
+        registrations at all, must not disarm the narrowing for holders of the
+        other selected events.
+
+        ALREADY-cancelled events are excluded from both branches. This action
+        changes nothing for them, and letting them into the ended branch would
+        queue every one of their attendees — re-entering, through the fallback,
+        the same cap starvation the narrowing exists to prevent.
+        """
+        from crush_lu.models import CrushProfile
+        from crush_lu.wallet_pass import (
+            PASS_NEXT_EVENT_STATUSES,
+            get_next_event_registrations,
+        )
+
+        now = timezone.now()
+        transitioning = [event for event in events if not event.is_cancelled]
+        if not transitioning:
+            return []
+
+        ended_ids = {e.pk for e in transitioning if e.end_time < now}
+        live_ids = {e.pk for e in transitioning} - ended_ids
+
+        candidates = list(
+            CrushProfile.objects.filter(
+                # Both conditions in ONE filter() so they constrain the SAME
+                # registration row — split across two calls they would match
+                # any registration for the event plus any live registration
+                # anywhere, which is every attendee.
+                user__eventregistration__event__in=transitioning,
+                user__eventregistration__status__in=PASS_NEXT_EVENT_STATUSES,
+            )
+            .exclude(google_wallet_object_id="")
+            .distinct()
+        )
+        if not candidates:
+            return []
+
+        # user -> which of the selected events they actually hold a live seat
+        # for. One query, so the per-holder branch below stays free.
+        held = {}
+        if ended_ids:
+            for user_id, event_id in EventRegistration.objects.filter(
+                event_id__in=ended_ids, status__in=PASS_NEXT_EVENT_STATUSES
+            ).values_list("user_id", "event_id"):
+                held.setdefault(user_id, set()).add(event_id)
+
+        displayed = (
+            get_next_event_registrations(
+                [profile.user_id for profile in candidates], now=now
+            )
+            if live_ids
+            else {}
+        )
+        return [
+            profile
+            for profile in candidates
+            if held.get(profile.user_id)
+            or getattr(displayed.get(profile.user_id), "event_id", None) in live_ids
+        ]
+
     @admin.action(description=_("🚫 Cancel selected events"))
     def cancel_events(self, request, queryset):
         # Snapshot before .update() — the queryset is lazy and its filter may
         # well be is_cancelled=False, which would match nothing afterwards.
         events = list(queryset)
+        event_ids = [event.pk for event in events]
 
-        # Which Google holders this cancellation actually changes, resolved
-        # BEFORE the update for a second reason: get_next_event_for_pass
-        # excludes cancelled events, so afterwards none of these events is
-        # anybody's displayed next event and the answer would be "nobody".
+        # The holder selection (see _google_holders_for_cancellation) has to be
+        # resolved BEFORE the update: get_next_event_for_pass excludes
+        # cancelled events, so afterwards none of these is anybody's displayed
+        # next event and the answer would be "nobody".
         #
-        # Narrowed to holders whose card is showing one of THESE events. A
-        # holder with an earlier eligible registration is looking at that one
-        # instead, so cancelling this event rebuilds a byte-identical object —
-        # and the fan-out is capped at WALLET_GOOGLE_BULK_UPDATE_LIMIT with no
-        # Google-side poll behind it, so each no-op can push somebody whose
-        # card IS wrong out of the batch and leave it stale for good. Selecting
-        # on "currently displayed" also drops the already-cancelled events in
-        # the selection for free: they are excluded from the candidate set, so
-        # they are nobody's displayed event either.
+        # Snapshot and update under ONE lock on the selected events, taken on
+        # the same rows the registration path locks (views_events, which does
+        # MeetupEvent.objects.select_for_update() before admitting a seat).
+        # Without it a signup can commit between the two: its own receiver
+        # PATCHes the member object while the event is still live, so the
+        # object names the event — but that holder is not in the snapshot, and
+        # the cancellation that follows has no path left to take it back off
+        # their card. Google never polls, so that would be permanent.
         google_profiles = []
-        try:
-            from crush_lu.models import CrushProfile
-            from crush_lu.wallet_pass import (
-                PASS_NEXT_EVENT_STATUSES,
-                get_next_event_registrations,
+        with transaction.atomic():
+            list(
+                MeetupEvent.objects.select_for_update()
+                .filter(pk__in=event_ids)
+                .values_list("pk", flat=True)
             )
-
-            candidates = list(
-                CrushProfile.objects.filter(
-                    # Both conditions in ONE filter() so they constrain the
-                    # SAME registration row — split across two calls they
-                    # would match any registration for the event plus any
-                    # live registration anywhere, which is every attendee.
-                    user__eventregistration__event__in=events,
-                    user__eventregistration__status__in=PASS_NEXT_EVENT_STATUSES,
+            try:
+                google_profiles = self._google_holders_for_cancellation(events)
+            except Exception:
+                logger.exception(
+                    "Failed selecting Google wallet holders for %s "
+                    "cancelled event(s)",
+                    len(events),
                 )
-                .exclude(google_wallet_object_id="")
-                .distinct()
+            # By pk rather than the caller's queryset: `events` is already
+            # materialised, and the incoming filter is typically
+            # is_cancelled=False, which matches nothing once this lands.
+            updated = MeetupEvent.objects.filter(pk__in=event_ids).update(
+                is_cancelled=True
             )
-            # An event that has already ENDED is nobody's displayed event, so
-            # the "is this what their card shows" test cannot speak for it —
-            # yet the Google object is server-side state whose last PATCH went
-            # out while the event was still upcoming, so it may well still be
-            # advertising it, and nothing else recomputes that. Holders of an
-            # ended selected event therefore take the conservative branch, the
-            # same way the quiz no-show action does.
-            #
-            # Scoped to THEIR OWN attendees, not applied selection-wide. A
-            # single ended event — even one with no registrations at all —
-            # must not disable the filter for holders of the other selected
-            # events, or their no-op PATCHes eat the cap and strand a
-            # higher-pk holder whose displayed event really was cancelled:
-            # the exact failure this filter exists to prevent, re-entered
-            # through the fallback.
-            now = timezone.now()
-            ended_ids = {event.pk for event in events if event.end_time < now}
-            live_ids = {event.pk for event in events} - ended_ids
-
-            # user -> which of the SELECTED events they actually hold a live
-            # seat for. One query, so the per-holder branch below stays free.
-            held = {}
-            for user_id, event_id in EventRegistration.objects.filter(
-                event__in=events, status__in=PASS_NEXT_EVENT_STATUSES
-            ).values_list("user_id", "event_id"):
-                held.setdefault(user_id, set()).add(event_id)
-
-            displayed = (
-                get_next_event_registrations(
-                    [profile.user_id for profile in candidates], now=now
-                )
-                if live_ids
-                else {}
-            )
-            google_profiles = [
-                profile
-                for profile in candidates
-                if (held.get(profile.user_id, set()) & ended_ids)
-                or getattr(displayed.get(profile.user_id), "event_id", None)
-                in live_ids
-            ]
-        except Exception:
-            logger.exception(
-                "Failed selecting Google wallet holders for %s cancelled event(s)",
-                len(events),
-            )
-
-        updated = queryset.update(is_cancelled=True)
 
         # .update() emits no signals, so nothing else tells Apple Wallet these
         # tickets are dead. Without this, a cancelled event's installed passes
