@@ -1446,6 +1446,55 @@ class TestProfileRenameRefreshesTickets:
 
         refresh.assert_not_called()
 
+    def test_user_rename_refreshes_the_google_member_object(
+        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+    ):
+        # Google prints display_name too, but refresh_ticket_serials is
+        # Apple-only. This used to ride on the next bare profile.save()
+        # reaching trigger_wallet_pass_updates — exactly the save that no
+        # longer counts as a change — so without an explicit call here a
+        # renamed member's Google card keeps the old name indefinitely.
+        registration = self._ticketed(event_with_registrations)
+        user = registration.user
+        profile = user.crushprofile
+        profile.google_wallet_object_id = "issuer.member-1"
+        profile.save(update_fields=["google_wallet_object_id"])
+
+        with mock.patch(
+            "crush_lu.wallet.google_api.update_google_wallet_pass",
+            return_value={"success": True, "message": "ok"},
+        ) as google_patch, mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ):
+            with django_capture_on_commit_callbacks(execute=True):
+                user.first_name = "Renamed"
+                user.save(update_fields=["first_name"])
+
+        assert google_patch.call_count == 1
+
+    def test_password_change_does_not_refresh_the_google_member_object(
+        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+    ):
+        # The Google half has to sit behind the same rename guard as the Apple
+        # half, or CrushSetPasswordForm.save() — a bare user.save() — starts
+        # PATCHing Google on every password change.
+        registration = self._ticketed(event_with_registrations)
+        user = registration.user
+        profile = user.crushprofile
+        profile.google_wallet_object_id = "issuer.member-1"
+        profile.save(update_fields=["google_wallet_object_id"])
+
+        with mock.patch(
+            "crush_lu.wallet.google_api.update_google_wallet_pass"
+        ) as google_patch, mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ):
+            with django_capture_on_commit_callbacks(execute=True):
+                user.set_password("a-brand-new-password")
+                user.save()
+
+        google_patch.assert_not_called()
+
     def test_non_identity_save_does_not_refresh_tickets(
         self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
     ):

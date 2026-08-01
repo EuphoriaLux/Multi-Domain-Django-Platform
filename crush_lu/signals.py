@@ -2661,7 +2661,7 @@ def remember_previous_member_pass_fields(sender, instance, update_fields=None, *
 def refresh_wallet_passes_on_user_rename(
     sender, instance, created, update_fields, **kwargs
 ):
-    """Refresh Apple passes when the holder's actual name changes.
+    """Refresh both wallets when the holder's actual name changes.
 
     The name printed on both the member pass and every event ticket comes from
     ``CrushProfile.display_name``, which reads ``User.first_name`` /
@@ -2703,6 +2703,27 @@ def refresh_wallet_passes_on_user_rename(
         refresh_ticket_serials(serials, context=f"User {instance.pk} rename")
     except Exception as e:
         logger.error(f"Error refreshing wallet passes for user {instance.pk}: {e}")
+
+    # Google prints display_name too (google_api._build_generic_object_payload
+    # puts it in the subheader), and refresh_ticket_serials above is Apple-only
+    # — it pushes PassKit serials. Nothing else will bring the Google object up
+    # to date either: display_name is a property, so it can never reach a
+    # profile update_fields nor the persisted snapshot the profile receiver
+    # compares. This used to ride on the next bare profile.save() reaching
+    # trigger_wallet_pass_updates, which is exactly the save that no longer
+    # counts as a change, so without this a renamed member's Google card kept
+    # the old name indefinitely.
+    #
+    # Its own try/except: an APNs failure above must not swallow this, and vice
+    # versa. The call no-ops for a profile with no Google object.
+    try:
+        profile = getattr(instance, "crushprofile", None)
+        if profile is not None:
+            _trigger_google_wallet_object_update(profile)
+    except Exception as e:
+        logger.error(
+            f"Error scheduling Google Wallet rename update for user {instance.pk}: {e}"
+        )
 
 
 def _refresh_user_event_tickets(profile):
