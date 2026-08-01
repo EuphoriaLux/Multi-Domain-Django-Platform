@@ -22,7 +22,9 @@ APPLE_WALLET_SETTINGS = {
     "WALLET_APPLE_KEY_PATH": os.path.join(CERT_DIR, "crush-pass-key.pem"),
     "WALLET_APPLE_KEY_PASSWORD": "",
     "WALLET_APPLE_WWDR_CERT_PATH": os.path.join(CERT_DIR, "wwdr-g4.pem"),
-    "WALLET_APPLE_WEB_SERVICE_URL": "https://crush.lu/wallet/v1",
+    # PassKit service ROOT — Apple appends its own "/v1/..." protocol paths, so
+    # this must NOT be versioned or every request lands on /wallet/v1/v1/...
+    "WALLET_APPLE_WEB_SERVICE_URL": "https://crush.lu/wallet",
     "WALLET_APPLE_CERT_BASE64": "",
     "WALLET_APPLE_KEY_BASE64": "",
     "WALLET_APPLE_WWDR_CERT_BASE64": "",

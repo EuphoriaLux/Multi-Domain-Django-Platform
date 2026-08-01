@@ -292,6 +292,34 @@ struct CrushWebView: UIViewRepresentable {
             appState.load(completeURL)
         }
 
+        /// WebKit asks for a new web view whenever a navigation targets one —
+        /// `target="_blank"` anchors and `window.open()`. We have no tab UI, and
+        /// leaving this unimplemented means WebKit's default applies: the
+        /// navigation is silently dropped and the tap does nothing. Load it in
+        /// the existing view instead (there are 8 internal `target="_blank"`
+        /// links across the crush.lu templates, including the dashboard's
+        /// "Add to Apple Wallet" anchor).
+        ///
+        /// The `.pkpass` links never actually reach here: `decidePolicyFor` runs
+        /// first for new-window actions too (with `targetFrame == nil`), and
+        /// cancels them into the native Add-Pass flow. This method is the
+        /// backstop that makes that independent of tab-opening behaviour.
+        func webView(
+            _ webView: WKWebView,
+            createWebViewWith configuration: WKWebViewConfiguration,
+            for navigationAction: WKNavigationAction,
+            windowFeatures: WKWindowFeatures
+        ) -> WKWebView? {
+            guard let url = navigationAction.request.url else { return nil }
+            if isInternal(url) {
+                webView.load(navigationAction.request)
+            } else {
+                UIApplication.shared.open(url)
+            }
+            // Returning nil tells WebKit we handled it and no new view is needed.
+            return nil
+        }
+
         func webView(
             _ webView: WKWebView,
             requestMediaCapturePermissionFor origin: WKSecurityOrigin,

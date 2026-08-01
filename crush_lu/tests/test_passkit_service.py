@@ -103,8 +103,50 @@ class TestResolveWebServiceUrl:
         assert build_web_service_url(request) == "https://crush.lu/wallet"
 
 
+class TestNormalizeServiceRoot:
+    """The live App Service configuration has carried the legacy versioned
+    value (https://crush.lu/wallet/v1) since the feature shipped, and the
+    setting has HIGHEST precedence — so without normalization, fixing the code
+    would leave production 404ing until someone also edited the App Setting."""
+
+    def test_legacy_versioned_setting_is_corrected(self, settings):
+        from crush_lu.wallet.passkit_service import resolve_web_service_url
+
+        settings.WALLET_APPLE_WEB_SERVICE_URL = "https://crush.lu/wallet/v1"
+        assert resolve_web_service_url() == "https://crush.lu/wallet"
+
+    def test_trailing_slash_is_stripped(self, settings):
+        from crush_lu.wallet.passkit_service import resolve_web_service_url
+
+        # "https://crush.lu/wallet/" + "/v1/devices/..." => "//v1/..." — matches
+        # no Django route either.
+        settings.WALLET_APPLE_WEB_SERVICE_URL = "https://crush.lu/wallet/"
+        assert resolve_web_service_url() == "https://crush.lu/wallet"
+
+    def test_versioned_with_trailing_slash_is_corrected(self, settings):
+        from crush_lu.wallet.passkit_service import resolve_web_service_url
+
+        settings.WALLET_APPLE_WEB_SERVICE_URL = "https://crush.lu/wallet/v1/"
+        assert resolve_web_service_url() == "https://crush.lu/wallet"
+
+    def test_forwarded_arg_is_normalized_too(self, settings):
+        from crush_lu.wallet.passkit_service import resolve_web_service_url
+
+        settings.WALLET_APPLE_WEB_SERVICE_URL = ""
+        assert (
+            resolve_web_service_url(None, web_service_url="https://test.crush.lu/wallet/v1")
+            == "https://test.crush.lu/wallet"
+        )
+
+    def test_correct_root_is_left_alone(self, settings):
+        from crush_lu.wallet.passkit_service import resolve_web_service_url
+
+        settings.WALLET_APPLE_WEB_SERVICE_URL = "https://crush.lu/wallet"
+        assert resolve_web_service_url() == "https://crush.lu/wallet"
+
+
 # ---------------------------------------------------------------------------
-# Web-service authorization (per-serial + shared token for the list endpoint)
+# Web-service authorization
 # ---------------------------------------------------------------------------
 
 
@@ -116,9 +158,8 @@ def _authed_request(token):
 
 @pytest.mark.django_db
 class TestRequireAuthorization:
-    """Per-serial endpoints authenticate with the pass's per-profile token.
-    The serial-less GET 'list registrations' endpoint can't do that (there's no
-    serial in the URL), so it falls back to a shared PASSKIT_AUTH_TOKEN."""
+    """register / unregister / get-pass carry `Authorization: ApplePass <token>`
+    and authenticate with the pass's own per-profile (or per-ticket) token."""
 
     def test_per_serial_endpoint_accepts_profile_token(
         self, settings, test_user_with_profile
@@ -150,36 +191,67 @@ class TestRequireAuthorization:
         resp = _require_authorization(request, "pass.lu.crush", "member-serial")
         assert resp.status_code == 401
 
-    def test_list_endpoint_accepts_shared_token_when_no_serial(
-        self, settings, test_user_with_profile
-    ):
-        from crush_lu.wallet.passkit_service import _require_authorization
-
-        # serial_number=None is the GET /devices/.../registrations/<passType>
-        # call, which has no per-pass token to look up.
-        settings.PASSKIT_AUTH_TOKEN = "shared-tok"
-        request = _authed_request("shared-tok")
-        assert _require_authorization(request, "pass.lu.crush", None) is None
-
-    def test_list_endpoint_500s_without_any_token_configured(
-        self, settings, test_user_with_profile
-    ):
+    def test_unresolvable_serial_500s(self, settings):
         from crush_lu.wallet.passkit_service import _require_authorization
 
         settings.PASSKIT_AUTH_TOKEN = ""
         request = _authed_request("anything")
-        resp = _require_authorization(request, "pass.lu.crush", None)
+        resp = _require_authorization(request, "pass.lu.crush", "no-such-serial")
         assert resp.status_code == 500
 
-    def test_list_endpoint_401s_with_wrong_shared_token(
-        self, settings, test_user_with_profile
-    ):
-        from crush_lu.wallet.passkit_service import _require_authorization
 
+@pytest.mark.django_db
+class TestListDeviceRegistrations:
+    """The GET 'list updatable passes' poll is the one PassKit endpoint Apple
+    does NOT send an Authorization header on — it identifies the caller solely
+    by the opaque deviceLibraryIdentifier in the URL. Requiring ApplePass auth
+    here made every poll 401/500, so passes never pulled updates."""
+
+    def _registration(self, serial="evt-1-reg-1-abcd"):
+        from crush_lu.models import PasskitDeviceRegistration
+
+        return PasskitDeviceRegistration.objects.create(
+            device_library_identifier="device-abc",
+            pass_type_identifier="pass.lu.crush",
+            serial_number=serial,
+            push_token="push-tok",
+        )
+
+    def test_poll_succeeds_without_authorization_header(self, settings):
+        from crush_lu.wallet.passkit_service import list_device_registrations
+
+        settings.PASSKIT_AUTH_TOKEN = ""
+        self._registration()
+        # No Authorization header at all — exactly what Apple sends.
+        request = RequestFactory().get("/")
+        response = list_device_registrations(request, "device-abc", "pass.lu.crush")
+
+        assert response.status_code == 200
+        import json
+
+        assert json.loads(response.content)["serialNumbers"] == ["evt-1-reg-1-abcd"]
+
+    def test_poll_succeeds_even_with_shared_token_configured(self, settings):
+        from crush_lu.wallet.passkit_service import list_device_registrations
+
+        # A configured shared token must not resurrect the auth requirement.
         settings.PASSKIT_AUTH_TOKEN = "shared-tok"
-        request = _authed_request("wrong")
-        resp = _require_authorization(request, "pass.lu.crush", None)
-        assert resp.status_code == 401
+        self._registration()
+        request = RequestFactory().get("/")
+        assert (
+            list_device_registrations(request, "device-abc", "pass.lu.crush").status_code
+            == 200
+        )
+
+    def test_unknown_device_returns_204(self, settings):
+        from crush_lu.wallet.passkit_service import list_device_registrations
+
+        settings.PASSKIT_AUTH_TOKEN = ""
+        request = RequestFactory().get("/")
+        response = list_device_registrations(request, "other-device", "pass.lu.crush")
+        # 204, not 401 — an unknown device is "nothing to update", not a
+        # rejected caller.
+        assert response.status_code == 204
 
 
 # ---------------------------------------------------------------------------
@@ -239,9 +311,54 @@ class TestResolveAuthToken:
             is None
         )
 
+    def test_resolves_per_ticket_token_for_profileless_attendee(
+        self, event_with_registrations
+    ):
+        from crush_lu.models import CrushProfile
+        from crush_lu.wallet.passkit_service import _resolve_auth_token_from_profile
+
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        # Open-event registration allows an attendee with no CrushProfile; the
+        # ticket's token then lives on the registration itself.
+        CrushProfile.objects.filter(user=registration.user).delete()
+        registration.apple_wallet_ticket_serial = "evt-1-reg-3-cafebabe"
+        registration.apple_wallet_auth_token = "tok-ticket"
+        registration.save(
+            update_fields=["apple_wallet_ticket_serial", "apple_wallet_auth_token"]
+        )
+
+        assert (
+            _resolve_auth_token_from_profile("pass.lu.crush", "evt-1-reg-3-cafebabe")
+            == "tok-ticket"
+        )
+
+    def test_registration_token_wins_over_a_later_profile_token(
+        self, event_with_registrations
+    ):
+        from crush_lu.wallet.passkit_service import _resolve_auth_token_from_profile
+
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        registration.apple_wallet_ticket_serial = "evt-1-reg-4-0badf00d"
+        registration.apple_wallet_auth_token = "tok-ticket"
+        registration.save(
+            update_fields=["apple_wallet_ticket_serial", "apple_wallet_auth_token"]
+        )
+        profile = registration.user.crushprofile
+        profile.apple_auth_token = "tok-profile"
+        profile.save(update_fields=["apple_auth_token"])
+
+        # The installed pass carries the registration token; a profile created
+        # (or given a token) afterwards must not invalidate it.
+        assert (
+            _resolve_auth_token_from_profile("pass.lu.crush", "evt-1-reg-4-0badf00d")
+            == "tok-ticket"
+        )
+
 
 # ---------------------------------------------------------------------------
-# Check-in host preservation on rebuild (finding E)
+# Check-in host preservation
 # ---------------------------------------------------------------------------
 
 
@@ -262,3 +379,90 @@ class TestOriginFromUrl:
         assert _origin_from_url("") is None
         assert _origin_from_url(None) is None
         assert _origin_from_url("not-a-url") is None
+
+
+class TestResolveCheckinBaseUrl:
+    """A check-in token only validates in the environment that issued it, so
+    the QR host must follow the REQUEST, never WALLET_APPLE_WEB_SERVICE_URL —
+    otherwise a ticket downloaded from test.crush.lu check-ins against prod."""
+
+    def test_live_request_wins_over_configured_service_root(self):
+        from crush_lu.wallet.apple_event_ticket import _resolve_checkin_base_url
+
+        request = RequestFactory().get(
+            "/", HTTP_HOST="test.crush.lu", secure=True
+        )
+        # Returning None hands the decision to _build_checkin_url, which uses
+        # the request host. The production-pointing resolved URL must not win.
+        assert (
+            _resolve_checkin_base_url(
+                request,
+                forwarded_web_service_url=None,
+                resolved_web_service_url="https://crush.lu/wallet",
+            )
+            is None
+        )
+
+    def test_requestless_rebuild_prefers_forwarded_origin(self):
+        from crush_lu.wallet.apple_event_ticket import _resolve_checkin_base_url
+
+        # get_latest_pass derives the forwarded value from Apple's own live
+        # request, so it beats the (possibly cross-slot) setting.
+        assert (
+            _resolve_checkin_base_url(
+                None,
+                forwarded_web_service_url="https://test.crush.lu/wallet",
+                resolved_web_service_url="https://crush.lu/wallet",
+            )
+            == "https://test.crush.lu"
+        )
+
+    def test_requestless_rebuild_falls_back_to_resolved_origin(self):
+        from crush_lu.wallet.apple_event_ticket import _resolve_checkin_base_url
+
+        assert (
+            _resolve_checkin_base_url(
+                None,
+                forwarded_web_service_url=None,
+                resolved_web_service_url="https://crush.lu/wallet",
+            )
+            == "https://crush.lu"
+        )
+
+    def test_returns_none_when_nothing_available(self):
+        from crush_lu.wallet.apple_event_ticket import _resolve_checkin_base_url
+
+        assert _resolve_checkin_base_url(None) is None
+
+
+@pytest.mark.django_db
+class TestBuildCheckinUrl:
+    """The other half of the same guarantee: with no explicit base_url, the
+    live request's host is what lands in the QR."""
+
+    def test_uses_request_host(self, event_with_registrations):
+        from crush_lu.wallet.apple_event_ticket import _build_checkin_url
+
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        request = RequestFactory().get("/", HTTP_HOST="test.crush.lu", secure=True)
+
+        url = _build_checkin_url(registration, request)
+        assert url.startswith(
+            f"https://test.crush.lu/api/events/checkin/{registration.id}/"
+        )
+
+    def test_explicit_base_url_wins_when_there_is_no_request(
+        self, event_with_registrations
+    ):
+        from crush_lu.wallet.apple_event_ticket import _build_checkin_url
+
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+
+        url = _build_checkin_url(
+            registration, None, base_url="https://test.crush.lu"
+        )
+        assert url.startswith(
+            f"https://test.crush.lu/api/events/checkin/{registration.id}/"
+        )

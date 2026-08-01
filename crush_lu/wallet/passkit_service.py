@@ -36,17 +36,21 @@ def _resolve_auth_token_from_profile(pass_type_identifier, serial_number):
 
     Each Apple Wallet pass is generated with a unique auth token stored on the
     owner's CrushProfile. Member passes carry their profile's apple_pass_serial;
-    event tickets carry an `evt-*` serial on the EventRegistration but reuse the
-    owner's profile token (see apple_event_ticket._ensure_pass_identifiers use).
-    Resolve both shapes so the web service can authenticate update requests for
-    either pass type — otherwise event tickets can never register for updates.
+    event tickets carry an `evt-*` serial on the EventRegistration and normally
+    reuse the owner's profile token, except for open-event attendees who have no
+    CrushProfile at all — those carry a per-ticket token persisted on the
+    registration. Resolve every shape so the web service can authenticate update
+    requests for either pass type — otherwise those tickets can never register.
     """
     if not serial_number:
         return None
 
     try:
-        # Event tickets: serial lives on EventRegistration; the token is the
-        # owner profile's apple_auth_token.
+        # Event tickets: serial lives on EventRegistration. The token is the
+        # registration's own apple_wallet_auth_token when set (profile-less
+        # attendees), otherwise the owner profile's apple_auth_token. This
+        # precedence must match build_apple_event_ticket, which keeps using an
+        # already-persisted registration token even if a profile appears later.
         if serial_number.startswith("evt-"):
             from ..models import EventRegistration
 
@@ -57,7 +61,9 @@ def _resolve_auth_token_from_profile(pass_type_identifier, serial_number):
                 .select_related("user__crushprofile")
                 .first()
             )
-            if registration and registration.user_id:
+            if registration:
+                if registration.apple_wallet_auth_token:
+                    return registration.apple_wallet_auth_token
                 profile = getattr(registration.user, "crushprofile", None)
                 if profile and profile.apple_auth_token:
                     return profile.apple_auth_token
@@ -120,30 +126,23 @@ def _is_authorized(request, expected_token):
 
 
 def _require_authorization(request, pass_type_identifier, serial_number):
+    """Authorize a per-pass web-service request (register/unregister/get-pass).
+
+    Apple sends `Authorization: ApplePass <authenticationToken>` on these
+    endpoints, so we resolve the per-pass token by serial and compare.
+    NOTE: the GET "list registrations" poll is NOT authenticated this way and
+    must NOT call this helper — see list_device_registrations.
+    """
     expected_token = _get_expected_auth_token(pass_type_identifier, serial_number)
-    if expected_token:
-        if _is_authorized(request, expected_token):
-            return None
-        return HttpResponse(status=401)
-
-    # No per-pass token resolved. For the serial-less "list registrations"
-    # endpoint (GET /devices/.../registrations/<passTypeIdentifier>) there is
-    # no serial in the URL, so a per-profile token cannot be looked up at all;
-    # fall back to the shared PASSKIT_AUTH_TOKEN, which is the documented Apple
-    # pattern for authenticating that poll. Per-serial endpoints still require
-    # their own per-profile token.
-    if serial_number is None:
-        shared_token = getattr(settings, "PASSKIT_AUTH_TOKEN", None)
-        if shared_token and _is_authorized(request, shared_token):
-            return None
+    if not expected_token:
         logger.error(
-            "PassKit list-registrations auth failed: no per-pass token and no "
-            "shared PASSKIT_AUTH_TOKEN configured."
+            "PassKit authentication token is not configured for serial %s",
+            serial_number,
         )
-        return HttpResponse(status=401 if shared_token else 500)
-
-    logger.error("PassKit authentication token is not configured for serial %s", serial_number)
-    return HttpResponse(status=500)
+        return HttpResponse(status=500)
+    if not _is_authorized(request, expected_token):
+        return HttpResponse(status=401)
+    return None
 
 
 def build_web_service_url(request):
@@ -155,6 +154,38 @@ def build_web_service_url(request):
     # every PassKit web-service request 404s.
     base_path = getattr(settings, "PASSKIT_WEB_SERVICE_BASE_PATH", "/wallet")
     return request.build_absolute_uri(base_path.rstrip("/"))
+
+
+def _normalize_service_root(url):
+    """Coerce a webServiceURL into a valid PassKit service ROOT.
+
+    Apple appends its own "/v1/devices/...", "/v1/passes/..." paths to whatever
+    webServiceURL a pass advertises, so a root ending in "/v1" always produces
+    /wallet/v1/v1/... and 404s — there is no configuration in which that
+    trailing segment is correct. A trailing slash is equally bad (it yields
+    //v1/... which matches no Django route).
+
+    This normalization exists because WALLET_APPLE_WEB_SERVICE_URL has the
+    highest precedence AND the live App Service configuration has carried the
+    versioned value since the feature shipped. Without this, correcting the code
+    alone would leave production broken until someone also edited the setting.
+    Logged at WARNING so the misconfiguration stays visible at its source.
+    """
+    if not url:
+        return url
+
+    trimmed = url.rstrip("/")
+    if trimmed.endswith("/v1"):
+        corrected = trimmed[: -len("/v1")]
+        logger.warning(
+            "PassKit webServiceURL %r ends in /v1, but Apple appends its own "
+            "/v1 — that would make every web-service request 404. Using %r "
+            "instead; drop the trailing /v1 from WALLET_APPLE_WEB_SERVICE_URL.",
+            url,
+            corrected,
+        )
+        return corrected
+    return trimmed
 
 
 def resolve_web_service_url(request=None, web_service_url=None):
@@ -181,15 +212,19 @@ def resolve_web_service_url(request=None, web_service_url=None):
     a value from its live request and passes it here; if that derivation ever
     drifts to a versioned path, the setting must be able to override it rather
     than the rebuild silently corrupting every subsequent pass.
+
+    Every branch is passed through _normalize_service_root, so a configured (or
+    forwarded) value that still carries the legacy "/v1" suffix is corrected
+    rather than silently 404ing the whole update flow.
     """
     explicit = getattr(settings, "WALLET_APPLE_WEB_SERVICE_URL", "")
     if explicit:
-        return explicit
+        return _normalize_service_root(explicit)
     if web_service_url:
-        return web_service_url
+        return _normalize_service_root(web_service_url)
     if request is not None:
         try:
-            return build_web_service_url(request)
+            return _normalize_service_root(build_web_service_url(request))
         except Exception:
             # build_absolute_uri can raise on pathological host headers; never
             # let URL derivation turn a pass build into a 500.
@@ -289,10 +324,12 @@ def device_registration(request, device_library_identifier, pass_type_identifier
 @csrf_exempt
 @require_http_methods(["GET"])
 def list_device_registrations(request, device_library_identifier, pass_type_identifier):
+    # Per the PassKit Web Service spec, this GET poll is NOT authenticated with
+    # an `Authorization: ApplePass ...` header — Apple identifies the caller
+    # solely by deviceLibraryIdentifier in the URL. Requiring auth here made
+    # every device poll return 500/401, so passes never received update
+    # notifications. Auth happens at register/unregister/get-pass instead.
     passes_updated_since = request.GET.get("passesUpdatedSince")
-    auth_response = _require_authorization(request, pass_type_identifier, serial_number=None)
-    if auth_response:
-        return auth_response
 
     registrations = PasskitDeviceRegistration.objects.filter(
         device_library_identifier=device_library_identifier,

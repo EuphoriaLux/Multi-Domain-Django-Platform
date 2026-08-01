@@ -795,6 +795,16 @@ class EventRegistration(models.Model):
         default="",
         help_text=_("Apple Wallet event ticket serial number"),
     )
+    apple_wallet_auth_token = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        help_text=_(
+            "Apple Wallet PassKit auth token for this ticket. Set when the "
+            "ticket is built so the web service can authenticate update "
+            "requests for it, including for attendees with no CrushProfile."
+        ),
+    )
 
     # Pre-event reminder tracking (idempotency for the send_event_reminders
     # mgmt command, now driven unattended by the EventReminders timer).
