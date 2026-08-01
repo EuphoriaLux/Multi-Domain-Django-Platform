@@ -32,22 +32,49 @@ def _load_callable(path):
 
 def _resolve_auth_token_from_profile(pass_type_identifier, serial_number):
     """
-    Resolve PassKit auth token by looking up the CrushProfile with matching serial number.
+    Resolve the PassKit auth token for a pass serial number.
 
-    Each Apple Wallet pass is generated with a unique auth token stored on the profile.
-    This resolver looks up that token so PassKit web service requests can be authenticated.
+    Each Apple Wallet pass is generated with a unique auth token stored on the
+    owner's CrushProfile. Member passes carry their profile's apple_pass_serial;
+    event tickets carry an `evt-*` serial on the EventRegistration but reuse the
+    owner's profile token (see apple_event_ticket._ensure_pass_identifiers use).
+    Resolve both shapes so the web service can authenticate update requests for
+    either pass type — otherwise event tickets can never register for updates.
     """
     if not serial_number:
         return None
 
-    from ..models import CrushProfile
-
     try:
+        # Event tickets: serial lives on EventRegistration; the token is the
+        # owner profile's apple_auth_token.
+        if serial_number.startswith("evt-"):
+            from ..models import EventRegistration
+
+            registration = (
+                EventRegistration.objects.filter(
+                    apple_wallet_ticket_serial=serial_number
+                )
+                .select_related("user__crushprofile")
+                .first()
+            )
+            if registration and registration.user_id:
+                profile = getattr(registration.user, "crushprofile", None)
+                if profile and profile.apple_auth_token:
+                    return profile.apple_auth_token
+            return None
+
+        # Member passes: serial is the profile's apple_pass_serial.
+        from ..models import CrushProfile
+
         profile = CrushProfile.objects.filter(apple_pass_serial=serial_number).first()
         if profile and profile.apple_auth_token:
             return profile.apple_auth_token
     except Exception as e:
-        logger.error("Error resolving PassKit auth token for serial %s: %s", serial_number, e)
+        logger.error(
+            "Error resolving PassKit auth token for serial %s: %s",
+            serial_number,
+            e,
+        )
 
     return None
 
@@ -107,7 +134,7 @@ def build_web_service_url(request):
     return request.build_absolute_uri(base_path.rstrip("/"))
 
 
-def resolve_web_service_url(request=None):
+def resolve_web_service_url(request=None, web_service_url=None):
     """
     Resolve the webServiceURL to embed in a generated pass.
 
@@ -115,16 +142,22 @@ def resolve_web_service_url(request=None):
     webServiceURL, otherwise iOS silently rejects it. To make that impossible
     to regress, prefer (in order):
 
-      1. The explicit WALLET_APPLE_WEB_SERVICE_URL setting (canonical — it is
-         host-stable across instances and survives behind proxies).
-      2. Derived from the current request via build_web_service_url(request).
-      3. "" (no request and no setting) — the caller's `if url:` guard then
-         omits the field, matching the long-standing behaviour.
+      1. An explicit caller-supplied web_service_url (e.g. forwarded by the
+         PassKit web-service provider, which already derived it from the live
+         request in get_latest_pass). Highest precedence so a rebuilt pass
+         never loses its URL.
+      2. The WALLET_APPLE_WEB_SERVICE_URL setting (host-stable across
+         instances and survives behind proxies).
+      3. Derived from the current request via build_web_service_url(request).
+      4. "" (nothing available) — the caller's `if url:` guard then omits the
+         field, matching the long-standing behaviour.
 
     The pass builders accept request=None (e.g. provide_pass_for_serial and
     the test suite both call them without a request), so the request-derived
     branch is best-effort and never raises.
     """
+    if web_service_url:
+        return web_service_url
     explicit = getattr(settings, "WALLET_APPLE_WEB_SERVICE_URL", "")
     if explicit:
         return explicit

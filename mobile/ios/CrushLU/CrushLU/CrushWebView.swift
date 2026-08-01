@@ -174,7 +174,10 @@ struct CrushWebView: UIViewRepresentable {
 
         // MARK: - PKAddPassesViewControllerDelegate
 
-        func addPassViewController(_ controller: PKAddPassesViewController, didFinishWith pass: PKPass?) {
+        // The protocol's optional completion callback. Tapping Add or Cancel
+        // invokes this; the prior addPassViewController(_:didFinishWith:) name
+        // was invented and never called, so the sheet never dismissed.
+        func addPassesViewControllerDidFinish(_ controller: PKAddPassesViewController) {
             controller.dismiss(animated: true)
         }
 
@@ -233,12 +236,13 @@ struct CrushWebView: UIViewRepresentable {
                 return
             }
 
-            // .pkpass URLs must NOT be handed to WKWebView — it can't render or
-            // add a wallet pass and silently swallows the download (the cause of
-            // "Add to Apple Wallet button does nothing" in the native shell).
-            // Fetch the bytes through the web view's cookie store and present the
-            // native PKAddPassesViewController.
-            if url.pathExtension == "pkpass" {
+            // Apple Wallet download routes must NOT be handed to WKWebView — it
+            // can't render or add a pass and silently swallows the download (the
+            // cause of "Add to Apple Wallet button does nothing" in the native
+            // shell). The dashboard links to /wallet/apple/pass/ and event
+            // tickets to /wallet/apple/event-ticket/<id>/pass/ — neither has a
+            // .pkpass extension, so match the known wallet paths instead.
+            if isAppleWalletPassURL(url) {
                 presentAddPassController(for: url)
                 decisionHandler(.cancel)
                 return
@@ -301,6 +305,21 @@ struct CrushWebView: UIViewRepresentable {
 
         private func isInternal(_ url: URL) -> Bool {
             isInternalHost(url.host)
+        }
+
+        /// True for the two Crush.lu routes that serve a `.pkpass` download.
+        /// Host-scoped so a third-party URL using the same path can't trigger
+        /// the native Add-Pass flow. Mirrors the backend routes in urls_crush.py:
+        ///   - wallet/apple/pass/                          (member pass)
+        ///   - wallet/apple/event-ticket/<id>/pass/        (event ticket)
+        private func isAppleWalletPassURL(_ url: URL) -> Bool {
+            guard isInternal(url) else { return false }
+            let path = url.path
+            if path == "/wallet/apple/pass/" { return true }
+            if path.hasPrefix("/wallet/apple/event-ticket/"), path.hasSuffix("/pass/") {
+                return true
+            }
+            return false
         }
 
         private func isInternalHost(_ host: String?) -> Bool {

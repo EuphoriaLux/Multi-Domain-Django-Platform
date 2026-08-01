@@ -52,13 +52,15 @@ def _build_checkin_url(registration, request=None):
     return f"{base_url}/api/events/checkin/{registration.id}/{token}/"
 
 
-def build_apple_event_ticket(registration, request=None):
+def build_apple_event_ticket(registration, request=None, web_service_url=None):
     """
     Build a .pkpass EventTicket for an event registration.
 
     Args:
         registration: EventRegistration instance (with event and user loaded)
         request: Optional HttpRequest for building absolute URLs
+        web_service_url: Optional explicit webServiceURL — forwarded by the
+            PassKit web-service provider when rebuilding a ticket on update.
 
     Returns:
         bytes: .pkpass file contents
@@ -66,9 +68,10 @@ def build_apple_event_ticket(registration, request=None):
     pass_type_identifier = _require_setting("WALLET_APPLE_PASS_TYPE_IDENTIFIER")
     team_identifier = _require_setting("WALLET_APPLE_TEAM_IDENTIFIER")
     organization_name = _require_setting("WALLET_APPLE_ORGANIZATION_NAME")
-    # Prefer the explicit setting, then derive from the request so the ticket
+    # Prefer an explicit caller-supplied URL (forwarded by the PassKit update
+    # path), then the setting, then derive from the request so the ticket
     # always advertises a webServiceURL alongside its authenticationToken.
-    web_service_url = resolve_web_service_url(request)
+    web_service_url = resolve_web_service_url(request, web_service_url)
 
     event = registration.event
     serial_number = _ensure_event_ticket_serial(registration)

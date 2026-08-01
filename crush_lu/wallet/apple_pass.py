@@ -129,7 +129,9 @@ def _ensure_pass_identifiers(profile):
     return profile.apple_pass_serial, profile.apple_auth_token
 
 
-def _build_pass_payload(profile, serial_number, auth_token, request=None):
+def _build_pass_payload(
+    profile, serial_number, auth_token, request=None, web_service_url=None
+):
     """
     Build the pass.json payload for Apple Wallet.
 
@@ -142,10 +144,11 @@ def _build_pass_payload(profile, serial_number, auth_token, request=None):
     pass_type_identifier = _require_setting("WALLET_APPLE_PASS_TYPE_IDENTIFIER")
     team_identifier = _require_setting("WALLET_APPLE_TEAM_IDENTIFIER")
     organization_name = _require_setting("WALLET_APPLE_ORGANIZATION_NAME")
-    # Prefer the explicit setting, then derive from the request so the pass
-    # always advertises a webServiceURL alongside its authenticationToken.
+    # Prefer an explicit caller-supplied URL (forwarded by the PassKit update
+    # path), then the setting, then derive from the request so the pass always
+    # advertises a webServiceURL alongside its authenticationToken.
     # See passkit_service.resolve_web_service_url for the full rationale.
-    web_service_url = resolve_web_service_url(request)
+    web_service_url = resolve_web_service_url(request, web_service_url)
 
     pass_data = build_wallet_pass_data(profile, request=request)
 
@@ -335,20 +338,27 @@ def _build_pkpass(pass_payload, files=None):
     return buffer.getvalue()
 
 
-def build_apple_pass(profile, request=None):
+def build_apple_pass(profile, request=None, web_service_url=None):
     """
     Build a complete Apple Wallet .pkpass file for the given profile.
 
     Args:
         profile: CrushProfile instance
         request: Optional HttpRequest for building absolute URLs
+        web_service_url: Optional explicit webServiceURL — forwarded by the
+            PassKit web-service provider when rebuilding a pass on update, so
+            a request-less rebuild still carries the right URL.
 
     Returns:
         bytes: The .pkpass file contents
     """
     serial_number, auth_token = _ensure_pass_identifiers(profile)
     pass_payload = _build_pass_payload(
-        profile, serial_number, auth_token, request=request
+        profile,
+        serial_number,
+        auth_token,
+        request=request,
+        web_service_url=web_service_url,
     )
     return _build_pkpass(pass_payload)
 
@@ -377,11 +387,18 @@ def provide_pass_for_serial(
         ).select_related("event", "user").first()
         if not registration:
             return None
-        return build_apple_event_ticket(registration)
+        # Forward the caller-supplied web_service_url (already derived from the
+        # live request in get_latest_pass) so a rebuilt ticket keeps its
+        # webServiceURL even though there is no request here.
+        return build_apple_event_ticket(
+            registration, web_service_url=web_service_url
+        )
 
     from ..models import CrushProfile
 
     profile = CrushProfile.objects.filter(apple_pass_serial=serial_number).first()
     if not profile:
         return None
-    return build_apple_pass(profile)
+    # See the evt- branch: forward web_service_url so the rebuilt member pass
+    # does not silently drop webServiceURL.
+    return build_apple_pass(profile, web_service_url=web_service_url)
