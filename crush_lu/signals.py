@@ -40,6 +40,7 @@ from .models import (
     CrushCoach,
     CrushSpark,
     ProfileSubmission,
+    ReferralCode,
 )
 from .models.journey import JourneyProgress
 from .utils.i18n import is_valid_language
@@ -2734,6 +2735,73 @@ def refresh_wallet_passes_on_user_rename(
     except Exception as e:
         logger.error(
             f"Error scheduling Google Wallet rename update for user {instance.pk}: {e}"
+        )
+
+
+# The QR on the member pass is the referrer's link, and BOTH of these change
+# what it resolves to: the code is the URL, and capture filters on is_active
+# (referrals.py:52 and :86), so a deactivated code renders a QR that scans but
+# attributes nothing. Staff can edit either through ReferralCodeAdmin.
+_REFERRAL_CODE_PASS_FIELDS = ("code", "is_active")
+
+
+@receiver(pre_save, sender=ReferralCode)
+def remember_previous_referral_code(sender, instance, update_fields=None, **kwargs):
+    """Snapshot the code fields the member pass barcode is built from."""
+    instance._previous_referral_code = None
+    if not instance.pk:
+        return
+    if update_fields is not None and not (
+        set(update_fields) & set(_REFERRAL_CODE_PASS_FIELDS)
+    ):
+        return
+    instance._previous_referral_code = (
+        ReferralCode.objects.filter(pk=instance.pk)
+        .values_list(*_REFERRAL_CODE_PASS_FIELDS)
+        .first()
+    )
+
+
+@receiver(post_save, sender=ReferralCode)
+def refresh_member_pass_on_referral_code_change(sender, instance, created, **kwargs):
+    """Rebuild the member pass when its QR stops meaning what it did.
+
+    build_wallet_pass_barcode_value() embeds this code, and nothing else
+    notices when it moves: the code lives on another model, so it reaches
+    neither WALLET_MEMBER_PASS_FIELDS nor any profile save. Deactivating a code
+    is the case that actually bites — get_or_create_for_profile only returns
+    active ones, so the next build mints a *different* code while every
+    installed pass keeps scanning to the dead one, silently attributing
+    nothing.
+
+    Deliberately does not fire on `created`: the only thing that creates a code
+    is get_or_create_for_profile, which is called *from the pass build itself*,
+    so refreshing here would push a notification at the device that just
+    downloaded the pass. A code is only ever created when no active one
+    remains, and the deactivation that got it there already refreshed.
+    """
+    if created:
+        return
+    previous = getattr(instance, "_previous_referral_code", None)
+    if previous is None or previous == (instance.code, instance.is_active):
+        return
+
+    try:
+        profile = instance.referrer
+        if not profile.apple_pass_serial and not profile.google_wallet_object_id:
+            return
+
+        if profile.apple_pass_serial:
+            from .wallet.passkit_service import refresh_ticket_serials
+
+            refresh_ticket_serials(
+                [profile.apple_pass_serial],
+                context=f"Referral code change for user {profile.user_id}",
+            )
+        _trigger_google_wallet_object_update(profile)
+    except Exception as e:
+        logger.error(
+            f"Error refreshing member pass for referral code {instance.pk}: {e}"
         )
 
 

@@ -169,11 +169,33 @@ def refresh_passes_after_points_change(profile):
     counts as a change, so the refresh has to be asked for explicitly. Both
     halves defer to ``transaction.on_commit``, so this is safe to call from
     inside the surrounding atomic block — no network runs under the lock.
+
+    Apple goes through ``refresh_ticket_serials`` rather than the generic
+    trigger, because these callers are request paths — a referral award fires
+    from coach approval, event check-in and login signals, and redemption from
+    an API call — and ``on_commit`` runs before the response returns. That
+    helper is the bounded form AGENTS.md asks for: it advances the update
+    marker in one query with no network (guaranteed, so the pass still
+    refreshes on Wallet's next poll) and caps the pushes by both count and
+    wall clock. The generic path instead pushes to every registered device
+    with a 10s timeout each and no deadline, which can outlast the request
+    *after* the points have already committed — leaving the caller a failure
+    it may retry against work that actually succeeded.
+
+    Google has no equivalent bound: it is still a token exchange plus a PATCH
+    at 30s each. Worth knowing before adding more callers.
     """
-    from .signals import trigger_wallet_pass_updates
+    from .signals import _trigger_google_wallet_object_update
 
     try:
-        trigger_wallet_pass_updates(profile)
+        if profile.apple_pass_serial:
+            from .wallet.passkit_service import refresh_ticket_serials
+
+            refresh_ticket_serials(
+                [profile.apple_pass_serial],
+                context=f"Points change for user {profile.user_id}",
+            )
+        _trigger_google_wallet_object_update(profile)
     except Exception as e:
         # A wallet push must never cost somebody their points.
         logger.error(

@@ -1732,14 +1732,20 @@ class TestPointsChangesReachThePasses:
 
         referrer, attribution = self._referred(test_user_with_profile)
 
-        with mock.patch("crush_lu.signals.trigger_wallet_pass_updates") as update:
+        # Asserted at refresh_ticket_serials, not the generic trigger: these
+        # are request paths, so the refresh has to go through the bounded
+        # helper (guaranteed marker advance + capped push) that AGENTS.md
+        # calls for.
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
             apply_referral_reward(attribution, "signup")
 
         # No tier boundary crossed, so nothing saved the profile — without an
         # explicit refresh the pass keeps the old balance.
         referrer.refresh_from_db()
         assert referrer.membership_tier == "basic"
-        assert update.call_count == 1
+        assert "member-serial" in set(refresh.call_args.args[0])
 
     def test_a_tier_upgrade_refreshes_exactly_once(
         self, test_user_with_profile, settings
@@ -1753,12 +1759,19 @@ class TestPointsChangesReachThePasses:
         settings.MEMBERSHIP_TIER_THRESHOLDS = {"bronze": 1, "silver": 2, "gold": 3}
         referrer, attribution = self._referred(test_user_with_profile)
 
-        with mock.patch("crush_lu.signals.trigger_wallet_pass_updates") as update:
+        with mock.patch(
+            "crush_lu.signals.trigger_wallet_pass_updates"
+        ) as update, mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
             apply_referral_reward(attribution, "signup")
 
         referrer.refresh_from_db()
         assert referrer.membership_tier != "basic"
+        # The tier save fired the receiver; the points path must then stay out
+        # of the way rather than adding a second, byte-identical push.
         assert update.call_count == 1
+        refresh.assert_not_called()
 
     def test_the_profile_approval_bonus_refreshes_the_passes(
         self, test_user_with_profile, settings
@@ -1787,14 +1800,16 @@ class TestPointsChangesReachThePasses:
             user=attribution.referred_user, date_of_birth=date(1995, 5, 15)
         )
 
-        with mock.patch("crush_lu.signals.trigger_wallet_pass_updates") as update:
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
             check_and_apply_profile_approved_reward(referred_profile)
 
         referrer.refresh_from_db()
         assert referrer.referral_points == 50
         # Well short of bronze, so no tier save fired the receiver for us.
         assert referrer.membership_tier == "basic"
-        assert update.call_count == 1
+        assert "member-serial" in set(refresh.call_args.args[0])
 
     def test_redeeming_points_refreshes_the_passes(self, test_user_with_profile):
         from crush_lu.referrals import refresh_passes_after_points_change
@@ -1805,10 +1820,12 @@ class TestPointsChangesReachThePasses:
         profile.apple_pass_serial = "member-serial"
         profile.save(update_fields=["apple_pass_serial"])
 
-        with mock.patch("crush_lu.signals.trigger_wallet_pass_updates") as update:
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
             refresh_passes_after_points_change(profile)
 
-        update.assert_called_once_with(profile)
+        assert "member-serial" in set(refresh.call_args.args[0])
 
     def test_a_failing_push_never_costs_the_points(self, test_user_with_profile):
         from crush_lu.referrals import apply_referral_reward
@@ -1818,7 +1835,7 @@ class TestPointsChangesReachThePasses:
         referrer, attribution = self._referred(test_user_with_profile)
 
         with mock.patch(
-            "crush_lu.signals.trigger_wallet_pass_updates",
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials",
             side_effect=RuntimeError("APNs down"),
         ):
             points, _total = apply_referral_reward(attribution, "signup")
@@ -1826,6 +1843,104 @@ class TestPointsChangesReachThePasses:
         referrer.refresh_from_db()
         assert points > 0
         assert referrer.referral_points == points
+
+
+@pytest.mark.django_db
+class TestReferralCodeChangeRefreshesTheMemberPass:
+    """The member pass QR *is* the referral link. The code lives on another
+    model, so it reaches neither WALLET_MEMBER_PASS_FIELDS nor any profile
+    save — it was only ever picked up by the next bare profile.save()."""
+
+    def _with_code(self, test_user_with_profile):
+        from crush_lu.models import ReferralCode
+
+        _user, profile = test_user_with_profile
+        profile.apple_pass_serial = "member-serial"
+        profile.google_wallet_object_id = "issuer.member-1"
+        profile.save(update_fields=["apple_pass_serial", "google_wallet_object_id"])
+        return profile, ReferralCode.get_or_create_for_profile(profile)
+
+    def test_deactivating_a_code_refreshes(
+        self, _apple_identity, test_user_with_profile
+    ):
+        # The one that actually bites: get_or_create_for_profile only returns
+        # active codes, so the next build mints a different one while every
+        # installed pass keeps scanning to the dead code — which capture
+        # filters out, so it attributes nothing.
+        profile, code = self._with_code(test_user_with_profile)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            code.is_active = False
+            code.save(update_fields=["is_active"])
+
+        assert "member-serial" in set(refresh.call_args.args[0])
+
+    def test_editing_the_code_refreshes(
+        self, _apple_identity, test_user_with_profile
+    ):
+        profile, code = self._with_code(test_user_with_profile)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            code.code = "NEWCODE1"
+            code.save(update_fields=["code"])
+
+        assert "member-serial" in set(refresh.call_args.args[0])
+
+    def test_touching_an_unrelated_field_does_not_refresh(
+        self, _apple_identity, test_user_with_profile
+    ):
+        from django.utils import timezone as dj_timezone
+
+        # Capture stamps last_used_at on every scan. That must not fan out a
+        # push per scan.
+        profile, code = self._with_code(test_user_with_profile)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            code.last_used_at = dj_timezone.now()
+            code.save(update_fields=["last_used_at"])
+
+        refresh.assert_not_called()
+
+    def test_creating_a_code_does_not_refresh(
+        self, _apple_identity, test_user_with_profile
+    ):
+        from crush_lu.models import ReferralCode
+
+        # get_or_create_for_profile is called FROM the pass build, so pushing
+        # here would notify the device that just downloaded the pass.
+        _user, profile = test_user_with_profile
+        profile.apple_pass_serial = "member-serial"
+        profile.save(update_fields=["apple_pass_serial"])
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            ReferralCode.objects.create(referrer=profile)
+
+        refresh.assert_not_called()
+
+    def test_a_holder_with_no_pass_costs_nothing(
+        self, _apple_identity, test_user_with_profile
+    ):
+        from crush_lu.models import ReferralCode
+
+        _user, profile = test_user_with_profile
+        assert not profile.apple_pass_serial
+        code = ReferralCode.get_or_create_for_profile(profile)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            code.is_active = False
+            code.save(update_fields=["is_active"])
+
+        refresh.assert_not_called()
 
 
 @pytest.mark.django_db
