@@ -107,6 +107,37 @@ def build_web_service_url(request):
     return request.build_absolute_uri(base_path.rstrip("/"))
 
 
+def resolve_web_service_url(request=None):
+    """
+    Resolve the webServiceURL to embed in a generated pass.
+
+    A pass that carries an authenticationToken MUST also advertise a
+    webServiceURL, otherwise iOS silently rejects it. To make that impossible
+    to regress, prefer (in order):
+
+      1. The explicit WALLET_APPLE_WEB_SERVICE_URL setting (canonical — it is
+         host-stable across instances and survives behind proxies).
+      2. Derived from the current request via build_web_service_url(request).
+      3. "" (no request and no setting) — the caller's `if url:` guard then
+         omits the field, matching the long-standing behaviour.
+
+    The pass builders accept request=None (e.g. provide_pass_for_serial and
+    the test suite both call them without a request), so the request-derived
+    branch is best-effort and never raises.
+    """
+    explicit = getattr(settings, "WALLET_APPLE_WEB_SERVICE_URL", "")
+    if explicit:
+        return explicit
+    if request is not None:
+        try:
+            return build_web_service_url(request)
+        except Exception:
+            # build_absolute_uri can raise on pathological host headers; never
+            # let URL derivation turn a pass build into a 500.
+            return ""
+    return ""
+
+
 def inject_web_service_fields(pass_json, request, authentication_token):
     pass_json["webServiceURL"] = build_web_service_url(request)
     pass_json["authenticationToken"] = authentication_token

@@ -11,9 +11,12 @@ Reuses signing infrastructure from apple_pass.py.
 import secrets
 from datetime import timedelta
 
-from django.conf import settings
-
-from .apple_pass import _build_pkpass, _ensure_pass_identifiers, _require_setting
+from .apple_pass import (
+    _build_pkpass,
+    _ensure_pass_identifiers,
+    _require_setting,
+    resolve_web_service_url,
+)
 
 
 def _ensure_event_ticket_serial(registration):
@@ -63,7 +66,9 @@ def build_apple_event_ticket(registration, request=None):
     pass_type_identifier = _require_setting("WALLET_APPLE_PASS_TYPE_IDENTIFIER")
     team_identifier = _require_setting("WALLET_APPLE_TEAM_IDENTIFIER")
     organization_name = _require_setting("WALLET_APPLE_ORGANIZATION_NAME")
-    web_service_url = getattr(settings, "WALLET_APPLE_WEB_SERVICE_URL", "")
+    # Prefer the explicit setting, then derive from the request so the ticket
+    # always advertises a webServiceURL alongside its authenticationToken.
+    web_service_url = resolve_web_service_url(request)
 
     event = registration.event
     serial_number = _ensure_event_ticket_serial(registration)

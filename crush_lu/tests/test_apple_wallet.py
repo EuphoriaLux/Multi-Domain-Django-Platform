@@ -91,6 +91,41 @@ class TestSignManifest:
         assert signature[0] == 0x30
 
 
+class TestResolveWebServiceUrl:
+    """A pass with an authenticationToken MUST also carry a webServiceURL or
+    iOS silently rejects it. resolve_web_service_url is what guarantees that."""
+
+    def test_explicit_setting_wins(self, settings):
+        from crush_lu.wallet.passkit_service import resolve_web_service_url
+
+        settings.WALLET_APPLE_WEB_SERVICE_URL = "https://crush.lu/wallet/v1"
+        assert resolve_web_service_url() == "https://crush.lu/wallet/v1"
+        # Even with a request, the explicit setting takes precedence.
+        assert resolve_web_service_url(request=object()) == (
+            "https://crush.lu/wallet/v1"
+        )
+
+    def test_derives_from_request_when_setting_unset(self, settings):
+        from django.test import RequestFactory
+
+        from crush_lu.wallet.passkit_service import resolve_web_service_url
+
+        settings.WALLET_APPLE_WEB_SERVICE_URL = ""
+        # secure=True simulates the https scheme production sees behind the
+        # Azure proxy (X-Forwarded-Proto -> request.is_secure()).
+        request = RequestFactory().get(
+            "/en/dashboard/", HTTP_HOST="crush.lu", secure=True
+        )
+        assert resolve_web_service_url(request) == "https://crush.lu/wallet/v1"
+
+    def test_returns_empty_when_neither_available(self, settings):
+        from crush_lu.wallet.passkit_service import resolve_web_service_url
+
+        settings.WALLET_APPLE_WEB_SERVICE_URL = ""
+        assert resolve_web_service_url() == ""
+        assert resolve_web_service_url(request=None) == ""
+
+
 class TestBuildApplePass:
     """Test full .pkpass generation."""
 

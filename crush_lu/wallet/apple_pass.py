@@ -14,6 +14,7 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
 from ..wallet_pass import build_wallet_pass_data
+from .passkit_service import resolve_web_service_url
 
 # Placeholder 1x1 transparent PNG for icon (fallback if static assets missing)
 ICON_PNG_BASE64 = (
@@ -141,7 +142,10 @@ def _build_pass_payload(profile, serial_number, auth_token, request=None):
     pass_type_identifier = _require_setting("WALLET_APPLE_PASS_TYPE_IDENTIFIER")
     team_identifier = _require_setting("WALLET_APPLE_TEAM_IDENTIFIER")
     organization_name = _require_setting("WALLET_APPLE_ORGANIZATION_NAME")
-    web_service_url = getattr(settings, "WALLET_APPLE_WEB_SERVICE_URL", "")
+    # Prefer the explicit setting, then derive from the request so the pass
+    # always advertises a webServiceURL alongside its authenticationToken.
+    # See passkit_service.resolve_web_service_url for the full rationale.
+    web_service_url = resolve_web_service_url(request)
 
     pass_data = build_wallet_pass_data(profile, request=request)
 
