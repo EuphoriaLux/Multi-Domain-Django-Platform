@@ -82,11 +82,17 @@ def _build_apns_jwt(config):
     )
 
 
-def send_passkit_push_notifications(pass_type_identifier, serial_number):
+def send_passkit_push_notifications(
+    pass_type_identifier, serial_number, mark_updated=True
+):
     # Advance the update tag first: without it the subsequent poll answers 204
     # and the push is wasted. Must happen even when APNs is unconfigured, so
     # Wallet's own periodic poll still picks the change up.
-    mark_passes_updated(pass_type_identifier, serial_number)
+    #
+    # mark_updated=False is for callers that already advanced the tag in bulk
+    # (refresh_ticket_serials), so the pushed subset is not written twice.
+    if mark_updated:
+        mark_passes_updated(pass_type_identifier, serial_number)
 
     config = _get_apns_config()
     if not config:

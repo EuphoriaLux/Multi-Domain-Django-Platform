@@ -465,8 +465,10 @@ def log_endpoint(request):
     return HttpResponse(status=200)
 
 
-def trigger_pass_refresh(pass_type_identifier, serial_number):
-    return send_passkit_push_notifications(pass_type_identifier, serial_number)
+def trigger_pass_refresh(pass_type_identifier, serial_number, mark_updated=True):
+    return send_passkit_push_notifications(
+        pass_type_identifier, serial_number, mark_updated=mark_updated
+    )
 
 
 def refresh_ticket_serials(serials, context=""):
@@ -489,10 +491,12 @@ def refresh_ticket_serials(serials, context=""):
         # Guaranteed part: one query, no network.
         mark_passes_updated_bulk(pass_type_id, serials)
 
-        # Best-effort part: bounded.
+        # Best-effort part: bounded. mark_updated=False because the bulk query
+        # above already advanced every tag — otherwise the pushed subset gets
+        # written twice.
         for serial in serials[:push_limit]:
             try:
-                trigger_pass_refresh(pass_type_id, serial)
+                trigger_pass_refresh(pass_type_id, serial, mark_updated=False)
             except Exception:
                 # One unreachable device must not strand the rest.
                 logger.exception("Failed refreshing Apple event ticket %s", serial)

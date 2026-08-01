@@ -875,7 +875,11 @@ class TestEventLevelTicketRefresh:
             with django_capture_on_commit_callbacks(execute=True):
                 assert refresh_event_tickets(event) == 1
 
-        refresh.assert_called_once_with("pass.lu.crush", "evt-1-reg-1-abcd")
+        # mark_updated=False: refresh_ticket_serials already advanced every
+        # tag in one bulk query, so the pushed subset must not rewrite it.
+        refresh.assert_called_once_with(
+            "pass.lu.crush", "evt-1-reg-1-abcd", mark_updated=False
+        )
 
     def test_skips_registrations_with_no_ticket(
         self, _apple_identity, event_with_registrations
@@ -901,7 +905,11 @@ class TestEventLevelTicketRefresh:
                 event.date_time = dj_timezone.now() + timedelta(days=14)
                 event.save()
 
-        refresh.assert_called_once_with("pass.lu.crush", "evt-1-reg-1-abcd")
+        # mark_updated=False: refresh_ticket_serials already advanced every
+        # tag in one bulk query, so the pushed subset must not rewrite it.
+        refresh.assert_called_once_with(
+            "pass.lu.crush", "evt-1-reg-1-abcd", mark_updated=False
+        )
 
     def test_no_payload_change_does_not_push(
         self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
@@ -932,7 +940,11 @@ class TestEventLevelTicketRefresh:
                 event.title_fr = "Soirée renommée"
                 event.save()
 
-        refresh.assert_called_once_with("pass.lu.crush", "evt-1-reg-1-abcd")
+        # mark_updated=False: refresh_ticket_serials already advanced every
+        # tag in one bulk query, so the pushed subset must not rewrite it.
+        refresh.assert_called_once_with(
+            "pass.lu.crush", "evt-1-reg-1-abcd", mark_updated=False
+        )
 
     @pytest.mark.parametrize(
         "field,value",
@@ -964,7 +976,11 @@ class TestEventLevelTicketRefresh:
                 setattr(event, field, value)
                 event.save()
 
-        refresh.assert_called_once_with("pass.lu.crush", "evt-1-reg-1-abcd")
+        # mark_updated=False: refresh_ticket_serials already advanced every
+        # tag in one bulk query, so the pushed subset must not rewrite it.
+        refresh.assert_called_once_with(
+            "pass.lu.crush", "evt-1-reg-1-abcd", mark_updated=False
+        )
 
     def test_bulk_fanout_is_capped_but_all_tags_advance(
         self, _apple_identity, settings, event_with_registrations,
