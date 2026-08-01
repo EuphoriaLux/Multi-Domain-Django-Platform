@@ -40,94 +40,35 @@ def create_sumup_event_checkout(request, registration_id):
     if registration.user != request.user and not request.user.is_staff:
         return JsonResponse({"error": _("Unauthorized access to this registration.")}, status=403)
 
-    # Gate on payment_confirmed, not status. A normal signup lands in
-    # status="confirmed" long before it is paid (views_events.py), and the
-    # payment return handler also sets status="confirmed" once it *is* paid --
-    # so status cannot tell the two apart and only the flag can. This mirrors
-    # the condition the templates use to show the Pay button. The old check
-    # (`status != "pending" and not payment_confirmed`) was wrong both ways:
-    # it rejected every unpaid confirmed registration, and it let an already
-    # paid one start a second checkout.
-    if registration.payment_confirmed:
-        return JsonResponse(
-            {"error": _("This registration is already paid.")}, status=400
-        )
+    # Every eligibility check lives inside the lock below, on re-read rows --
+    # duplicating them out here only invites the two copies to drift.
 
-    # Allow-list, not a deny-list. Only a registration that actually holds a seat
-    # may pay. "waitlist" is the case that matters: the Pay button renders for any
-    # unpaid registration, and _apply_paid_checkout unconditionally promotes the
-    # payer to "confirmed" -- so a deny-list would let a waitlisted member buy
-    # their way past the capacity decision into an over-capacity seat.
-    # "confirmed" stays payable for rows created before paid signups became
-    # "pending"; they are legitimately unpaid and must still be able to settle.
-    if registration.status not in ("pending", "confirmed"):
-        return JsonResponse(
-            {
-                "error": _("This registration cannot be paid for in its current state.")
-            },
-            status=400,
-        )
-
-    # The parent event can be cancelled after registration; the admin action only
-    # touches the event row, and the Pay button keeps rendering.
-    if registration.event.is_cancelled:
-        return JsonResponse(
-            {"error": _("This event has been cancelled.")}, status=400
-        )
-
-    if registration.event.registration_fee <= Decimal("0.00"):
-        return JsonResponse({"error": _("This event does not require payment.")}, status=400)
-
-    # One live checkout per registration, decided entirely under lock.
+    # Always open a FRESH checkout; supersede any older one.
     #
-    # Nothing constrains PaymentTransaction to one live checkout per registration
-    # (no uniqueness on the FK), so a double-click could open two and, if both
-    # completed, the attendee was charged twice for one seat.
+    # This deliberately replaced a reuse-and-reconcile design. Reuse required
+    # asking SumUp whether an old checkout was still payable, and that call --
+    # which can itself apply a payment -- had to be sequenced against a price
+    # that admins can edit, an event that can be cancelled, and a webhook
+    # holding the same two rows. Three successive attempts each traded one
+    # hazard for another (an ABBA deadlock, then a stale-price confirmation and
+    # a cancellation window). Creating a new checkout every time removes the
+    # question entirely: there is nothing to reconcile.
     #
-    # LOCK ORDER: PaymentTransaction, then EventRegistration -- the same order
-    # _apply_paid_checkout uses. An earlier attempt fixed an ABBA deadlock by
-    # moving reconciliation *outside* this block, which removed the deadlock but
-    # opened a window: the fee could change or the event could be cancelled
-    # during the (slow) SumUp call, and nothing re-checked afterwards. Holding
-    # both locks in the canonical order gets atomicity without the deadlock. The
-    # HTTP call runs under lock deliberately -- contention is one registration
-    # row, between the same user clicking twice and its own webhook.
+    # What replaces reuse as double-charge protection is superseding: the
+    # previous checkout is deactivated at SumUp, so only the newest is payable.
+    # Without that, two tabs could each complete a checkout and the member would
+    # be charged twice. Deactivation is best-effort by design -- if SumUp is
+    # briefly unreachable, _apply_paid_checkout is still idempotent and the
+    # payment_confirmed guard above still refuses a second attempt.
     with transaction.atomic():
-        candidate = (
-            PaymentTransaction.objects.select_for_update()
-            .filter(
-                event_registration=registration,
-                purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
-                status=PaymentTransaction.Status.PENDING,
-            )
-            .exclude(sumup_checkout_id="")
-            .order_by("-created_at")
-            .first()
-        )
         registration = EventRegistration.objects.select_for_update().get(
             pk=registration.pk
         )
-
-        # Only reconcile a checkout that is still for the current price. An
-        # unconditional sync could discover that a checkout opened at an
-        # obsolete fee had been paid and confirm the seat at that old amount --
-        # the staleness comparison below would never see it, because the
-        # registration is already marked paid by then.
-        event = MeetupEvent.objects.only(
-            "registration_fee", "is_cancelled"
-        ).get(pk=registration.event_id)
+        event = MeetupEvent.objects.only("registration_fee", "is_cancelled").get(
+            pk=registration.event_id
+        )
         amount = event.registration_fee
 
-        if candidate and candidate.amount == amount and candidate.currency == "EUR":
-            # A locally-PENDING row is not proof the checkout is still payable:
-            # SumUp may have expired or cancelled it with no webhook or return
-            # ever landing, and we would hand back the same dead widget forever.
-            _sync_checkout_with_sumup(candidate)
-            registration.refresh_from_db()
-            event.refresh_from_db()
-            amount = event.registration_fee
-
-        # Everything below is judged on state read AFTER the provider call.
         if registration.payment_confirmed:
             return JsonResponse(
                 {"error": _("This registration is already paid.")}, status=400
@@ -150,48 +91,20 @@ def create_sumup_event_checkout(request, registration_id):
                 {"error": _("This event does not require payment.")}, status=400
             )
 
-        existing = (
-            PaymentTransaction.objects.filter(
-                event_registration=registration,
-                purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
-                status=PaymentTransaction.Status.PENDING,
-            )
-            .exclude(sumup_checkout_id="")
-            .order_by("-created_at")
-            .first()
-        )
-        # Only reuse a checkout that is still for the right money. registration_fee
-        # is editable in the admin, so an abandoned checkout can outlive the price
-        # it was opened at -- reusing it blindly would charge the old amount and
-        # then confirm the seat as if the current fee had been paid. A stale one is
-        # abandoned (left PENDING for the record) and replaced.
-        if existing and (existing.amount != amount or existing.currency != "EUR"):
+        superseded = PaymentTransaction.objects.select_for_update().filter(
+            event_registration=registration,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            status=PaymentTransaction.Status.PENDING,
+        ).exclude(sumup_checkout_id="")
+        client = SumUpClient()
+        for old in superseded:
+            client.deactivate_checkout(old.sumup_checkout_id)
+            old.status = PaymentTransaction.Status.FAILED
+            old.save(update_fields=["status"])
             logger.info(
-                "Discarding stale SumUp checkout %s for registration %s: "
-                "%s %s no longer matches the event fee %s EUR",
-                existing.sumup_checkout_id,
+                "Superseded SumUp checkout %s for registration %s",
+                old.sumup_checkout_id,
                 registration.id,
-                existing.amount,
-                existing.currency,
-                amount,
-            )
-            existing = None
-
-        if existing:
-            logger.info(
-                "Reusing pending SumUp checkout %s for registration %s",
-                existing.sumup_checkout_id,
-                registration.id,
-            )
-            return JsonResponse(
-                {
-                    "success": True,
-                    "checkout_id": existing.sumup_checkout_id,
-                    "checkout_reference": existing.transaction_reference,
-                    "amount": float(existing.amount),
-                    "currency": existing.currency,
-                    "widget_url": f"/payments/sumup/widget/{existing.sumup_checkout_id}/",
-                }
             )
 
         checkout_ref = f"CRUSH-EVT-{registration.id}-{uuid.uuid4().hex[:6]}"
@@ -200,7 +113,6 @@ def create_sumup_event_checkout(request, registration_id):
             f"/payments/sumup/return/?ref={checkout_ref}"
         )
 
-        client = SumUpClient()
         try:
             checkout_data = client.create_checkout(
                 amount=float(amount),

@@ -550,30 +550,6 @@ class CheckoutGuardTests(SiteTestMixin, TestCase):
         self.assertEqual(self._post().status_code, 400)
         mock_create_checkout.assert_not_called()
 
-    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
-    def test_second_click_reuses_the_existing_checkout(self, mock_create_checkout):
-        """Two clicks must not open two checkouts -- that is a double charge.
-
-        There is no uniqueness on the event_registration FK, so without reuse
-        both transactions can be completed and each is marked paid independently.
-        """
-        mock_create_checkout.return_value = {"id": "CHK_ONCE", "status": "PENDING"}
-        self.client.force_login(self.user)
-
-        first = self._post()
-        second = self._post()
-
-        self.assertEqual(first.status_code, 200)
-        self.assertEqual(second.status_code, 200)
-        self.assertEqual(first.json()["checkout_id"], second.json()["checkout_id"])
-        self.assertEqual(mock_create_checkout.call_count, 1)
-        self.assertEqual(
-            PaymentTransaction.objects.filter(
-                event_registration=self.registration
-            ).count(),
-            1,
-        )
-
     @patch("crush_lu.views_payments.SumUpClient.get_checkout")
     def test_successful_payment_sends_the_promised_confirmation(self, mock_get_checkout):
         """The payment-pending email promises a confirmation once paid."""
@@ -766,25 +742,6 @@ class PaymentRaceAndStaleStateTests(SiteTestMixin, TestCase):
         self.assertEqual(response.status_code, 400)
         mock_create_checkout.assert_not_called()
 
-    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
-    def test_stale_priced_checkout_is_not_reused(self, mock_create_checkout):
-        """registration_fee is admin-editable and can outlive an open checkout."""
-        mock_create_checkout.side_effect = [
-            {"id": "CHK_OLD", "status": "PENDING"},
-            {"id": "CHK_NEW", "status": "PENDING"},
-        ]
-        self.client.force_login(self.user)
-
-        first = self._post()
-        self.assertEqual(first.json()["checkout_id"], "CHK_OLD")
-
-        self.event.registration_fee = Decimal("25.00")
-        self.event.save()
-
-        second = self._post()
-        self.assertEqual(second.json()["checkout_id"], "CHK_NEW")
-        self.assertEqual(second.json()["amount"], 25.00)
-
     def test_late_payment_does_not_downgrade_an_attendee(self):
         """A pending seat can be scanned while its payment is still settling."""
         from crush_lu.views_payments import _apply_paid_checkout
@@ -833,87 +790,6 @@ class PaymentRaceAndStaleStateTests(SiteTestMixin, TestCase):
         self.client.force_login(self.user)
         response = self.client.get("/payments/sumup/widget/CHK_STAFF/")
         self.assertEqual(response.status_code, 200)
-
-
-@override_settings(ROOT_URLCONF="azureproject.urls_crush")
-class ExpiredCheckoutReuseTests(SiteTestMixin, TestCase):
-    """A locally-PENDING row is not proof the checkout is still payable."""
-
-    def setUp(self):
-        super().setUp()
-        self.client.defaults["HTTP_HOST"] = "crush.lu"
-        self.user = User.objects.create_user(
-            username="exp@crush.lu", email="exp@crush.lu", password="password123"
-        )
-        from crush_lu.models.profiles import UserDataConsent
-
-        UserDataConsent.objects.update_or_create(
-            user=self.user,
-            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
-        )
-        self.event = MeetupEvent.objects.create(
-            title="Expiry",
-            description="d",
-            event_type="speed_dating",
-            location="Luxembourg",
-            address="10 Grand Rue",
-            date_time=timezone.now() + timezone.timedelta(days=2),
-            registration_deadline=timezone.now() + timezone.timedelta(days=1),
-            registration_fee=Decimal("15.00"),
-            is_published=True,
-        )
-        self.registration = EventRegistration.objects.create(
-            user=self.user, event=self.event, status="pending"
-        )
-
-    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
-    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
-    def test_expired_checkout_is_replaced_not_handed_back(
-        self, mock_create_checkout, mock_get_checkout
-    ):
-        """Abandoned checkouts expire at SumUp without any webhook landing.
-
-        The local row stays PENDING, so reuse would return the same dead widget
-        on every future Pay click.
-        """
-        mock_create_checkout.side_effect = [
-            {"id": "CHK_DEAD", "status": "PENDING"},
-            {"id": "CHK_FRESH", "status": "PENDING"},
-        ]
-        self.client.force_login(self.user)
-
-        url = reverse(
-            "crush_lu:sumup_create_event_checkout",
-            kwargs={"registration_id": self.registration.id},
-        )
-        first = self.client.post(url)
-        self.assertEqual(first.json()["checkout_id"], "CHK_DEAD")
-
-        # SumUp now reports the abandoned checkout as expired.
-        mock_get_checkout.return_value = {"id": "CHK_DEAD", "status": "EXPIRED"}
-        second = self.client.post(url)
-
-        self.assertEqual(second.json()["checkout_id"], "CHK_FRESH")
-        dead = PaymentTransaction.objects.get(sumup_checkout_id="CHK_DEAD")
-        self.assertEqual(dead.status, PaymentTransaction.Status.FAILED)
-
-    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
-    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
-    def test_still_live_checkout_is_reused(self, mock_create_checkout, mock_get_checkout):
-        """Reconciling must not break the ordinary double-click case."""
-        mock_create_checkout.return_value = {"id": "CHK_LIVE", "status": "PENDING"}
-        mock_get_checkout.return_value = {"id": "CHK_LIVE", "status": "PENDING"}
-        self.client.force_login(self.user)
-
-        url = reverse(
-            "crush_lu:sumup_create_event_checkout",
-            kwargs={"registration_id": self.registration.id},
-        )
-        first = self.client.post(url)
-        second = self.client.post(url)
-
-        self.assertEqual(first.json()["checkout_id"], second.json()["checkout_id"])
-        self.assertEqual(mock_create_checkout.call_count, 1)
 
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
@@ -990,20 +866,21 @@ class SeatStatusAtCompletionTests(SiteTestMixin, TestCase):
 
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
-class CheckoutStateAfterProviderCallTests(SiteTestMixin, TestCase):
-    """Round-7: state read AFTER the SumUp call is what decides.
+class SupersedeCheckoutTests(SiteTestMixin, TestCase):
+    """Every Pay click opens a fresh checkout and kills the previous one.
 
-    Reconciliation was moved outside the lock in round 6 to break a deadlock.
-    That removed the deadlock but opened a window -- the fee could change or the
-    event could be cancelled during the (slow) provider call with nothing
-    re-checking afterwards.
+    This replaced reuse-and-reconcile. Reuse needed a provider call to decide
+    whether an old checkout was still payable, and sequencing that call against
+    an editable price, a cancellable event and a concurrent webhook produced a
+    new defect in three successive rounds. Superseding is what keeps the
+    double-charge guarantee: only the newest checkout is payable at SumUp.
     """
 
     def setUp(self):
         super().setUp()
         self.client.defaults["HTTP_HOST"] = "crush.lu"
         self.user = User.objects.create_user(
-            username="r7@crush.lu", email="r7@crush.lu", password="password123"
+            username="sup@crush.lu", email="sup@crush.lu", password="password123"
         )
         from crush_lu.models.profiles import UserDataConsent
 
@@ -1012,7 +889,7 @@ class CheckoutStateAfterProviderCallTests(SiteTestMixin, TestCase):
             defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
         )
         self.event = MeetupEvent.objects.create(
-            title="R7",
+            title="Supersede",
             description="d",
             event_type="speed_dating",
             location="Luxembourg",
@@ -1029,55 +906,94 @@ class CheckoutStateAfterProviderCallTests(SiteTestMixin, TestCase):
             "crush_lu:sumup_create_event_checkout",
             kwargs={"registration_id": self.registration.id},
         )
-
-    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
-    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
-    def test_stale_priced_checkout_is_never_reconciled(
-        self, mock_create_checkout, mock_get_checkout
-    ):
-        """An obsolete-price checkout must not be able to confirm the seat.
-
-        Reconciling it unconditionally could discover it had been paid and
-        confirm at the old amount -- the staleness comparison never sees that,
-        because the registration is already marked paid by then.
-        """
-        mock_create_checkout.side_effect = [
-            {"id": "CHK_OLDPRICE", "status": "PENDING"},
-            {"id": "CHK_NEWPRICE", "status": "PENDING"},
-        ]
         self.client.force_login(self.user)
-        self.client.post(self.url)
 
+    @patch("crush_lu.views_payments.SumUpClient.deactivate_checkout")
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_second_click_supersedes_the_first(
+        self, mock_create_checkout, mock_deactivate
+    ):
+        mock_create_checkout.side_effect = [
+            {"id": "CHK_A", "status": "PENDING"},
+            {"id": "CHK_B", "status": "PENDING"},
+        ]
+        mock_deactivate.return_value = True
+
+        first = self.client.post(self.url)
+        second = self.client.post(self.url)
+
+        self.assertEqual(first.json()["checkout_id"], "CHK_A")
+        self.assertEqual(second.json()["checkout_id"], "CHK_B")
+        # The old one is dead at SumUp, so it cannot also be paid.
+        mock_deactivate.assert_called_once_with("CHK_A")
+        self.assertEqual(
+            PaymentTransaction.objects.get(sumup_checkout_id="CHK_A").status,
+            PaymentTransaction.Status.FAILED,
+        )
+        self.assertEqual(
+            PaymentTransaction.objects.get(sumup_checkout_id="CHK_B").status,
+            PaymentTransaction.Status.PENDING,
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.deactivate_checkout")
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_new_checkout_always_uses_the_current_fee(
+        self, mock_create_checkout, mock_deactivate
+    ):
+        """No stale-price path exists any more: the fee is read per request."""
+        mock_create_checkout.side_effect = [
+            {"id": "CHK_OLD", "status": "PENDING"},
+            {"id": "CHK_NEW", "status": "PENDING"},
+        ]
+        mock_deactivate.return_value = True
+
+        self.client.post(self.url)
         self.event.registration_fee = Decimal("25.00")
         self.event.save()
-        # If the stale checkout were reconciled, this would confirm at 15.00.
-        mock_get_checkout.return_value = {"id": "CHK_OLDPRICE", "status": "PAID"}
+        second = self.client.post(self.url)
 
-        response = self.client.post(self.url)
+        self.assertEqual(second.json()["amount"], 25.00)
+        self.assertEqual(
+            PaymentTransaction.objects.get(sumup_checkout_id="CHK_NEW").amount,
+            Decimal("25.00"),
+        )
 
-        mock_get_checkout.assert_not_called()
-        self.registration.refresh_from_db()
-        self.assertFalse(self.registration.payment_confirmed)
-        self.assertEqual(response.json()["amount"], 25.00)
-
-    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    @patch("crush_lu.views_payments.SumUpClient.deactivate_checkout")
     @patch("crush_lu.views_payments.SumUpClient.create_checkout")
-    def test_event_cancelled_during_the_provider_call_is_caught(
-        self, mock_create_checkout, mock_get_checkout
+    def test_unreachable_deactivation_does_not_block_the_new_checkout(
+        self, mock_create_checkout, mock_deactivate
     ):
-        """The organiser can cancel while the SumUp call is in flight."""
-        mock_create_checkout.return_value = {"id": "CHK_R7", "status": "PENDING"}
-        self.client.force_login(self.user)
+        """Best-effort by design — a member must not be stuck unable to pay.
+
+        _apply_paid_checkout stays idempotent and payment_confirmed still guards
+        a second attempt, so a payment slipping through is handled.
+        """
+        mock_create_checkout.side_effect = [
+            {"id": "CHK_1", "status": "PENDING"},
+            {"id": "CHK_2", "status": "PENDING"},
+        ]
+        mock_deactivate.return_value = False
+
         self.client.post(self.url)
+        second = self.client.post(self.url)
 
-        event_id = self.event.id
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(second.json()["checkout_id"], "CHK_2")
 
-        def cancel_midway(_checkout_id):
-            MeetupEvent.objects.filter(pk=event_id).update(is_cancelled=True)
-            return {"id": "CHK_R7", "status": "PENDING"}
+    @patch("crush_lu.views_payments.SumUpClient.deactivate_checkout")
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_no_provider_call_is_made_to_reconcile(
+        self, mock_create_checkout, mock_deactivate
+    ):
+        """The creation path must never call get_checkout.
 
-        mock_get_checkout.side_effect = cancel_midway
+        That call is what forced the lock ordering against the webhook and
+        caused the deadlock; its absence here is the actual simplification.
+        """
+        mock_create_checkout.return_value = {"id": "CHK_X", "status": "PENDING"}
+        mock_deactivate.return_value = True
 
-        response = self.client.post(self.url)
-
-        self.assertEqual(response.status_code, 400)
+        with patch("crush_lu.views_payments.SumUpClient.get_checkout") as mock_get:
+            self.client.post(self.url)
+            self.client.post(self.url)
+            mock_get.assert_not_called()
