@@ -105,8 +105,10 @@ from . import views_crush_cache
 from . import views_changelog
 from . import views_premium
 from . import views_event_lobby
+from . import views_payments
 
 app_name = 'crush_lu'
+
 
 
 def _spark_to_crush_connect(request, *args, **kwargs):
@@ -636,7 +638,15 @@ urlpatterns = [
     # Advent Calendar API Endpoints
     path('api/advent/status/', views_advent.get_advent_status, name='api_advent_status'),
     path('api/advent/open-door/', views_advent.open_door_api, name='api_advent_open_door'),
+
+    # Payments (SumUp)
+    path('payments/sumup/create-event-checkout/<int:registration_id>/', views_payments.create_sumup_event_checkout, name='sumup_create_event_checkout'),
+    path('payments/sumup/create-premium-checkout/<int:membership_id>/', views_payments.create_sumup_premium_checkout, name='sumup_create_premium_checkout'),
+    path('payments/sumup/widget/<str:checkout_id>/', views_payments.sumup_widget_view, name='sumup_widget'),
+    path('payments/sumup/return/', views_payments.sumup_payment_return, name='sumup_payment_return'),
+    path('payments/sumup/webhook/', views_payments.sumup_webhook, name='sumup_webhook'),
 ]
+
 
 from django.conf import settings
 if settings.DEBUG:
