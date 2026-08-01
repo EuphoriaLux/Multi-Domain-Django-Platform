@@ -17,22 +17,68 @@
     </section>
 
     {% if pending_membership %}
-    <div class="mb-6 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-900/20">
-      <div class="flex-1 min-w-0">
-        <p class="mb-0 text-sm font-semibold text-amber-800 dark:text-amber-200">
-          {% blocktrans with coach_name=pending_membership.coach.user.first_name %}You've chosen {{ coach_name }} — payment pending.{% endblocktrans %}
-        </p>
-        <p class="mb-0 text-xs text-amber-700/80 dark:text-amber-400/80">
-          {% trans "We'll be in touch to complete your premium membership. You can pick a different coach below." %}
-        </p>
+    <div class="mb-6 flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 dark:border-emerald-800 dark:bg-emerald-900/20">
+      <div class="flex items-center gap-3">
+        <div class="flex-1 min-w-0">
+          <p class="mb-0 text-sm font-semibold text-emerald-900 dark:text-emerald-200">
+            {% blocktrans with coach_name=pending_membership.coach.user.first_name %}You've chosen {{ coach_name }} — payment pending.{% endblocktrans %}
+          </p>
+          <p class="mb-0 text-xs text-emerald-700 dark:text-emerald-400">
+            {% trans "Complete your payment below to activate your premium membership and unlock your personal coach." %}
+          </p>
+        </div>
+        <form method="post" action="{% url 'crush_lu:premium_cancel_membership' %}" class="flex-shrink-0">
+          {% csrf_token %}
+          <button type="submit" class="rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300 transition-colors hover:bg-gray-100 dark:hover:bg-gray-700">
+            {% trans "Cancel request" %}
+          </button>
+        </form>
       </div>
-      <form method="post" action="{% url 'crush_lu:premium_cancel_membership' %}" class="flex-shrink-0">
-        {% csrf_token %}
-        <button type="submit" class="rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-700 transition-colors hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/40">
-          {% trans "Cancel request" %}
-        </button>
-      </form>
+      <button onclick="startSumUpPremiumCheckout({{ pending_membership.id }})" class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-xl shadow transition-all duration-200 cursor-pointer">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+        </svg>
+        <span>{% trans "Pay Premium Subscription (€10.00 / month)" %}</span>
+      </button>
     </div>
+    <script>
+      function getCsrfToken() {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+          const cookies = document.cookie.split(';');
+          for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, 10) === ('csrftoken=')) {
+              cookieValue = decodeURIComponent(cookie.substring(10));
+              break;
+            }
+          }
+        }
+        return cookieValue;
+      }
+
+      function startSumUpPremiumCheckout(membershipId) {
+        fetch('/payments/sumup/create-premium-checkout/' + membershipId + '/', {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': getCsrfToken(),
+            'Content-Type': 'application/json'
+          }
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.widget_url) {
+            window.location.href = data.widget_url;
+          } else {
+            alert(data.error || 'Failed to initiate payment.');
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          alert('An error occurred launching payment.');
+        });
+      }
+    </script>
     {% endif %}
 
     <section class="grid grid-cols-1 gap-4 sm:grid-cols-2">
