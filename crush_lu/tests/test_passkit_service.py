@@ -1696,6 +1696,103 @@ class TestMemberPassUpdateNeedsARealChange:
 
 
 @pytest.mark.django_db
+class TestPointsChangesReachThePasses:
+    """Both passes print the points balance, but every points mutation is a
+    QuerySet.update() carrying an F() expression — that is what closes the
+    concurrent-award race — and QuerySet.update() emits no signals. The
+    balance used to self-heal on the holder's next bare profile.save(); once
+    that stopped counting as a change, a points-only award left the installed
+    pass showing the old total indefinitely."""
+
+    def _referred(self, test_user_with_profile):
+        from django.contrib.auth import get_user_model
+
+        from crush_lu.models import ReferralAttribution, ReferralCode
+
+        _user, referrer = test_user_with_profile
+        referrer.apple_pass_serial = "member-serial"
+        referrer.save(update_fields=["apple_pass_serial"])
+
+        invitee = get_user_model().objects.create_user(
+            username="invitee@example.com",
+            email="invitee@example.com",
+            password="x",
+        )
+        code = ReferralCode.get_or_create_for_profile(referrer)
+        attribution = ReferralAttribution.objects.create(
+            referral_code=code,
+            referred_user=invitee,
+            referrer=referrer,
+            status=ReferralAttribution.Status.CONVERTED,
+        )
+        return referrer, attribution
+
+    def test_points_only_award_refreshes_the_passes(self, test_user_with_profile):
+        from crush_lu.referrals import apply_referral_reward
+
+        referrer, attribution = self._referred(test_user_with_profile)
+
+        with mock.patch("crush_lu.signals.trigger_wallet_pass_updates") as update:
+            apply_referral_reward(attribution, "signup")
+
+        # No tier boundary crossed, so nothing saved the profile — without an
+        # explicit refresh the pass keeps the old balance.
+        referrer.refresh_from_db()
+        assert referrer.membership_tier == "basic"
+        assert update.call_count == 1
+
+    def test_a_tier_upgrade_refreshes_exactly_once(
+        self, test_user_with_profile, settings
+    ):
+        from crush_lu.referrals import apply_referral_reward
+
+        # Crossing a threshold saves membership_tier, which fires the receiver
+        # on its own. Refreshing again on top of that would push a
+        # byte-identical package.
+        settings.REFERRAL_POINTS_PER_SIGNUP = 500
+        settings.MEMBERSHIP_TIER_THRESHOLDS = {"bronze": 1, "silver": 2, "gold": 3}
+        referrer, attribution = self._referred(test_user_with_profile)
+
+        with mock.patch("crush_lu.signals.trigger_wallet_pass_updates") as update:
+            apply_referral_reward(attribution, "signup")
+
+        referrer.refresh_from_db()
+        assert referrer.membership_tier != "basic"
+        assert update.call_count == 1
+
+    def test_redeeming_points_refreshes_the_passes(self, test_user_with_profile):
+        from crush_lu.referrals import refresh_passes_after_points_change
+
+        # The redemption endpoint deducts with QuerySet.update() too, so the
+        # balance drops on the pass with no signal behind it.
+        _user, profile = test_user_with_profile
+        profile.apple_pass_serial = "member-serial"
+        profile.save(update_fields=["apple_pass_serial"])
+
+        with mock.patch("crush_lu.signals.trigger_wallet_pass_updates") as update:
+            refresh_passes_after_points_change(profile)
+
+        update.assert_called_once_with(profile)
+
+    def test_a_failing_push_never_costs_the_points(self, test_user_with_profile):
+        from crush_lu.referrals import apply_referral_reward
+
+        # The award is the user's money; a wallet push is not. If the push
+        # raises, the points must still be committed.
+        referrer, attribution = self._referred(test_user_with_profile)
+
+        with mock.patch(
+            "crush_lu.signals.trigger_wallet_pass_updates",
+            side_effect=RuntimeError("APNs down"),
+        ):
+            points, _total = apply_referral_reward(attribution, "signup")
+
+        referrer.refresh_from_db()
+        assert points > 0
+        assert referrer.referral_points == points
+
+
+@pytest.mark.django_db
 class TestTicketStampsAreSignalFree:
     """Stamping ticket-only metadata must not emit post_save: the generic
     registration receiver treats any non-created save as a next-event change
