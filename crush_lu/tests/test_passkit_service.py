@@ -1846,6 +1846,50 @@ class TestPointsChangesReachThePasses:
 
 
 @pytest.mark.django_db
+class TestRegistrationDeletionRefreshesTheMemberPass:
+    """The member card prints the holder's NEXT event. The post_save receiver
+    covers create and status changes; deletion had no equivalent and used to
+    ride on the holder's next bare profile.save()."""
+
+    def _member(self, event_with_registrations):
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        profile = registration.user.crushprofile
+        profile.apple_pass_serial = "member-serial"
+        profile.save(update_fields=["apple_pass_serial"])
+        return registration, profile
+
+    def test_deleting_one_registration_refreshes(
+        self, _apple_identity, event_with_registrations
+    ):
+        registration, _profile = self._member(event_with_registrations)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            registration.delete()
+
+        pushed = {s for c in refresh.call_args_list for s in c.args[0]}
+        assert "member-serial" in pushed
+
+    def test_an_event_cascade_does_not_fan_out_per_row(
+        self, _apple_identity, event_with_registrations
+    ):
+        event, _registrations = event_with_registrations
+        _registration, _profile = self._member(event_with_registrations)
+
+        # One bounded refresh per row is not bounded in aggregate: each call
+        # starts its own push budget, so N rows multiply the deadline N times
+        # — the pathology cancel_events was already fixed for by batching.
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            event.delete()
+
+        refresh.assert_not_called()
+
+
+@pytest.mark.django_db
 class TestReferralCodeChangeRefreshesTheMemberPass:
     """The member pass QR *is* the referral link. The code lives on another
     model, so it reaches neither WALLET_MEMBER_PASS_FIELDS nor any profile
@@ -1939,6 +1983,66 @@ class TestReferralCodeChangeRefreshesTheMemberPass:
         ) as refresh:
             code.is_active = False
             code.save(update_fields=["is_active"])
+
+        refresh.assert_not_called()
+
+    def test_reassigning_the_owner_refreshes_both_holders(
+        self, _apple_identity, test_user_with_profile
+    ):
+        from datetime import date
+
+        from django.contrib.auth import get_user_model
+
+        from crush_lu.models import CrushProfile
+
+        # The old holder is the one that actually matters: their installed QR
+        # now credits somebody else entirely.
+        old_holder, code = self._with_code(test_user_with_profile)
+        new_user = get_user_model().objects.create_user(
+            username="new@example.com", email="new@example.com", password="x"
+        )
+        new_holder = CrushProfile.objects.create(
+            user=new_user, date_of_birth=date(1995, 5, 15)
+        )
+        new_holder.apple_pass_serial = "new-holder-serial"
+        new_holder.save(update_fields=["apple_pass_serial"])
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            code.referrer = new_holder
+            code.save(update_fields=["referrer"])
+
+        pushed = {s for c in refresh.call_args_list for s in c.args[0]}
+        assert pushed == {"member-serial", "new-holder-serial"}
+        assert old_holder.apple_pass_serial == "member-serial"
+
+    def test_deleting_a_code_refreshes(
+        self, _apple_identity, test_user_with_profile
+    ):
+        # capture_referral needs a matching row, so once it is gone the QR
+        # attributes nothing — and the next build mints a different code, so
+        # the installed pass never converges on its own.
+        profile, code = self._with_code(test_user_with_profile)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            code.delete()
+
+        assert "member-serial" in set(refresh.call_args.args[0])
+
+    def test_deleting_the_profile_does_not_refresh_its_own_code(
+        self, _apple_identity, test_user_with_profile
+    ):
+        # The usual reason a code disappears is the profile going with it.
+        # Refreshing a pass whose profile no longer exists is pointless.
+        profile, _code = self._with_code(test_user_with_profile)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            profile.delete()
 
         refresh.assert_not_called()
 

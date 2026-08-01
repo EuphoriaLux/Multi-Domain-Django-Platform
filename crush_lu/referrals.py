@@ -187,6 +187,8 @@ def refresh_passes_after_points_change(profile):
     """
     from .signals import _trigger_google_wallet_object_update
 
+    # One try/except per wallet, not one around both: neither may swallow the
+    # other, and either way a wallet push must never cost somebody their points.
     try:
         if profile.apple_pass_serial:
             from .wallet.passkit_service import refresh_ticket_serials
@@ -195,11 +197,18 @@ def refresh_passes_after_points_change(profile):
                 [profile.apple_pass_serial],
                 context=f"Points change for user {profile.user_id}",
             )
+    except Exception as e:
+        logger.error(
+            "Error refreshing Apple pass after a points change for user %s: %s",
+            profile.user_id,
+            e,
+        )
+
+    try:
         _trigger_google_wallet_object_update(profile)
     except Exception as e:
-        # A wallet push must never cost somebody their points.
         logger.error(
-            "Error refreshing wallet passes after a points change for user %s: %s",
+            "Error refreshing Google pass after a points change for user %s: %s",
             profile.user_id,
             e,
         )

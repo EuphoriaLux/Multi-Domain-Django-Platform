@@ -2599,6 +2599,40 @@ def cleanup_passkit_registrations_on_registration_delete(sender, instance, **kwa
     _delete_passkit_registrations(instance.apple_wallet_ticket_serial)
 
 
+@receiver(post_delete, sender=EventRegistration)
+def refresh_member_pass_on_registration_delete(
+    sender, instance, origin=None, **kwargs
+):
+    """The member card prints the holder's NEXT event, so deleting the row that
+    supplied it leaves the card advertising an event they are not going to.
+
+    The post_save receiver covers create and status changes; deletion had no
+    equivalent, and used to be picked up by the holder's next bare
+    profile.save().
+
+    Scoped to a DIRECT delete of one registration — an admin object delete —
+    using the signal's `origin`. A cascade (deleting the event, or the user)
+    fires this per row, and one bounded refresh per row is not bounded in
+    aggregate: each call starts its own push budget, so N rows multiply the
+    deadline N times. That is the same pathology cancel_events was already
+    fixed for by batching into a single refresh. Deleting a user makes the
+    refresh pointless anyway, and deleting an event is better served by a
+    batched path at the event level than by this receiver.
+    """
+    if not isinstance(origin, EventRegistration):
+        # Never silent about skipped work.
+        logger.info(
+            "Registration %s deleted via %s; member-pass refresh skipped "
+            "(cascade/bulk deletes need a batched path, not one per row)",
+            instance.pk,
+            type(origin).__name__,
+        )
+        return
+
+    profile = CrushProfile.objects.filter(user_id=instance.user_id).first()
+    _refresh_member_pass(profile, f"Registration {instance.pk} deleted")
+
+
 # `username` counts: CrushProfile.display_name falls back to it in BOTH
 # branches (get_full_name() or username, and first_name or username), so a
 # user with no first name has their username printed on the pass and on every
@@ -2738,11 +2772,49 @@ def refresh_wallet_passes_on_user_rename(
         )
 
 
-# The QR on the member pass is the referrer's link, and BOTH of these change
-# what it resolves to: the code is the URL, and capture filters on is_active
-# (referrals.py:52 and :86), so a deactivated code renders a QR that scans but
-# attributes nothing. Staff can edit either through ReferralCodeAdmin.
-_REFERRAL_CODE_PASS_FIELDS = ("code", "is_active")
+def _refresh_member_pass(profile, context):
+    """Bounded refresh of ONE member pass on both wallets.
+
+    Apple goes through refresh_ticket_serials rather than the generic trigger
+    for the reason AGENTS.md gives: these are request paths, so the work has to
+    advance the update marker in one no-network query (guaranteed — the pass
+    still refreshes on Wallet's next poll) and cap the push by count and wall
+    clock. One try/except per wallet: neither may swallow the other.
+    """
+    if profile is None:
+        return
+    if not profile.apple_pass_serial and not profile.google_wallet_object_id:
+        return
+
+    try:
+        if profile.apple_pass_serial:
+            from .wallet.passkit_service import refresh_ticket_serials
+
+            refresh_ticket_serials([profile.apple_pass_serial], context=context)
+    except Exception as e:
+        logger.error(f"Error refreshing Apple member pass ({context}): {e}")
+
+    try:
+        _trigger_google_wallet_object_update(profile)
+    except Exception as e:
+        logger.error(f"Error refreshing Google member pass ({context}): {e}")
+
+
+# The QR on the member pass is the referrer's link, and all three of these
+# change what it resolves to: the code is the URL, capture filters on
+# is_active (referrals.py:52 and :86) so a deactivated code renders a QR that
+# scans but attributes nothing, and `referrer` decides WHOSE link it is — staff
+# reassigning it leaves the old holder's pass crediting somebody else. All
+# three are editable through ReferralCodeAdmin.
+_REFERRAL_CODE_PASS_FIELDS = ("code", "is_active", "referrer_id")
+
+# What `update_fields` may legitimately name for those columns. A FK can arrive
+# as either the field name or its attname, and save(update_fields=["referrer"])
+# is what admin and ordinary code actually write — gating on "referrer_id"
+# alone skipped the snapshot and made reassignment a silent no-op.
+_REFERRAL_CODE_UPDATE_FIELD_NAMES = frozenset(
+    {"code", "is_active", "referrer", "referrer_id"}
+)
 
 
 @receiver(pre_save, sender=ReferralCode)
@@ -2752,7 +2824,7 @@ def remember_previous_referral_code(sender, instance, update_fields=None, **kwar
     if not instance.pk:
         return
     if update_fields is not None and not (
-        set(update_fields) & set(_REFERRAL_CODE_PASS_FIELDS)
+        set(update_fields) & _REFERRAL_CODE_UPDATE_FIELD_NAMES
     ):
         return
     instance._previous_referral_code = (
@@ -2783,26 +2855,45 @@ def refresh_member_pass_on_referral_code_change(sender, instance, created, **kwa
     if created:
         return
     previous = getattr(instance, "_previous_referral_code", None)
-    if previous is None or previous == (instance.code, instance.is_active):
+    if previous is None:
+        return
+    previous_code, previous_active, previous_referrer_id = previous
+    if previous == (instance.code, instance.is_active, instance.referrer_id):
         return
 
-    try:
-        profile = instance.referrer
-        if not profile.apple_pass_serial and not profile.google_wallet_object_id:
-            return
+    context = f"Referral code {instance.pk} change"
+    _refresh_member_pass(
+        CrushProfile.objects.filter(pk=instance.referrer_id).first(), context
+    )
 
-        if profile.apple_pass_serial:
-            from .wallet.passkit_service import refresh_ticket_serials
-
-            refresh_ticket_serials(
-                [profile.apple_pass_serial],
-                context=f"Referral code change for user {profile.user_id}",
-            )
-        _trigger_google_wallet_object_update(profile)
-    except Exception as e:
-        logger.error(
-            f"Error refreshing member pass for referral code {instance.pk}: {e}"
+    # A reassignment has two victims, and the one that actually matters is the
+    # OLD holder: their installed QR now credits somebody else entirely.
+    if previous_referrer_id != instance.referrer_id:
+        _refresh_member_pass(
+            CrushProfile.objects.filter(pk=previous_referrer_id).first(),
+            f"{context} (previous holder)",
         )
+
+
+@receiver(post_delete, sender=ReferralCode)
+def refresh_member_pass_on_referral_code_delete(
+    sender, instance, origin=None, **kwargs
+):
+    """Deleting the code strands every pass that embeds it.
+
+    capture_referral() needs a matching active row, so once the row is gone the
+    QR scans and attributes nothing — and the next build mints a different
+    code, so the installed pass never converges on its own.
+
+    Scoped to a direct delete via `origin`. Django deletes children before
+    parents, so on a cascade from profile.delete() the profile row is still
+    there when this fires and would happily schedule a refresh for a pass that
+    is about to stop existing.
+    """
+    if not isinstance(origin, ReferralCode):
+        return
+    profile = CrushProfile.objects.filter(pk=instance.referrer_id).first()
+    _refresh_member_pass(profile, f"Referral code {instance.pk} deleted")
 
 
 def _refresh_user_event_tickets(profile):
