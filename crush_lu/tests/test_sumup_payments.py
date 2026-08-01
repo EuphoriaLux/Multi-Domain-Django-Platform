@@ -11,7 +11,7 @@ from django.utils import timezone
 from crush_lu.models.events import EventRegistration, MeetupEvent
 from crush_lu.models.payments import PaymentTransaction
 from crush_lu.models.profiles import CrushCoach, CrushProfile, PremiumMembership
-from crush_lu.services.sumup import SumUpClient, SumUpError
+from crush_lu.services.sumup import SumUpClient, SumUpError, clean_credential
 
 User = get_user_model()
 
@@ -65,8 +65,21 @@ class SumUpServiceTests(TestCase):
         self.assertEqual(client.merchant_code, "cfg_merchant")
 
     @override_settings(SUMUP_API_KEY="  'quoted_key'  ")
-    def test_client_strips_whitespace_and_quotes_from_key(self):
+    def test_client_strips_whitespace_outside_quotes(self):
         self.assertEqual(SumUpClient().api_key, "quoted_key")
+
+    @override_settings(SUMUP_API_KEY='"  padded_key  "', SUMUP_MERCHANT_CODE="'  MAV9HKVS  '")
+    def test_client_strips_whitespace_inside_quotes(self):
+        """Quotes outermost, whitespace inside. A single strip-then-unquote pass
+        leaves the inner padding behind and SumUp answers a bare 401."""
+        client = SumUpClient()
+        self.assertEqual(client.api_key, "padded_key")
+        self.assertEqual(client.merchant_code, "MAV9HKVS")
+
+    def test_clean_credential_handles_nested_wrapping(self):
+        self.assertEqual(clean_credential('  "  \'  key  \'  "  '), "key")
+        self.assertEqual(clean_credential(None), "")
+        self.assertEqual(clean_credential(""), "")
 
     @override_settings(SUMUP_API_KEY="")
     @patch("requests.post")

@@ -16,6 +16,25 @@ class SumUpError(Exception):
     pass
 
 
+def clean_credential(value: Optional[str]) -> str:
+    """Normalise a credential pasted into an env var or App Service setting.
+
+    Values turn up quoted, space-padded, or both in either order — `"  sup_sk_x  "`
+    and `  "sup_sk_x"  ` are both seen in practice. A single strip-then-unquote
+    pass only handles the second shape: on the first, the leading `.strip()` is a
+    no-op because the quote is the outermost character, and once the quotes come
+    off nothing revisits the spaces left inside. So repeat until the value stops
+    changing. A padded key produces a bare 401 from SumUp that looks exactly like
+    a revoked one, which is expensive to diagnose.
+    """
+    cleaned = value or ""
+    previous = None
+    while cleaned != previous:
+        previous = cleaned
+        cleaned = cleaned.strip().strip("'\"")
+    return cleaned
+
+
 class SumUpClient:
     """
     Wrapper for SumUp Online Payments REST API.
@@ -25,10 +44,12 @@ class SumUpClient:
     BASE_URL = "https://api.sumup.com"
 
     def __init__(self, api_key: Optional[str] = None, merchant_code: Optional[str] = None):
-        raw_key = api_key or getattr(settings, "SUMUP_API_KEY", "") or ""
-        self.api_key = raw_key.strip().strip("'").strip('"')
-        raw_code = merchant_code or getattr(settings, "SUMUP_MERCHANT_CODE", "") or ""
-        self.merchant_code = raw_code.strip().strip("'").strip('"')
+        self.api_key = clean_credential(
+            api_key or getattr(settings, "SUMUP_API_KEY", "")
+        )
+        self.merchant_code = clean_credential(
+            merchant_code or getattr(settings, "SUMUP_MERCHANT_CODE", "")
+        )
 
     def _get_headers(self) -> Dict[str, str]:
         if not self.api_key:
@@ -77,11 +98,18 @@ class SumUpClient:
             "checkout_reference": checkout_reference,
         }
 
-        merchant_code = self.merchant_code or getattr(settings, "SUMUP_MERCHANT_CODE", "")
-        if merchant_code:
-            payload["merchant_code"] = merchant_code
-        elif pay_to_email or getattr(settings, "SUMUP_PAY_TO_EMAIL", None):
-            payload["pay_to_email"] = pay_to_email or getattr(settings, "SUMUP_PAY_TO_EMAIL")
+        # __init__ already resolved the merchant code from settings. SumUp
+        # rejects a checkout carrying neither of these with a 400, so it will
+        # never silently bill the wrong merchant — but merchant_code is what
+        # routes staging to the sandbox profile, so it has to win.
+        if self.merchant_code:
+            payload["merchant_code"] = self.merchant_code
+        else:
+            fallback_email = clean_credential(
+                pay_to_email or getattr(settings, "SUMUP_PAY_TO_EMAIL", "")
+            )
+            if fallback_email:
+                payload["pay_to_email"] = fallback_email
 
         if description:
             payload["description"] = description
