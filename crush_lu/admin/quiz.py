@@ -194,6 +194,7 @@ def mark_unattended_as_no_show(modeladmin, request, queryset):
     """Admin action: flip still-'confirmed' registrations to 'no_show' for
     the selected quiz events. Useful when the host forgot to scan someone
     out and wants the attendance record to reflect reality."""
+    from crush_lu.models import CrushProfile
     from crush_lu.models.events import EventRegistration
 
     # Accumulated across the whole action, then refreshed ONCE: each refresh
@@ -217,6 +218,17 @@ def mark_unattended_as_no_show(modeladmin, request, queryset):
             affected.exclude(apple_wallet_ticket_serial="").values_list(
                 "apple_wallet_ticket_serial", flat=True
             )
+        )
+        # ...and their MEMBER passes. no_show is outside the candidate set of
+        # get_next_event_for_pass, so this quiz stops being the holder's next
+        # event and the card would otherwise keep advertising an event they
+        # were just marked absent from. A holder who never downloaded the
+        # ticket has only this serial.
+        voiding_serials += list(
+            CrushProfile.objects.filter(user__eventregistration__in=affected)
+            .exclude(apple_pass_serial="")
+            .values_list("apple_pass_serial", flat=True)
+            .distinct()
         )
         updated = affected.update(status="no_show")
         messages.success(

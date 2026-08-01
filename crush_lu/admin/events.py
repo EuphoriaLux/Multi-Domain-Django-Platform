@@ -981,11 +981,25 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         # equally invalid, and confirming one of those would otherwise leave a
         # visibly voided ticket on a now-valid seat. Collected before the
         # update, while the old status is still readable.
+        restoring = EventRegistration.objects.filter(pk__in=eligible_ids).exclude(
+            status__in=SEAT_HOLDING_STATUSES
+        )
         restored_serials = list(
-            EventRegistration.objects.filter(pk__in=eligible_ids)
-            .exclude(status__in=SEAT_HOLDING_STATUSES)
-            .exclude(apple_wallet_ticket_serial="")
-            .values_list("apple_wallet_ticket_serial", flat=True)
+            restoring.exclude(apple_wallet_ticket_serial="").values_list(
+                "apple_wallet_ticket_serial", flat=True
+            )
+        )
+        # ...and their MEMBER passes. Restoring a seat makes the event eligible
+        # for get_next_event_for_pass again, so the card has to stop showing
+        # the previous next event (or "No upcoming events"). A holder who never
+        # downloaded the ticket has only this serial.
+        from crush_lu.models import CrushProfile
+
+        restored_serials += list(
+            CrushProfile.objects.filter(user__eventregistration__in=restoring)
+            .exclude(apple_pass_serial="")
+            .values_list("apple_pass_serial", flat=True)
+            .distinct()
         )
 
         updated = EventRegistration.objects.filter(pk__in=eligible_ids).update(

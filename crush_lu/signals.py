@@ -2672,8 +2672,14 @@ def trigger_wallet_pass_update_on_profile_change(
     # Compares the PERSISTED value rather than trusting update_fields: a bare
     # profile.save() carries update_fields=None, and the Microsoft sign-in path
     # does exactly that on every login without touching show_full_name.
+    #
+    # `created` counts as a change in its own right: an open-event attendee can
+    # install a ticket with no profile at all (the name falls back to the bare
+    # username), and creating the profile switches display_name to
+    # username.split("@")[0]. There is no previous value to compare on that
+    # path, so the persisted-value guard alone would suppress it.
     previous_show_full_name = getattr(instance, "_previous_show_full_name", None)
-    ticket_identity_changed = (
+    ticket_identity_changed = created or (
         previous_show_full_name is not None
         and previous_show_full_name != instance.show_full_name
     )

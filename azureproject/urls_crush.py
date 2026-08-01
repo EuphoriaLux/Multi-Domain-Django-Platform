@@ -238,6 +238,44 @@ urlpatterns = [
         name='passkit_log',
     ),
 
+    # --- Legacy doubled-version compatibility (Apple Wallet) ---------------
+    # Every pass installed before the webServiceURL fix carries the versioned
+    # root "https://crush.lu/wallet/v1". Apple appends its own protocol version
+    # to whatever a pass advertises, so those devices request
+    # /wallet/v1/v1/... — which matched nothing and 404'd.
+    #
+    # Correcting the embedded root only helps passes built AFTER the fix. An
+    # already-installed pass can only receive the corrected package by fetching
+    # it, and the only address it will ever use is this doubled one; an APNs
+    # push just sends the device back to the same 404. Without these aliases
+    # every existing holder would have to delete and re-add their pass by hand.
+    #
+    # Serving them from the same views is enough to self-heal: get_latest_pass
+    # rebuilds through resolve_web_service_url, and build_web_service_url uses
+    # an absolute base path, so the package handed back over this legacy route
+    # carries the CORRECT unversioned root. One fetch and the device moves to
+    # /wallet/v1/... on its own.
+    path(
+        'wallet/v1/v1/devices/<str:device_library_identifier>/registrations/<str:pass_type_identifier>/<str:serial_number>',
+        passkit_service.device_registration,
+        name='passkit_device_registration_legacy',
+    ),
+    path(
+        'wallet/v1/v1/devices/<str:device_library_identifier>/registrations/<str:pass_type_identifier>',
+        passkit_service.list_device_registrations,
+        name='passkit_list_registrations_legacy',
+    ),
+    path(
+        'wallet/v1/v1/passes/<str:pass_type_identifier>/<str:serial_number>',
+        passkit_service.get_latest_pass,
+        name='passkit_get_pass_legacy',
+    ),
+    path(
+        'wallet/v1/v1/log',
+        passkit_service.log_endpoint,
+        name='passkit_log_legacy',
+    ),
+
     # CSRF Token Refresh (called from alpine-components.js before final form submit)
     path('api/csrf-token/', views_profile.get_csrf_token, name='csrf_token_refresh'),
 

@@ -1471,6 +1471,35 @@ class TestTicketStampsAreSignalFree:
         assert registration.apple_wallet_language
 
 
+class TestLegacyDoubledVersionRoutes:
+    """Passes installed before the webServiceURL fix carry the versioned root,
+    so Apple requests /wallet/v1/v1/... — and that is the ONLY address those
+    devices will ever use. Without these aliases an existing holder can never
+    receive the corrected package; a push just sends them back to a 404."""
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/wallet/v1/v1/log",
+            "/wallet/v1/v1/passes/pass.lu.crush/abc",
+            "/wallet/v1/v1/devices/dev/registrations/pass.lu.crush",
+            "/wallet/v1/v1/devices/dev/registrations/pass.lu.crush/abc",
+        ],
+    )
+    def test_legacy_paths_resolve(self, path):
+        from django.urls import resolve
+
+        # Resolving at all is the point — previously every one of these 404'd.
+        assert resolve(path, urlconf="azureproject.urls_crush") is not None
+
+    def test_legacy_and_current_paths_share_a_view(self):
+        from django.urls import resolve
+
+        legacy = resolve("/wallet/v1/v1/log", urlconf="azureproject.urls_crush")
+        current = resolve("/wallet/v1/log", urlconf="azureproject.urls_crush")
+        assert legacy.func is current.func
+
+
 @pytest.mark.django_db
 class TestAdminBulkActionsRefreshWallets:
     """Every one of these actions uses QuerySet.update(), which emits no
@@ -1499,6 +1528,9 @@ class TestAdminBulkActionsRefreshWallets:
         registration = self._ticketed(registrations[0], "evt-1-reg-1-abcd")
         registration.status = "waitlist"
         registration.save(update_fields=["status"])
+        profile = registration.user.crushprofile
+        profile.apple_pass_serial = "member-serial"
+        profile.save(update_fields=["apple_pass_serial"])
 
         with mock.patch(
             "crush_lu.wallet.passkit_service.refresh_ticket_serials"
@@ -1509,7 +1541,11 @@ class TestAdminBulkActionsRefreshWallets:
                     EventRegistration.objects.filter(pk=registration.pk),
                 )
 
-        assert "evt-1-reg-1-abcd" in refresh.call_args.args[0]
+        pushed = set(refresh.call_args.args[0])
+        assert "evt-1-reg-1-abcd" in pushed
+        # ...and the member card: restoring the seat makes this event eligible
+        # for get_next_event_for_pass again.
+        assert "member-serial" in pushed
 
     def test_cancel_events_batches_into_one_refresh(
         self, _apple_identity, event_with_registrations
@@ -1551,6 +1587,9 @@ class TestAdminBulkActionsRefreshWallets:
         event, registrations = event_with_registrations
         registration = self._ticketed(registrations[0], "evt-1-reg-1-abcd")
         assert registration.status == "confirmed"
+        profile = registration.user.crushprofile
+        profile.apple_pass_serial = "member-serial"
+        profile.save(update_fields=["apple_pass_serial"])
         quiz = QuizEvent.objects.create(event=event, created_by=registration.user)
 
         with mock.patch(
@@ -1564,7 +1603,11 @@ class TestAdminBulkActionsRefreshWallets:
                 )
 
         assert refresh.call_count == 1
-        assert "evt-1-reg-1-abcd" in refresh.call_args.args[0]
+        pushed = set(refresh.call_args.args[0])
+        assert "evt-1-reg-1-abcd" in pushed
+        # ...and the member card, which stops showing this quiz as the
+        # holder's next event once they are marked absent.
+        assert "member-serial" in pushed
 
     def test_move_to_waitlist_voids_the_ticket(
         self, _apple_identity, event_with_registrations
