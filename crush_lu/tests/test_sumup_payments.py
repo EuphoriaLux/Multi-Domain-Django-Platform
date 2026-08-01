@@ -55,6 +55,28 @@ class SumUpServiceTests(TestCase):
         self.assertEqual(res["status"], "PENDING")
         mock_post.assert_called_once()
 
+    @override_settings(SUMUP_API_KEY="cfg_key", SUMUP_MERCHANT_CODE="cfg_merchant")
+    def test_client_reads_credentials_from_settings(self):
+        """Every view builds SumUpClient() with no arguments, so the credentials
+        have to come from settings. They were read but never defined, which sent
+        an empty bearer token and made SumUp answer 401 on every checkout."""
+        client = SumUpClient()
+        self.assertEqual(client.api_key, "cfg_key")
+        self.assertEqual(client.merchant_code, "cfg_merchant")
+
+    @override_settings(SUMUP_API_KEY="  'quoted_key'  ")
+    def test_client_strips_whitespace_and_quotes_from_key(self):
+        self.assertEqual(SumUpClient().api_key, "quoted_key")
+
+    @override_settings(SUMUP_API_KEY="")
+    @patch("requests.post")
+    def test_missing_api_key_raises_before_calling_sumup(self, mock_post):
+        with self.assertRaises(SumUpError):
+            SumUpClient().create_checkout(
+                amount=15.00, currency="EUR", checkout_reference="CRUSH-EVT-1"
+            )
+        mock_post.assert_not_called()
+
     @patch("requests.get")
     def test_get_checkout_success(self, mock_get):
         mock_response = MagicMock()

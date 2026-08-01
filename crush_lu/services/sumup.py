@@ -32,7 +32,13 @@ class SumUpClient:
 
     def _get_headers(self) -> Dict[str, str]:
         if not self.api_key:
-            logger.warning("SUMUP_API_KEY is not configured.")
+            # Fail here rather than sending "Bearer " and letting SumUp answer
+            # a generic 401 — that error is indistinguishable from a revoked or
+            # mistyped key and sends you hunting in the wrong place.
+            raise SumUpError(
+                "SUMUP_API_KEY is not configured — set it in the environment "
+                "(App Service application settings) and restart."
+            )
         return {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
