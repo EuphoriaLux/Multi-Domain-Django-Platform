@@ -1867,3 +1867,82 @@ class PendingPaymentDoorAndAdminTests(TestCase):
             status="cancelled",
         )
         self.assertEqual(_admitted_status(self.event, unpaid), "pending")
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class PendingTicketLinkVisibilityTests(TestCase):
+    """A pending seat must be able to *find* its ticket, not just load it.
+
+    views_ticket and views_checkin accept pending, but that is worthless if no
+    page links there. Nothing asserted on rendered ticket-link visibility, which
+    is why a one-line gate in event_detail.html was missed while the sibling
+    templates were fixed -- a string replace hit the banner copy above it
+    instead of the "View My Ticket" button.
+    """
+
+    def setUp(self):
+        from crush_lu.models import CrushProfile, MeetupEvent
+        from crush_lu.models.profiles import UserDataConsent
+
+        self.event = MeetupEvent.objects.create(
+            title="Ticket Link Event",
+            description="d",
+            event_type="mixer",
+            date_time=timezone.now() + timedelta(days=2),
+            location="Luxembourg",
+            address="1 St",
+            max_participants=10,
+            registration_deadline=timezone.now() + timedelta(days=1),
+            registration_fee=Decimal("15.00"),
+            is_published=True,
+        )
+        self.user = User.objects.create_user(
+            username="tl@test.com", email="tl@test.com", password="p"
+        )
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        CrushProfile.objects.create(
+            user=self.user, date_of_birth=date(1995, 1, 1), location="Luxembourg"
+        )
+        self.client.force_login(self.user)
+
+    def _register(self, status):
+        from crush_lu.models import EventRegistration
+
+        return EventRegistration.objects.create(
+            event=self.event, user=self.user, status=status
+        )
+
+    def _ticket_url(self):
+        return reverse("crush_lu:event_ticket", kwargs={"event_id": self.event.id})
+
+    def test_event_detail_links_the_ticket_for_pending(self):
+        self._register("pending")
+        response = self.client.get(
+            reverse("crush_lu:event_detail", kwargs={"event_id": self.event.id})
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(self._ticket_url(), response.content.decode())
+
+    def test_my_events_links_the_ticket_for_pending(self):
+        self._register("pending")
+        response = self.client.get(reverse("crush_lu:my_events"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(self._ticket_url(), response.content.decode())
+
+    def test_event_detail_still_links_the_ticket_for_confirmed(self):
+        self._register("confirmed")
+        response = self.client.get(
+            reverse("crush_lu:event_detail", kwargs={"event_id": self.event.id})
+        )
+        self.assertIn(self._ticket_url(), response.content.decode())
+
+    def test_event_detail_hides_the_ticket_for_waitlist(self):
+        """Widening to pending must not leak the ticket to a seatless status."""
+        self._register("waitlist")
+        response = self.client.get(
+            reverse("crush_lu:event_detail", kwargs={"event_id": self.event.id})
+        )
+        self.assertNotIn(self._ticket_url(), response.content.decode())
