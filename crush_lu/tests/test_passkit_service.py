@@ -1630,6 +1630,62 @@ class TestAdminBulkActionsRefreshWallets:
 
 
 @pytest.mark.django_db
+class TestLegacyTicketTokenBackfill:
+    """Migration 0211 copies the profile token onto tickets issued before 0208,
+    so an account merge can no longer orphan their authentication."""
+
+    def test_backfill_copies_the_profile_token(self, event_with_registrations):
+        _0211 = __import__(
+            "crush_lu.migrations.0211_backfill_event_ticket_auth_tokens",
+            fromlist=["backfill_ticket_tokens"],
+        )
+        from django.apps import apps as global_apps
+
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        registration.apple_wallet_ticket_serial = "evt-1-reg-1-legacy"
+        registration.apple_wallet_auth_token = ""  # pre-0208 state
+        registration.save(
+            update_fields=["apple_wallet_ticket_serial", "apple_wallet_auth_token"]
+        )
+        profile = registration.user.crushprofile
+        profile.apple_auth_token = "tok-from-profile"
+        profile.save(update_fields=["apple_auth_token"])
+
+        _0211.backfill_ticket_tokens(global_apps, None)
+
+        registration.refresh_from_db()
+        assert registration.apple_wallet_auth_token == "tok-from-profile"
+
+    def test_backfill_leaves_already_stamped_tickets_alone(
+        self, event_with_registrations
+    ):
+        _0211 = __import__(
+            "crush_lu.migrations.0211_backfill_event_ticket_auth_tokens",
+            fromlist=["backfill_ticket_tokens"],
+        )
+        from django.apps import apps as global_apps
+
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        registration.apple_wallet_ticket_serial = "evt-1-reg-1-stamped"
+        registration.apple_wallet_auth_token = "tok-already-issued"
+        registration.save(
+            update_fields=["apple_wallet_ticket_serial", "apple_wallet_auth_token"]
+        )
+        profile = registration.user.crushprofile
+        profile.apple_auth_token = "tok-from-profile"
+        profile.save(update_fields=["apple_auth_token"])
+
+        _0211.backfill_ticket_tokens(global_apps, None)
+
+        registration.refresh_from_db()
+        # The installed pass carries the stamped token; overwriting it would
+        # break a working ticket.
+        assert registration.apple_wallet_auth_token == "tok-already-issued"
+
+
+@pytest.mark.django_db
 class TestPasskitRowsAreCleanedUp:
     """PasskitDeviceRegistration keys off the pass serial with no FK, so
     nothing cascades. Orphans keep an APNs push token alive past the
