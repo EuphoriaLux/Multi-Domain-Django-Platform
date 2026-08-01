@@ -469,6 +469,49 @@ def trigger_pass_refresh(pass_type_identifier, serial_number):
     return send_passkit_push_notifications(pass_type_identifier, serial_number)
 
 
+def refresh_ticket_serials(serials, context=""):
+    """Bulk-refresh a set of Apple ticket serials. See refresh_event_tickets
+    for why the work is split between a guaranteed bulk marker advance and a
+    capped best-effort push."""
+    serials = [s for s in serials if s]
+    if not serials:
+        return 0
+
+    pass_type_id = getattr(settings, "WALLET_APPLE_PASS_TYPE_IDENTIFIER", None)
+    if not pass_type_id:
+        return 0
+
+    push_limit = getattr(settings, "PASSKIT_BULK_PUSH_LIMIT", 20)
+
+    def _after_commit():
+        from .passkit_apns import mark_passes_updated_bulk
+
+        # Guaranteed part: one query, no network.
+        mark_passes_updated_bulk(pass_type_id, serials)
+
+        # Best-effort part: bounded.
+        for serial in serials[:push_limit]:
+            try:
+                trigger_pass_refresh(pass_type_id, serial)
+            except Exception:
+                # One unreachable device must not strand the rest.
+                logger.exception("Failed refreshing Apple event ticket %s", serial)
+
+        skipped = len(serials) - push_limit
+        if skipped > 0:
+            logger.info(
+                "%s: pushed %s Apple ticket refresh(es), %s left to Wallet's "
+                "periodic poll (PASSKIT_BULK_PUSH_LIMIT=%s)",
+                context or "bulk refresh",
+                push_limit,
+                skipped,
+                push_limit,
+            )
+
+    transaction.on_commit(_after_commit)
+    return len(serials)
+
+
 def refresh_event_tickets(event):
     """Refresh every installed Apple ticket for an event.
 
@@ -499,10 +542,6 @@ def refresh_event_tickets(event):
     Anything past the cap still updates — just on Wallet's next poll instead of
     immediately — and the skipped count is logged rather than silently dropped.
     """
-    pass_type_id = getattr(settings, "WALLET_APPLE_PASS_TYPE_IDENTIFIER", None)
-    if not pass_type_id:
-        return 0
-
     from ..models import EventRegistration
 
     serials = list(
@@ -510,35 +549,6 @@ def refresh_event_tickets(event):
         .exclude(apple_wallet_ticket_serial="")
         .values_list("apple_wallet_ticket_serial", flat=True)
     )
-    if not serials:
-        return 0
-
-    push_limit = getattr(settings, "PASSKIT_BULK_PUSH_LIMIT", 20)
-
-    def _after_commit():
-        from .passkit_apns import mark_passes_updated_bulk
-
-        # Guaranteed part: one query, no network.
-        mark_passes_updated_bulk(pass_type_id, serials)
-
-        # Best-effort part: bounded.
-        for serial in serials[:push_limit]:
-            try:
-                trigger_pass_refresh(pass_type_id, serial)
-            except Exception:
-                # One unreachable device must not strand the rest.
-                logger.exception("Failed refreshing Apple event ticket %s", serial)
-
-        skipped = len(serials) - push_limit
-        if skipped > 0:
-            logger.info(
-                "Event %s: pushed %s Apple ticket refresh(es), %s left to "
-                "Wallet's periodic poll (PASSKIT_BULK_PUSH_LIMIT=%s)",
-                getattr(event, "pk", "?"),
-                push_limit,
-                skipped,
-                push_limit,
-            )
-
-    transaction.on_commit(_after_commit)
-    return len(serials)
+    return refresh_ticket_serials(
+        serials, context=f"Event {getattr(event, 'pk', '?')}"
+    )

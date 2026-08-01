@@ -955,9 +955,35 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                     skipped += 1
                     continue
             eligible_ids.append(reg.pk)
+        # Serials of seats being restored FROM cancelled — their Apple ticket
+        # is currently `voided` and has to be told it is live again. Collected
+        # before the update, while the old status is still readable.
+        restored_serials = list(
+            EventRegistration.objects.filter(pk__in=eligible_ids, status="cancelled")
+            .exclude(apple_wallet_ticket_serial="")
+            .values_list("apple_wallet_ticket_serial", flat=True)
+        )
+
         updated = EventRegistration.objects.filter(pk__in=eligible_ids).update(
             status="confirmed"
         )
+
+        # .update() emits no signals, so the per-registration receiver never
+        # runs here and the restored tickets would stay voided forever.
+        if restored_serials:
+            try:
+                from crush_lu.wallet.passkit_service import refresh_ticket_serials
+
+                refresh_ticket_serials(
+                    restored_serials, context="Admin confirm_registrations"
+                )
+            except Exception:
+                logger.exception(
+                    "Failed scheduling Apple ticket refresh for %s restored "
+                    "registration(s)",
+                    len(restored_serials),
+                )
+
         django_messages.success(
             request, _("Confirmed %(count)s registration(s).") % {"count": updated}
         )

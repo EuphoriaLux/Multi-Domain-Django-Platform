@@ -440,8 +440,7 @@ def auto_create_event_ticket_class_on_publish(sender, instance, created, **kwarg
 # any of them leaves installed passes showing something that is simply wrong,
 # so refresh_apple_tickets_on_event_change compares all of them — not just the
 # start time. Keep in sync with apple_event_ticket.build_apple_event_ticket.
-_TICKET_PAYLOAD_FIELDS = (
-    "title",          # description + primary field
+_TICKET_PAYLOAD_BASE_FIELDS = (
     "date_time",      # date/time fields, relevantDate, expirationDate
     "duration_minutes",  # expirationDate
     "location",       # auxiliary field
@@ -450,6 +449,20 @@ _TICKET_PAYLOAD_FIELDS = (
     "latitude",       # locations[] lock-screen trigger
     "longitude",
     "is_cancelled",   # voided
+)
+
+# `title` is registered with django-modeltranslation (see translation.py), so
+# the bare `title` descriptor resolves to whichever language is active — and
+# admin is forced to English. Comparing it would miss staff editing only
+# title_fr or title_de, while the ticket renders whichever translation its
+# holder reads, leaving those passes showing the old name. Compare the concrete
+# columns instead.
+_TICKET_TRANSLATED_FIELDS = ("title",)
+
+_TICKET_PAYLOAD_FIELDS = _TICKET_PAYLOAD_BASE_FIELDS + tuple(
+    f"{field}_{code.replace('-', '_')}"
+    for field in _TICKET_TRANSLATED_FIELDS
+    for code, _label in settings.LANGUAGES
 )
 
 
@@ -2805,10 +2818,14 @@ def refresh_apple_event_ticket_on_registration_change(
     PASSKIT_APNS_* is configured each scan would carry a synchronous APNs round
     trip (httpx timeout 10s) before the coach's scanner gets its answer.
 
-    So: ``cancelled`` always, and ``confirmed``/``pending`` only when the undo
-    path sets ``_reactivate_ticket`` — the transitions that actually flip
-    ``voided``. Plenty of saves leave a row confirmed with no transition at
-    all, and each would otherwise fire a push.
+    So: the transitions that actually flip ``voided`` — into ``cancelled``, and
+    back out of it. Leaving ``cancelled`` is detected from the status the row
+    was loaded with (``_loaded_status``, captured for free in
+    ``EventRegistration.from_db``) rather than from ``_reactivate_ticket``
+    alone: that flag is set only by the scanner's undo, so restoring a seat
+    through the admin's ``list_editable`` status column would otherwise leave
+    the holder with a permanently voided ticket. Plenty of saves leave a row
+    confirmed with no transition at all, and each would otherwise fire a push.
     """
     if created or not instance.apple_wallet_ticket_serial:
         return
@@ -2817,9 +2834,15 @@ def refresh_apple_event_ticket_on_registration_change(
     if not pass_type_id:
         return
 
-    should_refresh = instance.status == "cancelled" or (
-        instance.status in ("confirmed", "pending")
-        and getattr(instance, "_reactivate_ticket", False)
+    was_cancelled = getattr(instance, "_loaded_status", None) == "cancelled"
+    should_refresh = (
+        instance.status == "cancelled"
+        # Any move out of cancelled un-voids the pass.
+        or (was_cancelled and instance.status != "cancelled")
+        or (
+            instance.status in ("confirmed", "pending")
+            and getattr(instance, "_reactivate_ticket", False)
+        )
     )
     if not should_refresh:
         return

@@ -918,6 +918,22 @@ class TestEventLevelTicketRefresh:
 
         refresh.assert_not_called()
 
+    def test_translated_title_change_pushes(
+        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+    ):
+        # title is a modeltranslation field; admin runs in English, so editing
+        # only title_fr must still be seen — French holders read that column.
+        event, _registration = self._ticketed(event_with_registrations)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ) as refresh:
+            with django_capture_on_commit_callbacks(execute=True):
+                event.title_fr = "Soirée renommée"
+                event.save()
+
+        refresh.assert_called_once_with("pass.lu.crush", "evt-1-reg-1-abcd")
+
     @pytest.mark.parametrize(
         "field,value",
         [
@@ -1092,6 +1108,30 @@ class TestAppleEventTicketRefreshSignal:
                 registration.save(update_fields=["status"])
 
         refresh.assert_not_called()
+
+    def test_restoring_a_cancelled_seat_pushes_without_the_undo_flag(
+        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+    ):
+        from crush_lu.models import EventRegistration
+
+        # Restoring a seat through the admin's list_editable status column
+        # reaches the receiver but never sets _reactivate_ticket. Without the
+        # transition check the holder keeps a permanently voided ticket.
+        registration = self._prepared(event_with_registrations)
+        registration.status = "cancelled"
+        registration.save(update_fields=["status"])
+
+        # Reload so _loaded_status reflects the stored "cancelled".
+        reloaded = EventRegistration.objects.get(pk=registration.pk)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ) as refresh:
+            with django_capture_on_commit_callbacks(execute=True):
+                reloaded.status = "confirmed"
+                reloaded.save(update_fields=["status"])
+
+        refresh.assert_called_once_with("pass.lu.crush", "evt-1-reg-1-abcd")
 
     def test_undo_reactivation_pushes(
         self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks

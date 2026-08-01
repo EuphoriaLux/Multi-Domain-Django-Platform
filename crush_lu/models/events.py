@@ -878,6 +878,19 @@ class EventRegistration(models.Model):
             ),
         ]
 
+    @classmethod
+    def from_db(cls, db, field_names, values):
+        """Remember the stored status so receivers can spot a real transition.
+
+        A pre_save snapshot would cost one extra SELECT on every registration
+        save — including the door, which writes a row per scan. The value is
+        already in the result row, so capturing it here is free.
+        """
+        instance = super().from_db(db, field_names, values)
+        if "status" in field_names:
+            instance._loaded_status = values[field_names.index("status")]
+        return instance
+
     def __str__(self):
         return (
             f"{self.user.username} - {self.event.title} ({self.get_status_display()})"
