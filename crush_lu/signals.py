@@ -171,16 +171,41 @@ def _trigger_google_wallet_object_update(profile):
         try:
             from .wallet.google_api import update_google_wallet_pass
 
-            result = update_google_wallet_pass(profile)
+            # Re-read rather than PATCH from the instance captured at save
+            # time. Unlike the Apple half — which pushes a content-free "come
+            # back for it" and lets the device fetch from the web service, so
+            # it always renders current rows — this call ships the payload
+            # itself, built from whatever the instance holds. Deferring to
+            # commit releases the profile row lock first, so between scheduling
+            # and running, another transaction can have committed a newer tier
+            # or point total; sending the captured copy would put Google back
+            # on the older one indefinitely. Reading committed state here means
+            # the write carries what the database actually says.
+            #
+            # This narrows the window rather than closing it: two overlapping
+            # callbacks can still complete their network calls out of order.
+            # Closing that needs a per-profile mutex or server-side versioning,
+            # both of which put blocking back in the request (on_commit runs
+            # inline) — not worth it for a payload that only changes on a tier
+            # upgrade, since points move via QuerySet.update() and emit no
+            # signal at all.
+            fresh = CrushProfile.objects.filter(pk=profile.pk).first()
+            if fresh is None or not fresh.google_wallet_object_id:
+                # Deleted, or the object was unlinked, while the callback was
+                # queued. cleanup_passkit_registrations_on_profile_delete owns
+                # that teardown; there is nothing left to PATCH.
+                return
+
+            result = update_google_wallet_pass(fresh)
 
             if result["success"]:
                 logger.info(
-                    f"Google Wallet pass updated for user {profile.user_id}: "
-                    f"object_id={profile.google_wallet_object_id}"
+                    f"Google Wallet pass updated for user {fresh.user_id}: "
+                    f"object_id={fresh.google_wallet_object_id}"
                 )
             else:
                 logger.warning(
-                    f"Google Wallet pass update failed for user {profile.user_id}: "
+                    f"Google Wallet pass update failed for user {fresh.user_id}: "
                     f"{result['message']}"
                 )
 

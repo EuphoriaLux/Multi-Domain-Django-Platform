@@ -1589,6 +1589,62 @@ class TestMemberPassUpdateNeedsARealChange:
 
         assert google_patch.call_count == 1
 
+    def test_google_wallet_update_sends_committed_state_not_the_snapshot(
+        self, test_user_with_profile, django_capture_on_commit_callbacks
+    ):
+        from crush_lu.models import CrushProfile
+        from crush_lu.signals import trigger_wallet_pass_updates
+
+        # Deferring releases the profile row lock before the PATCH, so another
+        # transaction can commit a newer tier while this callback is queued.
+        # The PATCH ships the payload itself (Apple only pushes "come back for
+        # it"), so sending the instance captured at save time would put Google
+        # back on the older tier indefinitely.
+        profile = self._with_member_pass(test_user_with_profile)
+        profile.membership_tier = "bronze"
+        profile.save(update_fields=["membership_tier"])
+
+        with mock.patch(
+            "crush_lu.wallet.google_api.update_google_wallet_pass",
+            return_value={"success": True, "message": "ok"},
+        ) as google_patch, mock.patch(
+            "crush_lu.wallet.passkit_apns.send_passkit_push_notifications",
+            return_value={"success": 0, "failed": 0, "total": 0},
+        ):
+            with django_capture_on_commit_callbacks(execute=True):
+                trigger_wallet_pass_updates(profile)
+                # A concurrent award commits a higher tier first.
+                CrushProfile.objects.filter(pk=profile.pk).update(
+                    membership_tier="silver"
+                )
+
+        assert google_patch.call_args.args[0].membership_tier == "silver"
+        # ...and the captured instance really was stale, so this is not a
+        # tautology.
+        assert profile.membership_tier == "bronze"
+
+    def test_google_wallet_update_skips_a_profile_deleted_before_commit(
+        self, test_user_with_profile, django_capture_on_commit_callbacks
+    ):
+        from crush_lu.models import CrushProfile
+        from crush_lu.signals import trigger_wallet_pass_updates
+
+        # Re-reading has to tolerate the row being gone: the delete receiver
+        # owns that teardown, and there is nothing left to PATCH.
+        profile = self._with_member_pass(test_user_with_profile)
+
+        with mock.patch(
+            "crush_lu.wallet.google_api.update_google_wallet_pass"
+        ) as google_patch, mock.patch(
+            "crush_lu.wallet.passkit_apns.send_passkit_push_notifications",
+            return_value={"success": 0, "failed": 0, "total": 0},
+        ):
+            with django_capture_on_commit_callbacks(execute=True):
+                trigger_wallet_pass_updates(profile)
+                CrushProfile.objects.filter(pk=profile.pk).delete()
+
+        google_patch.assert_not_called()
+
 
 @pytest.mark.django_db
 class TestTicketStampsAreSignalFree:
