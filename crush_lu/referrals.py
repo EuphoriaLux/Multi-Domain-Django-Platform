@@ -154,6 +154,66 @@ def update_membership_tier(profile):
     return False
 
 
+def refresh_passes_after_points_change(profile):
+    """Push a points-only change to the holder's installed wallet passes.
+
+    The balance is printed on both passes (``apple_pass.py`` field value,
+    ``google_api.py`` POINTS module), but every points mutation in this module
+    is a ``QuerySet.update()`` carrying an ``F()`` expression — deliberately,
+    since that is what closes the concurrent-award race — and
+    ``QuerySet.update()`` emits no signals. A points-only change therefore
+    reaches neither the pre_save snapshot nor the post_save receiver.
+
+    It used to self-heal on the holder's next bare ``profile.save()`` (the
+    Microsoft sign-in path saved on every login), but that save no longer
+    counts as a change, so the refresh has to be asked for explicitly. Both
+    halves defer to ``transaction.on_commit``, so this is safe to call from
+    inside the surrounding atomic block — no network runs under the lock.
+
+    Apple goes through ``refresh_ticket_serials`` rather than the generic
+    trigger, because these callers are request paths — a referral award fires
+    from coach approval, event check-in and login signals, and redemption from
+    an API call — and ``on_commit`` runs before the response returns. That
+    helper is the bounded form AGENTS.md asks for: it advances the update
+    marker in one query with no network (guaranteed, so the pass still
+    refreshes on Wallet's next poll) and caps the pushes by both count and
+    wall clock. The generic path instead pushes to every registered device
+    with a 10s timeout each and no deadline, which can outlast the request
+    *after* the points have already committed — leaving the caller a failure
+    it may retry against work that actually succeeded.
+
+    Google has no equivalent bound: it is still a token exchange plus a PATCH
+    at 30s each. Worth knowing before adding more callers.
+    """
+    from .signals import _trigger_google_wallet_object_update
+
+    # One try/except per wallet, not one around both: neither may swallow the
+    # other, and either way a wallet push must never cost somebody their points.
+    try:
+        if profile.apple_pass_serial:
+            from .wallet.passkit_service import refresh_ticket_serials
+
+            refresh_ticket_serials(
+                [profile.apple_pass_serial],
+                context=f"Points change for user {profile.user_id}",
+            )
+    except Exception as e:
+        logger.error(
+            "Error refreshing Apple pass after a points change for user %s: %s",
+            profile.user_id,
+            e,
+        )
+
+    try:
+        _trigger_google_wallet_object_update(profile)
+    except Exception as e:
+        logger.error(
+            "Error refreshing Google pass after a points change for user %s: %s",
+            profile.user_id,
+            e,
+        )
+
+
 def apply_referral_reward(attribution, reward_type="signup"):
     """
     Apply referral reward points to the referrer.
@@ -214,7 +274,12 @@ def apply_referral_reward(attribution, reward_type="signup"):
         attribution.referrer.refresh_from_db()
 
         # Check for tier upgrade
-        update_membership_tier(attribution.referrer)
+        upgraded = update_membership_tier(attribution.referrer)
+
+        # An upgrade saved the profile, which already fired the wallet
+        # receiver; refreshing again would push a byte-identical package.
+        if not upgraded:
+            refresh_passes_after_points_change(attribution.referrer)
 
         logger.info(
             "Awarded %d points to user %s for referral %s (%s). New total: %d",
@@ -300,7 +365,10 @@ def check_and_apply_profile_approved_reward(profile):
 
         attribution.refresh_from_db()
         attribution.referrer.refresh_from_db()
-        update_membership_tier(attribution.referrer)
+        upgraded = update_membership_tier(attribution.referrer)
+
+        if not upgraded:
+            refresh_passes_after_points_change(attribution.referrer)
 
         logger.info(
             "Awarded %d bonus points to user %s for referred profile approval",

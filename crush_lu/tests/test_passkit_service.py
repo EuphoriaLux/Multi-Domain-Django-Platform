@@ -1446,6 +1446,55 @@ class TestProfileRenameRefreshesTickets:
 
         refresh.assert_not_called()
 
+    def test_user_rename_refreshes_the_google_member_object(
+        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+    ):
+        # Google prints display_name too, but refresh_ticket_serials is
+        # Apple-only. This used to ride on the next bare profile.save()
+        # reaching trigger_wallet_pass_updates — exactly the save that no
+        # longer counts as a change — so without an explicit call here a
+        # renamed member's Google card keeps the old name indefinitely.
+        registration = self._ticketed(event_with_registrations)
+        user = registration.user
+        profile = user.crushprofile
+        profile.google_wallet_object_id = "issuer.member-1"
+        profile.save(update_fields=["google_wallet_object_id"])
+
+        with mock.patch(
+            "crush_lu.wallet.google_api.update_google_wallet_pass",
+            return_value={"success": True, "message": "ok"},
+        ) as google_patch, mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ):
+            with django_capture_on_commit_callbacks(execute=True):
+                user.first_name = "Renamed"
+                user.save(update_fields=["first_name"])
+
+        assert google_patch.call_count == 1
+
+    def test_password_change_does_not_refresh_the_google_member_object(
+        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+    ):
+        # The Google half has to sit behind the same rename guard as the Apple
+        # half, or CrushSetPasswordForm.save() — a bare user.save() — starts
+        # PATCHing Google on every password change.
+        registration = self._ticketed(event_with_registrations)
+        user = registration.user
+        profile = user.crushprofile
+        profile.google_wallet_object_id = "issuer.member-1"
+        profile.save(update_fields=["google_wallet_object_id"])
+
+        with mock.patch(
+            "crush_lu.wallet.google_api.update_google_wallet_pass"
+        ) as google_patch, mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ):
+            with django_capture_on_commit_callbacks(execute=True):
+                user.set_password("a-brand-new-password")
+                user.save()
+
+        google_patch.assert_not_called()
+
     def test_non_identity_save_does_not_refresh_tickets(
         self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
     ):
@@ -1458,6 +1507,567 @@ class TestProfileRenameRefreshesTickets:
             with django_capture_on_commit_callbacks(execute=True):
                 profile.bio = "A new bio"
                 profile.save(update_fields=["bio"])
+
+        refresh.assert_not_called()
+
+
+def test_member_pass_fields_are_real_columns():
+    from crush_lu.models import CrushProfile
+    from crush_lu.signals import (
+        WALLET_MEMBER_PASS_FIELDS,
+        WALLET_UPDATE_PROFILE_FIELDS,
+    )
+
+    # Everything in the member set is snapshotted with .values() and matched
+    # against update_fields, so a property in here would raise FieldError on
+    # every profile save. The leftovers are exactly the three that ARE
+    # properties — the User's name read through the profile, which reaches
+    # Wallet via refresh_wallet_passes_on_user_rename instead.
+    concrete = {f.name for f in CrushProfile._meta.concrete_fields}
+    assert WALLET_MEMBER_PASS_FIELDS <= concrete
+    assert WALLET_MEMBER_PASS_FIELDS <= WALLET_UPDATE_PROFILE_FIELDS
+    assert WALLET_UPDATE_PROFILE_FIELDS - WALLET_MEMBER_PASS_FIELDS == {
+        "display_name",
+        "first_name",
+        "last_name",
+    }
+
+
+@pytest.mark.django_db
+class TestMemberPassUpdateNeedsARealChange:
+    """The MEMBER-pass half of the same receiver, which used to read every
+    ``update_fields=None`` save as a change "to be safe". The Microsoft
+    sign-in path calls a bare ``profile.save()`` on every login, so each login
+    by a member with an installed pass paid for an APNs fan-out plus a Google
+    Wallet round trip (token exchange, then a PATCH, 30s timeout each)."""
+
+    def _with_member_pass(self, test_user_with_profile):
+        _user, profile = test_user_with_profile
+        profile.apple_pass_serial = "member-serial"
+        profile.google_wallet_object_id = "issuer.member-1"
+        profile.save(update_fields=["apple_pass_serial", "google_wallet_object_id"])
+        return profile
+
+    def test_bare_profile_save_does_not_refresh(self, test_user_with_profile):
+        profile = self._with_member_pass(test_user_with_profile)
+
+        with mock.patch("crush_lu.signals.trigger_wallet_pass_updates") as update:
+            profile.save()
+
+        update.assert_not_called()
+
+    def test_rewriting_the_same_value_does_not_refresh(self, test_user_with_profile):
+        # update_fields naming a wallet field is not evidence either: the value
+        # is what it already was, so a rebuild would be byte-identical.
+        profile = self._with_member_pass(test_user_with_profile)
+
+        with mock.patch("crush_lu.signals.trigger_wallet_pass_updates") as update:
+            profile.save(update_fields=["membership_tier"])
+
+        update.assert_not_called()
+
+    def test_an_existing_photo_does_not_read_as_a_change(
+        self, test_user_with_profile
+    ):
+        from crush_lu.models import CrushProfile
+
+        # photo_1 is the one field where the row and the instance hold
+        # different types — the stored name vs a FieldFile — and an empty one
+        # is NULL on some rows and "" on others. Unnormalised, a member with a
+        # photo would refresh on every single save. Written with .update() so
+        # no storage backend is touched.
+        profile = self._with_member_pass(test_user_with_profile)
+        CrushProfile.objects.filter(pk=profile.pk).update(
+            photo_1="users/1/photos/a.jpg"
+        )
+        profile.refresh_from_db()
+
+        with mock.patch("crush_lu.signals.trigger_wallet_pass_updates") as update:
+            profile.save()
+
+        update.assert_not_called()
+
+    def test_a_real_change_in_a_bare_save_still_refreshes(
+        self, test_user_with_profile
+    ):
+        # The guard has to be a comparison, not a blanket "full saves don't
+        # count": the profile form posts every field, so a genuine tier or
+        # privacy edit arrives with update_fields=None too.
+        profile = self._with_member_pass(test_user_with_profile)
+
+        with mock.patch("crush_lu.signals.trigger_wallet_pass_updates") as update:
+            profile.membership_tier = "gold"
+            profile.save()
+
+        update.assert_called_once_with(profile)
+
+    def test_a_new_photo_refreshes(self, test_user_with_profile):
+        profile = self._with_member_pass(test_user_with_profile)
+
+        with mock.patch("crush_lu.signals.trigger_wallet_pass_updates") as update:
+            # Assigning a name (rather than an upload) keeps storage out of it;
+            # the FieldFile is created already-committed, so save() writes the
+            # string straight through.
+            profile.photo_1 = "users/1/photos/b.jpg"
+            profile.save(update_fields=["photo_1"])
+
+        update.assert_called_once_with(profile)
+
+    def test_google_wallet_update_waits_for_commit(
+        self, test_user_with_profile, django_capture_on_commit_callbacks
+    ):
+        from crush_lu.signals import trigger_wallet_pass_updates
+
+        # The Google half PATCHes content straight onto Google — there is no
+        # device coming back for it — so a caller that rolls back afterwards
+        # would leave Google showing state that never existed. And
+        # referrals.update_membership_tier() saves from inside atomic() holding
+        # a select_for_update, where two 30s HTTP calls sit on the lock.
+        profile = self._with_member_pass(test_user_with_profile)
+
+        with mock.patch(
+            "crush_lu.wallet.google_api.update_google_wallet_pass",
+            return_value={"success": True, "message": "ok"},
+        ) as google_patch, mock.patch(
+            "crush_lu.wallet.passkit_apns.send_passkit_push_notifications",
+            return_value={"success": 0, "failed": 0, "total": 0},
+        ):
+            with django_capture_on_commit_callbacks(execute=True):
+                trigger_wallet_pass_updates(profile)
+                google_patch.assert_not_called()
+
+        assert google_patch.call_count == 1
+
+    def test_google_wallet_update_sends_committed_state_not_the_snapshot(
+        self, test_user_with_profile, django_capture_on_commit_callbacks
+    ):
+        from crush_lu.models import CrushProfile
+        from crush_lu.signals import trigger_wallet_pass_updates
+
+        # Deferring releases the profile row lock before the PATCH, so another
+        # transaction can commit a newer tier while this callback is queued.
+        # The PATCH ships the payload itself (Apple only pushes "come back for
+        # it"), so sending the instance captured at save time would put Google
+        # back on the older tier indefinitely.
+        profile = self._with_member_pass(test_user_with_profile)
+        profile.membership_tier = "bronze"
+        profile.save(update_fields=["membership_tier"])
+
+        with mock.patch(
+            "crush_lu.wallet.google_api.update_google_wallet_pass",
+            return_value={"success": True, "message": "ok"},
+        ) as google_patch, mock.patch(
+            "crush_lu.wallet.passkit_apns.send_passkit_push_notifications",
+            return_value={"success": 0, "failed": 0, "total": 0},
+        ):
+            with django_capture_on_commit_callbacks(execute=True):
+                trigger_wallet_pass_updates(profile)
+                # A concurrent award commits a higher tier first.
+                CrushProfile.objects.filter(pk=profile.pk).update(
+                    membership_tier="silver"
+                )
+
+        assert google_patch.call_args.args[0].membership_tier == "silver"
+        # ...and the captured instance really was stale, so this is not a
+        # tautology.
+        assert profile.membership_tier == "bronze"
+
+    def test_google_wallet_update_skips_a_profile_deleted_before_commit(
+        self, test_user_with_profile, django_capture_on_commit_callbacks
+    ):
+        from crush_lu.models import CrushProfile
+        from crush_lu.signals import trigger_wallet_pass_updates
+
+        # Re-reading has to tolerate the row being gone: the delete receiver
+        # owns that teardown, and there is nothing left to PATCH.
+        profile = self._with_member_pass(test_user_with_profile)
+
+        with mock.patch(
+            "crush_lu.wallet.google_api.update_google_wallet_pass"
+        ) as google_patch, mock.patch(
+            "crush_lu.wallet.passkit_apns.send_passkit_push_notifications",
+            return_value={"success": 0, "failed": 0, "total": 0},
+        ):
+            with django_capture_on_commit_callbacks(execute=True):
+                trigger_wallet_pass_updates(profile)
+                CrushProfile.objects.filter(pk=profile.pk).delete()
+
+        google_patch.assert_not_called()
+
+
+@pytest.mark.django_db
+class TestPointsChangesReachThePasses:
+    """Both passes print the points balance, but every points mutation is a
+    QuerySet.update() carrying an F() expression — that is what closes the
+    concurrent-award race — and QuerySet.update() emits no signals. The
+    balance used to self-heal on the holder's next bare profile.save(); once
+    that stopped counting as a change, a points-only award left the installed
+    pass showing the old total indefinitely."""
+
+    def _referred(self, test_user_with_profile):
+        from django.contrib.auth import get_user_model
+
+        from crush_lu.models import ReferralAttribution, ReferralCode
+
+        _user, referrer = test_user_with_profile
+        referrer.apple_pass_serial = "member-serial"
+        referrer.save(update_fields=["apple_pass_serial"])
+
+        invitee = get_user_model().objects.create_user(
+            username="invitee@example.com",
+            email="invitee@example.com",
+            password="x",
+        )
+        code = ReferralCode.get_or_create_for_profile(referrer)
+        attribution = ReferralAttribution.objects.create(
+            referral_code=code,
+            referred_user=invitee,
+            referrer=referrer,
+            status=ReferralAttribution.Status.CONVERTED,
+        )
+        return referrer, attribution
+
+    def test_points_only_award_refreshes_the_passes(self, test_user_with_profile):
+        from crush_lu.referrals import apply_referral_reward
+
+        referrer, attribution = self._referred(test_user_with_profile)
+
+        # Asserted at refresh_ticket_serials, not the generic trigger: these
+        # are request paths, so the refresh has to go through the bounded
+        # helper (guaranteed marker advance + capped push) that AGENTS.md
+        # calls for.
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            apply_referral_reward(attribution, "signup")
+
+        # No tier boundary crossed, so nothing saved the profile — without an
+        # explicit refresh the pass keeps the old balance.
+        referrer.refresh_from_db()
+        assert referrer.membership_tier == "basic"
+        assert "member-serial" in set(refresh.call_args.args[0])
+
+    def test_a_tier_upgrade_refreshes_exactly_once(
+        self, test_user_with_profile, settings
+    ):
+        from crush_lu.referrals import apply_referral_reward
+
+        # Crossing a threshold saves membership_tier, which fires the receiver
+        # on its own. Refreshing again on top of that would push a
+        # byte-identical package.
+        settings.REFERRAL_POINTS_PER_SIGNUP = 500
+        settings.MEMBERSHIP_TIER_THRESHOLDS = {"bronze": 1, "silver": 2, "gold": 3}
+        referrer, attribution = self._referred(test_user_with_profile)
+
+        with mock.patch(
+            "crush_lu.signals.trigger_wallet_pass_updates"
+        ) as update, mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            apply_referral_reward(attribution, "signup")
+
+        referrer.refresh_from_db()
+        assert referrer.membership_tier != "basic"
+        # The tier save fired the receiver; the points path must then stay out
+        # of the way rather than adding a second, byte-identical push.
+        assert update.call_count == 1
+        refresh.assert_not_called()
+
+    def test_the_profile_approval_bonus_refreshes_the_passes(
+        self, test_user_with_profile, settings
+    ):
+        from datetime import date
+
+        from crush_lu.models import CrushProfile
+        from crush_lu.referrals import check_and_apply_profile_approved_reward
+
+        # The bonus is a second QuerySet.update() site with the same shape as
+        # the award above. Pinning the point settings rather than inheriting
+        # them keeps the tier arithmetic below deterministic.
+        settings.REFERRAL_POINTS_PER_SIGNUP = 100
+        settings.REFERRAL_POINTS_PER_PROFILE_APPROVED = 50
+        settings.MEMBERSHIP_TIER_THRESHOLDS = {
+            "bronze": 200,
+            "silver": 500,
+            "gold": 1000,
+        }
+        referrer, attribution = self._referred(test_user_with_profile)
+        # Reached only once the signup reward has already landed.
+        attribution.reward_applied = True
+        attribution.reward_points = 100
+        attribution.save(update_fields=["reward_applied", "reward_points"])
+        referred_profile = CrushProfile.objects.create(
+            user=attribution.referred_user, date_of_birth=date(1995, 5, 15)
+        )
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            check_and_apply_profile_approved_reward(referred_profile)
+
+        referrer.refresh_from_db()
+        assert referrer.referral_points == 50
+        # Well short of bronze, so no tier save fired the receiver for us.
+        assert referrer.membership_tier == "basic"
+        assert "member-serial" in set(refresh.call_args.args[0])
+
+    def test_redeeming_points_refreshes_the_passes(self, test_user_with_profile):
+        from crush_lu.referrals import refresh_passes_after_points_change
+
+        # The redemption endpoint deducts with QuerySet.update() too, so the
+        # balance drops on the pass with no signal behind it.
+        _user, profile = test_user_with_profile
+        profile.apple_pass_serial = "member-serial"
+        profile.save(update_fields=["apple_pass_serial"])
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            refresh_passes_after_points_change(profile)
+
+        assert "member-serial" in set(refresh.call_args.args[0])
+
+    def test_a_failing_push_never_costs_the_points(self, test_user_with_profile):
+        from crush_lu.referrals import apply_referral_reward
+
+        # The award is the user's money; a wallet push is not. If the push
+        # raises, the points must still be committed.
+        referrer, attribution = self._referred(test_user_with_profile)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials",
+            side_effect=RuntimeError("APNs down"),
+        ):
+            points, _total = apply_referral_reward(attribution, "signup")
+
+        referrer.refresh_from_db()
+        assert points > 0
+        assert referrer.referral_points == points
+
+
+@pytest.mark.django_db
+class TestRegistrationDeletionRefreshesTheMemberPass:
+    """The member card prints the holder's NEXT event. The post_save receiver
+    covers create and status changes; deletion had no equivalent and used to
+    ride on the holder's next bare profile.save()."""
+
+    def _member(self, event_with_registrations):
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        profile = registration.user.crushprofile
+        profile.apple_pass_serial = "member-serial"
+        profile.save(update_fields=["apple_pass_serial"])
+        return registration, profile
+
+    def test_deleting_one_registration_refreshes(
+        self, _apple_identity, event_with_registrations
+    ):
+        registration, _profile = self._member(event_with_registrations)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            registration.delete()
+
+        pushed = {s for c in refresh.call_args_list for s in c.args[0]}
+        assert "member-serial" in pushed
+
+    def test_an_event_cascade_marks_instead_of_pushing(
+        self, _apple_identity, event_with_registrations
+    ):
+        event, _registrations = event_with_registrations
+        _registration, _profile = self._member(event_with_registrations)
+
+        # One push per row is not bounded in aggregate: each carries its own
+        # budget, so N rows multiply the deadline N times — the pathology
+        # cancel_events was already fixed for by batching. The marker advance
+        # is the guaranteed half on its own: one query, no network, and the
+        # card still rebuilds on Wallet's next poll.
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh, mock.patch(
+            "crush_lu.wallet.passkit_apns.mark_passes_updated_bulk"
+        ) as mark:
+            event.delete()
+
+        refresh.assert_not_called()
+        assert "member-serial" in set(mark.call_args.args[1])
+
+
+@pytest.mark.django_db
+class TestReferralCodeChangeRefreshesTheMemberPass:
+    """The member pass QR *is* the referral link. The code lives on another
+    model, so it reaches neither WALLET_MEMBER_PASS_FIELDS nor any profile
+    save — it was only ever picked up by the next bare profile.save()."""
+
+    def _with_code(self, test_user_with_profile):
+        from crush_lu.models import ReferralCode
+
+        _user, profile = test_user_with_profile
+        profile.apple_pass_serial = "member-serial"
+        profile.google_wallet_object_id = "issuer.member-1"
+        profile.save(update_fields=["apple_pass_serial", "google_wallet_object_id"])
+        return profile, ReferralCode.get_or_create_for_profile(profile)
+
+    def test_deactivating_a_code_refreshes(
+        self, _apple_identity, test_user_with_profile
+    ):
+        # The one that actually bites: get_or_create_for_profile only returns
+        # active codes, so the next build mints a different one while every
+        # installed pass keeps scanning to the dead code — which capture
+        # filters out, so it attributes nothing.
+        profile, code = self._with_code(test_user_with_profile)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            code.is_active = False
+            code.save(update_fields=["is_active"])
+
+        assert "member-serial" in set(refresh.call_args.args[0])
+
+    def test_editing_the_code_refreshes(
+        self, _apple_identity, test_user_with_profile
+    ):
+        profile, code = self._with_code(test_user_with_profile)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            code.code = "NEWCODE1"
+            code.save(update_fields=["code"])
+
+        assert "member-serial" in set(refresh.call_args.args[0])
+
+    def test_touching_an_unrelated_field_does_not_refresh(
+        self, _apple_identity, test_user_with_profile
+    ):
+        from django.utils import timezone as dj_timezone
+
+        # Capture stamps last_used_at on every scan. That must not fan out a
+        # push per scan.
+        profile, code = self._with_code(test_user_with_profile)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            code.last_used_at = dj_timezone.now()
+            code.save(update_fields=["last_used_at"])
+
+        refresh.assert_not_called()
+
+    def test_creating_a_code_does_not_refresh(
+        self, _apple_identity, test_user_with_profile
+    ):
+        from crush_lu.models import ReferralCode
+
+        # get_or_create_for_profile is called FROM the pass build, so pushing
+        # here would notify the device that just downloaded the pass.
+        _user, profile = test_user_with_profile
+        profile.apple_pass_serial = "member-serial"
+        profile.save(update_fields=["apple_pass_serial"])
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            ReferralCode.objects.create(referrer=profile)
+
+        refresh.assert_not_called()
+
+    def test_a_holder_with_no_pass_costs_nothing(
+        self, _apple_identity, test_user_with_profile
+    ):
+        from crush_lu.models import ReferralCode
+
+        _user, profile = test_user_with_profile
+        assert not profile.apple_pass_serial
+        code = ReferralCode.get_or_create_for_profile(profile)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            code.is_active = False
+            code.save(update_fields=["is_active"])
+
+        refresh.assert_not_called()
+
+    def test_reassigning_the_owner_refreshes_both_holders(
+        self, _apple_identity, test_user_with_profile
+    ):
+        from datetime import date
+
+        from django.contrib.auth import get_user_model
+
+        from crush_lu.models import CrushProfile
+
+        # The old holder is the one that actually matters: their installed QR
+        # now credits somebody else entirely.
+        old_holder, code = self._with_code(test_user_with_profile)
+        new_user = get_user_model().objects.create_user(
+            username="new@example.com", email="new@example.com", password="x"
+        )
+        new_holder = CrushProfile.objects.create(
+            user=new_user, date_of_birth=date(1995, 5, 15)
+        )
+        new_holder.apple_pass_serial = "new-holder-serial"
+        new_holder.save(update_fields=["apple_pass_serial"])
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            code.referrer = new_holder
+            code.save(update_fields=["referrer"])
+
+        pushed = {s for c in refresh.call_args_list for s in c.args[0]}
+        assert pushed == {"member-serial", "new-holder-serial"}
+        assert old_holder.apple_pass_serial == "member-serial"
+
+    def test_deleting_a_code_refreshes(
+        self, _apple_identity, test_user_with_profile
+    ):
+        # capture_referral needs a matching row, so once it is gone the QR
+        # attributes nothing — and the next build mints a different code, so
+        # the installed pass never converges on its own.
+        profile, code = self._with_code(test_user_with_profile)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            code.delete()
+
+        assert "member-serial" in set(refresh.call_args.args[0])
+
+    def test_admin_bulk_delete_marks_instead_of_pushing(
+        self, _apple_identity, test_user_with_profile
+    ):
+        from crush_lu.models import ReferralCode
+
+        # ReferralCodeAdmin exposes Django's default "Delete selected", whose
+        # delete_queryset() calls QuerySet.delete() — so origin is the
+        # queryset, not each row, and pushing per row would fan out.
+        profile, code = self._with_code(test_user_with_profile)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh, mock.patch(
+            "crush_lu.wallet.passkit_apns.mark_passes_updated_bulk"
+        ) as mark:
+            ReferralCode.objects.filter(pk=code.pk).delete()
+
+        refresh.assert_not_called()
+        assert "member-serial" in set(mark.call_args.args[1])
+
+    def test_deleting_the_profile_does_not_refresh_its_own_code(
+        self, _apple_identity, test_user_with_profile
+    ):
+        # The usual reason a code disappears is the profile going with it.
+        # Refreshing a pass whose profile no longer exists is pointless.
+        profile, _code = self._with_code(test_user_with_profile)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            profile.delete()
 
         refresh.assert_not_called()
 

@@ -40,6 +40,7 @@ from .models import (
     CrushCoach,
     CrushSpark,
     ProfileSubmission,
+    ReferralCode,
 )
 from .models.journey import JourneyProgress
 from .utils.i18n import is_valid_language
@@ -56,7 +57,13 @@ _thread_local = threading.local()
 # WALLET PASS UPDATE TRIGGERS
 # =============================================================================
 
-# Fields that should trigger a wallet pass update when changed
+# Every input a wallet pass renders from, INCLUDING the three that are
+# properties rather than columns. No receiver reads this set any more — they
+# gate on the two subsets below, which are what can actually be compared — so
+# treat it as the inventory the subsets are checked against:
+# test_member_pass_fields_are_real_columns asserts the split, which turns
+# "added a field here and forgot the subset" into a failing test rather than a
+# pass that silently never refreshes.
 WALLET_UPDATE_PROFILE_FIELDS = {
     "referral_points",
     "membership_tier",
@@ -73,6 +80,21 @@ WALLET_UPDATE_PROFILE_FIELDS = {
 # reach update_fields) computed from `show_full_name` plus the User's names —
 # and User renames are handled by refresh_wallet_passes_on_user_rename.
 WALLET_TICKET_IDENTITY_FIELDS = {"show_full_name"}
+
+# The subset that is a real model field, and therefore the only part of the set
+# a change can be *proven* against: `display_name`/`first_name`/`last_name` are
+# PROPERTIES reading the User, so they can neither reach a profile
+# `update_fields` nor be fetched with .values() — renames arrive through
+# refresh_wallet_passes_on_user_rename instead. Everything else the member pass
+# prints is derived from these (tier_display), owned by another model (the
+# referral code, the next event) or immutable (member_since).
+WALLET_MEMBER_PASS_FIELDS = {
+    "referral_points",
+    "membership_tier",
+    "show_photo_on_wallet",
+    "photo_1",
+    "show_full_name",
+}
 
 
 def _trigger_apple_pass_refresh(profile):
@@ -146,25 +168,80 @@ def _trigger_google_wallet_object_update(profile):
     if not profile.google_wallet_object_id:
         return
 
+    def _after_commit():
+        try:
+            from .wallet.google_api import update_google_wallet_pass
+
+            # Re-read rather than PATCH from the instance captured at save
+            # time. Unlike the Apple half — which pushes a content-free "come
+            # back for it" and lets the device fetch from the web service, so
+            # it always renders current rows — this call ships the payload
+            # itself, built from whatever the instance holds. Deferring to
+            # commit releases the profile row lock first, so between scheduling
+            # and running, another transaction can have committed a newer tier
+            # or point total; sending the captured copy would put Google back
+            # on the older one indefinitely. Reading committed state here means
+            # the write carries what the database actually says.
+            #
+            # This narrows the window rather than closing it: two overlapping
+            # callbacks can still finish their network calls out of order, and
+            # the loser is whichever re-read first — it lands last and writes
+            # the older balance.
+            #
+            # Do NOT reason about this as a rare case. An earlier version of
+            # this comment argued the payload only changes on a tier upgrade,
+            # since points move via QuerySet.update() and emit no signal; that
+            # stopped being true when refresh_passes_after_points_change()
+            # started scheduling one for every award and redemption. Any two
+            # overlapping points transactions for the same profile can hit it.
+            #
+            # Closing it needs per-profile serialization or server-side
+            # versioning: a mutex puts blocking back in the request (on_commit
+            # runs inline), and a queue is not available — production leaves
+            # DJANGO_TASKS_BACKEND unset, so .enqueue() would run inline too.
+            # Left open deliberately, and written down rather than assumed
+            # away.
+            fresh = CrushProfile.objects.filter(pk=profile.pk).first()
+            if fresh is None or not fresh.google_wallet_object_id:
+                # Deleted, or the object was unlinked, while the callback was
+                # queued. cleanup_passkit_registrations_on_profile_delete owns
+                # that teardown; there is nothing left to PATCH.
+                return
+
+            result = update_google_wallet_pass(fresh)
+
+            if result["success"]:
+                logger.info(
+                    f"Google Wallet pass updated for user {fresh.user_id}: "
+                    f"object_id={fresh.google_wallet_object_id}"
+                )
+            else:
+                logger.warning(
+                    f"Google Wallet pass update failed for user {fresh.user_id}: "
+                    f"{result['message']}"
+                )
+
+        except Exception as e:
+            logger.error(
+                f"Error updating Google Wallet pass for user {profile.user_id}: {e}"
+            )
+
     try:
-        from .wallet.google_api import update_google_wallet_pass
-
-        result = update_google_wallet_pass(profile)
-
-        if result["success"]:
-            logger.info(
-                f"Google Wallet pass updated for user {profile.user_id}: "
-                f"object_id={profile.google_wallet_object_id}"
-            )
-        else:
-            logger.warning(
-                f"Google Wallet pass update failed for user {profile.user_id}: "
-                f"{result['message']}"
-            )
-
+        # Deferred to commit like the Apple half above, for two reasons of its
+        # own. This one is not a "come back for the new package" push — it
+        # PATCHes the content straight onto Google, so a caller that rolls back
+        # afterwards leaves Google showing state that never existed, and the
+        # payload comes from build_wallet_pass_data(), which re-queries for the
+        # next event and should read committed rows. It is also two HTTP calls
+        # (token exchange, then the PATCH) at a 30s timeout each, and callers
+        # such as referrals.update_membership_tier() save inside
+        # transaction.atomic() holding a select_for_update — up to a minute of
+        # network with the row locked. on_commit runs inline when there is no
+        # transaction, so every other caller is unaffected.
+        transaction.on_commit(_after_commit)
     except Exception as e:
         logger.error(
-            f"Error updating Google Wallet pass for user {profile.user_id}: {e}"
+            f"Error scheduling Google Wallet update for user {profile.user_id}: {e}"
         )
 
 
@@ -2522,6 +2599,36 @@ def cleanup_passkit_registrations_on_registration_delete(sender, instance, **kwa
     _delete_passkit_registrations(instance.apple_wallet_ticket_serial)
 
 
+@receiver(post_delete, sender=EventRegistration)
+def refresh_member_pass_on_registration_delete(
+    sender, instance, origin=None, **kwargs
+):
+    """The member card prints the holder's NEXT event, so deleting the row that
+    supplied it leaves the card advertising an event they are not going to.
+
+    The post_save receiver covers create and status changes; deletion had no
+    equivalent, and used to be picked up by the holder's next bare
+    profile.save().
+
+    A direct delete of one registration — an admin object delete — pushes.
+    Anything else reaches this per row (an event cascade, a user cascade, a
+    bulk queryset), and one push per row is not bounded in aggregate: each
+    carries its own budget, so N rows multiply the deadline N times. That is
+    the pathology cancel_events was already fixed for by batching into a single
+    refresh. Those rows get the marker advance instead — one query, no network,
+    and the card still rebuilds on Wallet's next poll rather than advertising
+    an event that no longer exists.
+    """
+    context = f"Registration {instance.pk} deleted"
+    profile = CrushProfile.objects.filter(user_id=instance.user_id).first()
+
+    if isinstance(origin, EventRegistration):
+        _refresh_member_pass(profile, context)
+        return
+
+    _mark_member_pass_stale(profile, f"{context} ({type(origin).__name__})")
+
+
 # `username` counts: CrushProfile.display_name falls back to it in BOTH
 # branches (get_full_name() or username, and first_name or username), so a
 # user with no first name has their username printed on the pass and on every
@@ -2548,26 +2655,46 @@ def remember_previous_user_name(sender, instance, update_fields=None, **kwargs):
     )
 
 
+def _normalized_member_pass_values(values):
+    """Flatten a member-pass field mapping so a row and an instance compare equal.
+
+    Only ``photo_1`` needs it: ``.values()`` yields the stored file name while
+    the instance holds a FieldFile, and an empty photo is NULL on some rows and
+    "" on others (the column is both null and blank), which would otherwise read
+    as a change on every save.
+    """
+    if values is None:
+        return None
+    normalized = dict(values)
+    photo = normalized.get("photo_1")
+    normalized["photo_1"] = getattr(photo, "name", photo) or ""
+    return normalized
+
+
 @receiver(pre_save, sender=CrushProfile)
-def remember_previous_ticket_identity(sender, instance, update_fields=None, **kwargs):
-    """Snapshot the profile input to the ticket's attendee name.
+def remember_previous_member_pass_fields(sender, instance, update_fields=None, **kwargs):
+    """Snapshot the persisted fields both wallet passes are rendered from.
 
     Mirrors remember_previous_user_name, and for the same reason: a bare
-    ``profile.save()`` is not evidence of an identity change. The Microsoft
-    sign-in path saves the profile on every login without touching
-    ``show_full_name``, and treating that as a change refreshed every
-    historical ticket the user owns — synchronous fan-out hung off a login.
+    ``profile.save()`` is not evidence of a change. The Microsoft sign-in path
+    saves the profile on every login without touching any of these, and treating
+    that as a change refreshed every historical ticket the user owns *and* made
+    each of those logins wait on a Google Wallet round trip.
+
+    One indexed primary-key lookup, and only when a relevant field could have
+    moved at all: an onboarding step saving ``update_fields=["bio"]`` pays
+    nothing.
     """
-    instance._previous_show_full_name = None
+    instance._previous_member_pass_fields = None
     if not instance.pk:
         return
     if update_fields is not None and not (
-        set(update_fields) & WALLET_TICKET_IDENTITY_FIELDS
+        set(update_fields) & WALLET_MEMBER_PASS_FIELDS
     ):
         return
-    instance._previous_show_full_name = (
+    instance._previous_member_pass_fields = _normalized_member_pass_values(
         CrushProfile.objects.filter(pk=instance.pk)
-        .values_list("show_full_name", flat=True)
+        .values(*WALLET_MEMBER_PASS_FIELDS)
         .first()
     )
 
@@ -2576,7 +2703,7 @@ def remember_previous_ticket_identity(sender, instance, update_fields=None, **kw
 def refresh_wallet_passes_on_user_rename(
     sender, instance, created, update_fields, **kwargs
 ):
-    """Refresh Apple passes when the holder's actual name changes.
+    """Refresh both wallets when the holder's actual name changes.
 
     The name printed on both the member pass and every event ticket comes from
     ``CrushProfile.display_name``, which reads ``User.first_name`` /
@@ -2619,6 +2746,192 @@ def refresh_wallet_passes_on_user_rename(
     except Exception as e:
         logger.error(f"Error refreshing wallet passes for user {instance.pk}: {e}")
 
+    # Google prints display_name too (google_api._build_generic_object_payload
+    # puts it in the subheader), and refresh_ticket_serials above is Apple-only
+    # — it pushes PassKit serials. Nothing else will bring the Google object up
+    # to date either: display_name is a property, so it can never reach a
+    # profile update_fields nor the persisted snapshot the profile receiver
+    # compares. This used to ride on the next bare profile.save() reaching
+    # trigger_wallet_pass_updates, which is exactly the save that no longer
+    # counts as a change, so without this a renamed member's Google card kept
+    # the old name indefinitely.
+    #
+    # Its own try/except: an APNs failure above must not swallow this, and vice
+    # versa. The call no-ops for a profile with no Google object.
+    try:
+        profile = getattr(instance, "crushprofile", None)
+        if profile is not None:
+            _trigger_google_wallet_object_update(profile)
+    except Exception as e:
+        logger.error(
+            f"Error scheduling Google Wallet rename update for user {instance.pk}: {e}"
+        )
+
+
+def _refresh_member_pass(profile, context):
+    """Bounded refresh of ONE member pass on both wallets.
+
+    Apple goes through refresh_ticket_serials rather than the generic trigger
+    for the reason AGENTS.md gives: these are request paths, so the work has to
+    advance the update marker in one no-network query (guaranteed — the pass
+    still refreshes on Wallet's next poll) and cap the push by count and wall
+    clock. One try/except per wallet: neither may swallow the other.
+    """
+    if profile is None:
+        return
+    if not profile.apple_pass_serial and not profile.google_wallet_object_id:
+        return
+
+    try:
+        if profile.apple_pass_serial:
+            from .wallet.passkit_service import refresh_ticket_serials
+
+            refresh_ticket_serials([profile.apple_pass_serial], context=context)
+    except Exception as e:
+        logger.error(f"Error refreshing Apple member pass ({context}): {e}")
+
+    try:
+        _trigger_google_wallet_object_update(profile)
+    except Exception as e:
+        logger.error(f"Error refreshing Google member pass ({context}): {e}")
+
+
+def _mark_member_pass_stale(profile, context):
+    """Advance the Apple update marker WITHOUT pushing.
+
+    For bulk and cascade paths, where one refresh per row is not bounded in
+    aggregate — each push carries its own budget, so N rows multiply the
+    deadline N times. This is the guaranteed half of that work on its own: one
+    indexed write, no network, so it cannot fan out, and the pass still
+    rebuilds on Wallet's next periodic poll instead of staying wrong forever.
+
+    Google has no marker equivalent — its card is only ever corrected by an
+    explicit PATCH — so a bulk path leaves it until the next real refresh.
+    """
+    if profile is None or not profile.apple_pass_serial:
+        return
+    pass_type_id = getattr(settings, "WALLET_APPLE_PASS_TYPE_IDENTIFIER", None)
+    if not pass_type_id:
+        return
+    try:
+        from .wallet.passkit_apns import mark_passes_updated_bulk
+
+        mark_passes_updated_bulk(pass_type_id, [profile.apple_pass_serial])
+        logger.info(
+            "%s: marked member pass %s for Wallet's next poll (no push — bulk "
+            "path, one push per row is not bounded in aggregate)",
+            context,
+            profile.apple_pass_serial,
+        )
+    except Exception as e:
+        logger.error(f"Error marking member pass stale ({context}): {e}")
+
+
+# The QR on the member pass is the referrer's link, and all three of these
+# change what it resolves to: the code is the URL, capture filters on
+# is_active (referrals.py:52 and :86) so a deactivated code renders a QR that
+# scans but attributes nothing, and `referrer` decides WHOSE link it is — staff
+# reassigning it leaves the old holder's pass crediting somebody else. All
+# three are editable through ReferralCodeAdmin.
+_REFERRAL_CODE_PASS_FIELDS = ("code", "is_active", "referrer_id")
+
+# What `update_fields` may legitimately name for those columns. A FK can arrive
+# as either the field name or its attname, and save(update_fields=["referrer"])
+# is what admin and ordinary code actually write — gating on "referrer_id"
+# alone skipped the snapshot and made reassignment a silent no-op.
+_REFERRAL_CODE_UPDATE_FIELD_NAMES = frozenset(
+    {"code", "is_active", "referrer", "referrer_id"}
+)
+
+
+@receiver(pre_save, sender=ReferralCode)
+def remember_previous_referral_code(sender, instance, update_fields=None, **kwargs):
+    """Snapshot the code fields the member pass barcode is built from."""
+    instance._previous_referral_code = None
+    if not instance.pk:
+        return
+    if update_fields is not None and not (
+        set(update_fields) & _REFERRAL_CODE_UPDATE_FIELD_NAMES
+    ):
+        return
+    instance._previous_referral_code = (
+        ReferralCode.objects.filter(pk=instance.pk)
+        .values_list(*_REFERRAL_CODE_PASS_FIELDS)
+        .first()
+    )
+
+
+@receiver(post_save, sender=ReferralCode)
+def refresh_member_pass_on_referral_code_change(sender, instance, created, **kwargs):
+    """Rebuild the member pass when its QR stops meaning what it did.
+
+    build_wallet_pass_barcode_value() embeds this code, and nothing else
+    notices when it moves: the code lives on another model, so it reaches
+    neither WALLET_MEMBER_PASS_FIELDS nor any profile save. Deactivating a code
+    is the case that actually bites — get_or_create_for_profile only returns
+    active ones, so the next build mints a *different* code while every
+    installed pass keeps scanning to the dead one, silently attributing
+    nothing.
+
+    Deliberately does not fire on `created`: the only thing that creates a code
+    is get_or_create_for_profile, which is called *from the pass build itself*,
+    so refreshing here would push a notification at the device that just
+    downloaded the pass. A code is only ever created when no active one
+    remains, and the deactivation that got it there already refreshed.
+    """
+    if created:
+        return
+    previous = getattr(instance, "_previous_referral_code", None)
+    if previous is None:
+        return
+    previous_code, previous_active, previous_referrer_id = previous
+    if previous == (instance.code, instance.is_active, instance.referrer_id):
+        return
+
+    context = f"Referral code {instance.pk} change"
+    _refresh_member_pass(
+        CrushProfile.objects.filter(pk=instance.referrer_id).first(), context
+    )
+
+    # A reassignment has two victims, and the one that actually matters is the
+    # OLD holder: their installed QR now credits somebody else entirely.
+    if previous_referrer_id != instance.referrer_id:
+        _refresh_member_pass(
+            CrushProfile.objects.filter(pk=previous_referrer_id).first(),
+            f"{context} (previous holder)",
+        )
+
+
+@receiver(post_delete, sender=ReferralCode)
+def refresh_member_pass_on_referral_code_delete(
+    sender, instance, origin=None, **kwargs
+):
+    """Deleting the code strands every pass that embeds it.
+
+    capture_referral() needs a matching active row, so once the row is gone the
+    QR scans and attributes nothing — and the next build mints a different
+    code, so the installed pass never converges on its own.
+
+    A direct delete pushes. The admin's default "Delete selected" action calls
+    QuerySet.delete(), so `origin` is the queryset, not each row — pushing per
+    row there is not bounded in aggregate, so those rows get the marker advance
+    only and rebuild on Wallet's next poll.
+
+    A cascade from anything else is a profile going away underneath its own
+    codes. Django deletes children before parents, so the profile row is still
+    readable here — refreshing a pass that is about to stop existing is the
+    trap, hence the explicit model check rather than "not a queryset".
+    """
+    context = f"Referral code {instance.pk} deleted"
+    profile = CrushProfile.objects.filter(pk=instance.referrer_id).first()
+
+    if isinstance(origin, ReferralCode):
+        _refresh_member_pass(profile, context)
+        return
+
+    if getattr(origin, "model", None) is ReferralCode:
+        _mark_member_pass_stale(profile, f"{context} (bulk)")
+
 
 def _refresh_user_event_tickets(profile):
     """Refresh this user's installed Apple event tickets.
@@ -2651,37 +2964,51 @@ def trigger_wallet_pass_update_on_profile_change(
     """
     Trigger wallet pass updates when relevant profile fields change.
 
-    This signal fires on CrushProfile save and checks if any wallet-relevant
-    fields were updated. If so, it triggers push notifications to Apple Wallet
-    devices and updates Google Wallet objects.
+    This signal fires on CrushProfile save and compares the fields the passes
+    are rendered from against the pre_save snapshot. If one actually moved, it
+    triggers push notifications to Apple Wallet devices and updates Google
+    Wallet objects.
 
-    Wallet-relevant fields include:
+    Wallet-relevant fields (WALLET_MEMBER_PASS_FIELDS) are:
     - referral_points, membership_tier (rewards/status)
     - show_photo_on_wallet, photo_1 (appearance)
-    - display_name, first_name, last_name, show_full_name (identity)
+    - show_full_name (identity; the User half is the rename receiver above)
     """
-    # Narrower than WALLET_UPDATE_PROFILE_FIELDS on purpose: that set also
-    # carries member-pass-only fields (referral_points, membership_tier,
-    # show_photo_on_wallet, photo_1), none of which appears in a ticket. Gating
-    # tickets on it meant a tier bump or a photo upload refreshed every
-    # historical ticket the user owns and burned the APNs budget downloading
-    # byte-identical packages. The only profile input to a ticket is the
-    # attendee name; the User half of that is handled by the rename receiver
-    # above.
-    #
-    # Compares the PERSISTED value rather than trusting update_fields: a bare
+    # What actually MOVED, from the pre_save snapshot — never "update_fields
+    # says so", and never "a full save must mean something changed". A bare
     # profile.save() carries update_fields=None, and the Microsoft sign-in path
-    # does exactly that on every login without touching show_full_name.
+    # does exactly that on every login without editing a single field; reading
+    # that as a change put an APNs fan-out and a synchronous Google Wallet round
+    # trip (two HTTP calls, 30s timeouts) on the critical path of every login by
+    # a member who has installed a pass.
+    #
+    # An empty snapshot (no relevant field in update_fields, or the row is gone)
+    # reads as "nothing moved" — same fail-closed shape as the User receiver —
+    # and short-circuits before touching the instance, so the saves that skipped
+    # the snapshot query pay nothing here either.
+    previous = getattr(instance, "_previous_member_pass_fields", None)
+    changed = set()
+    if previous is not None:
+        current = _normalized_member_pass_values(
+            {name: getattr(instance, name) for name in WALLET_MEMBER_PASS_FIELDS}
+        )
+        changed = {
+            name for name, value in current.items() if previous[name] != value
+        }
+
+    # Tickets are gated on a strictly narrower set than the member pass: the
+    # only profile input to a ticket is the attendee name, so a tier bump or a
+    # photo upload must not refresh every historical ticket the user owns and
+    # burn the APNs budget downloading byte-identical packages. The User half of
+    # the name is handled by the rename receiver above.
     #
     # `created` counts as a change in its own right: an open-event attendee can
     # install a ticket with no profile at all (the name falls back to the bare
     # username), and creating the profile switches display_name to
     # username.split("@")[0]. There is no previous value to compare on that
     # path, so the persisted-value guard alone would suppress it.
-    previous_show_full_name = getattr(instance, "_previous_show_full_name", None)
-    ticket_identity_changed = created or (
-        previous_show_full_name is not None
-        and previous_show_full_name != instance.show_full_name
+    ticket_identity_changed = created or bool(
+        changed & WALLET_TICKET_IDENTITY_FIELDS
     )
 
     # Event tickets print the holder's name and carry their own evt-* serials,
@@ -2704,34 +3031,20 @@ def trigger_wallet_pass_update_on_profile_change(
     if not instance.apple_pass_serial and not instance.google_wallet_object_id:
         return
 
-    # Check if any wallet-relevant fields were updated
-    should_update = False
+    if not changed:
+        return
 
-    if update_fields is not None:
-        # Specific fields were updated - check if any are wallet-relevant
-        updated_fields = set(update_fields)
-        if updated_fields & WALLET_UPDATE_PROFILE_FIELDS:
-            should_update = True
-            logger.debug(
-                f"Wallet-relevant fields updated for user {instance.user_id}: "
-                f"{updated_fields & WALLET_UPDATE_PROFILE_FIELDS}"
-            )
-    else:
-        # Full save - trigger update to be safe
-        # This happens when save() is called without update_fields
-        should_update = True
-        logger.debug(
-            f"Full profile save for user {instance.user_id}, triggering wallet update"
+    logger.debug(
+        f"Wallet-relevant fields changed for user {instance.user_id}: {changed}"
+    )
+
+    try:
+        trigger_wallet_pass_updates(instance)
+    except Exception as e:
+        # Don't fail the save if wallet update fails
+        logger.error(
+            f"Error triggering wallet update for user {instance.user_id}: {e}"
         )
-
-    if should_update:
-        try:
-            trigger_wallet_pass_updates(instance)
-        except Exception as e:
-            # Don't fail the save if wallet update fails
-            logger.error(
-                f"Error triggering wallet update for user {instance.user_id}: {e}"
-            )
 
 
 @receiver(pre_save, sender=EventRegistration)
