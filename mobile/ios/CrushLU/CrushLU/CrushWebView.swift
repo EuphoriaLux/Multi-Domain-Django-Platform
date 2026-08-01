@@ -101,7 +101,8 @@ struct CrushWebView: UIViewRepresentable {
             let error = body["error"] as? String
             let base64 = body["data"] as? String
 
-            if let base64, let data = Data(base64: base64) {
+            if let base64, !base64.isEmpty,
+               let data = Data(base64Encoded: base64) {
                 presentAddPassesVC(with: data)
             } else {
                 showAddPassFailure(message: error)
@@ -163,7 +164,12 @@ struct CrushWebView: UIViewRepresentable {
                 do {
                     let pass = try PKPass(data: data)
                     guard let presentingVC = self.topViewController() else { return }
-                    let controller = PKAddPassesViewController(pass: pass)
+                    // init(pass:) is failable — it returns nil if the pass
+                    // data is structured but not presentable.
+                    guard let controller = PKAddPassesViewController(pass: pass) else {
+                        self.showAddPassFailure(message: "Couldn't read the pass.")
+                        return
+                    }
                     controller.delegate = self
                     presentingVC.present(controller, animated: true)
                 } catch {
