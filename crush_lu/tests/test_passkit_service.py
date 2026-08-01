@@ -319,6 +319,43 @@ class TestListDeviceRegistrations:
             == 204
         )
 
+    def test_cursor_round_trips_losslessly(self, settings):
+        import json
+
+        from crush_lu.wallet.passkit_service import list_device_registrations
+
+        # int() truncation put the echoed cursor BEFORE the stored updated_at,
+        # so `updated_at__gt` matched the same row forever and Wallet
+        # redownloaded an unchanged pass on every poll.
+        settings.PASSKIT_AUTH_TOKEN = ""
+        self._registration()
+
+        first = list_device_registrations(
+            RequestFactory().get("/"), "device-abc", "pass.lu.crush"
+        )
+        cursor = json.loads(first.content)["lastUpdated"]
+
+        # Feeding the tag straight back must report nothing new.
+        again = list_device_registrations(
+            RequestFactory().get("/", {"passesUpdatedSince": str(cursor)}),
+            "device-abc",
+            "pass.lu.crush",
+        )
+        assert again.status_code == 204
+
+    def test_legacy_integer_cursor_still_parses(self, settings):
+        from crush_lu.wallet.passkit_service import list_device_registrations
+
+        # Installed passes still hold the old truncated int tag; it must not
+        # start erroring after the format change.
+        settings.PASSKIT_AUTH_TOKEN = ""
+        self._registration()
+        request = RequestFactory().get("/", {"passesUpdatedSince": "1"})
+        assert (
+            list_device_registrations(request, "device-abc", "pass.lu.crush").status_code
+            == 200
+        )
+
     def test_malformed_cursor_is_a_400_not_a_500(self, settings):
         from crush_lu.wallet.passkit_service import list_device_registrations
 
@@ -675,6 +712,136 @@ class TestCancelledTicketIsVoided:
         registration.save(update_fields=["status"])
 
         assert "voided" not in self._payload_for(registration)
+
+    def test_event_level_cancellation_voids_a_confirmed_seat(
+        self, _apple_identity, event_with_registrations
+    ):
+        # The admin's bulk cancel sets MeetupEvent.is_cancelled and leaves every
+        # registration "confirmed", so checking only the seat would let a
+        # cancelled event's tickets keep reading as valid at the door.
+        event, registrations = event_with_registrations
+        event.is_cancelled = True
+        event.save(update_fields=["is_cancelled"])
+        registration = registrations[0]
+        registration.refresh_from_db()
+
+        assert registration.status == "confirmed"
+        assert self._payload_for(registration).get("voided") is True
+
+
+@pytest.mark.django_db
+class TestClaimOnce:
+    """Write-once ticket identifiers must survive concurrent downloads: a lost
+    race signs a package with a value the web service can never resolve."""
+
+    def test_second_writer_adopts_the_winning_token(self, event_with_registrations):
+        from crush_lu.models import EventRegistration
+        from crush_lu.wallet.apple_event_ticket import _ensure_ticket_auth_token
+
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+
+        # Simulate the concurrent download: another request already claimed the
+        # field while this in-memory instance still sees it empty.
+        EventRegistration.objects.filter(pk=registration.pk).update(
+            apple_wallet_auth_token="winner-token"
+        )
+        assert registration.apple_wallet_auth_token == ""
+
+        # The loser must sign with the winner's token, not its own.
+        assert _ensure_ticket_auth_token(registration) == "winner-token"
+        assert registration.apple_wallet_auth_token == "winner-token"
+
+    def test_second_writer_adopts_the_winning_serial(self, event_with_registrations):
+        from crush_lu.models import EventRegistration
+        from crush_lu.wallet.apple_event_ticket import _ensure_event_ticket_serial
+
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+
+        EventRegistration.objects.filter(pk=registration.pk).update(
+            apple_wallet_ticket_serial="evt-winner"
+        )
+        assert _ensure_event_ticket_serial(registration) == "evt-winner"
+
+    def test_uncontended_claim_persists(self, event_with_registrations):
+        from crush_lu.wallet.apple_event_ticket import _ensure_ticket_auth_token
+
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+
+        token = _ensure_ticket_auth_token(registration)
+        assert token
+        registration.refresh_from_db()
+        assert registration.apple_wallet_auth_token == token
+
+
+@pytest.mark.django_db
+class TestEventLevelTicketRefresh:
+    """Event-level changes rewrite the payload but touch no registration row,
+    and both paths that make them use queryset.update() — no signals at all."""
+
+    def _ticketed(self, event_with_registrations):
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        registration.apple_wallet_ticket_serial = "evt-1-reg-1-abcd"
+        registration.save(update_fields=["apple_wallet_ticket_serial"])
+        return _event, registration
+
+    def test_refresh_event_tickets_pushes_each_serial(
+        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+    ):
+        from crush_lu.wallet.passkit_service import refresh_event_tickets
+
+        event, _registration = self._ticketed(event_with_registrations)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ) as refresh:
+            with django_capture_on_commit_callbacks(execute=True):
+                assert refresh_event_tickets(event) == 1
+
+        refresh.assert_called_once_with("pass.lu.crush", "evt-1-reg-1-abcd")
+
+    def test_skips_registrations_with_no_ticket(
+        self, _apple_identity, event_with_registrations
+    ):
+        from crush_lu.wallet.passkit_service import refresh_event_tickets
+
+        event, _registrations = event_with_registrations
+        assert refresh_event_tickets(event) == 0
+
+    def test_reschedule_schedules_a_refresh(
+        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+    ):
+        from datetime import timedelta
+
+        from django.utils import timezone as dj_timezone
+
+        event, _registration = self._ticketed(event_with_registrations)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ) as refresh:
+            with django_capture_on_commit_callbacks(execute=True):
+                event.date_time = dj_timezone.now() + timedelta(days=14)
+                event.save()
+
+        refresh.assert_called_once_with("pass.lu.crush", "evt-1-reg-1-abcd")
+
+    def test_unrelated_event_save_does_not_push(
+        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+    ):
+        event, _registration = self._ticketed(event_with_registrations)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ) as refresh:
+            with django_capture_on_commit_callbacks(execute=True):
+                event.title = f"{event.title} (updated)"
+                event.save()
+
+        refresh.assert_not_called()
 
 
 @pytest.mark.django_db

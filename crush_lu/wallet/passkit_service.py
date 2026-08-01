@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from django.conf import settings
+from django.db import transaction
 from django.http import HttpResponse, JsonResponse
 from django.utils.http import http_date, parse_http_date
 from django.views.decorators.csrf import csrf_exempt
@@ -372,7 +373,14 @@ def list_device_registrations(request, device_library_identifier, pass_type_iden
     last_updated = registrations.order_by("-updated_at").first().updated_at
     response_payload = {
         "serialNumbers": serial_numbers,
-        "lastUpdated": int(last_updated.timestamp()),
+        # Apple treats lastUpdated as an OPAQUE tag and echoes it back as
+        # passesUpdatedSince, so it must round-trip losslessly. int() truncated
+        # the sub-second part, which put the reconstructed cursor BEFORE the
+        # stored updated_at — `updated_at__gt` then matched the same row on
+        # every subsequent poll and Wallet redownloaded an unchanged pass
+        # forever. float() on the way back in parses either form, so cursors
+        # already held by installed passes still work.
+        "lastUpdated": f"{last_updated.timestamp():.6f}",
     }
     return JsonResponse(response_payload)
 
@@ -452,3 +460,43 @@ def log_endpoint(request):
 
 def trigger_pass_refresh(pass_type_identifier, serial_number):
     return send_passkit_push_notifications(pass_type_identifier, serial_number)
+
+
+def refresh_event_tickets(event):
+    """Refresh every installed Apple ticket for an event.
+
+    Event-level changes rewrite the pass payload — date, time, location, and
+    `voided` — but never touch an EventRegistration row, so the per-registration
+    receiver never fires. Worse, both paths that make those changes use
+    `queryset.update()` (the admin's bulk cancel action, and the reschedule
+    handler, which does so deliberately to avoid per-registration receivers),
+    and that emits no signals at all. So this has to be called explicitly.
+
+    Deferred to commit for the same reason as the registration receiver: the
+    marker advance and the push must not be visible to Wallet before the event
+    change itself is. on_commit runs inline outside a transaction.
+    """
+    pass_type_id = getattr(settings, "WALLET_APPLE_PASS_TYPE_IDENTIFIER", None)
+    if not pass_type_id:
+        return 0
+
+    from ..models import EventRegistration
+
+    serials = list(
+        EventRegistration.objects.filter(event=event)
+        .exclude(apple_wallet_ticket_serial="")
+        .values_list("apple_wallet_ticket_serial", flat=True)
+    )
+    if not serials:
+        return 0
+
+    def _after_commit():
+        for serial in serials:
+            try:
+                trigger_pass_refresh(pass_type_id, serial)
+            except Exception:
+                # One unreachable device must not strand the rest.
+                logger.exception("Failed refreshing Apple event ticket %s", serial)
+
+    transaction.on_commit(_after_commit)
+    return len(serials)

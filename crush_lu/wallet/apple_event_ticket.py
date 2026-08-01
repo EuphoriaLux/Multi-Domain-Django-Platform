@@ -18,7 +18,33 @@ from .apple_pass import (
     _require_setting,
     resolve_web_service_url,
 )
-from ..models import CrushProfile
+from ..models import CrushProfile, EventRegistration
+
+
+def _claim_once(registration, field, value):
+    """Compare-and-set a write-once identifier on the registration.
+
+    Two concurrent downloads — a double-tap while the iOS in-page fetch is
+    still pending — would otherwise both read the empty field, both generate a
+    value, and both sign a package with their own. The last save wins, so the
+    earlier package carries an identifier the web service can never resolve:
+    its update requests 401 (auth token) or 404 (serial), permanently, with no
+    signal to the user beyond a pass that never updates.
+
+    The conditional UPDATE lets exactly one writer win; everyone else adopts
+    the winner's value, so every package signed is consistent with the row.
+    """
+    claimed = EventRegistration.objects.filter(
+        pk=registration.pk, **{field: ""}
+    ).update(**{field: value})
+    if not claimed:
+        value = (
+            EventRegistration.objects.filter(pk=registration.pk)
+            .values_list(field, flat=True)
+            .first()
+        ) or value
+    setattr(registration, field, value)
+    return value
 
 
 def _ensure_event_ticket_serial(registration):
@@ -32,9 +58,7 @@ def _ensure_event_ticket_serial(registration):
 
     suffix = secrets.token_hex(8)
     serial = f"evt-{registration.event_id}-reg-{registration.id}-{suffix}"
-    registration.apple_wallet_ticket_serial = serial
-    registration.save(update_fields=["apple_wallet_ticket_serial"])
-    return serial
+    return _claim_once(registration, "apple_wallet_ticket_serial", serial)
 
 
 def _origin_from_url(url):
@@ -66,10 +90,10 @@ def _ensure_ticket_auth_token(registration):
     if registration.apple_wallet_auth_token:
         return registration.apple_wallet_auth_token
 
-    token = secrets.token_hex(16)
-    registration.apple_wallet_auth_token = token
-    registration.save(update_fields=["apple_wallet_auth_token"])
-    return token
+    # Claimed atomically — see _claim_once. A lost race here would sign a
+    # package with a token the resolver can never find, so every update
+    # request for it 401s forever.
+    return _claim_once(registration, "apple_wallet_auth_token", secrets.token_hex(16))
 
 
 def _ensure_checkin_origin(registration, request):
@@ -293,13 +317,21 @@ def build_apple_event_ticket(registration, request=None, web_service_url=None):
     if resolved_web_service_url:
         payload["webServiceURL"] = resolved_web_service_url
 
-    # A cancelled seat must not keep rendering as a live ticket. The payload
-    # otherwise carries no status at all, so refreshing a cancelled ticket
-    # would rebuild something visually identical — `voided` is what actually
-    # makes Wallet show it as invalid. Only `cancelled` voids: `attended` is a
-    # used-but-legitimate record, and reuse is prevented server-side by the
-    # check-in token, not by the pass appearance.
-    if registration.status == "cancelled":
+    # A dead ticket must not keep rendering as a live one. The payload
+    # otherwise carries no status at all, so rebuilding a cancelled ticket
+    # would produce something visually identical — `voided` is what actually
+    # makes Wallet show it as invalid.
+    #
+    # BOTH levels count: the seat can be cancelled (registration.status) or the
+    # whole event can be (event.is_cancelled, set by the admin's bulk action).
+    # An event-level cancellation leaves every registration "confirmed", so
+    # checking only the seat would let a cancelled event's tickets still read
+    # as valid at the door.
+    #
+    # `attended` deliberately does NOT void: it is a used but legitimate
+    # record, and reuse is prevented server-side by the check-in token, not by
+    # the pass appearance.
+    if registration.status == "cancelled" or getattr(event, "is_cancelled", False):
         payload["voided"] = True
 
     # Add venue location for lock-screen surfacing

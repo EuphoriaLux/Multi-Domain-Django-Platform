@@ -89,27 +89,41 @@ def _trigger_apple_pass_refresh(profile):
         )
         return
 
+    def _after_commit():
+        try:
+            from .wallet.passkit_apns import send_passkit_push_notifications
+
+            result = send_passkit_push_notifications(
+                pass_type_identifier=pass_type_id,
+                serial_number=profile.apple_pass_serial,
+            )
+
+            if result["total"] > 0:
+                logger.info(
+                    f"Apple Wallet pass refresh triggered for user {profile.user_id}: "
+                    f"success={result['success']}, failed={result['failed']}, total={result['total']}"
+                )
+            else:
+                logger.debug(
+                    f"No Apple Wallet device registrations for user {profile.user_id}"
+                )
+        except Exception as e:
+            logger.error(
+                f"Error triggering Apple pass refresh for user {profile.user_id}: {e}"
+            )
+
     try:
-        from .wallet.passkit_apns import send_passkit_push_notifications
-
-        result = send_passkit_push_notifications(
-            pass_type_identifier=pass_type_id,
-            serial_number=profile.apple_pass_serial,
-        )
-
-        if result["total"] > 0:
-            logger.info(
-                f"Apple Wallet pass refresh triggered for user {profile.user_id}: "
-                f"success={result['success']}, failed={result['failed']}, total={result['total']}"
-            )
-        else:
-            logger.debug(
-                f"No Apple Wallet device registrations for user {profile.user_id}"
-            )
-
+        # Deferred to commit. Callers such as event_cancel() save inside
+        # transaction.atomic() holding a select_for_update; pushing before
+        # commit means Wallet's poll arrives on a different connection, sees
+        # neither the new state nor the advanced update marker, and gets 204 —
+        # then the commit advances the marker with no second push, so the
+        # refresh is lost until Wallet's next periodic poll. on_commit runs
+        # inline when there is no transaction, so other callers are unaffected.
+        transaction.on_commit(_after_commit)
     except Exception as e:
         logger.error(
-            f"Error triggering Apple pass refresh for user {profile.user_id}: {e}"
+            f"Error scheduling Apple pass refresh for user {profile.user_id}: {e}"
         )
 
 
@@ -470,6 +484,45 @@ def reset_reminders_on_reschedule(sender, instance, created, **kwargs):
             previous.isoformat(),
             instance.date_time.isoformat(),
             cleared,
+        )
+
+
+@receiver(post_save, sender=MeetupEvent)
+def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
+    """Push installed Apple tickets when the EVENT itself changes.
+
+    The pass embeds the event's date, time, location and address, so a
+    reschedule or relocation leaves every installed ticket showing details that
+    are simply wrong. The per-registration receiver cannot cover this: nothing
+    touches an EventRegistration row, and the reschedule handler above uses
+    `.update()` precisely so per-registration receivers do not fire.
+
+    Separate from reset_reminders_on_reschedule so it does not inherit that
+    handler's "forward-looking events only" guard — a ticket showing the wrong
+    details is worth correcting either way — and so an error in one cannot skip
+    the other.
+    """
+    if created:
+        return
+
+    previous = getattr(instance, "_previous_date_time", None)
+    moved = previous is not None and previous != instance.date_time
+    if not (moved or instance.is_cancelled):
+        return
+
+    try:
+        from .wallet.passkit_service import refresh_event_tickets
+
+        refreshed = refresh_event_tickets(instance)
+        if refreshed:
+            logger.info(
+                "Scheduled Apple ticket refresh for %s registration(s) on event %s",
+                refreshed,
+                instance.pk,
+            )
+    except Exception as e:
+        logger.error(
+            f"Error refreshing Apple event tickets for event {instance.pk}: {e}"
         )
 
 

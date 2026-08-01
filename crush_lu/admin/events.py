@@ -8,6 +8,8 @@ Includes:
 - Event inlines (registrations, invitations, voting, presentations, speed dating)
 """
 
+import logging
+
 from django import forms
 from django.contrib import admin
 from django.contrib import messages as django_messages
@@ -30,6 +32,8 @@ from crush_lu.models import (
 from crush_lu.models.events import SEAT_HOLDING_STATUSES
 from .filters import EventCapacityFilter
 from .quiz import QuizEventInline
+
+logger = logging.getLogger(__name__)
 
 
 class RegistrationAudienceWidget(forms.RadioSelect):
@@ -591,7 +595,27 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
 
     @admin.action(description=_("🚫 Cancel selected events"))
     def cancel_events(self, request, queryset):
+        # Snapshot before .update() — the queryset is lazy and its filter may
+        # well be is_cancelled=False, which would match nothing afterwards.
+        events = list(queryset)
         updated = queryset.update(is_cancelled=True)
+
+        # .update() emits no signals, so nothing else tells Apple Wallet these
+        # tickets are dead. Without this, a cancelled event's installed passes
+        # keep rendering as valid at the door (the rebuild now sets `voided`,
+        # but only once Wallet is told to fetch it).
+        from crush_lu.wallet.passkit_service import refresh_event_tickets
+
+        for event in events:
+            try:
+                event.is_cancelled = True
+                refresh_event_tickets(event)
+            except Exception:
+                logger.exception(
+                    "Failed scheduling Apple ticket refresh for cancelled event %s",
+                    event.pk,
+                )
+
         django_messages.success(
             request, _("Cancelled {count} event(s)").format(count=updated)
         )
