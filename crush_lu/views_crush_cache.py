@@ -39,6 +39,7 @@ from .models.crush_cache import (
     CacheTeamProgress,
 )
 
+from .models.events import SEAT_HOLDING_STATUSES
 logger = logging.getLogger(__name__)
 
 # Positions with worse reported accuracy than this are ignored outright —
@@ -70,7 +71,7 @@ def _get_hunt_or_404(event_id):
 def _get_registration(hunt, user):
     """The user's active registration for the hunt's event, or None."""
     return EventRegistration.objects.filter(
-        event=hunt.event, user=user, status__in=["confirmed", "attended"]
+        event=hunt.event, user=user, status__in=SEAT_HOLDING_STATUSES
     ).first()
 
 
@@ -84,7 +85,7 @@ def _get_membership(hunt, user):
         CacheTeamMember.objects.filter(
             hunt=hunt,
             registration__user=user,
-            registration__status__in=["confirmed", "attended"],
+            registration__status__in=SEAT_HOLDING_STATUSES,
         )
         .select_related("team", "registration")
         .first()
@@ -925,7 +926,7 @@ def cache_coach_dashboard(request, event_id):
             "map_data_json": json.dumps(map_data),
             "viewer_is_coach": viewer_is_coach,
             "unassigned_count": EventRegistration.objects.filter(
-                event=hunt.event, status__in=["confirmed", "attended"]
+                event=hunt.event, status__in=SEAT_HOLDING_STATUSES
             )
             .exclude(cache_memberships__hunt=hunt)
             .count(),

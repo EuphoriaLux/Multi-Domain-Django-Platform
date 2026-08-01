@@ -129,11 +129,14 @@
         <div class="success-icon">&#10004;</div>
         <h2>{% trans "Login Successful!" %}</h2>
         <p>{% trans "You're now logged in. Please close this window to continue." %}</p>
-        <button onclick="window.close()" class="close-btn">{% trans "Close Window" %}</button>
+        <button id="btn-close-window" class="close-btn">{% trans "Close Window" %}</button>
         <p class="status" style="margin-top: 1rem;">{% trans "Your main tab is ready to use." %}</p>
     </div>
 
     <script nonce="{{ csp_nonce }}">
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('btn-close-window')?.addEventListener('click', function() { window.close(); });
+    });
     /**
      * OAuth Landing Page - Cookie Commit Buffer for Android PWA
      *

@@ -11,7 +11,7 @@
     {% endif %}
 
     {% if celebrated_station %}
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.4/dist/confetti.browser.min.js"></script>
+    <script nonce="{{ csp_nonce }}" src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.4/dist/confetti.browser.min.js"></script>
     <script nonce="{{ csp_nonce }}">
         if (typeof confetti === "function") {
             try {

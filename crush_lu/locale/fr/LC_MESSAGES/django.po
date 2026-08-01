@@ -38776,3 +38776,74 @@ msgstr "Coach que cet enregistrement a attribué au membre comme coach permanent
 
 msgid "The exact CrushProfile.assigned_coach_at this check-in wrote. Undo clears the coach only while the profile still holds this pair, so any later write — premium confirmation, admin reassignment — survives the undo."
 msgstr "La valeur exacte de CrushProfile.assigned_coach_at écrite par cet enregistrement. L’annulation ne retire le coach que tant que le profil contient encore cette paire ; toute écriture ultérieure (confirmation premium, réattribution par un administrateur) y survit."
+
+#: crush_lu/templates/crush_lu/emails/event_payment_pending.html
+msgid "Payment Required"
+msgstr "Paiement requis"
+
+#: crush_lu/templates/crush_lu/emails/event_payment_pending.html
+msgid "Your Spot Is Reserved"
+msgstr "Votre place est réservée"
+
+#: crush_lu/templates/crush_lu/emails/event_payment_pending.html
+msgid "We've reserved your spot for <strong>%(title)s</strong>."
+msgstr "Nous avons réservé votre place pour <strong>%(title)s</strong>."
+
+#: crush_lu/templates/crush_lu/emails/event_payment_pending.html
+msgid ""
+"Your place is held for you. To confirm your registration, please complete "
+"the payment."
+msgstr ""
+"Votre place vous est réservée. Pour confirmer votre inscription, veuillez "
+"finaliser le paiement."
+
+#: crush_lu/templates/crush_lu/emails/event_payment_pending.html
+msgid "Amount Due:"
+msgstr "Montant dû :"
+
+#: crush_lu/templates/crush_lu/emails/event_payment_pending.html
+msgid "Pay Now"
+msgstr "Payer maintenant"
+
+#: crush_lu/templates/crush_lu/emails/event_payment_pending.html
+msgid "Complete the payment to confirm your registration"
+msgstr "Finalisez le paiement pour confirmer votre inscription"
+
+#: crush_lu/templates/crush_lu/emails/event_payment_pending.html
+msgid "You'll receive a confirmation email once payment is received"
+msgstr "Vous recevrez un e-mail de confirmation dès réception du paiement"
+
+#: crush_lu/templates/crush_lu/emails/event_payment_pending.html
+msgid "Your ticket and QR code stay available in your account"
+msgstr "Votre billet et votre code QR restent disponibles dans votre compte"
+
+#: crush_lu/templates/crush_lu/emails/event_payment_pending.html
+msgid ""
+"If you've already arranged payment with us another way, you can ignore this "
+"message."
+msgstr ""
+"Si vous avez déjà convenu d'un autre mode de paiement avec nous, vous pouvez"
+" ignorer ce message."
+
+#: crush_lu/templates/crush_lu/emails/event_payment_pending.html
+msgid "Payment required to confirm - {title}"
+msgstr "Paiement requis pour confirmer - {title}"
+
+#: crush_lu/templates/crush_lu/emails/event_payment_pending.html
+msgid ""
+"Your spot is reserved! Please complete payment to confirm your registration."
+msgstr ""
+"Votre place est réservée ! Veuillez finaliser le paiement pour confirmer "
+"votre inscription."
+
+#: crush_lu/templates/crush_lu/emails/event_payment_pending.html
+msgid "This registration is already paid."
+msgstr "Cette inscription a déjà été payée."
+
+#: crush_lu/templates/crush_lu/emails/event_payment_pending.html
+msgid "This registration has been cancelled."
+msgstr "Cette inscription a été annulée."
+
+#: crush_lu/templates/crush_lu/premium/choose_coach.html
+msgid "Pay Premium Subscription (€%(amount)s / month)"
+msgstr "Payer l'abonnement Premium (€%(amount)s / mois)"

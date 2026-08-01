@@ -33,6 +33,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from crush_lu import email_helpers
+from crush_lu.models.events import SEAT_HOLDING_STATUSES
 from crush_lu.models import EventRegistration, MeetupEvent
 from crush_lu.notification_service import NotificationResult, notify_event_reminder
 
@@ -155,8 +156,12 @@ class Command(BaseCommand):
                     f"\nProcessing: {event.title} @ {event.date_time.isoformat()}"
                 )
 
+            # Seat-holding, not payment-confirmed. A cash-at-the-door attendee
+            # sits in "pending" until they arrive and pay, but they hold a seat,
+            # scan at the door and are expected -- sending them no day-before
+            # reminder is exactly the person most likely to forget.
             registrations = EventRegistration.objects.filter(
-                event=event, status="confirmed"
+                event=event, status__in=SEAT_HOLDING_STATUSES
             ).select_related("user", "user__crushprofile")
 
             # Idempotency for the unattended EventReminders timer: without this

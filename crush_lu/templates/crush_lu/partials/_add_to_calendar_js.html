@@ -1,5 +1,5 @@
 {% load i18n %}
-<script>
+<script nonce="{{ csp_nonce }}">
 (function() {
     var container = document.querySelector('[data-calendar-event-id="{{ event.id }}"]');
     if (!container) return;

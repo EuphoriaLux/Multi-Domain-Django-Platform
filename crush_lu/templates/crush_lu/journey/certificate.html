@@ -146,5 +146,5 @@
 {% endblock %}
 
 {% block extra_journey_js %}
-<script defer src="{% static 'crush_lu/js/journey-certificate.js' %}"></script>
+<script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/journey-certificate.js' %}"></script>
 {% endblock %}

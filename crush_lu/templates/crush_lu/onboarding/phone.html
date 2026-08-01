@@ -205,12 +205,12 @@
 
 {% block extra_js %}
 <!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/12.10.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/12.10.0/firebase-auth-compat.js"></script>
+<script nonce="{{ csp_nonce }}" src="https://www.gstatic.com/firebasejs/12.10.0/firebase-app-compat.js"></script>
+<script nonce="{{ csp_nonce }}" src="https://www.gstatic.com/firebasejs/12.10.0/firebase-auth-compat.js"></script>
 <!-- intl-tel-input JS -->
-<script src="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/intlTelInput.min.js"></script>
+<script nonce="{{ csp_nonce }}" src="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/intlTelInput.min.js"></script>
 <!-- Phone verification module -->
-<script src="{% static 'crush_lu/js/phone-verification.js' %}"></script>
+<script nonce="{{ csp_nonce }}" src="{% static 'crush_lu/js/phone-verification.js' %}"></script>
 <!-- Firebase config + PhoneVerification init -->
 <script nonce="{{ csp_nonce }}">
     window.FIREBASE_API_KEY = "{{ firebase_api_key }}";

@@ -39,6 +39,7 @@ from .models import (
     UserActivity,
     CrushSpark,
 )
+from .models.events import SEAT_HOLDING_STATUSES
 from .matching import (
     get_western_zodiac,
     get_western_element,
@@ -2122,7 +2123,7 @@ def _attach_registration_stats(events):
     """Attach gender_stats, avg_age, and per-gender avg ages to each event."""
     for event in events:
         regs = EventRegistration.objects.filter(
-            event=event, status__in=["confirmed", "attended"]
+            event=event, status__in=SEAT_HOLDING_STATUSES
         ).select_related("user__crushprofile")
 
         gender_counts = {"M": 0, "F": 0, "other": 0}
@@ -2211,7 +2212,10 @@ def coach_event_detail(request, event_id):
     )
 
     # Split by status group (order preserved = FIFO within each group)
-    all_confirmed = [r for r in all_regs if r.status in ("confirmed", "attended")]
+    # Seat-holding: a pending (unpaid) row already consumes capacity, so the
+    # organiser view must count it. Otherwise a fully reserved paid event
+    # shows every spot free while new members are being waitlisted.
+    all_confirmed = [r for r in all_regs if r.status in SEAT_HOLDING_STATUSES]
     all_waitlisted = [r for r in all_regs if r.status == "waitlist"]
     all_other = [r for r in all_regs if r.status in ("pending", "no_show")]
 
@@ -2457,7 +2461,10 @@ def coach_event_checkin(request, event_id):
         .order_by("registered_at")
     )
 
-    confirmed = [r for r in registrations if r.status in ("confirmed", "attended")]
+    # "pending" (Pending Payment) holds a seat on a paid event, so those people
+    # are expected at the door and must appear on the coach's roster -- omitting
+    # them would leave a scannable ticket with no matching row on screen.
+    confirmed = [r for r in registrations if r.status in SEAT_HOLDING_STATUSES]
     attended_count = sum(1 for r in confirmed if r.status == "attended")
     # Waitlisted walk-ups: shown in their own section so a coach can promote
     # and check one in without leaving the scanner (the common move once

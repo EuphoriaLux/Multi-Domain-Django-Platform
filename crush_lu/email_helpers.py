@@ -770,6 +770,72 @@ def send_event_waitlist_notification(registration, request):
     )
 
 
+def send_event_payment_pending_notification(registration, request=None):
+    """Tell the user their seat is reserved and payment is still outstanding.
+
+    Sent instead of the confirmation email when a *paid* event is registered
+    for. The seat is genuinely held at this point (see SEAT_HOLDING_STATUSES),
+    so the wording promises the spot but not the confirmation -- the ordinary
+    confirmation goes out later, from the SumUp return handler.
+
+    Args:
+        registration: EventRegistration object
+        request: Django request object for domain detection
+
+    Returns:
+        int: Number of emails sent
+    """
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    lang = get_user_preferred_language(
+        user=registration.user, request=request, default="en"
+    )
+
+    event_url = get_user_language_url(
+        registration.user,
+        "crush_lu:event_detail",
+        request,
+        kwargs={"event_id": registration.event.id},
+    )
+
+    base_urls = get_email_base_urls(registration.user, request)
+
+    profile = getattr(registration.user, "crushprofile", None)
+    display_name = profile.display_name if profile else registration.user.first_name
+
+    context = {
+        "user": registration.user,
+        "registration": registration,
+        "event": registration.event,
+        "display_name": display_name,
+        "amount": registration.event.registration_fee,
+        "event_url": event_url,
+        "LANGUAGE_CODE": lang,
+        "social_links": get_social_links(),
+        **base_urls,
+    }
+
+    with translation.override(lang):
+        subject = _("Payment required to confirm - {title}").format(
+            title=registration.event.title
+        )
+        html_message = render_to_string(
+            "crush_lu/emails/event_payment_pending.html", context
+        )
+        plain_message = strip_tags(html_message)
+
+    return send_domain_email(
+        subject=subject,
+        message=plain_message,
+        html_message=html_message,
+        recipient_list=[registration.user.email],
+        request=request,
+        domain="crush.lu",
+        fail_silently=False,
+    )
+
+
 def send_event_cancellation_confirmation(user, event, request):
     """
     Send confirmation email for event cancellation.

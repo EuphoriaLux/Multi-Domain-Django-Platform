@@ -275,9 +275,9 @@
     </div>
 
     {# Scripts: quiz-media.js (shared renderer), quiz-display.js (registers Alpine component), then Alpine initializes #}
-    <script src="{% static 'crush_lu/js/quiz-media.js' %}?v=2"></script>
-    <script src="{% static 'crush_lu/js/quiz-display.js' %}?v=2"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/csp@3.13.3/dist/cdn.min.js"
+    <script nonce="{{ csp_nonce }}" src="{% static 'crush_lu/js/quiz-media.js' %}?v=2"></script>
+    <script nonce="{{ csp_nonce }}" src="{% static 'crush_lu/js/quiz-display.js' %}?v=2"></script>
+    <script nonce="{{ csp_nonce }}" defer src="https://cdn.jsdelivr.net/npm/@alpinejs/csp@3.13.3/dist/cdn.min.js"
             integrity="sha384-EkI5VI1qflXkHKn4NX4W76cYYqh8dAx7UKkCc4QJ10k8jdtauy8Qs3BkF21ZXcZj"
             crossorigin="anonymous"></script>
 </body>

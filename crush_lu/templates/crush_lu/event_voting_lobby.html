@@ -178,5 +178,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'crush_lu/js/event-voting.js' %}"></script>
+<script nonce="{{ csp_nonce }}" src="{% static 'crush_lu/js/event-voting.js' %}"></script>
 {% endblock %}

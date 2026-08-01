@@ -124,7 +124,7 @@
     <link rel="apple-touch-icon" href="{% static 'crush_lu/icons/ios/180.png' %}">
 
     <!-- Theme Manager - MUST load before CSS to prevent flash of wrong theme -->
-    <script src="{% static 'crush_lu/js/theme-manager.js' %}"></script>
+    <script nonce="{{ csp_nonce }}" src="{% static 'crush_lu/js/theme-manager.js' %}"></script>
 
     <!-- Critical CSS - Inlined for fastest FCP/LCP (above-the-fold styles) -->
     <style>
@@ -186,7 +186,7 @@
     {# This works correctly when CSRF_COOKIE_HTTPONLY=True #}
     <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}" id="csrf-token-input">
     {# External script for CSP compliance - runs synchronously before HTMX #}
-    <script src="{% static 'crush_lu/js/htmx-csrf.js' %}"></script>
+    <script nonce="{{ csp_nonce }}" src="{% static 'crush_lu/js/htmx-csrf.js' %}"></script>
     {% include "includes/staging_banner.html" %}
     {% analytics_body %}
     <!-- Skip to main content link for keyboard/screen reader users -->
@@ -1341,74 +1341,74 @@
          Pass the page's language explicitly: the catalog route sits outside
          i18n_patterns, so it would otherwise be negotiated from the cookie /
          Accept-Language and could disagree with this page. -->
-    <script src="{% url 'javascript-catalog-lang' LANGUAGE_CODE %}"></script>
+    <script nonce="{{ csp_nonce }}" src="{% url 'javascript-catalog-lang' LANGUAGE_CODE %}"></script>
 
     <!-- HTMX (HTML-driven interactivity) - deferred for non-blocking load -->
-    <script defer src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js"
+    <script nonce="{{ csp_nonce }}" defer src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js"
             integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+"
             crossorigin="anonymous"></script>
 
     <!-- Toast Notification Component (loads before alpine-components.js) -->
     {% if debug %}
         {% now "U" as ts %}
-        <script defer src="{% static 'crush_lu/js/toast-component.js' %}?v={{ ts }}"></script>
+        <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/toast-component.js' %}?v={{ ts }}"></script>
     {% else %}
-        <script defer src="{% static 'crush_lu/js/toast-component.js' %}"></script>
+        <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/toast-component.js' %}"></script>
     {% endif %}
 
     <!-- Confirmation sheet (intercepts htmx:confirm; must load with defer like HTMX) -->
     {% if debug %}
         {% now "U" as ts %}
-        <script defer src="{% static 'crush_lu/js/confirm-sheet.js' %}?v={{ ts }}"></script>
+        <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/confirm-sheet.js' %}?v={{ ts }}"></script>
     {% else %}
-        <script defer src="{% static 'crush_lu/js/confirm-sheet.js' %}"></script>
+        <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/confirm-sheet.js' %}"></script>
     {% endif %}
 
     {% block pre_alpine_js %}{% endblock %}
     <!-- Alpine.js CSP Components (defer maintains order - runs BEFORE Alpine.js) -->
     {% if debug %}
         {% now "U" as ts %}
-        <script defer src="{% static 'crush_lu/js/alpine-components.js' %}?v={{ ts }}"></script>
+        <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/alpine-components.js' %}?v={{ ts }}"></script>
     {% else %}
-        <script defer src="{% static 'crush_lu/js/alpine-components.js' %}"></script>
+        <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/alpine-components.js' %}"></script>
     {% endif %}
     <!-- Alpine.js CSP Build (CSP-compliant, no unsafe-eval required) -->
-    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/csp@3.13.3/dist/cdn.min.js"
+    <script nonce="{{ csp_nonce }}" defer src="https://cdn.jsdelivr.net/npm/@alpinejs/csp@3.13.3/dist/cdn.min.js"
             integrity="sha384-EkI5VI1qflXkHKn4NX4W76cYYqh8dAx7UKkCc4QJ10k8jdtauy8Qs3BkF21ZXcZj"
             crossorigin="anonymous"></script>
 
     <!-- Sortable.js for drag-and-drop with touch support -->
-    <script defer src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"
+    <script nonce="{{ csp_nonce }}" defer src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"
             integrity="sha384-BSxuMLxX+FCbTdYec3TbXlnMGEEM2QXTFdtDaveen71o+jswm2J36+xFqp8k4VHM"
             crossorigin="anonymous"></script>
 
     <!-- Crush.lu Utilities (CSRF, sanitization, logging) -->
-    <script defer src="{% static 'crush_lu/js/utils.js' %}"></script>
+    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/utils.js' %}"></script>
 
     <!-- PWA Mode Detector (must load early) -->
-    <script defer src="{% static 'crush_lu/js/pwa-detector.js' %}"></script>
+    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/pwa-detector.js' %}"></script>
 
     <!-- Page Loading Indicator -->
-    <script defer src="{% static 'crush_lu/js/page-loading.js' %}"></script>
+    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/page-loading.js' %}"></script>
 
     <!-- WhatsApp FAB: tuck away when it would cover a primary CTA -->
-    <script defer src="{% static 'crush_lu/js/whatsapp-fab.js' %}"></script>
+    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/whatsapp-fab.js' %}"></script>
 
     <!-- Push Notifications (PWA) -->
-    <script defer src="{% static 'crush_lu/js/push-notifications.js' %}"></script>
+    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/push-notifications.js' %}"></script>
 
     <!-- PWA Install Prompt -->
-    <script defer src="{% static 'crush_lu/js/pwa-install.js' %}"></script>
+    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/pwa-install.js' %}"></script>
 
     <!-- PWA Update Handler -->
-    <script defer src="{% static 'crush_lu/js/pwa-update.js' %}"></script>
+    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/pwa-update.js' %}"></script>
 
     <!-- PWA Service Worker Registration -->
     {% if debug %}
     <!-- DEBUG mode: Unregister any existing SW to prevent caching issues -->
-    <script defer src="{% static 'crush_lu/js/sw-unregister.js' %}"></script>
+    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/sw-unregister.js' %}"></script>
     {% else %}
-    <script defer src="{% static 'crush_lu/js/sw-register.js' %}"></script>
+    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/sw-register.js' %}"></script>
     {% endif %}
 
     <!-- Facebook JS SDK for social login (loaded on login/signup pages via extra_js block) -->

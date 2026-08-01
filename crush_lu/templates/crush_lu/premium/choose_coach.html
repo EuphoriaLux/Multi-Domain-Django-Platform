@@ -34,27 +34,25 @@
           </button>
         </form>
       </div>
-      <button onclick="startSumUpPremiumCheckout({{ pending_membership.id }})" class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-xl shadow transition-all duration-200 cursor-pointer">
+      <button data-membership-id="{{ pending_membership.id }}" class="js-sumup-premium-checkout w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-xl shadow transition-all duration-200 cursor-pointer">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
         </svg>
-        <span>{% trans "Pay Premium Subscription (€10.00 / month)" %}</span>
+        {% comment %}
+          Price comes from SUMUP_PREMIUM_MONTHLY_FEE, the same setting the
+          checkout charges. Kept out of the translatable string so changing the
+          fee cannot leave the label advertising the old price, and so DE/FR can
+          be translated without re-touching the amount.
+        {% endcomment %}
+        <span>{% blocktrans with amount=premium_monthly_fee %}Pay Premium Subscription (€{{ amount }} / month){% endblocktrans %}</span>
       </button>
     </div>
-    <script>
+    <script nonce="{{ csp_nonce }}">
+      // CSRF_COOKIE_HTTPONLY is True, so document.cookie can't see csrftoken.
+      // Read the hidden input base.html renders instead (same as HTMX does).
       function getCsrfToken() {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-          const cookies = document.cookie.split(';');
-          for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, 10) === ('csrftoken=')) {
-              cookieValue = decodeURIComponent(cookie.substring(10));
-              break;
-            }
-          }
-        }
-        return cookieValue;
+        const input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        return input ? input.value : '';
       }
 
       function startSumUpPremiumCheckout(membershipId) {
@@ -65,7 +63,9 @@
             'Content-Type': 'application/json'
           }
         })
-        .then(res => res.json())
+        .then(res => res.json().catch(() => {
+          throw new Error('HTTP ' + res.status);
+        }))
         .then(data => {
           if (data.success && data.widget_url) {
             window.location.href = data.widget_url;
@@ -78,6 +78,16 @@
           alert('An error occurred launching payment.');
         });
       }
+
+      document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.js-sumup-premium-checkout');
+        if (btn) {
+          const id = btn.getAttribute('data-membership-id');
+          if (id) {
+            startSumUpPremiumCheckout(id);
+          }
+        }
+      });
     </script>
     {% endif %}
 

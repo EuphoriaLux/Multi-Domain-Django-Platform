@@ -8,6 +8,7 @@ action), which is the single place that assigns the coach.
 """
 
 import logging
+from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -80,6 +81,13 @@ def premium_choose_coach(request):
     context = {
         "coaches": _available_coaches(),
         "pending_membership": pending,
+        # The price shown must come from the same setting the checkout charges
+        # (views_payments.create_sumup_premium_checkout reads it too). The label
+        # used to hard-code "€10.00 / month", so changing SUMUP_PREMIUM_MONTHLY_FEE
+        # would have advertised one price and billed another.
+        "premium_monthly_fee": Decimal(
+            str(getattr(_settings, "SUMUP_PREMIUM_MONTHLY_FEE", "10.00"))
+        ),
     }
     return render(request, "crush_lu/premium/choose_coach.html", context)
 

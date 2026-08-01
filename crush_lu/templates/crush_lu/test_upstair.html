@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Meet New People Upstair! - Crush.lu</title>
-    <script src="{% static 'crush_lu/js/theme-manager.js' %}"></script>
+    <script nonce="{{ csp_nonce }}" src="{% static 'crush_lu/js/theme-manager.js' %}"></script>
     <link rel="stylesheet" href="{% static 'crush_lu/css/tailwind.css' %}">
     <style>
         html, body { margin: 0; padding: 0; overflow-x: hidden; min-height: 100vh; }

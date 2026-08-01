@@ -43,26 +43,18 @@
 
     <div class="flex flex-col gap-3">
         {% if event.registration_fee > 0 and not registration.payment_confirmed %}
-        <button onclick="startSumUpCheckout({{ registration.id }})" class="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer">
+        <button data-sumup-reg-id="{{ registration.id }}" class="js-sumup-checkout-success w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
             </svg>
             <span>{% trans "Pay with Card" %} ({{ event.registration_fee }} EUR)</span>
         </button>
-        <script>
+        <script nonce="{{ csp_nonce }}">
+            // CSRF_COOKIE_HTTPONLY is True, so document.cookie can't see csrftoken.
+            // Read the hidden input base.html renders instead (same as HTMX does).
             function getCsrfToken() {
-                let cookieValue = null;
-                if (document.cookie && document.cookie !== '') {
-                    const cookies = document.cookie.split(';');
-                    for (let i = 0; i < cookies.length; i++) {
-                        const cookie = cookies[i].trim();
-                        if (cookie.substring(0, 10) === ('csrftoken=')) {
-                            cookieValue = decodeURIComponent(cookie.substring(10));
-                            break;
-                        }
-                    }
-                }
-                return cookieValue;
+                const input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+                return input ? input.value : '';
             }
 
             function startSumUpCheckout(registrationId) {
@@ -73,7 +65,9 @@
                         'Content-Type': 'application/json'
                     }
                 })
-                .then(res => res.json())
+                .then(res => res.json().catch(() => {
+                    throw new Error('HTTP ' + res.status);
+                }))
                 .then(data => {
                     if (data.success && data.widget_url) {
                         window.location.href = data.widget_url;
@@ -86,6 +80,16 @@
                     alert('An error occurred launching payment.');
                 });
             }
+
+            document.addEventListener('click', function(e) {
+                const btn = e.target.closest('.js-sumup-checkout-success');
+                if (btn) {
+                    const regId = btn.getAttribute('data-sumup-reg-id');
+                    if (regId) {
+                        startSumUpCheckout(regId);
+                    }
+                }
+            });
         </script>
         {% endif %}
 

@@ -131,7 +131,7 @@
 
 <!-- qr-scanner (vendored) — the worker file is resolved relative to this
      script's URL, so both files live side by side under vendor/qr-scanner/ -->
-<script src="{% static 'crush_lu/vendor/qr-scanner/qr-scanner.umd.min.js' %}"></script>
+<script nonce="{{ csp_nonce }}" src="{% static 'crush_lu/vendor/qr-scanner/qr-scanner.umd.min.js' %}"></script>
 
 <script nonce="{{ csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {

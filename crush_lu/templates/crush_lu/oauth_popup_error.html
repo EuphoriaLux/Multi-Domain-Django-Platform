@@ -97,16 +97,20 @@
         {% endif %}
 
         <div class="buttons">
-            <button class="btn" onclick="closeAndRetry()">
+            <button id="btn-retry" class="btn">
                 {% trans "Try Again" %}
             </button>
-            <button class="btn btn-close-window" onclick="closeWindow()">
+            <button id="btn-close" class="btn btn-close-window">
                 {% trans "Close" %}
             </button>
         </div>
     </div>
 
     <script nonce="{{ csp_nonce }}">
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('btn-retry')?.addEventListener('click', function() { closeAndRetry(); });
+        document.getElementById('btn-close')?.addEventListener('click', function() { closeWindow(); });
+    });
     (function() {
         'use strict';
 

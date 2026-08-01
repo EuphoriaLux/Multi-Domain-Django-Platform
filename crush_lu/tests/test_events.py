@@ -10,6 +10,7 @@ Comprehensive tests for event functionality including:
 Run with: pytest crush_lu/tests/test_events.py -v
 """
 from datetime import date, timedelta
+from decimal import Decimal
 from django.test import TestCase, Client, override_settings
 from django.contrib.auth import get_user_model
 from django.urls import reverse
@@ -1550,3 +1551,398 @@ class EntryEventRegistrationGateTests(TestCase):
         self.assertFalse(
             EventRegistration.objects.filter(event=self.members_event, user=user).exists()
         )
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class PaidEventPendingPaymentTests(TestCase):
+    """A paid event's seat is held as "pending" until the money arrives.
+
+    Free events are untouched and still confirm immediately. The point of the
+    split is that "confirmed" used to be assigned regardless of payment, so the
+    status said nothing about whether the event had been paid for.
+    """
+
+    def setUp(self):
+        from crush_lu.models import MeetupEvent
+
+        common = dict(
+            description="Testing paid vs free admission",
+            event_type="mixer",
+            date_time=timezone.now() + timedelta(days=7),
+            location="Luxembourg",
+            address="123 Test Street",
+            max_participants=4,
+            registration_deadline=timezone.now() + timedelta(days=5),
+            is_published=True,
+        )
+        self.paid_event = MeetupEvent.objects.create(
+            title="Paid Event", registration_fee=Decimal("15.00"), **common
+        )
+        self.free_event = MeetupEvent.objects.create(
+            title="Free Event", registration_fee=Decimal("0.00"), **common
+        )
+
+    def test_admitted_status_splits_on_fee(self):
+        from crush_lu.views_events import _admitted_status
+
+        self.assertEqual(_admitted_status(self.paid_event), "pending")
+        self.assertEqual(_admitted_status(self.free_event), "confirmed")
+
+    def test_pending_holds_a_seat_against_capacity(self):
+        """Without this, a paid event never fills and never waitlists anyone."""
+        from crush_lu.models import EventRegistration
+
+        for i in range(self.paid_event.max_participants):
+            user = User.objects.create_user(
+                username=f"holder{i}@test.com",
+                email=f"holder{i}@test.com",
+                password="testpass123",
+            )
+            EventRegistration.objects.create(
+                event=self.paid_event, user=user, status="pending"
+            )
+
+        self.assertEqual(
+            self.paid_event.get_confirmed_count(), self.paid_event.max_participants
+        )
+        self.assertTrue(self.paid_event.is_full_for())
+        self.assertEqual(self.paid_event.spots_remaining_for(), 0)
+
+    def test_annotated_count_agrees_with_method(self):
+        """get_confirmed_count() prefers the annotation, so they must match.
+
+        If the queryset annotation and the method used different status lists,
+        the same event would report different capacities depending only on how
+        it was fetched -- a silent, hard-to-trace discrepancy.
+        """
+        from crush_lu.models import EventRegistration, MeetupEvent
+
+        user = User.objects.create_user(
+            username="anno@test.com", email="anno@test.com", password="testpass123"
+        )
+        EventRegistration.objects.create(
+            event=self.paid_event, user=user, status="pending"
+        )
+
+        plain = MeetupEvent.objects.get(pk=self.paid_event.pk).get_confirmed_count()
+        annotated = (
+            MeetupEvent.objects.with_registration_counts()
+            .get(pk=self.paid_event.pk)
+            .get_confirmed_count()
+        )
+        self.assertEqual(plain, 1)
+        self.assertEqual(annotated, 1)
+
+    def test_pending_registration_still_gets_a_door_ticket(self):
+        """Payment is still taken out of band, so the door must not gate on it."""
+        from crush_lu.models import EventRegistration
+
+        from crush_lu.models.profiles import UserDataConsent
+
+        user = User.objects.create_user(
+            username="door@test.com", email="door@test.com", password="testpass123"
+        )
+        # consent_middleware is scoped to urls_crush and 302s without this.
+        UserDataConsent.objects.update_or_create(
+            user=user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        EventRegistration.objects.create(
+            event=self.paid_event, user=user, status="pending"
+        )
+        self.client.force_login(user)
+
+        response = self.client.get(
+            reverse("crush_lu:event_ticket", kwargs={"event_id": self.paid_event.id})
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_waitlist_promotion_on_paid_event_does_not_confirm(self):
+        """Promotion must not hand out a confirmed seat nobody paid for."""
+        from django.db import transaction
+        from crush_lu.models import EventRegistration, MeetupEvent
+        from crush_lu.views_events import _promote_from_waitlist
+
+        waiter = User.objects.create_user(
+            username="waiter@test.com", email="waiter@test.com", password="testpass123"
+        )
+        EventRegistration.objects.create(
+            event=self.paid_event, user=waiter, status="waitlist"
+        )
+
+        with transaction.atomic():
+            locked = MeetupEvent.objects.select_for_update().get(
+                pk=self.paid_event.pk
+            )
+            promoted = _promote_from_waitlist(locked)
+
+        self.assertIsNotNone(promoted)
+        self.assertEqual(promoted.status, "pending")
+
+    def test_waitlist_promotion_on_free_event_still_confirms(self):
+        from django.db import transaction
+        from crush_lu.models import EventRegistration, MeetupEvent
+        from crush_lu.views_events import _promote_from_waitlist
+
+        waiter = User.objects.create_user(
+            username="freewaiter@test.com",
+            email="freewaiter@test.com",
+            password="testpass123",
+        )
+        EventRegistration.objects.create(
+            event=self.free_event, user=waiter, status="waitlist"
+        )
+
+        with transaction.atomic():
+            locked = MeetupEvent.objects.select_for_update().get(
+                pk=self.free_event.pk
+            )
+            promoted = _promote_from_waitlist(locked)
+
+        self.assertIsNotNone(promoted)
+        self.assertEqual(promoted.status, "confirmed")
+
+    def test_payment_pending_email_renders(self):
+        """The pending branch must actually send something -- silence on signup
+        is why this email exists rather than reusing the confirmation."""
+        from django.core import mail
+        from crush_lu.models import CrushProfile, EventRegistration
+        from crush_lu.email_helpers import send_event_payment_pending_notification
+
+        user = User.objects.create_user(
+            username="mail@test.com",
+            email="mail@test.com",
+            password="testpass123",
+            first_name="Mail",
+        )
+        CrushProfile.objects.create(
+            user=user, date_of_birth=date(1995, 1, 1), location="Luxembourg"
+        )
+        registration = EventRegistration.objects.create(
+            event=self.paid_event, user=user, status="pending"
+        )
+
+        mail.outbox = []
+        send_event_payment_pending_notification(registration)
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn(self.paid_event.title, mail.outbox[0].subject)
+        self.assertIn("15", mail.outbox[0].body)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class PendingPaymentDoorAndAdminTests(TestCase):
+    """A held-but-unpaid seat must work at the door and be settleable by staff.
+
+    Tom's call when the pending status was introduced: payment is still taken
+    out of band (transfer, cash at the door), so a ticket must scan even before
+    the money lands. Codex found the ticket was issued but the door rejected it.
+    """
+
+    def setUp(self):
+        from crush_lu.models import MeetupEvent
+        from crush_lu.models.profiles import UserDataConsent
+
+        self.event = MeetupEvent.objects.create(
+            title="Door Test",
+            description="d",
+            event_type="mixer",
+            date_time=timezone.now() + timedelta(hours=1),
+            location="Luxembourg",
+            address="1 St",
+            max_participants=10,
+            registration_deadline=timezone.now() + timedelta(minutes=30),
+            registration_fee=Decimal("15.00"),
+            is_published=True,
+        )
+        self.user = User.objects.create_user(
+            username="door2@test.com", email="door2@test.com", password="p"
+        )
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+
+    def test_pending_registration_can_be_scanned_at_the_door(self):
+        from crush_lu.models import EventRegistration
+        from crush_lu.views_ticket import _generate_checkin_token
+
+        reg = EventRegistration.objects.create(
+            event=self.event, user=self.user, status="pending"
+        )
+        token = _generate_checkin_token(reg)
+
+        response = self.client.post(
+            reverse(
+                "event_checkin_api",
+                kwargs={"registration_id": reg.id, "token": token},
+            )
+        )
+        # Assert the behaviour, not the wording: a pending seat scans through.
+        # (Matching on the error text would pass against the old code too,
+        # which rejected pending with a *differently worded* message.)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["success"])
+
+    def test_cancelled_registration_is_still_refused_at_the_door(self):
+        """Widening the gate must not admit a seat that was given up."""
+        from crush_lu.models import EventRegistration
+        from crush_lu.views_ticket import _generate_checkin_token
+
+        reg = EventRegistration.objects.create(
+            event=self.event, user=self.user, status="pending"
+        )
+        token = _generate_checkin_token(reg)
+        reg.status = "cancelled"
+        reg.save()
+
+        response = self.client.post(
+            reverse(
+                "event_checkin_api",
+                kwargs={"registration_id": reg.id, "token": token},
+            )
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_admin_confirming_payment_promotes_pending_to_confirmed(self):
+        """Cash/transfer recorded by staff must leave the same state SumUp does."""
+        from crush_lu.admin.events import EventRegistrationAdmin
+        from crush_lu.models import EventRegistration
+        from django.contrib.admin.sites import AdminSite
+
+        reg = EventRegistration.objects.create(
+            event=self.event, user=self.user, status="pending"
+        )
+        reg.payment_confirmed = True
+
+        admin_obj = EventRegistrationAdmin(EventRegistration, AdminSite())
+        form = type("F", (), {"changed_data": ["payment_confirmed"]})()
+        admin_obj.save_model(request=None, obj=reg, form=form, change=True)
+
+        reg.refresh_from_db()
+        self.assertEqual(reg.status, "confirmed")
+        self.assertIsNotNone(reg.payment_date)
+
+    def test_admin_confirming_payment_does_not_conjure_a_seat(self):
+        """Ticking the box on a waitlisted row must not admit them."""
+        from crush_lu.admin.events import EventRegistrationAdmin
+        from crush_lu.models import EventRegistration
+        from django.contrib.admin.sites import AdminSite
+
+        reg = EventRegistration.objects.create(
+            event=self.event, user=self.user, status="waitlist"
+        )
+        reg.payment_confirmed = True
+
+        admin_obj = EventRegistrationAdmin(EventRegistration, AdminSite())
+        form = type("F", (), {"changed_data": ["payment_confirmed"]})()
+        admin_obj.save_model(request=None, obj=reg, form=form, change=True)
+
+        reg.refresh_from_db()
+        self.assertEqual(reg.status, "waitlist")
+
+    def test_already_paid_registration_readmits_as_confirmed(self):
+        """Re-registering after a cancellation must not ask for the money twice.
+
+        The cancelled row is reused and keeps payment_confirmed, so forcing it
+        back to "pending" would mail a payment request for money already held
+        and then have the checkout reject it as already paid.
+        """
+        from crush_lu.models import EventRegistration
+        from crush_lu.views_events import _admitted_status
+
+        reg = EventRegistration.objects.create(
+            event=self.event,
+            user=self.user,
+            status="cancelled",
+            payment_confirmed=True,
+        )
+        self.assertEqual(_admitted_status(self.event, reg), "confirmed")
+
+        unpaid = EventRegistration.objects.create(
+            event=self.event,
+            user=User.objects.create_user(
+                username="unpaid@test.com", email="unpaid@test.com", password="p"
+            ),
+            status="cancelled",
+        )
+        self.assertEqual(_admitted_status(self.event, unpaid), "pending")
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class PendingTicketLinkVisibilityTests(TestCase):
+    """A pending seat must be able to *find* its ticket, not just load it.
+
+    views_ticket and views_checkin accept pending, but that is worthless if no
+    page links there. Nothing asserted on rendered ticket-link visibility, which
+    is why a one-line gate in event_detail.html was missed while the sibling
+    templates were fixed -- a string replace hit the banner copy above it
+    instead of the "View My Ticket" button.
+    """
+
+    def setUp(self):
+        from crush_lu.models import CrushProfile, MeetupEvent
+        from crush_lu.models.profiles import UserDataConsent
+
+        self.event = MeetupEvent.objects.create(
+            title="Ticket Link Event",
+            description="d",
+            event_type="mixer",
+            date_time=timezone.now() + timedelta(days=2),
+            location="Luxembourg",
+            address="1 St",
+            max_participants=10,
+            registration_deadline=timezone.now() + timedelta(days=1),
+            registration_fee=Decimal("15.00"),
+            is_published=True,
+        )
+        self.user = User.objects.create_user(
+            username="tl@test.com", email="tl@test.com", password="p"
+        )
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        CrushProfile.objects.create(
+            user=self.user, date_of_birth=date(1995, 1, 1), location="Luxembourg"
+        )
+        self.client.force_login(self.user)
+
+    def _register(self, status):
+        from crush_lu.models import EventRegistration
+
+        return EventRegistration.objects.create(
+            event=self.event, user=self.user, status=status
+        )
+
+    def _ticket_url(self):
+        return reverse("crush_lu:event_ticket", kwargs={"event_id": self.event.id})
+
+    def test_event_detail_links_the_ticket_for_pending(self):
+        self._register("pending")
+        response = self.client.get(
+            reverse("crush_lu:event_detail", kwargs={"event_id": self.event.id})
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(self._ticket_url(), response.content.decode())
+
+    def test_my_events_links_the_ticket_for_pending(self):
+        self._register("pending")
+        response = self.client.get(reverse("crush_lu:my_events"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(self._ticket_url(), response.content.decode())
+
+    def test_event_detail_still_links_the_ticket_for_confirmed(self):
+        self._register("confirmed")
+        response = self.client.get(
+            reverse("crush_lu:event_detail", kwargs={"event_id": self.event.id})
+        )
+        self.assertIn(self._ticket_url(), response.content.decode())
+
+    def test_event_detail_hides_the_ticket_for_waitlist(self):
+        """Widening to pending must not leak the ticket to a seatless status."""
+        self._register("waitlist")
+        response = self.client.get(
+            reverse("crush_lu:event_detail", kwargs={"event_id": self.event.id})
+        )
+        self.assertNotIn(self._ticket_url(), response.content.decode())

@@ -7,6 +7,7 @@ from django.http import HttpResponse, JsonResponse
 from django.views.decorators.http import require_GET
 
 from .models import CrushProfile, EventRegistration
+from .models.events import SEAT_HOLDING_STATUSES
 
 logger = logging.getLogger(__name__)
 
@@ -147,9 +148,13 @@ def google_event_ticket_jwt(request, registration_id):
     except EventRegistration.DoesNotExist:
         return JsonResponse({"error": "Registration not found."}, status=404)
 
-    if registration.status not in ("confirmed", "attended"):
+    # Same seat-holding set the ticket page and the door scanner use. The ticket
+    # is reachable while payment is pending, and it renders both wallet buttons
+    # unconditionally -- gating only here left a pending attendee looking at
+    # "Add to Wallet" actions that always failed.
+    if registration.status not in SEAT_HOLDING_STATUSES:
         return JsonResponse(
-            {"error": "Only confirmed registrations can be added to wallet."},
+            {"error": "Only registrations holding a seat can be added to wallet."},
             status=400,
         )
 
@@ -195,9 +200,13 @@ def apple_event_ticket_pass(request, registration_id):
     except EventRegistration.DoesNotExist:
         return JsonResponse({"error": "Registration not found."}, status=404)
 
-    if registration.status not in ("confirmed", "attended"):
+    # Same seat-holding set the ticket page and the door scanner use. The ticket
+    # is reachable while payment is pending, and it renders both wallet buttons
+    # unconditionally -- gating only here left a pending attendee looking at
+    # "Add to Wallet" actions that always failed.
+    if registration.status not in SEAT_HOLDING_STATUSES:
         return JsonResponse(
-            {"error": "Only confirmed registrations can be added to wallet."},
+            {"error": "Only registrations holding a seat can be added to wallet."},
             status=400,
         )
 

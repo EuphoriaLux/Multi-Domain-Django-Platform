@@ -493,8 +493,8 @@
 {% block extra_js %}
 {% if debug %}
     {% now "U" as ts %}
-    <script defer src="{% static 'crush_lu/js/connection-chat.js' %}?v={{ ts }}"></script>
+    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/connection-chat.js' %}?v={{ ts }}"></script>
 {% else %}
-    <script defer src="{% static 'crush_lu/js/connection-chat.js' %}"></script>
+    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/connection-chat.js' %}"></script>
 {% endif %}
 {% endblock %}

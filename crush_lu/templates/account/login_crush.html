@@ -155,7 +155,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'crush_lu/js/oauth-popup.js' %}"></script>
+<script nonce="{{ csp_nonce }}" src="{% static 'crush_lu/js/oauth-popup.js' %}"></script>
 <script nonce="{{ csp_nonce }}">
 /**
  * OAuth Handler for Crush.lu - Unified for Google and Facebook

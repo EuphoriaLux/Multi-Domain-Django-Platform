@@ -23,6 +23,7 @@ from django.views.decorators.http import require_POST
 
 from .decorators import coach_required
 from .models import CrushProfile, EventRegistration, ProfileSubmission
+from .models.events import SEAT_HOLDING_STATUSES
 
 logger = logging.getLogger(__name__)
 
@@ -390,12 +391,19 @@ def event_checkin_api(request, registration_id, token):
             _broadcast_checkin(registration.event_id, response_data)
         return JsonResponse(response_data)
 
-    # Verify status is confirmed
-    if registration.status != "confirmed":
+    # Verify the registration holds a seat.
+    #
+    # "pending" (Pending Payment) is admitted deliberately: a paid event's signup
+    # sits in that status until the money lands, and payment is still taken out
+    # of band for most attendees (bank transfer, cash at the door). Rejecting it
+    # here would hand those people a QR ticket that always fails at the door --
+    # the seat is what is being scanned, not the receipt. ("attended" is already
+    # handled by the re-scan branch above.)
+    if registration.status not in SEAT_HOLDING_STATUSES:
         return JsonResponse(
             {
                 "success": False,
-                "error": f"Registration status is '{registration.get_status_display()}'. Only confirmed registrations can be checked in.",
+                "error": f"Registration status is '{registration.get_status_display()}'. Only registrations holding a seat can be checked in.",
             },
             status=400,
         )

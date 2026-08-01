@@ -223,9 +223,9 @@
 {% block extra_js %}
 {% if section_template %}
 <!-- intl-tel-input JS (needed for about section phone field) -->
-<script src="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/intlTelInput.min.js"></script>
+<script nonce="{{ csp_nonce }}" src="https://cdn.jsdelivr.net/npm/intl-tel-input@18.5.3/build/js/intlTelInput.min.js"></script>
 
-<script src="{% static 'crush_lu/js/photo-preview.js' %}"></script>
+<script nonce="{{ csp_nonce }}" src="{% static 'crush_lu/js/photo-preview.js' %}"></script>
 <script nonce="{{ csp_nonce }}">
 // Character counters with visual feedback. bio/interests were removed by the
 // Event Identity redesign; this stays for any future counter-bearing section

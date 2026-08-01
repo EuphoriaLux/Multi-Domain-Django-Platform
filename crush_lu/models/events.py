@@ -13,6 +13,18 @@ from crush_lu.storage import crush_upload_path, crush_media_storage
 # across surfaces (home page, event list, nav menu). See MeetupEvent.
 MAX_EVENT_DURATION_MINUTES = 7 * 24 * 60  # 7 days
 
+# Registration statuses that occupy a seat.
+#
+# "pending" means Pending Payment: a paid event's signup lands here and holds
+# its seat until the SumUp return handler flips it to "confirmed". It has to be
+# counted, or a paid event would never fill up and would never waitlist anyone.
+#
+# Defined once because two places consume it -- MeetupEventQuerySet's annotation
+# and MeetupEvent.get_confirmed_count() -- and get_confirmed_count() *prefers
+# the annotation when present*, so if the two lists ever disagree the same event
+# reports different capacities depending on how it was fetched.
+SEAT_HOLDING_STATUSES = ["confirmed", "attended", "pending"]
+
 
 class MeetupEventQuerySet(models.QuerySet):
     """Custom QuerySet for MeetupEvent with performance optimizations."""
@@ -38,7 +50,7 @@ class MeetupEventQuerySet(models.QuerySet):
         return self.annotate(
             confirmed_count_annotated=Count(
                 "eventregistration",
-                filter=Q(eventregistration__status__in=["confirmed", "attended"]),
+                filter=Q(eventregistration__status__in=SEAT_HOLDING_STATUSES),
             ),
             waitlist_count_annotated=Count(
                 "eventregistration", filter=Q(eventregistration__status="waitlist")
@@ -360,7 +372,7 @@ class MeetupEvent(models.Model):
         if pool is None:
             return 0
         return self.eventregistration_set.filter(
-            status__in=["confirmed", "attended"],
+            status__in=SEAT_HOLDING_STATUSES,
             user__crushprofile__gender__in=self.POOL_TO_CODES.get(pool, []),
         ).count()
 
@@ -603,7 +615,7 @@ class MeetupEvent(models.Model):
         if hasattr(self, "confirmed_count_annotated"):
             return self.confirmed_count_annotated
         return self.eventregistration_set.filter(
-            status__in=["confirmed", "attended"]
+            status__in=SEAT_HOLDING_STATUSES
         ).count()
 
     def get_waitlist_count(self):
