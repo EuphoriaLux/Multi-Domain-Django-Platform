@@ -59,11 +59,19 @@
                 <div class="mt-auto flex flex-wrap gap-2">
                     {% include "crush_lu/components/event_lobby_cta.html" with cta=entry.lobby_cta event=entry.event %}
                     <a href="{% url 'crush_lu:event_detail' entry.event.id %}" class="btn-crush-solid flex-1 text-center py-2">{% trans "Details" %}</a>
-                    {% if not entry.is_pending_payment %}
+                    {% if entry.is_pending_payment %}
+                    <button onclick="startSumUpCheckout({{ entry.registration.id }})" class="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-lg text-sm font-bold shadow transition-all cursor-pointer">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                        <span>{% trans "Pay with Card" %}</span>
+                    </button>
+                    {% else %}
                     <a href="{% url 'crush_lu:event_ticket' entry.event.id %}" class="inline-flex items-center justify-center gap-1 px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors" aria-label="{% trans 'Ticket' %}">
                         {% include "shared/icons/qr-code.html" with class="w-4 h-4" %}
                     </a>
                     {% endif %}
+
                     {% if entry.can_cancel %}
                     <a href="{% url 'crush_lu:event_cancel' entry.event.id %}" class="inline-flex items-center justify-center gap-1 px-3 py-2 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-sm font-medium transition-colors" aria-label="{% trans 'Cancel registration' %}">
                         {% include "shared/icons/x-circle.html" with class="w-4 h-4" %}
@@ -149,4 +157,44 @@
     </div>
     {% endif %}
 </section>
+
+<script>
+    function getCsrfToken() {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, 10) === ('csrftoken=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(10));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function startSumUpCheckout(registrationId) {
+        fetch('/payments/sumup/create-event-checkout/' + registrationId + '/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrfToken(),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.widget_url) {
+                window.location.href = data.widget_url;
+            } else {
+                alert(data.error || 'Failed to initiate payment.');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('An error occurred launching payment.');
+        });
+    }
+</script>
 {% endblock %}
+
