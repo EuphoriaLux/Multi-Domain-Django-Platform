@@ -2485,6 +2485,48 @@ def auto_approve_profile_on_luxid_connect(sender, request, sociallogin, **kwargs
 # =============================================================================
 
 
+@receiver(post_save, sender=User)
+def refresh_wallet_passes_on_user_rename(
+    sender, instance, created, update_fields, **kwargs
+):
+    """Refresh Apple passes when the holder's actual name changes.
+
+    The name printed on both the member pass and every event ticket comes from
+    ``CrushProfile.display_name``, which reads ``User.first_name`` /
+    ``get_full_name()``. So the real edit happens on ``User`` — and the
+    CrushProfile receiver below never sees it. Its
+    ``WALLET_UPDATE_PROFILE_FIELDS`` even lists ``first_name``/``last_name``,
+    but those are *properties* on the profile, not fields, so they can never
+    appear in a profile ``update_fields`` either. Renames therefore left stale
+    names in Wallet indefinitely.
+
+    Login writes ``update_fields=["last_login"]``, so gating on the name fields
+    keeps this off that path entirely.
+    """
+    if created:
+        return
+    if update_fields is not None and not (
+        set(update_fields) & {"first_name", "last_name"}
+    ):
+        return
+
+    try:
+        from .wallet.passkit_service import refresh_ticket_serials
+
+        serials = list(
+            EventRegistration.objects.filter(user_id=instance.pk)
+            .exclude(apple_wallet_ticket_serial="")
+            .values_list("apple_wallet_ticket_serial", flat=True)
+        )
+        profile = getattr(instance, "crushprofile", None)
+        if profile is not None and profile.apple_pass_serial:
+            serials.append(profile.apple_pass_serial)
+
+        refresh_ticket_serials(serials, context=f"User {instance.pk} rename")
+    except Exception as e:
+        logger.error(f"Error refreshing wallet passes for user {instance.pk}: {e}")
+
+
 def _refresh_user_event_tickets(profile):
     """Refresh this user's installed Apple event tickets.
 

@@ -40,6 +40,11 @@ def get_next_event_for_pass(profile):
             event__date_time__gte=MeetupEvent.live_lookback_cutoff(now),
             status__in=[*SEAT_HOLDING_STATUSES, "waitlist"],
         )
+        # A cancelled event is not anybody's next event. Without this the
+        # member card kept advertising it — and worse, cancelling an event
+        # rebuilt a byte-identical pass, so the refresh that cancellation
+        # triggers accomplished nothing.
+        .exclude(event__is_cancelled=True)
         .select_related("event")
         .order_by("event__date_time")
     )

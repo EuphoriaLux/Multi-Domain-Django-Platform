@@ -466,9 +466,14 @@ def log_endpoint(request):
     return HttpResponse(status=200)
 
 
-def trigger_pass_refresh(pass_type_identifier, serial_number, mark_updated=True):
+def trigger_pass_refresh(
+    pass_type_identifier, serial_number, mark_updated=True, deadline=None
+):
     return send_passkit_push_notifications(
-        pass_type_identifier, serial_number, mark_updated=mark_updated
+        pass_type_identifier,
+        serial_number,
+        mark_updated=mark_updated,
+        deadline=deadline,
     )
 
 
@@ -498,7 +503,10 @@ def refresh_ticket_serials(serials, context=""):
         # out to every device that registered it, each an HTTP call with a 10s
         # timeout, so 20 serials is 20*N requests and an unreachable APNs could
         # hold the admin request for minutes after the row already committed.
-        # Time is the only thing that actually bounds it.
+        # Time is the only thing that actually bounds it — and the deadline is
+        # forwarded INTO the per-device loop, because checking it only here
+        # would let a single serial with many devices overrun by an arbitrary
+        # multiple of the budget.
         #
         # mark_updated=False because the bulk query above already advanced
         # every tag — otherwise the pushed subset gets written twice.
@@ -508,7 +516,9 @@ def refresh_ticket_serials(serials, context=""):
             if time.monotonic() >= deadline:
                 break
             try:
-                trigger_pass_refresh(pass_type_id, serial, mark_updated=False)
+                trigger_pass_refresh(
+                    pass_type_id, serial, mark_updated=False, deadline=deadline
+                )
                 pushed += 1
             except Exception:
                 # One unreachable device must not strand the rest.

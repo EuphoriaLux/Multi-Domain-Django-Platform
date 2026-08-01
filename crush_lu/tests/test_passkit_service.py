@@ -875,11 +875,14 @@ class TestEventLevelTicketRefresh:
             with django_capture_on_commit_callbacks(execute=True):
                 assert refresh_event_tickets(event) == 1
 
-        # mark_updated=False: refresh_ticket_serials already advanced every
-        # tag in one bulk query, so the pushed subset must not rewrite it.
-        refresh.assert_called_once_with(
-            "pass.lu.crush", "evt-1-reg-1-abcd", mark_updated=False
-        )
+        # Asserted on args rather than an exact call signature: this path also
+        # forwards a non-deterministic `deadline`, and pinning the full kwargs
+        # made these break every time the bounding logic gained a parameter.
+        assert refresh.call_count == 1
+        assert refresh.call_args.args[:2] == ("pass.lu.crush", "evt-1-reg-1-abcd")
+        # refresh_ticket_serials already advanced every tag in one bulk query,
+        # so the pushed subset must not rewrite it.
+        assert refresh.call_args.kwargs["mark_updated"] is False
 
     def test_skips_registrations_with_no_ticket(
         self, _apple_identity, event_with_registrations
@@ -905,11 +908,14 @@ class TestEventLevelTicketRefresh:
                 event.date_time = dj_timezone.now() + timedelta(days=14)
                 event.save()
 
-        # mark_updated=False: refresh_ticket_serials already advanced every
-        # tag in one bulk query, so the pushed subset must not rewrite it.
-        refresh.assert_called_once_with(
-            "pass.lu.crush", "evt-1-reg-1-abcd", mark_updated=False
-        )
+        # Asserted on args rather than an exact call signature: this path also
+        # forwards a non-deterministic `deadline`, and pinning the full kwargs
+        # made these break every time the bounding logic gained a parameter.
+        assert refresh.call_count == 1
+        assert refresh.call_args.args[:2] == ("pass.lu.crush", "evt-1-reg-1-abcd")
+        # refresh_ticket_serials already advanced every tag in one bulk query,
+        # so the pushed subset must not rewrite it.
+        assert refresh.call_args.kwargs["mark_updated"] is False
 
     def test_event_change_also_refreshes_member_passes(
         self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
@@ -963,11 +969,14 @@ class TestEventLevelTicketRefresh:
                 event.title_fr = "Soirée renommée"
                 event.save()
 
-        # mark_updated=False: refresh_ticket_serials already advanced every
-        # tag in one bulk query, so the pushed subset must not rewrite it.
-        refresh.assert_called_once_with(
-            "pass.lu.crush", "evt-1-reg-1-abcd", mark_updated=False
-        )
+        # Asserted on args rather than an exact call signature: this path also
+        # forwards a non-deterministic `deadline`, and pinning the full kwargs
+        # made these break every time the bounding logic gained a parameter.
+        assert refresh.call_count == 1
+        assert refresh.call_args.args[:2] == ("pass.lu.crush", "evt-1-reg-1-abcd")
+        # refresh_ticket_serials already advanced every tag in one bulk query,
+        # so the pushed subset must not rewrite it.
+        assert refresh.call_args.kwargs["mark_updated"] is False
 
     @pytest.mark.parametrize(
         "field,value",
@@ -999,11 +1008,14 @@ class TestEventLevelTicketRefresh:
                 setattr(event, field, value)
                 event.save()
 
-        # mark_updated=False: refresh_ticket_serials already advanced every
-        # tag in one bulk query, so the pushed subset must not rewrite it.
-        refresh.assert_called_once_with(
-            "pass.lu.crush", "evt-1-reg-1-abcd", mark_updated=False
-        )
+        # Asserted on args rather than an exact call signature: this path also
+        # forwards a non-deterministic `deadline`, and pinning the full kwargs
+        # made these break every time the bounding logic gained a parameter.
+        assert refresh.call_count == 1
+        assert refresh.call_args.args[:2] == ("pass.lu.crush", "evt-1-reg-1-abcd")
+        # refresh_ticket_serials already advanced every tag in one bulk query,
+        # so the pushed subset must not rewrite it.
+        assert refresh.call_args.kwargs["mark_updated"] is False
 
     def test_bulk_fanout_is_capped_but_all_tags_advance(
         self, _apple_identity, settings, event_with_registrations,
@@ -1264,6 +1276,47 @@ class TestProfileRenameRefreshesTickets:
 
         assert "evt-1-reg-1-abcd" in {c.args[1] for c in refresh.call_args_list}
 
+    def test_user_rename_refreshes_member_pass_and_tickets(
+        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+    ):
+        # The name actually lives on User — display_name reads
+        # User.first_name/get_full_name() — and the CrushProfile receiver never
+        # sees that edit.
+        registration = self._ticketed(event_with_registrations)
+        user = registration.user
+        profile = user.crushprofile
+        profile.apple_pass_serial = "member-serial"
+        profile.save(update_fields=["apple_pass_serial"])
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ) as refresh:
+            with django_capture_on_commit_callbacks(execute=True):
+                user.first_name = "Renamed"
+                user.save(update_fields=["first_name"])
+
+        pushed = {c.args[1] for c in refresh.call_args_list}
+        assert pushed == {"evt-1-reg-1-abcd", "member-serial"}
+
+    def test_login_does_not_refresh(
+        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+    ):
+        from django.utils import timezone as dj_timezone
+
+        # Login writes update_fields=["last_login"] on every sign-in; that must
+        # not fan out wallet pushes.
+        registration = self._ticketed(event_with_registrations)
+        user = registration.user
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ) as refresh:
+            with django_capture_on_commit_callbacks(execute=True):
+                user.last_login = dj_timezone.now()
+                user.save(update_fields=["last_login"])
+
+        refresh.assert_not_called()
+
     def test_non_identity_save_does_not_refresh_tickets(
         self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
     ):
@@ -1311,6 +1364,25 @@ class TestTicketStampsAreSignalFree:
         registration.refresh_from_db()
         assert registration.apple_wallet_checkin_origin == "https://test.crush.lu"
         assert registration.apple_wallet_language
+
+
+@pytest.mark.django_db
+class TestNextEventExcludesCancelled:
+    """A cancelled event is nobody's next event. Without this the member card
+    kept advertising it — and cancelling rebuilt a byte-identical pass, so the
+    refresh that cancellation triggers accomplished nothing."""
+
+    def test_cancelled_event_is_not_the_next_event(self, event_with_registrations):
+        from crush_lu.wallet_pass import get_next_event_for_pass
+
+        event, registrations = event_with_registrations
+        profile = registrations[0].user.crushprofile
+        assert get_next_event_for_pass(profile) is not None
+
+        event.is_cancelled = True
+        event.save(update_fields=["is_cancelled"])
+
+        assert get_next_event_for_pass(profile) is None
 
 
 @pytest.mark.django_db
