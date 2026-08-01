@@ -785,6 +785,25 @@ WHATSAPP_OTP_TEMPLATE_PREFIX = os.environ.get(
 # warning and message validity period configured in WhatsApp Manager (3 min).
 WHATSAPP_OTP_TTL_MINUTES = int(os.environ.get("WHATSAPP_OTP_TTL_MINUTES", "3"))
 
+# ============================================================================
+# SUMUP ONLINE PAYMENTS
+# ============================================================================
+# Credentials for crush_lu/services/sumup.py (event fees + Connect Premium).
+# The secret key stays server-side — the Card Widget in the browser only ever
+# gets a checkout id, never this key.
+# Read raw here on purpose. Quote/whitespace normalisation lives in exactly one
+# place — crush_lu.services.sumup.clean_credential — because the service also
+# has to clean credentials passed straight to its constructor, and settings.py
+# cannot import from crush_lu (the service imports django.conf.settings, so it
+# would be circular). Two copies of that logic drifted once already.
+SUMUP_API_KEY = os.environ.get("SUMUP_API_KEY", "")
+SUMUP_MERCHANT_CODE = os.environ.get("SUMUP_MERCHANT_CODE", "")
+# Only used when no merchant code is set — SumUp then resolves the payee from
+# the merchant account e-mail instead.
+SUMUP_PAY_TO_EMAIL = os.environ.get("SUMUP_PAY_TO_EMAIL", "")
+# Monthly fee for a Crush Connect Premium membership, in EUR.
+SUMUP_PREMIUM_MONTHLY_FEE = os.environ.get("SUMUP_PREMIUM_MONTHLY_FEE", "10.00").strip()
+
 # CORS — scoped to the SPA origins that call the api.crush.lu subdomain.
 # JWT Bearer auth means we do NOT need CORS_ALLOW_CREDENTIALS (no cookies sent
 # cross-origin). Leave it False so a compromised origin can't replay sessions.
