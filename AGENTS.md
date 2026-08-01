@@ -73,7 +73,7 @@ DRF + SimpleJWT JSON API backing the external `hub.crush.lu` CRM SPA. JWT Bearer
 
 ### Background tasks
 
-Uses Django 6.0's native `TASKS` framework. Default `ImmediateBackend` runs inline (safe for dev). Production sets `DJANGO_TASKS_BACKEND` to the DB backend and runs `manage.py db_worker`. **conftest.py forces `ImmediateBackend` in tests regardless of env.**
+Uses Django 6.0's native `TASKS` framework — but **production runs on the default `ImmediateBackend`, inline**. `DJANGO_TASKS_BACKEND` is unset on the App Service and no `manage.py db_worker` runs anywhere (`azureproject/production.py`: *"no separate db_worker process is running on Azure"*). So **`.enqueue()` defers nothing** — the task body executes synchronously inside the calling request, and `@task` buys you only a named unit with its own error handling. Never move slow work (network fan-out, email, APNs pushes) into a task expecting it to leave the request: bound it in-request instead (e.g. `PASSKIT_BULK_PUSH_LIMIT` / `PASSKIT_BULK_PUSH_BUDGET_SECONDS`), or drive it from an Azure Function timer hitting an admin endpoint the way `CampaignDispatch` does. **conftest.py forces `ImmediateBackend` in tests regardless of env.**
 
 ### Multi-channel campaigns (crush_lu Coach Panel)
 
