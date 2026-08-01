@@ -451,7 +451,12 @@ def dashboard(request):
                 # A pending (unpaid) seat can be given up like any other --
                 # omitting it hid the Cancel button from the dashboard, even
                 # though event_cancel() itself accepts the status.
-                and _reg.status in (*SEAT_HOLDING_STATUSES, "waitlist")
+                #
+                # Deliberately NOT SEAT_HOLDING_STATUSES: that set means "holds
+                # a seat" and includes "attended", but event_cancel rejects an
+                # attended registration outright, so offering Cancel to someone
+                # who checked in early is a button that cannot work.
+                and _reg.status in ("confirmed", "pending", "waitlist")
             )
             if (
                 _reg.status == "attended"

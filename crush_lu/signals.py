@@ -2612,6 +2612,11 @@ def handle_event_ticket_on_registration_change(sender, instance, created, **kwar
             "cancelled": (expire_event_ticket, "Expired"),
             "attended": (complete_event_ticket, "Completed"),
             "confirmed": (activate_event_ticket, "Reactivated"),
+            # Undo can restore an unpaid seat to "pending", which is just as
+            # valid a door pass. Without this entry the branch below schedules
+            # the callback and the callback then finds no patch and returns,
+            # leaving the wallet ticket stuck on Completed.
+            "pending": (activate_event_ticket, "Reactivated"),
         }
 
         def _after_commit():

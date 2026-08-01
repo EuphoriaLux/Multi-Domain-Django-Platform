@@ -2037,3 +2037,63 @@ class PendingSeatSweepTests(TestCase):
             ).count(),
             1,
         )
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class CancelAffordanceTests(TestCase):
+    """The Cancel button must appear exactly where cancelling can succeed.
+
+    `SEAT_HOLDING_STATUSES` means "holds a seat" and includes "attended" —
+    using it here offered Cancel to someone who checked in early, which
+    `event_cancel()` rejects outright.
+    """
+
+    def setUp(self):
+        from crush_lu.models import CrushProfile, MeetupEvent
+        from crush_lu.models.profiles import UserDataConsent
+
+        self.event = MeetupEvent.objects.create(
+            title="Cancel Affordance",
+            description="d",
+            event_type="mixer",
+            date_time=timezone.now() + timedelta(days=2),
+            location="Luxembourg",
+            address="1 St",
+            max_participants=10,
+            registration_deadline=timezone.now() + timedelta(days=1),
+            registration_fee=Decimal("15.00"),
+            is_published=True,
+        )
+        self.user = User.objects.create_user(
+            username="aff@test.com", email="aff@test.com", password="p"
+        )
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        CrushProfile.objects.create(
+            user=self.user, date_of_birth=date(1995, 1, 1), location="Luxembourg"
+        )
+        self.client.force_login(self.user)
+
+    def _dashboard_has_cancel(self, status):
+        from crush_lu.models import EventRegistration
+
+        EventRegistration.objects.update_or_create(
+            event=self.event, user=self.user, defaults={"status": status}
+        )
+        body = self.client.get(reverse("crush_lu:dashboard")).content.decode()
+        return (
+            reverse("crush_lu:event_cancel", kwargs={"event_id": self.event.id})
+            in body
+        )
+
+    def test_pending_is_offered_cancel(self):
+        self.assertTrue(self._dashboard_has_cancel("pending"))
+
+    def test_confirmed_is_offered_cancel(self):
+        self.assertTrue(self._dashboard_has_cancel("confirmed"))
+
+    def test_attended_is_not_offered_cancel(self):
+        """Checking in early must not surface a button that cannot work."""
+        self.assertFalse(self._dashboard_has_cancel("attended"))
