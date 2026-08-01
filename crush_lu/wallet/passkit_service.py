@@ -3,11 +3,10 @@ import importlib
 import json
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse
-from django.utils import timezone
 from django.utils.http import http_date, parse_http_date
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -354,12 +353,16 @@ def list_device_registrations(request, device_library_identifier, pass_type_iden
 
     if passes_updated_since:
         try:
+            # datetime.UTC, NOT django.utils.timezone.utc — the latter was
+            # removed in Django 5.0 and raises AttributeError here, which this
+            # except never caught. Every cursor-bearing poll (i.e. every poll
+            # after the first) 500'd, so installed passes stopped updating.
             updated_since = datetime.fromtimestamp(
                 float(passes_updated_since),
-                tz=timezone.utc,
+                tz=UTC,
             )
             registrations = registrations.filter(updated_at__gt=updated_since)
-        except (ValueError, OSError):
+        except (ValueError, OSError, OverflowError):
             return JsonResponse({"error": "Invalid passesUpdatedSince"}, status=400)
 
     serial_numbers = list(registrations.values_list("serial_number", flat=True))

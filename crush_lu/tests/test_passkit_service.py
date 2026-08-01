@@ -14,6 +14,8 @@ the PassKit service ROOT (e.g. https://crush.lu/wallet). Apple appends its own
 /wallet/v1/v1/... and every web-service request 404s.
 """
 
+from unittest import mock
+
 import pytest
 from django.test import RequestFactory
 
@@ -288,6 +290,101 @@ class TestListDeviceRegistrations:
         # rejected caller.
         assert response.status_code == 204
 
+    def test_poll_with_cursor_does_not_500(self, settings):
+        from crush_lu.wallet.passkit_service import list_device_registrations
+
+        # Regression: this path used django.utils.timezone.utc, removed in
+        # Django 5.0, so it raised AttributeError (uncaught) -> 500. Every poll
+        # after the very first carries the cursor, so updates died there.
+        settings.PASSKIT_AUTH_TOKEN = ""
+        self._registration()
+        request = RequestFactory().get("/", {"passesUpdatedSince": "0"})
+        response = list_device_registrations(request, "device-abc", "pass.lu.crush")
+
+        assert response.status_code == 200
+        import json
+
+        assert json.loads(response.content)["serialNumbers"] == ["evt-1-reg-1-abcd"]
+
+    def test_cursor_filters_out_unchanged_passes(self, settings):
+        from crush_lu.wallet.passkit_service import list_device_registrations
+
+        settings.PASSKIT_AUTH_TOKEN = ""
+        reg = self._registration()
+        # A cursor at "now" must exclude a pass last touched before it.
+        cursor = reg.updated_at.timestamp() + 1
+        request = RequestFactory().get("/", {"passesUpdatedSince": str(cursor)})
+        assert (
+            list_device_registrations(request, "device-abc", "pass.lu.crush").status_code
+            == 204
+        )
+
+    def test_malformed_cursor_is_a_400_not_a_500(self, settings):
+        from crush_lu.wallet.passkit_service import list_device_registrations
+
+        settings.PASSKIT_AUTH_TOKEN = ""
+        self._registration()
+        for bad in ("not-a-number", "1e400"):
+            request = RequestFactory().get("/", {"passesUpdatedSince": bad})
+            response = list_device_registrations(request, "device-abc", "pass.lu.crush")
+            assert response.status_code == 400, bad
+
+
+@pytest.mark.django_db
+class TestMarkPassesUpdated:
+    """A content change has to advance the update tag, or Wallet's next poll
+    filters the pass out (204) and the rebuilt package is never fetched — the
+    push fires and nothing updates."""
+
+    def _registration(self, serial="evt-1-reg-1-abcd"):
+        from crush_lu.models import PasskitDeviceRegistration
+
+        return PasskitDeviceRegistration.objects.create(
+            device_library_identifier="device-abc",
+            pass_type_identifier="pass.lu.crush",
+            serial_number=serial,
+            push_token="push-tok",
+        )
+
+    def test_advances_the_tag(self):
+        from crush_lu.wallet.passkit_apns import mark_passes_updated
+
+        reg = self._registration()
+        before = reg.updated_at
+
+        assert mark_passes_updated("pass.lu.crush", "evt-1-reg-1-abcd") == 1
+        reg.refresh_from_db()
+        assert reg.updated_at > before
+
+    def test_only_touches_the_matching_serial(self):
+        from crush_lu.wallet.passkit_apns import mark_passes_updated
+
+        reg = self._registration()
+        other = self._registration(serial="evt-9-reg-9-zzzz")
+        reg_before = reg.updated_at
+        other_before = other.updated_at
+
+        assert mark_passes_updated("pass.lu.crush", "evt-1-reg-1-abcd") == 1
+        reg.refresh_from_db()
+        other.refresh_from_db()
+        assert reg.updated_at > reg_before
+        assert other.updated_at == other_before
+
+    def test_push_advances_the_tag_even_without_apns_configured(self, settings):
+        from crush_lu.wallet.passkit_apns import send_passkit_push_notifications
+
+        # Production currently has no PASSKIT_APNS_* settings. The tag must
+        # still advance so Wallet's own periodic poll picks the change up.
+        settings.PASSKIT_APNS_KEY_ID = ""
+        settings.PASSKIT_APNS_TEAM_ID = ""
+        settings.PASSKIT_APNS_PRIVATE_KEY = ""
+        reg = self._registration()
+        before = reg.updated_at
+
+        send_passkit_push_notifications("pass.lu.crush", "evt-1-reg-1-abcd")
+        reg.refresh_from_db()
+        assert reg.updated_at > before
+
 
 # ---------------------------------------------------------------------------
 # Auth-token resolution by serial
@@ -521,6 +618,135 @@ class TestBuildCheckinUrl:
         assert url.startswith(
             f"https://test.crush.lu/api/events/checkin/{registration.id}/"
         )
+
+
+@pytest.fixture
+def _apple_identity(settings):
+    """The three _require_setting values a ticket build needs (no certs)."""
+    settings.WALLET_APPLE_PASS_TYPE_IDENTIFIER = "pass.lu.crush"
+    settings.WALLET_APPLE_TEAM_IDENTIFIER = "C5XDPB2G33"
+    settings.WALLET_APPLE_ORGANIZATION_NAME = "Crush.lu"
+
+
+@pytest.mark.django_db
+class TestCancelledTicketIsVoided:
+    """Refreshing a cancelled ticket is theatre unless the payload says so —
+    it carries no status field, so a rebuild is otherwise byte-identical and
+    the cancelled seat keeps rendering as a live ticket.
+
+    Patches _build_pkpass (the only part needing Apple certs) so this runs
+    unconditionally rather than joining the cert-gated module.
+    """
+
+    def _payload_for(self, registration):
+        from crush_lu.wallet import apple_event_ticket
+
+        request = RequestFactory().get("/", HTTP_HOST="crush.lu", secure=True)
+        with mock.patch.object(
+            apple_event_ticket, "_build_pkpass", return_value=b""
+        ) as build:
+            apple_event_ticket.build_apple_event_ticket(registration, request=request)
+        return build.call_args[0][0]
+
+    def test_cancelled_registration_voids_the_pass(
+        self, _apple_identity, event_with_registrations
+    ):
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        registration.status = "cancelled"
+        registration.save(update_fields=["status"])
+
+        assert self._payload_for(registration).get("voided") is True
+
+    def test_confirmed_registration_is_not_voided(
+        self, _apple_identity, event_with_registrations
+    ):
+        _event, registrations = event_with_registrations
+        assert "voided" not in self._payload_for(registrations[0])
+
+    def test_attended_registration_is_not_voided(
+        self, _apple_identity, event_with_registrations
+    ):
+        # A used ticket is still a legitimate record; reuse is prevented by the
+        # check-in token server-side, not by how the pass looks.
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        registration.status = "attended"
+        registration.save(update_fields=["status"])
+
+        assert "voided" not in self._payload_for(registration)
+
+
+@pytest.mark.django_db
+class TestAppleEventTicketRefreshSignal:
+    """Every repo-wide Apple refresh path went through the MEMBER pass serial,
+    so an event ticket was never pushed when its registration changed."""
+
+    def _prepared(self, event_with_registrations):
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        registration.apple_wallet_ticket_serial = "evt-1-reg-1-abcd"
+        registration.save(update_fields=["apple_wallet_ticket_serial"])
+        return registration
+
+    def test_cancelling_triggers_a_refresh(
+        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+    ):
+        registration = self._prepared(event_with_registrations)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ) as refresh:
+            with django_capture_on_commit_callbacks(execute=True):
+                registration.status = "cancelled"
+                registration.save(update_fields=["status"])
+
+        refresh.assert_called_once_with("pass.lu.crush", "evt-1-reg-1-abcd")
+
+    def test_no_refresh_without_a_ticket_serial(
+        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+    ):
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ) as refresh:
+            with django_capture_on_commit_callbacks(execute=True):
+                registration.status = "cancelled"
+                registration.save(update_fields=["status"])
+
+        refresh.assert_not_called()
+
+    def test_plain_confirmed_save_does_not_push(
+        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+    ):
+        # Many saves leave a row confirmed with no transition (token/ID writes);
+        # each must not fire a push. Gated on _reactivate_ticket, like Google.
+        registration = self._prepared(event_with_registrations)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ) as refresh:
+            with django_capture_on_commit_callbacks(execute=True):
+                registration.save(update_fields=["status"])
+
+        refresh.assert_not_called()
+
+    def test_undo_reactivation_pushes(
+        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+    ):
+        registration = self._prepared(event_with_registrations)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ) as refresh:
+            with django_capture_on_commit_callbacks(execute=True):
+                registration._reactivate_ticket = True
+                registration.status = "confirmed"
+                registration.save(update_fields=["status"])
+
+        refresh.assert_called_once_with("pass.lu.crush", "evt-1-reg-1-abcd")
 
 
 @pytest.mark.django_db

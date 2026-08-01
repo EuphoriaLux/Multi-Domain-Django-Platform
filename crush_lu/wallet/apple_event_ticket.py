@@ -293,6 +293,15 @@ def build_apple_event_ticket(registration, request=None, web_service_url=None):
     if resolved_web_service_url:
         payload["webServiceURL"] = resolved_web_service_url
 
+    # A cancelled seat must not keep rendering as a live ticket. The payload
+    # otherwise carries no status at all, so refreshing a cancelled ticket
+    # would rebuild something visually identical — `voided` is what actually
+    # makes Wallet show it as invalid. Only `cancelled` voids: `attended` is a
+    # used-but-legitimate record, and reuse is prevented server-side by the
+    # check-in token, not by the pass appearance.
+    if registration.status == "cancelled":
+        payload["voided"] = True
+
     # Add venue location for lock-screen surfacing
     if event.latitude and event.longitude:
         payload["locations"] = [

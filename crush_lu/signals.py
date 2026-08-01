@@ -2688,6 +2688,62 @@ def handle_event_ticket_on_registration_change(sender, instance, created, **kwar
 
 
 @receiver(post_save, sender=EventRegistration)
+def refresh_apple_event_ticket_on_registration_change(
+    sender, instance, created, **kwargs
+):
+    """
+    Push an Apple Wallet refresh when an event ticket's meaning changes.
+
+    The Google handler above covers only Google: every repo-wide Apple refresh
+    path went through ``profile.apple_pass_serial`` (the MEMBER pass), so an
+    event ticket's ``apple_wallet_ticket_serial`` was never pushed. Cancelling
+    a seat left the installed ticket looking live.
+
+    Deliberately a separate receiver rather than a branch inside the Google
+    one: that handler carries delicate on_commit/fresh-read handling for the
+    door's ``select_for_update`` path, the two wallets have independent enable
+    flags and ID fields, and an exception in one must not skip the other.
+
+    Gated identically to Google so the two stay predictable — ``cancelled`` and
+    ``attended`` always, ``confirmed``/``pending`` only when the undo path sets
+    ``_reactivate_ticket`` (plenty of saves leave a row confirmed without any
+    transition, and each would otherwise fire a push).
+    """
+    if created or not instance.apple_wallet_ticket_serial:
+        return
+
+    pass_type_id = getattr(settings, "WALLET_APPLE_PASS_TYPE_IDENTIFIER", None)
+    if not pass_type_id:
+        return
+
+    should_refresh = instance.status in ("cancelled", "attended") or (
+        instance.status in ("confirmed", "pending")
+        and getattr(instance, "_reactivate_ticket", False)
+    )
+    if not should_refresh:
+        return
+
+    serial = instance.apple_wallet_ticket_serial
+
+    def _after_commit():
+        # Deferred for the same reason as the Google path: the door's callers
+        # save inside a transaction holding a row lock, and this makes a
+        # network call. It also guarantees the rebuild that Wallet triggers
+        # reads committed state.
+        try:
+            from .wallet.passkit_service import trigger_pass_refresh
+
+            trigger_pass_refresh(pass_type_id, serial)
+        except Exception as e:
+            logger.error(
+                f"Error refreshing Apple event ticket for registration "
+                f"{instance.id}: {e}"
+            )
+
+    transaction.on_commit(_after_commit)
+
+
+@receiver(post_save, sender=EventRegistration)
 def assign_coach_on_first_attendance(sender, instance, created, **kwargs):
     """
     Grant a permanent coach the first time a member attends an event.
