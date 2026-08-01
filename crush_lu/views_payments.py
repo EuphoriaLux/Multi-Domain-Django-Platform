@@ -287,6 +287,28 @@ def _apply_paid_checkout(tx_obj, data):
             and locked.event_registration
         ):
             reg = locked.event_registration
+
+            # Re-validate at completion, not just at checkout creation. A member
+            # can open the widget and then cancel (or the organiser can cancel
+            # the event) while the payment is in flight; the checkout stays
+            # payable, and confirming unconditionally would resurrect a seat the
+            # member deliberately released, or sell one for an event that is off.
+            #
+            # SumUp has already captured the money by the time this runs, so the
+            # transaction is still marked PAID -- dropping it would lose the only
+            # record of a real charge. What we refuse to do is hand back the
+            # seat. Logged at error level because this needs a human refund.
+            if reg.status == "cancelled" or reg.event.is_cancelled:
+                logger.error(
+                    "SumUp payment %s completed for registration %s but the "
+                    "%s is cancelled — payment recorded, seat NOT restored, "
+                    "refund required.",
+                    locked.transaction_reference,
+                    reg.id,
+                    "event" if reg.event.is_cancelled else "registration",
+                )
+                return
+
             if reg.status != "confirmed" or not reg.payment_confirmed:
                 reg.payment_confirmed = True
                 reg.payment_date = timezone.now()

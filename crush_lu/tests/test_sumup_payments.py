@@ -609,3 +609,92 @@ class CheckoutGuardTests(SiteTestMixin, TestCase):
         with self.captureOnCommitCallbacks(execute=True):
             _apply_paid_checkout(tx, {"status": "PAID"})
         self.assertEqual(len(mail.outbox), 0)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class PaymentCompletionRevalidationTests(SiteTestMixin, TestCase):
+    """State can change while a payment is in flight (Codex P1 on #757).
+
+    The creation-time guards do not help once the widget is open: the member can
+    cancel, or the organiser can cancel the event, before the payment lands.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(
+            username="race@crush.lu", email="race@crush.lu", password="password123"
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Race Event",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("15.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+
+    def _tx(self, ref):
+        return PaymentTransaction.objects.create(
+            transaction_reference=ref,
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id=f"CHK_{ref}",
+            amount=Decimal("15.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+
+    def test_payment_on_a_cancelled_registration_does_not_restore_the_seat(self):
+        """A seat the member released must not come back because money landed."""
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        tx = self._tx("CANCELREG")
+        self.registration.status = "cancelled"
+        self.registration.save()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            _apply_paid_checkout(tx, {"status": "PAID"})
+
+        self.registration.refresh_from_db()
+        tx.refresh_from_db()
+        self.assertEqual(self.registration.status, "cancelled")
+        self.assertFalse(self.registration.payment_confirmed)
+        # The money is real and already captured -- the record must survive so
+        # staff can refund it.
+        self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+
+    def test_payment_on_a_cancelled_event_does_not_confirm(self):
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        tx = self._tx("CANCELEVT")
+        self.event.is_cancelled = True
+        self.event.save()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            _apply_paid_checkout(tx, {"status": "PAID"})
+
+        self.registration.refresh_from_db()
+        tx.refresh_from_db()
+        self.assertNotEqual(self.registration.status, "confirmed")
+        self.assertFalse(self.registration.payment_confirmed)
+        self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+
+    def test_normal_payment_still_confirms(self):
+        """The guard must not break the ordinary path."""
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        tx = self._tx("HAPPY")
+        with self.captureOnCommitCallbacks(execute=True):
+            _apply_paid_checkout(tx, {"status": "PAID"})
+
+        self.registration.refresh_from_db()
+        self.assertEqual(self.registration.status, "confirmed")
+        self.assertTrue(self.registration.payment_confirmed)

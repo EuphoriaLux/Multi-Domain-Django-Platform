@@ -369,7 +369,7 @@
                         </span>
                         <div class="flex-1">
                             <p class="font-semibold text-sm sm:text-base text-red-700 dark:text-red-300 mb-0.5">{% trans "This event is happening now" %}</p>
-                            {% if user_registration.status == 'confirmed' or user_registration.status == 'attended' %}
+                            {% if user_registration.status == 'confirmed' or user_registration.status == 'attended' or user_registration.status == 'pending' %}
                             <p class="text-xs sm:text-sm text-red-600 dark:text-red-400 mb-0">{% trans "Show your ticket at the door to check in." %}</p>
                             {% endif %}
                         </div>
