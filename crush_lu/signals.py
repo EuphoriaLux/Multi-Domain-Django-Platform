@@ -2990,14 +2990,19 @@ def refresh_apple_event_ticket_on_registration_change(
     PASSKIT_APNS_* is configured each scan would carry a synchronous APNs round
     trip (httpx timeout 10s) before the coach's scanner gets its answer.
 
-    So: the transitions that actually flip ``voided`` — into ``cancelled``, and
-    back out of it. Leaving ``cancelled`` is detected from the status the row
-    was loaded with (``_loaded_status``, captured for free in
-    ``EventRegistration.from_db``) rather than from ``_reactivate_ticket``
-    alone: that flag is set only by the scanner's undo, so restoring a seat
-    through the admin's ``list_editable`` status column would otherwise leave
-    the holder with a permanently voided ticket. Plenty of saves leave a row
-    confirmed with no transition at all, and each would otherwise fire a push.
+    So: the transitions that actually flip ``voided`` — a seat losing validity
+    or regaining it, where validity means ``status in SEAT_HOLDING_STATUSES``.
+    That covers ``waitlist`` and ``no_show`` as well as ``cancelled``, matching
+    what ``build_apple_event_ticket`` encodes and what the door accepts.
+
+    The previous status comes from ``_previous_status``, set by
+    ``remember_previous_registration_status`` (pre_save, above), which re-reads
+    it before EVERY save — so it stays correct even when one in-memory instance
+    is put through several transitions. Relying on ``_reactivate_ticket`` alone
+    would not do: that flag is set only by the scanner's undo, so restoring a
+    seat through the admin's ``list_editable`` column would leave the holder
+    with a permanently voided ticket. Plenty of saves leave a row confirmed
+    with no transition at all, and each would otherwise fire a push.
     """
     if created or not instance.apple_wallet_ticket_serial:
         return
