@@ -1872,21 +1872,26 @@ class TestRegistrationDeletionRefreshesTheMemberPass:
         pushed = {s for c in refresh.call_args_list for s in c.args[0]}
         assert "member-serial" in pushed
 
-    def test_an_event_cascade_does_not_fan_out_per_row(
+    def test_an_event_cascade_marks_instead_of_pushing(
         self, _apple_identity, event_with_registrations
     ):
         event, _registrations = event_with_registrations
         _registration, _profile = self._member(event_with_registrations)
 
-        # One bounded refresh per row is not bounded in aggregate: each call
-        # starts its own push budget, so N rows multiply the deadline N times
-        # — the pathology cancel_events was already fixed for by batching.
+        # One push per row is not bounded in aggregate: each carries its own
+        # budget, so N rows multiply the deadline N times — the pathology
+        # cancel_events was already fixed for by batching. The marker advance
+        # is the guaranteed half on its own: one query, no network, and the
+        # card still rebuilds on Wallet's next poll.
         with mock.patch(
             "crush_lu.wallet.passkit_service.refresh_ticket_serials"
-        ) as refresh:
+        ) as refresh, mock.patch(
+            "crush_lu.wallet.passkit_apns.mark_passes_updated_bulk"
+        ) as mark:
             event.delete()
 
         refresh.assert_not_called()
+        assert "member-serial" in set(mark.call_args.args[1])
 
 
 @pytest.mark.django_db
@@ -2031,6 +2036,26 @@ class TestReferralCodeChangeRefreshesTheMemberPass:
             code.delete()
 
         assert "member-serial" in set(refresh.call_args.args[0])
+
+    def test_admin_bulk_delete_marks_instead_of_pushing(
+        self, _apple_identity, test_user_with_profile
+    ):
+        from crush_lu.models import ReferralCode
+
+        # ReferralCodeAdmin exposes Django's default "Delete selected", whose
+        # delete_queryset() calls QuerySet.delete() — so origin is the
+        # queryset, not each row, and pushing per row would fan out.
+        profile, code = self._with_code(test_user_with_profile)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh, mock.patch(
+            "crush_lu.wallet.passkit_apns.mark_passes_updated_bulk"
+        ) as mark:
+            ReferralCode.objects.filter(pk=code.pk).delete()
+
+        refresh.assert_not_called()
+        assert "member-serial" in set(mark.call_args.args[1])
 
     def test_deleting_the_profile_does_not_refresh_its_own_code(
         self, _apple_identity, test_user_with_profile

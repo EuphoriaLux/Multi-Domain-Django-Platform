@@ -2610,27 +2610,23 @@ def refresh_member_pass_on_registration_delete(
     equivalent, and used to be picked up by the holder's next bare
     profile.save().
 
-    Scoped to a DIRECT delete of one registration — an admin object delete —
-    using the signal's `origin`. A cascade (deleting the event, or the user)
-    fires this per row, and one bounded refresh per row is not bounded in
-    aggregate: each call starts its own push budget, so N rows multiply the
-    deadline N times. That is the same pathology cancel_events was already
-    fixed for by batching into a single refresh. Deleting a user makes the
-    refresh pointless anyway, and deleting an event is better served by a
-    batched path at the event level than by this receiver.
+    A direct delete of one registration — an admin object delete — pushes.
+    Anything else reaches this per row (an event cascade, a user cascade, a
+    bulk queryset), and one push per row is not bounded in aggregate: each
+    carries its own budget, so N rows multiply the deadline N times. That is
+    the pathology cancel_events was already fixed for by batching into a single
+    refresh. Those rows get the marker advance instead — one query, no network,
+    and the card still rebuilds on Wallet's next poll rather than advertising
+    an event that no longer exists.
     """
-    if not isinstance(origin, EventRegistration):
-        # Never silent about skipped work.
-        logger.info(
-            "Registration %s deleted via %s; member-pass refresh skipped "
-            "(cascade/bulk deletes need a batched path, not one per row)",
-            instance.pk,
-            type(origin).__name__,
-        )
+    context = f"Registration {instance.pk} deleted"
+    profile = CrushProfile.objects.filter(user_id=instance.user_id).first()
+
+    if isinstance(origin, EventRegistration):
+        _refresh_member_pass(profile, context)
         return
 
-    profile = CrushProfile.objects.filter(user_id=instance.user_id).first()
-    _refresh_member_pass(profile, f"Registration {instance.pk} deleted")
+    _mark_member_pass_stale(profile, f"{context} ({type(origin).__name__})")
 
 
 # `username` counts: CrushProfile.display_name falls back to it in BOTH
@@ -2800,6 +2796,37 @@ def _refresh_member_pass(profile, context):
         logger.error(f"Error refreshing Google member pass ({context}): {e}")
 
 
+def _mark_member_pass_stale(profile, context):
+    """Advance the Apple update marker WITHOUT pushing.
+
+    For bulk and cascade paths, where one refresh per row is not bounded in
+    aggregate — each push carries its own budget, so N rows multiply the
+    deadline N times. This is the guaranteed half of that work on its own: one
+    indexed write, no network, so it cannot fan out, and the pass still
+    rebuilds on Wallet's next periodic poll instead of staying wrong forever.
+
+    Google has no marker equivalent — its card is only ever corrected by an
+    explicit PATCH — so a bulk path leaves it until the next real refresh.
+    """
+    if profile is None or not profile.apple_pass_serial:
+        return
+    pass_type_id = getattr(settings, "WALLET_APPLE_PASS_TYPE_IDENTIFIER", None)
+    if not pass_type_id:
+        return
+    try:
+        from .wallet.passkit_apns import mark_passes_updated_bulk
+
+        mark_passes_updated_bulk(pass_type_id, [profile.apple_pass_serial])
+        logger.info(
+            "%s: marked member pass %s for Wallet's next poll (no push — bulk "
+            "path, one push per row is not bounded in aggregate)",
+            context,
+            profile.apple_pass_serial,
+        )
+    except Exception as e:
+        logger.error(f"Error marking member pass stale ({context}): {e}")
+
+
 # The QR on the member pass is the referrer's link, and all three of these
 # change what it resolves to: the code is the URL, capture filters on
 # is_active (referrals.py:52 and :86) so a deactivated code renders a QR that
@@ -2885,15 +2912,25 @@ def refresh_member_pass_on_referral_code_delete(
     QR scans and attributes nothing — and the next build mints a different
     code, so the installed pass never converges on its own.
 
-    Scoped to a direct delete via `origin`. Django deletes children before
-    parents, so on a cascade from profile.delete() the profile row is still
-    there when this fires and would happily schedule a refresh for a pass that
-    is about to stop existing.
+    A direct delete pushes. The admin's default "Delete selected" action calls
+    QuerySet.delete(), so `origin` is the queryset, not each row — pushing per
+    row there is not bounded in aggregate, so those rows get the marker advance
+    only and rebuild on Wallet's next poll.
+
+    A cascade from anything else is a profile going away underneath its own
+    codes. Django deletes children before parents, so the profile row is still
+    readable here — refreshing a pass that is about to stop existing is the
+    trap, hence the explicit model check rather than "not a queryset".
     """
-    if not isinstance(origin, ReferralCode):
-        return
+    context = f"Referral code {instance.pk} deleted"
     profile = CrushProfile.objects.filter(pk=instance.referrer_id).first()
-    _refresh_member_pass(profile, f"Referral code {instance.pk} deleted")
+
+    if isinstance(origin, ReferralCode):
+        _refresh_member_pass(profile, context)
+        return
+
+    if getattr(origin, "model", None) is ReferralCode:
+        _mark_member_pass_stale(profile, f"{context} (bulk)")
 
 
 def _refresh_user_event_tickets(profile):
