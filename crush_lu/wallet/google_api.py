@@ -12,6 +12,8 @@ import uuid
 
 import httpx
 from django.conf import settings
+from django.db import transaction
+from django.utils import translation
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 
@@ -21,12 +23,64 @@ from ..wallet_pass import build_wallet_pass_data
 logger = logging.getLogger(__name__)
 
 GOOGLE_WALLET_API_BASE = "https://walletobjects.googleapis.com/walletobjects/v1"
+GOOGLE_OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token"
+
+# Per-phase ceiling for every call in this module. A bulk refresh lowers it to
+# whatever is left of its wall-clock budget; this is the floor-level cap for
+# the single-profile callers that have no budget of their own.
+GOOGLE_WALLET_HTTP_TIMEOUT = 30.0
 
 
-def _get_access_token():
+def _timeout_kwargs(timeout):
+    """Build the per-request timeout kwarg, omitting it when unset.
+
+    httpx reads an explicit ``timeout=None`` as "no timeout at all", so an
+    absent override must be left out entirely rather than forwarded as None —
+    passing it through would drop the client default and let one hung request
+    hold the caller forever.
+
+    What a value here does and does NOT bound: httpx applies a timeout PER
+    PHASE — connect, write, pool, and read, the last of which restarts on every
+    chunk received — so this limits how long any single phase may stall, not
+    the end-to-end duration of a request. A batch's wall-clock budget is
+    therefore enforced by the loop that stops STARTING requests once the
+    deadline passes; one pathologically slow endpoint can still overrun that
+    budget by roughly a single request's phases.
+
+    That residual is accepted rather than fixed, because sync httpx offers no
+    total-deadline or cancellation knob: the alternative is running each PATCH
+    on a thread abandoned at the deadline, and a thread blocked on a socket
+    read leaks for the life of the worker — strictly worse than a bounded
+    overrun well inside gunicorn's 120s timeout.
+    """
+    if timeout is None:
+        return {}
+    # Constructed explicitly so the per-phase semantics above are visible here
+    # rather than hidden inside httpx's float coercion.
+    return {"timeout": httpx.Timeout(timeout)}
+
+
+def _remaining_timeout(deadline):
+    """Seconds left before `deadline`, capped at the per-phase ceiling.
+
+    Returns a non-positive value once the budget is spent, which callers treat
+    as "stop" — never as "no timeout".
+    """
+    return min(GOOGLE_WALLET_HTTP_TIMEOUT, deadline - time.monotonic())
+
+
+def _get_access_token(client=None, timeout=None):
     """
     Generate an OAuth2 access token using service account credentials.
     Uses JWT bearer token flow for server-to-server authentication.
+
+    Args:
+        client: optional httpx.Client to borrow. A batch mints ONE token for
+            its whole fan-out and reuses a single connection; without this,
+            every pass update paid for its own exchange plus its own handshake.
+        timeout: optional per-request timeout, so a caller working to a
+            wall-clock budget is not held for the full default by a hanging
+            OAuth endpoint.
     """
     service_account_email = getattr(settings, "WALLET_GOOGLE_SERVICE_ACCOUNT_EMAIL", None)
     if not service_account_email:
@@ -58,13 +112,18 @@ def _get_access_token():
     signed_jwt = b".".join([signing_input, _base64url_encode(signature)]).decode("utf-8")
 
     # Exchange JWT for access token
-    with httpx.Client(timeout=30.0) as client:
+    owned_client = None
+    if client is None:
+        owned_client = httpx.Client(timeout=GOOGLE_WALLET_HTTP_TIMEOUT)
+        client = owned_client
+    try:
         response = client.post(
-            "https://oauth2.googleapis.com/token",
+            GOOGLE_OAUTH_TOKEN_URL,
             data={
                 "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
                 "assertion": signed_jwt,
             },
+            **_timeout_kwargs(timeout),
         )
 
         if response.status_code != 200:
@@ -72,6 +131,9 @@ def _get_access_token():
             raise ValueError(f"Failed to get access token: {response.status_code}")
 
         return response.json()["access_token"]
+    finally:
+        if owned_client is not None:
+            owned_client.close()
 
 
 def _build_generic_object_payload(profile, object_id, class_id):
@@ -225,6 +287,66 @@ def _build_generic_object_payload(profile, object_id, class_id):
     return generic_object
 
 
+def _patch_generic_object(profile, class_id, access_token, client, timeout=None):
+    """PATCH one member object with a caller-supplied token and HTTP client.
+
+    Split out of update_google_wallet_pass so a batch can mint ONE token and
+    reuse ONE connection across its whole fan-out. The single-profile entry
+    point below still owns both when called on its own, so its behaviour and
+    return shape are unchanged.
+    """
+    # Render in the HOLDER's language, not the caller's. The next-event title
+    # is modeltranslated, and every path that reaches here in bulk runs from
+    # the admin — which is forced to English — so without this override a
+    # French or German holder's card is rewritten in English by an edit they
+    # had nothing to do with. Mirrors the Apple member-pass rebuild in
+    # apple_pass.provide_pass_for_serial; None leaves the active language.
+    with translation.override(getattr(profile, "preferred_language", "") or None):
+        object_payload = _build_generic_object_payload(
+            profile,
+            profile.google_wallet_object_id,
+            class_id,
+        )
+
+    # URL encode the object ID (it contains dots)
+    encoded_object_id = profile.google_wallet_object_id.replace(".", "%2E")
+    url = f"{GOOGLE_WALLET_API_BASE}/genericObject/{encoded_object_id}"
+
+    response = client.patch(
+        url,
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        },
+        json=object_payload,
+        **_timeout_kwargs(timeout),
+    )
+
+    if response.status_code == 200:
+        logger.info(
+            "Updated Google Wallet pass for user %s (object: %s)",
+            profile.user_id,
+            profile.google_wallet_object_id,
+        )
+        return {"success": True, "message": "Pass updated successfully"}
+
+    if response.status_code == 404:
+        # Pass doesn't exist in Google's system (user may have deleted it)
+        logger.warning(
+            "Google Wallet pass not found for user %s (object: %s)",
+            profile.user_id,
+            profile.google_wallet_object_id,
+        )
+        return {"success": False, "message": "Pass not found (may have been deleted)"}
+
+    logger.error(
+        "Failed to update Google Wallet pass: %s - %s",
+        response.status_code,
+        response.text,
+    )
+    return {"success": False, "message": f"API error: {response.status_code}"}
+
+
 def update_google_wallet_pass(profile):
     """
     Update an existing Google Wallet pass for a user.
@@ -243,55 +365,191 @@ def update_google_wallet_pass(profile):
         return {"success": False, "message": "WALLET_GOOGLE_CLASS_ID not configured"}
 
     try:
-        access_token = _get_access_token()
-        object_payload = _build_generic_object_payload(
-            profile,
-            profile.google_wallet_object_id,
-            class_id
-        )
-
-        # URL encode the object ID (it contains dots)
-        encoded_object_id = profile.google_wallet_object_id.replace(".", "%2E")
-        url = f"{GOOGLE_WALLET_API_BASE}/genericObject/{encoded_object_id}"
-
-        with httpx.Client(timeout=30.0) as client:
-            response = client.patch(
-                url,
-                headers={
-                    "Authorization": f"Bearer {access_token}",
-                    "Content-Type": "application/json",
-                },
-                json=object_payload,
-            )
-
-            if response.status_code == 200:
-                logger.info(
-                    "Updated Google Wallet pass for user %s (object: %s)",
-                    profile.user_id,
-                    profile.google_wallet_object_id,
-                )
-                return {"success": True, "message": "Pass updated successfully"}
-
-            elif response.status_code == 404:
-                # Pass doesn't exist in Google's system (user may have deleted it)
-                logger.warning(
-                    "Google Wallet pass not found for user %s (object: %s)",
-                    profile.user_id,
-                    profile.google_wallet_object_id,
-                )
-                return {"success": False, "message": "Pass not found (may have been deleted)"}
-
-            else:
-                logger.error(
-                    "Failed to update Google Wallet pass: %s - %s",
-                    response.status_code,
-                    response.text,
-                )
-                return {"success": False, "message": f"API error: {response.status_code}"}
+        with httpx.Client(timeout=GOOGLE_WALLET_HTTP_TIMEOUT) as client:
+            access_token = _get_access_token(client=client)
+            return _patch_generic_object(profile, class_id, access_token, client)
 
     except Exception as e:
         logger.exception("Error updating Google Wallet pass for user %s: %s", profile.user_id, e)
         return {"success": False, "message": str(e)}
+
+
+def refresh_google_wallet_objects(profiles, context=""):
+    """Bulk-refresh Google Wallet member objects under ONE shared budget.
+
+    The member object prints the holder's next event (see the "Next Event" text
+    module in _build_generic_object_payload, fed by get_next_event_for_pass), so
+    an event-level change makes every attendee's card wrong. Nothing else fixes
+    it: a Google object is server-side state that only changes when we PATCH it,
+    and update_google_wallet_pass() mints its own OAuth token and opens its own
+    connection per profile — so a naive per-attendee fan-out cost two round
+    trips each and let request time grow with attendance.
+
+    This mirrors passkit_service.refresh_ticket_serials — deferred to commit,
+    bounded by BOTH a count limit and a wall-clock deadline, per-item failures
+    isolated — with two differences that come from Google's model, not ours:
+
+      * ONE token exchange and ONE keep-alive client serve the whole batch, so
+        each extra pass costs a single PATCH rather than two requests. Each
+        request's phase timeouts are also lowered to the remaining budget,
+        since a 30s default is no kind of bound inside a 10s batch — though
+        see _timeout_kwargs for what that does and does not guarantee: the
+        budget is enforced by refusing to START work past the deadline, not by
+        cancelling work already in flight.
+      * There is NO Google equivalent of Wallet's periodic poll. An Apple pass
+        that misses its push still updates, because the bulk query advanced its
+        tag; a Google object that misses its PATCH stays stale until something
+        else saves that profile. The cap is therefore a real last-resort brake
+        rather than a downgrade to "slower" — it is logged at WARNING with the
+        object ids, and the default limit is sized for a full event.
+
+    Deferred to commit for the same reason as the Apple path: the update must
+    not be visible to Google before the event change itself has committed.
+    on_commit runs inline outside a transaction, and inline INSIDE the admin
+    request either way — production leaves DJANGO_TASKS_BACKEND unset, so TASKS
+    falls back to ImmediateBackend and enqueuing would not move the work off it.
+
+    Takes profiles but keeps only their pks, re-reading committed rows in the
+    callback — see there for why a captured instance is the wrong thing to
+    PATCH from.
+
+    Returns the number of profiles scheduled; the work itself runs on commit,
+    by which point some of them may legitimately no longer need it.
+    """
+    profile_ids = [
+        p.pk for p in profiles if getattr(p, "google_wallet_object_id", "")
+    ]
+    if not profile_ids:
+        return 0
+
+    class_id = getattr(settings, "WALLET_GOOGLE_CLASS_ID", None)
+    if not class_id:
+        logger.warning(
+            "%s: skipping Google Wallet refresh for %s pass(es) — "
+            "WALLET_GOOGLE_CLASS_ID is not configured",
+            context or "bulk refresh",
+            len(profile_ids),
+        )
+        return 0
+
+    update_limit = getattr(settings, "WALLET_GOOGLE_BULK_UPDATE_LIMIT", 50)
+    update_budget = getattr(
+        settings, "WALLET_GOOGLE_BULK_UPDATE_BUDGET_SECONDS", 10.0
+    )
+
+    def _after_commit():
+        from ..models import CrushProfile
+
+        # Re-read from COMMITTED state instead of PATCHing the instances the
+        # caller captured, for the reason spelled out in
+        # signals._trigger_google_wallet_object_update: this call ships the
+        # payload itself, and between scheduling and running here another
+        # transaction can have committed a newer tier or point total — or
+        # deleted the profile outright, or unlinked its object — and the
+        # captured copy would put Google back on the older state indefinitely.
+        # ONE query for the whole batch, so the correctness the per-profile
+        # path pays a query each for is actually cheaper here.
+        #
+        # Ordered by pk so the cap below and the stale report are reproducible
+        # rather than dependent on however the database returned the rows.
+        profiles = list(
+            CrushProfile.objects.filter(pk__in=profile_ids)
+            .exclude(google_wallet_object_id="")
+            .order_by("pk")
+        )
+        if not profiles:
+            return
+
+        deadline = time.monotonic() + update_budget
+        updated = 0
+        failed = 0
+        # 404 means the holder deleted the pass — classified apart from a real
+        # failure, matching update_all_google_wallet_passes.
+        not_found = 0
+        attempted = 0
+
+        # A non-positive budget means there is no room to start anything; fall
+        # straight through to the stale accounting rather than handing httpx a
+        # zero timeout.
+        token_timeout = _remaining_timeout(deadline)
+        if token_timeout > 0:
+            try:
+                with httpx.Client(timeout=GOOGLE_WALLET_HTTP_TIMEOUT) as client:
+                    # One exchange for the batch, and inside the budget as
+                    # well: a stalled OAuth endpoint left at the 30s default
+                    # would burn the whole allowance before a single pass had
+                    # been touched.
+                    access_token = _get_access_token(
+                        client=client, timeout=token_timeout
+                    )
+
+                    for profile in profiles[:update_limit]:
+                        remaining = _remaining_timeout(deadline)
+                        if remaining <= 0:
+                            break
+                        attempted += 1
+                        try:
+                            result = _patch_generic_object(
+                                profile,
+                                class_id,
+                                access_token,
+                                client,
+                                timeout=remaining,
+                            )
+                        except Exception:
+                            # One unreachable object must not strand the rest.
+                            failed += 1
+                            logger.exception(
+                                "Failed refreshing Google Wallet object %s",
+                                profile.google_wallet_object_id,
+                            )
+                            continue
+                        if result["success"]:
+                            updated += 1
+                        elif "not found" in result["message"].lower():
+                            not_found += 1
+                        else:
+                            failed += 1
+            except Exception:
+                # Nothing can be PATCHed without a token, so a failed exchange
+                # takes the whole batch with it. Never propagate — this runs
+                # from on_commit inside a request whose write already
+                # succeeded — and fall through, so the passes it could not
+                # reach are reported as stale like any other skipped ones.
+                logger.exception(
+                    "%s: Google Wallet refresh could not run",
+                    context or "bulk refresh",
+                )
+
+        logger.info(
+            "%s: updated %s of %s Google Wallet pass(es) "
+            "(%s failed, %s already deleted by their holder)",
+            context or "bulk refresh",
+            updated,
+            len(profiles),
+            failed,
+            not_found,
+        )
+
+        skipped = len(profiles) - attempted
+        if skipped > 0:
+            # Never silent, and never merely "delayed": unlike an Apple pass
+            # past the push cap, these do not heal on a later poll.
+            stale = [p.google_wallet_object_id for p in profiles[attempted:]]
+            logger.warning(
+                "%s: %s Google Wallet pass(es) left STALE (limit=%s, "
+                "budget=%ss) — Google has no client poll to heal them, so they "
+                "keep showing the old details until the profile changes again: "
+                "%s",
+                context or "bulk refresh",
+                skipped,
+                update_limit,
+                update_budget,
+                ", ".join(stale[:10]) + ("…" if len(stale) > 10 else ""),
+            )
+
+    transaction.on_commit(_after_commit)
+    return len(profile_ids)
 
 
 def update_all_google_wallet_passes():

@@ -501,6 +501,23 @@ WALLET_GOOGLE_KEY_ID = os.getenv("WALLET_GOOGLE_KEY_ID", "")
 WALLET_GOOGLE_EVENT_TICKET_ENABLED = _env_bool(
     "WALLET_GOOGLE_EVENT_TICKET_ENABLED", default=True
 )
+# How many Google Wallet member objects one event-level refresh may PATCH
+# synchronously. Same shape as PASSKIT_BULK_PUSH_LIMIT below, but a stricter
+# meaning: an Apple pass past its cap still updates on Wallet's next poll,
+# whereas Google objects only ever change when we PATCH them — anything skipped
+# here stays stale until that profile is saved again. Sized to cover a full
+# event rather than a typical one, and every skip is logged at WARNING.
+WALLET_GOOGLE_BULK_UPDATE_LIMIT = int(
+    os.getenv("WALLET_GOOGLE_BULK_UPDATE_LIMIT", "50")
+)
+# Wall-clock budget for that fan-out. The count above does not bound the work:
+# each pass is an HTTPS PATCH, and the whole batch runs inline in the admin
+# request via on_commit (there is no background worker). Requests are clamped
+# to whatever is left of this, so a slow Google API cannot hold the request for
+# the per-request 30s ceiling times the number of attendees.
+WALLET_GOOGLE_BULK_UPDATE_BUDGET_SECONDS = float(
+    os.getenv("WALLET_GOOGLE_BULK_UPDATE_BUDGET_SECONDS", "10")
+)
 
 # Pre-screening questionnaire (Crush.lu). Off by default; enable in production
 # after all Phases have shipped and the Coach-facing rollout is ready.

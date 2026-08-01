@@ -503,6 +503,20 @@ def auto_create_event_ticket_class_on_publish(sender, instance, created, **kwarg
     if not getattr(settings, "WALLET_GOOGLE_ISSUER_ID", ""):
         return
 
+    # create_event_ticket_class persists the new class id with
+    # event.save(update_fields=[...]) on THIS instance, and that nested save
+    # re-runs remember_previous_event_start — which re-reads the row the outer
+    # save has already written and overwrites the "before" snapshot with the
+    # new values. Every later receiver then compares new against new: reminder
+    # markers are not cleared on a reschedule, and no wallet refresh is
+    # scheduled at all. It bites precisely the first edit of a published event
+    # that has no class yet, which is exactly when a coach reschedules one.
+    #
+    # Preserving it across the call also keeps the nested receiver chain inert
+    # (it sees the clobbered snapshot, finds nothing changed, and no-ops), so
+    # the outer chain still schedules exactly ONE fan-out rather than two.
+    snapshot_fields = getattr(instance, "_previous_ticket_fields", None)
+    snapshot_start = getattr(instance, "_previous_date_time", None)
     try:
         from .wallet.google_event_ticket_api import create_event_ticket_class
 
@@ -517,6 +531,9 @@ def auto_create_event_ticket_class_on_publish(sender, instance, created, **kwarg
             )
     except Exception as e:
         logger.error(f"Error creating EventTicketClass for event {instance.id}: {e}")
+    finally:
+        instance._previous_ticket_fields = snapshot_fields
+        instance._previous_date_time = snapshot_start
 
 
 # Every MeetupEvent field the Apple Wallet ticket payload embeds. A change to
@@ -547,6 +564,32 @@ _TICKET_PAYLOAD_FIELDS = _TICKET_PAYLOAD_BASE_FIELDS + tuple(
     for field in _TICKET_TRANSLATED_FIELDS
     for code, _label in settings.LANGUAGES
 )
+
+# The subset of the above that can actually change the GOOGLE member object.
+# _build_generic_object_payload renders only the next event's title and date,
+# so a venue move, address fix, coordinate correction, event-type change or
+# duration edit rewrites the Apple ticket while leaving the Google object
+# byte-identical — and paying an OAuth exchange plus up to
+# WALLET_GOOGLE_BULK_UPDATE_LIMIT synchronous PATCHes to write an unchanged
+# object is exactly the budget spend the cap exists to protect.
+#
+# `is_cancelled` belongs here: get_next_event_for_pass drops a cancelled event,
+# so the block flips to "Browse events on crush.lu". The translated title
+# columns belong here for the reason given above — the card renders whichever
+# language its holder reads. Keep in sync with
+# google_api._build_generic_object_payload.
+_GOOGLE_PAYLOAD_FIELDS = frozenset(
+    ("date_time", "is_cancelled")
+    + tuple(
+        f"title_{code.replace('-', '_')}" for code, _label in settings.LANGUAGES
+    )
+)
+
+# Registration statuses under which an event can appear on a MEMBER card.
+# Keep in sync with wallet_pass.get_next_event_for_pass, which is what actually
+# decides whether the card renders this event — anything outside this set is a
+# holder the event-change fan-outs must not spend their budget on.
+_NEXT_EVENT_STATUSES = (*SEAT_HOLDING_STATUSES, "waitlist")
 
 
 @receiver(pre_save, sender=MeetupEvent)
@@ -609,7 +652,7 @@ def reset_reminders_on_reschedule(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=MeetupEvent)
 def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
-    """Push installed Apple tickets when the EVENT itself changes.
+    """Refresh installed wallet passes when the EVENT itself changes.
 
     The pass embeds the event's date, time, location and address, so a
     reschedule or relocation leaves every installed ticket showing details that
@@ -626,6 +669,19 @@ def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
     the start time: retitling, moving venue, correcting the address or
     coordinates, or changing the duration all rewrite the pass just as surely
     as a reschedule does.
+
+    Named for Apple because that is all it used to cover, but it now drives
+    three fan-outs, each bounded and each isolated from the others' failures:
+    Apple event tickets, Apple member passes, and Google member objects (which
+    print the same "Next Event" block).
+
+    The Google half was never handled here because it appeared to fix itself:
+    any bare profile.save() — the Microsoft SSO login path does one on every
+    sign-in — reaches trigger_wallet_pass_update_on_profile_change, which treats
+    an update_fields-less save as "refresh everything". That is an accident of
+    an over-broad receiver, not a mechanism, it only ever healed members who
+    happened to log in, and narrowing that receiver to real field changes
+    removes it entirely. The refresh belongs on the event change either way.
     """
     if created:
         return
@@ -642,6 +698,22 @@ def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
     if not changed:
         return
 
+    # Members whose card can actually show this event. get_next_event_for_pass
+    # only ever considers seat-holding or waitlisted registrations, so a
+    # cancelled or no-show attendee's card does not display this event and
+    # rebuilding it achieves nothing. That is not merely wasted work: both
+    # fan-outs below are capped, and on the Google side the cap is a hard loss
+    # (no poll heals what it skips), so an ineligible profile taking a slot
+    # leaves someone whose card IS wrong stale for good.
+    #
+    # Lazy, so it costs nothing until each branch narrows and evaluates it, and
+    # defined outside both try blocks so a failure in one cannot NameError the
+    # other.
+    attendee_profiles = CrushProfile.objects.filter(
+        user__eventregistration__event=instance,
+        user__eventregistration__status__in=_NEXT_EVENT_STATUSES,
+    )
+
     try:
         from .wallet.passkit_service import (
             refresh_event_tickets,
@@ -655,10 +727,7 @@ def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
         # they carry a different serial, so refreshing only the ticket serials
         # leaves every attendee's member pass showing the old details.
         member_serials = list(
-            CrushProfile.objects.filter(
-                user__eventregistration__event=instance
-            )
-            .exclude(apple_pass_serial="")
+            attendee_profiles.exclude(apple_pass_serial="")
             .values_list("apple_pass_serial", flat=True)
             .distinct()
         )
@@ -678,6 +747,44 @@ def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
     except Exception as e:
         logger.error(
             f"Error refreshing Apple event tickets for event {instance.pk}: {e}"
+        )
+
+    # Google member objects print the same "Next Event" block, and there is no
+    # Google ticket to carry the change instead — the member object is the only
+    # Google surface this event appears on.
+    #
+    # Gated on its OWN field subset, not the Apple one: the Google object
+    # renders far less of the event, so most edits that rewrite a ticket leave
+    # it identical, and this fan-out is far more expensive per pass than
+    # advancing an Apple update tag.
+    #
+    # Its own try/except, not the Apple block's: these are independent
+    # fan-outs over independent APIs, and a Google outage must not skip the
+    # Apple refresh (nor be reported as an Apple failure).
+    google_changed = [field for field in changed if field in _GOOGLE_PAYLOAD_FIELDS]
+    if not google_changed:
+        return
+
+    try:
+        from .wallet.google_api import refresh_google_wallet_objects
+
+        google_profiles = list(
+            attendee_profiles.exclude(google_wallet_object_id="").distinct()
+        )
+        scheduled = refresh_google_wallet_objects(
+            google_profiles, context=f"Event {instance.pk} Google member passes"
+        )
+        if scheduled:
+            logger.info(
+                "Scheduled Google refresh for %s member object(s) on event %s "
+                "(changed: %s)",
+                scheduled,
+                instance.pk,
+                ", ".join(google_changed),
+            )
+    except Exception as e:
+        logger.error(
+            f"Error refreshing Google Wallet objects for event {instance.pk}: {e}"
         )
 
 

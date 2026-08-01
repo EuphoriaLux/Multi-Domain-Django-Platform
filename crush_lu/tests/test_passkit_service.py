@@ -940,6 +940,35 @@ class TestEventLevelTicketRefresh:
         pushed = {call.args[1] for call in refresh.call_args_list}
         assert pushed == {"evt-1-reg-1-abcd", "member-serial"}
 
+    def test_cancelled_attendees_member_pass_is_not_pushed(
+        self, _apple_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # Same reasoning as the Google half: get_next_event_for_pass ignores a
+        # cancelled registration, so this card is not showing this event and
+        # pushing it only spends the capped push budget on a no-op rebuild.
+        # The TICKET still refreshes — that one has to go `voided`.
+        from crush_lu.models import EventRegistration
+
+        event, registration = self._ticketed(event_with_registrations)
+        profile = registration.user.crushprofile
+        profile.apple_pass_serial = "member-serial"
+        profile.save(update_fields=["apple_pass_serial"])
+        # .update() so the per-registration receiver does not fire during setup.
+        EventRegistration.objects.filter(pk=registration.pk).update(
+            status="cancelled"
+        )
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ) as refresh:
+            with django_capture_on_commit_callbacks(execute=True):
+                event.location = "A different bar"
+                event.save()
+
+        pushed = {call.args[1] for call in refresh.call_args_list}
+        assert pushed == {"evt-1-reg-1-abcd"}
+
     def test_no_payload_change_does_not_push(
         self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
     ):
@@ -1083,6 +1112,723 @@ class TestEventLevelTicketRefresh:
                 )
             )
         return out[:count]
+
+
+@pytest.fixture
+def _google_identity(settings):
+    """The settings a Google member-object refresh reads (no service-account key).
+
+    Both bounds are pinned rather than inherited so a change to the production
+    defaults cannot quietly turn a capped test into an uncapped one.
+    """
+    settings.WALLET_GOOGLE_CLASS_ID = "3388000000022222222.crush_member"
+    settings.WALLET_GOOGLE_BULK_UPDATE_LIMIT = 50
+    settings.WALLET_GOOGLE_BULK_UPDATE_BUDGET_SECONDS = 10.0
+
+
+class TestTimeoutKwargs:
+    """httpx reads an explicit timeout=None as 'no timeout at all', so an unset
+    override has to be omitted rather than forwarded."""
+
+    def test_unset_timeout_is_omitted(self):
+        from crush_lu.wallet.google_api import _timeout_kwargs
+
+        assert _timeout_kwargs(None) == {}
+
+    def test_explicit_timeout_is_forwarded(self):
+        import httpx
+
+        from crush_lu.wallet.google_api import _timeout_kwargs
+
+        assert _timeout_kwargs(2.5) == {"timeout": httpx.Timeout(2.5)}
+
+
+@pytest.mark.django_db
+class TestEventLevelGoogleRefresh:
+    """The GOOGLE member object prints the same "Next Event" block as the Apple
+    member pass, and nothing refreshed it when the event changed.
+
+    It differs from the Apple path in the one way that matters here: a Google
+    object is server-side state that only ever changes when we PATCH it. There
+    is no equivalent of Wallet's periodic poll, so anything the budget skips
+    stays wrong rather than merely arriving late.
+    """
+
+    def _retitle(self, event):
+        """Make an edit the Google member object actually renders, and save.
+
+        The card prints only the next event's title and date, so a venue or
+        address edit deliberately does NOT reach Google (see
+        _GOOGLE_PAYLOAD_FIELDS) — these tests need one that does.
+        """
+        event.title_en = f"{event.title_en or event.title} (renamed)"
+        event.save()
+
+    def _google_holder(self, event_with_registrations, object_id="google-obj-1"):
+        event, registrations = event_with_registrations
+        profile = registrations[0].user.crushprofile
+        profile.google_wallet_object_id = object_id
+        # update_fields deliberately names only a field outside
+        # WALLET_UPDATE_PROFILE_FIELDS, so this setup save does not itself fire
+        # a wallet refresh and pollute the call counts below.
+        profile.save(update_fields=["google_wallet_object_id"])
+        return event, profile
+
+    def _extra_google_holders(self, event, count):
+        """`count` further attendees, each with a profile and an installed pass."""
+        from datetime import date
+
+        from django.contrib.auth import get_user_model
+
+        from crush_lu.models import CrushProfile, EventRegistration
+
+        User = get_user_model()
+        profiles = []
+        for i in range(count):
+            user = User.objects.create_user(
+                username=f"gbulk{i}@example.com",
+                email=f"gbulk{i}@example.com",
+                password="x",
+            )
+            # Registration first, profile second: the registration receiver
+            # bails on a profile-less user, so setup stays free of wallet calls.
+            EventRegistration.objects.create(
+                event=event, user=user, status="confirmed"
+            )
+            profile = CrushProfile.objects.create(
+                user=user,
+                date_of_birth=date(1995, 5, 15),
+                gender="M",
+                location="Luxembourg City",
+                is_approved=True,
+                verification_status="verified",
+                is_active=True,
+            )
+            profile.google_wallet_object_id = f"google-obj-extra-{i}"
+            profile.save(update_fields=["google_wallet_object_id"])
+            profiles.append(profile)
+        return profiles
+
+    def test_event_change_patches_the_member_object(
+        self, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        event, profile = self._google_holder(event_with_registrations)
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ) as token, mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                self._retitle(event)
+
+        assert patch_object.call_count == 1
+        assert patch_object.call_args.args[0].pk == profile.pk
+        assert patch_object.call_args.args[2] == "tok"
+        assert token.call_count == 1
+
+    def test_one_token_exchange_serves_the_whole_batch(
+        self, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # The per-profile entry point mints a token per call, so a fan-out cost
+        # two round trips per attendee. Sharing one exchange halves that.
+        event, _profile = self._google_holder(event_with_registrations)
+        self._extra_google_holders(event, 2)
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ) as token, mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                self._retitle(event)
+
+        assert patch_object.call_count == 3
+        assert token.call_count == 1
+
+    def test_attendee_without_a_google_pass_costs_nothing(
+        self, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # Not merely "no PATCH": with nothing to update there must be no token
+        # exchange either, so an event edit stays free for Apple-only crowds.
+        event, _registrations = event_with_registrations
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ) as token, mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object"
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                self._retitle(event)
+
+        assert token.call_count == 0
+        assert patch_object.call_count == 0
+
+    @pytest.mark.parametrize(
+        "field,value",
+        [
+            ("location", "A different bar"),
+            ("address", "1 New Street"),
+            ("latitude", 49.61),
+            ("duration_minutes", 999),
+        ],
+    )
+    def test_apple_only_field_changes_do_not_patch_google(
+        self, field, value, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # The Google object renders only the next event's title and date, so
+        # these rewrite the Apple ticket while leaving it byte-identical. An
+        # OAuth exchange plus up to 50 PATCHes to write an unchanged object is
+        # the exact budget spend the cap exists to protect.
+        event, _profile = self._google_holder(event_with_registrations)
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ) as token, mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object"
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                setattr(event, field, value)
+                event.save()
+
+        token.assert_not_called()
+        patch_object.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "field,value",
+        [
+            ("date_time", None),  # replaced below — needs a real datetime
+            ("is_cancelled", True),
+            ("title_fr", "Soirée renommée"),
+        ],
+    )
+    def test_google_rendered_field_changes_do_patch(
+        self, field, value, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # The other half of the gate: what the card actually prints must still
+        # reach Google. is_cancelled counts because get_next_event_for_pass
+        # drops a cancelled event, flipping the block to "Browse events".
+        from datetime import timedelta
+
+        from django.utils import timezone as dj_timezone
+
+        event, _profile = self._google_holder(event_with_registrations)
+        if field == "date_time":
+            value = dj_timezone.now() + timedelta(days=21)
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                setattr(event, field, value)
+                event.save()
+
+        assert patch_object.call_count == 1
+
+    def test_no_payload_change_does_not_patch(
+        self, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        event, _profile = self._google_holder(event_with_registrations)
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object"
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                # Not embedded in the pass payload.
+                event.is_published = not event.is_published
+                event.save()
+
+        patch_object.assert_not_called()
+
+    def test_nothing_runs_before_the_event_change_commits(
+        self, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # Same reason as the Apple path: a PATCH sent before commit would
+        # publish details that a rollback then un-does.
+        event, _profile = self._google_holder(event_with_registrations)
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=False) as callbacks:
+                self._retitle(event)
+
+            assert patch_object.call_count == 0
+            for callback in callbacks:
+                callback()
+            assert patch_object.call_count == 1
+
+    def test_fanout_is_capped_and_the_stale_passes_are_named(
+        self, _google_identity, settings, event_with_registrations,
+        django_capture_on_commit_callbacks, caplog,
+    ):
+        import logging
+
+        event, profile = self._google_holder(event_with_registrations)
+        extra = self._extra_google_holders(event, 2)
+        all_ids = {profile.google_wallet_object_id} | {
+            p.google_wallet_object_id for p in extra
+        }
+
+        settings.WALLET_GOOGLE_BULK_UPDATE_LIMIT = 2
+
+        with caplog.at_level(logging.WARNING, logger="crush_lu.wallet.google_api"):
+            with mock.patch(
+                "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+            ), mock.patch(
+                "crush_lu.wallet.google_api._patch_generic_object",
+                return_value={"success": True, "message": "Pass updated successfully"},
+            ) as patch_object:
+                with django_capture_on_commit_callbacks(execute=True):
+                    self._retitle(event)
+                    event.save()
+
+        assert patch_object.call_count == 2
+        patched = {
+            call.args[0].google_wallet_object_id
+            for call in patch_object.call_args_list
+        }
+        stale = all_ids - patched
+        assert len(stale) == 1
+        # Google has no poll to heal the skipped one, so the cap must never be
+        # silent — the warning has to name what was left wrong.
+        assert "STALE" in caplog.text
+        assert stale.pop() in caplog.text
+
+    def test_budget_stops_the_batch_mid_way(
+        self, _google_identity, settings, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # The count limit is not a bound on the work — each pass is an HTTPS
+        # PATCH, and this whole loop runs inline in the admin request. Only the
+        # wall clock actually stops a slow Google API.
+        import time as time_module
+
+        event, _profile = self._google_holder(event_with_registrations)
+        self._extra_google_holders(event, 2)
+
+        settings.WALLET_GOOGLE_BULK_UPDATE_BUDGET_SECONDS = 0.1
+
+        def _slow_patch(*args, **kwargs):
+            time_module.sleep(0.15)
+            return {"success": True, "message": "Pass updated successfully"}
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            side_effect=_slow_patch,
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                self._retitle(event)
+
+        # One overran the budget, so the remaining two are never started —
+        # under the limit of 50, purely on time.
+        assert patch_object.call_count == 1
+
+    def test_each_request_is_clamped_to_the_remaining_budget(
+        self, _google_identity, settings, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # A 30s per-phase default is no kind of bound inside a 2s batch.
+        event, _profile = self._google_holder(event_with_registrations)
+
+        settings.WALLET_GOOGLE_BULK_UPDATE_BUDGET_SECONDS = 2.0
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ) as token, mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                self._retitle(event)
+
+        assert 0 < patch_object.call_args.kwargs["timeout"] <= 2.0
+        # The token exchange is inside the same budget — a stalled OAuth
+        # endpoint would otherwise burn 30s before a single pass was touched.
+        assert 0 < token.call_args.kwargs["timeout"] <= 2.0
+
+    def test_every_timeout_phase_is_lowered_not_just_the_default(self):
+        # httpx applies a timeout PER PHASE, and a bare float only reads as
+        # "all four" through its own coercion. Build the Timeout explicitly so
+        # a connect/read/write/pool phase cannot silently keep the 30s default.
+        import httpx
+
+        from crush_lu.wallet.google_api import _timeout_kwargs
+
+        timeout = _timeout_kwargs(1.5)["timeout"]
+        assert isinstance(timeout, httpx.Timeout)
+        assert (timeout.connect, timeout.read, timeout.write, timeout.pool) == (
+            1.5,
+            1.5,
+            1.5,
+            1.5,
+        )
+
+    def test_payload_is_built_in_the_holders_language(
+        self, _google_identity, event_with_registrations
+    ):
+        # The next-event title is modeltranslated and the admin is forced to
+        # English, so without an override a coach editing an event rewrites a
+        # French holder's card in English. Asserted on _patch_generic_object
+        # directly, so it covers the single-profile path too.
+        from django.utils import translation
+
+        from crush_lu.wallet import google_api
+
+        _event, profile = self._google_holder(event_with_registrations)
+        profile.preferred_language = "fr"
+        # Not a WALLET_UPDATE_PROFILE_FIELDS member, so this save fires nothing.
+        profile.save(update_fields=["preferred_language"])
+
+        seen = {}
+
+        def _capture(_profile, object_id, _class_id):
+            seen["language"] = translation.get_language()
+            return {"id": object_id}
+
+        class _Response:
+            status_code = 200
+
+        class _Client:
+            def patch(self, *_args, **_kwargs):
+                return _Response()
+
+        with translation.override("en"):
+            with mock.patch.object(
+                google_api, "_build_generic_object_payload", side_effect=_capture
+            ):
+                result = google_api._patch_generic_object(
+                    profile, "class-id", "tok", _Client()
+                )
+
+        assert result["success"] is True
+        # Built as "fr" despite the caller running under "en".
+        assert seen["language"] == "fr"
+
+    def test_holder_without_a_language_does_not_inherit_the_callers(
+        self, _google_identity, event_with_registrations
+    ):
+        # override(None) deactivates translations rather than keeping the
+        # ambient language, so a holder with no stated preference gets the
+        # project default deterministically instead of whichever language the
+        # staff member editing the event happened to be browsing in. Same
+        # semantics as the Apple member-pass rebuild.
+        from django.utils import translation
+
+        from crush_lu.wallet import google_api
+
+        _event, profile = self._google_holder(event_with_registrations)
+        profile.preferred_language = ""
+        profile.save(update_fields=["preferred_language"])
+
+        seen = {}
+
+        def _capture(_profile, object_id, _class_id):
+            seen["language"] = translation.get_language()
+            return {"id": object_id}
+
+        class _Response:
+            status_code = 200
+
+        class _Client:
+            def patch(self, *_args, **_kwargs):
+                return _Response()
+
+        with translation.override("de"):
+            with mock.patch.object(
+                google_api, "_build_generic_object_payload", side_effect=_capture
+            ):
+                google_api._patch_generic_object(
+                    profile, "class-id", "tok", _Client()
+                )
+
+        assert seen["language"] is None
+
+    def test_a_cancelled_attendee_does_not_consume_the_budget(
+        self, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # get_next_event_for_pass ignores cancelled registrations, so this
+        # holder's card cannot be showing this event at all. Refreshing it is
+        # not merely wasted work: the cap is a hard loss on the Google side, so
+        # a slot spent here leaves someone whose card IS wrong stale for good.
+        from crush_lu.models import EventRegistration
+
+        event, profile = self._google_holder(event_with_registrations)
+        cancelled = self._extra_google_holders(event, 1)[0]
+        # .update() so the per-registration receiver does not fire during setup.
+        EventRegistration.objects.filter(user=cancelled.user, event=event).update(
+            status="cancelled"
+        )
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                self._retitle(event)
+
+        patched = {
+            call.args[0].google_wallet_object_id
+            for call in patch_object.call_args_list
+        }
+        assert patched == {profile.google_wallet_object_id}
+
+    def test_one_failing_object_does_not_strand_the_rest(
+        self, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        event, _profile = self._google_holder(event_with_registrations)
+        self._extra_google_holders(event, 2)
+
+        ok = {"success": True, "message": "Pass updated successfully"}
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            side_effect=[RuntimeError("boom"), ok, ok],
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                self._retitle(event)
+
+        assert patch_object.call_count == 3
+
+    def test_token_failure_is_swallowed_and_reported(
+        self, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks, caplog,
+    ):
+        import logging
+
+        # Nothing can be PATCHed without a token, so this takes the batch with
+        # it — but it runs from on_commit inside a request whose write already
+        # succeeded, so it must never propagate.
+        event, profile = self._google_holder(event_with_registrations)
+
+        with caplog.at_level(logging.WARNING, logger="crush_lu.wallet.google_api"):
+            with mock.patch(
+                "crush_lu.wallet.google_api._get_access_token",
+                side_effect=RuntimeError("oauth down"),
+            ), mock.patch(
+                "crush_lu.wallet.google_api._patch_generic_object"
+            ) as patch_object:
+                with django_capture_on_commit_callbacks(execute=True):
+                    self._retitle(event)
+                    event.save()
+
+        patch_object.assert_not_called()
+        assert "STALE" in caplog.text
+        assert profile.google_wallet_object_id in caplog.text
+
+    def test_missing_class_id_schedules_nothing(
+        self, _google_identity, settings, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        event, _profile = self._google_holder(event_with_registrations)
+        settings.WALLET_GOOGLE_CLASS_ID = ""
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ) as token, mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object"
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                self._retitle(event)
+
+        assert token.call_count == 0
+        assert patch_object.call_count == 0
+
+    def test_google_still_runs_when_the_apple_half_fails(
+        self, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # Two independent APIs: an Apple outage must not skip the Google
+        # refresh, which is why they no longer share one try block.
+        event, _profile = self._google_holder(event_with_registrations)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_event_tickets",
+            side_effect=RuntimeError("apns down"),
+        ), mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                self._retitle(event)
+
+        assert patch_object.call_count == 1
+
+    def test_returns_the_number_scheduled_and_ignores_passless_profiles(
+        self, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        from crush_lu.wallet.google_api import refresh_google_wallet_objects
+
+        event, profile = self._google_holder(event_with_registrations)
+        other = self._extra_google_holders(event, 1)[0]
+        other.google_wallet_object_id = ""
+        other.save(update_fields=["google_wallet_object_id"])
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                assert refresh_google_wallet_objects([profile, other]) == 1
+
+        assert patch_object.call_count == 1
+
+    def test_nested_class_creation_does_not_swallow_the_refresh(
+        self, _google_identity, settings, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # auto_create_event_ticket_class_on_publish runs FIRST and persists the
+        # new class id with a nested event.save() on the same instance. That
+        # save re-runs remember_previous_event_start, which re-reads the row
+        # this save has already written — so without preserving the snapshot,
+        # every later receiver compares new against new, finds nothing changed,
+        # and silently skips the whole fan-out. It bites the first edit of a
+        # published event with no class yet: exactly a coach rescheduling one.
+        from datetime import timedelta
+
+        from django.utils import timezone as dj_timezone
+
+        event, _profile = self._google_holder(event_with_registrations)
+
+        def _fake_create_class(target):
+            # The real create_event_ticket_class does exactly this after its
+            # HTTP call; the nested save is the whole point of the test.
+            target.google_wallet_event_class_id = "class-1"
+            target.save(update_fields=["google_wallet_event_class_id"])
+            return {"success": True, "message": "Class created", "class_id": "class-1"}
+
+        # Set only now: with the issuer unset, the setup saves above returned
+        # early and never reached the class-creation branch.
+        settings.WALLET_GOOGLE_ISSUER_ID = "3388000000022222222"
+        settings.WALLET_GOOGLE_EVENT_TICKET_ENABLED = True
+        assert not event.google_wallet_event_class_id and event.is_published
+
+        with mock.patch(
+            "crush_lu.wallet.google_event_ticket_api.create_event_ticket_class",
+            side_effect=_fake_create_class,
+        ), mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                event.date_time = dj_timezone.now() + timedelta(days=21)
+                event.save()
+
+        event.refresh_from_db()
+        # The nested save really happened...
+        assert event.google_wallet_event_class_id == "class-1"
+        # ...and the refresh survived it — exactly once, not twice: the nested
+        # receiver chain sees the clobbered snapshot and no-ops, so only the
+        # outer one schedules a fan-out.
+        assert patch_object.call_count == 1
+
+    def test_payload_comes_from_committed_state_not_the_captured_instance(
+        self, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # This call ships the payload itself, so PATCHing from the instance
+        # captured at schedule time would put Google back on a stale tier or
+        # point total that another transaction has since moved. Same rule the
+        # per-profile path follows in _trigger_google_wallet_object_update.
+        from crush_lu.models import CrushProfile
+        from crush_lu.wallet.google_api import refresh_google_wallet_objects
+
+        _event, profile = self._google_holder(event_with_registrations)
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                refresh_google_wallet_objects([profile])
+                # Committed after the batch was scheduled, exactly the window
+                # the re-read exists to cover.
+                CrushProfile.objects.filter(pk=profile.pk).update(
+                    membership_tier="gold"
+                )
+
+        assert patch_object.call_args.args[0].membership_tier == "gold"
+
+    def test_a_profile_that_vanishes_before_commit_is_skipped(
+        self, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # Unlinked (or deleted) between scheduling and running: there is
+        # nothing left to PATCH, and the captured object id would target a
+        # pass the holder no longer has.
+        from crush_lu.models import CrushProfile
+        from crush_lu.wallet.google_api import refresh_google_wallet_objects
+
+        _event, profile = self._google_holder(event_with_registrations)
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ) as token, mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object"
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                # Still reports 1 scheduled — the row was there at the time.
+                assert refresh_google_wallet_objects([profile]) == 1
+                CrushProfile.objects.filter(pk=profile.pk).update(
+                    google_wallet_object_id=""
+                )
+
+        patch_object.assert_not_called()
+        # Not even a token: the batch finds nothing to do and stops first.
+        token.assert_not_called()
+
+    def test_single_profile_path_still_mints_its_own_token(
+        self, _google_identity, event_with_registrations
+    ):
+        # The batch borrows a token and a client; the per-profile entry point
+        # still owns both, so extracting the PATCH must not have changed it.
+        from crush_lu.wallet.google_api import update_google_wallet_pass
+
+        _event, profile = self._google_holder(event_with_registrations)
+        result = {"success": True, "message": "Pass updated successfully"}
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ) as token, mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object", return_value=result
+        ) as patch_object:
+            assert update_google_wallet_pass(profile) == result
+
+        assert token.call_count == 1
+        assert patch_object.call_args.args[2] == "tok"
 
 
 @pytest.mark.django_db
