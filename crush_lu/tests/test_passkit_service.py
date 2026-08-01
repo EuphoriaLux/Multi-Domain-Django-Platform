@@ -1438,7 +1438,7 @@ class TestEventLevelGoogleRefresh:
         token.assert_not_called()
         patch_object.assert_not_called()
 
-    def test_a_past_event_staying_past_does_not_patch(
+    def test_a_past_event_staying_past_still_patches(
         self, _google_identity, event_with_registrations,
         django_capture_on_commit_callbacks,
     ):
@@ -1446,23 +1446,33 @@ class TestEventLevelGoogleRefresh:
 
         from django.utils import timezone
 
-        # Both ends of the edit are behind `now`, so the event was already off
-        # the card and stays off it.
-        event, _profile = self._google_holder(event_with_registrations)
+        from crush_lu.wallet_pass import get_next_event_for_pass
+
+        # The asymmetry the gate has to respect. Both ends of this edit are
+        # behind `now`, which LOOKS as skippable as the future-to-future case
+        # above — and is not. The card stopped selecting the event when it
+        # finished, but the stored Google object was last written while it was
+        # still upcoming, so it can still be advertising it, and nothing else
+        # recomputes that. This edit is the only thing that would heal it.
+        event, profile = self._google_holder(event_with_registrations)
         event.date_time = timezone.now() - timedelta(hours=5)
         event.duration_minutes = 30
         event.save()
+        # Precisely the condition that makes "it is not on the card" a
+        # misleading reason to skip.
+        assert get_next_event_for_pass(profile) is None
 
         with mock.patch(
             "crush_lu.wallet.google_api._get_access_token", return_value="tok"
         ), mock.patch(
-            "crush_lu.wallet.google_api._patch_generic_object"
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
         ) as patch_object:
             with django_capture_on_commit_callbacks(execute=True):
                 event.duration_minutes = 60  # still ended four hours ago
                 event.save()
 
-        patch_object.assert_not_called()
+        assert patch_object.call_count == 1
 
     def test_the_apple_ticket_still_refreshes_on_any_duration_edit(
         self, _apple_identity, _google_identity, event_with_registrations,
@@ -4090,6 +4100,86 @@ class TestAdminBulkActionsRefreshWallets:
                 self._admin(MeetupEvent).cancel_events(
                     RequestFactory().post("/"),
                     MeetupEvent.objects.filter(pk=event.pk),
+                )
+
+        assert refresh_google.call_count == 1
+        assert [p.pk for p in refresh_google.call_args.args[0]] == [profile.pk]
+
+    def test_ended_event_fallback_does_not_disarm_the_rest_of_the_selection(
+        self, _apple_identity, _google_identity, event_with_registrations
+    ):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from crush_lu.models import EventRegistration, MeetupEvent
+
+        # The conservative ended-event branch is scoped to that event's OWN
+        # attendees. A single ended event in the selection — here one with no
+        # registrations at all — must not switch off the displayed-event filter
+        # for holders of the other selected events, or their no-op PATCHes eat
+        # the cap and strand somebody whose card really did change.
+        event, registrations = event_with_registrations
+        registration = registrations[0]
+        earlier = self._second_event(3, title="The one actually displayed")
+        EventRegistration.objects.create(
+            event=earlier, user=registration.user, status="confirmed"
+        )
+        self._google_member(registration, "google-obj-unrelated")
+
+        # Ended, and nobody is registered for it.
+        stale_event = self._second_event(1, title="Finished, no attendees")
+        stale_event.date_time = timezone.now() - timedelta(hours=4)
+        stale_event.duration_minutes = 60
+        stale_event.save()
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ), mock.patch(
+            "crush_lu.wallet.google_api.refresh_google_wallet_objects"
+        ) as refresh_google:
+            with mock.patch("crush_lu.admin.events.django_messages"):
+                self._admin(MeetupEvent).cancel_events(
+                    RequestFactory().post("/"),
+                    MeetupEvent.objects.filter(pk__in=[event.pk, stale_event.pk]),
+                )
+
+        # This holder's card shows `earlier`, which is not in the selection.
+        refresh_google.assert_not_called()
+
+    def test_ended_event_fallback_still_covers_its_own_attendees(
+        self, _apple_identity, _google_identity, event_with_registrations
+    ):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from crush_lu.models import EventRegistration, MeetupEvent
+
+        # The mirror: scoping the fallback must not lose the holders it exists
+        # for. This one holds a seat on the ENDED selected event, so the
+        # displayed-event test is blind to them and they take the fallback —
+        # even though their card currently shows something else entirely.
+        event, registrations = event_with_registrations
+        registration = registrations[0]
+        ended = self._second_event(1, title="Finished, with attendees")
+        ended.date_time = timezone.now() - timedelta(hours=4)
+        ended.duration_minutes = 60
+        ended.save()
+        EventRegistration.objects.create(
+            event=ended, user=registration.user, status="confirmed"
+        )
+        profile = self._google_member(registration, "google-obj-endedattendee")
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ), mock.patch(
+            "crush_lu.wallet.google_api.refresh_google_wallet_objects"
+        ) as refresh_google:
+            with mock.patch("crush_lu.admin.events.django_messages"):
+                self._admin(MeetupEvent).cancel_events(
+                    RequestFactory().post("/"),
+                    MeetupEvent.objects.filter(pk=ended.pk),
                 )
 
         assert refresh_google.call_count == 1

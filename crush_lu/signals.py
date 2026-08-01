@@ -600,13 +600,29 @@ def _google_relevant_changes(previous, instance, changed, now=None):
 
     Mostly a membership test against _GOOGLE_PAYLOAD_FIELDS, with one field
     that cannot be decided statically. `duration_minutes` earns its place by
-    SELECTING rather than rendering, and selection only moves when the event
-    crosses the `end_time >= now` boundary: editing the length of a future
-    event, or of a past one that stays past, leaves get_next_event_for_pass
-    returning the very same event. Treating every duration edit as relevant
-    would fire up to WALLET_GOOGLE_BULK_UPDATE_LIMIT synchronous PATCHes from
-    the admin request to write byte-identical objects — the exact spend the
-    field subset exists to prevent.
+    SELECTING rather than rendering, so a length edit is only worth a fan-out
+    when it moves the event across the `end_time >= now` boundary. Treating
+    every duration edit as relevant would fire up to
+    WALLET_GOOGLE_BULK_UPDATE_LIMIT synchronous PATCHes from the admin request
+    to write byte-identical objects — the exact spend the field subset exists
+    to prevent.
+
+    Exactly ONE case is dropped, and the two same-side cases are NOT
+    symmetric — which is the trap:
+
+      * still-upcoming both before and after: the event is on the card in both
+        states with its title and date untouched, so the stored Google object
+        already matches what we would write. Genuinely nothing to send.
+      * ALREADY ENDED both before and after: skipping looks equally safe and is
+        not. get_next_event_for_pass stopped selecting the event when it
+        finished, but the Google object is server-side state whose last PATCH
+        went out while the event was still upcoming — so it can still be
+        advertising it, and nothing else in the estate recomputes that (there
+        is no "event ended" trigger; see the same reasoning in
+        admin.quiz.mark_unattended_as_no_show). The edit is then the only thing
+        that would heal the card, and dropping it forfeits that for good.
+
+    So the guard is "neither side is over", not "both sides agree".
 
     A `date_time` edit needs no such care: it is rendered, so it is relevant on
     its own, and it is already in the set.
@@ -624,7 +640,7 @@ def _google_relevant_changes(previous, instance, changed, now=None):
 
     was_over = _ended(previous["date_time"], previous["duration_minutes"])
     is_over = _ended(instance.date_time, instance.duration_minutes)
-    if was_over == is_over:
+    if not was_over and not is_over:
         relevant.remove("duration_minutes")
     return relevant
 

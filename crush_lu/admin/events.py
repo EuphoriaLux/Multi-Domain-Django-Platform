@@ -634,33 +634,45 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 .distinct()
             )
             # An event that has already ENDED is nobody's displayed event, so
-            # the test below cannot speak for it — yet the Google object is
-            # server-side state whose last PATCH went out while the event was
-            # still upcoming, so it may well still be advertising it, and
-            # nothing else recomputes that. Those holders take the
-            # conservative branch, the same way the quiz no-show action does.
+            # the "is this what their card shows" test cannot speak for it —
+            # yet the Google object is server-side state whose last PATCH went
+            # out while the event was still upcoming, so it may well still be
+            # advertising it, and nothing else recomputes that. Holders of an
+            # ended selected event therefore take the conservative branch, the
+            # same way the quiz no-show action does.
             #
-            # Coarse on purpose: one ended event in the selection includes
-            # every candidate, rather than tracking which holder holds which
-            # selected event. A selection mixing finished and future events is
-            # not a real admin workflow, and erring toward a redundant PATCH is
-            # the direction that only costs budget.
+            # Scoped to THEIR OWN attendees, not applied selection-wide. A
+            # single ended event — even one with no registrations at all —
+            # must not disable the filter for holders of the other selected
+            # events, or their no-op PATCHes eat the cap and strand a
+            # higher-pk holder whose displayed event really was cancelled:
+            # the exact failure this filter exists to prevent, re-entered
+            # through the fallback.
             now = timezone.now()
-            cancelled_ids = {event.pk for event in events}
-            any_ended = any(event.end_time < now for event in events)
+            ended_ids = {event.pk for event in events if event.end_time < now}
+            live_ids = {event.pk for event in events} - ended_ids
+
+            # user -> which of the SELECTED events they actually hold a live
+            # seat for. One query, so the per-holder branch below stays free.
+            held = {}
+            for user_id, event_id in EventRegistration.objects.filter(
+                event__in=events, status__in=PASS_NEXT_EVENT_STATUSES
+            ).values_list("user_id", "event_id"):
+                held.setdefault(user_id, set()).add(event_id)
+
             displayed = (
-                {}
-                if any_ended
-                else get_next_event_registrations(
+                get_next_event_registrations(
                     [profile.user_id for profile in candidates], now=now
                 )
+                if live_ids
+                else {}
             )
             google_profiles = [
                 profile
                 for profile in candidates
-                if any_ended
+                if (held.get(profile.user_id, set()) & ended_ids)
                 or getattr(displayed.get(profile.user_id), "event_id", None)
-                in cancelled_ids
+                in live_ids
             ]
         except Exception:
             logger.exception(
