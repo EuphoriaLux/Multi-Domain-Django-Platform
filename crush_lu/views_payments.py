@@ -45,22 +45,31 @@ def create_sumup_event_checkout(request, registration_id):
 
     # Always open a FRESH checkout; supersede any older one.
     #
-    # This deliberately replaced a reuse-and-reconcile design. Reuse required
-    # asking SumUp whether an old checkout was still payable, and that call --
-    # which can itself apply a payment -- had to be sequenced against a price
-    # that admins can edit, an event that can be cancelled, and a webhook
-    # holding the same two rows. Three successive attempts each traded one
-    # hazard for another (an ABBA deadlock, then a stale-price confirmation and
-    # a cancellation window). Creating a new checkout every time removes the
-    # question entirely: there is nothing to reconcile.
+    # Reuse-and-reconcile was removed because it required asking SumUp whether
+    # an old checkout was still payable, and that call can itself apply a
+    # payment -- sequencing it against an editable price, a cancellable event
+    # and a concurrent webhook produced a new defect three rounds running.
+    # Creating a new checkout every time removes the question: nothing to
+    # reconcile, no staleness, no provider call on this path.
     #
-    # What replaces reuse as double-charge protection is superseding: the
-    # previous checkout is deactivated at SumUp, so only the newest is payable.
-    # Without that, two tabs could each complete a checkout and the member would
-    # be charged twice. Deactivation is best-effort by design -- if SumUp is
-    # briefly unreachable, _apply_paid_checkout is still idempotent and the
-    # payment_confirmed guard above still refuses a second attempt.
+    # Superseding is what replaces reuse as double-charge protection: the old
+    # checkout is deactivated at SumUp so only the newest is payable.
+    #
+    # LOCK ORDER: PaymentTransaction rows FIRST, then EventRegistration -- the
+    # same order _apply_paid_checkout uses. Taking them the other way round is
+    # an ABBA deadlock against a webhook for one of those very rows, and
+    # PostgreSQL resolves it by aborting somebody. This has been got wrong more
+    # than once here; the order is the invariant, not the comment.
     with transaction.atomic():
+        superseded = list(
+            PaymentTransaction.objects.select_for_update()
+            .filter(
+                event_registration_id=registration.pk,
+                purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+                status=PaymentTransaction.Status.PENDING,
+            )
+            .exclude(sumup_checkout_id="")
+        )
         registration = EventRegistration.objects.select_for_update().get(
             pk=registration.pk
         )
@@ -91,21 +100,41 @@ def create_sumup_event_checkout(request, registration_id):
                 {"error": _("This event does not require payment.")}, status=400
             )
 
-        superseded = PaymentTransaction.objects.select_for_update().filter(
-            event_registration=registration,
-            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
-            status=PaymentTransaction.Status.PENDING,
-        ).exclude(sumup_checkout_id="")
         client = SumUpClient()
         for old in superseded:
-            client.deactivate_checkout(old.sumup_checkout_id)
-            old.status = PaymentTransaction.Status.FAILED
-            old.save(update_fields=["status"])
-            logger.info(
-                "Superseded SumUp checkout %s for registration %s",
-                old.sumup_checkout_id,
-                registration.id,
+            if client.deactivate_checkout(old.sumup_checkout_id):
+                old.status = PaymentTransaction.Status.FAILED
+                old.save(update_fields=["status"])
+                logger.info(
+                    "Superseded SumUp checkout %s for registration %s",
+                    old.sumup_checkout_id,
+                    registration.id,
+                )
+            else:
+                # Deactivation failed -- SumUp unreachable, or the checkout was
+                # just PAID and can no longer be cancelled. Leave the row
+                # PENDING: _sync_checkout_with_sumup returns immediately for any
+                # non-PENDING row, so marking it terminal here would make a
+                # captured payment permanently invisible to both the webhook and
+                # the browser return, leaving the member unpaid and chargeable
+                # again on the new checkout.
+                logger.warning(
+                    "Could not deactivate SumUp checkout %s for registration %s "
+                    "— left PENDING so reconciliation can still apply it",
+                    old.sumup_checkout_id,
+                    registration.id,
+                )
+
+        # Re-read immediately before exposing a payable widget. The deactivate
+        # calls above are network I/O, and an organiser can cancel the event
+        # while they are in flight -- returning a widget then means a captured
+        # charge with no seat and a manual refund.
+        event.refresh_from_db()
+        if event.is_cancelled:
+            return JsonResponse(
+                {"error": _("This event has been cancelled.")}, status=400
             )
+        amount = event.registration_fee
 
         checkout_ref = f"CRUSH-EVT-{registration.id}-{uuid.uuid4().hex[:6]}"
         description = f"Crush.lu Event: {registration.event.title[:50]}"
@@ -309,6 +338,25 @@ def _apply_paid_checkout(tx_obj, data):
                     reg.id,
                     reg.status,
                     reg.event.is_cancelled,
+                )
+                return
+
+            # The seat must have been paid for at its CURRENT price. A widget
+            # left open across an admin fee change captures the old amount, and
+            # the fresh-checkout refactor removed the pre-payment price check
+            # without leaving anything at completion -- so a stale-priced
+            # payment bought the seat outright. Judged here, where the amount
+            # actually captured is known.
+            if locked.amount != reg.event.registration_fee:
+                logger.error(
+                    "SumUp payment %s completed for registration %s at %s %s but "
+                    "the event fee is now %s EUR — payment recorded, seat NOT "
+                    "confirmed, refund or top-up required.",
+                    locked.transaction_reference,
+                    reg.id,
+                    locked.amount,
+                    locked.currency,
+                    reg.event.registration_fee,
                 )
                 return
 
