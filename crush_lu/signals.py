@@ -504,7 +504,10 @@ def promote_waitlist_on_capacity_increase(sender, instance, created, **kwargs):
 
     from django.db import transaction
     from .views_events import _promote_from_waitlist
-    from .email_helpers import send_event_registration_confirmation
+    from .email_helpers import (
+        send_event_payment_pending_notification,
+        send_event_registration_confirmation,
+    )
 
     with transaction.atomic():
         locked_event = MeetupEvent.objects.select_for_update().get(pk=instance.pk)
@@ -530,7 +533,12 @@ def promote_waitlist_on_capacity_increase(sender, instance, created, **kwargs):
     # Send confirmation emails outside the transaction
     for reg in promoted_registrations:
         try:
-            send_event_registration_confirmation(reg)
+            # Paid events admit as "pending" (Pending Payment), so the promoted
+            # seat needs the payment ask, not a confirmation it hasn't earned.
+            if reg.status == "pending":
+                send_event_payment_pending_notification(reg)
+            else:
+                send_event_registration_confirmation(reg)
         except Exception as e:
             logger.error(
                 "Failed to send waitlist promotion email for user %s, event %s: %s",
@@ -2471,7 +2479,10 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
     event_pk = event.pk
 
     def _promote_after_commit():
-        from .email_helpers import send_event_registration_confirmation
+        from .email_helpers import (
+            send_event_payment_pending_notification,
+            send_event_registration_confirmation,
+        )
         from .views_events import _promote_from_waitlist
 
         try:
@@ -2497,7 +2508,12 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
         if not promoted:
             return
         try:
-            send_event_registration_confirmation(promoted)
+            # Paid events admit as "pending" (Pending Payment), so the promoted
+            # seat needs the payment ask, not a confirmation it hasn't earned.
+            if promoted.status == "pending":
+                send_event_payment_pending_notification(promoted)
+            else:
+                send_event_registration_confirmation(promoted)
         except Exception as e:
             logger.error(
                 "Failed to send waitlist promotion email for user %s, event %s: %s",

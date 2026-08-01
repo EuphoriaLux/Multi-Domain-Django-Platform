@@ -15,6 +15,7 @@ from django.shortcuts import get_object_or_404, render
 
 from .decorators import crush_login_required
 from .models import EventRegistration, MeetupEvent
+from .models.events import SEAT_HOLDING_STATUSES
 
 logger = logging.getLogger(__name__)
 
@@ -42,14 +43,19 @@ def event_ticket(request, event_id):
     Display event ticket page with QR code for check-in.
 
     The QR code contains a signed check-in URL that coaches scan at the door.
-    Only accessible by the registration owner with confirmed/attended status.
+    Only accessible by the registration owner holding a seat.
+
+    "pending" (Pending Payment) is included deliberately: payment is still taken
+    out of band for most attendees (bank transfer, cash at the door), so gating
+    the ticket on SumUp would turn away everyone who paid another way. The door
+    admits the seat; settling the money is a separate concern.
     """
     event = get_object_or_404(MeetupEvent, id=event_id)
 
     registration = EventRegistration.objects.filter(
         event=event,
         user=request.user,
-        status__in=["confirmed", "attended"],
+        status__in=SEAT_HOLDING_STATUSES,
     ).first()
 
     if not registration:

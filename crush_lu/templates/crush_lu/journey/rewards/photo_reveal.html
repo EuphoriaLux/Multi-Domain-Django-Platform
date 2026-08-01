@@ -179,10 +179,11 @@ document.addEventListener('DOMContentLoaded', function() {
         piece.classList.add('loading');
         piece.style.pointerEvents = 'none';
 
-        // Get CSRF token from cookie or meta tag
-        var csrfToken = getCookie('csrftoken') ||
-                       (document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : null) ||
-                       (document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : null);
+        // Read the hidden input base.html renders. The two fallbacks this used
+        // to try first were both dead: CSRF_COOKIE_HTTPONLY hides the cookie
+        // from JS, and no template emits a <meta name="csrf-token">.
+        var csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+        var csrfToken = csrfInput ? csrfInput.value : null;
 
         if (!csrfToken) {
             console.error('CSRF token not found');
@@ -288,20 +289,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 3000);
     }
 
-    function getCookie(name) {
-        var cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            var cookies = document.cookie.split(';');
-            for (var i = 0; i < cookies.length; i++) {
-                var cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
-    }
 
 });
 </script>

@@ -22,10 +22,23 @@ from .models.event_polls import EventPoll
 from .forms import EventRegistrationForm, EventFeedbackForm
 from .decorators import crush_login_required, ratelimit
 from .email_helpers import (
+    send_event_payment_pending_notification,
     send_event_registration_confirmation,
     send_event_waitlist_notification,
     send_event_cancellation_confirmation,
 )
+
+
+def _admitted_status(event):
+    """The status an admitted registration takes on this event.
+
+    A paid event holds the seat as "pending" (Pending Payment) until the SumUp
+    return handler confirms it; a free event confirms straight away. Used by
+    both the signup path and waitlist promotion so the two cannot disagree --
+    promoting someone off the waitlist must not hand them a confirmed seat on a
+    paid event they have not paid for.
+    """
+    return "pending" if event.registration_fee > 0 else "confirmed"
 
 
 def _promote_from_waitlist(event, cancelled_user=None):
@@ -80,7 +93,7 @@ def _promote_from_waitlist(event, cancelled_user=None):
     if not event.gender_limits_active:
         for candidate in waitlisted_list:
             if not event.is_full_for(is_premium=_is_premium(candidate)):
-                candidate.status = "confirmed"
+                candidate.status = _admitted_status(event)
                 candidate.save()
                 return candidate
         return None
@@ -103,7 +116,7 @@ def _promote_from_waitlist(event, cancelled_user=None):
                     if not event.is_full_for(
                         is_premium=_is_premium(candidate)
                     ) and not event.is_gender_pool_full(cand_gender):
-                        candidate.status = "confirmed"
+                        candidate.status = _admitted_status(event)
                         candidate.save()
                         return candidate
 
@@ -114,7 +127,7 @@ def _promote_from_waitlist(event, cancelled_user=None):
             continue
         if event.is_full_for(is_premium=_is_premium(candidate)):
             continue
-        candidate.status = "confirmed"
+        candidate.status = _admitted_status(event)
         candidate.save()
         return candidate
 
@@ -1148,10 +1161,24 @@ def event_register(request, event_id):
                             _("Event is full. You have been added to the waitlist."),
                         )
                 else:
-                    registration.status = "confirmed"
-                    messages.success(
-                        request, _("Successfully registered for the event!")
-                    )
+                    # A paid event's seat is held, not confirmed, until the money
+                    # arrives -- the SumUp return handler flips it to "confirmed".
+                    # "pending" still counts toward capacity and still yields a
+                    # door ticket (see SEAT_HOLDING_STATUSES); it only changes
+                    # what the status *claims*. Free events are unaffected.
+                    registration.status = _admitted_status(locked_event)
+                    if registration.status == "pending":
+                        messages.success(
+                            request,
+                            _(
+                                "Your spot is reserved! Please complete payment "
+                                "to confirm your registration."
+                            ),
+                        )
+                    else:
+                        messages.success(
+                            request, _("Successfully registered for the event!")
+                        )
 
                 registration.save()
 
@@ -1160,6 +1187,10 @@ def event_register(request, event_id):
                     send_event_registration_confirmation(registration, request)
                 elif registration.status == "waitlist":
                     send_event_waitlist_notification(registration, request)
+                elif registration.status == "pending":
+                    # Paid event: the seat is held but not yet confirmed. Without
+                    # this branch a paying registrant would get no email at all.
+                    send_event_payment_pending_notification(registration, request)
             except Exception as e:
                 logger.error(f"Failed to send event registration email: {e}")
 
@@ -1277,7 +1308,13 @@ def event_cancel(request, event_id):
 
         if promoted:
             try:
-                send_event_registration_confirmation(promoted, request)
+                # _promote_from_waitlist admits at _admitted_status(), so on a
+                # paid event the promoted seat is "pending" and must ask for
+                # payment rather than claim to be confirmed.
+                if promoted.status == "pending":
+                    send_event_payment_pending_notification(promoted, request)
+                else:
+                    send_event_registration_confirmation(promoted, request)
             except Exception as e:
                 logger.error(f"Failed to send waitlist promotion email: {e}")
 

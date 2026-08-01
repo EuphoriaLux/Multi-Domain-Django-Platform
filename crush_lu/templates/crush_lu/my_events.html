@@ -159,19 +159,11 @@
 </section>
 
 <script>
+    // CSRF_COOKIE_HTTPONLY is True, so document.cookie can't see csrftoken.
+    // Read the hidden input base.html renders instead (same as HTMX does).
     function getCsrfToken() {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, 10) === ('csrftoken=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(10));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
+        const input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        return input ? input.value : '';
     }
 
     function startSumUpCheckout(registrationId) {
@@ -182,7 +174,9 @@
                 'Content-Type': 'application/json'
             }
         })
-        .then(res => res.json())
+        .then(res => res.json().catch(() => {
+            throw new Error('HTTP ' + res.status);
+        }))
         .then(data => {
             if (data.success && data.widget_url) {
                 window.location.href = data.widget_url;

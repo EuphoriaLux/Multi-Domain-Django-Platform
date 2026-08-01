@@ -1,0 +1,58 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Payment Required" %} - Crush.lu{% endblock %}
+
+{% block header_title %}{% trans "Your Spot Is Reserved" %}{% endblock %}
+
+{% block content %}
+<h2>{% blocktrans with name=display_name %}Hey {{ name }}!{% endblocktrans %}</h2>
+
+<p>{% blocktrans with title=event.title %}We've reserved your spot for <strong>{{ title }}</strong>.{% endblocktrans %}</p>
+
+<p>{% trans "Your place is held for you. To confirm your registration, please complete the payment." %}</p>
+
+<div class="info-box">
+    <strong>{% trans "Event Details:" %}</strong>
+    <ul style="margin: 10px 0;">
+        <li><strong>{% trans "Event:" %}</strong> {{ event.title }}</li>
+        <li><strong>{% trans "Date:" %}</strong> {{ event.date_time|date:"l" }}, {{ event.date_time|date:"DATE_FORMAT" }}</li>
+        <li><strong>{% trans "Time:" %}</strong> {{ event.date_time|date:"TIME_FORMAT" }}</li>
+        <li><strong>{% trans "Location:" %}</strong> {{ event.location }}</li>
+        <li><strong>{% trans "Amount Due:" %}</strong> {{ amount }} EUR</li>
+    </ul>
+</div>
+
+{% if registration.dietary_restrictions or registration.bringing_guest %}
+<div class="info-box">
+    <strong>{% trans "Your Registration Details:" %}</strong>
+
+    {% if registration.dietary_restrictions %}
+    <p><strong>{% trans "Dietary Restrictions:" %}</strong><br>
+    {{ registration.dietary_restrictions }}</p>
+    {% endif %}
+
+    {% if registration.bringing_guest %}
+    <p><strong>{% trans "Guest:" %}</strong><br>
+    {{ registration.guest_name }}
+    </p>
+    {% endif %}
+</div>
+{% endif %}
+
+<a href="{{ event_url }}" class="button">{% trans "Pay Now" %}</a>
+
+<p><strong>{% trans "What happens next:" %}</strong></p>
+<ul>
+    <li>{% trans "Complete the payment to confirm your registration" %}</li>
+    <li>{% trans "You'll receive a confirmation email once payment is received" %}</li>
+    <li>{% trans "Your ticket and QR code stay available in your account" %}</li>
+</ul>
+
+<p>{% trans "If you've already arranged payment with us another way, you can ignore this message." %}</p>
+
+<p>
+    {% trans "See you there!" %}<br>
+    <strong>{% trans "The Crush.lu Team" %}</strong>
+</p>
+{% endblock %}

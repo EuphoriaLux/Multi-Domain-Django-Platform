@@ -35,8 +35,23 @@ def create_sumup_event_checkout(request, registration_id):
     if registration.user != request.user and not request.user.is_staff:
         return JsonResponse({"error": _("Unauthorized access to this registration.")}, status=403)
 
-    if registration.status != "pending" and not registration.payment_confirmed:
-        return JsonResponse({"error": _("This registration is not pending payment.")}, status=400)
+    # Gate on payment_confirmed, not status. A normal signup lands in
+    # status="confirmed" long before it is paid (views_events.py), and the
+    # payment return handler also sets status="confirmed" once it *is* paid --
+    # so status cannot tell the two apart and only the flag can. This mirrors
+    # the condition the templates use to show the Pay button. The old check
+    # (`status != "pending" and not payment_confirmed`) was wrong both ways:
+    # it rejected every unpaid confirmed registration, and it let an already
+    # paid one start a second checkout.
+    if registration.payment_confirmed:
+        return JsonResponse(
+            {"error": _("This registration is already paid.")}, status=400
+        )
+
+    if registration.status == "cancelled":
+        return JsonResponse(
+            {"error": _("This registration has been cancelled.")}, status=400
+        )
 
     amount = registration.event.registration_fee
     if amount <= Decimal("0.00"):

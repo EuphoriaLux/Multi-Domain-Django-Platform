@@ -177,6 +177,75 @@ class SumUpPaymentViewsTests(SiteTestMixin, TestCase):
         self.assertEqual(tx.amount, Decimal("15.00"))
 
     @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_confirmed_but_unpaid_registration_can_still_pay(
+        self, mock_create_checkout
+    ):
+        """The status a real signup actually produces must be payable.
+
+        ``event_register`` sets ``status="confirmed"`` on signup, so this — not
+        ``"pending"`` — is what every live registration looks like before it is
+        paid. The original guard (``status != "pending" and not
+        payment_confirmed``) rejected exactly this row with a 400, which is why
+        the Pay button worked only after a staff member hand-set the status back
+        to "Pending Payment".
+        """
+        mock_create_checkout.return_value = {"id": "CHK_EVT_002", "status": "PENDING"}
+        self.registration.status = "confirmed"
+        self.registration.payment_confirmed = False
+        self.registration.save()
+        self.client.force_login(self.user)
+
+        url = reverse(
+            "sumup_create_event_checkout",
+            kwargs={"registration_id": self.registration.id},
+        )
+        response = self.client.post(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["success"])
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_already_paid_registration_cannot_start_a_second_checkout(
+        self, mock_create_checkout
+    ):
+        """Guard the double-charge hole the old condition left open.
+
+        With ``status="confirmed"`` and ``payment_confirmed=True`` — precisely
+        what the return handler writes after a successful payment — the old
+        check evaluated ``True and False`` and let the request straight through
+        to SumUp a second time.
+        """
+        self.registration.status = "confirmed"
+        self.registration.payment_confirmed = True
+        self.registration.save()
+        self.client.force_login(self.user)
+
+        url = reverse(
+            "sumup_create_event_checkout",
+            kwargs={"registration_id": self.registration.id},
+        )
+        response = self.client.post(url)
+
+        self.assertEqual(response.status_code, 400)
+        mock_create_checkout.assert_not_called()
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_cancelled_registration_cannot_pay(self, mock_create_checkout):
+        self.registration.status = "cancelled"
+        self.registration.payment_confirmed = False
+        self.registration.save()
+        self.client.force_login(self.user)
+
+        url = reverse(
+            "sumup_create_event_checkout",
+            kwargs={"registration_id": self.registration.id},
+        )
+        response = self.client.post(url)
+
+        self.assertEqual(response.status_code, 400)
+        mock_create_checkout.assert_not_called()
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
     @patch("crush_lu.views_payments.SumUpClient.create_customer")
     def test_create_sumup_premium_checkout_view(self, mock_create_customer, mock_create_checkout):
         mock_create_customer.return_value = {"customer_id": f"crush-user-{self.user.id}"}

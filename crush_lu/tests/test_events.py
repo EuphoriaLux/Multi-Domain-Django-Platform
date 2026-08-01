@@ -10,6 +10,7 @@ Comprehensive tests for event functionality including:
 Run with: pytest crush_lu/tests/test_events.py -v
 """
 from datetime import date, timedelta
+from decimal import Decimal
 from django.test import TestCase, Client, override_settings
 from django.contrib.auth import get_user_model
 from django.urls import reverse
@@ -1550,3 +1551,180 @@ class EntryEventRegistrationGateTests(TestCase):
         self.assertFalse(
             EventRegistration.objects.filter(event=self.members_event, user=user).exists()
         )
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class PaidEventPendingPaymentTests(TestCase):
+    """A paid event's seat is held as "pending" until the money arrives.
+
+    Free events are untouched and still confirm immediately. The point of the
+    split is that "confirmed" used to be assigned regardless of payment, so the
+    status said nothing about whether the event had been paid for.
+    """
+
+    def setUp(self):
+        from crush_lu.models import MeetupEvent
+
+        common = dict(
+            description="Testing paid vs free admission",
+            event_type="mixer",
+            date_time=timezone.now() + timedelta(days=7),
+            location="Luxembourg",
+            address="123 Test Street",
+            max_participants=4,
+            registration_deadline=timezone.now() + timedelta(days=5),
+            is_published=True,
+        )
+        self.paid_event = MeetupEvent.objects.create(
+            title="Paid Event", registration_fee=Decimal("15.00"), **common
+        )
+        self.free_event = MeetupEvent.objects.create(
+            title="Free Event", registration_fee=Decimal("0.00"), **common
+        )
+
+    def test_admitted_status_splits_on_fee(self):
+        from crush_lu.views_events import _admitted_status
+
+        self.assertEqual(_admitted_status(self.paid_event), "pending")
+        self.assertEqual(_admitted_status(self.free_event), "confirmed")
+
+    def test_pending_holds_a_seat_against_capacity(self):
+        """Without this, a paid event never fills and never waitlists anyone."""
+        from crush_lu.models import EventRegistration
+
+        for i in range(self.paid_event.max_participants):
+            user = User.objects.create_user(
+                username=f"holder{i}@test.com",
+                email=f"holder{i}@test.com",
+                password="testpass123",
+            )
+            EventRegistration.objects.create(
+                event=self.paid_event, user=user, status="pending"
+            )
+
+        self.assertEqual(
+            self.paid_event.get_confirmed_count(), self.paid_event.max_participants
+        )
+        self.assertTrue(self.paid_event.is_full_for())
+        self.assertEqual(self.paid_event.spots_remaining_for(), 0)
+
+    def test_annotated_count_agrees_with_method(self):
+        """get_confirmed_count() prefers the annotation, so they must match.
+
+        If the queryset annotation and the method used different status lists,
+        the same event would report different capacities depending only on how
+        it was fetched -- a silent, hard-to-trace discrepancy.
+        """
+        from crush_lu.models import EventRegistration, MeetupEvent
+
+        user = User.objects.create_user(
+            username="anno@test.com", email="anno@test.com", password="testpass123"
+        )
+        EventRegistration.objects.create(
+            event=self.paid_event, user=user, status="pending"
+        )
+
+        plain = MeetupEvent.objects.get(pk=self.paid_event.pk).get_confirmed_count()
+        annotated = (
+            MeetupEvent.objects.with_registration_counts()
+            .get(pk=self.paid_event.pk)
+            .get_confirmed_count()
+        )
+        self.assertEqual(plain, 1)
+        self.assertEqual(annotated, 1)
+
+    def test_pending_registration_still_gets_a_door_ticket(self):
+        """Payment is still taken out of band, so the door must not gate on it."""
+        from crush_lu.models import EventRegistration
+
+        from crush_lu.models.profiles import UserDataConsent
+
+        user = User.objects.create_user(
+            username="door@test.com", email="door@test.com", password="testpass123"
+        )
+        # consent_middleware is scoped to urls_crush and 302s without this.
+        UserDataConsent.objects.update_or_create(
+            user=user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        EventRegistration.objects.create(
+            event=self.paid_event, user=user, status="pending"
+        )
+        self.client.force_login(user)
+
+        response = self.client.get(
+            reverse("crush_lu:event_ticket", kwargs={"event_id": self.paid_event.id})
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_waitlist_promotion_on_paid_event_does_not_confirm(self):
+        """Promotion must not hand out a confirmed seat nobody paid for."""
+        from django.db import transaction
+        from crush_lu.models import EventRegistration, MeetupEvent
+        from crush_lu.views_events import _promote_from_waitlist
+
+        waiter = User.objects.create_user(
+            username="waiter@test.com", email="waiter@test.com", password="testpass123"
+        )
+        EventRegistration.objects.create(
+            event=self.paid_event, user=waiter, status="waitlist"
+        )
+
+        with transaction.atomic():
+            locked = MeetupEvent.objects.select_for_update().get(
+                pk=self.paid_event.pk
+            )
+            promoted = _promote_from_waitlist(locked)
+
+        self.assertIsNotNone(promoted)
+        self.assertEqual(promoted.status, "pending")
+
+    def test_waitlist_promotion_on_free_event_still_confirms(self):
+        from django.db import transaction
+        from crush_lu.models import EventRegistration, MeetupEvent
+        from crush_lu.views_events import _promote_from_waitlist
+
+        waiter = User.objects.create_user(
+            username="freewaiter@test.com",
+            email="freewaiter@test.com",
+            password="testpass123",
+        )
+        EventRegistration.objects.create(
+            event=self.free_event, user=waiter, status="waitlist"
+        )
+
+        with transaction.atomic():
+            locked = MeetupEvent.objects.select_for_update().get(
+                pk=self.free_event.pk
+            )
+            promoted = _promote_from_waitlist(locked)
+
+        self.assertIsNotNone(promoted)
+        self.assertEqual(promoted.status, "confirmed")
+
+    def test_payment_pending_email_renders(self):
+        """The pending branch must actually send something -- silence on signup
+        is why this email exists rather than reusing the confirmation."""
+        from django.core import mail
+        from crush_lu.models import CrushProfile, EventRegistration
+        from crush_lu.email_helpers import send_event_payment_pending_notification
+
+        user = User.objects.create_user(
+            username="mail@test.com",
+            email="mail@test.com",
+            password="testpass123",
+            first_name="Mail",
+        )
+        CrushProfile.objects.create(
+            user=user, date_of_birth=date(1995, 1, 1), location="Luxembourg"
+        )
+        registration = EventRegistration.objects.create(
+            event=self.paid_event, user=user, status="pending"
+        )
+
+        mail.outbox = []
+        send_event_payment_pending_notification(registration)
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn(self.paid_event.title, mail.outbox[0].subject)
+        self.assertIn("15", mail.outbox[0].body)
