@@ -548,6 +548,12 @@ _TICKET_PAYLOAD_FIELDS = _TICKET_PAYLOAD_BASE_FIELDS + tuple(
     for code, _label in settings.LANGUAGES
 )
 
+# Registration statuses under which an event can appear on a MEMBER card.
+# Keep in sync with wallet_pass.get_next_event_for_pass, which is what actually
+# decides whether the card renders this event — anything outside this set is a
+# holder the event-change fan-outs must not spend their budget on.
+_NEXT_EVENT_STATUSES = (*SEAT_HOLDING_STATUSES, "waitlist")
+
 
 @receiver(pre_save, sender=MeetupEvent)
 def remember_previous_event_start(sender, instance, **kwargs):
@@ -655,6 +661,22 @@ def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
     if not changed:
         return
 
+    # Members whose card can actually show this event. get_next_event_for_pass
+    # only ever considers seat-holding or waitlisted registrations, so a
+    # cancelled or no-show attendee's card does not display this event and
+    # rebuilding it achieves nothing. That is not merely wasted work: both
+    # fan-outs below are capped, and on the Google side the cap is a hard loss
+    # (no poll heals what it skips), so an ineligible profile taking a slot
+    # leaves someone whose card IS wrong stale for good.
+    #
+    # Lazy, so it costs nothing until each branch narrows and evaluates it, and
+    # defined outside both try blocks so a failure in one cannot NameError the
+    # other.
+    attendee_profiles = CrushProfile.objects.filter(
+        user__eventregistration__event=instance,
+        user__eventregistration__status__in=_NEXT_EVENT_STATUSES,
+    )
+
     try:
         from .wallet.passkit_service import (
             refresh_event_tickets,
@@ -668,10 +690,7 @@ def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
         # they carry a different serial, so refreshing only the ticket serials
         # leaves every attendee's member pass showing the old details.
         member_serials = list(
-            CrushProfile.objects.filter(
-                user__eventregistration__event=instance
-            )
-            .exclude(apple_pass_serial="")
+            attendee_profiles.exclude(apple_pass_serial="")
             .values_list("apple_pass_serial", flat=True)
             .distinct()
         )
@@ -704,9 +723,7 @@ def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
         from .wallet.google_api import refresh_google_wallet_objects
 
         google_profiles = list(
-            CrushProfile.objects.filter(user__eventregistration__event=instance)
-            .exclude(google_wallet_object_id="")
-            .distinct()
+            attendee_profiles.exclude(google_wallet_object_id="").distinct()
         )
         scheduled = refresh_google_wallet_objects(
             google_profiles, context=f"Event {instance.pk} Google member passes"

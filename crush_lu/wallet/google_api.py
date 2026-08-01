@@ -13,6 +13,7 @@ import uuid
 import httpx
 from django.conf import settings
 from django.db import transaction
+from django.utils import translation
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 
@@ -24,10 +25,9 @@ logger = logging.getLogger(__name__)
 GOOGLE_WALLET_API_BASE = "https://walletobjects.googleapis.com/walletobjects/v1"
 GOOGLE_OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
-# Per-request ceiling for every call in this module. It is NOT what bounds a
-# bulk refresh — refresh_google_wallet_objects clamps each request to whatever
-# is left of its wall-clock budget, and this only caps the single-profile
-# callers that have no budget of their own.
+# Per-phase ceiling for every call in this module. A bulk refresh lowers it to
+# whatever is left of its wall-clock budget; this is the floor-level cap for
+# the single-profile callers that have no budget of their own.
 GOOGLE_WALLET_HTTP_TIMEOUT = 30.0
 
 
@@ -36,14 +36,32 @@ def _timeout_kwargs(timeout):
 
     httpx reads an explicit ``timeout=None`` as "no timeout at all", so an
     absent override must be left out entirely rather than forwarded as None —
-    passing it through would remove the client default and let one hung request
+    passing it through would drop the client default and let one hung request
     hold the caller forever.
+
+    What a value here does and does NOT bound: httpx applies a timeout PER
+    PHASE — connect, write, pool, and read, the last of which restarts on every
+    chunk received — so this limits how long any single phase may stall, not
+    the end-to-end duration of a request. A batch's wall-clock budget is
+    therefore enforced by the loop that stops STARTING requests once the
+    deadline passes; one pathologically slow endpoint can still overrun that
+    budget by roughly a single request's phases.
+
+    That residual is accepted rather than fixed, because sync httpx offers no
+    total-deadline or cancellation knob: the alternative is running each PATCH
+    on a thread abandoned at the deadline, and a thread blocked on a socket
+    read leaks for the life of the worker — strictly worse than a bounded
+    overrun well inside gunicorn's 120s timeout.
     """
-    return {"timeout": timeout} if timeout is not None else {}
+    if timeout is None:
+        return {}
+    # Constructed explicitly so the per-phase semantics above are visible here
+    # rather than hidden inside httpx's float coercion.
+    return {"timeout": httpx.Timeout(timeout)}
 
 
 def _remaining_timeout(deadline):
-    """Seconds left before `deadline`, capped at the per-request ceiling.
+    """Seconds left before `deadline`, capped at the per-phase ceiling.
 
     Returns a non-positive value once the budget is spent, which callers treat
     as "stop" — never as "no timeout".
@@ -277,11 +295,18 @@ def _patch_generic_object(profile, class_id, access_token, client, timeout=None)
     point below still owns both when called on its own, so its behaviour and
     return shape are unchanged.
     """
-    object_payload = _build_generic_object_payload(
-        profile,
-        profile.google_wallet_object_id,
-        class_id,
-    )
+    # Render in the HOLDER's language, not the caller's. The next-event title
+    # is modeltranslated, and every path that reaches here in bulk runs from
+    # the admin — which is forced to English — so without this override a
+    # French or German holder's card is rewritten in English by an edit they
+    # had nothing to do with. Mirrors the Apple member-pass rebuild in
+    # apple_pass.provide_pass_for_serial; None leaves the active language.
+    with translation.override(getattr(profile, "preferred_language", "") or None):
+        object_payload = _build_generic_object_payload(
+            profile,
+            profile.google_wallet_object_id,
+            class_id,
+        )
 
     # URL encode the object ID (it contains dots)
     encoded_object_id = profile.google_wallet_object_id.replace(".", "%2E")
@@ -365,9 +390,12 @@ def refresh_google_wallet_objects(profiles, context=""):
     isolated — with two differences that come from Google's model, not ours:
 
       * ONE token exchange and ONE keep-alive client serve the whole batch, so
-        each extra pass costs a single PATCH rather than two requests. Every
-        request is also clamped to the remaining budget, because a 30s default
-        timeout is not a bound on a 10s batch.
+        each extra pass costs a single PATCH rather than two requests. Each
+        request's phase timeouts are also lowered to the remaining budget,
+        since a 30s default is no kind of bound inside a 10s batch — though
+        see _timeout_kwargs for what that does and does not guarantee: the
+        budget is enforced by refusing to START work past the deadline, not by
+        cancelling work already in flight.
       * There is NO Google equivalent of Wallet's periodic poll. An Apple pass
         that misses its push still updates, because the bulk query advanced its
         tag; a Google object that misses its PATCH stays stale until something
@@ -418,9 +446,10 @@ def refresh_google_wallet_objects(profiles, context=""):
         if token_timeout > 0:
             try:
                 with httpx.Client(timeout=GOOGLE_WALLET_HTTP_TIMEOUT) as client:
-                    # One exchange for the batch. Clamped to the budget too: a
-                    # hanging OAuth endpoint would otherwise burn the full 30s
-                    # before a single pass had been touched.
+                    # One exchange for the batch, and inside the budget as
+                    # well: a stalled OAuth endpoint left at the 30s default
+                    # would burn the whole allowance before a single pass had
+                    # been touched.
                     access_token = _get_access_token(
                         client=client, timeout=token_timeout
                     )
