@@ -1295,6 +1295,13 @@ URLIZE_ASSUME_HTTPS = True
 PASSKIT_WEB_SERVICE_BASE_PATH = os.getenv("PASSKIT_WEB_SERVICE_BASE_PATH", "/wallet")
 PASSKIT_AUTH_TOKEN = os.getenv("PASSKIT_AUTH_TOKEN")
 PASSKIT_AUTH_TOKEN_RESOLVER = os.getenv("PASSKIT_AUTH_TOKEN_RESOLVER")
+# How many APNs pushes an event-level ticket refresh may send synchronously.
+# on_commit runs inside the admin request and there is no background worker
+# (DJANGO_TASKS_BACKEND is unset in production, so TASKS uses ImmediateBackend),
+# while each push can wait up to 10s per device. Passes beyond this cap still
+# update — their tag is advanced in the same bulk query — just on Wallet's next
+# periodic poll rather than instantly.
+PASSKIT_BULK_PUSH_LIMIT = int(os.getenv("PASSKIT_BULK_PUSH_LIMIT", "20"))
 PASSKIT_PASS_PROVIDER = os.getenv(
     "PASSKIT_PASS_PROVIDER",
     "crush_lu.wallet.apple_pass.provide_pass_for_serial",

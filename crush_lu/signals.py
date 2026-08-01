@@ -436,17 +436,41 @@ def auto_create_event_ticket_class_on_publish(sender, instance, created, **kwarg
         logger.error(f"Error creating EventTicketClass for event {instance.id}: {e}")
 
 
+# Every MeetupEvent field the Apple Wallet ticket payload embeds. A change to
+# any of them leaves installed passes showing something that is simply wrong,
+# so refresh_apple_tickets_on_event_change compares all of them — not just the
+# start time. Keep in sync with apple_event_ticket.build_apple_event_ticket.
+_TICKET_PAYLOAD_FIELDS = (
+    "title",          # description + primary field
+    "date_time",      # date/time fields, relevantDate, expirationDate
+    "duration_minutes",  # expirationDate
+    "location",       # auxiliary field
+    "address",        # back field
+    "event_type",     # back field (get_event_type_display)
+    "latitude",       # locations[] lock-screen trigger
+    "longitude",
+    "is_cancelled",   # voided
+)
+
+
 @receiver(pre_save, sender=MeetupEvent)
 def remember_previous_event_start(sender, instance, **kwargs):
-    """Stash the stored start so post_save can detect a reschedule."""
+    """Stash the stored start so post_save can detect a reschedule.
+
+    Also snapshots every field the wallet ticket embeds, so the ticket-refresh
+    receiver can tell whether an edit actually changed the pass.
+    """
     if not instance.pk:
         instance._previous_date_time = None
+        instance._previous_ticket_fields = None
         return
-    instance._previous_date_time = (
+    previous = (
         MeetupEvent.objects.filter(pk=instance.pk)
-        .values_list("date_time", flat=True)
+        .values(*_TICKET_PAYLOAD_FIELDS)
         .first()
     )
+    instance._previous_ticket_fields = previous
+    instance._previous_date_time = previous["date_time"] if previous else None
 
 
 @receiver(post_save, sender=MeetupEvent)
@@ -501,13 +525,25 @@ def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
     handler's "forward-looking events only" guard — a ticket showing the wrong
     details is worth correcting either way — and so an error in one cannot skip
     the other.
+
+    Fires on a change to ANY embedded field (_TICKET_PAYLOAD_FIELDS), not just
+    the start time: retitling, moving venue, correcting the address or
+    coordinates, or changing the duration all rewrite the pass just as surely
+    as a reschedule does.
     """
     if created:
         return
 
-    previous = getattr(instance, "_previous_date_time", None)
-    moved = previous is not None and previous != instance.date_time
-    if not (moved or instance.is_cancelled):
+    previous = getattr(instance, "_previous_ticket_fields", None)
+    if previous is None:
+        return
+
+    changed = [
+        field
+        for field in _TICKET_PAYLOAD_FIELDS
+        if previous.get(field) != getattr(instance, field, None)
+    ]
+    if not changed:
         return
 
     try:
@@ -516,9 +552,11 @@ def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
         refreshed = refresh_event_tickets(instance)
         if refreshed:
             logger.info(
-                "Scheduled Apple ticket refresh for %s registration(s) on event %s",
+                "Scheduled Apple ticket refresh for %s registration(s) on "
+                "event %s (changed: %s)",
                 refreshed,
                 instance.pk,
+                ", ".join(changed),
             )
     except Exception as e:
         logger.error(

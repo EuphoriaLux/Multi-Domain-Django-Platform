@@ -16,35 +16,10 @@ from .apple_pass import (
     _build_pkpass,
     _ensure_pass_identifiers,
     _require_setting,
+    claim_field_once as _claim_once,
     resolve_web_service_url,
 )
-from ..models import CrushProfile, EventRegistration
-
-
-def _claim_once(registration, field, value):
-    """Compare-and-set a write-once identifier on the registration.
-
-    Two concurrent downloads — a double-tap while the iOS in-page fetch is
-    still pending — would otherwise both read the empty field, both generate a
-    value, and both sign a package with their own. The last save wins, so the
-    earlier package carries an identifier the web service can never resolve:
-    its update requests 401 (auth token) or 404 (serial), permanently, with no
-    signal to the user beyond a pass that never updates.
-
-    The conditional UPDATE lets exactly one writer win; everyone else adopts
-    the winner's value, so every package signed is consistent with the row.
-    """
-    claimed = EventRegistration.objects.filter(
-        pk=registration.pk, **{field: ""}
-    ).update(**{field: value})
-    if not claimed:
-        value = (
-            EventRegistration.objects.filter(pk=registration.pk)
-            .values_list(field, flat=True)
-            .first()
-        ) or value
-    setattr(registration, field, value)
-    return value
+from ..models import CrushProfile
 
 
 def _ensure_event_ticket_serial(registration):
@@ -221,8 +196,17 @@ def build_apple_event_ticket(registration, request=None, web_service_url=None):
     if registration.apple_wallet_auth_token:
         auth_token = registration.apple_wallet_auth_token
     elif profile is not None:
-        # Reuse profile auth token for PassKit web service
-        _, auth_token = _ensure_pass_identifiers(profile)
+        # Seed from the profile token, but PERSIST it on the registration.
+        # A ticket's authentication identity has to be immutable once issued,
+        # and profile ownership is not: services/account_merge.py moves
+        # registrations to the keeper user and deletes the duplicate profile,
+        # after which the resolver would hand back the keeper's different token
+        # while the installed ticket keeps presenting the deleted profile's —
+        # every registration, update and unregister request 401s from then on.
+        _, profile_token = _ensure_pass_identifiers(profile)
+        auth_token = _claim_once(
+            registration, "apple_wallet_auth_token", profile_token
+        )
     else:
         auth_token = _ensure_ticket_auth_token(registration)
 

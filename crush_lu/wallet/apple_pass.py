@@ -116,16 +116,44 @@ def _sign_manifest(manifest_bytes):
     )
 
 
+def claim_field_once(instance, field, value):
+    """Compare-and-set a write-once identifier on a row.
+
+    Two concurrent pass downloads — a double-tap on the dashboard link while
+    the first in-page fetch is still pending — would otherwise both read the
+    empty field, both generate a value, and both sign a package with their own.
+    The last save wins, so whichever package the native sheet actually presents
+    may carry an identifier the web service can never resolve: every
+    registration and update request for it then fails, permanently and with no
+    signal to the user beyond a pass that never updates.
+
+    The conditional UPDATE lets exactly one writer win; everyone else adopts
+    the winner's value, so every package signed is consistent with the row.
+    Shared by the member pass (CrushProfile) and event tickets
+    (EventRegistration).
+    """
+    claimed = type(instance)._default_manager.filter(
+        pk=instance.pk, **{field: ""}
+    ).update(**{field: value})
+    if not claimed:
+        value = (
+            type(instance)
+            ._default_manager.filter(pk=instance.pk)
+            .values_list(field, flat=True)
+            .first()
+        ) or value
+    setattr(instance, field, value)
+    return value
+
+
 def _ensure_pass_identifiers(profile):
-    updated_fields = []
+    # Claimed atomically — see claim_field_once. Racing downloads used to
+    # generate two serial/token pairs and let the last save win, stranding the
+    # earlier (possibly presented) package with credentials nothing resolves.
     if not profile.apple_pass_serial:
-        profile.apple_pass_serial = secrets.token_hex(8)
-        updated_fields.append("apple_pass_serial")
+        claim_field_once(profile, "apple_pass_serial", secrets.token_hex(8))
     if not profile.apple_auth_token:
-        profile.apple_auth_token = secrets.token_hex(16)
-        updated_fields.append("apple_auth_token")
-    if updated_fields:
-        profile.save(update_fields=updated_fields)
+        claim_field_once(profile, "apple_auth_token", secrets.token_hex(16))
     return profile.apple_pass_serial, profile.apple_auth_token
 
 

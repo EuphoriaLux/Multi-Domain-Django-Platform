@@ -775,6 +775,80 @@ class TestClaimOnce:
         registration.refresh_from_db()
         assert registration.apple_wallet_auth_token == token
 
+    def test_member_pass_identifiers_are_claimed_atomically(
+        self, test_user_with_profile
+    ):
+        from crush_lu.models import CrushProfile
+        from crush_lu.wallet.apple_pass import _ensure_pass_identifiers
+
+        _user, profile = test_user_with_profile
+        # Another concurrent download already claimed both fields.
+        CrushProfile.objects.filter(pk=profile.pk).update(
+            apple_pass_serial="winner-serial", apple_auth_token="winner-token"
+        )
+        assert profile.apple_pass_serial == ""
+
+        # The loser must sign with the winner's pair, not its own — otherwise
+        # whichever package the native sheet presents may be unauthenticable.
+        assert _ensure_pass_identifiers(profile) == ("winner-serial", "winner-token")
+
+
+@pytest.mark.django_db
+class TestTicketTokenSurvivesOwnershipChange:
+    """A ticket's authentication identity must be immutable once issued.
+    Profile ownership is not: account_merge moves registrations to the keeper
+    and deletes the duplicate profile."""
+
+    def test_profile_token_is_persisted_on_the_registration(
+        self, _apple_identity, event_with_registrations
+    ):
+        from crush_lu.wallet import apple_event_ticket
+
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        assert registration.apple_wallet_auth_token == ""
+
+        request = RequestFactory().get("/", HTTP_HOST="crush.lu", secure=True)
+        with mock.patch.object(
+            apple_event_ticket, "_build_pkpass", return_value=b""
+        ) as build:
+            apple_event_ticket.build_apple_event_ticket(registration, request=request)
+        issued = build.call_args[0][0]["authenticationToken"]
+
+        registration.refresh_from_db()
+        # Persisted, so a later merge to a different profile cannot change what
+        # the resolver hands back for this already-installed ticket.
+        assert registration.apple_wallet_auth_token == issued
+        assert registration.user.crushprofile.apple_auth_token == issued
+
+    def test_resolver_still_finds_it_after_the_profile_token_changes(
+        self, _apple_identity, event_with_registrations
+    ):
+        from crush_lu.wallet import apple_event_ticket
+        from crush_lu.wallet.passkit_service import _resolve_auth_token_from_profile
+
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        registration.apple_wallet_ticket_serial = "evt-1-reg-1-merge"
+        registration.save(update_fields=["apple_wallet_ticket_serial"])
+
+        request = RequestFactory().get("/", HTTP_HOST="crush.lu", secure=True)
+        with mock.patch.object(apple_event_ticket, "_build_pkpass", return_value=b""):
+            apple_event_ticket.build_apple_event_ticket(registration, request=request)
+        registration.refresh_from_db()
+        issued = registration.apple_wallet_auth_token
+
+        # Simulate the merge outcome: the owning profile now carries a
+        # different token entirely.
+        profile = registration.user.crushprofile
+        profile.apple_auth_token = "keeper-token"
+        profile.save(update_fields=["apple_auth_token"])
+
+        assert (
+            _resolve_auth_token_from_profile("pass.lu.crush", "evt-1-reg-1-merge")
+            == issued
+        )
+
 
 @pytest.mark.django_db
 class TestEventLevelTicketRefresh:
@@ -829,7 +903,7 @@ class TestEventLevelTicketRefresh:
 
         refresh.assert_called_once_with("pass.lu.crush", "evt-1-reg-1-abcd")
 
-    def test_unrelated_event_save_does_not_push(
+    def test_no_payload_change_does_not_push(
         self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
     ):
         event, _registration = self._ticketed(event_with_registrations)
@@ -838,10 +912,110 @@ class TestEventLevelTicketRefresh:
             "crush_lu.wallet.passkit_service.trigger_pass_refresh"
         ) as refresh:
             with django_capture_on_commit_callbacks(execute=True):
-                event.title = f"{event.title} (updated)"
+                # Not embedded in the ticket payload.
+                event.is_published = not event.is_published
                 event.save()
 
         refresh.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "field,value",
+        [
+            ("title", "Renamed event"),
+            ("location", "A different bar"),
+            ("address", "1 New Street"),
+            ("duration_minutes", 999),
+            ("is_cancelled", True),
+        ],
+    )
+    def test_any_embedded_field_change_pushes(
+        self,
+        field,
+        value,
+        _apple_identity,
+        event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # The payload embeds far more than the start time: retitling, moving
+        # venue, fixing the address or changing the duration all leave
+        # installed passes showing something wrong.
+        event, _registration = self._ticketed(event_with_registrations)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ) as refresh:
+            with django_capture_on_commit_callbacks(execute=True):
+                setattr(event, field, value)
+                event.save()
+
+        refresh.assert_called_once_with("pass.lu.crush", "evt-1-reg-1-abcd")
+
+    def test_bulk_fanout_is_capped_but_all_tags_advance(
+        self, _apple_identity, settings, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        from crush_lu.models import PasskitDeviceRegistration
+        from crush_lu.wallet.passkit_service import refresh_event_tickets
+
+        event, registrations = event_with_registrations
+        # Three ticketed registrations, but only two pushes allowed.
+        serials = []
+        for i, reg in enumerate(self._extra_registrations(event, registrations, 3)):
+            serial = f"evt-1-reg-{i}-aaaa"
+            reg.apple_wallet_ticket_serial = serial
+            reg.save(update_fields=["apple_wallet_ticket_serial"])
+            PasskitDeviceRegistration.objects.create(
+                device_library_identifier=f"device-{i}",
+                pass_type_identifier="pass.lu.crush",
+                serial_number=serial,
+                push_token="tok",
+            )
+            serials.append(serial)
+
+        settings.PASSKIT_BULK_PUSH_LIMIT = 2
+        before = list(
+            PasskitDeviceRegistration.objects.order_by("pk").values_list(
+                "updated_at", flat=True
+            )
+        )
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ) as refresh:
+            with django_capture_on_commit_callbacks(execute=True):
+                refresh_event_tickets(event)
+
+        # Pushes bounded — an unbounded loop could outlast the admin request.
+        assert refresh.call_count == 2
+        # ...but EVERY tag advanced, so the capped passes still update on
+        # Wallet's next poll rather than being silently dropped.
+        after = list(
+            PasskitDeviceRegistration.objects.order_by("pk").values_list(
+                "updated_at", flat=True
+            )
+        )
+        assert all(a > b for a, b in zip(after, before))
+
+    def _extra_registrations(self, event, registrations, count):
+        from django.contrib.auth import get_user_model
+
+        from crush_lu.models import EventRegistration
+
+        out = list(registrations)
+        User = get_user_model()
+        while len(out) < count:
+            i = len(out)
+            user = User.objects.create_user(
+                username=f"bulk{i}@example.com",
+                email=f"bulk{i}@example.com",
+                password="x",
+            )
+            out.append(
+                EventRegistration.objects.create(
+                    event=event, user=user, status="confirmed"
+                )
+            )
+        return out[:count]
 
 
 @pytest.mark.django_db

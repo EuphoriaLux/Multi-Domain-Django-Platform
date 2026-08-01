@@ -11,6 +11,24 @@ from ..models import PasskitDeviceRegistration
 logger = logging.getLogger(__name__)
 
 
+def mark_passes_updated_bulk(pass_type_identifier, serial_numbers):
+    """Advance the update tag for many passes in ONE query.
+
+    The tag is what actually makes an update land — Wallet's periodic poll
+    picks it up with no push involved. Bulk event changes therefore mark
+    everything here (cheap, no network) and treat the APNs fan-out as a
+    best-effort "make it instant" step that can be bounded without losing the
+    update. See refresh_event_tickets.
+    """
+    serial_numbers = list(serial_numbers)
+    if not serial_numbers:
+        return 0
+    return PasskitDeviceRegistration.objects.filter(
+        pass_type_identifier=pass_type_identifier,
+        serial_number__in=serial_numbers,
+    ).update(updated_at=timezone.now())
+
+
 def mark_passes_updated(pass_type_identifier, serial_number):
     """Advance the update tag for a pass whose CONTENT changed.
 

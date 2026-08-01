@@ -366,11 +366,18 @@ def list_device_registrations(request, device_library_identifier, pass_type_iden
         except (ValueError, OSError, OverflowError):
             return JsonResponse({"error": "Invalid passesUpdatedSince"}, status=400)
 
-    serial_numbers = list(registrations.values_list("serial_number", flat=True))
-    if not serial_numbers:
+    # ONE snapshot for both response fields. Reading the serials and the
+    # cursor in two queries let a pass marked updated in between be excluded
+    # from serialNumbers while still raising lastUpdated past it — Wallet
+    # echoes that cursor back and the unlisted pass stays invisible until some
+    # later content change. The bulk event refresh makes that interleaving
+    # entirely reachable.
+    rows = list(registrations.values_list("serial_number", "updated_at"))
+    if not rows:
         return HttpResponse(status=204)
 
-    last_updated = registrations.order_by("-updated_at").first().updated_at
+    serial_numbers = [row[0] for row in rows]
+    last_updated = max(row[1] for row in rows)
     response_payload = {
         "serialNumbers": serial_numbers,
         # Apple treats lastUpdated as an OPAQUE tag and echoes it back as
@@ -475,6 +482,22 @@ def refresh_event_tickets(event):
     Deferred to commit for the same reason as the registration receiver: the
     marker advance and the push must not be visible to Wallet before the event
     change itself is. on_commit runs inline outside a transaction.
+
+    The fan-out is deliberately split in two, because on_commit runs INSIDE the
+    admin request and this project has no background worker (production leaves
+    DJANGO_TASKS_BACKEND unset, so TASKS falls back to ImmediateBackend and
+    enqueuing would still run inline):
+
+      * every ticket's update tag is advanced in ONE bulk query — no network,
+        no per-ticket cost, and this is what actually makes the update land via
+        Wallet's own periodic poll;
+      * the APNs pushes, which only make it *instant*, are capped. Each one
+        opens an HTTP client and can wait up to 10s per registered device, so
+        an unbounded loop over a well-attended event could outlast the request
+        after the database change has already committed.
+
+    Anything past the cap still updates — just on Wallet's next poll instead of
+    immediately — and the skipped count is logged rather than silently dropped.
     """
     pass_type_id = getattr(settings, "WALLET_APPLE_PASS_TYPE_IDENTIFIER", None)
     if not pass_type_id:
@@ -490,13 +513,32 @@ def refresh_event_tickets(event):
     if not serials:
         return 0
 
+    push_limit = getattr(settings, "PASSKIT_BULK_PUSH_LIMIT", 20)
+
     def _after_commit():
-        for serial in serials:
+        from .passkit_apns import mark_passes_updated_bulk
+
+        # Guaranteed part: one query, no network.
+        mark_passes_updated_bulk(pass_type_id, serials)
+
+        # Best-effort part: bounded.
+        for serial in serials[:push_limit]:
             try:
                 trigger_pass_refresh(pass_type_id, serial)
             except Exception:
                 # One unreachable device must not strand the rest.
                 logger.exception("Failed refreshing Apple event ticket %s", serial)
+
+        skipped = len(serials) - push_limit
+        if skipped > 0:
+            logger.info(
+                "Event %s: pushed %s Apple ticket refresh(es), %s left to "
+                "Wallet's periodic poll (PASSKIT_BULK_PUSH_LIMIT=%s)",
+                getattr(event, "pk", "?"),
+                push_limit,
+                skipped,
+                push_limit,
+            )
 
     transaction.on_commit(_after_commit)
     return len(serials)
