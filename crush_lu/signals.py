@@ -4,7 +4,7 @@ Signal handlers for Crush.lu app
 
 import logging
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import requests
 from django.conf import settings
@@ -595,6 +595,40 @@ _GOOGLE_PAYLOAD_FIELDS = frozenset(
     )
 )
 
+def _google_relevant_changes(previous, instance, changed, now=None):
+    """The changed fields that can actually alter the Google member card.
+
+    Mostly a membership test against _GOOGLE_PAYLOAD_FIELDS, with one field
+    that cannot be decided statically. `duration_minutes` earns its place by
+    SELECTING rather than rendering, and selection only moves when the event
+    crosses the `end_time >= now` boundary: editing the length of a future
+    event, or of a past one that stays past, leaves get_next_event_for_pass
+    returning the very same event. Treating every duration edit as relevant
+    would fire up to WALLET_GOOGLE_BULK_UPDATE_LIMIT synchronous PATCHes from
+    the admin request to write byte-identical objects — the exact spend the
+    field subset exists to prevent.
+
+    A `date_time` edit needs no such care: it is rendered, so it is relevant on
+    its own, and it is already in the set.
+    """
+    relevant = [field for field in changed if field in _GOOGLE_PAYLOAD_FIELDS]
+    if "duration_minutes" not in relevant:
+        return relevant
+
+    now = now or timezone.now()
+
+    def _ended(start, minutes):
+        # Mirrors MeetupEvent.end_time; the snapshot is a values() dict, so
+        # there is no model instance to ask.
+        return start + timedelta(minutes=minutes or 0) < now
+
+    was_over = _ended(previous["date_time"], previous["duration_minutes"])
+    is_over = _ended(instance.date_time, instance.duration_minutes)
+    if was_over == is_over:
+        relevant.remove("duration_minutes")
+    return relevant
+
+
 # Registration statuses under which an event can appear on a MEMBER card —
 # imported, not restated. This and wallet_pass.get_next_event_for_pass each
 # used to carry their own copy under a "keep in sync" note, which is the
@@ -773,7 +807,7 @@ def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
     # Its own try/except, not the Apple block's: these are independent
     # fan-outs over independent APIs, and a Google outage must not skip the
     # Apple refresh (nor be reported as an Apple failure).
-    google_changed = [field for field in changed if field in _GOOGLE_PAYLOAD_FIELDS]
+    google_changed = _google_relevant_changes(previous, instance, changed)
     if not google_changed:
         return
 

@@ -1,5 +1,3 @@
-from datetime import timedelta
-
 from django.utils import timezone
 
 from .models import ReferralCode, EventRegistration, MeetupEvent
@@ -29,6 +27,58 @@ def build_wallet_pass_barcode_value(profile, request=None, base_url=None):
     return build_referral_url(referral_code.code, base_url=base_url, language_neutral=True)
 
 
+def _next_event_candidates(user_ids, now):
+    """Registrations that could be the card's next event, earliest first.
+
+    Shared by the single-profile and bulk selectors below so the rule for what
+    a card may display lives in exactly one place. ``end_time`` cannot be part
+    of the SQL — it is ``date_time + duration_minutes``, and ``timedelta * F()``
+    is unsupported on SQLite — so this is the bounded pre-filter and callers
+    apply the precise check in Python.
+    """
+    return (
+        EventRegistration.objects.filter(
+            user_id__in=user_ids,
+            event__date_time__gte=MeetupEvent.live_lookback_cutoff(now),
+            status__in=PASS_NEXT_EVENT_STATUSES,
+        )
+        # A cancelled event is not anybody's next event. Without this the
+        # member card kept advertising it — and worse, cancelling an event
+        # rebuilt a byte-identical pass, so the refresh that cancellation
+        # triggers accomplished nothing.
+        .exclude(event__is_cancelled=True)
+        .select_related("event")
+        .order_by("event__date_time")
+    )
+
+
+def get_next_event_registrations(user_ids, now=None):
+    """Which registration each user's card is currently showing.
+
+    ``{user_id: EventRegistration}``, users with nothing to show omitted. One
+    query for the whole batch, which is the point: the admin bulk actions need
+    to know whether the row they are about to change is the one a holder's card
+    actually displays, and asking per holder would cost a query each.
+
+    That question matters because both wallet fan-outs are capped. A holder with
+    an earlier eligible registration is not showing this event, so refreshing
+    them writes a byte-identical object — and on the Google side the cap is a
+    hard loss, no poll heals what it skips, so each no-op can leave someone
+    whose card IS wrong stale for good.
+    """
+    now = now or timezone.now()
+    chosen = {}
+    for candidate in _next_event_candidates(user_ids, now):
+        # Ordered by start, so the first ELIGIBLE candidate per user wins. An
+        # earlier one that has already ended is skipped without claiming the
+        # slot — exactly what the single-profile selector does.
+        if candidate.user_id in chosen:
+            continue
+        if candidate.event.end_time >= now:
+            chosen[candidate.user_id] = candidate
+    return chosen
+
+
 def get_next_event_for_pass(profile):
     """
     Returns formatted next event info for wallet passes.
@@ -46,24 +96,10 @@ def get_next_event_for_pass(profile):
         }
     """
     now = timezone.now()
-    candidate_registrations = (
-        EventRegistration.objects.filter(
-            user=profile.user,
-            event__date_time__gte=MeetupEvent.live_lookback_cutoff(now),
-            status__in=PASS_NEXT_EVENT_STATUSES,
-        )
-        # A cancelled event is not anybody's next event. Without this the
-        # member card kept advertising it — and worse, cancelling an event
-        # rebuilt a byte-identical pass, so the refresh that cancellation
-        # triggers accomplished nothing.
-        .exclude(event__is_cancelled=True)
-        .select_related("event")
-        .order_by("event__date_time")
-    )
     registration = next(
         (
             candidate
-            for candidate in candidate_registrations
+            for candidate in _next_event_candidates([profile.user_id], now)
             if candidate.event.end_time >= now
         ),
         None,

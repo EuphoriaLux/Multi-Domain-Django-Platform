@@ -1426,6 +1426,105 @@ class TestEventLevelGoogleRefresh:
         assert get_next_event_for_pass(profile) is not None
         assert patch_object.call_count == 1
 
+    @pytest.mark.parametrize(
+        "days_out,old_minutes,new_minutes,label",
+        [
+            (7, 120, 240, "future event, lengthened"),
+            (7, 240, 120, "future event, shortened"),
+        ],
+    )
+    def test_duration_edits_that_cannot_move_the_card_do_not_patch(
+        self, days_out, old_minutes, new_minutes, label, _google_identity,
+        event_with_registrations, django_capture_on_commit_callbacks,
+    ):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        # duration_minutes is in _GOOGLE_PAYLOAD_FIELDS because it SELECTS, not
+        # because it renders — so it is only relevant when the event crosses
+        # the end_time >= now boundary. A future event is eligible at any
+        # length, so these edits leave the card identical, and firing the
+        # fan-out would mean up to 50 synchronous PATCHes from the admin
+        # request writing byte-identical objects.
+        event, _profile = self._google_holder(event_with_registrations)
+        event.date_time = timezone.now() + timedelta(days=days_out)
+        event.duration_minutes = old_minutes
+        event.save()
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ) as token, mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object"
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                event.duration_minutes = new_minutes
+                event.save()
+
+        token.assert_not_called()
+        patch_object.assert_not_called()
+
+    def test_a_past_event_staying_past_does_not_patch(
+        self, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        # Both ends of the edit are behind `now`, so the event was already off
+        # the card and stays off it.
+        event, _profile = self._google_holder(event_with_registrations)
+        event.date_time = timezone.now() - timedelta(hours=5)
+        event.duration_minutes = 30
+        event.save()
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object"
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                event.duration_minutes = 60  # still ended four hours ago
+                event.save()
+
+        patch_object.assert_not_called()
+
+    def test_the_apple_ticket_still_refreshes_on_any_duration_edit(
+        self, _apple_identity, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        # The Google gate must not narrow the APPLE one: duration drives
+        # expirationDate, which is rendered, so every edit rewrites the ticket
+        # whether or not eligibility moved.
+        event, profile = self._google_holder(event_with_registrations)
+        profile.apple_pass_serial = "member-serial"
+        profile.save(update_fields=["apple_pass_serial"])
+        event.date_time = timezone.now() + timedelta(days=7)
+        event.duration_minutes = 120
+        event.save()
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh_apple, mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object"
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                event.duration_minutes = 240
+                event.save()
+
+        # Not a bare call count — refresh_event_tickets routes through this
+        # same helper, so the ticket and member fan-outs are two calls. What
+        # matters is that the member pass was among them.
+        assert any(
+            "member-serial" in call.args[0] for call in refresh_apple.call_args_list
+        )
+        patch_object.assert_not_called()
+
     def test_the_two_next_event_status_sets_are_one_object(self):
         # signals and wallet_pass each used to keep their own copy under a
         # "keep in sync" note. Identity, not equality: a future edit to one
@@ -3681,9 +3780,9 @@ class TestAdminBulkActionsRefreshWallets:
                     MeetupEvent.objects.filter(pk=event.pk),
                 )
 
-        # Still one call for the action, carrying nobody.
-        assert refresh_google.call_count == 1
-        assert list(refresh_google.call_args.args[0]) == []
+        # Nobody to refresh, so the helper is not called at all — no on_commit
+        # hook, no scheduling log for a batch of zero.
+        refresh_google.assert_not_called()
 
     def test_cancel_events_matches_status_on_the_same_registration(
         self, _apple_identity, _google_identity, event_with_registrations
@@ -3726,7 +3825,7 @@ class TestAdminBulkActionsRefreshWallets:
                     MeetupEvent.objects.filter(pk=event.pk),
                 )
 
-        assert list(refresh_google.call_args.args[0]) == []
+        refresh_google.assert_not_called()
 
     def test_confirm_collects_google_profiles_before_the_status_flips(
         self, _apple_identity, _google_identity, event_with_registrations
@@ -3834,6 +3933,176 @@ class TestAdminBulkActionsRefreshWallets:
                     None,
                     RequestFactory().post("/"),
                     QuizEvent.objects.filter(pk__in=[quiz_a.pk, quiz_b.pk]),
+                )
+
+        assert refresh_google.call_count == 1
+        assert [p.pk for p in refresh_google.call_args.args[0]] == [profile.pk]
+
+    def _second_event(self, days, title="Second event"):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from crush_lu.models import MeetupEvent
+
+        return MeetupEvent.objects.create(
+            title=title,
+            date_time=timezone.now() + timedelta(days=days),
+            location="Luxembourg City",
+            max_participants=20,
+            registration_deadline=timezone.now() + timedelta(days=max(days - 1, 0)),
+        )
+
+    def test_cancel_skips_holders_showing_an_earlier_event(
+        self, _apple_identity, _google_identity, event_with_registrations
+    ):
+        from crush_lu.models import EventRegistration, MeetupEvent
+
+        # The fixture event is 7 days out; this holder also has one 3 days out,
+        # so THAT is what their card shows. Cancelling the later event changes
+        # nothing they can see — and the fan-out is capped with no Google poll
+        # behind it, so a no-op here can strand a holder whose card really was
+        # showing the cancelled event.
+        event, registrations = event_with_registrations
+        registration = registrations[0]
+        earlier = self._second_event(3, title="The one actually displayed")
+        EventRegistration.objects.create(
+            event=earlier, user=registration.user, status="confirmed"
+        )
+        self._google_member(registration, "google-obj-laterevent")
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ), mock.patch(
+            "crush_lu.wallet.google_api.refresh_google_wallet_objects"
+        ) as refresh_google:
+            with mock.patch("crush_lu.admin.events.django_messages"):
+                self._admin(MeetupEvent).cancel_events(
+                    RequestFactory().post("/"),
+                    MeetupEvent.objects.filter(pk=event.pk),
+                )
+
+        refresh_google.assert_not_called()
+
+    def test_cancel_still_refreshes_when_the_displayed_event_goes(
+        self, _apple_identity, _google_identity, event_with_registrations
+    ):
+        from crush_lu.models import EventRegistration, MeetupEvent
+
+        # The mirror: the SAME two-event holder, but now the earlier one is
+        # cancelled. That is the event their card names, so this must refresh.
+        event, registrations = event_with_registrations
+        registration = registrations[0]
+        earlier = self._second_event(3, title="The one actually displayed")
+        EventRegistration.objects.create(
+            event=earlier, user=registration.user, status="confirmed"
+        )
+        profile = self._google_member(registration, "google-obj-displayed")
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ), mock.patch(
+            "crush_lu.wallet.google_api.refresh_google_wallet_objects"
+        ) as refresh_google:
+            with mock.patch("crush_lu.admin.events.django_messages"):
+                self._admin(MeetupEvent).cancel_events(
+                    RequestFactory().post("/"),
+                    MeetupEvent.objects.filter(pk=earlier.pk),
+                )
+
+        assert refresh_google.call_count == 1
+        assert [p.pk for p in refresh_google.call_args.args[0]] == [profile.pk]
+
+    def test_quiz_no_show_skips_holders_showing_an_earlier_event(
+        self, _apple_identity, _google_identity, event_with_registrations
+    ):
+        from crush_lu.admin.quiz import mark_unattended_as_no_show
+        from crush_lu.models import EventRegistration
+        from crush_lu.models.quiz import QuizEvent
+
+        # Crossing the status boundary is necessary but not sufficient: this
+        # holder's card is showing an earlier event, so being marked absent
+        # from the later quiz rewrites nothing.
+        event, registrations = event_with_registrations
+        registration = registrations[0]
+        earlier = self._second_event(3, title="The one actually displayed")
+        EventRegistration.objects.create(
+            event=earlier, user=registration.user, status="confirmed"
+        )
+        self._google_member(registration, "google-obj-laterquiz")
+        quiz = QuizEvent.objects.create(event=event, created_by=registration.user)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ), mock.patch(
+            "crush_lu.wallet.google_api.refresh_google_wallet_objects"
+        ) as refresh_google:
+            with mock.patch("crush_lu.admin.quiz.messages"):
+                mark_unattended_as_no_show(
+                    None,
+                    RequestFactory().post("/"),
+                    QuizEvent.objects.filter(pk=quiz.pk),
+                )
+
+        refresh_google.assert_not_called()
+
+    def test_confirm_skips_a_restored_seat_behind_an_earlier_event(
+        self, _apple_identity, _google_identity, event_with_registrations
+    ):
+        from crush_lu.models import EventRegistration
+
+        # Restoring a seat only changes the card if the restored event then IS
+        # the displayed one. This holder already has an earlier eligible
+        # registration, so it is not.
+        event, registrations = event_with_registrations
+        registration = registrations[0]
+        registration.status = "cancelled"
+        registration.save(update_fields=["status"])
+        earlier = self._second_event(3, title="The one actually displayed")
+        EventRegistration.objects.create(
+            event=earlier, user=registration.user, status="confirmed"
+        )
+        self._google_member(registration, "google-obj-behind")
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ), mock.patch(
+            "crush_lu.wallet.google_api.refresh_google_wallet_objects"
+        ) as refresh_google:
+            with mock.patch("crush_lu.admin.events.django_messages"):
+                self._admin(EventRegistration).confirm_registrations(
+                    RequestFactory().post("/"),
+                    EventRegistration.objects.filter(pk=registration.pk),
+                )
+
+        refresh_google.assert_not_called()
+
+    def test_confirm_refreshes_a_restored_seat_that_becomes_the_next_event(
+        self, _apple_identity, _google_identity, event_with_registrations
+    ):
+        from crush_lu.models import EventRegistration
+
+        # The mirror: the restored seat is EARLIER than what the card shows, so
+        # it takes over the block and the object really does change.
+        event, registrations = event_with_registrations
+        registration = registrations[0]
+        later = self._second_event(9, title="Currently displayed")
+        EventRegistration.objects.create(
+            event=later, user=registration.user, status="confirmed"
+        )
+        registration.status = "cancelled"
+        registration.save(update_fields=["status"])
+        profile = self._google_member(registration, "google-obj-takesover")
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ), mock.patch(
+            "crush_lu.wallet.google_api.refresh_google_wallet_objects"
+        ) as refresh_google:
+            with mock.patch("crush_lu.admin.events.django_messages"):
+                self._admin(EventRegistration).confirm_registrations(
+                    RequestFactory().post("/"),
+                    EventRegistration.objects.filter(pk=registration.pk),
                 )
 
         assert refresh_google.call_count == 1

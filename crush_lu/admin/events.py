@@ -598,6 +598,57 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         # Snapshot before .update() — the queryset is lazy and its filter may
         # well be is_cancelled=False, which would match nothing afterwards.
         events = list(queryset)
+
+        # Which Google holders this cancellation actually changes, resolved
+        # BEFORE the update for a second reason: get_next_event_for_pass
+        # excludes cancelled events, so afterwards none of these events is
+        # anybody's displayed next event and the answer would be "nobody".
+        #
+        # Narrowed to holders whose card is showing one of THESE events. A
+        # holder with an earlier eligible registration is looking at that one
+        # instead, so cancelling this event rebuilds a byte-identical object —
+        # and the fan-out is capped at WALLET_GOOGLE_BULK_UPDATE_LIMIT with no
+        # Google-side poll behind it, so each no-op can push somebody whose
+        # card IS wrong out of the batch and leave it stale for good. Selecting
+        # on "currently displayed" also drops the already-cancelled events in
+        # the selection for free: they are excluded from the candidate set, so
+        # they are nobody's displayed event either.
+        google_profiles = []
+        try:
+            from crush_lu.models import CrushProfile
+            from crush_lu.wallet_pass import (
+                PASS_NEXT_EVENT_STATUSES,
+                get_next_event_registrations,
+            )
+
+            candidates = list(
+                CrushProfile.objects.filter(
+                    # Both conditions in ONE filter() so they constrain the
+                    # SAME registration row — split across two calls they
+                    # would match any registration for the event plus any
+                    # live registration anywhere, which is every attendee.
+                    user__eventregistration__event__in=events,
+                    user__eventregistration__status__in=PASS_NEXT_EVENT_STATUSES,
+                )
+                .exclude(google_wallet_object_id="")
+                .distinct()
+            )
+            cancelled_ids = {event.pk for event in events}
+            displayed = get_next_event_registrations(
+                [profile.user_id for profile in candidates]
+            )
+            google_profiles = [
+                profile
+                for profile in candidates
+                if getattr(displayed.get(profile.user_id), "event_id", None)
+                in cancelled_ids
+            ]
+        except Exception:
+            logger.exception(
+                "Failed selecting Google wallet holders for %s cancelled event(s)",
+                len(events),
+            )
+
         updated = queryset.update(is_cancelled=True)
 
         # .update() emits no signals, so nothing else tells Apple Wallet these
@@ -636,41 +687,27 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             )
 
         # The GOOGLE member object prints the same "Next Event" block, and
-        # get_next_event_for_pass drops cancelled events outright — so every
-        # attendee's card is now advertising an event that will not happen.
+        # get_next_event_for_pass drops cancelled events outright — so these
+        # holders' cards are now advertising an event that will not happen.
         # There is no Google ticket to carry the change instead; the member
         # object is the only Google surface this event appears on.
         #
         # Its own try/except, and ONE call for the whole action, for the same
         # two reasons as the Apple half above: independent APIs must not skip
         # each other, and each helper opens its own budget.
-        try:
-            from crush_lu.models import CrushProfile
-            from crush_lu.wallet.google_api import refresh_google_wallet_objects
-            from crush_lu.wallet_pass import PASS_NEXT_EVENT_STATUSES
+        if google_profiles:
+            try:
+                from crush_lu.wallet.google_api import refresh_google_wallet_objects
 
-            refresh_google_wallet_objects(
-                list(
-                    CrushProfile.objects.filter(
-                        # Both conditions in ONE filter() so they constrain the
-                        # SAME registration row — split across two calls they
-                        # would match any registration for the event plus any
-                        # live registration anywhere, which is every attendee.
-                        user__eventregistration__event__in=events,
-                        user__eventregistration__status__in=(
-                            PASS_NEXT_EVENT_STATUSES
-                        ),
-                    )
-                    .exclude(google_wallet_object_id="")
-                    .distinct()
-                ),
-                context=f"Admin cancel_events ({len(events)} event(s))",
-            )
-        except Exception:
-            logger.exception(
-                "Failed scheduling Google wallet refresh for %s cancelled event(s)",
-                len(events),
-            )
+                refresh_google_wallet_objects(
+                    google_profiles,
+                    context=f"Admin cancel_events ({len(events)} event(s))",
+                )
+            except Exception:
+                logger.exception(
+                    "Failed scheduling Google wallet refresh for %s cancelled event(s)",
+                    len(events),
+                )
 
         django_messages.success(
             request, _("Cancelled {count} event(s)").format(count=updated)
@@ -1051,17 +1088,48 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         # member card already names this event and the rebuild would be
         # byte-identical. Only a seat coming back from OUTSIDE that set
         # (cancelled, no_show) actually changes what the card says.
-        from crush_lu.wallet_pass import PASS_NEXT_EVENT_STATUSES
-
-        restored_google_profiles = list(
-            CrushProfile.objects.filter(
-                user__eventregistration__in=restoring.exclude(
-                    status__in=PASS_NEXT_EVENT_STATUSES
-                )
-            )
-            .exclude(google_wallet_object_id="")
-            .distinct()
+        # A second narrowing on top of that, the mirror of the one in
+        # cancel_events: re-entering the candidate set only changes the card if
+        # the restored event would then BE the displayed one. A holder with an
+        # earlier eligible registration keeps looking at that, so restoring a
+        # later seat rebuilds a byte-identical object and spends a capped,
+        # poll-less budget slot that a genuinely-changed holder needed.
+        #
+        # `<=` on the comparison, not `<`: two events sharing a start time are
+        # ordered by whatever the database returns, so a tie is "might change"
+        # rather than "cannot".
+        from crush_lu.wallet_pass import (
+            PASS_NEXT_EVENT_STATUSES,
+            get_next_event_registrations,
         )
+
+        now = timezone.now()
+        restored_rows = list(
+            restoring.exclude(status__in=PASS_NEXT_EVENT_STATUSES).select_related(
+                "event"
+            )
+        )
+        restored_google_profiles = []
+        if restored_rows:
+            by_user = {}
+            for row in restored_rows:
+                event = row.event
+                if event.is_cancelled or event.end_time < now:
+                    continue  # restoring the seat still leaves it off the card
+                earliest = by_user.get(row.user_id)
+                if earliest is None or event.date_time < earliest:
+                    by_user[row.user_id] = event.date_time
+            displayed = get_next_event_registrations(list(by_user), now=now)
+            candidates = CrushProfile.objects.filter(
+                user_id__in=list(by_user)
+            ).exclude(google_wallet_object_id="")
+            for profile in candidates:
+                showing = displayed.get(profile.user_id)
+                if (
+                    showing is None
+                    or by_user[profile.user_id] <= showing.event.date_time
+                ):
+                    restored_google_profiles.append(profile)
 
         updated = EventRegistration.objects.filter(pk__in=eligible_ids).update(
             status="confirmed"

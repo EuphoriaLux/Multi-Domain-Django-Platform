@@ -196,6 +196,7 @@ def mark_unattended_as_no_show(modeladmin, request, queryset):
     out and wants the attendance record to reflect reality."""
     from crush_lu.models import CrushProfile
     from crush_lu.models.events import EventRegistration
+    from crush_lu.wallet_pass import get_next_event_registrations
 
     # Accumulated across the whole action, then refreshed ONCE: each refresh
     # helper opens its own push budget, so refreshing per quiz would restart
@@ -236,15 +237,28 @@ def mark_unattended_as_no_show(modeladmin, request, queryset):
             .distinct()
         )
         # ...and their GOOGLE member objects, which print the same "Next Event"
-        # block and have no Google ticket to carry the change instead. Every
-        # row here qualifies without further filtering: "confirmed" and
-        # "pending" are both inside PASS_NEXT_EVENT_STATUSES and "no_show" is
-        # outside it, so each of these genuinely stops being the holder's next
-        # event. Collected before the update, while `affected` still matches.
-        for profile in CrushProfile.objects.filter(
-            user__eventregistration__in=affected
-        ).exclude(google_wallet_object_id=""):
-            voiding_google_profiles[profile.pk] = profile
+        # block and have no Google ticket to carry the change instead.
+        # Collected before the update, while `affected` still matches.
+        #
+        # Crossing the status boundary is necessary but NOT sufficient here:
+        # "confirmed"/"pending" are inside PASS_NEXT_EVENT_STATUSES and
+        # "no_show" is outside it, but a holder with an earlier eligible
+        # registration is not showing THIS quiz, so marking them absent from it
+        # rebuilds a byte-identical object. The fan-out is capped with no
+        # Google-side poll behind it, so each no-op can crowd out a holder whose
+        # card really was showing this quiz and strand it.
+        quiz_candidates = list(
+            CrushProfile.objects.filter(
+                user__eventregistration__in=affected
+            ).exclude(google_wallet_object_id="")
+        )
+        displayed = get_next_event_registrations(
+            [profile.user_id for profile in quiz_candidates]
+        )
+        for profile in quiz_candidates:
+            showing = displayed.get(profile.user_id)
+            if showing is not None and showing.event_id == quiz.event_id:
+                voiding_google_profiles[profile.pk] = profile
         updated = affected.update(status="no_show")
         messages.success(
             request,
