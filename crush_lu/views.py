@@ -25,6 +25,8 @@ from django.views.decorators.http import require_http_methods
 import logging
 import json
 
+from crush_lu.models.events import SEAT_HOLDING_STATUSES
+
 logger = logging.getLogger(__name__)
 
 AUTOSAVE_ABOUT_FIELDS = {
@@ -314,7 +316,11 @@ def _verification_path_context(profile, user):
         now = timezone.now()
         candidate_registrations = EventRegistration.objects.filter(
             user=user,
-            status__in=("confirmed", "waitlist"),
+            # A pending (unpaid) seat is just as much a commitment to be
+            # verified at the event as a confirmed one -- omitting it showed the
+            # generic "Verify now" prompt to someone who had already chosen the
+            # event path and holds a seat.
+            status__in=(*SEAT_HOLDING_STATUSES, "waitlist"),
             event__is_cancelled=False,
             event__date_time__gte=MeetupEvent.live_lookback_cutoff(now),
         ).select_related("event")

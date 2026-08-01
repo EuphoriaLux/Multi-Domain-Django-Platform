@@ -65,7 +65,10 @@ _CHECKIN_UPDATE_FIELDS = [
 #: requires `waitlist`. Anything else on the row is a stale or hand-written
 #: value and falls back to `confirmed`, which is what the undo did for every
 #: row before provenance existed.
-UNDO_RESTORABLE_STATUSES = frozenset({"confirmed", "waitlist"})
+# "pending" is restorable now that a Pending Payment seat can be scanned:
+# without it, undoing an accidental scan silently converted an unpaid
+# registration into a confirmed one.
+UNDO_RESTORABLE_STATUSES = frozenset({"confirmed", "waitlist", "pending"})
 
 
 def _record_checkin_provenance(registration):

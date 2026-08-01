@@ -914,3 +914,76 @@ class ExpiredCheckoutReuseTests(SiteTestMixin, TestCase):
 
         self.assertEqual(first.json()["checkout_id"], second.json()["checkout_id"])
         self.assertEqual(mock_create_checkout.call_count, 1)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class SeatStatusAtCompletionTests(SiteTestMixin, TestCase):
+    """Round-6: only a seat-holding status may be confirmed by a payment."""
+
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(
+            username="r6@crush.lu", email="r6@crush.lu", password="password123"
+        )
+        self.event = MeetupEvent.objects.create(
+            title="R6",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("15.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+
+    def _apply(self, ref):
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        tx = PaymentTransaction.objects.create(
+            transaction_reference=ref,
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id=f"CHK_{ref}",
+            amount=Decimal("15.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+        with self.captureOnCommitCallbacks(execute=True):
+            _apply_paid_checkout(tx, {"status": "PAID"})
+        self.registration.refresh_from_db()
+        tx.refresh_from_db()
+        return tx
+
+    def test_payment_does_not_resurrect_a_waitlisted_seat(self):
+        """Staff can move a row to waitlist while the widget is open."""
+        self.registration.status = "waitlist"
+        self.registration.save()
+
+        tx = self._apply("WL")
+
+        self.assertEqual(self.registration.status, "waitlist")
+        self.assertFalse(self.registration.payment_confirmed)
+        # Money captured -- the record must survive for the refund.
+        self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+
+    def test_payment_does_not_erase_a_recorded_no_show(self):
+        self.registration.status = "no_show"
+        self.registration.save()
+
+        self._apply("NS")
+
+        self.assertEqual(self.registration.status, "no_show")
+        self.assertFalse(self.registration.payment_confirmed)
+
+    def test_pending_still_confirms(self):
+        """The allow-list must not break the ordinary path."""
+        self._apply("OK")
+
+        self.assertEqual(self.registration.status, "confirmed")
+        self.assertTrue(self.registration.payment_confirmed)
