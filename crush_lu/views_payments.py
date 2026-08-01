@@ -56,7 +56,10 @@ def create_sumup_event_checkout(request, registration_id):
         )
     except SumUpError as exc:
         logger.error("Failed to create SumUp event checkout: %s", exc)
-        return JsonResponse({"error": str(exc)}, status=500)
+        return JsonResponse(
+            {"error": _("Unable to initiate payment at the moment. Please try again later.")},
+            status=500,
+        )
 
     checkout_id = checkout_data.get("id")
     if not checkout_id:
@@ -132,7 +135,10 @@ def create_sumup_premium_checkout(request, membership_id):
         )
     except SumUpError as exc:
         logger.error("Failed to create SumUp premium checkout: %s", exc)
-        return JsonResponse({"error": str(exc)}, status=500)
+        return JsonResponse(
+            {"error": _("Unable to initiate payment at the moment. Please try again later.")},
+            status=500,
+        )
 
     checkout_id = checkout_data.get("id")
     if not checkout_id:
