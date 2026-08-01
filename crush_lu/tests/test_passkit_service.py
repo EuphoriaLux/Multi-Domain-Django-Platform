@@ -1275,7 +1275,7 @@ class TestEventLevelGoogleRefresh:
             ("location", "A different bar"),
             ("address", "1 New Street"),
             ("latitude", 49.61),
-            ("duration_minutes", 999),
+            ("event_type", "mixer"),
         ],
     )
     def test_apple_only_field_changes_do_not_patch_google(
@@ -1306,6 +1306,7 @@ class TestEventLevelGoogleRefresh:
             ("date_time", None),  # replaced below — needs a real datetime
             ("is_cancelled", True),
             ("title_fr", "Soirée renommée"),
+            ("duration_minutes", 999),
         ],
     )
     def test_google_rendered_field_changes_do_patch(
@@ -1424,10 +1425,14 @@ class TestEventLevelGoogleRefresh:
         event, _profile = self._google_holder(event_with_registrations)
         self._extra_google_holders(event, 2)
 
-        settings.WALLET_GOOGLE_BULK_UPDATE_BUDGET_SECONDS = 0.1
+        # Deliberately generous for a timing test: at 0.1s/0.15s a routine
+        # scheduling hiccup under `-n auto` could delay the first iteration
+        # past the deadline, making this fail with 0 calls. A full second of
+        # headroom means only a pathologically stalled worker can flip it.
+        settings.WALLET_GOOGLE_BULK_UPDATE_BUDGET_SECONDS = 1.0
 
         def _slow_patch(*args, **kwargs):
-            time_module.sleep(0.15)
+            time_module.sleep(1.2)
             return {"success": True, "message": "Pass updated successfully"}
 
         with mock.patch(
@@ -1699,6 +1704,186 @@ class TestEventLevelGoogleRefresh:
         ) as patch_object:
             with django_capture_on_commit_callbacks(execute=True):
                 assert refresh_google_wallet_objects([profile, other]) == 1
+
+        assert patch_object.call_count == 1
+
+    def test_shortening_a_running_event_off_the_card_patches_google(
+        self, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # duration_minutes is printed nowhere on the card, which is exactly why
+        # it is easy to misfile as Apple-only. get_next_event_for_pass keeps an
+        # event only while end_time >= now, and end_time is date_time +
+        # duration — so shortening one that is currently running drops it off
+        # the card without a single rendered field changing.
+        from datetime import timedelta
+
+        from django.utils import timezone as dj_timezone
+
+        from crush_lu.wallet_pass import get_next_event_for_pass
+
+        event, profile = self._google_holder(event_with_registrations)
+        # Running right now: started 30 minutes ago, due to end in 90.
+        event.date_time = dj_timezone.now() - timedelta(minutes=30)
+        event.duration_minutes = 120
+        event.save()
+        assert get_next_event_for_pass(profile) is not None
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                # Now ended 20 minutes ago.
+                event.duration_minutes = 10
+                event.save()
+
+        # It really did leave the card...
+        assert get_next_event_for_pass(profile) is None
+        # ...so Google has to be told, or the holder keeps a finished event as
+        # their "Next Event" indefinitely.
+        assert patch_object.call_count == 1
+
+    def _register_for_another_event(self, profile, when, status="confirmed"):
+        from crush_lu.models import EventRegistration, MeetupEvent
+
+        from datetime import timedelta
+
+        other = MeetupEvent.objects.create(
+            title="Another night",
+            description="x",
+            event_type="speed_dating",
+            date_time=when,
+            location="Elsewhere",
+            max_participants=20,
+            registration_deadline=when - timedelta(days=1),
+            is_published=True,
+        )
+        EventRegistration.objects.create(
+            event=other, user=profile.user, status=status
+        )
+        return other
+
+    def test_holder_with_a_nearer_event_is_not_rebuilt(
+        self, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # get_next_event_for_pass renders the EARLIEST upcoming registration,
+        # so this member's card shows the other event both before and after —
+        # rebuilding them writes an identical object, and under the cap a no-op
+        # ahead of the limit pushes someone who needs it past it for good.
+        from datetime import timedelta
+
+        event, profile = self._google_holder(event_with_registrations)
+        self._register_for_another_event(profile, event.date_time - timedelta(days=1))
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object"
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                self._retitle(event)
+
+        patch_object.assert_not_called()
+
+    def test_a_reschedule_past_the_nearer_event_still_rebuilds(
+        self, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # The direction that must NOT be optimised away: this event was the
+        # member's next one, and moving it past their other event means the
+        # card has to stop showing it. Filtering on the new date alone would
+        # skip them and leave a wrong card with nothing left to correct it.
+        from datetime import timedelta
+
+        from django.utils import timezone as dj_timezone
+
+        event, profile = self._google_holder(event_with_registrations)
+        # Other event sits AFTER the current start, so this one renders today.
+        self._register_for_another_event(profile, event.date_time + timedelta(days=1))
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                # Moved well past the other event.
+                event.date_time = dj_timezone.now() + timedelta(days=30)
+                event.save()
+
+        assert patch_object.call_count == 1
+
+    @pytest.mark.parametrize("days_ago", [2, 30])
+    def test_a_finished_event_does_not_count_as_the_nearer_one(
+        self, days_ago, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # An event that has ended is not what the card shows, so it must not
+        # suppress the refresh. `days_ago=2` is the case that matters: it sits
+        # INSIDE get_next_event_for_pass's 7-day coarse lookback, so a filter
+        # that borrowed only that bound would wrongly treat it as nearer and
+        # leave this holder's card stale for good. The 30-day case is outside
+        # the window and would pass under either bound — which is exactly why
+        # it alone proved nothing.
+        from datetime import timedelta
+
+        from django.utils import timezone as dj_timezone
+
+        from crush_lu.wallet_pass import get_next_event_for_pass
+
+        event, profile = self._google_holder(event_with_registrations)
+        other = self._register_for_another_event(
+            profile, dj_timezone.now() - timedelta(days=days_ago)
+        )
+        # Three hours long, so it is long over either way.
+        other.duration_minutes = 180
+        other.save(update_fields=["duration_minutes"])
+        # The card really does show the event being edited, not the older one.
+        assert get_next_event_for_pass(profile)["title"] == event.title
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                self._retitle(event)
+
+        assert patch_object.call_count == 1
+
+    def test_a_currently_running_nearer_event_still_refreshes(
+        self, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # The accepted cost of the `>= now` bound: an event running RIGHT NOW
+        # genuinely is this holder's next event, so the PATCH is redundant —
+        # but SQL cannot check end_time portably, and erring this way spends
+        # budget rather than leaving a wrong card nothing will correct.
+        from datetime import timedelta
+
+        from django.utils import timezone as dj_timezone
+
+        event, profile = self._google_holder(event_with_registrations)
+        running = self._register_for_another_event(
+            profile, dj_timezone.now() - timedelta(minutes=30)
+        )
+        running.duration_minutes = 120  # ends in 90 minutes
+        running.save(update_fields=["duration_minutes"])
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                self._retitle(event)
 
         assert patch_object.call_count == 1
 

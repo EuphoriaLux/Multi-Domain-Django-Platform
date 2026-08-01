@@ -11,7 +11,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.auth.signals import user_logged_in
 from django.core.files.base import ContentFile
-from django.db.models import Q
+from django.db.models import Exists, OuterRef, Q
 from django.db import transaction
 from django.db.models.signals import post_delete, post_save, pre_delete, pre_save
 from django.dispatch import receiver
@@ -567,19 +567,28 @@ _TICKET_PAYLOAD_FIELDS = _TICKET_PAYLOAD_BASE_FIELDS + tuple(
 
 # The subset of the above that can actually change the GOOGLE member object.
 # _build_generic_object_payload renders only the next event's title and date,
-# so a venue move, address fix, coordinate correction, event-type change or
-# duration edit rewrites the Apple ticket while leaving the Google object
-# byte-identical — and paying an OAuth exchange plus up to
-# WALLET_GOOGLE_BULK_UPDATE_LIMIT synchronous PATCHes to write an unchanged
-# object is exactly the budget spend the cap exists to protect.
+# so a venue move, address fix, coordinate correction or event-type change
+# rewrites the Apple ticket while leaving the Google object byte-identical —
+# and paying an OAuth exchange plus up to WALLET_GOOGLE_BULK_UPDATE_LIMIT
+# synchronous PATCHes to write an unchanged object is exactly the budget spend
+# the cap exists to protect.
 #
-# `is_cancelled` belongs here: get_next_event_for_pass drops a cancelled event,
-# so the block flips to "Browse events on crush.lu". The translated title
-# columns belong here for the reason given above — the card renders whichever
-# language its holder reads. Keep in sync with
-# google_api._build_generic_object_payload.
+# Membership in this set has TWO grounds, and missing the second is the easy
+# mistake: a field belongs here if the card PRINTS it (the translated title
+# columns — the card renders whichever language its holder reads — and
+# date_time), or if it decides whether this event is ON the card at all:
+#
+#   * is_cancelled — get_next_event_for_pass excludes cancelled events, so the
+#     block flips to "Browse events on crush.lu";
+#   * duration_minutes — nothing prints it, but the same helper keeps an event
+#     only while `end_time >= now`, and end_time is date_time + duration. So
+#     shortening a running event past now drops it off the card, and extending
+#     one that just ended puts it back.
+#
+# Keep in sync with google_api._build_generic_object_payload AND with
+# wallet_pass.get_next_event_for_pass, which between them decide both grounds.
 _GOOGLE_PAYLOAD_FIELDS = frozenset(
-    ("date_time", "is_cancelled")
+    ("date_time", "duration_minutes", "is_cancelled")
     + tuple(
         f"title_{code.replace('-', '_')}" for code, _label in settings.LANGUAGES
     )
@@ -768,8 +777,55 @@ def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
     try:
         from .wallet.google_api import refresh_google_wallet_objects
 
+        # Narrow again, to holders whose card can actually be showing THIS
+        # event. get_next_event_for_pass renders the earliest upcoming
+        # registration, so a member with a nearer event never displayed this
+        # one and rebuilding them writes a byte-identical object. Under the
+        # Google cap that is not merely waste: enough no-op profiles ahead of
+        # the limit push someone whose card IS wrong past it, for good.
+        #
+        # Deliberately conservative — it drops only holders with a qualifying
+        # event earlier than BOTH the old and the new start. A reschedule that
+        # moves this event PAST someone's other event therefore still refreshes
+        # them, which it must: their card has to stop showing this one. Getting
+        # it wrong in that direction leaves a wrong card with nothing left to
+        # correct it, while getting it wrong the other way only spends budget.
+        #
+        # One EXISTS subquery, not a per-profile get_next_event_for_pass call —
+        # the whole point of the batch is to keep this off a per-attendee
+        # query.
+        #
+        # The lower bound is `now`, NOT live_lookback_cutoff. That helper is
+        # get_next_event_for_pass's coarse DB-side pre-filter — a 7-day window
+        # it then narrows with a precise per-candidate `end_time >= now`, which
+        # SQL cannot express portably (timedelta * F() is unsupported on
+        # SQLite). Borrowing only the coarse half would count an event that
+        # started inside the window but has already FINISHED as somebody's
+        # nearer event, excluding a holder whose card really does show the
+        # changed event — precisely the permanent staleness this filter exists
+        # to prevent, reintroduced from the other side.
+        #
+        # `>= now` counts only events that have not started yet, which are
+        # therefore certainly still live, so every exclusion is provably safe.
+        # The price is that a nearer event running RIGHT NOW no longer
+        # suppresses anything and its holders get a redundant PATCH — the
+        # correct direction to err: over-refreshing spends budget, while
+        # under-refreshing leaves a wrong card with nothing to correct it.
+        # (Refining the coarse set in Python instead would mean loading and
+        # checking end_time per candidate, which is the per-attendee work the
+        # batch exists to avoid.)
+        previous_start = (previous or {}).get("date_time") or instance.date_time
+        nearer_event = EventRegistration.objects.filter(
+            user_id=OuterRef("user_id"),
+            status__in=_NEXT_EVENT_STATUSES,
+            event__is_cancelled=False,
+            event__date_time__lt=min(previous_start, instance.date_time),
+            event__date_time__gte=timezone.now(),
+        )
         google_profiles = list(
-            attendee_profiles.exclude(google_wallet_object_id="").distinct()
+            attendee_profiles.exclude(google_wallet_object_id="")
+            .exclude(Exists(nearer_event))
+            .distinct()
         )
         scheduled = refresh_google_wallet_objects(
             google_profiles, context=f"Event {instance.pk} Google member passes"
