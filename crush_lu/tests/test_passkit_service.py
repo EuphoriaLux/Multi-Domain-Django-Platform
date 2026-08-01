@@ -4020,6 +4020,81 @@ class TestAdminBulkActionsRefreshWallets:
 
         refresh_google.assert_not_called()
 
+    def test_quiz_no_show_refreshes_after_the_quiz_has_ended(
+        self, _apple_identity, _google_identity, event_with_registrations
+    ):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from crush_lu.admin.quiz import mark_unattended_as_no_show
+        from crush_lu.models.quiz import QuizEvent
+        from crush_lu.wallet_pass import get_next_event_for_pass
+
+        # THE normal workflow: absentees are marked after the quiz. By then
+        # get_next_event_for_pass has stopped selecting it, so "is this their
+        # displayed event" answers no for everyone — but the Google object is
+        # server-side state whose last PATCH went out while the quiz was still
+        # upcoming, so it is still advertising a finished quiz and nothing else
+        # recomputes it. Narrowing on the live selector alone would queue
+        # nobody and leave that card wrong for good.
+        event, registrations = event_with_registrations
+        registration = registrations[0]
+        event.date_time = timezone.now() - timedelta(hours=3)
+        event.duration_minutes = 60  # ended two hours ago
+        event.save()
+        profile = self._google_member(registration, "google-obj-endedquiz")
+        # Precisely the condition that makes the displayed-event test blind.
+        assert get_next_event_for_pass(profile) is None
+        quiz = QuizEvent.objects.create(event=event, created_by=registration.user)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ), mock.patch(
+            "crush_lu.wallet.google_api.refresh_google_wallet_objects"
+        ) as refresh_google:
+            with mock.patch("crush_lu.admin.quiz.messages"):
+                mark_unattended_as_no_show(
+                    None,
+                    RequestFactory().post("/"),
+                    QuizEvent.objects.filter(pk=quiz.pk),
+                )
+
+        assert refresh_google.call_count == 1
+        assert [p.pk for p in refresh_google.call_args.args[0]] == [profile.pk]
+
+    def test_cancel_refreshes_when_the_cancelled_event_has_ended(
+        self, _apple_identity, _google_identity, event_with_registrations
+    ):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from crush_lu.models import MeetupEvent
+
+        # Same divergence on the cancel path: an ended event is nobody's
+        # displayed event, so the narrowing must not conclude "refresh nobody".
+        event, registrations = event_with_registrations
+        registration = registrations[0]
+        event.date_time = timezone.now() - timedelta(hours=3)
+        event.duration_minutes = 60
+        event.save()
+        profile = self._google_member(registration, "google-obj-endedcancel")
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ), mock.patch(
+            "crush_lu.wallet.google_api.refresh_google_wallet_objects"
+        ) as refresh_google:
+            with mock.patch("crush_lu.admin.events.django_messages"):
+                self._admin(MeetupEvent).cancel_events(
+                    RequestFactory().post("/"),
+                    MeetupEvent.objects.filter(pk=event.pk),
+                )
+
+        assert refresh_google.call_count == 1
+        assert [p.pk for p in refresh_google.call_args.args[0]] == [profile.pk]
+
     def test_confirm_skips_a_restored_seat_behind_an_earlier_event(
         self, _apple_identity, _google_identity, event_with_registrations
     ):

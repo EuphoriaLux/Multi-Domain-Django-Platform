@@ -633,14 +633,33 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 .exclude(google_wallet_object_id="")
                 .distinct()
             )
+            # An event that has already ENDED is nobody's displayed event, so
+            # the test below cannot speak for it — yet the Google object is
+            # server-side state whose last PATCH went out while the event was
+            # still upcoming, so it may well still be advertising it, and
+            # nothing else recomputes that. Those holders take the
+            # conservative branch, the same way the quiz no-show action does.
+            #
+            # Coarse on purpose: one ended event in the selection includes
+            # every candidate, rather than tracking which holder holds which
+            # selected event. A selection mixing finished and future events is
+            # not a real admin workflow, and erring toward a redundant PATCH is
+            # the direction that only costs budget.
+            now = timezone.now()
             cancelled_ids = {event.pk for event in events}
-            displayed = get_next_event_registrations(
-                [profile.user_id for profile in candidates]
+            any_ended = any(event.end_time < now for event in events)
+            displayed = (
+                {}
+                if any_ended
+                else get_next_event_registrations(
+                    [profile.user_id for profile in candidates], now=now
+                )
             )
             google_profiles = [
                 profile
                 for profile in candidates
-                if getattr(displayed.get(profile.user_id), "event_id", None)
+                if any_ended
+                or getattr(displayed.get(profile.user_id), "event_id", None)
                 in cancelled_ids
             ]
         except Exception:

@@ -194,9 +194,13 @@ def mark_unattended_as_no_show(modeladmin, request, queryset):
     """Admin action: flip still-'confirmed' registrations to 'no_show' for
     the selected quiz events. Useful when the host forgot to scan someone
     out and wants the attendance record to reflect reality."""
+    from django.utils import timezone
+
     from crush_lu.models import CrushProfile
     from crush_lu.models.events import EventRegistration
     from crush_lu.wallet_pass import get_next_event_registrations
+
+    now = timezone.now()
 
     # Accumulated across the whole action, then refreshed ONCE: each refresh
     # helper opens its own push budget, so refreshing per quiz would restart
@@ -240,24 +244,47 @@ def mark_unattended_as_no_show(modeladmin, request, queryset):
         # block and have no Google ticket to carry the change instead.
         # Collected before the update, while `affected` still matches.
         #
-        # Crossing the status boundary is necessary but NOT sufficient here:
-        # "confirmed"/"pending" are inside PASS_NEXT_EVENT_STATUSES and
-        # "no_show" is outside it, but a holder with an earlier eligible
-        # registration is not showing THIS quiz, so marking them absent from it
-        # rebuilds a byte-identical object. The fan-out is capped with no
-        # Google-side poll behind it, so each no-op can crowd out a holder whose
-        # card really was showing this quiz and strand it.
+        # Two ways a holder here needs the PATCH, and the second is the USUAL
+        # one, because this action is normally run after the quiz:
+        #
+        #   * the quiz is still live and is what their card is showing. The
+        #     no_show flip takes it out of PASS_NEXT_EVENT_STATUSES, so the
+        #     block changes. Crossing the status boundary is necessary but not
+        #     sufficient — a holder with an earlier eligible registration is
+        #     looking at that instead, and refreshing them writes a
+        #     byte-identical object out of a capped, poll-less budget.
+        #
+        #   * the quiz has already ENDED. get_next_event_for_pass stopped
+        #     selecting it the moment it finished, so it is nobody's displayed
+        #     event and the test above answers "refresh nobody" — but the Google
+        #     object is SERVER-SIDE state that only changes when we PATCH it,
+        #     and the last PATCH went out while the quiz was still upcoming. It
+        #     is therefore still advertising a finished quiz, and nothing else
+        #     recomputes it: there is no "event ended" trigger anywhere in the
+        #     estate. Optimising on the current logical selector cannot see
+        #     that, because the two diverge the instant an event ends.
+        #
+        # So an ended quiz takes the conservative branch. That is the same rule
+        # the event-change fan-out follows: over-refreshing spends budget,
+        # under-refreshing strands a wrong card with nothing left to correct it.
+        quiz_ended = quiz.event.end_time < now
         quiz_candidates = list(
             CrushProfile.objects.filter(
                 user__eventregistration__in=affected
             ).exclude(google_wallet_object_id="")
         )
-        displayed = get_next_event_registrations(
-            [profile.user_id for profile in quiz_candidates]
+        displayed = (
+            {}
+            if quiz_ended
+            else get_next_event_registrations(
+                [profile.user_id for profile in quiz_candidates], now=now
+            )
         )
         for profile in quiz_candidates:
             showing = displayed.get(profile.user_id)
-            if showing is not None and showing.event_id == quiz.event_id:
+            if quiz_ended or (
+                showing is not None and showing.event_id == quiz.event_id
+            ):
                 voiding_google_profiles[profile.pk] = profile
         updated = affected.update(status="no_show")
         messages.success(
