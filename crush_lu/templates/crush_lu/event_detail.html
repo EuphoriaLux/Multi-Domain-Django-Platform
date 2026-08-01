@@ -417,6 +417,53 @@
                                 </div>
                             </div>
                         </div>
+                        {% if event.registration_fee > 0 and not user_registration.payment_confirmed %}
+                        <button onclick="startSumUpCheckout({{ user_registration.id }})" class="flex items-center justify-center gap-2 w-full py-3 sm:py-4 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-lg transition-all hover:shadow-lg text-sm sm:text-base mb-3 cursor-pointer">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                            </svg>
+                            <span>{% trans "Pay with Card" %} ({{ event.registration_fee }} EUR)</span>
+                        </button>
+                        <script>
+                            function getCsrfToken() {
+                                let cookieValue = null;
+                                if (document.cookie && document.cookie !== '') {
+                                    const cookies = document.cookie.split(';');
+                                    for (let i = 0; i < cookies.length; i++) {
+                                        const cookie = cookies[i].trim();
+                                        if (cookie.substring(0, 10) === ('csrftoken=')) {
+                                            cookieValue = decodeURIComponent(cookie.substring(10));
+                                            break;
+                                        }
+                                    }
+                                }
+                                return cookieValue;
+                            }
+
+                            function startSumUpCheckout(registrationId) {
+                                fetch('/payments/sumup/create-event-checkout/' + registrationId + '/', {
+                                    method: 'POST',
+                                    headers: {
+                                        'X-CSRFToken': getCsrfToken(),
+                                        'Content-Type': 'application/json'
+                                    }
+                                })
+                                .then(res => res.json())
+                                .then(data => {
+                                    if (data.success && data.widget_url) {
+                                        window.location.href = data.widget_url;
+                                    } else {
+                                        alert(data.error || 'Failed to initiate payment.');
+                                    }
+                                })
+                                .catch(err => {
+                                    console.error(err);
+                                    alert('An error occurred launching payment.');
+                                });
+                            }
+                        </script>
+                        {% endif %}
+
                         {% if user_registration.status == 'confirmed' or user_registration.status == 'attended' %}
                         <a href="{% url 'crush_lu:event_ticket' event.id %}" class="flex items-center justify-center gap-2 w-full py-3 sm:py-4 px-4 bg-gradient-to-r from-crush-purple to-crush-pink text-white font-semibold rounded-lg transition-all hover:shadow-lg text-sm sm:text-base mb-3">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
