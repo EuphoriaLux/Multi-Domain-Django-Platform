@@ -38700,3 +38700,7 @@ msgstr "Diese Anmeldung wurde bereits bezahlt."
 #: crush_lu/templates/crush_lu/emails/event_payment_pending.html
 msgid "This registration has been cancelled."
 msgstr "Diese Anmeldung wurde storniert."
+
+#: crush_lu/templates/crush_lu/premium/choose_coach.html
+msgid "Pay Premium Subscription (€%(amount)s / month)"
+msgstr "Premium-Abo bezahlen (€%(amount)s / Monat)"

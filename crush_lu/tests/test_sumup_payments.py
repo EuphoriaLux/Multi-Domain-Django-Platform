@@ -409,3 +409,76 @@ class SumUpPaymentViewsTests(SiteTestMixin, TestCase):
         self.assertTrue(self.membership.payment_confirmed)
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.assigned_coach, self.coach)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class PremiumPriceConsistencyTests(SiteTestMixin, TestCase):
+    """The price on the button must be the price the card is charged.
+
+    These were two independent sources: the label hard-coded "€10.00 / month"
+    while the checkout read SUMUP_PREMIUM_MONTHLY_FEE. They agreed only because
+    both happened to say 10 -- setting the env var to anything else would have
+    advertised one price and billed another.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        self.user = User.objects.create_user(
+            username="premium@crush.lu",
+            email="premium@crush.lu",
+            password="password123",
+        )
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        CrushProfile.objects.create(
+            user=self.user, verification_status="verified", completion_status="step4"
+        )
+        self.coach_user = User.objects.create_user(
+            username="pricecoach@crush.lu",
+            email="pricecoach@crush.lu",
+            password="password123",
+        )
+        self.coach = CrushCoach.objects.create(
+            user=self.coach_user,
+            is_active=True,
+            accepting_premium=True,
+            max_premium_members=10,
+        )
+        self.membership = PremiumMembership.objects.create(
+            user=self.user, coach=self.coach, status="pending"
+        )
+
+    @override_settings(
+        SUMUP_PREMIUM_MONTHLY_FEE="15.00", PREMIUM_REDIRECTS_TO_BETA=False
+    )
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    @patch("crush_lu.views_payments.SumUpClient.create_customer")
+    def test_displayed_price_matches_charged_price(
+        self, mock_create_customer, mock_create_checkout
+    ):
+        mock_create_customer.return_value = {"customer_id": f"crush-user-{self.user.id}"}
+        mock_create_checkout.return_value = {"id": "CHK_PRICE_001", "status": "PENDING"}
+        self.client.force_login(self.user)
+
+        # What the member is shown.
+        page = self.client.get(reverse("crush_lu:premium_choose_coach"))
+        self.assertEqual(page.status_code, 200)
+        body = page.content.decode()
+        self.assertIn("15", body)
+        self.assertNotIn("€10.00 / month", body)
+
+        # What the card is actually charged.
+        response = self.client.post(
+            reverse(
+                "crush_lu:sumup_create_premium_checkout",
+                kwargs={"membership_id": self.membership.id},
+            )
+        )
+        self.assertEqual(response.status_code, 200)
+        tx = PaymentTransaction.objects.get(sumup_checkout_id="CHK_PRICE_001")
+        self.assertEqual(tx.amount, Decimal("15.00"))

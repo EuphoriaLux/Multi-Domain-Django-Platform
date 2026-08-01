@@ -38843,3 +38843,7 @@ msgstr "Cette inscription a déjà été payée."
 #: crush_lu/templates/crush_lu/emails/event_payment_pending.html
 msgid "This registration has been cancelled."
 msgstr "Cette inscription a été annulée."
+
+#: crush_lu/templates/crush_lu/premium/choose_coach.html
+msgid "Pay Premium Subscription (€%(amount)s / month)"
+msgstr "Payer l'abonnement Premium (€%(amount)s / mois)"
