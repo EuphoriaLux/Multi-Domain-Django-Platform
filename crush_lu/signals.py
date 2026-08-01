@@ -867,12 +867,22 @@ def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
         # (Refining the coarse set in Python instead would mean loading and
         # checking end_time per candidate, which is the per-attendee work the
         # batch exists to avoid.)
+        # Compared on the SAME key _next_event_candidates orders by, not on the
+        # start time alone. Since that selector tie-breaks with (date_time,
+        # event_id, id), an event sharing this one's start but carrying a
+        # smaller id sorts first and IS what the holder sees — while a bare
+        # `date_time__lt` calls it "not nearer" and queues a byte-identical
+        # PATCH. The registration id, the selector's third key, is not needed:
+        # it only separates two registrations for the same event, which one
+        # user cannot have.
         previous_start = (previous or {}).get("date_time") or instance.date_time
+        bound_start = min(previous_start, instance.date_time)
         nearer_event = EventRegistration.objects.filter(
+            Q(event__date_time__lt=bound_start)
+            | Q(event__date_time=bound_start, event_id__lt=instance.pk),
             user_id=OuterRef("user_id"),
             status__in=_NEXT_EVENT_STATUSES,
             event__is_cancelled=False,
-            event__date_time__lt=min(previous_start, instance.date_time),
             event__date_time__gte=timezone.now(),
         )
         google_profiles = list(

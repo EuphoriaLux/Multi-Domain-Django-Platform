@@ -1509,6 +1509,54 @@ class TestEventLevelGoogleRefresh:
         )
         patch_object.assert_not_called()
 
+    def test_a_tied_but_lower_id_event_counts_as_nearer(
+        self, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        from crush_lu.models import EventRegistration
+        from crush_lu.wallet_pass import get_next_event_for_pass
+
+        # The nearer-event filter has to compare the same key the selector
+        # orders by. This holder also has an event at the SAME start time with
+        # a smaller id, which therefore wins the tie-break and is what their
+        # card shows — so editing the higher-id event changes nothing for them.
+        # A bare date_time__lt calls that "not nearer" and spends a capped,
+        # poll-less PATCH on a byte-identical object.
+        event, profile = self._google_holder(event_with_registrations)
+        twin = self._sibling_event_at(event.date_time, "Ties but sorts first")
+        EventRegistration.objects.create(
+            event=twin, user=profile.user, status="confirmed"
+        )
+        # twin was created second, so give it the lower id by comparing which
+        # one the selector actually picks rather than assuming.
+        displayed = get_next_event_for_pass(profile)
+        assert displayed["title"] == event.title  # `event` has the lower id
+
+        # So edit the OTHER one — the one that is not displayed.
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object"
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                twin.location = "A different bar"
+                twin.date_time = event.date_time  # unchanged, still tied
+                twin.title = "Ties but sorts first, renamed"
+                twin.save()
+
+        patch_object.assert_not_called()
+
+    def _sibling_event_at(self, when, title):
+        from crush_lu.models import MeetupEvent
+
+        return MeetupEvent.objects.create(
+            title=title,
+            date_time=when,
+            location="Luxembourg City",
+            max_participants=20,
+            registration_deadline=when,
+        )
+
     def test_the_two_next_event_status_sets_are_one_object(self):
         # signals and wallet_pass each used to keep their own copy under a
         # "keep in sync" note. Identity, not equality: a future edit to one
