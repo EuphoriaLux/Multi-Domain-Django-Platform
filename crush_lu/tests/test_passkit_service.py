@@ -1462,6 +1462,134 @@ class TestProfileRenameRefreshesTickets:
         refresh.assert_not_called()
 
 
+def test_member_pass_fields_are_real_columns():
+    from crush_lu.models import CrushProfile
+    from crush_lu.signals import (
+        WALLET_MEMBER_PASS_FIELDS,
+        WALLET_UPDATE_PROFILE_FIELDS,
+    )
+
+    # Everything in the member set is snapshotted with .values() and matched
+    # against update_fields, so a property in here would raise FieldError on
+    # every profile save. The leftovers are exactly the three that ARE
+    # properties — the User's name read through the profile, which reaches
+    # Wallet via refresh_wallet_passes_on_user_rename instead.
+    concrete = {f.name for f in CrushProfile._meta.concrete_fields}
+    assert WALLET_MEMBER_PASS_FIELDS <= concrete
+    assert WALLET_MEMBER_PASS_FIELDS <= WALLET_UPDATE_PROFILE_FIELDS
+    assert WALLET_UPDATE_PROFILE_FIELDS - WALLET_MEMBER_PASS_FIELDS == {
+        "display_name",
+        "first_name",
+        "last_name",
+    }
+
+
+@pytest.mark.django_db
+class TestMemberPassUpdateNeedsARealChange:
+    """The MEMBER-pass half of the same receiver, which used to read every
+    ``update_fields=None`` save as a change "to be safe". The Microsoft
+    sign-in path calls a bare ``profile.save()`` on every login, so each login
+    by a member with an installed pass paid for an APNs fan-out plus a Google
+    Wallet round trip (token exchange, then a PATCH, 30s timeout each)."""
+
+    def _with_member_pass(self, test_user_with_profile):
+        _user, profile = test_user_with_profile
+        profile.apple_pass_serial = "member-serial"
+        profile.google_wallet_object_id = "issuer.member-1"
+        profile.save(update_fields=["apple_pass_serial", "google_wallet_object_id"])
+        return profile
+
+    def test_bare_profile_save_does_not_refresh(self, test_user_with_profile):
+        profile = self._with_member_pass(test_user_with_profile)
+
+        with mock.patch("crush_lu.signals.trigger_wallet_pass_updates") as update:
+            profile.save()
+
+        update.assert_not_called()
+
+    def test_rewriting_the_same_value_does_not_refresh(self, test_user_with_profile):
+        # update_fields naming a wallet field is not evidence either: the value
+        # is what it already was, so a rebuild would be byte-identical.
+        profile = self._with_member_pass(test_user_with_profile)
+
+        with mock.patch("crush_lu.signals.trigger_wallet_pass_updates") as update:
+            profile.save(update_fields=["membership_tier"])
+
+        update.assert_not_called()
+
+    def test_an_existing_photo_does_not_read_as_a_change(
+        self, test_user_with_profile
+    ):
+        from crush_lu.models import CrushProfile
+
+        # photo_1 is the one field where the row and the instance hold
+        # different types — the stored name vs a FieldFile — and an empty one
+        # is NULL on some rows and "" on others. Unnormalised, a member with a
+        # photo would refresh on every single save. Written with .update() so
+        # no storage backend is touched.
+        profile = self._with_member_pass(test_user_with_profile)
+        CrushProfile.objects.filter(pk=profile.pk).update(
+            photo_1="users/1/photos/a.jpg"
+        )
+        profile.refresh_from_db()
+
+        with mock.patch("crush_lu.signals.trigger_wallet_pass_updates") as update:
+            profile.save()
+
+        update.assert_not_called()
+
+    def test_a_real_change_in_a_bare_save_still_refreshes(
+        self, test_user_with_profile
+    ):
+        # The guard has to be a comparison, not a blanket "full saves don't
+        # count": the profile form posts every field, so a genuine tier or
+        # privacy edit arrives with update_fields=None too.
+        profile = self._with_member_pass(test_user_with_profile)
+
+        with mock.patch("crush_lu.signals.trigger_wallet_pass_updates") as update:
+            profile.membership_tier = "gold"
+            profile.save()
+
+        update.assert_called_once_with(profile)
+
+    def test_a_new_photo_refreshes(self, test_user_with_profile):
+        profile = self._with_member_pass(test_user_with_profile)
+
+        with mock.patch("crush_lu.signals.trigger_wallet_pass_updates") as update:
+            # Assigning a name (rather than an upload) keeps storage out of it;
+            # the FieldFile is created already-committed, so save() writes the
+            # string straight through.
+            profile.photo_1 = "users/1/photos/b.jpg"
+            profile.save(update_fields=["photo_1"])
+
+        update.assert_called_once_with(profile)
+
+    def test_google_wallet_update_waits_for_commit(
+        self, test_user_with_profile, django_capture_on_commit_callbacks
+    ):
+        from crush_lu.signals import trigger_wallet_pass_updates
+
+        # The Google half PATCHes content straight onto Google — there is no
+        # device coming back for it — so a caller that rolls back afterwards
+        # would leave Google showing state that never existed. And
+        # referrals.update_membership_tier() saves from inside atomic() holding
+        # a select_for_update, where two 30s HTTP calls sit on the lock.
+        profile = self._with_member_pass(test_user_with_profile)
+
+        with mock.patch(
+            "crush_lu.wallet.google_api.update_google_wallet_pass",
+            return_value={"success": True, "message": "ok"},
+        ) as google_patch, mock.patch(
+            "crush_lu.wallet.passkit_apns.send_passkit_push_notifications",
+            return_value={"success": 0, "failed": 0, "total": 0},
+        ):
+            with django_capture_on_commit_callbacks(execute=True):
+                trigger_wallet_pass_updates(profile)
+                google_patch.assert_not_called()
+
+        assert google_patch.call_count == 1
+
+
 @pytest.mark.django_db
 class TestTicketStampsAreSignalFree:
     """Stamping ticket-only metadata must not emit post_save: the generic

@@ -74,6 +74,21 @@ WALLET_UPDATE_PROFILE_FIELDS = {
 # and User renames are handled by refresh_wallet_passes_on_user_rename.
 WALLET_TICKET_IDENTITY_FIELDS = {"show_full_name"}
 
+# The subset that is a real model field, and therefore the only part of the set
+# a change can be *proven* against: `display_name`/`first_name`/`last_name` are
+# PROPERTIES reading the User, so they can neither reach a profile
+# `update_fields` nor be fetched with .values() — renames arrive through
+# refresh_wallet_passes_on_user_rename instead. Everything else the member pass
+# prints is derived from these (tier_display), owned by another model (the
+# referral code, the next event) or immutable (member_since).
+WALLET_MEMBER_PASS_FIELDS = {
+    "referral_points",
+    "membership_tier",
+    "show_photo_on_wallet",
+    "photo_1",
+    "show_full_name",
+}
+
 
 def _trigger_apple_pass_refresh(profile):
     """
@@ -146,25 +161,44 @@ def _trigger_google_wallet_object_update(profile):
     if not profile.google_wallet_object_id:
         return
 
+    def _after_commit():
+        try:
+            from .wallet.google_api import update_google_wallet_pass
+
+            result = update_google_wallet_pass(profile)
+
+            if result["success"]:
+                logger.info(
+                    f"Google Wallet pass updated for user {profile.user_id}: "
+                    f"object_id={profile.google_wallet_object_id}"
+                )
+            else:
+                logger.warning(
+                    f"Google Wallet pass update failed for user {profile.user_id}: "
+                    f"{result['message']}"
+                )
+
+        except Exception as e:
+            logger.error(
+                f"Error updating Google Wallet pass for user {profile.user_id}: {e}"
+            )
+
     try:
-        from .wallet.google_api import update_google_wallet_pass
-
-        result = update_google_wallet_pass(profile)
-
-        if result["success"]:
-            logger.info(
-                f"Google Wallet pass updated for user {profile.user_id}: "
-                f"object_id={profile.google_wallet_object_id}"
-            )
-        else:
-            logger.warning(
-                f"Google Wallet pass update failed for user {profile.user_id}: "
-                f"{result['message']}"
-            )
-
+        # Deferred to commit like the Apple half above, for two reasons of its
+        # own. This one is not a "come back for the new package" push — it
+        # PATCHes the content straight onto Google, so a caller that rolls back
+        # afterwards leaves Google showing state that never existed, and the
+        # payload comes from build_wallet_pass_data(), which re-queries for the
+        # next event and should read committed rows. It is also two HTTP calls
+        # (token exchange, then the PATCH) at a 30s timeout each, and callers
+        # such as referrals.update_membership_tier() save inside
+        # transaction.atomic() holding a select_for_update — up to a minute of
+        # network with the row locked. on_commit runs inline when there is no
+        # transaction, so every other caller is unaffected.
+        transaction.on_commit(_after_commit)
     except Exception as e:
         logger.error(
-            f"Error updating Google Wallet pass for user {profile.user_id}: {e}"
+            f"Error scheduling Google Wallet update for user {profile.user_id}: {e}"
         )
 
 
@@ -2548,26 +2582,46 @@ def remember_previous_user_name(sender, instance, update_fields=None, **kwargs):
     )
 
 
+def _normalized_member_pass_values(values):
+    """Flatten a member-pass field mapping so a row and an instance compare equal.
+
+    Only ``photo_1`` needs it: ``.values()`` yields the stored file name while
+    the instance holds a FieldFile, and an empty photo is NULL on some rows and
+    "" on others (the column is both null and blank), which would otherwise read
+    as a change on every save.
+    """
+    if values is None:
+        return None
+    normalized = dict(values)
+    photo = normalized.get("photo_1")
+    normalized["photo_1"] = getattr(photo, "name", photo) or ""
+    return normalized
+
+
 @receiver(pre_save, sender=CrushProfile)
-def remember_previous_ticket_identity(sender, instance, update_fields=None, **kwargs):
-    """Snapshot the profile input to the ticket's attendee name.
+def remember_previous_member_pass_fields(sender, instance, update_fields=None, **kwargs):
+    """Snapshot the persisted fields both wallet passes are rendered from.
 
     Mirrors remember_previous_user_name, and for the same reason: a bare
-    ``profile.save()`` is not evidence of an identity change. The Microsoft
-    sign-in path saves the profile on every login without touching
-    ``show_full_name``, and treating that as a change refreshed every
-    historical ticket the user owns — synchronous fan-out hung off a login.
+    ``profile.save()`` is not evidence of a change. The Microsoft sign-in path
+    saves the profile on every login without touching any of these, and treating
+    that as a change refreshed every historical ticket the user owns *and* made
+    each of those logins wait on a Google Wallet round trip.
+
+    One indexed primary-key lookup, and only when a relevant field could have
+    moved at all: an onboarding step saving ``update_fields=["bio"]`` pays
+    nothing.
     """
-    instance._previous_show_full_name = None
+    instance._previous_member_pass_fields = None
     if not instance.pk:
         return
     if update_fields is not None and not (
-        set(update_fields) & WALLET_TICKET_IDENTITY_FIELDS
+        set(update_fields) & WALLET_MEMBER_PASS_FIELDS
     ):
         return
-    instance._previous_show_full_name = (
+    instance._previous_member_pass_fields = _normalized_member_pass_values(
         CrushProfile.objects.filter(pk=instance.pk)
-        .values_list("show_full_name", flat=True)
+        .values(*WALLET_MEMBER_PASS_FIELDS)
         .first()
     )
 
@@ -2651,37 +2705,51 @@ def trigger_wallet_pass_update_on_profile_change(
     """
     Trigger wallet pass updates when relevant profile fields change.
 
-    This signal fires on CrushProfile save and checks if any wallet-relevant
-    fields were updated. If so, it triggers push notifications to Apple Wallet
-    devices and updates Google Wallet objects.
+    This signal fires on CrushProfile save and compares the fields the passes
+    are rendered from against the pre_save snapshot. If one actually moved, it
+    triggers push notifications to Apple Wallet devices and updates Google
+    Wallet objects.
 
-    Wallet-relevant fields include:
+    Wallet-relevant fields (WALLET_MEMBER_PASS_FIELDS) are:
     - referral_points, membership_tier (rewards/status)
     - show_photo_on_wallet, photo_1 (appearance)
-    - display_name, first_name, last_name, show_full_name (identity)
+    - show_full_name (identity; the User half is the rename receiver above)
     """
-    # Narrower than WALLET_UPDATE_PROFILE_FIELDS on purpose: that set also
-    # carries member-pass-only fields (referral_points, membership_tier,
-    # show_photo_on_wallet, photo_1), none of which appears in a ticket. Gating
-    # tickets on it meant a tier bump or a photo upload refreshed every
-    # historical ticket the user owns and burned the APNs budget downloading
-    # byte-identical packages. The only profile input to a ticket is the
-    # attendee name; the User half of that is handled by the rename receiver
-    # above.
-    #
-    # Compares the PERSISTED value rather than trusting update_fields: a bare
+    # What actually MOVED, from the pre_save snapshot — never "update_fields
+    # says so", and never "a full save must mean something changed". A bare
     # profile.save() carries update_fields=None, and the Microsoft sign-in path
-    # does exactly that on every login without touching show_full_name.
+    # does exactly that on every login without editing a single field; reading
+    # that as a change put an APNs fan-out and a synchronous Google Wallet round
+    # trip (two HTTP calls, 30s timeouts) on the critical path of every login by
+    # a member who has installed a pass.
+    #
+    # An empty snapshot (no relevant field in update_fields, or the row is gone)
+    # reads as "nothing moved" — same fail-closed shape as the User receiver —
+    # and short-circuits before touching the instance, so the saves that skipped
+    # the snapshot query pay nothing here either.
+    previous = getattr(instance, "_previous_member_pass_fields", None)
+    changed = set()
+    if previous is not None:
+        current = _normalized_member_pass_values(
+            {name: getattr(instance, name) for name in WALLET_MEMBER_PASS_FIELDS}
+        )
+        changed = {
+            name for name, value in current.items() if previous[name] != value
+        }
+
+    # Tickets are gated on a strictly narrower set than the member pass: the
+    # only profile input to a ticket is the attendee name, so a tier bump or a
+    # photo upload must not refresh every historical ticket the user owns and
+    # burn the APNs budget downloading byte-identical packages. The User half of
+    # the name is handled by the rename receiver above.
     #
     # `created` counts as a change in its own right: an open-event attendee can
     # install a ticket with no profile at all (the name falls back to the bare
     # username), and creating the profile switches display_name to
     # username.split("@")[0]. There is no previous value to compare on that
     # path, so the persisted-value guard alone would suppress it.
-    previous_show_full_name = getattr(instance, "_previous_show_full_name", None)
-    ticket_identity_changed = created or (
-        previous_show_full_name is not None
-        and previous_show_full_name != instance.show_full_name
+    ticket_identity_changed = created or bool(
+        changed & WALLET_TICKET_IDENTITY_FIELDS
     )
 
     # Event tickets print the holder's name and carry their own evt-* serials,
@@ -2704,34 +2772,20 @@ def trigger_wallet_pass_update_on_profile_change(
     if not instance.apple_pass_serial and not instance.google_wallet_object_id:
         return
 
-    # Check if any wallet-relevant fields were updated
-    should_update = False
+    if not changed:
+        return
 
-    if update_fields is not None:
-        # Specific fields were updated - check if any are wallet-relevant
-        updated_fields = set(update_fields)
-        if updated_fields & WALLET_UPDATE_PROFILE_FIELDS:
-            should_update = True
-            logger.debug(
-                f"Wallet-relevant fields updated for user {instance.user_id}: "
-                f"{updated_fields & WALLET_UPDATE_PROFILE_FIELDS}"
-            )
-    else:
-        # Full save - trigger update to be safe
-        # This happens when save() is called without update_fields
-        should_update = True
-        logger.debug(
-            f"Full profile save for user {instance.user_id}, triggering wallet update"
+    logger.debug(
+        f"Wallet-relevant fields changed for user {instance.user_id}: {changed}"
+    )
+
+    try:
+        trigger_wallet_pass_updates(instance)
+    except Exception as e:
+        # Don't fail the save if wallet update fails
+        logger.error(
+            f"Error triggering wallet update for user {instance.user_id}: {e}"
         )
-
-    if should_update:
-        try:
-            trigger_wallet_pass_updates(instance)
-        except Exception as e:
-            # Don't fail the save if wallet update fails
-            logger.error(
-                f"Error triggering wallet update for user {instance.user_id}: {e}"
-            )
 
 
 @receiver(pre_save, sender=EventRegistration)
