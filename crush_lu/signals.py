@@ -2834,15 +2834,15 @@ def refresh_apple_event_ticket_on_registration_change(
     if not pass_type_id:
         return
 
+    # Fire when the pass's VOIDED state flips — in either direction — rather
+    # than whenever the row happens to be cancelled. Editing any other field on
+    # an already-cancelled registration used to push a rebuild that could not
+    # differ from the installed pass.
     was_cancelled = getattr(instance, "_loaded_status", None) == "cancelled"
-    should_refresh = (
-        instance.status == "cancelled"
-        # Any move out of cancelled un-voids the pass.
-        or (was_cancelled and instance.status != "cancelled")
-        or (
-            instance.status in ("confirmed", "pending")
-            and getattr(instance, "_reactivate_ticket", False)
-        )
+    is_cancelled = instance.status == "cancelled"
+    should_refresh = was_cancelled != is_cancelled or (
+        instance.status in ("confirmed", "pending")
+        and getattr(instance, "_reactivate_ticket", False)
     )
     if not should_refresh:
         return

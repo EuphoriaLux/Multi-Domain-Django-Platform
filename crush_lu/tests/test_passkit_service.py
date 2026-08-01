@@ -1149,6 +1149,26 @@ class TestAppleEventTicketRefreshSignal:
 
         refresh.assert_called_once_with("pass.lu.crush", "evt-1-reg-1-abcd")
 
+    def test_editing_an_already_cancelled_row_does_not_push(
+        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+    ):
+        from crush_lu.models import EventRegistration
+
+        # The voided state has not flipped, so a rebuild could not differ from
+        # the installed pass — pushing one is pure waste.
+        registration = self._prepared(event_with_registrations)
+        registration.status = "cancelled"
+        registration.save(update_fields=["status"])
+        reloaded = EventRegistration.objects.get(pk=registration.pk)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ) as refresh:
+            with django_capture_on_commit_callbacks(execute=True):
+                reloaded.save(update_fields=["status"])
+
+        refresh.assert_not_called()
+
     def test_undo_reactivation_pushes(
         self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
     ):
