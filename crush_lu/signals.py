@@ -2522,7 +2522,11 @@ def cleanup_passkit_registrations_on_registration_delete(sender, instance, **kwa
     _delete_passkit_registrations(instance.apple_wallet_ticket_serial)
 
 
-_USER_NAME_FIELDS = {"first_name", "last_name"}
+# `username` counts: CrushProfile.display_name falls back to it in BOTH
+# branches (get_full_name() or username, and first_name or username), so a
+# user with no first name has their username printed on the pass and on every
+# ticket. Staff can edit it through the Crush user admin.
+_USER_NAME_FIELDS = {"first_name", "last_name", "username"}
 
 
 @receiver(pre_save, sender=User)
@@ -2539,7 +2543,31 @@ def remember_previous_user_name(sender, instance, update_fields=None, **kwargs):
         return
     instance._previous_name = (
         User.objects.filter(pk=instance.pk)
-        .values_list("first_name", "last_name")
+        .values_list("first_name", "last_name", "username")
+        .first()
+    )
+
+
+@receiver(pre_save, sender=CrushProfile)
+def remember_previous_ticket_identity(sender, instance, update_fields=None, **kwargs):
+    """Snapshot the profile input to the ticket's attendee name.
+
+    Mirrors remember_previous_user_name, and for the same reason: a bare
+    ``profile.save()`` is not evidence of an identity change. The Microsoft
+    sign-in path saves the profile on every login without touching
+    ``show_full_name``, and treating that as a change refreshed every
+    historical ticket the user owns — synchronous fan-out hung off a login.
+    """
+    instance._previous_show_full_name = None
+    if not instance.pk:
+        return
+    if update_fields is not None and not (
+        set(update_fields) & WALLET_TICKET_IDENTITY_FIELDS
+    ):
+        return
+    instance._previous_show_full_name = (
+        CrushProfile.objects.filter(pk=instance.pk)
+        .values_list("show_full_name", flat=True)
         .first()
     )
 
@@ -2568,7 +2596,11 @@ def refresh_wallet_passes_on_user_rename(
     if created:
         return
     previous = getattr(instance, "_previous_name", None)
-    if previous is None or previous == (instance.first_name, instance.last_name):
+    if previous is None or previous == (
+        instance.first_name,
+        instance.last_name,
+        instance.username,
+    ):
         return
 
     try:
@@ -2636,8 +2668,14 @@ def trigger_wallet_pass_update_on_profile_change(
     # byte-identical packages. The only profile input to a ticket is the
     # attendee name; the User half of that is handled by the rename receiver
     # above.
-    ticket_identity_changed = update_fields is None or bool(
-        set(update_fields) & WALLET_TICKET_IDENTITY_FIELDS
+    #
+    # Compares the PERSISTED value rather than trusting update_fields: a bare
+    # profile.save() carries update_fields=None, and the Microsoft sign-in path
+    # does exactly that on every login without touching show_full_name.
+    previous_show_full_name = getattr(instance, "_previous_show_full_name", None)
+    ticket_identity_changed = (
+        previous_show_full_name is not None
+        and previous_show_full_name != instance.show_full_name
     )
 
     # Event tickets print the holder's name and carry their own evt-* serials,

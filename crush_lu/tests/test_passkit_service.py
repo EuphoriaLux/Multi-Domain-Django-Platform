@@ -1351,6 +1351,40 @@ class TestProfileRenameRefreshesTickets:
         pushed = {c.args[1] for c in refresh.call_args_list}
         assert pushed == {"evt-1-reg-1-abcd", "member-serial"}
 
+    def test_bare_profile_save_does_not_refresh(
+        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+    ):
+        # The Microsoft sign-in path calls profile.save() with no
+        # update_fields on every login. Treating that as an identity change
+        # refreshed every historical ticket — synchronous fan-out on a login.
+        registration = self._ticketed(event_with_registrations)
+        profile = registration.user.crushprofile
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ) as refresh:
+            with django_capture_on_commit_callbacks(execute=True):
+                profile.save()
+
+        refresh.assert_not_called()
+
+    def test_username_change_refreshes(
+        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+    ):
+        # display_name falls back to username in BOTH branches, so a user with
+        # no first name has their username printed on the pass and the ticket.
+        registration = self._ticketed(event_with_registrations)
+        user = registration.user
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ) as refresh:
+            with django_capture_on_commit_callbacks(execute=True):
+                user.username = "renamed@example.com"
+                user.save(update_fields=["username"])
+
+        assert "evt-1-reg-1-abcd" in {c.args[1] for c in refresh.call_args_list}
+
     def test_password_change_does_not_refresh(
         self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
     ):
@@ -1505,6 +1539,32 @@ class TestAdminBulkActionsRefreshWallets:
             "evt-1-reg-1-abcd",
             "member-serial",
         }
+
+    def test_quiz_no_show_action_voids_tickets(
+        self, _apple_identity, event_with_registrations
+    ):
+        from crush_lu.admin.quiz import mark_unattended_as_no_show
+        from crush_lu.models.quiz import QuizEvent
+
+        # mark_unattended_as_no_show uses .update(status="no_show") per quiz,
+        # bypassing the receiver — and no_show now voids the ticket.
+        event, registrations = event_with_registrations
+        registration = self._ticketed(registrations[0], "evt-1-reg-1-abcd")
+        assert registration.status == "confirmed"
+        quiz = QuizEvent.objects.create(event=event, created_by=registration.user)
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.refresh_ticket_serials"
+        ) as refresh:
+            with mock.patch("crush_lu.admin.quiz.messages"):
+                mark_unattended_as_no_show(
+                    None,
+                    RequestFactory().post("/"),
+                    QuizEvent.objects.filter(pk=quiz.pk),
+                )
+
+        assert refresh.call_count == 1
+        assert "evt-1-reg-1-abcd" in refresh.call_args.args[0]
 
     def test_move_to_waitlist_voids_the_ticket(
         self, _apple_identity, event_with_registrations
