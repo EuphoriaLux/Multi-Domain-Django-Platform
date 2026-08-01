@@ -11,7 +11,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.auth.signals import user_logged_in
 from django.core.files.base import ContentFile
-from django.db.models import Q
+from django.db.models import Exists, OuterRef, Q
 from django.db import transaction
 from django.db.models.signals import post_delete, post_save, pre_delete, pre_save
 from django.dispatch import receiver
@@ -768,8 +768,36 @@ def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
     try:
         from .wallet.google_api import refresh_google_wallet_objects
 
+        # Narrow again, to holders whose card can actually be showing THIS
+        # event. get_next_event_for_pass renders the earliest upcoming
+        # registration, so a member with a nearer event never displayed this
+        # one and rebuilding them writes a byte-identical object. Under the
+        # Google cap that is not merely waste: enough no-op profiles ahead of
+        # the limit push someone whose card IS wrong past it, for good.
+        #
+        # Deliberately conservative — it drops only holders with a qualifying
+        # event earlier than BOTH the old and the new start. A reschedule that
+        # moves this event PAST someone's other event therefore still refreshes
+        # them, which it must: their card has to stop showing this one. Getting
+        # it wrong in that direction leaves a wrong card with nothing left to
+        # correct it, while getting it wrong the other way only spends budget.
+        #
+        # One EXISTS subquery, not a per-profile get_next_event_for_pass call —
+        # the whole point of the batch is to keep this off a per-attendee
+        # query. The date_time__gte bound mirrors the same helper's, so a
+        # finished event cannot count as somebody's nearer one.
+        previous_start = (previous or {}).get("date_time") or instance.date_time
+        nearer_event = EventRegistration.objects.filter(
+            user_id=OuterRef("user_id"),
+            status__in=_NEXT_EVENT_STATUSES,
+            event__is_cancelled=False,
+            event__date_time__lt=min(previous_start, instance.date_time),
+            event__date_time__gte=MeetupEvent.live_lookback_cutoff(timezone.now()),
+        )
         google_profiles = list(
-            attendee_profiles.exclude(google_wallet_object_id="").distinct()
+            attendee_profiles.exclude(google_wallet_object_id="")
+            .exclude(Exists(nearer_event))
+            .distinct()
         )
         scheduled = refresh_google_wallet_objects(
             google_profiles, context=f"Event {instance.pk} Google member passes"

@@ -1702,6 +1702,105 @@ class TestEventLevelGoogleRefresh:
 
         assert patch_object.call_count == 1
 
+    def _register_for_another_event(self, profile, when, status="confirmed"):
+        from crush_lu.models import EventRegistration, MeetupEvent
+
+        from datetime import timedelta
+
+        other = MeetupEvent.objects.create(
+            title="Another night",
+            description="x",
+            event_type="speed_dating",
+            date_time=when,
+            location="Elsewhere",
+            max_participants=20,
+            registration_deadline=when - timedelta(days=1),
+            is_published=True,
+        )
+        EventRegistration.objects.create(
+            event=other, user=profile.user, status=status
+        )
+        return other
+
+    def test_holder_with_a_nearer_event_is_not_rebuilt(
+        self, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # get_next_event_for_pass renders the EARLIEST upcoming registration,
+        # so this member's card shows the other event both before and after —
+        # rebuilding them writes an identical object, and under the cap a no-op
+        # ahead of the limit pushes someone who needs it past it for good.
+        from datetime import timedelta
+
+        event, profile = self._google_holder(event_with_registrations)
+        self._register_for_another_event(profile, event.date_time - timedelta(days=1))
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object"
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                self._retitle(event)
+
+        patch_object.assert_not_called()
+
+    def test_a_reschedule_past_the_nearer_event_still_rebuilds(
+        self, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # The direction that must NOT be optimised away: this event was the
+        # member's next one, and moving it past their other event means the
+        # card has to stop showing it. Filtering on the new date alone would
+        # skip them and leave a wrong card with nothing left to correct it.
+        from datetime import timedelta
+
+        from django.utils import timezone as dj_timezone
+
+        event, profile = self._google_holder(event_with_registrations)
+        # Other event sits AFTER the current start, so this one renders today.
+        self._register_for_another_event(profile, event.date_time + timedelta(days=1))
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                # Moved well past the other event.
+                event.date_time = dj_timezone.now() + timedelta(days=30)
+                event.save()
+
+        assert patch_object.call_count == 1
+
+    def test_a_finished_event_does_not_count_as_the_nearer_one(
+        self, _google_identity, event_with_registrations,
+        django_capture_on_commit_callbacks,
+    ):
+        # The subquery mirrors get_next_event_for_pass's own lower bound, so a
+        # registration for an event that has already ended must not suppress
+        # the refresh.
+        from datetime import timedelta
+
+        from django.utils import timezone as dj_timezone
+
+        event, profile = self._google_holder(event_with_registrations)
+        self._register_for_another_event(
+            profile, dj_timezone.now() - timedelta(days=30)
+        )
+
+        with mock.patch(
+            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
+        ), mock.patch(
+            "crush_lu.wallet.google_api._patch_generic_object",
+            return_value={"success": True, "message": "Pass updated successfully"},
+        ) as patch_object:
+            with django_capture_on_commit_callbacks(execute=True):
+                self._retitle(event)
+
+        assert patch_object.call_count == 1
+
     def test_nested_class_creation_does_not_swallow_the_refresh(
         self, _google_identity, settings, event_with_registrations,
         django_capture_on_commit_callbacks,
