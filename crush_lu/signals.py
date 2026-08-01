@@ -532,7 +532,7 @@ def reset_reminders_on_reschedule(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=MeetupEvent)
 def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
-    """Push installed Apple tickets when the EVENT itself changes.
+    """Refresh installed wallet passes when the EVENT itself changes.
 
     The pass embeds the event's date, time, location and address, so a
     reschedule or relocation leaves every installed ticket showing details that
@@ -549,6 +549,19 @@ def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
     the start time: retitling, moving venue, correcting the address or
     coordinates, or changing the duration all rewrite the pass just as surely
     as a reschedule does.
+
+    Named for Apple because that is all it used to cover, but it now drives
+    three fan-outs, each bounded and each isolated from the others' failures:
+    Apple event tickets, Apple member passes, and Google member objects (which
+    print the same "Next Event" block).
+
+    The Google half was never handled here because it appeared to fix itself:
+    any bare profile.save() — the Microsoft SSO login path does one on every
+    sign-in — reaches trigger_wallet_pass_update_on_profile_change, which treats
+    an update_fields-less save as "refresh everything". That is an accident of
+    an over-broad receiver, not a mechanism, it only ever healed members who
+    happened to log in, and narrowing that receiver to real field changes
+    removes it entirely. The refresh belongs on the event change either way.
     """
     if created:
         return
@@ -601,6 +614,37 @@ def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
     except Exception as e:
         logger.error(
             f"Error refreshing Apple event tickets for event {instance.pk}: {e}"
+        )
+
+    # Google member objects print the same "Next Event" block, and there is no
+    # Google ticket to carry the change instead — the member object is the only
+    # Google surface this event appears on.
+    #
+    # Its own try/except, not the Apple block's: these are independent
+    # fan-outs over independent APIs, and a Google outage must not skip the
+    # Apple refresh (nor be reported as an Apple failure).
+    try:
+        from .wallet.google_api import refresh_google_wallet_objects
+
+        google_profiles = list(
+            CrushProfile.objects.filter(user__eventregistration__event=instance)
+            .exclude(google_wallet_object_id="")
+            .distinct()
+        )
+        scheduled = refresh_google_wallet_objects(
+            google_profiles, context=f"Event {instance.pk} Google member passes"
+        )
+        if scheduled:
+            logger.info(
+                "Scheduled Google refresh for %s member object(s) on event %s "
+                "(changed: %s)",
+                scheduled,
+                instance.pk,
+                ", ".join(changed),
+            )
+    except Exception as e:
+        logger.error(
+            f"Error refreshing Google Wallet objects for event {instance.pk}: {e}"
         )
 
 
