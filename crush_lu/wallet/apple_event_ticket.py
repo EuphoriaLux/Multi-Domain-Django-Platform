@@ -72,8 +72,29 @@ def _ensure_ticket_auth_token(registration):
     return token
 
 
+def _ensure_checkin_origin(registration, request):
+    """Record the origin issuing this ticket's check-in QR, for later rebuilds.
+
+    A rebuild through the PassKit web service has no request, and the forwarded
+    webServiceURL cannot stand in for the issuing host: the pass embeds whatever
+    WALLET_APPLE_WEB_SERVICE_URL names, so a ticket downloaded from
+    test.crush.lu still tells Apple to fetch updates from production. Deriving
+    the rebuilt QR from that update request would silently move check-in to the
+    wrong environment. Persisting the origin at issue time is the only thing
+    that survives the round trip.
+    """
+    origin = f"{request.scheme}://{request.get_host()}"
+    if registration.apple_wallet_checkin_origin != origin:
+        registration.apple_wallet_checkin_origin = origin
+        registration.save(update_fields=["apple_wallet_checkin_origin"])
+    return origin
+
+
 def _resolve_checkin_base_url(
-    request=None, forwarded_web_service_url=None, resolved_web_service_url=None
+    request=None,
+    issued_origin=None,
+    forwarded_web_service_url=None,
+    resolved_web_service_url=None,
 ):
     """Pick the origin the ticket's check-in QR must point at.
 
@@ -83,15 +104,17 @@ def _resolve_checkin_base_url(
     setting names production. Whenever a live request exists its host is the
     truth, so return None and let _build_checkin_url derive it.
 
-    Only the request-less PassKit rebuild needs a fallback, and there the
-    FORWARDED url wins over the resolved one — get_latest_pass derives the
-    forwarded value from Apple's own live request, whereas the resolved value
-    prefers the (host-stable, possibly cross-slot) setting.
+    On the request-less PassKit rebuild, the origin PERSISTED at issue time
+    wins — it is the only value that reflects where the ticket actually came
+    from. The forwarded URL is only a fallback for tickets issued before that
+    field existed, and the resolved URL a last resort.
     """
     if request is not None:
         return None
-    return _origin_from_url(forwarded_web_service_url) or _origin_from_url(
-        resolved_web_service_url
+    return (
+        issued_origin
+        or _origin_from_url(forwarded_web_service_url)
+        or _origin_from_url(resolved_web_service_url)
     )
 
 
@@ -141,8 +164,13 @@ def build_apple_event_ticket(registration, request=None, web_service_url=None):
 
     event = registration.event
     serial_number = _ensure_event_ticket_serial(registration)
+    if request is not None:
+        # Stamp the issuing host now; a later rebuild has no request and the
+        # forwarded webServiceURL may name a different slot entirely.
+        _ensure_checkin_origin(registration, request)
     checkin_base_url = _resolve_checkin_base_url(
         request,
+        issued_origin=registration.apple_wallet_checkin_origin,
         forwarded_web_service_url=web_service_url,
         resolved_web_service_url=resolved_web_service_url,
     )

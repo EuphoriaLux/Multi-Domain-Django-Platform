@@ -403,14 +403,34 @@ class TestResolveCheckinBaseUrl:
             is None
         )
 
-    def test_requestless_rebuild_prefers_forwarded_origin(self):
+    def test_persisted_issuing_origin_wins_on_rebuild(self):
         from crush_lu.wallet.apple_event_ticket import _resolve_checkin_base_url
 
-        # get_latest_pass derives the forwarded value from Apple's own live
-        # request, so it beats the (possibly cross-slot) setting.
+        # THE case the forwarded URL cannot cover: the ticket was issued from
+        # staging, but it embedded the setting's production service root, so
+        # Apple asks PRODUCTION for the update and forwards a production URL.
+        # Only the origin stamped at issue time still knows where the ticket
+        # (and its check-in token) actually came from.
         assert (
             _resolve_checkin_base_url(
                 None,
+                issued_origin="https://test.crush.lu",
+                forwarded_web_service_url="https://crush.lu/wallet",
+                resolved_web_service_url="https://crush.lu/wallet",
+            )
+            == "https://test.crush.lu"
+        )
+
+    def test_requestless_rebuild_prefers_forwarded_origin(self):
+        from crush_lu.wallet.apple_event_ticket import _resolve_checkin_base_url
+
+        # Fallback for tickets issued before apple_wallet_checkin_origin
+        # existed: the forwarded value (derived from Apple's own live request)
+        # still beats the possibly cross-slot setting.
+        assert (
+            _resolve_checkin_base_url(
+                None,
+                issued_origin="",
                 forwarded_web_service_url="https://test.crush.lu/wallet",
                 resolved_web_service_url="https://crush.lu/wallet",
             )
@@ -466,3 +486,37 @@ class TestBuildCheckinUrl:
         assert url.startswith(
             f"https://test.crush.lu/api/events/checkin/{registration.id}/"
         )
+
+
+@pytest.mark.django_db
+class TestEnsureCheckinOrigin:
+    """The issuing origin has to be persisted at download time — it is the only
+    thing that survives into a request-less PassKit rebuild."""
+
+    def test_stamps_the_request_host(self, event_with_registrations):
+        from crush_lu.wallet.apple_event_ticket import _ensure_checkin_origin
+
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        request = RequestFactory().get("/", HTTP_HOST="test.crush.lu", secure=True)
+
+        assert _ensure_checkin_origin(registration, request) == "https://test.crush.lu"
+        registration.refresh_from_db()
+        assert registration.apple_wallet_checkin_origin == "https://test.crush.lu"
+
+    def test_redownload_from_another_host_updates_the_stamp(
+        self, event_with_registrations
+    ):
+        from crush_lu.wallet.apple_event_ticket import _ensure_checkin_origin
+
+        _event, registrations = event_with_registrations
+        registration = registrations[0]
+        registration.apple_wallet_checkin_origin = "https://test.crush.lu"
+        registration.save(update_fields=["apple_wallet_checkin_origin"])
+
+        # Re-downloading from production issues a fresh QR on that host, so the
+        # stamp must follow it — otherwise the rebuild would revert to staging.
+        request = RequestFactory().get("/", HTTP_HOST="crush.lu", secure=True)
+        assert _ensure_checkin_origin(registration, request) == "https://crush.lu"
+        registration.refresh_from_db()
+        assert registration.apple_wallet_checkin_origin == "https://crush.lu"
