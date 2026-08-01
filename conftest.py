@@ -146,10 +146,27 @@ def _user_model():
 # one file). The upstream fixture chain must stay in effect.
 
 
-@pytest.fixture(scope='session', autouse=True)
-def setup_site_for_live_server(django_db_setup, django_db_blocker):
+@pytest.fixture(scope='session')
+def django_db_setup(django_db_setup, django_db_blocker):
     """
-    Seed Site objects once per worker after pytest-django prepares the DB.
+    Seed Site objects once per worker, right after the test databases are built.
+
+    This overrides pytest-django's own ``django_db_setup`` — its documented
+    extension point for loading initial data — and the ``django_db_setup``
+    argument resolves to the plugin's fixture, so the databases are fully
+    created and migrated by the time the body runs.
+
+    Overriding it is also what keeps the seeding *lazy*, which matters more than
+    it looks. pytest-django only creates the databases the collected tests ask
+    for, and only tests that actually touch the DB pull ``django_db_setup`` in
+    (``_django_db_helper``, ``live_server``, and Django ``TestCase`` classes with
+    a non-empty ``databases``). A session of pure unit tests — e.g.
+    ``pytest crush_lu/tests/test_asgi_static.py``, which is what you run while
+    iterating on that file — never triggers it. Seeding from an autouse fixture
+    instead meant such a session ran this against ``settings.DATABASES`` still
+    pointing at the *real* development database, which either blew up with
+    ``no such table: django_site`` or quietly wrote Site rows into the
+    developer's dev DB.
 
     pytest-django already handles database creation/migrations and DB reuse.
     Re-running `migrate` here adds startup cost without helping normal runs.
