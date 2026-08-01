@@ -1311,7 +1311,14 @@ class TestEventLevelGoogleRefresh:
             ("date_time", None),  # replaced below — needs a real datetime
             ("is_cancelled", True),
             ("title_fr", "Soirée renommée"),
-            ("duration_minutes", 999),
+            # `duration_minutes` deliberately absent, and the test's own name
+            # says why: it is not RENDERED. It selects, and only when the event
+            # crosses `end_time >= now` — on this fixture's future event it
+            # changes nothing, so asserting a PATCH here pinned an edit that
+            # writes a byte-identical object. The behaviour it was reaching for
+            # is covered properly, in both directions, by
+            # test_shortening_a_running_event_off_the_card_patches_google and
+            # test_extending_a_just_ended_event_patches_the_member_object.
         ],
     )
     def test_google_rendered_field_changes_do_patch(
@@ -1359,42 +1366,9 @@ class TestEventLevelGoogleRefresh:
 
         patch_object.assert_not_called()
 
-    def test_shortening_a_running_event_patches_the_member_object(
-        self, _google_identity, event_with_registrations,
-        django_capture_on_commit_callbacks,
-    ):
-        from datetime import timedelta
-
-        from django.utils import timezone
-
-        from crush_lu.wallet_pass import get_next_event_for_pass
-
-        # duration_minutes reads like an Apple-only field — its Apple job is
-        # expirationDate, pure rendering, and the Google card never prints a
-        # duration. But get_next_event_for_pass keeps a candidate only while
-        # `event.end_time >= now`, and end_time is date_time + duration, so
-        # shortening a RUNNING event past the current moment takes it off the
-        # card entirely. Google has no poll to heal that.
-        event, profile = self._google_holder(event_with_registrations)
-        event.date_time = timezone.now() - timedelta(minutes=30)
-        event.duration_minutes = 120
-        event.save()
-        assert get_next_event_for_pass(profile) is not None
-
-        with mock.patch(
-            "crush_lu.wallet.google_api._get_access_token", return_value="tok"
-        ), mock.patch(
-            "crush_lu.wallet.google_api._patch_generic_object",
-            return_value={"success": True, "message": "Pass updated successfully"},
-        ) as patch_object:
-            with django_capture_on_commit_callbacks(execute=True):
-                event.duration_minutes = 10  # ended 20 minutes ago
-                event.save()
-
-        # The card genuinely changed — this is the PATCH that carries it.
-        assert get_next_event_for_pass(profile) is None
-        assert patch_object.call_count == 1
-
+    # The shortening direction is already covered further down by
+    # test_shortening_a_running_event_off_the_card_patches_google. This is its
+    # mirror, which nothing covered.
     def test_extending_a_just_ended_event_patches_the_member_object(
         self, _google_identity, event_with_registrations,
         django_capture_on_commit_callbacks,
