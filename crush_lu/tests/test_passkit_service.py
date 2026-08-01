@@ -1351,6 +1351,30 @@ class TestProfileRenameRefreshesTickets:
         pushed = {c.args[1] for c in refresh.call_args_list}
         assert pushed == {"evt-1-reg-1-abcd", "member-serial"}
 
+    def test_profile_creation_refreshes_an_existing_ticket(
+        self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
+    ):
+        from datetime import date
+
+        from crush_lu.models import CrushProfile
+
+        # An open-event attendee can install a ticket with NO profile — the
+        # name falls back to the bare username. Creating the profile switches
+        # display_name to username.split("@")[0], so the installed ticket goes
+        # stale. There is no previous value to compare on this path, so the
+        # persisted-value guard has to treat `created` as a change in itself.
+        registration = self._ticketed(event_with_registrations)
+        user = registration.user
+        CrushProfile.objects.filter(user=user).delete()
+
+        with mock.patch(
+            "crush_lu.wallet.passkit_service.trigger_pass_refresh"
+        ) as refresh:
+            with django_capture_on_commit_callbacks(execute=True):
+                CrushProfile.objects.create(user=user, date_of_birth=date(1995, 5, 15))
+
+        assert "evt-1-reg-1-abcd" in {c.args[1] for c in refresh.call_args_list}
+
     def test_bare_profile_save_does_not_refresh(
         self, _apple_identity, event_with_registrations, django_capture_on_commit_callbacks
     ):
