@@ -49,10 +49,18 @@ def _null_wsgi_app(environ, start_response):
     return [b""]
 
 
+# ManifestStaticFilesStorage names files <name>.<12-hex-digest>.<ext>, so a URL
+# matching that pattern can never change content and is safe to serve with a
+# far-future immutable Cache-Control. WhiteNoiseMiddleware derives this from the
+# staticfiles manifest, but serving moved to the ASGI layer (#227) and the base
+# WhiteNoise class stubs immutable_file_test out to always-False -- without this
+# argument every hashed asset falls back to WhiteNoise's 60s default and gets
+# revalidated by every browser every minute. Unhashed files keep that default.
 whitenoise_app = WhiteNoise(
     _null_wsgi_app,
     root=settings.STATIC_ROOT,
     prefix=settings.STATIC_URL,
+    immutable_file_test=r"\.[0-9a-f]{12}\.",
 )
 
 # In DEBUG mode, also serve files from each app's static/ directory
