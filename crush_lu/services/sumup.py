@@ -69,10 +69,11 @@ class SumUpClient:
             "checkout_reference": checkout_reference,
         }
 
-        if pay_to_email or getattr(settings, "SUMUP_PAY_TO_EMAIL", None):
+        merchant_code = self.merchant_code or getattr(settings, "SUMUP_MERCHANT_CODE", "")
+        if merchant_code:
+            payload["merchant_code"] = merchant_code
+        elif pay_to_email or getattr(settings, "SUMUP_PAY_TO_EMAIL", None):
             payload["pay_to_email"] = pay_to_email or getattr(settings, "SUMUP_PAY_TO_EMAIL")
-        elif self.merchant_code:
-            payload["merchant_code"] = self.merchant_code
 
         if description:
             payload["description"] = description
