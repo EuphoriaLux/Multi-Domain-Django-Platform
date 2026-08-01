@@ -738,8 +738,8 @@ class TestCoachQuestionMedia:
             "q.png", b"\x89PNG\r\n\x1a\n payload", content_type="image/png"
         )
         storage_instance = InMemoryStorage()
-        with mock.patch("crush_lu.models.quiz.crush_media_storage", return_value=storage_instance), \
-             mock.patch("crush_lu.views_quiz_config.crush_media_storage", return_value=storage_instance):
+        with mock.patch("crush_lu.storage.get_crush_media_storage", return_value=storage_instance), \
+             mock.patch("crush_lu.storage.CrushMediaStorage", return_value=storage_instance):
             response = client.post(
                 self._add_url(quiz_event, quiz_round),
                 data={
