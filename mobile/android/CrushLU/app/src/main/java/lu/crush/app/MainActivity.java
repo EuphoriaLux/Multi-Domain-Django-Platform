@@ -32,6 +32,9 @@ import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Locale;
@@ -48,6 +51,18 @@ public class MainActivity extends AppCompatActivity {
     private static final String AUTH_SCHEME = BuildConfig.AUTH_SCHEME;
     private static final String LOGIN_HANDOFF_URL =
             BASE_URL + "/api/mobile/android/auth/handoff/?redirect_uri=" + Uri.encode(AUTH_SCHEME + "://auth");
+
+    // What the WebView is allowed to load is pinned to the scheme *and* host of
+    // BASE_URL: https://crush.lu in production, http://10.0.2.2 for the local
+    // flavour (the only cleartext origin in network_security_config.xml).
+    private static final Uri BASE_URI = Uri.parse(BASE_URL);
+    private static final String BASE_SCHEME = BASE_URI.getScheme() == null
+            ? "https" : BASE_URI.getScheme().toLowerCase(Locale.ROOT);
+    private static final String BASE_HOST = BASE_URI.getHost() == null
+            ? "" : BASE_URI.getHost().toLowerCase(Locale.ROOT);
+    private static final int BASE_DEFAULT_PORT = "http".equals(BASE_SCHEME) ? 80 : 443;
+    private static final int BASE_PORT = BASE_URI.getPort() == -1
+            ? BASE_DEFAULT_PORT : BASE_URI.getPort();
 
     private WebView webView;
     private ProgressBar progressBar;
@@ -172,6 +187,17 @@ public class MainActivity extends AppCompatActivity {
         settings.setDatabaseEnabled(true);
         settings.setSupportZoom(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
+        // The WebView only ever shows our own origin, so it never needs the
+        // local filesystem, and setAllowFileAccess still defaults to true below
+        // API 30 — which minSdk 26 includes. That default is what would turn an
+        // injected file:// URL into data theft. It does not touch uploads:
+        // since API 24 a picker cannot hand back a file:// URI at all.
+        settings.setAllowFileAccess(false);
+        // Content access is deliberately left ON. onShowFileChooser's picker
+        // returns content:// URIs for photo uploads ("Upload a profile photo"
+        // is in README.md's release checklist), and isInternal() already
+        // refuses every scheme but ours before loadUrl — so disabling it would
+        // risk that flow for no gain against cross-app scripting.
         settings.setUserAgentString(settings.getUserAgentString() + " CrushLUAndroid/" + BuildConfig.VERSION_NAME);
 
         webView.setWebViewClient(new CrushWebViewClient());
@@ -299,11 +325,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void handleUri(Uri uri) {
-        if (AUTH_SCHEME.equals(uri.getScheme())) {
-            String completeUrl = uri.getQueryParameter("complete_url");
-            if (completeUrl != null && !completeUrl.isEmpty()) {
-                loadInternal(completeUrl);
-            }
+        if (AUTH_SCHEME.equals(schemeOf(uri))) {
+            // Anything — another app, or a web page, since the scheme's
+            // intent-filter is BROWSABLE — can send this. loadInternal() is what
+            // decides whether complete_url is ours; an opaque "crushlu:auth?..."
+            // has no query to read and would throw here, so check first.
+            loadInternal(uri.isHierarchical() ? uri.getQueryParameter("complete_url") : null);
             return;
         }
 
@@ -314,14 +341,59 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Load a URL in the WebView, but only if it is one of ours.
+     *
+     * <p>MainActivity is exported, so every route into it — the https deep
+     * links, the {@code crushlu://auth} callback, the {@code target_url} /
+     * {@code url} notification extras — can be forged by any other app on the
+     * device. Validation therefore lives here, at the single point that reaches
+     * {@link WebView#loadUrl}, rather than at each call site. That keeps
+     * {@code javascript:} (which would run against the signed-in crush.lu page
+     * currently on screen), {@code file:}, {@code content:} and attacker-owned
+     * origins out of a WebView holding the user's session cookies — the
+     * cross-app scripting case in Play's Device and Network Abuse policy.
+     */
     private void loadInternal(String url) {
+        String safeUrl = internalUrlOrNull(url);
+        if (safeUrl == null) {
+            if (webView.getUrl() != null) {
+                // A legitimate page is already on screen; a forged intent must
+                // not be able to navigate away from it.
+                return;
+            }
+            // Cold start from a bad intent: show the app rather than nothing.
+            safeUrl = START_URL;
+        }
         if (!isOnline()) {
             showOffline();
             return;
         }
         offlineView.setVisibility(View.GONE);
         swipeRefresh.setVisibility(View.VISIBLE);
-        webView.loadUrl(url, clientHeaders());
+        webView.loadUrl(safeUrl, clientHeaders());
+    }
+
+    /** @return {@code url} when {@link #isInternal} accepts it, else {@code null}. */
+    private static String internalUrlOrNull(String url) {
+        if (url == null) {
+            return null;
+        }
+        String trimmed = url.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        // WebView's parser strips embedded tabs/newlines and reads "\" as "/"
+        // before resolving the host, so a URL carrying them can end up at a
+        // different origin than Uri.parse() below sees. Nothing legitimate
+        // needs them inside a URL — they arrive percent-encoded.
+        for (int i = 0; i < trimmed.length(); i++) {
+            char c = trimmed.charAt(i);
+            if (c <= ' ' || c == '\\' || c == 0x7f) {
+                return null;
+            }
+        }
+        return isInternal(Uri.parse(trimmed)) ? trimmed : null;
     }
 
     private void startNativeAuth() {
@@ -340,15 +412,44 @@ public class MainActivity extends AppCompatActivity {
         return path.endsWith("/login/") || path.contains("/accounts/");
     }
 
-    private boolean isInternal(Uri uri) {
+    /**
+     * @return the URI's scheme, lower-cased, or "" if it has none. Schemes are
+     *     case-insensitive (RFC 3986) and Uri returns them as written, so an
+     *     explicit intent carrying "CrushLu://auth" would otherwise slip past
+     *     an exact-case comparison.
+     */
+    private static String schemeOf(Uri uri) {
+        String scheme = uri == null ? null : uri.getScheme();
+        return scheme == null ? "" : scheme.toLowerCase(Locale.ROOT);
+    }
+
+    private static boolean isInternal(Uri uri) {
+        if (uri == null || BASE_HOST.isEmpty()) {
+            return false;
+        }
+        // Scheme is checked as well as host: "javascript:", "file:", "content:"
+        // and "intent:" URIs have no host and are rejected here, and an
+        // http:// link to our own domain is not a substitute for https://.
+        if (!BASE_SCHEME.equals(schemeOf(uri))) {
+            return false;
+        }
+        // Credentials in the authority only ever serve to make a hostile host
+        // read as ours ("https://crush.lu@evil.example/").
+        if (uri.getUserInfo() != null) {
+            return false;
+        }
         String host = uri.getHost();
         if (host == null) {
             return false;
         }
         String normalized = host.toLowerCase(Locale.ROOT);
-        Uri base = Uri.parse(BASE_URL);
-        String baseHost = base.getHost() != null ? base.getHost().toLowerCase(Locale.ROOT) : "";
-        return normalized.equals(baseHost) || normalized.endsWith("." + baseHost);
+        if (!normalized.equals(BASE_HOST) && !normalized.endsWith("." + BASE_HOST)) {
+            return false;
+        }
+        // getHost() drops the port, so match that too — an origin is host *and*
+        // port, and nothing of ours is served anywhere but the default one.
+        int port = uri.getPort() == -1 ? BASE_DEFAULT_PORT : uri.getPort();
+        return port == BASE_PORT;
     }
 
     private Map<String, String> clientHeaders() {
@@ -450,12 +551,12 @@ public class MainActivity extends AppCompatActivity {
         }
 
         private boolean handleNavigation(Uri uri) {
-            String scheme = uri.getScheme();
+            String scheme = schemeOf(uri);
             if (AUTH_SCHEME.equals(scheme)) {
                 handleUri(uri);
                 return true;
             }
-            if (scheme != null && (scheme.equals("tel") || scheme.equals("mailto") || scheme.equals("whatsapp") || scheme.equals("intent"))) {
+            if (scheme.equals("tel") || scheme.equals("mailto") || scheme.equals("whatsapp") || scheme.equals("intent")) {
                 openExternal(uri);
                 return true;
             }
@@ -490,34 +591,36 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void injectTokenRegistrationScript(String token) {
-        String deviceId = android.provider.Settings.Secure.getString(getContentResolver(), android.provider.Settings.Secure.ANDROID_ID);
-        // Escape single quotes to prevent JS injection/syntax errors
-        String deviceName = (Build.MANUFACTURER + " " + Build.MODEL).replace("'", "\\'");
-        String systemVersion = ("Android " + Build.VERSION.RELEASE).replace("'", "\\'");
-        String appVersion = BuildConfig.VERSION_NAME.replace("'", "\\'");
-        String appBuild = String.valueOf(BuildConfig.VERSION_CODE);
+        String deviceId = android.provider.Settings.Secure.getString(
+                getContentResolver(), android.provider.Settings.Secure.ANDROID_ID);
 
-        String js = String.format(
-            "(function() { " +
-            "  var cookies = document.cookie; " +
-            "  var token = '%s'; " +
-            "  if (window.FCM_TOKEN_REGISTERED === token) return; " +
+        JSONObject payload = new JSONObject();
+        try {
+            payload.put("registrationToken", token);
+            payload.put("deviceId", deviceId == null ? "" : deviceId);
+            payload.put("deviceName", Build.MANUFACTURER + " " + Build.MODEL);
+            payload.put("appVersion", BuildConfig.VERSION_NAME);
+            payload.put("appBuild", String.valueOf(BuildConfig.VERSION_CODE));
+            payload.put("systemVersion", "Android " + Build.VERSION.RELEASE);
+        } catch (JSONException exception) {
+            return;
+        }
+
+        // The values reach the page as one JSON string literal that
+        // JSONObject.quote() escapes in full, so nothing interpolated below can
+        // close the quote and become script. (Escaping only ' by hand, as this
+        // did, leaves backslashes and newlines to break out.)
+        String js = "(function() { " +
+            "  var data = JSON.parse(" + JSONObject.quote(payload.toString()) + "); " +
+            "  if (window.FCM_TOKEN_REGISTERED === data.registrationToken) return; " +
             "  var csrfToken = ''; " +
-            "  var parts = cookies.split('; '); " +
+            "  var parts = document.cookie.split('; '); " +
             "  for (var i = 0; i < parts.length; i++) { " +
             "    if (parts[i].indexOf('csrftoken=') === 0) { " +
             "      csrfToken = parts[i].substring(10); " +
             "      break; " +
             "    } " +
             "  } " +
-            "  var data = { " +
-            "    registrationToken: token, " +
-            "    deviceId: '%s', " +
-            "    deviceName: '%s', " +
-            "    appVersion: '%s', " +
-            "    appBuild: '%s', " +
-            "    systemVersion: '%s' " +
-            "  }; " +
             "  fetch('/api/mobile/android/devices/register/', { " +
             "    method: 'POST', " +
             "    headers: { " +
@@ -529,14 +632,12 @@ public class MainActivity extends AppCompatActivity {
             "  .then(function(res) { return res.json(); }) " +
             "  .then(function(res) { " +
             "    if (res.success) { " +
-            "      window.FCM_TOKEN_REGISTERED = token; " +
+            "      window.FCM_TOKEN_REGISTERED = data.registrationToken; " +
             "      console.log('FCM token registered'); " +
             "    } " +
             "  }) " +
             "  .catch(function(err) { console.error('FCM registration error', err); }); " +
-            "})();",
-            token.replace("'", "\\'"), deviceId.replace("'", "\\'"), deviceName, appVersion, appBuild, systemVersion
-        );
+            "})();";
 
         webView.evaluateJavascript(js, null);
     }
