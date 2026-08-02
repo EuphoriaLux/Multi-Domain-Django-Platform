@@ -17,6 +17,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 
+from .connect_phase import is_selected_beta_tester
 from .models import CrushCoach, CrushProfile, PremiumMembership
 from .ios_app_utils import ios_commerce_suppressed
 
@@ -62,7 +63,18 @@ def premium_choose_coach(request):
     # runs before the profile gate because the waitlist is open to authenticated
     # users with no profile yet (a profile-less user can't have a pending request
     # anyway). Members with a pending request fall through so they can manage it.
-    if getattr(_settings, "PREMIUM_REDIRECTS_TO_BETA", False) and not pending:
+    #
+    # Hand-picked testers (``CrushConnectWaitlist.selected_as_tester``) are the
+    # deliberate exception: the funnel stays on for everyone else, so selecting
+    # someone in the admin is the ONLY way to open self-serve purchase during the
+    # beta. Without this the flag was a dead end — it opens the receiver phase
+    # gate (``receiver_access_open``) while the entitlement gate still demands an
+    # active PremiumMembership the member had no way to buy.
+    if (
+        getattr(_settings, "PREMIUM_REDIRECTS_TO_BETA", False)
+        and not pending
+        and not is_selected_beta_tester(request.user)
+    ):
         return redirect("crush_lu:crush_connect_teaser")
 
     try:
@@ -109,10 +121,18 @@ def premium_select_coach(request, coach_id):
     # *fresh* premium request (stale directory form or a direct POST). Members
     # who already have a pending request may still change their chosen coach.
     # Runs before the profile gate, mirroring premium_choose_coach.
+    # Selected testers are exempt, mirroring premium_choose_coach — this POST is
+    # the step that mints the pending membership, which is the capability token
+    # create_sumup_premium_checkout requires, so the allowlist must hold here too
+    # or a selected tester could see the directory and still not buy.
     has_pending = PremiumMembership.objects.filter(
         user=request.user, status="pending"
     ).exists()
-    if getattr(_settings, "PREMIUM_REDIRECTS_TO_BETA", False) and not has_pending:
+    if (
+        getattr(_settings, "PREMIUM_REDIRECTS_TO_BETA", False)
+        and not has_pending
+        and not is_selected_beta_tester(request.user)
+    ):
         return redirect("crush_lu:crush_connect_teaser")
 
     try:

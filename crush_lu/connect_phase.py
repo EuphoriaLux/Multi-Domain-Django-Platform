@@ -8,8 +8,12 @@ Three phases, driven by two settings, so access can widen in stages:
   off): the candidate — "in the Mix" — track opens to any verified + LuxID
   member (they can opt in and become discoverable), but the Premium/receiver
   track (Today's Drop) stays limited to staff + hand-picked waitlist testers
-  (``CrushConnectWaitlist.selected_as_tester``). €15 stays funnelled to the
-  waitlist via ``PREMIUM_REDIRECTS_TO_BETA``.
+  (``CrushConnectWaitlist.selected_as_tester``). Premium purchase stays
+  funnelled to the waitlist by ``PREMIUM_REDIRECTS_TO_BETA`` for everyone
+  except those same selected testers, who may buy (see ``views_premium``) —
+  that is how they obtain the active membership the receiver entitlement gate
+  then requires. No price is named here: it is ``SUMUP_PREMIUM_MONTHLY_FEE``,
+  set per environment.
 - **LAUNCHED** (``CRUSH_CONNECT_LAUNCHED`` on): everything public; the beta
   flag is ignored.
 
