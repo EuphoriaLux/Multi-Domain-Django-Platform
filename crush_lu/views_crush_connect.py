@@ -895,6 +895,16 @@ def crush_connect_hub(request):
         "active_lobby": get_active_live_lobby(user) if event_lobby_enabled else None,
         "event_lobby_enabled": event_lobby_enabled,
         "people_ive_met_count": people_ive_met_count,
+        # Entitlement, NOT is_receiver — the two diverge and the difference is
+        # exactly what a member notices. is_receiver is (entitlement AND the
+        # phase lets them receive), so during the beta a member who has paid but
+        # is not a selected tester has is_receiver False; badging on it would
+        # show someone who just paid no sign that they are Premium. This answers
+        # "am I Premium", which is a question about what they bought.
+        "has_premium": bool(profile and profile.has_active_premium),
+        # Naming the coach is most of the point: it is the thing being sold, and
+        # the hub never told the member who theirs is.
+        "premium_coach": getattr(profile, "assigned_coach", None) if profile else None,
     }
     return render(request, "crush_lu/crush_connect/hub.html", context)
 

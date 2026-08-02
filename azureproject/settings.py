@@ -1299,13 +1299,23 @@ SECURE_CSP_REPORT_ONLY = {
         "https://open.spotify.com",
         "https://w.soundcloud.com",
         # SumUp card widget: the card fields and the 3DS step are iframed.
-        # ⚠️ A 3DS challenge can hand off to the card issuer's own ACS domain,
-        # which is per-bank and cannot be enumerated here. So this line makes
-        # the widget work but does NOT prove 3DS survives enforcement — walk a
-        # real 3DS payment with the policy enforced before switching
-        # SECURE_CSP_REPORT_ONLY over to CONTENT_SECURITY_POLICY. Same caveat
-        # applies to "form-action", which is still CSP.SELF below.
         "https://gateway.sumup.com",
+        # 3DS runs through ACI Worldwide, SumUp's payment backend, NOT through
+        # sumup.com. Measured from a real sandbox payment on 2026-08-02, which
+        # reported framing violations for `test.ppipe.net` and `test.oppwa.com`
+        # against this policy. Apex and wildcard are both listed because a CSP
+        # wildcard does not match the bare domain, and the live hosts drop the
+        # `test.` prefix.
+        "https://oppwa.com",
+        "https://*.oppwa.com",
+        "https://ppipe.net",
+        "https://*.ppipe.net",
+        # ⚠️ Still not a guarantee for production 3DS. The sandbox exercises
+        # ACI's own demo connector; a live challenge can hand off to the card
+        # ISSUER's ACS domain, which is per-bank and cannot be enumerated here.
+        # "form-action" is also still CSP.SELF below. Walk a real 3DS payment
+        # with the policy enforced before switching SECURE_CSP_REPORT_ONLY over
+        # to CONTENT_SECURITY_POLICY, and read the report endpoint afterwards.
     ],
     "form-action": [CSP.SELF],
     "base-uri": [CSP.SELF],
