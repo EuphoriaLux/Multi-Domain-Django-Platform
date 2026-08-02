@@ -677,6 +677,132 @@ class PaymentCompletionRevalidationTests(SiteTestMixin, TestCase):
 
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class PremiumCompletionRevalidationTests(SiteTestMixin, TestCase):
+    """The same in-flight problem on the Premium side.
+
+    ``PremiumMembership.confirm()`` re-checks the coach's capacity under a row
+    lock and raises ValueError if it is gone. The completion handler cannot let
+    that pass silently: SumUp has captured the money by then.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(
+            username="prem-race@crush.lu",
+            email="prem-race@crush.lu",
+            password="password123",
+        )
+        self.profile = CrushProfile.objects.create(
+            user=self.user, gender="F", location="Luxembourg"
+        )
+        coach_user = User.objects.create_user(
+            username="coach-race@crush.lu",
+            email="coach-race@crush.lu",
+            password="password123",
+            first_name="Robin",
+        )
+        # One seat only, so a single rival membership fills it.
+        self.coach = CrushCoach.objects.create(
+            user=coach_user,
+            is_active=True,
+            accepting_premium=True,
+            max_premium_members=1,
+        )
+        self.membership = PremiumMembership.objects.create(
+            user=self.user, coach=self.coach, status="pending"
+        )
+
+    def _tx(self, ref):
+        return PaymentTransaction.objects.create(
+            transaction_reference=ref,
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id=f"CHK_{ref}",
+            amount=Decimal("10.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
+            user=self.user,
+            premium_membership=self.membership,
+        )
+
+    def _fill_the_coach(self):
+        rival = User.objects.create_user(
+            username="rival@crush.lu", email="rival@crush.lu", password="password123"
+        )
+        CrushProfile.objects.create(user=rival, gender="M")
+        PremiumMembership.objects.create(
+            user=rival, coach=self.coach, status="active", payment_confirmed=True
+        )
+
+    def test_payment_for_a_coach_that_filled_up_does_not_grant_premium(self):
+        """Charged, but the seat is gone — the money must stay on record and the
+        failure must be loud, because it needs a human to reassign or refund."""
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        tx = self._tx("PREMFULL")
+        self._fill_the_coach()
+
+        with self.assertLogs("crush_lu.views_payments", level="ERROR") as logs:
+            with self.captureOnCommitCallbacks(execute=True):
+                _apply_paid_checkout(tx, {"status": "PAID"})
+
+        self.membership.refresh_from_db()
+        self.profile.refresh_from_db()
+        tx.refresh_from_db()
+
+        # Premium was NOT granted.
+        self.assertEqual(self.membership.status, "pending")
+        self.assertFalse(self.membership.payment_confirmed)
+        self.assertIsNone(self.profile.assigned_coach_id)
+        # ...but the charge is still on record so staff can act on it.
+        self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+        # ...and it is loud enough to find.
+        self.assertTrue(
+            any("Premium NOT granted" in line for line in logs.output),
+            logs.output,
+        )
+
+    def test_payment_on_a_cancelled_request_does_not_grant_premium(self):
+        """A request cancelled before the money lands must not be resurrected.
+
+        This one is caught by the outer ``status == "pending"`` guard rather
+        than by confirm(), so it logs nothing — confirm()'s own "only a pending
+        membership" ValueError is reachable only in a genuine race, where the
+        status flips between this read and confirm()'s locked re-read.
+        """
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        tx = self._tx("PREMCANCEL")
+        self.membership.status = "cancelled"
+        self.membership.save(update_fields=["status"])
+
+        with self.captureOnCommitCallbacks(execute=True):
+            _apply_paid_checkout(tx, {"status": "PAID"})
+
+        self.membership.refresh_from_db()
+        self.profile.refresh_from_db()
+        tx.refresh_from_db()
+        self.assertEqual(self.membership.status, "cancelled")
+        self.assertIsNone(self.profile.assigned_coach_id)
+        self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+
+    def test_normal_premium_payment_still_confirms(self):
+        """The ordinary path must still activate and assign the coach."""
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        tx = self._tx("PREMHAPPY")
+        with self.captureOnCommitCallbacks(execute=True):
+            _apply_paid_checkout(tx, {"status": "PAID"})
+
+        self.membership.refresh_from_db()
+        self.profile.refresh_from_db()
+        self.assertEqual(self.membership.status, "active")
+        self.assertTrue(self.membership.payment_confirmed)
+        self.assertIsNotNone(self.membership.payment_date)
+        self.assertEqual(self.profile.assigned_coach_id, self.coach.id)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class PaymentRaceAndStaleStateTests(SiteTestMixin, TestCase):
     """Round-4 Codex findings: stale reads, downgrades and stale amounts."""
 
