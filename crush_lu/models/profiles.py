@@ -649,6 +649,27 @@ class CrushProfile(models.Model):
         default="en",
         help_text=_("Preferred language for emails and notifications"),
     )
+    # Whether preferred_language above is an answer or just the default.
+    #
+    # The field is default="en" and non-blank, so "en" alone cannot tell a
+    # member who chose English from one who never opened the setting — and the
+    # two want opposite treatment on routes outside i18n_patterns, which have
+    # no /fr/ prefix and fall back to Accept-Language. Without this flag the
+    # only safe reading of a stored "en" is "no answer given", which hands an
+    # explicit-English member a French page on a French browser.
+    #
+    # Set by the language switcher (views_language.set_language_with_profile),
+    # and only there: values inferred on the member's behalf — signup's
+    # request.LANGUAGE_CODE, a LuxID locale claim — deliberately leave it
+    # False, because inferring a language is not the member answering.
+    # Read by utils.i18n.get_onscreen_language.
+    language_explicitly_set = models.BooleanField(
+        default=False,
+        help_text=_(
+            "True when the member picked their language themselves, rather "
+            "than it being inferred from their browser or LuxID locale."
+        ),
+    )
 
     # --- Event Identity (2026 redesign) ------------------------------------
     # Structured replacement for the free-text bio/interests fields above:

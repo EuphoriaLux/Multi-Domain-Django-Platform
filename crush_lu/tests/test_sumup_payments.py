@@ -1071,6 +1071,47 @@ class PremiumCompletionRevalidationTests(SiteTestMixin, TestCase):
         )
 
     @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_an_explicit_english_survives_a_french_browser(self, mock_get_checkout):
+        """The third case, and the one the schema could not express.
+
+        The two tests above are the easy halves: an untouched default follows
+        the browser, an explicit de/fr overrides it. Between them sits a member
+        who OPENED the switcher and picked English. The stored value is "en"
+        either way, so before ``language_explicitly_set`` this member was
+        indistinguishable from one who never answered, and on a new device —
+        no ``django_language`` cookie, ``Accept-Language: fr`` — got a French
+        confirmation and a /fr/ redirect for a language they had rejected.
+        """
+        self.profile.preferred_language = "en"
+        self.profile.language_explicitly_set = True
+        self.profile.save(
+            update_fields=["preferred_language", "language_explicitly_set"]
+        )
+
+        tx = self._tx("PREMEN")
+        mock_get_checkout.return_value = {"id": tx.sumup_checkout_id, "status": "PAID"}
+
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        # New device: nothing but Accept-Language to go on, and it says French.
+        client = Client(HTTP_HOST="crush.lu", HTTP_ACCEPT_LANGUAGE="fr")
+        client.force_login(self.user)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = client.get(reverse("sumup_payment_return"), {"ref": "PREMEN"})
+
+        texts = [str(m) for m in response.wsgi_request._messages]
+        self.assertTrue(any("your coach is Robin" in t for t in texts), texts)
+        self.assertFalse(any("votre coach est" in t for t in texts), texts)
+        # Same whole-page check as the French sibling, in the other direction.
+        self.assertFalse(any("Paiement" in t for t in texts), texts)
+        self.assertTrue(response["Location"].startswith("/en/"), response["Location"])
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
     def test_a_stranger_cannot_read_someone_elses_premium_status(
         self, mock_get_checkout
     ):

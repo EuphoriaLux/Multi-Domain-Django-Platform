@@ -2371,9 +2371,22 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                         except Exception:
                             pass
 
-                # Map locale to preferred_language
+                # Map locale to preferred_language.
+                #
+                # Both halves are load-bearing. == "en" keeps this from
+                # clobbering a language already inferred at signup from
+                # request.LANGUAGE_CODE, which is what it has always guarded.
+                # The flag adds the case that value cannot express: a member
+                # who ANSWERED English. Overwriting them would not just lose
+                # the preference, it would defeat the flag downstream too,
+                # since get_onscreen_language reads a stored de/fr as
+                # self-evidently chosen and never consults the flag again.
                 locale = _claims.get("locale", "")
-                if locale and profile.preferred_language == "en":
+                if (
+                    locale
+                    and profile.preferred_language == "en"
+                    and not profile.language_explicitly_set
+                ):
                     lang_code = locale[:2].lower()
                     if lang_code in ("de", "fr"):
                         profile.preferred_language = lang_code

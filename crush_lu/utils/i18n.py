@@ -102,24 +102,25 @@ def get_onscreen_language(user=None, request=None, default='en'):
     Measured, not assumed: on the SumUp return page, preferring the profile
     turned a French confirmation (and a /fr/ redirect) into an English one.
 
-    So ``"en"`` is read as "no answer given" rather than as a choice — in this
-    schema it is indistinguishable from the untouched default. A stored ``de``
-    or ``fr`` is unambiguous, nobody arrives at those by accident, and wins
-    outright. Otherwise defer to ``request.LANGUAGE_CODE``, i.e. whatever
+    So the question is not "what is stored" but "did the member answer". A
+    stored ``de`` or ``fr`` is unambiguous — nobody arrives at those by
+    accident — and wins outright. A stored ``"en"`` wins only when
+    ``language_explicitly_set`` says it was chosen; otherwise it is the
+    untouched default and we defer to ``request.LANGUAGE_CODE``, i.e. whatever
     LocaleMiddleware resolved from the cookie or Accept-Language.
 
-    KNOWN LIMITATION (deliberate, not an oversight). An *explicitly chosen*
-    English is read as unset too, because nothing in the schema records that a
-    choice was made. ``set_language_with_profile`` only writes when the value
-    changes, so a stored ``"en"`` means "picked English after having picked
-    something else" — real, but indistinguishable from the default. Such a
-    member, on a device with no ``django_language`` cookie and a French
-    ``Accept-Language``, gets French. That is **exactly** what they got before
-    this helper existed (verified by running both), so it is a pre-existing gap
-    this narrowing does not widen. Closing it needs a persisted "language was
-    explicitly set" signal, or the originating language carried on the
-    PaymentTransaction — a migration either way, tracked separately rather than
-    smuggled into a PR about the Premium badge.
+    That flag is the whole reason English is answerable at all. It is written
+    by the language switcher and only there, so it means "the member picked
+    this", not "something inferred it" — signup reads ``request.LANGUAGE_CODE``
+    and LuxID reads a locale claim, and neither sets it. One wrinkle it has to
+    carry: the switcher used to write only when the value CHANGED, which for an
+    English member choosing English is no change at all, so the pick vanished.
+    It now writes whenever either half is stale.
+
+    Members whose profiles predate the flag read as not-explicit, since a
+    stored ``"en"`` from before it existed genuinely cannot be disambiguated —
+    they keep the previous behaviour (defer to the request) rather than being
+    guessed either way.
 
     Args:
         user: Django User object (optional)
@@ -131,9 +132,11 @@ def get_onscreen_language(user=None, request=None, default='en'):
     """
     profile = getattr(user, 'crushprofile', None) if user else None
     stored = getattr(profile, 'preferred_language', None)
-    # Only a non-default stored value is evidence of an actual choice.
-    if is_valid_language(stored) and stored != 'en':
-        return stored
+    if is_valid_language(stored):
+        # A non-default value is self-evidently a choice; "en" needs the flag
+        # to say so, because it is also what an untouched profile holds.
+        if stored != 'en' or getattr(profile, 'language_explicitly_set', False):
+            return stored
 
     request_lang = getattr(request, 'LANGUAGE_CODE', None) if request else None
     if is_valid_language(request_lang):

@@ -644,6 +644,53 @@ class TestLuxidProfileDataOverwrite(TestCase):
         profile.refresh_from_db()
         self.assertEqual(profile.date_of_birth, date(1990, 1, 1))
 
+    def test_luxid_locale_fills_in_an_unanswered_language(self):
+        """Unchanged behaviour: nobody has answered, so the claim is the best
+        evidence available and still wins."""
+        user, profile, _ = _make_user_with_pending_profile()
+        self.assertEqual(profile.preferred_language, "en")
+        self.assertFalse(profile.language_explicitly_set)
+
+        self._run_pre_social_login(user, claims={"locale": "fr-LU"})
+
+        profile.refresh_from_db()
+        self.assertEqual(profile.preferred_language, "fr")
+
+    def test_luxid_locale_does_not_overwrite_an_answered_english(self):
+        """The reason this guard needed the flag rather than == "en".
+
+        A member who picked English stores exactly what an untouched profile
+        stores, so the old value-only guard could not see the difference and
+        overwrote them from their LuxID locale. That lost the preference and
+        defeated the flag downstream too: get_onscreen_language reads a stored
+        de/fr as self-evidently chosen and never consults the flag again.
+        """
+        user, profile, _ = _make_user_with_pending_profile()
+        profile.language_explicitly_set = True
+        profile.save(update_fields=["language_explicitly_set"])
+
+        self._run_pre_social_login(user, claims={"locale": "fr-LU"})
+
+        profile.refresh_from_db()
+        self.assertEqual(profile.preferred_language, "en")
+        self.assertTrue(profile.language_explicitly_set)
+
+    def test_luxid_locale_does_not_overwrite_a_language_inferred_at_signup(self):
+        """The half of the old guard the flag does NOT replace.
+
+        Signup seeds preferred_language from request.LANGUAGE_CODE, leaving the
+        flag False. Gating on the flag alone would newly clobber that inferred
+        value, so == "en" has to stay in the condition beside it.
+        """
+        user, profile, _ = _make_user_with_pending_profile()
+        profile.preferred_language = "fr"
+        profile.save(update_fields=["preferred_language"])
+
+        self._run_pre_social_login(user, claims={"locale": "de-LU"})
+
+        profile.refresh_from_db()
+        self.assertEqual(profile.preferred_language, "fr")
+
     def test_luxid_provider_overwrites_existing_gender(self):
         user, profile, _ = _make_user_with_pending_profile(gender="M")
 

@@ -595,6 +595,145 @@ class LanguageSwitcherTests(SiteTestMixin, TestCase):
         self.assertIn(f'/fr/events/{event.id}/', response.request['PATH_INFO'])
 
 
+@override_settings(ROOT_URLCONF='azureproject.urls_crush')
+class ExplicitLanguageChoiceTests(SiteTestMixin, TestCase):
+    """``language_explicitly_set``: telling a chosen "en" from the default one.
+
+    ``preferred_language`` is ``default="en"`` and non-blank, so its value
+    alone cannot answer "did the member choose this?" — which is the only
+    question that matters on routes outside ``i18n_patterns``, where there is
+    no /fr/ prefix and LocaleMiddleware falls back to Accept-Language.
+    """
+
+    def setUp(self):
+        from crush_lu.models import CrushProfile
+
+        self.user = User.objects.create_user(
+            username='lang-choice@crush.lu',
+            email='lang-choice@crush.lu',
+            password='password123',
+        )
+        self.profile = CrushProfile.objects.create(
+            user=self.user, gender='F', location='Luxembourg'
+        )
+        # Without consent the middleware 302s every POST to /i18n/setlang/ and
+        # the switcher never runs — which these tests cannot see directly,
+        # because "the flag was not set" is also what a redirect looks like.
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={
+                'powerup_consent_given': True,
+                'crushlu_consent_given': True,
+            },
+        )
+        self.client = Client(HTTP_HOST='crush.lu')
+        self.client.force_login(self.user)
+
+    def _switch_to(self, language):
+        response = self.client.post(
+            '/i18n/setlang/', {'language': language, 'next': f'/{language}/'}
+        )
+        # Pin that the switcher itself answered. A consent or login redirect
+        # also leaves the flag unset, so without this the negative assertions
+        # below would pass on a request that never reached the view at all.
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response['Location'],
+            f'/{language}/',
+            'expected the switcher redirect, not a middleware bounce',
+        )
+        return response
+
+    def test_a_fresh_profile_has_not_answered(self):
+        self.assertEqual(self.profile.preferred_language, 'en')
+        self.assertFalse(self.profile.language_explicitly_set)
+
+    def test_choosing_english_on_an_english_profile_is_still_an_answer(self):
+        """The case the old change-only early-out dropped on the floor.
+
+        ``set_language_with_profile`` wrote only ``if old != new``. For a
+        default-"en" member choosing English there is no change, so nothing was
+        written and the one member whose intent we most needed on record left
+        no trace at all. The write is now keyed on either half being stale.
+        """
+        self._switch_to('en')
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.preferred_language, 'en')
+        self.assertTrue(
+            self.profile.language_explicitly_set,
+            'a no-op pick still has to record that the member picked',
+        )
+
+    def test_choosing_a_different_language_records_both_halves(self):
+        self._switch_to('fr')
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.preferred_language, 'fr')
+        self.assertTrue(self.profile.language_explicitly_set)
+
+    def test_switching_back_to_english_keeps_the_flag_set(self):
+        """fr then en: the value returns to the default, the answer does not."""
+        self._switch_to('fr')
+        self._switch_to('en')
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.preferred_language, 'en')
+        self.assertTrue(self.profile.language_explicitly_set)
+
+    def test_an_unsupported_language_is_not_an_answer(self):
+        self._switch_to('xx')
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.preferred_language, 'en')
+        self.assertFalse(self.profile.language_explicitly_set)
+
+    def test_get_onscreen_language_prefers_an_answered_english(self):
+        from crush_lu.utils.i18n import get_onscreen_language
+
+        self.profile.language_explicitly_set = True
+        self.profile.save(update_fields=['language_explicitly_set'])
+
+        request = RequestFactory().get('/')
+        request.LANGUAGE_CODE = 'fr'
+
+        self.assertEqual(
+            get_onscreen_language(user=self.user, request=request), 'en'
+        )
+
+    def test_get_onscreen_language_still_defers_for_an_unanswered_english(self):
+        """The majority case must not regress: no answer, follow the browser."""
+        from crush_lu.utils.i18n import get_onscreen_language
+
+        request = RequestFactory().get('/')
+        request.LANGUAGE_CODE = 'fr'
+
+        self.assertEqual(
+            get_onscreen_language(user=self.user, request=request), 'fr'
+        )
+
+    def test_signup_inferring_a_language_is_not_an_answer(self):
+        """Profile creation seeds preferred_language from request.LANGUAGE_CODE.
+
+        That is a guess made on the member's behalf, so it must leave the flag
+        alone — otherwise every profile is born "explicit" and the flag says
+        nothing. A stored fr still wins on screen, but on its own evidence.
+        """
+        from crush_lu.models import CrushProfile
+
+        inferred = CrushProfile.objects.create(
+            user=User.objects.create_user(
+                username='inferred@crush.lu',
+                email='inferred@crush.lu',
+                password='password123',
+            ),
+            gender='M',
+            location='Luxembourg',
+            preferred_language='fr',
+        )
+        self.assertFalse(inferred.language_explicitly_set)
+
+
 # =============================================================================
 # PART 6: USER LANGUAGE PREFERENCE TESTS (LOW)
 # =============================================================================

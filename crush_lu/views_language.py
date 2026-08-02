@@ -66,12 +66,26 @@ def set_language_with_profile(request):
                 profile = getattr(request.user, 'crushprofile', None)
                 if profile:
                     old_language = profile.preferred_language
+                    # A pick that matches the value already stored still has to
+                    # be recorded. preferred_language is default="en", so for an
+                    # English member "choose English" is a no-op on the value and
+                    # was skipped entirely by the old change-only early-out —
+                    # leaving the one member whose intent we most need on record
+                    # indistinguishable from one who never opened the setting.
+                    # The flag is what carries that, so the write is now keyed on
+                    # either half being stale, not on the language alone.
+                    fields = []
                     if old_language != new_language:
                         profile.preferred_language = new_language
-                        profile.save(update_fields=['preferred_language'])
+                        fields.append('preferred_language')
+                    if not profile.language_explicitly_set:
+                        profile.language_explicitly_set = True
+                        fields.append('language_explicitly_set')
+                    if fields:
+                        profile.save(update_fields=fields)
                         logger.info(
                             f"Updated preferred_language for user {request.user.id}: "
-                            f"{old_language} -> {new_language}"
+                            f"{old_language} -> {new_language} (fields={fields})"
                         )
             except Exception as e:
                 # Don't fail the language switch if profile update fails
