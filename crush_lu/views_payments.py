@@ -391,13 +391,42 @@ def _apply_paid_checkout(tx_obj, data):
         ):
             pm = locked.premium_membership
             if pm.status == "pending":
-                pm.payment_confirmed = True
-                pm.payment_date = timezone.now()
+                # No pre-setting of payment_confirmed/payment_date here.
+                # ``confirm()`` sets both itself on success, and on failure it
+                # raises *before* its own save(), so assigning them first only
+                # ever produced in-memory values that were silently discarded —
+                # which read like the money had been recorded on the membership
+                # when it had not. The charge is recorded on this
+                # PaymentTransaction either way; that is the money's home.
                 try:
                     pm.confirm()
                     logger.info("Confirmed PremiumMembership %s via SumUp", pm.id)
                 except ValueError as exc:
-                    logger.error("Could not confirm PremiumMembership %s: %s", pm.id, exc)
+                    # Same contract as the event-registration branch above:
+                    # SumUp has already captured the money by the time this
+                    # runs, so the transaction stays PAID — dropping it would
+                    # lose the only record of a real charge. What we refuse to
+                    # do is grant Premium.
+                    #
+                    # confirm() raises for two distinct reasons, and the
+                    # remedies differ: the chosen coach filled up while the
+                    # payment was in flight (reassign the member to a coach with
+                    # capacity — that keeps the sale), or the request stopped
+                    # being pending mid-flight, i.e. it was cancelled (refund).
+                    # Both need a human, so this is logged at error level with
+                    # the same "payment recorded, NOT granted" phrasing the
+                    # seat path uses, and carries the ids needed to act on it.
+                    logger.error(
+                        "SumUp payment %s completed for PremiumMembership %s "
+                        "(user=%s, coach=%s) but it could not be confirmed: %s "
+                        "— payment recorded, Premium NOT granted, coach "
+                        "reassignment or refund required.",
+                        locked.transaction_reference,
+                        pm.id,
+                        pm.user_id,
+                        pm.coach_id,
+                        exc,
+                    )
 
 
 def _sync_checkout_with_sumup(tx_obj):
