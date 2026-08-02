@@ -60,6 +60,9 @@ public class MainActivity extends AppCompatActivity {
             ? "https" : BASE_URI.getScheme().toLowerCase(Locale.ROOT);
     private static final String BASE_HOST = BASE_URI.getHost() == null
             ? "" : BASE_URI.getHost().toLowerCase(Locale.ROOT);
+    private static final int BASE_DEFAULT_PORT = "http".equals(BASE_SCHEME) ? 80 : 443;
+    private static final int BASE_PORT = BASE_URI.getPort() == -1
+            ? BASE_DEFAULT_PORT : BASE_URI.getPort();
 
     private WebView webView;
     private ProgressBar progressBar;
@@ -317,7 +320,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void handleUri(Uri uri) {
-        if (AUTH_SCHEME.equals(uri.getScheme())) {
+        if (AUTH_SCHEME.equals(schemeOf(uri))) {
             // Anything — another app, or a web page, since the scheme's
             // intent-filter is BROWSABLE — can send this. loadInternal() is what
             // decides whether complete_url is ours; an opaque "crushlu:auth?..."
@@ -404,6 +407,17 @@ public class MainActivity extends AppCompatActivity {
         return path.endsWith("/login/") || path.contains("/accounts/");
     }
 
+    /**
+     * @return the URI's scheme, lower-cased, or "" if it has none. Schemes are
+     *     case-insensitive (RFC 3986) and Uri returns them as written, so an
+     *     explicit intent carrying "CrushLu://auth" would otherwise slip past
+     *     an exact-case comparison.
+     */
+    private static String schemeOf(Uri uri) {
+        String scheme = uri == null ? null : uri.getScheme();
+        return scheme == null ? "" : scheme.toLowerCase(Locale.ROOT);
+    }
+
     private static boolean isInternal(Uri uri) {
         if (uri == null || BASE_HOST.isEmpty()) {
             return false;
@@ -411,8 +425,7 @@ public class MainActivity extends AppCompatActivity {
         // Scheme is checked as well as host: "javascript:", "file:", "content:"
         // and "intent:" URIs have no host and are rejected here, and an
         // http:// link to our own domain is not a substitute for https://.
-        String scheme = uri.getScheme();
-        if (scheme == null || !BASE_SCHEME.equals(scheme.toLowerCase(Locale.ROOT))) {
+        if (!BASE_SCHEME.equals(schemeOf(uri))) {
             return false;
         }
         // Credentials in the authority only ever serve to make a hostile host
@@ -425,7 +438,13 @@ public class MainActivity extends AppCompatActivity {
             return false;
         }
         String normalized = host.toLowerCase(Locale.ROOT);
-        return normalized.equals(BASE_HOST) || normalized.endsWith("." + BASE_HOST);
+        if (!normalized.equals(BASE_HOST) && !normalized.endsWith("." + BASE_HOST)) {
+            return false;
+        }
+        // getHost() drops the port, so match that too — an origin is host *and*
+        // port, and nothing of ours is served anywhere but the default one.
+        int port = uri.getPort() == -1 ? BASE_DEFAULT_PORT : uri.getPort();
+        return port == BASE_PORT;
     }
 
     private Map<String, String> clientHeaders() {
@@ -527,12 +546,12 @@ public class MainActivity extends AppCompatActivity {
         }
 
         private boolean handleNavigation(Uri uri) {
-            String scheme = uri.getScheme();
+            String scheme = schemeOf(uri);
             if (AUTH_SCHEME.equals(scheme)) {
                 handleUri(uri);
                 return true;
             }
-            if (scheme != null && (scheme.equals("tel") || scheme.equals("mailto") || scheme.equals("whatsapp") || scheme.equals("intent"))) {
+            if (scheme.equals("tel") || scheme.equals("mailto") || scheme.equals("whatsapp") || scheme.equals("intent")) {
                 openExternal(uri);
                 return true;
             }
