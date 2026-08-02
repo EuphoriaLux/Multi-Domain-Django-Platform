@@ -11,11 +11,29 @@ from django.db import transaction
 from power_up.finops.models import CostExport, CostRecord
 from power_up.finops.utils.blob_reader import AzureCostBlobReader
 from power_up.finops.utils.focus_parser import FOCUSParser
+import logging
 import traceback
+
+# A failed export is swallowed so the remaining ones still import, which means
+# the only record of it is prose on stdout — and under sync_daily_costs that
+# stdout goes to a StringIO the webhook discards on its nightly 504. Log the
+# tally so it survives into App Insights.
+logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
     help = 'Import Azure cost data from Blob Storage msexports container'
+
+    # Failures are swallowed at two levels so the import keeps going: a whole
+    # export can fail, and individual rows can fail to parse or validate while
+    # the export still "succeeds". Both counts are the only structured trace
+    # of them — the per-row rejections otherwise exist solely as stderr prose,
+    # which the sync webhook discards. sync_daily_costs reads these back off
+    # the instance (call_command accepts a command object) rather than through
+    # a process-global side channel, which would cross-contaminate if two sync
+    # requests overlapped in one worker.
+    failed_exports = 0
+    failed_records = 0
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -124,6 +142,8 @@ class Command(BaseCommand):
             # Process each export
             total_records_imported = 0
             total_duplicates_skipped = 0
+            total_records_failed = 0
+            failed_exports = 0
             for idx, export_meta in enumerate(exports, 1):
                 self.stdout.write(f'\n[{idx}/{len(exports)}] Processing: {export_meta["blob_path"]}')
 
@@ -131,20 +151,38 @@ class Command(BaseCommand):
                     result = self.process_export(blob_reader, export_meta, batch_size, force_reimport)
                     total_records_imported += result['records_imported']
                     total_duplicates_skipped += result['duplicates_skipped']
+                    total_records_failed += result.get('records_failed', 0)
                     self.stdout.write(self.style.SUCCESS(
                         f'  [OK] Imported {result["records_imported"]} records '
                         f'({result["duplicates_skipped"]} duplicates skipped)'
                     ))
                 except Exception as e:
+                    failed_exports += 1
                     self.stdout.write(self.style.ERROR(f'  [ERROR] Failed: {str(e)}'))
                     self.stderr.write(traceback.format_exc())
                     continue
+
+            self.failed_exports = failed_exports
+            self.failed_records = total_records_failed
 
             self.stdout.write(self.style.SUCCESS(
                 '\n[OK] Import completed!'
             ))
             self.stdout.write(f'  Total records imported: {total_records_imported}')
             self.stdout.write(f'  Total duplicates skipped: {total_duplicates_skipped}')
+            if failed_exports:
+                self.stdout.write(self.style.ERROR(f'  Failed exports: {failed_exports}'))
+            if total_records_failed:
+                self.stdout.write(self.style.ERROR(
+                    f'  Rejected records: {total_records_failed}'
+                ))
+            logger.log(
+                logging.WARNING if (failed_exports or total_records_failed) else logging.INFO,
+                '[finops_sync] child=import_cost_data imported=%s duplicates=%s '
+                'failed_exports=%s rejected_records=%s',
+                total_records_imported, total_duplicates_skipped,
+                failed_exports, total_records_failed,
+            )
 
             # Auto-refresh aggregations if records were imported
             if total_records_imported > 0 and not skip_aggregation:
@@ -273,6 +311,7 @@ class Command(BaseCommand):
             # Stream and parse CSV records in batches
             records_imported = 0
             duplicates_skipped = 0
+            records_failed = 0
             parser = FOCUSParser()
 
             # Get existing hashes for this export to avoid re-checking database constantly
@@ -299,12 +338,14 @@ class Command(BaseCommand):
                         # Validate
                         is_valid, error_msg = parser.validate_record(parsed)
                         if not is_valid:
+                            records_failed += 1
                             self.stderr.write(f'  Warning: Skipping invalid record - {error_msg}')
                             continue
 
                         parsed_records.append(parsed)
                         batch_hashes.append(parsed['record_hash'])
                     except Exception as e:
+                        records_failed += 1
                         self.stderr.write(f'  Warning: Failed to parse record - {str(e)}')
                         continue
 
@@ -377,6 +418,7 @@ class Command(BaseCommand):
             return {
                 'records_imported': records_imported,
                 'duplicates_skipped': duplicates_skipped,
+                'records_failed': records_failed,
                 'is_update': is_update
             }
 

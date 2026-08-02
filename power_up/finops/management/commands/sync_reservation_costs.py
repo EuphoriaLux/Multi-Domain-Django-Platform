@@ -10,14 +10,28 @@ public Azure Retail Prices API to calculate monthly amortization.
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from power_up.finops.models import CostRecord, ReservationCost
+import logging
 import requests
 import json
 from decimal import Decimal
 from datetime import datetime
 
+# A reservation that fails to price is swallowed so the rest still sync, which
+# means the only record of it is prose on stdout — and under sync_daily_costs
+# that stdout goes to a StringIO the webhook discards on its nightly 504. Log
+# the tally so it survives into App Insights.
+logger = logging.getLogger(__name__)
+
 
 class Command(BaseCommand):
     help = 'Sync reservation costs from Azure Retail Prices API'
+
+    # A reservation that cannot be priced is swallowed so the rest still sync,
+    # so this count is the only structured trace of it. sync_daily_costs reads
+    # it back off the instance (call_command accepts a command object) rather
+    # than through a process-global side channel, which would cross-contaminate
+    # if two sync requests overlapped in one worker.
+    error_count = 0
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -140,10 +154,17 @@ class Command(BaseCommand):
                 continue
 
         # Summary
+        self.error_count = error_count
+
         self.stdout.write('\n[OK] Sync completed!')
         self.stdout.write(f'   Synced: {synced_count}')
         self.stdout.write(f'   Skipped: {skipped_count}')
         self.stdout.write(f'   Errors: {error_count}')
+        logger.log(
+            logging.WARNING if error_count else logging.INFO,
+            '[finops_sync] child=sync_reservation_costs synced=%s skipped=%s errors=%s',
+            synced_count, skipped_count, error_count,
+        )
 
     def find_reservations(self):
         """Find all unique reservations from FOCUS exports with extended data"""
