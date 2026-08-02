@@ -12,6 +12,7 @@ from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.translation import gettext as _
+from django.utils.translation import override
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
@@ -23,6 +24,7 @@ from crush_lu.models.events import (
 from crush_lu.models.payments import PaymentTransaction
 from crush_lu.models.profiles import PremiumMembership
 from crush_lu.services.sumup import SumUpClient, SumUpError
+from crush_lu.utils.i18n import get_user_preferred_language
 from crush_lu.views_ticket import _generate_checkin_token
 
 logger = logging.getLogger(__name__)
@@ -497,18 +499,27 @@ def sumup_webhook(request):
 def _payment_owner_ids(tx_obj):
     """Who this payment is FOR — not who happened to create the row.
 
-    ``create_sumup_event_checkout`` explicitly lets staff act for a member and
-    stamps ``user=request.user``, so the transaction's own user is not the
-    authority on its own: the registration's or membership's owner is. Shared
-    by the widget and the return page so the two cannot drift into disagreeing
-    about who may see a payment.
+    BOTH checkout creators let staff act for a member and stamp
+    ``user=request.user``, so ``tx.user`` on a staff-opened checkout is the
+    *staff* account, not the buyer. The linked registration or membership
+    therefore wins outright wherever one exists; ``tx.user`` is the fallback
+    only for unlinked rows that name nobody else.
+
+    Including ``tx.user`` alongside the real owner outlived its usefulness the
+    moment staff access could be revoked: a former staff member who once opened
+    a checkout for someone kept a permanent, personal route to that member's
+    widget and return page — including the Premium and coach disclosure — long
+    after the ``is_staff`` bypass at the call sites stopped applying to them.
+    Current staff are unaffected; they still pass via that bypass.
+
+    Shared by the widget and the return page so the two cannot drift into
+    disagreeing about who may see a payment.
     """
-    owner_ids = {tx_obj.user_id}
     if tx_obj.event_registration_id:
-        owner_ids.add(tx_obj.event_registration.user_id)
+        return {tx_obj.event_registration.user_id}
     if tx_obj.premium_membership_id:
-        owner_ids.add(tx_obj.premium_membership.user_id)
-    return owner_ids
+        return {tx_obj.premium_membership.user_id}
+    return {tx_obj.user_id}
 
 
 @csrf_exempt
@@ -566,6 +577,26 @@ def sumup_payment_return(request):
 
     _sync_checkout_with_sumup(tx_obj)
 
+    # This route lives OUTSIDE i18n_patterns (urls_crush.py), so there is no
+    # /fr/ or /de/ prefix for LocaleMiddleware to read and it falls back to the
+    # language cookie or Accept-Language. Django only sets that cookie from the
+    # set_language view, so a member who browsed in French without ever
+    # touching the language switcher gets this page in English — new catalogs
+    # or not. Pin it to their own preference, via the helper the transactional
+    # emails already use.
+    #
+    # The redirects stay inside the override deliberately: reverse() picks the
+    # language prefix from the active language, so this is also what stops a
+    # French confirmation from landing on an English page.
+    lang = get_user_preferred_language(user=request.user, request=request)
+    with override(lang):
+        return _sumup_return_response(request, tx_obj)
+
+
+def _sumup_return_response(request, tx_obj):
+    """Messages + destination for the human-facing return, under the caller's
+    activated language. Split out only so the ``override`` block above stays
+    readable — every path here returns a redirect."""
     if tx_obj.status == PaymentTransaction.Status.PAID:
         messages.success(request, _("Payment completed successfully! Thank you."))
         if tx_obj.event_registration:

@@ -12,6 +12,7 @@ from crush_lu.models.events import EventRegistration, MeetupEvent
 from crush_lu.models.payments import PaymentTransaction
 from crush_lu.models.profiles import CrushCoach, CrushProfile, PremiumMembership
 from crush_lu.services.sumup import SumUpClient, SumUpError, clean_credential
+from crush_lu.views_payments import _payment_owner_ids
 
 User = get_user_model()
 
@@ -933,6 +934,88 @@ class PremiumCompletionRevalidationTests(SiteTestMixin, TestCase):
         # The hub renders profile.assigned_coach; this must agree with it.
         self.assertTrue(any("Sam" in t for t in texts), texts)
         self.assertFalse(any("Robin" in t for t in texts), texts)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_demoted_staff_creator_loses_access_to_the_payment(
+        self, mock_get_checkout
+    ):
+        """``tx.user`` on a staff-opened checkout is the STAFF account.
+
+        Both checkout creators let staff act for a member and stamp
+        user=request.user. Counting that as ownership gave a staff member who
+        once opened a checkout for someone a permanent, personal route to that
+        member's payment — surviving the revocation of is_staff, which is the
+        one event that is supposed to take such access away.
+        """
+        from crush_lu.models.profiles import UserDataConsent
+
+        ex_staff = User.objects.create_user(
+            username="ex-staff@crush.lu",
+            email="ex-staff@crush.lu",
+            password="password123",
+            is_staff=True,
+        )
+        UserDataConsent.objects.update_or_create(
+            user=ex_staff,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        # Staff opened the checkout on the member's behalf.
+        tx = self._tx("PREMSTAFF")
+        tx.user = ex_staff
+        tx.save(update_fields=["user"])
+        mock_get_checkout.return_value = {"id": tx.sumup_checkout_id, "status": "PAID"}
+
+        # Access revoked.
+        ex_staff.is_staff = False
+        ex_staff.save(update_fields=["is_staff"])
+
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        self.client.force_login(ex_staff)
+        response = self.client.get(
+            reverse("sumup_payment_return"), {"ref": "PREMSTAFF"}
+        )
+
+        texts = [str(m) for m in response.wsgi_request._messages]
+        self.assertFalse(any("Premium" in t for t in texts), texts)
+        self.assertFalse(any("Robin" in t for t in texts), texts)
+        # The member is still the owner and is unaffected.
+        self.assertEqual(
+            _payment_owner_ids(tx), {self.user.id}, "member must own their payment"
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_the_confirmation_speaks_the_members_language(self, mock_get_checkout):
+        """This route is outside i18n_patterns, so there is no /fr/ prefix for
+        LocaleMiddleware to read and it falls back to a cookie Django only sets
+        via the language switcher. Without pinning, a French member's payment
+        confirmation arrives in English however complete the catalogs are."""
+        self.profile.preferred_language = "fr"
+        self.profile.save(update_fields=["preferred_language"])
+
+        tx = self._tx("PREMFR")
+        mock_get_checkout.return_value = {"id": tx.sumup_checkout_id, "status": "PAID"}
+        self._login_for_the_browser_return()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.get(
+                reverse("sumup_payment_return"), {"ref": "PREMFR"}
+            )
+
+        texts = [str(m) for m in response.wsgi_request._messages]
+        self.assertTrue(
+            any("votre coach est Robin" in t for t in texts), texts
+        )
+        self.assertFalse(any("your coach is" in t for t in texts), texts)
+        # The whole page, not just the line this PR added: a French
+        # confirmation beside an English "Payment completed successfully" is
+        # still a confirmation the member cannot read.
+        self.assertFalse(
+            any("Payment completed successfully" in t for t in texts), texts
+        )
+        # ...and it must not land them on an English page.
+        self.assertTrue(
+            response["Location"].startswith("/fr/"), response["Location"]
+        )
 
     @patch("crush_lu.views_payments.SumUpClient.get_checkout")
     def test_a_stranger_cannot_read_someone_elses_premium_status(

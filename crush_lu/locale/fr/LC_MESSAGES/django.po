@@ -38875,3 +38875,15 @@ msgstr "Vous êtes Premium — votre coach est %(name)s."
 #: crush_lu/views_payments.py
 msgid "You're now a Premium member."
 msgstr "Vous êtes désormais membre Premium."
+
+#: crush_lu/views_payments.py
+msgid "Payment completed successfully! Thank you."
+msgstr "Paiement effectué avec succès ! Merci."
+
+#: crush_lu/views_payments.py
+msgid "Payment is pending or was not completed."
+msgstr "Le paiement est en attente ou n'a pas été finalisé."
+
+#: crush_lu/views_payments.py
+msgid "Payment transaction reference not found."
+msgstr "Référence de transaction introuvable."
