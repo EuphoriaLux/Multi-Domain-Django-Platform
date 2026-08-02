@@ -108,6 +108,19 @@ def get_onscreen_language(user=None, request=None, default='en'):
     outright. Otherwise defer to ``request.LANGUAGE_CODE``, i.e. whatever
     LocaleMiddleware resolved from the cookie or Accept-Language.
 
+    KNOWN LIMITATION (deliberate, not an oversight). An *explicitly chosen*
+    English is read as unset too, because nothing in the schema records that a
+    choice was made. ``set_language_with_profile`` only writes when the value
+    changes, so a stored ``"en"`` means "picked English after having picked
+    something else" — real, but indistinguishable from the default. Such a
+    member, on a device with no ``django_language`` cookie and a French
+    ``Accept-Language``, gets French. That is **exactly** what they got before
+    this helper existed (verified by running both), so it is a pre-existing gap
+    this narrowing does not widen. Closing it needs a persisted "language was
+    explicitly set" signal, or the originating language carried on the
+    PaymentTransaction — a migration either way, tracked separately rather than
+    smuggled into a PR about the Premium badge.
+
     Args:
         user: Django User object (optional)
         request: HTTP request object (optional)
