@@ -14,6 +14,17 @@
     let isShowing = false;
     let lastHideTime = 0;
     const DEBOUNCE_TIME = 100; // ms to ignore rapid show calls after hide
+    // Hard ceiling on how long the overlay may stay up. Every hide path here is
+    // tied to a top-level navigation (load / pageshow / DOMContentLoaded), so a
+    // submit handled in JavaScript instead — a third-party widget that calls
+    // preventDefault and works inside iframes — shows the overlay and then never
+    // fires anything that takes it down. That is what happened on the SumUp
+    // payment page: the overlay covered the live card form, 3DS included, with
+    // no way past it. The opt-out below is the real fix; this is the backstop,
+    // because a full-screen cover that never lifts is the worst thing this file
+    // can do and it must not depend on getting the opt-out right everywhere.
+    const MAX_VISIBLE_TIME = 15000;
+    let watchdogTimeout = null;
 
     /**
      * Show loading overlay with delay to avoid flashing on fast loads
@@ -50,6 +61,15 @@
                 loadingOverlay.classList.add("show");
             }
         }, LOADING_DELAY);
+
+        // Arm the watchdog from the moment we decide to show, not from page
+        // load — the pre-existing "hide after 10s" fallback listens on `load`,
+        // which has long since fired by the time a click or submit shows the
+        // overlay, so it never rescued this case.
+        if (watchdogTimeout) {
+            clearTimeout(watchdogTimeout);
+        }
+        watchdogTimeout = setTimeout(hideLoadingOverlay, MAX_VISIBLE_TIME);
     }
 
     /**
@@ -63,6 +83,11 @@
         if (loadingTimeout) {
             clearTimeout(loadingTimeout);
             loadingTimeout = null;
+        }
+
+        if (watchdogTimeout) {
+            clearTimeout(watchdogTimeout);
+            watchdogTimeout = null;
         }
 
         // Hide overlay
@@ -82,7 +107,7 @@
             !link.href.includes("#") &&
             !link.hasAttribute("download") &&
             link.target !== "_blank" &&
-            !link.classList.contains("no-loading")
+            !link.closest(".no-loading")
         ); // Allow opt-out
     }
 
@@ -130,8 +155,11 @@
                 return;
             }
 
-            // Allow opt-out via no-loading class on the form
-            if (form && form.classList.contains("no-loading")) {
+            // Allow opt-out via a no-loading class on the form OR any ancestor.
+            // Ancestor matters: a third-party SDK renders its own form inside a
+            // container we control, so the class can only be put on the
+            // container — checking the form alone never matches.
+            if (form && form.closest && form.closest(".no-loading")) {
                 return;
             }
 

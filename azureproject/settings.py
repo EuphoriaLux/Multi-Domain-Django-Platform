@@ -1188,6 +1188,11 @@ SECURE_CSP_REPORT_ONLY = {
         "https://login.microsoftonline.com",
         # Azure Application Insights SDK
         "https://js.monitor.azure.com",
+        # SumUp card widget SDK — loaded by crush_lu/templates/crush_lu/
+        # payments/sumup_widget.html. Absent until 2026-08-02, which was
+        # invisible only because this policy is report-only; enforcing it
+        # without this line takes payments down.
+        "https://gateway.sumup.com",
     ],
     # Workers: qr-scanner's decode worker is spawned from a blob: URL
     # (vendored under crush_lu/static/crush_lu/vendor/qr-scanner/). Without
@@ -1271,6 +1276,9 @@ SECURE_CSP_REPORT_ONLY = {
         "https://*.fbcdn.net",
         # Apple Sign In
         "https://appleid.apple.com",
+        # SumUp — the widget calls the gateway directly from the browser
+        "https://gateway.sumup.com",
+        "https://api.sumup.com",
         # WebSocket for HTMX
         "wss:",
     ],
@@ -1290,6 +1298,14 @@ SECURE_CSP_REPORT_ONLY = {
         "https://player.vimeo.com",
         "https://open.spotify.com",
         "https://w.soundcloud.com",
+        # SumUp card widget: the card fields and the 3DS step are iframed.
+        # ⚠️ A 3DS challenge can hand off to the card issuer's own ACS domain,
+        # which is per-bank and cannot be enumerated here. So this line makes
+        # the widget work but does NOT prove 3DS survives enforcement — walk a
+        # real 3DS payment with the policy enforced before switching
+        # SECURE_CSP_REPORT_ONLY over to CONTENT_SECURITY_POLICY. Same caveat
+        # applies to "form-action", which is still CSP.SELF below.
+        "https://gateway.sumup.com",
     ],
     "form-action": [CSP.SELF],
     "base-uri": [CSP.SELF],
