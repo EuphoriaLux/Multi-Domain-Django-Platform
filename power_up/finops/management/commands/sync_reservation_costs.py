@@ -26,6 +26,13 @@ logger = logging.getLogger(__name__)
 class Command(BaseCommand):
     help = 'Sync reservation costs from Azure Retail Prices API'
 
+    # A reservation that cannot be priced is swallowed so the rest still sync,
+    # so this count is the only structured trace of it. sync_daily_costs reads
+    # it back off the instance (call_command accepts a command object) rather
+    # than through a process-global side channel, which would cross-contaminate
+    # if two sync requests overlapped in one worker.
+    error_count = 0
+
     def add_arguments(self, parser):
         parser.add_argument(
             '--force-refresh',
@@ -147,6 +154,8 @@ class Command(BaseCommand):
                 continue
 
         # Summary
+        self.error_count = error_count
+
         self.stdout.write('\n[OK] Sync completed!')
         self.stdout.write(f'   Synced: {synced_count}')
         self.stdout.write(f'   Skipped: {skipped_count}')

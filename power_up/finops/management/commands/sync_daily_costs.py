@@ -15,50 +15,38 @@ through ``logging``, which reaches App Insights via OpenTelemetry.
 Reading the result: a run that never emits ``run finished`` was killed
 mid-flight, and the last ``step=... started`` line names the step it died in.
 A step reporting ``status=partial`` finished, but the child command swallowed
-failures along the way — see ``_ChildFailureWatcher`` below.
+failures along the way.
+
+Two of the children keep going past a failed item — import_cost_data past a
+failed export, sync_reservation_costs past a reservation it cannot price — so
+``call_command()`` returns normally even when every item failed, and timing the
+call alone would record a confident ``status=ok`` over a run that imported
+nothing. Both count their own failures, and this command reads that count back
+off the command *instance*: ``call_command`` accepts a command object for
+exactly this purpose. The count comes from the command itself, so a step is
+never judged by scanning its prose for error markers (which would miss any
+path whose wording did not match — sync_reservation_costs counts a failure
+while printing "[WARN] No pricing found"), and nothing is passed through a
+process-global channel, which would cross-contaminate if two sync requests
+overlapped in one worker.
+
+The other two children need no such read: detect_cost_anomalies re-raises
+after reporting and generate_cost_forecasts has no swallowed-failure path, so
+run_step already sees both as ``status=error``.
 """
 import logging
 import time
 
 from django.core.management.base import BaseCommand
 from django.core.management import call_command
+from power_up.finops.management.commands import (
+    import_cost_data,
+    sync_reservation_costs,
+)
 from power_up.finops.utils.aggregation import CostAggregator
 from power_up.finops.models import CostExport
 
 logger = logging.getLogger(__name__)
-
-_COMMANDS = 'power_up.finops.management.commands'
-
-
-class _ChildFailureWatcher(logging.Handler):
-    """Notice when a child command reports failures it swallowed.
-
-    Two of the children keep going past a failed item — import_cost_data past
-    a failed export, sync_reservation_costs past a reservation it could not
-    price — so call_command() returns normally even when every item failed,
-    and timing the call alone would record a confident status=ok over a run
-    that imported nothing.
-
-    Both now count their own failures and log the tally at WARNING. Reading
-    that record is what makes this reliable: the number comes from the command
-    itself, so a step is never judged by scanning its prose for error markers,
-    which would miss any path whose wording did not match (sync_reservation
-    _costs, for one, counts a failure while printing "[WARN] No pricing
-    found").
-
-    The other two children need no watcher: detect_cost_anomalies re-raises
-    after reporting and generate_cost_forecasts has no swallowed-failure path,
-    so run_step already sees both as status=error.
-    """
-
-    def __init__(self):
-        super().__init__(level=logging.WARNING)
-        self.reports = []
-
-    def emit(self, record):
-        # The child stamps its own '[finops_sync] ' so it stays greppable when
-        # run on its own; drop it here or the merged line carries it twice.
-        self.reports.append(record.getMessage().removeprefix('[finops_sync] '))
 
 
 class Command(BaseCommand):
@@ -71,7 +59,7 @@ class Command(BaseCommand):
         run_started = time.monotonic()
         timings = []
 
-        def run_step(number, slug, description, step, style, child=None):
+        def run_step(number, slug, description, step, style):
             """Run one step, timing it and logging on both sides.
 
             Exceptions stay swallowed so a late step failing cannot discard the
@@ -80,19 +68,14 @@ class Command(BaseCommand):
             changes is that the failure is now recorded rather than vanishing
             into the stdout buffer the webhook throws away.
 
-            ``child`` names the command module to watch for swallowed failures;
-            when it reports any, the step is marked partial rather than ok.
+            A step returning a string is reporting failures its child swallowed;
+            the step is then marked partial rather than ok.
             """
             self.stdout.write(f'\n[{number}/5] {description}...')
             logger.info('[finops_sync] step=%s started', slug)
             started = time.monotonic()
-
-            watcher = _ChildFailureWatcher() if child else None
-            child_logger = logging.getLogger(f'{_COMMANDS}.{child}') if child else None
-            if child_logger is not None:
-                child_logger.addHandler(watcher)
             try:
-                step()
+                swallowed = step()
             except Exception as exc:
                 elapsed = time.monotonic() - started
                 timings.append((slug, elapsed, 'error'))
@@ -101,16 +84,13 @@ class Command(BaseCommand):
                 )
                 self.stdout.write(style(f'{description} failed: {exc}'))
                 return
-            finally:
-                if child_logger is not None:
-                    child_logger.removeHandler(watcher)
             elapsed = time.monotonic() - started
 
-            if watcher is not None and watcher.reports:
+            if swallowed:
                 timings.append((slug, elapsed, 'partial'))
                 logger.warning(
                     '[finops_sync] step=%s status=partial elapsed=%.1fs %s',
-                    slug, elapsed, ' | '.join(watcher.reports),
+                    slug, elapsed, swallowed,
                 )
                 return
 
@@ -118,10 +98,20 @@ class Command(BaseCommand):
             logger.info('[finops_sync] step=%s status=ok elapsed=%.1fs', slug, elapsed)
 
         def _import():
+            command = import_cost_data.Command()
+            # --skip-aggregation: the child would otherwise run a full 60-day
+            # CostAggregator.refresh_all itself, which step 2 then repeats
+            # verbatim — duplicated work in a command that already times out.
+            # It also swallows its own refresh failure into a stdout warning
+            # raised *after* the import tally, so leaving it on would hide a
+            # failure behind status=ok.
             call_command(
-                'import_cost_data', '--batch-size=1000',
+                command, '--batch-size=1000', '--skip-aggregation',
                 stdout=self.stdout, stderr=self.stderr,
             )
+            if command.failed_exports:
+                return f'child=import_cost_data failed={command.failed_exports}'
+            return None
 
         def _aggregations():
             result = CostAggregator.refresh_all(days_back=60, currency='EUR')
@@ -148,19 +138,19 @@ class Command(BaseCommand):
             )
 
         def _reservations():
-            call_command(
-                'sync_reservation_costs', stdout=self.stdout, stderr=self.stderr,
-            )
+            command = sync_reservation_costs.Command()
+            call_command(command, stdout=self.stdout, stderr=self.stderr)
+            if command.error_count:
+                return f'child=sync_reservation_costs errors={command.error_count}'
+            return None
 
         # Console severity per step matches the original: import and
         # aggregations were ERROR, the three non-fatal tail steps WARNING.
-        run_step(1, 'import', 'Importing new cost exports', _import, self.style.ERROR,
-                 child='import_cost_data')
+        run_step(1, 'import', 'Importing new cost exports', _import, self.style.ERROR)
         run_step(2, 'aggregations', 'Refreshing cost aggregations', _aggregations, self.style.ERROR)
         run_step(3, 'anomalies', 'Detecting cost anomalies', _anomalies, self.style.WARNING)
         run_step(4, 'forecasts', 'Generating cost forecasts', _forecasts, self.style.WARNING)
-        run_step(5, 'reservations', 'Syncing reservation costs', _reservations, self.style.WARNING,
-                 child='sync_reservation_costs')
+        run_step(5, 'reservations', 'Syncing reservation costs', _reservations, self.style.WARNING)
 
         # Summary
         completed = CostExport.objects.filter(import_status='completed').count()

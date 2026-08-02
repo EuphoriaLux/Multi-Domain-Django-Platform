@@ -4,8 +4,11 @@ Tests for the sync_daily_costs orchestration.
 This command's whole job under the finops_daily_sync webhook is to leave a
 usable trail in App Insights when the request 504s, so the assertions here are
 about the log records rather than the sync's effects. The behaviour that has
-regressed twice is a step reporting status=ok over a child that swallowed
+regressed repeatedly is a step reporting status=ok over a child that swallowed
 failures — pin that in both directions.
+
+The two swallowing children report their counts on the command instance, so
+the fakes below set those attributes the way the real commands do.
 """
 
 import io
@@ -55,6 +58,13 @@ def status_of(handler, slug):
     return None
 
 
+def child_of(command_or_name):
+    """Name the child being invoked, whether by name or as a command object."""
+    if isinstance(command_or_name, str):
+        return command_or_name
+    return command_or_name.__class__.__module__.rsplit('.', 1)[-1]
+
+
 def run_sync(monkeypatch, fake_call_command):
     """Run the command with its children and DB summary stubbed out."""
     monkeypatch.setattr(f'{MOD}.call_command', fake_call_command)
@@ -86,9 +96,19 @@ def run_sync(monkeypatch, fake_call_command):
     return out.getvalue()
 
 
-def clean_children(name, *args, **kwargs):
-    """Every child succeeds and reports nothing."""
+def clean_children(command_or_name, *args, **kwargs):
+    """Every child succeeds with nothing swallowed."""
     return None
+
+
+def failing_child(child, **counts):
+    """A fake call_command where one child reports swallowed failures."""
+    def children(command_or_name, *args, **kwargs):
+        if child_of(command_or_name) == child:
+            for attribute, value in counts.items():
+                setattr(command_or_name, attribute, value)
+        return None
+    return children
 
 
 class TestStepStatus:
@@ -101,58 +121,50 @@ class TestStepStatus:
 
     def test_swallowed_import_failures_are_not_reported_ok(self, monkeypatch, sync_log):
         """import_cost_data keeps going past a failed export and returns
-        normally, so only its own tally distinguishes this from a clean run."""
-        child_log = logging.getLogger(f'{PKG}.import_cost_data')
-
-        def children(name, *args, **kwargs):
-            if name == 'import_cost_data':
-                child_log.warning(
-                    '[finops_sync] child=import_cost_data '
-                    'imported=%s duplicates=%s failed=%s', 1240, 3, 2,
-                )
-            return None
-
-        run_sync(monkeypatch, children)
+        normally, so only its own count distinguishes this from a clean run."""
+        run_sync(monkeypatch, failing_child('import_cost_data', failed_exports=2))
 
         assert status_of(sync_log, 'import') == 'partial'
         partial = [m for m in messages(sync_log) if 'step=import status=partial' in m][0]
-        assert 'failed=2' in partial
-        # The child's tally must not be swallowed by the parent's own prefix.
-        assert 'child=import_cost_data' in partial
+        assert 'child=import_cost_data failed=2' in partial
 
     def test_reservation_failure_counted_while_printing_warn(self, monkeypatch, sync_log):
         """sync_reservation_costs increments error_count while printing
         '[WARN] No pricing found', so scanning output for an [ERROR] marker
-        missed it. The tally is what makes this detectable."""
-        child_log = logging.getLogger(f'{PKG}.sync_reservation_costs')
-
-        def children(name, *args, **kwargs):
-            if name == 'sync_reservation_costs':
-                child_log.warning(
-                    '[finops_sync] child=sync_reservation_costs '
-                    'synced=%s skipped=%s errors=%s', 3, 1, 1,
-                )
-            return None
-
-        run_sync(monkeypatch, children)
+        missed it. Reading the count is what makes this detectable."""
+        run_sync(monkeypatch, failing_child('sync_reservation_costs', error_count=1))
 
         assert status_of(sync_log, 'reservations') == 'partial'
+        partial = [m for m in messages(sync_log) if 'step=reservations status=partial' in m][0]
+        assert 'errors=1' in partial
 
-    def test_child_reporting_no_failures_stays_ok(self, monkeypatch, sync_log):
-        """A child that logs its tally at INFO has nothing wrong with it."""
-        child_log = logging.getLogger(f'{PKG}.import_cost_data')
+    def test_child_reporting_zero_failures_stays_ok(self, monkeypatch, sync_log):
+        run_sync(monkeypatch, failing_child('import_cost_data', failed_exports=0))
 
-        def children(name, *args, **kwargs):
-            if name == 'import_cost_data':
-                child_log.info(
-                    '[finops_sync] child=import_cost_data '
-                    'imported=%s duplicates=%s failed=%s', 1240, 3, 0,
-                )
+        assert status_of(sync_log, 'import') == 'ok'
+
+
+class TestChildInvocation:
+    def test_import_skips_its_own_aggregation_refresh(self, monkeypatch, sync_log):
+        """The child would otherwise run a full 60-day refresh that step 2
+        repeats verbatim, and its refresh failure is swallowed into a stdout
+        warning raised after the import tally — invisible to the caller."""
+        seen = {}
+
+        def children(command_or_name, *args, **kwargs):
+            seen[child_of(command_or_name)] = args
             return None
 
         run_sync(monkeypatch, children)
 
-        assert status_of(sync_log, 'import') == 'ok'
+        assert '--skip-aggregation' in seen['import_cost_data']
+
+    def test_aggregations_still_refreshed_by_step_two(self, monkeypatch, sync_log):
+        """Skipping the child's refresh must not lose the refresh entirely."""
+        run_sync(monkeypatch, clean_children)
+
+        assert any('aggregations daily=7 monthly=2' in m for m in messages(sync_log))
+        assert status_of(sync_log, 'aggregations') == 'ok'
 
 
 class TestFailureHandling:
@@ -160,8 +172,8 @@ class TestFailureHandling:
         self, monkeypatch, sync_log
     ):
         """A late step failing must not discard the earlier steps' work."""
-        def children(name, *args, **kwargs):
-            if name == 'detect_cost_anomalies':
+        def children(command_or_name, *args, **kwargs):
+            if child_of(command_or_name) == 'detect_cost_anomalies':
                 raise RuntimeError('boom from anomalies')
             return None
 
@@ -177,8 +189,8 @@ class TestFailureHandling:
 
     def test_run_always_finishes_with_a_breakdown(self, monkeypatch, sync_log):
         """The breakdown is how you tell a slow step from a dead one."""
-        def children(name, *args, **kwargs):
-            if name == 'detect_cost_anomalies':
+        def children(command_or_name, *args, **kwargs):
+            if child_of(command_or_name) == 'detect_cost_anomalies':
                 raise RuntimeError('boom')
             return None
 
@@ -189,10 +201,36 @@ class TestFailureHandling:
         assert 'exports=41/41' in finished
 
 
-class TestWatcherHygiene:
-    def test_no_handler_is_left_on_child_loggers(self, monkeypatch, sync_log):
-        """The watcher is attached per step; leaking it would make every later
-        run accumulate handlers and mis-attribute failures across steps."""
+class TestRunIsolation:
+    def test_one_failing_run_does_not_taint_the_next(self, monkeypatch, sync_log):
+        """Two sync requests can overlap in one worker after a 504 prompts a
+        retry. Failure counts must not be shared between runs — reading them
+        off a fresh command instance per run is what keeps them separate."""
+        run_sync(monkeypatch, failing_child('import_cost_data', failed_exports=5))
+        assert status_of(sync_log, 'import') == 'partial'
+
+        second = RecordingHandler()
+        logger = logging.getLogger(MOD)
+        logger.addHandler(second)
+        try:
+            run_sync(monkeypatch, clean_children)
+        finally:
+            logger.removeHandler(second)
+
+        assert status_of(second, 'import') == 'ok'
+        assert status_of(second, 'reservations') == 'ok'
+
+    def test_one_child_failing_does_not_taint_another_step(
+        self, monkeypatch, sync_log
+    ):
+        run_sync(monkeypatch, failing_child('import_cost_data', failed_exports=5))
+
+        assert status_of(sync_log, 'import') == 'partial'
+        assert status_of(sync_log, 'reservations') == 'ok'
+
+    def test_no_handler_is_attached_to_child_loggers(self, monkeypatch, sync_log):
+        """The child-to-parent channel must stay process-local. Handlers on a
+        shared logger would dispatch one run's tally to another run's watcher."""
         import_log = logging.getLogger(f'{PKG}.import_cost_data')
         reservations_log = logging.getLogger(f'{PKG}.sync_reservation_costs')
         before = (list(import_log.handlers), list(reservations_log.handlers))
@@ -201,42 +239,6 @@ class TestWatcherHygiene:
 
         assert list(import_log.handlers) == before[0]
         assert list(reservations_log.handlers) == before[1]
-
-    def test_watcher_is_removed_even_when_the_step_raises(
-        self, monkeypatch, sync_log
-    ):
-        import_log = logging.getLogger(f'{PKG}.import_cost_data')
-        before = list(import_log.handlers)
-
-        def children(name, *args, **kwargs):
-            if name == 'import_cost_data':
-                raise RuntimeError('boom from import')
-            return None
-
-        run_sync(monkeypatch, children)
-
-        assert status_of(sync_log, 'import') == 'error'
-        assert list(import_log.handlers) == before
-
-    def test_one_child_failing_does_not_taint_another_step(
-        self, monkeypatch, sync_log
-    ):
-        """Both watched steps run in the same process; import's failures must
-        not leak into the reservations verdict."""
-        import_log = logging.getLogger(f'{PKG}.import_cost_data')
-
-        def children(name, *args, **kwargs):
-            if name == 'import_cost_data':
-                import_log.warning(
-                    '[finops_sync] child=import_cost_data '
-                    'imported=%s duplicates=%s failed=%s', 10, 0, 5,
-                )
-            return None
-
-        run_sync(monkeypatch, children)
-
-        assert status_of(sync_log, 'import') == 'partial'
-        assert status_of(sync_log, 'reservations') == 'ok'
 
 
 class TestConsoleOutput:
@@ -247,8 +249,8 @@ class TestConsoleOutput:
             assert f'[{number}/5]' in stdout
 
     def test_child_stdout_still_reaches_the_console(self, monkeypatch, sync_log):
-        def children(name, *args, **kwargs):
-            if name == 'import_cost_data':
+        def children(command_or_name, *args, **kwargs):
+            if child_of(command_or_name) == 'import_cost_data':
                 kwargs['stdout'].write('[OK] Import completed!\n')
             return None
 

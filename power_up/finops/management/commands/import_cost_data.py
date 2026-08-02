@@ -24,6 +24,13 @@ logger = logging.getLogger(__name__)
 class Command(BaseCommand):
     help = 'Import Azure cost data from Blob Storage msexports container'
 
+    # A failed export is swallowed so the rest still import, so this count is
+    # the only structured trace of it. sync_daily_costs reads it back off the
+    # instance (call_command accepts a command object) rather than through a
+    # process-global side channel, which would cross-contaminate if two sync
+    # requests overlapped in one worker.
+    failed_exports = 0
+
     def add_arguments(self, parser):
         parser.add_argument(
             '--subscription',
@@ -148,6 +155,8 @@ class Command(BaseCommand):
                     self.stdout.write(self.style.ERROR(f'  [ERROR] Failed: {str(e)}'))
                     self.stderr.write(traceback.format_exc())
                     continue
+
+            self.failed_exports = failed_exports
 
             self.stdout.write(self.style.SUCCESS(
                 '\n[OK] Import completed!'
