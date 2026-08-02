@@ -849,6 +849,50 @@ class PremiumCompletionRevalidationTests(SiteTestMixin, TestCase):
         )
 
     @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_stranger_cannot_read_someone_elses_premium_status(
+        self, mock_get_checkout
+    ):
+        """The return page names the member's coach, so authentication alone is
+        not enough — the reference travels in a URL (history, a shared link, a
+        support ticket) and any logged-in user could replay it.
+
+        An unowned reference must answer exactly like an unknown one, or the
+        page becomes an oracle for which references exist.
+        """
+        from crush_lu.models.profiles import UserDataConsent
+
+        tx = self._tx("PREMSNOOP")
+        mock_get_checkout.return_value = {"id": tx.sumup_checkout_id, "status": "PAID"}
+
+        stranger = User.objects.create_user(
+            username="stranger@crush.lu",
+            email="stranger@crush.lu",
+            password="password123",
+        )
+        UserDataConsent.objects.update_or_create(
+            user=stranger,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        self.client.force_login(stranger)
+
+        response = self.client.get(
+            reverse("sumup_payment_return"), {"ref": "PREMSNOOP"}
+        )
+
+        texts = [str(m) for m in response.wsgi_request._messages]
+        self.assertFalse(any("Robin" in t for t in texts), texts)
+        self.assertFalse(any("Premium" in t for t in texts), texts)
+        # Indistinguishable from a reference that does not exist at all.
+        self.assertTrue(
+            any("reference not found" in t for t in texts), texts
+        )
+        # ...and a stranger must not be able to drive the payment either.
+        mock_get_checkout.assert_not_called()
+        self.membership.refresh_from_db()
+        self.assertEqual(self.membership.status, "pending")
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
     def test_return_does_not_claim_premium_when_it_was_not_granted(
         self, mock_get_checkout
     ):

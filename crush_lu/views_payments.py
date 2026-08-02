@@ -494,6 +494,23 @@ def sumup_webhook(request):
     return JsonResponse({"status": "ok"})
 
 
+def _payment_owner_ids(tx_obj):
+    """Who this payment is FOR — not who happened to create the row.
+
+    ``create_sumup_event_checkout`` explicitly lets staff act for a member and
+    stamps ``user=request.user``, so the transaction's own user is not the
+    authority on its own: the registration's or membership's owner is. Shared
+    by the widget and the return page so the two cannot drift into disagreeing
+    about who may see a payment.
+    """
+    owner_ids = {tx_obj.user_id}
+    if tx_obj.event_registration_id:
+        owner_ids.add(tx_obj.event_registration.user_id)
+    if tx_obj.premium_membership_id:
+        owner_ids.add(tx_obj.premium_membership.user_id)
+    return owner_ids
+
+
 @csrf_exempt
 def sumup_payment_return(request):
     """
@@ -528,7 +545,22 @@ def sumup_payment_return(request):
     if not request.user.is_authenticated:
         return redirect_to_login(request.get_full_path())
 
-    if not tx_obj:
+    # Ownership, not merely authentication. The reference is a short string
+    # that travels in a URL — browser history, a shared link, a support ticket
+    # — and this page now names the member's coach, so "somebody is logged in"
+    # was enough to hand one member's Premium status and coach to another.
+    # An unowned reference is answered exactly like an unknown one, so this
+    # cannot be used to probe which references exist.
+    if not tx_obj or (
+        request.user.id not in _payment_owner_ids(tx_obj)
+        and not request.user.is_staff
+    ):
+        if tx_obj:
+            logger.warning(
+                "User %s opened the SumUp return for transaction %s they do not own",
+                request.user.id,
+                tx_obj.transaction_reference,
+            )
         messages.error(request, _("Payment transaction reference not found."))
         return redirect("crush_lu:home")
 
@@ -591,12 +623,7 @@ def sumup_widget_view(request, checkout_id):
     # user and 404'd when the member clicked Pay and was handed it for reuse (and
     # vice versa). The registration's owner is the authority; staff keep access.
     tx_obj = get_object_or_404(PaymentTransaction, sumup_checkout_id=checkout_id)
-    owner_ids = {tx_obj.user_id}
-    if tx_obj.event_registration_id:
-        owner_ids.add(tx_obj.event_registration.user_id)
-    if tx_obj.premium_membership_id:
-        owner_ids.add(tx_obj.premium_membership.user_id)
-    if request.user.id not in owner_ids and not request.user.is_staff:
+    if request.user.id not in _payment_owner_ids(tx_obj) and not request.user.is_staff:
         raise Http404("No payment found.")
     context = {
         "checkout_id": checkout_id,
