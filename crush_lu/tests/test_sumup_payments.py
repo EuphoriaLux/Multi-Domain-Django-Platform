@@ -856,6 +856,37 @@ class PremiumCompletionRevalidationTests(SiteTestMixin, TestCase):
         )
 
     @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_the_confirmation_is_actually_rendered_where_the_gate_lands_them(
+        self, mock_get_checkout
+    ):
+        """Follows the redirect chain and asserts the coach name is ON the page.
+
+        The sibling test above proves the message reaches *storage*, which is a
+        gate test: storage is not a surface, and a queued message on a template
+        that never renders one is invisible while still looking fixed from the
+        view's side. This user has no CrushConnectMembership, so the hub gate
+        bounces them — exactly the case the badge alone could not reach.
+        """
+        tx = self._tx("PREMRENDER")
+        mock_get_checkout.return_value = {"id": tx.sumup_checkout_id, "status": "PAID"}
+        self._login_for_the_browser_return()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.get(
+                reverse("sumup_payment_return"), {"ref": "PREMRENDER"}, follow=True
+            )
+
+        self.assertEqual(response.status_code, 200)
+        # They were bounced off the hub, which is the whole point.
+        self.assertNotIn(
+            reverse("crush_lu:crush_connect_hub"),
+            [url for url, _status in response.redirect_chain[-1:]],
+        )
+        body = response.content.decode()
+        self.assertIn("Robin", body)
+        self.assertIn("Premium", body)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
     def test_a_replayed_return_names_the_current_coach_not_the_bought_one(
         self, mock_get_checkout
     ):
