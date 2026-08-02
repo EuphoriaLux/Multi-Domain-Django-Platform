@@ -40,25 +40,33 @@ class CrushConnectWaitlist(models.Model):
         default=True,
         help_text=_("Wants to be notified when Crush Connect launches"),
     )
-    # Beta tester selection — staff hand-pick the 20 "4 weeks / 4 matches" testers
-    # and track the €10/month payment out-of-band (manual flag, no payment
-    # processor — mirrors PremiumMembership.payment_confirmed / EventRegistration).
+    # Beta tester selection — staff hand-pick the testers. ``payment_confirmed``
+    # tracks an out-of-band payment (manual flag, no processor — mirrors
+    # PremiumMembership.payment_confirmed / EventRegistration). No label here
+    # names a price: the amount is ``SUMUP_PREMIUM_MONTHLY_FEE``, set per
+    # environment, and restating it made the admin advertise a figure the
+    # checkout did not necessarily charge.
     #
-    # Scope note: these flags are recruitment + teaser-status tracking ONLY. They
-    # do NOT grant access to Crush Connect — the access gate
-    # (views_crush_connect._user_passes_pre_onboarding_gate) intentionally still
-    # requires a premium coach, because the existing gate guards the daily-drop
-    # feature, not the coach-picked weekly-match concept this beta advertises.
-    # Wiring tester access belongs with building that weekly-match delivery
-    # (a deferred phase), not here.
+    # Scope note: ``selected_as_tester`` DOES grant access, in two places, and
+    # is the only thing that does during the beta:
+    #   - connect_phase.receiver_access_open() — opens the receiver track
+    #     (Today's Drop) while CRUSH_CONNECT_LAUNCHED is off;
+    #   - views_premium — lets the member past the PREMIUM_REDIRECTS_TO_BETA
+    #     funnel and buy Premium, which is how they obtain the active
+    #     PremiumMembership the receiver entitlement gate then requires.
+    # Being on the waitlist grants nothing by itself; joining is self-serve, so
+    # only this staff-set flag opens either door. (An earlier note here said
+    # these flags were tracking-only and that the gate required a premium coach
+    # — both stopped being true when the beta phase and the purchase allowlist
+    # landed.)
     selected_as_tester = models.BooleanField(
         default=False,
-        help_text=_("Marked as one of the 20 beta testers"),
+        help_text=_("Hand-picked beta tester: may buy Premium and receive Drops"),
     )
     selected_at = models.DateTimeField(null=True, blank=True)
     payment_confirmed = models.BooleanField(
         default=False,
-        help_text=_("€10/month payment confirmed by staff (manual, no processor)"),
+        help_text=_("Monthly payment confirmed by staff (manual, no processor)"),
     )
     payment_date = models.DateTimeField(null=True, blank=True)
     confirmed_by = models.ForeignKey(
@@ -67,7 +75,7 @@ class CrushConnectWaitlist(models.Model):
         null=True,
         blank=True,
         related_name="confirmed_crush_connect_payments",
-        help_text=_("Staff member who confirmed the €10 payment"),
+        help_text=_("Staff member who confirmed the payment"),
     )
 
     class Meta:

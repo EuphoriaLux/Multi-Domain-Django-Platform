@@ -222,7 +222,7 @@ class CrushConnectWaitlistAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         # Stamp the audit/date fields when staff flips the booleans directly in
         # the change form (the bulk actions stamp them too). Keeps the teaser's
-        # "beta status" honest — no "selected"/"€10 active" without a timestamp.
+        # "beta status" honest — no "selected"/"paid" without a timestamp.
         if "selected_as_tester" in form.changed_data:
             obj.selected_at = timezone.now() if obj.selected_as_tester else None
         if "payment_confirmed" in form.changed_data:
@@ -255,7 +255,10 @@ class CrushConnectWaitlistAdmin(admin.ModelAdmin):
             level=messages.SUCCESS,
         )
 
-    @admin.action(description=_("Confirm €10/month payment"))
+    # No price in the label: the amount is SUMUP_PREMIUM_MONTHLY_FEE, set per
+    # environment. Naming it here made the admin state €10 while the checkout
+    # charged whatever the env var said.
+    @admin.action(description=_("Confirm monthly payment"))
     def confirm_payment(self, request, queryset):
         confirmed = 0
         for entry in queryset:
