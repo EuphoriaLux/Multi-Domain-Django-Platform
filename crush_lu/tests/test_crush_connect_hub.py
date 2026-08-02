@@ -95,6 +95,118 @@ def test_onboarded_receiver_sees_hub(client, settings):
     assert reverse("crush_lu:crush_connect_sparks_received") in body
 
 
+# ---------------------------------------------------------------------------
+# Premium status is visible, and follows the ENTITLEMENT not the receiver gate
+#
+# A member who paid had no indication anywhere that they were Premium: after
+# checkout the hub looked identical apart from one line of hero copy.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_premium_member_sees_premium_badge_and_their_coach(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", onboarded=True, premium=True)
+    # The shared _get_coach() fixture leaves first_name blank, so asserting
+    # `coach.user.first_name in body` would be `"" in body` — true of every
+    # page ever rendered. Give the coach a name so the assertion has teeth.
+    coach_user = me.crushprofile.assigned_coach.user
+    coach_user.first_name = "Nadia"
+    coach_user.save(update_fields=["first_name"])
+    _login_eligible(client, me)
+
+    resp = client.get(HUB_URL)
+    assert resp.status_code == 200
+    assert resp.context["has_premium"] is True
+    body = resp.content.decode()
+    assert "Premium member" in body
+    # The coach is the thing that was actually bought — name them.
+    assert resp.context["premium_coach"] is not None
+    assert "Nadia" in body
+
+
+@pytest.mark.django_db
+def test_coach_without_a_first_name_still_gets_named(client, settings):
+    """A blank ``first_name`` is valid, and must not render "Your coach is ".
+
+    Coach accounts are created by hand in the admin, so the name fields are
+    exactly the ones that get left empty — on the single line whose whole job
+    is to confirm what the member paid for.
+    """
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", onboarded=True, premium=True)
+    coach_user = me.crushprofile.assigned_coach.user
+    coach_user.first_name = ""
+    coach_user.last_name = ""
+    coach_user.save(update_fields=["first_name", "last_name"])
+    _login_eligible(client, me)
+
+    resp = client.get(HUB_URL)
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert "Premium member" in body
+    assert f"Your coach is {coach_user.username}" in body
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "prefix,expected",
+    [("fr", "Membre Premium"), ("de", "Premium-Mitglied")],
+)
+def test_premium_badge_is_translated(client, settings, prefix, expected):
+    """The badge is the confirmation of a payment, so it must not be the one
+    English island on a /fr/ or /de/ page. Pins the catalog entries: a missing
+    msgid falls back to the English msgid silently, which is exactly how the
+    two new strings shipped untranslated in the first place."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", onboarded=True, premium=True)
+    _login_eligible(client, me)
+
+    resp = client.get(f"/{prefix}/crush-connect/home/")
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert expected in body
+    assert "Premium member" not in body
+
+
+@pytest.mark.django_db
+def test_candidate_without_premium_sees_no_premium_badge(client, settings):
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(
+        username="me", onboarded=True, premium=False, has_luxid=True
+    )
+    _login_eligible(client, me)
+
+    resp = client.get(HUB_URL)
+    assert resp.status_code == 200
+    assert resp.context["has_premium"] is False
+    assert "Premium member" not in resp.content.decode()
+
+
+@pytest.mark.django_db
+def test_premium_badge_shows_during_beta_even_when_not_a_receiver(
+    client, settings
+):
+    """The badge must key off the entitlement, not ``is_receiver``.
+
+    In the beta phase ``is_receiver`` is (entitlement AND the phase lets them
+    receive), so a member who has PAID but is not a hand-picked tester has
+    ``is_receiver`` False. Badging on that would show someone who just handed
+    over money no sign at all that they are Premium — which is the bug this
+    whole section exists to prevent.
+    """
+    settings.CRUSH_CONNECT_LAUNCHED = False
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
+    me = _make_user(username="me", onboarded=True, premium=True)
+    _login_eligible(client, me)
+
+    resp = client.get(HUB_URL)
+    assert resp.status_code == 200
+    assert resp.context["is_receiver"] is False, "precondition: not a receiver"
+    assert resp.context["has_premium"] is True
+    assert "Premium member" in resp.content.decode()
+
+
 @pytest.mark.django_db
 def test_onboarded_candidate_sees_catalogue_card(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True

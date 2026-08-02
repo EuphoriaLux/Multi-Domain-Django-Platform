@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
-from django.test import TestCase, override_settings
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -12,6 +12,7 @@ from crush_lu.models.events import EventRegistration, MeetupEvent
 from crush_lu.models.payments import PaymentTransaction
 from crush_lu.models.profiles import CrushCoach, CrushProfile, PremiumMembership
 from crush_lu.services.sumup import SumUpClient, SumUpError, clean_credential
+from crush_lu.views_payments import _payment_owner_ids
 
 User = get_user_model()
 
@@ -725,6 +726,26 @@ class PremiumCompletionRevalidationTests(SiteTestMixin, TestCase):
             premium_membership=self.membership,
         )
 
+    def _login_for_the_browser_return(self, client=None):
+        """The return URL is a real browser request, so it passes through the
+        consent middleware and the site host — neither of which the direct
+        ``_apply_paid_checkout`` tests in this class have to satisfy.
+
+        Takes an optional client so a test can replay the URL in a *fresh*
+        session: messages that nothing rendered stay queued in the old one and
+        would otherwise be indistinguishable from the replay's own.
+        """
+        from crush_lu.models.profiles import UserDataConsent
+
+        client = client or self.client
+        client.defaults["HTTP_HOST"] = "crush.lu"
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        client.force_login(self.user)
+        return client
+
     def _fill_the_coach(self):
         rival = User.objects.create_user(
             username="rival@crush.lu", email="rival@crush.lu", password="password123"
@@ -800,6 +821,320 @@ class PremiumCompletionRevalidationTests(SiteTestMixin, TestCase):
         self.assertTrue(self.membership.payment_confirmed)
         self.assertIsNotNone(self.membership.payment_date)
         self.assertEqual(self.profile.assigned_coach_id, self.coach.id)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_return_confirms_premium_even_when_the_hub_bounces_them(
+        self, mock_get_checkout
+    ):
+        """The return page must confirm the purchase without relying on the hub.
+
+        Premium can be bought before Crush Connect onboarding (the coach
+        directory needs a profile, not a membership), and ``_hub_access_blocker``
+        redirects exactly that member out of the hub — so the hub's Premium
+        badge is unreachable on the load right after paying. This user has no
+        CrushConnectMembership at all, which is that case.
+        """
+        tx = self._tx("PREMRETURN")
+        mock_get_checkout.return_value = {"id": tx.sumup_checkout_id, "status": "PAID"}
+        self._login_for_the_browser_return()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.get(
+                reverse("sumup_payment_return"), {"ref": "PREMRETURN"}
+            )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response["Location"], reverse("crush_lu:crush_connect_hub")
+        )
+        self.membership.refresh_from_db()
+        self.assertEqual(self.membership.status, "active")
+        # The message rides along through whatever redirect chain the hub gate
+        # sends them down, so it does not depend on the hub rendering.
+        texts = [str(m) for m in response.wsgi_request._messages]
+        self.assertTrue(
+            any("Premium" in t and "Robin" in t for t in texts), texts
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_the_confirmation_is_actually_rendered_where_the_gate_lands_them(
+        self, mock_get_checkout
+    ):
+        """Follows the redirect chain and asserts the coach name is ON the page.
+
+        The sibling test above proves the message reaches *storage*, which is a
+        gate test: storage is not a surface, and a queued message on a template
+        that never renders one is invisible while still looking fixed from the
+        view's side. This user has no CrushConnectMembership, so the hub gate
+        bounces them — exactly the case the badge alone could not reach.
+        """
+        tx = self._tx("PREMRENDER")
+        mock_get_checkout.return_value = {"id": tx.sumup_checkout_id, "status": "PAID"}
+        self._login_for_the_browser_return()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.get(
+                reverse("sumup_payment_return"), {"ref": "PREMRENDER"}, follow=True
+            )
+
+        self.assertEqual(response.status_code, 200)
+        # They were bounced off the hub, which is the whole point.
+        self.assertNotIn(
+            reverse("crush_lu:crush_connect_hub"),
+            [url for url, _status in response.redirect_chain[-1:]],
+        )
+        body = response.content.decode()
+        self.assertIn("Robin", body)
+        self.assertIn("Premium", body)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_replayed_return_names_the_current_coach_not_the_bought_one(
+        self, mock_get_checkout
+    ):
+        """This URL is replayable from browser history long after the purchase.
+
+        ``CrushProfile.assigned_coach`` and ``PremiumMembership.coach`` are both
+        editable in the admin, and moving a member to a coach with capacity is
+        the documented remedy when confirm() fails — so the two diverge in
+        exactly the case staff have had to intervene. Naming pm.coach here while
+        the hub renders profile.assigned_coach told the member two different
+        coaches on a single page-load.
+        """
+        tx = self._tx("PREMREASSIGN")
+        mock_get_checkout.return_value = {"id": tx.sumup_checkout_id, "status": "PAID"}
+        self._login_for_the_browser_return()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.get(reverse("sumup_payment_return"), {"ref": "PREMREASSIGN"})
+
+        # Staff move the member to a different coach after the sale.
+        new_coach_user = User.objects.create_user(
+            username="coach-new@crush.lu",
+            email="coach-new@crush.lu",
+            password="password123",
+            first_name="Sam",
+        )
+        new_coach = CrushCoach.objects.create(
+            user=new_coach_user,
+            is_active=True,
+            accepting_premium=True,
+            max_premium_members=5,
+        )
+        self.profile.refresh_from_db()
+        self.profile.assigned_coach = new_coach
+        self.profile.save(update_fields=["assigned_coach"])
+
+        # The member reopens the return URL from history, in a fresh session so
+        # the first visit's still-unrendered messages cannot be mistaken for
+        # this one's.
+        replay = self._login_for_the_browser_return(client=Client())
+        response = replay.get(reverse("sumup_payment_return"), {"ref": "PREMREASSIGN"})
+
+        texts = [str(m) for m in response.wsgi_request._messages]
+        # The hub renders profile.assigned_coach; this must agree with it.
+        self.assertTrue(any("Sam" in t for t in texts), texts)
+        self.assertFalse(any("Robin" in t for t in texts), texts)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_demoted_staff_creator_loses_access_to_the_payment(
+        self, mock_get_checkout
+    ):
+        """``tx.user`` on a staff-opened checkout is the STAFF account.
+
+        Both checkout creators let staff act for a member and stamp
+        user=request.user. Counting that as ownership gave a staff member who
+        once opened a checkout for someone a permanent, personal route to that
+        member's payment — surviving the revocation of is_staff, which is the
+        one event that is supposed to take such access away.
+        """
+        from crush_lu.models.profiles import UserDataConsent
+
+        ex_staff = User.objects.create_user(
+            username="ex-staff@crush.lu",
+            email="ex-staff@crush.lu",
+            password="password123",
+            is_staff=True,
+        )
+        UserDataConsent.objects.update_or_create(
+            user=ex_staff,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        # Staff opened the checkout on the member's behalf.
+        tx = self._tx("PREMSTAFF")
+        tx.user = ex_staff
+        tx.save(update_fields=["user"])
+        mock_get_checkout.return_value = {"id": tx.sumup_checkout_id, "status": "PAID"}
+
+        # Access revoked.
+        ex_staff.is_staff = False
+        ex_staff.save(update_fields=["is_staff"])
+
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        self.client.force_login(ex_staff)
+        response = self.client.get(
+            reverse("sumup_payment_return"), {"ref": "PREMSTAFF"}
+        )
+
+        texts = [str(m) for m in response.wsgi_request._messages]
+        self.assertFalse(any("Premium" in t for t in texts), texts)
+        self.assertFalse(any("Robin" in t for t in texts), texts)
+        # The member is still the owner and is unaffected.
+        self.assertEqual(
+            _payment_owner_ids(tx), {self.user.id}, "member must own their payment"
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_default_profile_still_follows_the_browsing_language(
+        self, mock_get_checkout
+    ):
+        """The majority case: a member who never opened the language setting.
+
+        ``preferred_language`` is ``default="en"`` and non-blank, so a
+        profile-first helper answers "en" for them however they are browsing.
+        Pinning that was worse than not overriding at all — LocaleMiddleware
+        had been resolving Accept-Language correctly, and the override threw
+        that away. The sibling test below cannot see this: it sets the profile
+        to French explicitly, which is exactly the path that hides the bug.
+        """
+        self.assertEqual(
+            self.profile.preferred_language, "en", "precondition: untouched default"
+        )
+        tx = self._tx("PREMACCEPT")
+        mock_get_checkout.return_value = {"id": tx.sumup_checkout_id, "status": "PAID"}
+
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        client = Client(HTTP_HOST="crush.lu", HTTP_ACCEPT_LANGUAGE="fr")
+        client.force_login(self.user)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = client.get(
+                reverse("sumup_payment_return"), {"ref": "PREMACCEPT"}
+            )
+
+        texts = [str(m) for m in response.wsgi_request._messages]
+        self.assertTrue(any("votre coach est Robin" in t for t in texts), texts)
+        self.assertFalse(any("your coach is" in t for t in texts), texts)
+        self.assertTrue(
+            response["Location"].startswith("/fr/"), response["Location"]
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_an_explicit_preference_beats_the_browsing_language(
+        self, mock_get_checkout
+    ):
+        """The other half: a member who DID set French, on an English browser.
+
+        This route is outside i18n_patterns, so LocaleMiddleware would answer
+        "en" from Accept-Language and hand a French member an English
+        confirmation however complete the catalogs are. A stored de/fr is
+        unambiguous — nobody reaches it by default — so it wins outright.
+        """
+        self.profile.preferred_language = "fr"
+        self.profile.save(update_fields=["preferred_language"])
+
+        tx = self._tx("PREMFR")
+        mock_get_checkout.return_value = {"id": tx.sumup_checkout_id, "status": "PAID"}
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        # Browser explicitly asks for English — the preference must still win.
+        client = Client(HTTP_HOST="crush.lu", HTTP_ACCEPT_LANGUAGE="en")
+        client.force_login(self.user)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = client.get(
+                reverse("sumup_payment_return"), {"ref": "PREMFR"}
+            )
+
+        texts = [str(m) for m in response.wsgi_request._messages]
+        self.assertTrue(
+            any("votre coach est Robin" in t for t in texts), texts
+        )
+        self.assertFalse(any("your coach is" in t for t in texts), texts)
+        # The whole page, not just the line this PR added: a French
+        # confirmation beside an English "Payment completed successfully" is
+        # still a confirmation the member cannot read.
+        self.assertFalse(
+            any("Payment completed successfully" in t for t in texts), texts
+        )
+        # ...and it must not land them on an English page.
+        self.assertTrue(
+            response["Location"].startswith("/fr/"), response["Location"]
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_stranger_cannot_read_someone_elses_premium_status(
+        self, mock_get_checkout
+    ):
+        """The return page names the member's coach, so authentication alone is
+        not enough — the reference travels in a URL (history, a shared link, a
+        support ticket) and any logged-in user could replay it.
+
+        An unowned reference must answer exactly like an unknown one, or the
+        page becomes an oracle for which references exist.
+        """
+        from crush_lu.models.profiles import UserDataConsent
+
+        tx = self._tx("PREMSNOOP")
+        mock_get_checkout.return_value = {"id": tx.sumup_checkout_id, "status": "PAID"}
+
+        stranger = User.objects.create_user(
+            username="stranger@crush.lu",
+            email="stranger@crush.lu",
+            password="password123",
+        )
+        UserDataConsent.objects.update_or_create(
+            user=stranger,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        self.client.force_login(stranger)
+
+        response = self.client.get(
+            reverse("sumup_payment_return"), {"ref": "PREMSNOOP"}
+        )
+
+        texts = [str(m) for m in response.wsgi_request._messages]
+        self.assertFalse(any("Robin" in t for t in texts), texts)
+        self.assertFalse(any("Premium" in t for t in texts), texts)
+        # Indistinguishable from a reference that does not exist at all.
+        self.assertTrue(
+            any("reference not found" in t for t in texts), texts
+        )
+        # ...and a stranger must not be able to drive the payment either.
+        mock_get_checkout.assert_not_called()
+        self.membership.refresh_from_db()
+        self.assertEqual(self.membership.status, "pending")
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_return_does_not_claim_premium_when_it_was_not_granted(
+        self, mock_get_checkout
+    ):
+        """Charged but the coach filled up: the entitlement was NOT granted, so
+        the return page must not tell the member they are Premium."""
+        tx = self._tx("PREMRETURNFULL")
+        self._fill_the_coach()
+        mock_get_checkout.return_value = {"id": tx.sumup_checkout_id, "status": "PAID"}
+        self._login_for_the_browser_return()
+
+        with self.assertLogs("crush_lu.views_payments", level="ERROR"):
+            with self.captureOnCommitCallbacks(execute=True):
+                response = self.client.get(
+                    reverse("sumup_payment_return"), {"ref": "PREMRETURNFULL"}
+                )
+
+        self.membership.refresh_from_db()
+        self.assertEqual(self.membership.status, "pending")
+        texts = [str(m) for m in response.wsgi_request._messages]
+        self.assertFalse(any("Premium" in t for t in texts), texts)
 
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")

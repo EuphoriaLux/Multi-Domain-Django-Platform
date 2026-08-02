@@ -12,6 +12,7 @@ from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.translation import gettext as _
+from django.utils.translation import override
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
@@ -23,6 +24,7 @@ from crush_lu.models.events import (
 from crush_lu.models.payments import PaymentTransaction
 from crush_lu.models.profiles import PremiumMembership
 from crush_lu.services.sumup import SumUpClient, SumUpError
+from crush_lu.utils.i18n import get_onscreen_language
 from crush_lu.views_ticket import _generate_checkin_token
 
 logger = logging.getLogger(__name__)
@@ -494,6 +496,32 @@ def sumup_webhook(request):
     return JsonResponse({"status": "ok"})
 
 
+def _payment_owner_ids(tx_obj):
+    """Who this payment is FOR — not who happened to create the row.
+
+    BOTH checkout creators let staff act for a member and stamp
+    ``user=request.user``, so ``tx.user`` on a staff-opened checkout is the
+    *staff* account, not the buyer. The linked registration or membership
+    therefore wins outright wherever one exists; ``tx.user`` is the fallback
+    only for unlinked rows that name nobody else.
+
+    Including ``tx.user`` alongside the real owner outlived its usefulness the
+    moment staff access could be revoked: a former staff member who once opened
+    a checkout for someone kept a permanent, personal route to that member's
+    widget and return page — including the Premium and coach disclosure — long
+    after the ``is_staff`` bypass at the call sites stopped applying to them.
+    Current staff are unaffected; they still pass via that bypass.
+
+    Shared by the widget and the return page so the two cannot drift into
+    disagreeing about who may see a payment.
+    """
+    if tx_obj.event_registration_id:
+        return {tx_obj.event_registration.user_id}
+    if tx_obj.premium_membership_id:
+        return {tx_obj.premium_membership.user_id}
+    return {tx_obj.user_id}
+
+
 @csrf_exempt
 def sumup_payment_return(request):
     """
@@ -528,12 +556,54 @@ def sumup_payment_return(request):
     if not request.user.is_authenticated:
         return redirect_to_login(request.get_full_path())
 
-    if not tx_obj:
+    # Ownership, not merely authentication. The reference is a short string
+    # that travels in a URL — browser history, a shared link, a support ticket
+    # — and this page now names the member's coach, so "somebody is logged in"
+    # was enough to hand one member's Premium status and coach to another.
+    # An unowned reference is answered exactly like an unknown one, so this
+    # cannot be used to probe which references exist.
+    if not tx_obj or (
+        request.user.id not in _payment_owner_ids(tx_obj)
+        and not request.user.is_staff
+    ):
+        if tx_obj:
+            logger.warning(
+                "User %s opened the SumUp return for transaction %s they do not own",
+                request.user.id,
+                tx_obj.transaction_reference,
+            )
         messages.error(request, _("Payment transaction reference not found."))
         return redirect("crush_lu:home")
 
     _sync_checkout_with_sumup(tx_obj)
 
+    # This route lives OUTSIDE i18n_patterns (urls_crush.py), so there is no
+    # /fr/ or /de/ prefix for LocaleMiddleware to read and it falls back to the
+    # language cookie or Accept-Language. Django only sets that cookie from the
+    # set_language view, so a member who browsed in French without ever
+    # touching the language switcher can still reach this page in English.
+    #
+    # NOT get_user_preferred_language. That one is profile-first, which is
+    # right for email and wrong here: preferred_language is default="en" and
+    # non-blank, so preferring it pins English on everyone who never opened
+    # the setting. Using it here made this page WORSE than no override at all
+    # — measured, for a default-profile member sending Accept-Language: fr it
+    # turned a French message and a /fr/ redirect into English and /en/.
+    # get_onscreen_language reads a stored "en" as "no answer" and defers to
+    # the request, while still honouring an explicit de/fr choice.
+    #
+    # The redirects stay inside the override deliberately: reverse() picks the
+    # language prefix from the active language, so this is also what stops a
+    # translated confirmation from landing on an English page.
+    lang = get_onscreen_language(user=request.user, request=request)
+    with override(lang):
+        return _sumup_return_response(request, tx_obj)
+
+
+def _sumup_return_response(request, tx_obj):
+    """Messages + destination for the human-facing return, under the caller's
+    activated language. Split out only so the ``override`` block above stays
+    readable — every path here returns a redirect."""
     if tx_obj.status == PaymentTransaction.Status.PAID:
         messages.success(request, _("Payment completed successfully! Thank you."))
         if tx_obj.event_registration:
@@ -544,6 +614,49 @@ def sumup_payment_return(request):
                 "crush_lu:event_detail", event_id=tx_obj.event_registration.event.pk
             )
         elif tx_obj.premium_membership:
+            # The hub's Premium badge is not reachable on the one page-load
+            # that matters most. premium_choose_coach requires a profile but
+            # NOT a CrushConnectMembership, so buying before finishing Connect
+            # onboarding is a supported path — and _hub_access_blocker bounces
+            # exactly that member straight back out of the hub (to the wizard,
+            # or to the teaser without LuxID) before the badge is rendered.
+            # A message survives the redirect chain and lands wherever they
+            # end up, so the confirmation is not conditional on onboarding.
+            pm = tx_obj.premium_membership
+            pm.refresh_from_db()
+            if pm.status == "active":
+                # Only claim Premium once confirm() actually granted it. When
+                # the coach filled up mid-flight the charge is real but the
+                # entitlement is not (see _apply_paid_checkout) — telling that
+                # member they are Premium would be a lie the hub then denies.
+                #
+                # Reads the CURRENT assignment, not pm.coach. This URL is
+                # replayable from history long after the purchase, and both
+                # CrushProfile.assigned_coach and PremiumMembership.coach are
+                # editable in the admin — reassigning a member to a coach with
+                # capacity is the documented remedy when confirm() fails. Two
+                # fields meant the message could name the purchase-time coach
+                # while the hub it redirects to named the current one, telling
+                # the member two different coaches on one page-load. The hub
+                # renders profile.assigned_coach, so this reads the same field
+                # and the two cannot disagree.
+                member_profile = getattr(pm.user, "crushprofile", None)
+                coach_user = getattr(
+                    getattr(member_profile, "assigned_coach", None), "user", None
+                )
+                coach_name = (
+                    (coach_user.get_full_name() or coach_user.username)
+                    if coach_user
+                    else ""
+                )
+                if coach_name:
+                    messages.success(
+                        request,
+                        _("You're Premium — your coach is %(name)s.")
+                        % {"name": coach_name},
+                    )
+                else:
+                    messages.success(request, _("You're now a Premium member."))
             return redirect("crush_lu:crush_connect_hub")
     else:
         messages.warning(request, _("Payment is pending or was not completed."))
@@ -562,12 +675,7 @@ def sumup_widget_view(request, checkout_id):
     # user and 404'd when the member clicked Pay and was handed it for reuse (and
     # vice versa). The registration's owner is the authority; staff keep access.
     tx_obj = get_object_or_404(PaymentTransaction, sumup_checkout_id=checkout_id)
-    owner_ids = {tx_obj.user_id}
-    if tx_obj.event_registration_id:
-        owner_ids.add(tx_obj.event_registration.user_id)
-    if tx_obj.premium_membership_id:
-        owner_ids.add(tx_obj.premium_membership.user_id)
-    if request.user.id not in owner_ids and not request.user.is_staff:
+    if request.user.id not in _payment_owner_ids(tx_obj) and not request.user.is_staff:
         raise Http404("No payment found.")
     context = {
         "checkout_id": checkout_id,

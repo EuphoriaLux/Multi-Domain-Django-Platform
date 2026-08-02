@@ -88,6 +88,60 @@ def get_user_preferred_language(user=None, request=None, default='en'):
     return default
 
 
+def get_onscreen_language(user=None, request=None, default='en'):
+    """
+    Get the language for text the user is reading RIGHT NOW, on a route that
+    sits OUTSIDE ``i18n_patterns`` and so carries no ``/fr/`` prefix of its own.
+
+    Deliberately the inverse of ``get_user_preferred_language``'s precedence.
+    That helper exists for EMAIL, where no request is available and the stored
+    profile value is the only signal there is, so it must win. On screen the
+    opposite holds — and because ``CrushProfile.preferred_language`` is
+    ``default="en"`` and non-blank, preferring it pins English on every member
+    who never opened the setting, including one reading the site in French.
+    Measured, not assumed: on the SumUp return page, preferring the profile
+    turned a French confirmation (and a /fr/ redirect) into an English one.
+
+    So ``"en"`` is read as "no answer given" rather than as a choice — in this
+    schema it is indistinguishable from the untouched default. A stored ``de``
+    or ``fr`` is unambiguous, nobody arrives at those by accident, and wins
+    outright. Otherwise defer to ``request.LANGUAGE_CODE``, i.e. whatever
+    LocaleMiddleware resolved from the cookie or Accept-Language.
+
+    KNOWN LIMITATION (deliberate, not an oversight). An *explicitly chosen*
+    English is read as unset too, because nothing in the schema records that a
+    choice was made. ``set_language_with_profile`` only writes when the value
+    changes, so a stored ``"en"`` means "picked English after having picked
+    something else" — real, but indistinguishable from the default. Such a
+    member, on a device with no ``django_language`` cookie and a French
+    ``Accept-Language``, gets French. That is **exactly** what they got before
+    this helper existed (verified by running both), so it is a pre-existing gap
+    this narrowing does not widen. Closing it needs a persisted "language was
+    explicitly set" signal, or the originating language carried on the
+    PaymentTransaction — a migration either way, tracked separately rather than
+    smuggled into a PR about the Premium badge.
+
+    Args:
+        user: Django User object (optional)
+        request: HTTP request object (optional)
+        default: Fallback language code
+
+    Returns:
+        str: Valid language code
+    """
+    profile = getattr(user, 'crushprofile', None) if user else None
+    stored = getattr(profile, 'preferred_language', None)
+    # Only a non-default stored value is evidence of an actual choice.
+    if is_valid_language(stored) and stored != 'en':
+        return stored
+
+    request_lang = getattr(request, 'LANGUAGE_CODE', None) if request else None
+    if is_valid_language(request_lang):
+        return request_lang
+
+    return validate_language(stored, default)
+
+
 def get_og_locale(lang_code=None):
     """
     Get the Open Graph locale for a language code.

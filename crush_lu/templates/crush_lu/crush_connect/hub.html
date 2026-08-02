@@ -23,6 +23,35 @@
                 {% trans "You're in the mix. Coaches can pick you, Sparks can find you — no feed, no games." %}
             {% endif %}
         </p>
+        {% comment %}
+        Premium members had no indication anywhere that they are Premium —
+        after paying, the hub looked identical apart from one line of hero
+        copy. Badge on the ENTITLEMENT (has_premium), not is_receiver: the two
+        diverge during the beta, and a member who has paid must see it either
+        way. Named coach included because that is what was bought.
+        NB {# … #} is single-line only in Django — a multi-line one renders
+        straight onto the page.
+        {% endcomment %}
+        {% if has_premium %}
+        <div class="relative flex items-center gap-2 mt-4 rounded-xl bg-white/20 px-3 py-2">
+            <span class="text-base leading-none">⭐</span>
+            <div class="min-w-0">
+                <p class="text-xs font-bold uppercase tracking-wider text-white mb-0">{% trans "Premium member" %}</p>
+                {% if premium_coach %}
+                {% comment %}
+                get_full_name|default:username, as book_screening.html does:
+                User.first_name is blank-able and coach accounts are created
+                by hand, so keying on it alone renders "Your coach is " with
+                no name — worse than saying nothing on the one line that is
+                meant to confirm what was bought. username is never blank.
+                {% endcomment %}
+                <p class="text-xs text-white/90 mb-0 truncate">
+                    {% blocktrans with name=premium_coach.user.get_full_name|default:premium_coach.user.username %}Your coach is {{ name }}{% endblocktrans %}
+                </p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
         <div class="relative flex flex-wrap gap-2 mt-4">
             <span class="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 text-xs font-medium text-white">👥 {% trans "Human-curated" %}</span>
             <span class="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 text-xs font-medium text-white">🔒 {% trans "Privacy-first" %}</span>
