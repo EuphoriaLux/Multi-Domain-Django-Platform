@@ -10,10 +10,17 @@ public Azure Retail Prices API to calculate monthly amortization.
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from power_up.finops.models import CostRecord, ReservationCost
+import logging
 import requests
 import json
 from decimal import Decimal
 from datetime import datetime
+
+# A reservation that fails to price is swallowed so the rest still sync, which
+# means the only record of it is prose on stdout — and under sync_daily_costs
+# that stdout goes to a StringIO the webhook discards on its nightly 504. Log
+# the tally so it survives into App Insights.
+logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
@@ -144,6 +151,11 @@ class Command(BaseCommand):
         self.stdout.write(f'   Synced: {synced_count}')
         self.stdout.write(f'   Skipped: {skipped_count}')
         self.stdout.write(f'   Errors: {error_count}')
+        logger.log(
+            logging.WARNING if error_count else logging.INFO,
+            '[finops_sync] child=sync_reservation_costs synced=%s skipped=%s errors=%s',
+            synced_count, skipped_count, error_count,
+        )
 
     def find_reservations(self):
         """Find all unique reservations from FOCUS exports with extended data"""

@@ -11,7 +11,14 @@ from django.db import transaction
 from power_up.finops.models import CostExport, CostRecord
 from power_up.finops.utils.blob_reader import AzureCostBlobReader
 from power_up.finops.utils.focus_parser import FOCUSParser
+import logging
 import traceback
+
+# A failed export is swallowed so the remaining ones still import, which means
+# the only record of it is prose on stdout — and under sync_daily_costs that
+# stdout goes to a StringIO the webhook discards on its nightly 504. Log the
+# tally so it survives into App Insights.
+logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
@@ -124,6 +131,7 @@ class Command(BaseCommand):
             # Process each export
             total_records_imported = 0
             total_duplicates_skipped = 0
+            failed_exports = 0
             for idx, export_meta in enumerate(exports, 1):
                 self.stdout.write(f'\n[{idx}/{len(exports)}] Processing: {export_meta["blob_path"]}')
 
@@ -136,6 +144,7 @@ class Command(BaseCommand):
                         f'({result["duplicates_skipped"]} duplicates skipped)'
                     ))
                 except Exception as e:
+                    failed_exports += 1
                     self.stdout.write(self.style.ERROR(f'  [ERROR] Failed: {str(e)}'))
                     self.stderr.write(traceback.format_exc())
                     continue
@@ -145,6 +154,13 @@ class Command(BaseCommand):
             ))
             self.stdout.write(f'  Total records imported: {total_records_imported}')
             self.stdout.write(f'  Total duplicates skipped: {total_duplicates_skipped}')
+            if failed_exports:
+                self.stdout.write(self.style.ERROR(f'  Failed exports: {failed_exports}'))
+            logger.log(
+                logging.WARNING if failed_exports else logging.INFO,
+                '[finops_sync] child=import_cost_data imported=%s duplicates=%s failed=%s',
+                total_records_imported, total_duplicates_skipped, failed_exports,
+            )
 
             # Auto-refresh aggregations if records were imported
             if total_records_imported > 0 and not skip_aggregation:
