@@ -591,7 +591,21 @@ def sumup_payment_return(request):
                 # the coach filled up mid-flight the charge is real but the
                 # entitlement is not (see _apply_paid_checkout) — telling that
                 # member they are Premium would be a lie the hub then denies.
-                coach_user = getattr(pm.coach, "user", None)
+                #
+                # Reads the CURRENT assignment, not pm.coach. This URL is
+                # replayable from history long after the purchase, and both
+                # CrushProfile.assigned_coach and PremiumMembership.coach are
+                # editable in the admin — reassigning a member to a coach with
+                # capacity is the documented remedy when confirm() fails. Two
+                # fields meant the message could name the purchase-time coach
+                # while the hub it redirects to named the current one, telling
+                # the member two different coaches on one page-load. The hub
+                # renders profile.assigned_coach, so this reads the same field
+                # and the two cannot disagree.
+                member_profile = getattr(pm.user, "crushprofile", None)
+                coach_user = getattr(
+                    getattr(member_profile, "assigned_coach", None), "user", None
+                )
                 coach_name = (
                     (coach_user.get_full_name() or coach_user.username)
                     if coach_user

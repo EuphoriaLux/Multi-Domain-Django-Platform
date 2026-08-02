@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
-from django.test import TestCase, override_settings
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -725,18 +725,25 @@ class PremiumCompletionRevalidationTests(SiteTestMixin, TestCase):
             premium_membership=self.membership,
         )
 
-    def _login_for_the_browser_return(self):
+    def _login_for_the_browser_return(self, client=None):
         """The return URL is a real browser request, so it passes through the
         consent middleware and the site host — neither of which the direct
-        ``_apply_paid_checkout`` tests in this class have to satisfy."""
+        ``_apply_paid_checkout`` tests in this class have to satisfy.
+
+        Takes an optional client so a test can replay the URL in a *fresh*
+        session: messages that nothing rendered stay queued in the old one and
+        would otherwise be indistinguishable from the replay's own.
+        """
         from crush_lu.models.profiles import UserDataConsent
 
-        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        client = client or self.client
+        client.defaults["HTTP_HOST"] = "crush.lu"
         UserDataConsent.objects.update_or_create(
             user=self.user,
             defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
         )
-        self.client.force_login(self.user)
+        client.force_login(self.user)
+        return client
 
     def _fill_the_coach(self):
         rival = User.objects.create_user(
@@ -847,6 +854,54 @@ class PremiumCompletionRevalidationTests(SiteTestMixin, TestCase):
         self.assertTrue(
             any("Premium" in t and "Robin" in t for t in texts), texts
         )
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_replayed_return_names_the_current_coach_not_the_bought_one(
+        self, mock_get_checkout
+    ):
+        """This URL is replayable from browser history long after the purchase.
+
+        ``CrushProfile.assigned_coach`` and ``PremiumMembership.coach`` are both
+        editable in the admin, and moving a member to a coach with capacity is
+        the documented remedy when confirm() fails — so the two diverge in
+        exactly the case staff have had to intervene. Naming pm.coach here while
+        the hub renders profile.assigned_coach told the member two different
+        coaches on a single page-load.
+        """
+        tx = self._tx("PREMREASSIGN")
+        mock_get_checkout.return_value = {"id": tx.sumup_checkout_id, "status": "PAID"}
+        self._login_for_the_browser_return()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.get(reverse("sumup_payment_return"), {"ref": "PREMREASSIGN"})
+
+        # Staff move the member to a different coach after the sale.
+        new_coach_user = User.objects.create_user(
+            username="coach-new@crush.lu",
+            email="coach-new@crush.lu",
+            password="password123",
+            first_name="Sam",
+        )
+        new_coach = CrushCoach.objects.create(
+            user=new_coach_user,
+            is_active=True,
+            accepting_premium=True,
+            max_premium_members=5,
+        )
+        self.profile.refresh_from_db()
+        self.profile.assigned_coach = new_coach
+        self.profile.save(update_fields=["assigned_coach"])
+
+        # The member reopens the return URL from history, in a fresh session so
+        # the first visit's still-unrendered messages cannot be mistaken for
+        # this one's.
+        replay = self._login_for_the_browser_return(client=Client())
+        response = replay.get(reverse("sumup_payment_return"), {"ref": "PREMREASSIGN"})
+
+        texts = [str(m) for m in response.wsgi_request._messages]
+        # The hub renders profile.assigned_coach; this must agree with it.
+        self.assertTrue(any("Sam" in t for t in texts), texts)
+        self.assertFalse(any("Robin" in t for t in texts), texts)
 
     @patch("crush_lu.views_payments.SumUpClient.get_checkout")
     def test_a_stranger_cannot_read_someone_elses_premium_status(
