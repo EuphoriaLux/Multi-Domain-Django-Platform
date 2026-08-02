@@ -63,6 +63,12 @@
             </intent-filter>
         </service>
 
+        <!-- Explicit opt-in (it is also the platform default) so the WebView
+             checks navigations against Google Safe Browsing. -->
+        <meta-data
+            android:name="android.webkit.WebView.EnableSafeBrowsing"
+            android:value="true" />
+
         <!-- Channel the system uses for background (notification-payload) pushes.
              Must match CHANNEL_ID in MyFirebaseMessagingService, which creates it
              with IMPORTANCE_HIGH so backgrounded pushes get a heads-up banner. -->

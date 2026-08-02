@@ -1,4 +1,4 @@
 What's new in this update:
 
-• Coaches can now scan attendee QR codes at event check-in — the app asks for camera permission the first time you open the scanner
+• Security hardening: links opened from other apps and from notifications are now checked before they load
 • Stability and reliability improvements
