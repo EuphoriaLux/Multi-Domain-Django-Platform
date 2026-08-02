@@ -98,12 +98,16 @@ def run_sync(monkeypatch, fake_call_command):
 
 def clean_children(command_or_name, *args, **kwargs):
     """Every child succeeds with nothing swallowed."""
+    if child_of(command_or_name) == 'generate_cost_forecasts':
+        # A healthy forecast run writes rows; zero means it produced nothing.
+        command_or_name.forecasts_written = 30
     return None
 
 
 def failing_child(child, **counts):
     """A fake call_command where one child reports swallowed failures."""
     def children(command_or_name, *args, **kwargs):
+        clean_children(command_or_name, *args, **kwargs)
         if child_of(command_or_name) == child:
             for attribute, value in counts.items():
                 setattr(command_or_name, attribute, value)
@@ -126,7 +130,7 @@ class TestStepStatus:
 
         assert status_of(sync_log, 'import') == 'partial'
         partial = [m for m in messages(sync_log) if 'step=import status=partial' in m][0]
-        assert 'child=import_cost_data failed=2' in partial
+        assert 'child=import_cost_data failed_exports=2' in partial
 
     def test_reservation_failure_counted_while_printing_warn(self, monkeypatch, sync_log):
         """sync_reservation_costs increments error_count while printing
@@ -143,6 +147,25 @@ class TestStepStatus:
 
         assert status_of(sync_log, 'import') == 'ok'
 
+    def test_rejected_rows_are_not_reported_ok(self, monkeypatch, sync_log):
+        """process_export swallows each unparseable or invalid row and the
+        export still 'succeeds', so an import that dropped every row looks
+        exactly like a clean one at the export level."""
+        run_sync(monkeypatch, failing_child('import_cost_data', failed_records=814))
+
+        assert status_of(sync_log, 'import') == 'partial'
+        partial = [m for m in messages(sync_log) if 'step=import status=partial' in m][0]
+        assert 'rejected_records=814' in partial
+
+    def test_empty_forecast_is_not_reported_ok(self, monkeypatch, sync_log):
+        """generate_cost_forecasts writes an 'Insufficient data' warning and
+        returns normally, producing no forecast at all."""
+        run_sync(monkeypatch, failing_child('generate_cost_forecasts', forecasts_written=0))
+
+        assert status_of(sync_log, 'forecasts') == 'partial'
+        partial = [m for m in messages(sync_log) if 'step=forecasts status=partial' in m][0]
+        assert 'forecasts=0' in partial
+
 
 class TestChildInvocation:
     def test_import_skips_its_own_aggregation_refresh(self, monkeypatch, sync_log):
@@ -153,7 +176,7 @@ class TestChildInvocation:
 
         def children(command_or_name, *args, **kwargs):
             seen[child_of(command_or_name)] = args
-            return None
+            return clean_children(command_or_name, *args, **kwargs)
 
         run_sync(monkeypatch, children)
 
@@ -175,7 +198,7 @@ class TestFailureHandling:
         def children(command_or_name, *args, **kwargs):
             if child_of(command_or_name) == 'detect_cost_anomalies':
                 raise RuntimeError('boom from anomalies')
-            return None
+            return clean_children(command_or_name, *args, **kwargs)
 
         stdout = run_sync(monkeypatch, children)
 
@@ -192,7 +215,7 @@ class TestFailureHandling:
         def children(command_or_name, *args, **kwargs):
             if child_of(command_or_name) == 'detect_cost_anomalies':
                 raise RuntimeError('boom')
-            return None
+            return clean_children(command_or_name, *args, **kwargs)
 
         run_sync(monkeypatch, children)
 
@@ -252,8 +275,79 @@ class TestConsoleOutput:
         def children(command_or_name, *args, **kwargs):
             if child_of(command_or_name) == 'import_cost_data':
                 kwargs['stdout'].write('[OK] Import completed!\n')
-            return None
+            return clean_children(command_or_name, *args, **kwargs)
 
         stdout = run_sync(monkeypatch, children)
 
         assert '[OK] Import completed!' in stdout
+
+
+@pytest.mark.django_db
+class TestForecastRefreshIsNotDestructive:
+    """--refresh used to delete before the forecast was computed, so a run
+    with too little history wiped the table and generated nothing."""
+
+    def _build_forecast(self, days_ahead=1, cost='100.00'):
+        """An unsaved forecast row; the unique key is (date, type, value)."""
+        from datetime import date, timedelta
+        from decimal import Decimal
+
+        from power_up.finops.models import CostForecast
+
+        today = date.today()
+        return CostForecast(
+            forecast_date=today + timedelta(days=days_ahead),
+            dimension_type='overall',
+            dimension_value='Total',
+            forecast_cost=Decimal(cost),
+            lower_bound=Decimal('90.00'),
+            upper_bound=Decimal('110.00'),
+            confidence=Decimal('95.00'),
+            training_period_start=today - timedelta(days=90),
+            training_period_end=today,
+            training_days=90,
+        )
+
+    def _existing_forecast(self, days_ahead=1):
+        forecast = self._build_forecast(days_ahead=days_ahead)
+        forecast.save()
+        return forecast
+
+    def test_insufficient_history_keeps_the_existing_forecasts(self, monkeypatch):
+        from power_up.finops.models import CostForecast
+
+        self._existing_forecast()
+        monkeypatch.setattr(
+            'power_up.finops.management.commands.generate_cost_forecasts'
+            '.CostForecaster.forecast_costs',
+            lambda **kwargs: [],
+        )
+
+        out = io.StringIO()
+        call_command('generate_cost_forecasts', '--refresh', stdout=out, stderr=out)
+
+        assert 'Insufficient data' in out.getvalue()
+        # The old forecast must survive a run that produced no replacement.
+        assert CostForecast.objects.count() == 1
+
+    def test_a_successful_run_still_clears_the_old_forecasts(self, monkeypatch):
+        """--refresh must still drop rows the new run won't overwrite, or
+        forecasts for dates that fell out of the horizon would linger."""
+        from power_up.finops.models import CostForecast
+
+        # A stale row 5 days out that the new run does not replace.
+        self._existing_forecast(days_ahead=5)
+        replacement = self._build_forecast(days_ahead=1, cost='250.00')
+        monkeypatch.setattr(
+            'power_up.finops.management.commands.generate_cost_forecasts'
+            '.CostForecaster.forecast_costs',
+            lambda **kwargs: [replacement],
+        )
+
+        out = io.StringIO()
+        call_command('generate_cost_forecasts', '--refresh', stdout=out, stderr=out)
+
+        assert 'Deleted 1 old forecasts' in out.getvalue()
+        remaining = list(CostForecast.objects.all())
+        assert len(remaining) == 1
+        assert remaining[0].forecast_date == replacement.forecast_date

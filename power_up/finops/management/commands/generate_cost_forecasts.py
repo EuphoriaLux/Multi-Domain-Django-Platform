@@ -10,6 +10,11 @@ from power_up.finops.models import CostForecast
 class Command(BaseCommand):
     help = 'Generate cost forecasts for next 30/90 days'
 
+    # Too little history is reported and returns normally, so this count is
+    # the only structured trace that a run produced no forecast at all.
+    # sync_daily_costs reads it back off the instance.
+    forecasts_written = 0
+
     def add_arguments(self, parser):
         parser.add_argument(
             '--forecast-days',
@@ -48,10 +53,6 @@ class Command(BaseCommand):
         currency = options['currency']
         refresh = options['refresh']
 
-        if refresh:
-            deleted = CostForecast.objects.filter(dimension_type=dimension).delete()
-            self.stdout.write(f'Deleted {deleted[0]} old forecasts')
-
         self.stdout.write(f'Generating {forecast_days}-day forecast for {dimension}...')
         self.stdout.write(f'Using {training_days} days of historical data')
 
@@ -63,10 +64,21 @@ class Command(BaseCommand):
             currency=currency
         )
 
+        self.forecasts_written = len(forecasts) if forecasts else 0
+
         if not forecasts:
             self.stdout.write(self.style.WARNING('Insufficient data for forecasting'))
             self.stdout.write('Need at least 30 days of historical data')
             return
+
+        # --refresh clears forecasts the new run won't overwrite (dates that
+        # have dropped out of the horizon). Deleting only once there is
+        # something to replace them with matters: this used to run before the
+        # forecast was computed, so a short-history run wiped the table,
+        # generated nothing, and still returned normally.
+        if refresh:
+            deleted = CostForecast.objects.filter(dimension_type=dimension).delete()
+            self.stdout.write(f'Deleted {deleted[0]} old forecasts')
 
         # Bulk create or update
         CostForecast.objects.bulk_create(

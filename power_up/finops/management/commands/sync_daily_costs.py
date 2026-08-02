@@ -17,22 +17,25 @@ mid-flight, and the last ``step=... started`` line names the step it died in.
 A step reporting ``status=partial`` finished, but the child command swallowed
 failures along the way.
 
-Two of the children keep going past a failed item — import_cost_data past a
-failed export, sync_reservation_costs past a reservation it cannot price — so
-``call_command()`` returns normally even when every item failed, and timing the
-call alone would record a confident ``status=ok`` over a run that imported
-nothing. Both count their own failures, and this command reads that count back
-off the command *instance*: ``call_command`` accepts a command object for
-exactly this purpose. The count comes from the command itself, so a step is
-never judged by scanning its prose for error markers (which would miss any
-path whose wording did not match — sync_reservation_costs counts a failure
-while printing "[WARN] No pricing found"), and nothing is passed through a
-process-global channel, which would cross-contaminate if two sync requests
-overlapped in one worker.
+Three of the children finish normally after work silently went missing:
+import_cost_data continues past a failed export *and* past rows it could not
+parse, sync_reservation_costs past a reservation it cannot price, and
+generate_cost_forecasts returns having written nothing when there is too
+little history. In each case ``call_command()`` returns normally, so timing
+the call alone would record a confident ``status=ok`` over a run that
+imported nothing, priced nothing, or forecast nothing.
 
-The other two children need no such read: detect_cost_anomalies re-raises
-after reporting and generate_cost_forecasts has no swallowed-failure path, so
-run_step already sees both as ``status=error``.
+Each of those children counts its own outcome, and this command reads the
+count back off the command *instance*: ``call_command`` accepts a command
+object for exactly this purpose. The count comes from the command itself, so
+a step is never judged by scanning its prose for error markers (which would
+miss any path whose wording did not match — sync_reservation_costs counts a
+failure while printing "[WARN] No pricing found"), and nothing is passed
+through a process-global channel, which would cross-contaminate if two sync
+requests overlapped in one worker.
+
+Only detect_cost_anomalies needs no such read: it re-raises after reporting,
+so run_step already sees it as ``status=error``.
 """
 import logging
 import time
@@ -40,6 +43,7 @@ import time
 from django.core.management.base import BaseCommand
 from django.core.management import call_command
 from power_up.finops.management.commands import (
+    generate_cost_forecasts,
     import_cost_data,
     sync_reservation_costs,
 )
@@ -109,8 +113,15 @@ class Command(BaseCommand):
                 command, '--batch-size=1000', '--skip-aggregation',
                 stdout=self.stdout, stderr=self.stderr,
             )
-            if command.failed_exports:
-                return f'child=import_cost_data failed={command.failed_exports}'
+            # Two levels of swallowing: a whole export can fail, and rows can
+            # be rejected while the export still reports success. An import
+            # that dropped every row is otherwise indistinguishable from a
+            # clean one.
+            if command.failed_exports or command.failed_records:
+                return (
+                    f'child=import_cost_data failed_exports={command.failed_exports} '
+                    f'rejected_records={command.failed_records}'
+                )
             return None
 
         def _aggregations():
@@ -132,10 +143,16 @@ class Command(BaseCommand):
             )
 
         def _forecasts():
+            command = generate_cost_forecasts.Command()
             call_command(
-                'generate_cost_forecasts', '--forecast-days=30', '--refresh',
+                command, '--forecast-days=30', '--refresh',
                 stdout=self.stdout, stderr=self.stderr,
             )
+            # Too little history is reported and returns normally, so a run
+            # that produced no forecast at all reads exactly like a good one.
+            if not command.forecasts_written:
+                return 'child=generate_cost_forecasts forecasts=0 (insufficient history)'
+            return None
 
         def _reservations():
             command = sync_reservation_costs.Command()
