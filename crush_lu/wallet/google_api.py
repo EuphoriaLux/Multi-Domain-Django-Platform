@@ -30,6 +30,12 @@ GOOGLE_OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token"
 # the single-profile callers that have no budget of their own.
 GOOGLE_WALLET_HTTP_TIMEOUT = 30.0
 
+# When a caller that reuses one token across many PATCHes should mint a fresh
+# one. Google's access tokens last an hour; this leaves a wide margin so a long
+# uncapped sweep never presents one that expired mid-flight. The bounded bulk
+# refresh never reaches it — its whole budget is seconds.
+GOOGLE_WALLET_TOKEN_REUSE_SECONDS = 45 * 60
+
 
 def _timeout_kwargs(timeout):
     """Build the per-request timeout kwarg, omitting it when unset.
@@ -557,27 +563,91 @@ def update_all_google_wallet_passes():
     Update all existing Google Wallet passes.
     Useful for batch updates after design changes.
 
+    Shares ONE token exchange and ONE keep-alive connection across the sweep,
+    like refresh_google_wallet_objects — the per-profile entry point minted a
+    fresh token and opened a fresh connection for every pass, so a sweep cost
+    two round trips and a TLS handshake each.
+
+    It does NOT inherit that helper's count limit or wall-clock budget. Those
+    exist because the bulk refresh runs inline in an admin request, and a slow
+    Google API would otherwise hold a human waiting. This is a maintenance
+    sweep with no request attached: stopping early would just leave passes
+    stale with nothing to finish them, so it runs to the end.
+
     Returns:
         dict: {"updated": int, "failed": int, "skipped": int}
     """
     from ..models import CrushProfile
 
-    profiles = CrushProfile.objects.exclude(
-        google_wallet_object_id__isnull=True
-    ).exclude(
-        google_wallet_object_id=""
+    profiles = list(
+        CrushProfile.objects.exclude(google_wallet_object_id__isnull=True).exclude(
+            google_wallet_object_id=""
+        )
     )
 
     results = {"updated": 0, "failed": 0, "skipped": 0}
+    if not profiles:
+        return results
 
-    for profile in profiles:
-        result = update_google_wallet_pass(profile)
-        if result["success"]:
-            results["updated"] += 1
-        elif "not found" in result["message"].lower():
-            results["skipped"] += 1
-        else:
-            results["failed"] += 1
+    class_id = getattr(settings, "WALLET_GOOGLE_CLASS_ID", None)
+    if not class_id:
+        # Same accounting as before, when every profile went through
+        # update_google_wallet_pass and came back with this as its failure —
+        # reported once instead of silently N times.
+        logger.error(
+            "Batch Google Wallet update aborted for %d pass(es): "
+            "WALLET_GOOGLE_CLASS_ID not configured",
+            len(profiles),
+        )
+        results["failed"] = len(profiles)
+        return results
+
+    attempted = 0
+    try:
+        with httpx.Client(timeout=GOOGLE_WALLET_HTTP_TIMEOUT) as client:
+            access_token = None
+            token_minted_at = 0.0
+
+            for profile in profiles:
+                # Re-minted rather than held for the whole sweep: a token is
+                # good for an hour, and an uncapped sweep over a large estate
+                # can outlive one. Minting per profile is what this change
+                # removed, so the expiry it used to hide has to be handled
+                # here instead.
+                if (
+                    access_token is None
+                    or time.monotonic() - token_minted_at
+                    >= GOOGLE_WALLET_TOKEN_REUSE_SECONDS
+                ):
+                    access_token = _get_access_token(client=client)
+                    token_minted_at = time.monotonic()
+
+                attempted += 1
+                try:
+                    result = _patch_generic_object(
+                        profile, class_id, access_token, client
+                    )
+                except Exception:
+                    # One unreachable object must not strand the rest.
+                    logger.exception(
+                        "Failed updating Google Wallet object %s",
+                        profile.google_wallet_object_id,
+                    )
+                    results["failed"] += 1
+                    continue
+
+                if result["success"]:
+                    results["updated"] += 1
+                elif "not found" in result["message"].lower():
+                    results["skipped"] += 1
+                else:
+                    results["failed"] += 1
+    except Exception:
+        # Nothing can be PATCHed without a token, so a failed exchange takes
+        # the rest of the sweep with it. Counted as failures rather than
+        # quietly dropped, so the caller's totals still add up to the estate.
+        logger.exception("Batch Google Wallet update could not finish")
+        results["failed"] += len(profiles) - attempted
 
     logger.info(
         "Batch Google Wallet update complete: %d updated, %d failed, %d skipped",

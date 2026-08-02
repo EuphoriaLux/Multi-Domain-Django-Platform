@@ -4,7 +4,7 @@ Signal handlers for Crush.lu app
 
 import logging
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import requests
 from django.conf import settings
@@ -46,6 +46,7 @@ from .models.journey import JourneyProgress
 from .utils.i18n import is_valid_language
 
 from crush_lu.models.events import SEAT_HOLDING_STATUSES
+from crush_lu.wallet_pass import PASS_NEXT_EVENT_STATUSES
 
 logger = logging.getLogger(__name__)
 
@@ -594,11 +595,63 @@ _GOOGLE_PAYLOAD_FIELDS = frozenset(
     )
 )
 
-# Registration statuses under which an event can appear on a MEMBER card.
-# Keep in sync with wallet_pass.get_next_event_for_pass, which is what actually
-# decides whether the card renders this event — anything outside this set is a
-# holder the event-change fan-outs must not spend their budget on.
-_NEXT_EVENT_STATUSES = (*SEAT_HOLDING_STATUSES, "waitlist")
+def _google_relevant_changes(previous, instance, changed, now=None):
+    """The changed fields that can actually alter the Google member card.
+
+    Mostly a membership test against _GOOGLE_PAYLOAD_FIELDS, with one field
+    that cannot be decided statically. `duration_minutes` earns its place by
+    SELECTING rather than rendering, so a length edit is only worth a fan-out
+    when it moves the event across the `end_time >= now` boundary. Treating
+    every duration edit as relevant would fire up to
+    WALLET_GOOGLE_BULK_UPDATE_LIMIT synchronous PATCHes from the admin request
+    to write byte-identical objects — the exact spend the field subset exists
+    to prevent.
+
+    Exactly ONE case is dropped, and the two same-side cases are NOT
+    symmetric — which is the trap:
+
+      * still-upcoming both before and after: the event is on the card in both
+        states with its title and date untouched, so the stored Google object
+        already matches what we would write. Genuinely nothing to send.
+      * ALREADY ENDED both before and after: skipping looks equally safe and is
+        not. get_next_event_for_pass stopped selecting the event when it
+        finished, but the Google object is server-side state whose last PATCH
+        went out while the event was still upcoming — so it can still be
+        advertising it, and nothing else in the estate recomputes that (there
+        is no "event ended" trigger; see the same reasoning in
+        admin.quiz.mark_unattended_as_no_show). The edit is then the only thing
+        that would heal the card, and dropping it forfeits that for good.
+
+    So the guard is "neither side is over", not "both sides agree".
+
+    A `date_time` edit needs no such care: it is rendered, so it is relevant on
+    its own, and it is already in the set.
+    """
+    relevant = [field for field in changed if field in _GOOGLE_PAYLOAD_FIELDS]
+    if "duration_minutes" not in relevant:
+        return relevant
+
+    now = now or timezone.now()
+
+    def _ended(start, minutes):
+        # Mirrors MeetupEvent.end_time; the snapshot is a values() dict, so
+        # there is no model instance to ask.
+        return start + timedelta(minutes=minutes or 0) < now
+
+    was_over = _ended(previous["date_time"], previous["duration_minutes"])
+    is_over = _ended(instance.date_time, instance.duration_minutes)
+    if not was_over and not is_over:
+        relevant.remove("duration_minutes")
+    return relevant
+
+
+# Registration statuses under which an event can appear on a MEMBER card —
+# imported, not restated. This and wallet_pass.get_next_event_for_pass each
+# used to carry their own copy under a "keep in sync" note, which is the
+# arrangement that lets them drift; the admin bulk actions consume the same
+# rule. Anything outside this set is a holder the event-change fan-outs must
+# not spend their budget on.
+_NEXT_EVENT_STATUSES = PASS_NEXT_EVENT_STATUSES
 
 
 @receiver(pre_save, sender=MeetupEvent)
@@ -770,7 +823,7 @@ def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
     # Its own try/except, not the Apple block's: these are independent
     # fan-outs over independent APIs, and a Google outage must not skip the
     # Apple refresh (nor be reported as an Apple failure).
-    google_changed = [field for field in changed if field in _GOOGLE_PAYLOAD_FIELDS]
+    google_changed = _google_relevant_changes(previous, instance, changed)
     if not google_changed:
         return
 
@@ -814,12 +867,22 @@ def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
         # (Refining the coarse set in Python instead would mean loading and
         # checking end_time per candidate, which is the per-attendee work the
         # batch exists to avoid.)
+        # Compared on the SAME key _next_event_candidates orders by, not on the
+        # start time alone. Since that selector tie-breaks with (date_time,
+        # event_id, id), an event sharing this one's start but carrying a
+        # smaller id sorts first and IS what the holder sees — while a bare
+        # `date_time__lt` calls it "not nearer" and queues a byte-identical
+        # PATCH. The registration id, the selector's third key, is not needed:
+        # it only separates two registrations for the same event, which one
+        # user cannot have.
         previous_start = (previous or {}).get("date_time") or instance.date_time
+        bound_start = min(previous_start, instance.date_time)
         nearer_event = EventRegistration.objects.filter(
+            Q(event__date_time__lt=bound_start)
+            | Q(event__date_time=bound_start, event_id__lt=instance.pk),
             user_id=OuterRef("user_id"),
             status__in=_NEXT_EVENT_STATUSES,
             event__is_cancelled=False,
-            event__date_time__lt=min(previous_start, instance.date_time),
             event__date_time__gte=timezone.now(),
         )
         google_profiles = list(
