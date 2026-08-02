@@ -188,11 +188,16 @@ public class MainActivity extends AppCompatActivity {
         settings.setSupportZoom(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
         // The WebView only ever shows our own origin, so it never needs the
-        // local filesystem or content providers. setAllowFileAccess still
-        // defaults to true below API 30, which minSdk 26 includes; both are
-        // what turns an injected file:// or content:// URL into data theft.
+        // local filesystem, and setAllowFileAccess still defaults to true below
+        // API 30 — which minSdk 26 includes. That default is what would turn an
+        // injected file:// URL into data theft. It does not touch uploads:
+        // since API 24 a picker cannot hand back a file:// URI at all.
         settings.setAllowFileAccess(false);
-        settings.setAllowContentAccess(false);
+        // Content access is deliberately left ON. onShowFileChooser's picker
+        // returns content:// URIs for photo uploads ("Upload a profile photo"
+        // is in README.md's release checklist), and isInternal() already
+        // refuses every scheme but ours before loadUrl — so disabling it would
+        // risk that flow for no gain against cross-app scripting.
         settings.setUserAgentString(settings.getUserAgentString() + " CrushLUAndroid/" + BuildConfig.VERSION_NAME);
 
         webView.setWebViewClient(new CrushWebViewClient());
