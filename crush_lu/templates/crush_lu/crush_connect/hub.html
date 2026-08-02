@@ -38,11 +38,13 @@
             <div class="min-w-0">
                 <p class="text-xs font-bold uppercase tracking-wider text-white mb-0">{% trans "Premium member" %}</p>
                 {% if premium_coach %}
-                {# get_full_name|default:username, as book_screening.html does:
-                   User.first_name is blank-able and coach accounts are created
-                   by hand, so keying on it alone renders "Your coach is " with
-                   no name — worse than saying nothing on the one line that is
-                   meant to confirm what was bought. username is never blank. #}
+                {% comment %}
+                get_full_name|default:username, as book_screening.html does:
+                User.first_name is blank-able and coach accounts are created
+                by hand, so keying on it alone renders "Your coach is " with
+                no name — worse than saying nothing on the one line that is
+                meant to confirm what was bought. username is never blank.
+                {% endcomment %}
                 <p class="text-xs text-white/90 mb-0 truncate">
                     {% blocktrans with name=premium_coach.user.get_full_name|default:premium_coach.user.username %}Your coach is {{ name }}{% endblocktrans %}
                 </p>
