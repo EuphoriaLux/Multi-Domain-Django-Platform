@@ -984,20 +984,73 @@ class PremiumCompletionRevalidationTests(SiteTestMixin, TestCase):
         )
 
     @patch("crush_lu.views_payments.SumUpClient.get_checkout")
-    def test_the_confirmation_speaks_the_members_language(self, mock_get_checkout):
-        """This route is outside i18n_patterns, so there is no /fr/ prefix for
-        LocaleMiddleware to read and it falls back to a cookie Django only sets
-        via the language switcher. Without pinning, a French member's payment
-        confirmation arrives in English however complete the catalogs are."""
+    def test_a_default_profile_still_follows_the_browsing_language(
+        self, mock_get_checkout
+    ):
+        """The majority case: a member who never opened the language setting.
+
+        ``preferred_language`` is ``default="en"`` and non-blank, so a
+        profile-first helper answers "en" for them however they are browsing.
+        Pinning that was worse than not overriding at all — LocaleMiddleware
+        had been resolving Accept-Language correctly, and the override threw
+        that away. The sibling test below cannot see this: it sets the profile
+        to French explicitly, which is exactly the path that hides the bug.
+        """
+        self.assertEqual(
+            self.profile.preferred_language, "en", "precondition: untouched default"
+        )
+        tx = self._tx("PREMACCEPT")
+        mock_get_checkout.return_value = {"id": tx.sumup_checkout_id, "status": "PAID"}
+
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        client = Client(HTTP_HOST="crush.lu", HTTP_ACCEPT_LANGUAGE="fr")
+        client.force_login(self.user)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = client.get(
+                reverse("sumup_payment_return"), {"ref": "PREMACCEPT"}
+            )
+
+        texts = [str(m) for m in response.wsgi_request._messages]
+        self.assertTrue(any("votre coach est Robin" in t for t in texts), texts)
+        self.assertFalse(any("your coach is" in t for t in texts), texts)
+        self.assertTrue(
+            response["Location"].startswith("/fr/"), response["Location"]
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_an_explicit_preference_beats_the_browsing_language(
+        self, mock_get_checkout
+    ):
+        """The other half: a member who DID set French, on an English browser.
+
+        This route is outside i18n_patterns, so LocaleMiddleware would answer
+        "en" from Accept-Language and hand a French member an English
+        confirmation however complete the catalogs are. A stored de/fr is
+        unambiguous — nobody reaches it by default — so it wins outright.
+        """
         self.profile.preferred_language = "fr"
         self.profile.save(update_fields=["preferred_language"])
 
         tx = self._tx("PREMFR")
         mock_get_checkout.return_value = {"id": tx.sumup_checkout_id, "status": "PAID"}
-        self._login_for_the_browser_return()
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        # Browser explicitly asks for English — the preference must still win.
+        client = Client(HTTP_HOST="crush.lu", HTTP_ACCEPT_LANGUAGE="en")
+        client.force_login(self.user)
 
         with self.captureOnCommitCallbacks(execute=True):
-            response = self.client.get(
+            response = client.get(
                 reverse("sumup_payment_return"), {"ref": "PREMFR"}
             )
 

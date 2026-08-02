@@ -24,7 +24,7 @@ from crush_lu.models.events import (
 from crush_lu.models.payments import PaymentTransaction
 from crush_lu.models.profiles import PremiumMembership
 from crush_lu.services.sumup import SumUpClient, SumUpError
-from crush_lu.utils.i18n import get_user_preferred_language
+from crush_lu.utils.i18n import get_onscreen_language
 from crush_lu.views_ticket import _generate_checkin_token
 
 logger = logging.getLogger(__name__)
@@ -581,14 +581,21 @@ def sumup_payment_return(request):
     # /fr/ or /de/ prefix for LocaleMiddleware to read and it falls back to the
     # language cookie or Accept-Language. Django only sets that cookie from the
     # set_language view, so a member who browsed in French without ever
-    # touching the language switcher gets this page in English — new catalogs
-    # or not. Pin it to their own preference, via the helper the transactional
-    # emails already use.
+    # touching the language switcher can still reach this page in English.
+    #
+    # NOT get_user_preferred_language. That one is profile-first, which is
+    # right for email and wrong here: preferred_language is default="en" and
+    # non-blank, so preferring it pins English on everyone who never opened
+    # the setting. Using it here made this page WORSE than no override at all
+    # — measured, for a default-profile member sending Accept-Language: fr it
+    # turned a French message and a /fr/ redirect into English and /en/.
+    # get_onscreen_language reads a stored "en" as "no answer" and defers to
+    # the request, while still honouring an explicit de/fr choice.
     #
     # The redirects stay inside the override deliberately: reverse() picks the
     # language prefix from the active language, so this is also what stops a
-    # French confirmation from landing on an English page.
-    lang = get_user_preferred_language(user=request.user, request=request)
+    # translated confirmation from landing on an English page.
+    lang = get_onscreen_language(user=request.user, request=request)
     with override(lang):
         return _sumup_return_response(request, tx_obj)
 
