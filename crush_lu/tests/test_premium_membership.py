@@ -244,9 +244,7 @@ class PremiumMembershipTests(SiteTestMixin, TestCase):
         )
         self.assertEqual(resp.status_code, 302)
         self.assertIn(reverse("crush_lu:crush_connect_teaser"), resp.url)
-        self.assertFalse(
-            PremiumMembership.objects.filter(user=self.member).exists()
-        )
+        self.assertFalse(PremiumMembership.objects.filter(user=self.member).exists())
 
     @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
     def test_pending_member_can_change_coach_during_beta(self):
@@ -263,9 +261,7 @@ class PremiumMembershipTests(SiteTestMixin, TestCase):
             reverse("crush_lu:premium_select_coach", kwargs={"coach_id": second.id})
         )
         self.assertEqual(resp.status_code, 302)
-        membership = PremiumMembership.objects.get(
-            user=self.member, status="pending"
-        )
+        membership = PremiumMembership.objects.get(user=self.member, status="pending")
         self.assertEqual(membership.coach_id, second.id)
 
     @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
@@ -279,13 +275,66 @@ class PremiumMembershipTests(SiteTestMixin, TestCase):
             email="noprof@example.com",
             password="pass12345",
         )
-        UserDataConsent.objects.filter(user=user).update(
-            crushlu_consent_given=True
-        )
+        UserDataConsent.objects.filter(user=user).update(crushlu_consent_given=True)
         self.client.force_login(user)
         resp = self.client.get(reverse("crush_lu:premium_choose_coach"))
         self.assertEqual(resp.status_code, 302)
         self.assertIn(reverse("crush_lu:crush_connect_teaser"), resp.url)
+
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
+    def test_selected_tester_reaches_directory_during_beta(self):
+        """A hand-picked tester is the one exception to the funnel: they reach
+        the coach directory and can start a purchase while it stays shut for
+        everyone else."""
+        from crush_lu.models.crush_connect import CrushConnectWaitlist
+
+        CrushConnectWaitlist.objects.create(user=self.member, selected_as_tester=True)
+        self._make_coach("nia")
+        self.client.force_login(self.member)
+        resp = self.client.get(reverse("crush_lu:premium_choose_coach"))
+        self.assertEqual(resp.status_code, 200)
+
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
+    def test_selected_tester_can_create_pending_membership_during_beta(self):
+        """The POST must be exempt too, not just the directory GET: the pending
+        membership it mints is the token create_sumup_premium_checkout requires,
+        so a tester who could browse but not select still could not pay."""
+        from crush_lu.models import PremiumMembership
+        from crush_lu.models.crush_connect import CrushConnectWaitlist
+
+        CrushConnectWaitlist.objects.create(user=self.member, selected_as_tester=True)
+        coach = self._make_coach("otto")
+        self.client.force_login(self.member)
+        resp = self.client.post(
+            reverse("crush_lu:premium_select_coach", kwargs={"coach_id": coach.id})
+        )
+        self.assertEqual(resp.status_code, 302)
+        membership = PremiumMembership.objects.get(user=self.member, status="pending")
+        self.assertEqual(membership.coach_id, coach.id)
+
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=True)
+    def test_waitlisted_but_unselected_member_stays_blocked(self):
+        """Being ON the waitlist grants nothing — only ``selected_as_tester``
+        does. This is the guarantee that keeps the beta closed: joining the
+        waitlist is self-serve, so if the row alone opened purchase, anyone
+        could let themselves in."""
+        from crush_lu.models import PremiumMembership
+        from crush_lu.models.crush_connect import CrushConnectWaitlist
+
+        CrushConnectWaitlist.objects.create(user=self.member)
+        coach = self._make_coach("pia")
+        self.client.force_login(self.member)
+
+        resp = self.client.get(reverse("crush_lu:premium_choose_coach"))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(reverse("crush_lu:crush_connect_teaser"), resp.url)
+
+        resp = self.client.post(
+            reverse("crush_lu:premium_select_coach", kwargs={"coach_id": coach.id})
+        )
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn(reverse("crush_lu:crush_connect_teaser"), resp.url)
+        self.assertFalse(PremiumMembership.objects.filter(user=self.member).exists())
 
     def test_cancel_pending_membership(self):
         from crush_lu.models import PremiumMembership
