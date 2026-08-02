@@ -107,6 +107,12 @@ def test_onboarded_receiver_sees_hub(client, settings):
 def test_premium_member_sees_premium_badge_and_their_coach(client, settings):
     settings.CRUSH_CONNECT_LAUNCHED = True
     me = _make_user(username="me", onboarded=True, premium=True)
+    # The shared _get_coach() fixture leaves first_name blank, so asserting
+    # `coach.user.first_name in body` would be `"" in body` — true of every
+    # page ever rendered. Give the coach a name so the assertion has teeth.
+    coach_user = me.crushprofile.assigned_coach.user
+    coach_user.first_name = "Nadia"
+    coach_user.save(update_fields=["first_name"])
     _login_eligible(client, me)
 
     resp = client.get(HUB_URL)
@@ -115,9 +121,52 @@ def test_premium_member_sees_premium_badge_and_their_coach(client, settings):
     body = resp.content.decode()
     assert "Premium member" in body
     # The coach is the thing that was actually bought — name them.
-    coach = resp.context["premium_coach"]
-    assert coach is not None
-    assert coach.user.first_name in body
+    assert resp.context["premium_coach"] is not None
+    assert "Nadia" in body
+
+
+@pytest.mark.django_db
+def test_coach_without_a_first_name_still_gets_named(client, settings):
+    """A blank ``first_name`` is valid, and must not render "Your coach is ".
+
+    Coach accounts are created by hand in the admin, so the name fields are
+    exactly the ones that get left empty — on the single line whose whole job
+    is to confirm what the member paid for.
+    """
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", onboarded=True, premium=True)
+    coach_user = me.crushprofile.assigned_coach.user
+    coach_user.first_name = ""
+    coach_user.last_name = ""
+    coach_user.save(update_fields=["first_name", "last_name"])
+    _login_eligible(client, me)
+
+    resp = client.get(HUB_URL)
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert "Premium member" in body
+    assert f"Your coach is {coach_user.username}" in body
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "prefix,expected",
+    [("fr", "Membre Premium"), ("de", "Premium-Mitglied")],
+)
+def test_premium_badge_is_translated(client, settings, prefix, expected):
+    """The badge is the confirmation of a payment, so it must not be the one
+    English island on a /fr/ or /de/ page. Pins the catalog entries: a missing
+    msgid falls back to the English msgid silently, which is exactly how the
+    two new strings shipped untranslated in the first place."""
+    settings.CRUSH_CONNECT_LAUNCHED = True
+    me = _make_user(username="me", onboarded=True, premium=True)
+    _login_eligible(client, me)
+
+    resp = client.get(f"/{prefix}/crush-connect/home/")
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert expected in body
+    assert "Premium member" not in body
 
 
 @pytest.mark.django_db

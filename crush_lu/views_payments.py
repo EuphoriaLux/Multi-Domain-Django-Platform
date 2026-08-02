@@ -544,6 +544,35 @@ def sumup_payment_return(request):
                 "crush_lu:event_detail", event_id=tx_obj.event_registration.event.pk
             )
         elif tx_obj.premium_membership:
+            # The hub's Premium badge is not reachable on the one page-load
+            # that matters most. premium_choose_coach requires a profile but
+            # NOT a CrushConnectMembership, so buying before finishing Connect
+            # onboarding is a supported path — and _hub_access_blocker bounces
+            # exactly that member straight back out of the hub (to the wizard,
+            # or to the teaser without LuxID) before the badge is rendered.
+            # A message survives the redirect chain and lands wherever they
+            # end up, so the confirmation is not conditional on onboarding.
+            pm = tx_obj.premium_membership
+            pm.refresh_from_db()
+            if pm.status == "active":
+                # Only claim Premium once confirm() actually granted it. When
+                # the coach filled up mid-flight the charge is real but the
+                # entitlement is not (see _apply_paid_checkout) — telling that
+                # member they are Premium would be a lie the hub then denies.
+                coach_user = getattr(pm.coach, "user", None)
+                coach_name = (
+                    (coach_user.get_full_name() or coach_user.username)
+                    if coach_user
+                    else ""
+                )
+                if coach_name:
+                    messages.success(
+                        request,
+                        _("You're Premium — your coach is %(name)s.")
+                        % {"name": coach_name},
+                    )
+                else:
+                    messages.success(request, _("You're now a Premium member."))
             return redirect("crush_lu:crush_connect_hub")
     else:
         messages.warning(request, _("Payment is pending or was not completed."))

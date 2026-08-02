@@ -725,6 +725,19 @@ class PremiumCompletionRevalidationTests(SiteTestMixin, TestCase):
             premium_membership=self.membership,
         )
 
+    def _login_for_the_browser_return(self):
+        """The return URL is a real browser request, so it passes through the
+        consent middleware and the site host — neither of which the direct
+        ``_apply_paid_checkout`` tests in this class have to satisfy."""
+        from crush_lu.models.profiles import UserDataConsent
+
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        self.client.force_login(self.user)
+
     def _fill_the_coach(self):
         rival = User.objects.create_user(
             username="rival@crush.lu", email="rival@crush.lu", password="password123"
@@ -800,6 +813,62 @@ class PremiumCompletionRevalidationTests(SiteTestMixin, TestCase):
         self.assertTrue(self.membership.payment_confirmed)
         self.assertIsNotNone(self.membership.payment_date)
         self.assertEqual(self.profile.assigned_coach_id, self.coach.id)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_return_confirms_premium_even_when_the_hub_bounces_them(
+        self, mock_get_checkout
+    ):
+        """The return page must confirm the purchase without relying on the hub.
+
+        Premium can be bought before Crush Connect onboarding (the coach
+        directory needs a profile, not a membership), and ``_hub_access_blocker``
+        redirects exactly that member out of the hub — so the hub's Premium
+        badge is unreachable on the load right after paying. This user has no
+        CrushConnectMembership at all, which is that case.
+        """
+        tx = self._tx("PREMRETURN")
+        mock_get_checkout.return_value = {"id": tx.sumup_checkout_id, "status": "PAID"}
+        self._login_for_the_browser_return()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.get(
+                reverse("sumup_payment_return"), {"ref": "PREMRETURN"}
+            )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response["Location"], reverse("crush_lu:crush_connect_hub")
+        )
+        self.membership.refresh_from_db()
+        self.assertEqual(self.membership.status, "active")
+        # The message rides along through whatever redirect chain the hub gate
+        # sends them down, so it does not depend on the hub rendering.
+        texts = [str(m) for m in response.wsgi_request._messages]
+        self.assertTrue(
+            any("Premium" in t and "Robin" in t for t in texts), texts
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_return_does_not_claim_premium_when_it_was_not_granted(
+        self, mock_get_checkout
+    ):
+        """Charged but the coach filled up: the entitlement was NOT granted, so
+        the return page must not tell the member they are Premium."""
+        tx = self._tx("PREMRETURNFULL")
+        self._fill_the_coach()
+        mock_get_checkout.return_value = {"id": tx.sumup_checkout_id, "status": "PAID"}
+        self._login_for_the_browser_return()
+
+        with self.assertLogs("crush_lu.views_payments", level="ERROR"):
+            with self.captureOnCommitCallbacks(execute=True):
+                response = self.client.get(
+                    reverse("sumup_payment_return"), {"ref": "PREMRETURNFULL"}
+                )
+
+        self.membership.refresh_from_db()
+        self.assertEqual(self.membership.status, "pending")
+        texts = [str(m) for m in response.wsgi_request._messages]
+        self.assertFalse(any("Premium" in t for t in texts), texts)
 
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")

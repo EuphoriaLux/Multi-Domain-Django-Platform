@@ -38859,3 +38859,19 @@ msgid ""
 msgstr ""
 "Finalisez votre paiement pour confirmer votre inscription. Nous vous avons "
 "envoyé les détails par e-mail."
+
+#: crush_lu/templates/crush_lu/crush_connect/hub.html
+msgid "Premium member"
+msgstr "Membre Premium"
+
+#: crush_lu/templates/crush_lu/crush_connect/hub.html
+msgid "Your coach is %(name)s"
+msgstr "Votre coach est %(name)s"
+
+#: crush_lu/views_payments.py
+msgid "You're Premium — your coach is %(name)s."
+msgstr "Vous êtes Premium — votre coach est %(name)s."
+
+#: crush_lu/views_payments.py
+msgid "You're now a Premium member."
+msgstr "Vous êtes désormais membre Premium."
