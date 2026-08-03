@@ -753,6 +753,48 @@ class ExplicitLanguageChoiceTests(SiteTestMixin, TestCase):
             'inferring a language is not the member answering',
         )
 
+    def test_a_switch_landing_mid_submission_is_not_clobbered(self):
+        """The interleaving raised in review, made deterministic.
+
+        The submission holds an instance loaded when the form was built and
+        then saves the WHOLE row, so a switch committing in between used to be
+        overwritten twice over: the inference wrote its French, and the stale
+        ``language_explicitly_set=False`` went back over the True the switch had
+        just set. Re-reading both columns inside the transaction is what fixes
+        it; in production the FOR UPDATE also stops the switch landing between
+        that read and the save, which SQLite cannot express here
+        (``has_select_for_update`` is False) — so this pins the re-read half.
+
+        The switch is injected through ``is_valid_language`` because the view
+        calls it after loading the profile and before opening the transaction,
+        which is exactly the window being tested.
+        """
+        import crush_lu.views as crush_views
+        from crush_lu.models import CrushProfile
+
+        original = crush_views.is_valid_language
+
+        def switch_lands_now(lang_code):
+            # The member picks English in another tab, and it commits.
+            CrushProfile.objects.filter(pk=self.profile.pk).update(
+                preferred_language='en', language_explicitly_set=True
+            )
+            return original(lang_code)
+
+        with patch.object(crush_views, 'is_valid_language', switch_lands_now):
+            self._submit_profile_from_french()
+
+        self.profile.refresh_from_db()
+        self.assertEqual(
+            self.profile.preferred_language,
+            'en',
+            'the inference must not overwrite a switch that already committed',
+        )
+        self.assertTrue(
+            self.profile.language_explicitly_set,
+            'the full-row save must not revert the flag to its stale False',
+        )
+
     def _submit_profile_from_french(self):
         """POST a first profile submission through the /fr/ prefix."""
         from allauth.account.models import EmailAddress

@@ -2381,23 +2381,40 @@ def update_crush_profile_from_luxid(sender, request, sociallogin, **kwargs):
                 # the preference, it would defeat the flag downstream too,
                 # since get_onscreen_language reads a stored de/fr as
                 # self-evidently chosen and never consults the flag again.
+                # Read under a row lock, held until _luxid_save_profile below
+                # has written. The guard is only as good as the moment it is
+                # evaluated: read off this instance, it can say "nobody has
+                # answered" while a language switch commits en/True a moment
+                # later, and the save — which names preferred_language in
+                # update_fields — then leaves the row on fr/True, the explicit
+                # English gone despite the guard having passed honestly. The
+                # lock blocks that switch's UPDATE until this commits, so the
+                # check and the write see one state.
                 locale = _claims.get("locale", "")
-                if (
-                    locale
-                    and profile.preferred_language == "en"
-                    and not profile.language_explicitly_set
-                ):
-                    lang_code = locale[:2].lower()
-                    if lang_code in ("de", "fr"):
-                        profile.preferred_language = lang_code
-                        updated_fields.append("preferred_language")
-
-                if updated_fields:
-                    _luxid_save_profile(profile, updated_fields)
-                    logger.info(
-                        f"Updated CrushProfile for LuxID user {sociallogin.user.email}: "
-                        f"{updated_fields}"
+                with transaction.atomic():
+                    locked = (
+                        CrushProfile.objects.select_for_update()
+                        .filter(pk=profile.pk)
+                        .values("preferred_language", "language_explicitly_set")
+                        .first()
                     )
+                    if (
+                        locale
+                        and locked
+                        and locked["preferred_language"] == "en"
+                        and not locked["language_explicitly_set"]
+                    ):
+                        lang_code = locale[:2].lower()
+                        if lang_code in ("de", "fr"):
+                            profile.preferred_language = lang_code
+                            updated_fields.append("preferred_language")
+
+                    if updated_fields:
+                        _luxid_save_profile(profile, updated_fields)
+                        logger.info(
+                            f"Updated CrushProfile for LuxID user "
+                            f"{sociallogin.user.email}: {updated_fields}"
+                        )
 
             except CrushProfile.DoesNotExist:
                 logger.info(

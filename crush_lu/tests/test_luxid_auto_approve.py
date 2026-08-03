@@ -675,6 +675,37 @@ class TestLuxidProfileDataOverwrite(TestCase):
         self.assertEqual(profile.preferred_language, "en")
         self.assertTrue(profile.language_explicitly_set)
 
+    def test_luxid_locale_reads_the_flag_from_the_row_not_a_stale_instance(self):
+        """The interleaving raised in review.
+
+        The handler decides from a profile it loaded earlier in the request. If
+        a language switch commits en/True after that load, the guard reads the
+        stale False, passes honestly, and the save — which names
+        preferred_language in update_fields — leaves the row on fr/True: the
+        explicit English gone despite the guard. Reading both columns back
+        inside the transaction is what fixes it, and in production the FOR
+        UPDATE also blocks that switch until the handler commits (SQLite has
+        `has_select_for_update = False`, so only the re-read is exercised here).
+
+        The stale instance is handed to the handler directly, which is a more
+        faithful model of the race than trying to time two threads.
+        """
+        user, profile, _ = _make_user_with_pending_profile()
+        stale = CrushProfile.objects.get(pk=profile.pk)
+        self.assertFalse(stale.language_explicitly_set, "precondition")
+
+        # The switch commits after the handler already holds `stale`.
+        CrushProfile.objects.filter(pk=profile.pk).update(
+            preferred_language="en", language_explicitly_set=True
+        )
+
+        with patch.object(CrushProfile.objects, "get", return_value=stale):
+            self._run_pre_social_login(user, claims={"locale": "fr-LU"})
+
+        profile.refresh_from_db()
+        self.assertEqual(profile.preferred_language, "en")
+        self.assertTrue(profile.language_explicitly_set)
+
     def test_luxid_locale_does_not_overwrite_a_language_inferred_at_signup(self):
         """The half of the old guard the flag does NOT replace.
 
