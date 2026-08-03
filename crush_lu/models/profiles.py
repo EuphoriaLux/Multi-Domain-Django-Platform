@@ -1120,6 +1120,31 @@ class CrushProfile(models.Model):
                 # difference, so a deliberate change still writes normally.
                 # Callers naming update_fields are already precise and are left
                 # alone; the language switcher is one of them.
+                #
+                # KNOWN RESIDUAL, and deliberate. This read is not locked, so a
+                # switch committing between it and the UPDATE below is still
+                # lost. What it buys is scale: the window shrinks from a whole
+                # request — a member filling in a form for minutes while
+                # autosave fires — to the gap between two adjacent queries. The
+                # verified-phone protection above has had exactly this window in
+                # production since it was written.
+                #
+                # Closing it needs the read and the write in one statement, and
+                # both routes there cost more than the bug:
+                #   - select_for_update() here raises TransactionManagementError
+                #     for any of the ~33 profile saves not already inside an
+                #     atomic block, because ATOMIC_REQUESTS is off. CI cannot
+                #     catch that: it runs SQLite, where the lock is a silent
+                #     no-op (has_select_for_update is False), so the breakage
+                #     would only appear on production Postgres.
+                #   - Computing update_fields to omit these two columns turns
+                #     post_save's update_fields from None into a frozenset on
+                #     every profile save, and code deliberately reads a
+                #     update_fields-less save as "refresh everything" (see
+                #     trigger_wallet_pass_update_on_profile_change).
+                # The real fix is for these columns not to sit on a row that 33
+                # callers full-row save — i.e. their own table, written only by
+                # the switcher. That is a schema change, not a patch.
                 loaded_language = getattr(self, "_loaded_language", None)
                 if (
                     kwargs.get("update_fields") is None
