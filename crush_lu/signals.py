@@ -462,12 +462,29 @@ def sync_language_preference_on_login(sender, request, user, **kwargs):
         if hasattr(user, "crushprofile") and user.crushprofile:
             profile = user.crushprofile
             # Get session language (set by Django's LocaleMiddleware)
+            #
+            # NB this key is never written: LocaleMiddleware does not touch the
+            # session, Django 6's set_language sets only the cookie, and
+            # LANGUAGE_SESSION_KEY was removed in Django 4.0 (and was "_language"
+            # anyway, never "django_language"). Nothing in the repo, Django or
+            # allauth assigns it, so session_lang is always None and this
+            # handler is currently a no-op — see also the matching dead branch
+            # in create_crush_profile_on_login. Kept guarded rather than trusted
+            # to stay unreachable.
             session_lang = request.session.get("django_language", None)
 
             # If profile has default 'en' but session has different valid language,
             # update profile to match session (user's browsing language preference)
+            #
+            # Yields to an explicit pick, like every other inference: this is a
+            # guess from how the member was browsing, and == "en" cannot tell an
+            # untouched default from an answered English. Without the flag check
+            # this would replace a deliberate English with the browsing language
+            # and, because get_onscreen_language reads a stored de/fr as
+            # self-evidently chosen, the substitution would then look authoritative.
             if (
                 profile.preferred_language == "en"
+                and not profile.language_explicitly_set
                 and session_lang
                 and is_valid_language(session_lang)
                 and session_lang != "en"

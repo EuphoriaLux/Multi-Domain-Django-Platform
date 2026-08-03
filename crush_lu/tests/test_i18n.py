@@ -753,6 +753,43 @@ class ExplicitLanguageChoiceTests(SiteTestMixin, TestCase):
             'inferring a language is not the member answering',
         )
 
+    def _run_login_language_sync(self, session_lang):
+        """Drive sync_language_preference_on_login with a session language.
+
+        Production cannot reach this handler: it reads
+        ``request.session["django_language"]``, and nothing writes a language
+        key into the session — LocaleMiddleware does not, Django 6's
+        set_language sets only the cookie, and LANGUAGE_SESSION_KEY was removed
+        in 4.0. The test populates the key by hand so the guard is exercised
+        rather than trusted to stay unreachable.
+        """
+        from crush_lu import signals as crush_signals
+
+        request = RequestFactory().get('/', HTTP_HOST='crush.lu')
+        request.session = {'django_language': session_lang}
+        crush_signals.sync_language_preference_on_login(
+            sender=None, request=request, user=self.user
+        )
+        self.profile.refresh_from_db()
+
+    def test_login_sync_does_not_replace_an_explicit_english(self):
+        self.profile.language_explicitly_set = True
+        self.profile.save(update_fields=['language_explicitly_set'])
+
+        self._run_login_language_sync('fr')
+
+        self.assertEqual(self.profile.preferred_language, 'en')
+        self.assertTrue(self.profile.language_explicitly_set)
+
+    def test_login_sync_still_fills_in_an_unanswered_language(self):
+        """Unchanged behaviour where nobody has answered."""
+        self.assertFalse(self.profile.language_explicitly_set)
+
+        self._run_login_language_sync('fr')
+
+        self.assertEqual(self.profile.preferred_language, 'fr')
+        self.assertFalse(self.profile.language_explicitly_set)
+
     def test_a_stale_full_row_save_cannot_revert_a_language_choice(self):
         """Model-level protection, because there are ~33 of these call sites.
 
