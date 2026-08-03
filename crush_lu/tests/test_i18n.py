@@ -595,6 +595,440 @@ class LanguageSwitcherTests(SiteTestMixin, TestCase):
         self.assertIn(f'/fr/events/{event.id}/', response.request['PATH_INFO'])
 
 
+@override_settings(ROOT_URLCONF='azureproject.urls_crush')
+class ExplicitLanguageChoiceTests(SiteTestMixin, TestCase):
+    """``language_explicitly_set``: telling a chosen "en" from the default one.
+
+    ``preferred_language`` is ``default="en"`` and non-blank, so its value
+    alone cannot answer "did the member choose this?" — which is the only
+    question that matters on routes outside ``i18n_patterns``, where there is
+    no /fr/ prefix and LocaleMiddleware falls back to Accept-Language.
+    """
+
+    def setUp(self):
+        from crush_lu.models import CrushProfile
+
+        self.user = User.objects.create_user(
+            username='lang-choice@crush.lu',
+            email='lang-choice@crush.lu',
+            password='password123',
+        )
+        self.profile = CrushProfile.objects.create(
+            user=self.user, gender='F', location='Luxembourg'
+        )
+        # Without consent the middleware 302s every POST to /i18n/setlang/ and
+        # the switcher never runs — which these tests cannot see directly,
+        # because "the flag was not set" is also what a redirect looks like.
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={
+                'powerup_consent_given': True,
+                'crushlu_consent_given': True,
+            },
+        )
+        self.client = Client(HTTP_HOST='crush.lu')
+        self.client.force_login(self.user)
+
+    def _switch_to(self, language):
+        response = self.client.post(
+            '/i18n/setlang/', {'language': language, 'next': f'/{language}/'}
+        )
+        # Pin that the switcher itself answered. A consent or login redirect
+        # also leaves the flag unset, so without this the negative assertions
+        # below would pass on a request that never reached the view at all.
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response['Location'],
+            f'/{language}/',
+            'expected the switcher redirect, not a middleware bounce',
+        )
+        return response
+
+    def test_a_fresh_profile_has_not_answered(self):
+        self.assertEqual(self.profile.preferred_language, 'en')
+        self.assertFalse(self.profile.language_explicitly_set)
+
+    def test_choosing_english_on_an_english_profile_is_still_an_answer(self):
+        """The case the old change-only early-out dropped on the floor.
+
+        ``set_language_with_profile`` wrote only ``if old != new``. For a
+        default-"en" member choosing English there is no change, so nothing was
+        written and the one member whose intent we most needed on record left
+        no trace at all. The write is now keyed on either half being stale.
+        """
+        self._switch_to('en')
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.preferred_language, 'en')
+        self.assertTrue(
+            self.profile.language_explicitly_set,
+            'a no-op pick still has to record that the member picked',
+        )
+
+    def test_choosing_a_different_language_records_both_halves(self):
+        self._switch_to('fr')
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.preferred_language, 'fr')
+        self.assertTrue(self.profile.language_explicitly_set)
+
+    def test_switching_back_to_english_keeps_the_flag_set(self):
+        """fr then en: the value returns to the default, the answer does not."""
+        self._switch_to('fr')
+        self._switch_to('en')
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.preferred_language, 'en')
+        self.assertTrue(self.profile.language_explicitly_set)
+
+    def test_an_unsupported_language_is_not_an_answer(self):
+        self._switch_to('xx')
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.preferred_language, 'en')
+        self.assertFalse(self.profile.language_explicitly_set)
+
+    def test_a_switch_always_writes_both_columns(self):
+        """Guards the interleaving described in review, without racing threads.
+
+        ``update_fields`` writes ONLY the columns it names, so a save that
+        omits the half it thinks is unchanged lets two overlapping switches
+        blend: both read en/False, one picks fr and saves, then the one picking
+        en saves without ``preferred_language`` because its own stale copy
+        already said "en" — and the row lands on fr/True. Naming both columns
+        every time is what makes the later save overwrite cleanly, so that is
+        the invariant pinned here.
+        """
+        from crush_lu.models import CrushProfile
+
+        seen = []
+        original_save = CrushProfile.save
+
+        def spy(instance, *args, **kwargs):
+            seen.append(kwargs.get('update_fields'))
+            return original_save(instance, *args, **kwargs)
+
+        # 'en' is the no-op pick — the one whose update_fields used to be
+        # short, and so exactly the one that corrupted the row.
+        with patch.object(CrushProfile, 'save', spy):
+            self._switch_to('en')
+
+        writes = [set(f) for f in seen if f]
+        self.assertIn(
+            {'preferred_language', 'language_explicitly_set'},
+            writes,
+            f'both columns must be written together; saw {writes}',
+        )
+
+    def test_first_submission_does_not_overwrite_an_answered_language(self):
+        """``create_profile`` infers the language from the URL prefix.
+
+        That is an inference on an EXISTING profile, so it has to yield to an
+        explicit pick exactly as the LuxID path does — otherwise opening a
+        /fr/create-profile/ link on another device erases a deliberate English.
+        This one is the more damaging of the two: it saves the whole row, so
+        the flag would survive as True while the answer it vouches for had been
+        swapped underneath it, and get_onscreen_language reads the resulting
+        stored "fr" as self-evidently chosen without consulting the flag again.
+        """
+        self.profile.language_explicitly_set = True
+        self.profile.save(update_fields=['language_explicitly_set'])
+
+        self._submit_profile_from_french()
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.preferred_language, 'en')
+        self.assertTrue(self.profile.language_explicitly_set)
+
+    def test_first_submission_still_infers_when_nobody_has_answered(self):
+        """The other side: unchanged behaviour for the majority case."""
+        self.assertFalse(self.profile.language_explicitly_set)
+
+        self._submit_profile_from_french()
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.preferred_language, 'fr')
+        self.assertFalse(
+            self.profile.language_explicitly_set,
+            'inferring a language is not the member answering',
+        )
+
+    def _run_login_language_sync(self, session_lang):
+        """Drive sync_language_preference_on_login with a session language.
+
+        Production cannot reach this handler: it reads
+        ``request.session["django_language"]``, and nothing writes a language
+        key into the session — LocaleMiddleware does not, Django 6's
+        set_language sets only the cookie, and LANGUAGE_SESSION_KEY was removed
+        in 4.0. The test populates the key by hand so the guard is exercised
+        rather than trusted to stay unreachable.
+        """
+        from crush_lu import signals as crush_signals
+
+        request = RequestFactory().get('/', HTTP_HOST='crush.lu')
+        request.session = {'django_language': session_lang}
+        crush_signals.sync_language_preference_on_login(
+            sender=None, request=request, user=self.user
+        )
+        self.profile.refresh_from_db()
+
+    def test_login_sync_does_not_replace_an_explicit_english(self):
+        self.profile.language_explicitly_set = True
+        self.profile.save(update_fields=['language_explicitly_set'])
+
+        self._run_login_language_sync('fr')
+
+        self.assertEqual(self.profile.preferred_language, 'en')
+        self.assertTrue(self.profile.language_explicitly_set)
+
+    def test_login_sync_still_fills_in_an_unanswered_language(self):
+        """Unchanged behaviour where nobody has answered."""
+        self.assertFalse(self.profile.language_explicitly_set)
+
+        self._run_login_language_sync('fr')
+
+        self.assertEqual(self.profile.preferred_language, 'fr')
+        self.assertFalse(self.profile.language_explicitly_set)
+
+    def test_a_stale_full_row_save_cannot_revert_a_language_choice(self):
+        """Model-level protection, because there are ~33 of these call sites.
+
+        Any full-row save writes every column from an instance loaded when the
+        request began, so a switch landing mid-request gets pushed back to its
+        old value — reverting language_explicitly_set to False turns an answered
+        English into "never asked" and off-prefix pages resume following
+        Accept-Language. Chasing each caller was losing to the third one found
+        (the settings autosave), so CrushProfile.save() now restores language
+        columns this save did not itself set, off the same row read it already
+        does for the verified phone.
+        """
+        from crush_lu.models import CrushProfile
+
+        stale = CrushProfile.objects.get(pk=self.profile.pk)
+        self.assertEqual(stale.preferred_language, 'en')
+        self.assertFalse(stale.language_explicitly_set)
+
+        # The member picks English in another tab; it commits.
+        CrushProfile.objects.filter(pk=self.profile.pk).update(
+            preferred_language='en', language_explicitly_set=True
+        )
+
+        # The long-running request finishes and saves its whole row.
+        stale.bio = 'edited in the other tab'
+        stale.save()
+
+        self.profile.refresh_from_db()
+        self.assertTrue(
+            self.profile.language_explicitly_set,
+            'a save that never touched the language must not revert it',
+        )
+        self.assertEqual(self.profile.bio, 'edited in the other tab')
+
+    def test_a_deliberate_language_change_still_saves(self):
+        """The protection must not swallow real edits — only untouched ones."""
+        from crush_lu.models import CrushProfile
+
+        profile = CrushProfile.objects.get(pk=self.profile.pk)
+        profile.preferred_language = 'de'
+        profile.save()
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.preferred_language, 'de')
+
+    def test_the_settings_autosave_cannot_revert_a_language_choice(self):
+        """The specific caller review flagged: form.save() is a full-row save."""
+        import json
+
+        from crush_lu.models import CrushProfile
+
+        import crush_lu.views as crush_views
+
+        self.profile.is_approved = True
+        self.profile.verification_status = 'verified'
+        self.profile.save()
+
+        # The switch has to land AFTER the view loads the profile and before
+        # form.save(). Committing it before the POST proves nothing — the view
+        # would just read the fresh row and there would be no staleness to
+        # clobber. _get_profile_form_initial_data runs in exactly that window.
+        original = crush_views._get_profile_form_initial_data
+
+        def switch_lands_now(profile_arg):
+            CrushProfile.objects.filter(pk=self.profile.pk).update(
+                preferred_language='en', language_explicitly_set=True
+            )
+            return original(profile_arg)
+
+        with patch.object(
+            crush_views, '_get_profile_form_initial_data', switch_lands_now
+        ):
+            response = self._autosave_event_languages()
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.event_languages, ['en', 'fr'])
+        self.assertTrue(
+            self.profile.language_explicitly_set,
+            'the autosave must not revert the flag it never touched',
+        )
+
+    def _autosave_event_languages(self):
+        import json
+
+        response = self.client.post(
+            '/api/profile/settings/',
+            data=json.dumps(
+                {'section': 'event_identity', 'event_languages': ['en', 'fr']}
+            ),
+            content_type='application/json',
+            HTTP_HOST='crush.lu',
+        )
+        # Assert the save actually happened. "about" was folded into
+        # "event_identity" by the 2026 redesign and now falls through to
+        # "Invalid section", writing nothing — which would satisfy the caller's
+        # assertions for entirely the wrong reason.
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(response.json().get('success'), response.content)
+        return response
+
+    def test_a_switch_landing_mid_submission_is_not_clobbered(self):
+        """The interleaving raised in review, made deterministic.
+
+        The submission holds an instance loaded when the form was built and
+        then saves the WHOLE row, so a switch committing in between used to be
+        overwritten twice over: the inference wrote its French, and the stale
+        ``language_explicitly_set=False`` went back over the True the switch had
+        just set. Re-reading both columns inside the transaction is what fixes
+        it; in production the FOR UPDATE also stops the switch landing between
+        that read and the save, which SQLite cannot express here
+        (``has_select_for_update`` is False) — so this pins the re-read half.
+
+        The switch is injected through ``is_valid_language`` because the view
+        calls it after loading the profile and before opening the transaction,
+        which is exactly the window being tested.
+        """
+        import crush_lu.views as crush_views
+        from crush_lu.models import CrushProfile
+
+        original = crush_views.is_valid_language
+
+        def switch_lands_now(lang_code):
+            # The member picks English in another tab, and it commits.
+            CrushProfile.objects.filter(pk=self.profile.pk).update(
+                preferred_language='en', language_explicitly_set=True
+            )
+            return original(lang_code)
+
+        with patch.object(crush_views, 'is_valid_language', switch_lands_now):
+            self._submit_profile_from_french()
+
+        self.profile.refresh_from_db()
+        self.assertEqual(
+            self.profile.preferred_language,
+            'en',
+            'the inference must not overwrite a switch that already committed',
+        )
+        self.assertTrue(
+            self.profile.language_explicitly_set,
+            'the full-row save must not revert the flag to its stale False',
+        )
+
+    def _submit_profile_from_french(self):
+        """POST a first profile submission through the /fr/ prefix."""
+        from allauth.account.models import EmailAddress
+        from django.urls import reverse
+        from django.utils.translation import override as translation_override
+
+        EmailAddress.objects.update_or_create(
+            user=self.user,
+            email=self.user.email,
+            defaults={'verified': True, 'primary': True},
+        )
+        # The submission gate needs a verified phone and a seen coach intro.
+        self.profile.phone_number = '+35212345678'
+        self.profile.phone_verified = True
+        self.profile.phone_verified_at = timezone.now()
+        self.profile.coach_intro_seen_at = timezone.now()
+        self.profile.save()
+        self.assertNotIn(
+            self.profile.verification_status,
+            ('pending', 'verified'),
+            'precondition: this must count as a FIRST submission',
+        )
+
+        with translation_override('fr'):
+            url = reverse('crush_lu:create_profile')
+        self.assertTrue(url.startswith('/fr/'), url)
+
+        response = self.client.post(
+            url,
+            {
+                'phone_number': '+35212345678',
+                'date_of_birth': (
+                    timezone.now().date() - timedelta(days=30 * 365)
+                ).isoformat(),
+                'gender': 'F',
+                'location': 'canton-luxembourg',
+                'bio': 'Testing bio',
+                'interests': 'Reading, Hiking',
+                'event_languages': ['en', 'fr'],
+            },
+            follow=True,
+            HTTP_HOST='crush.lu',
+        )
+        self.profile.refresh_from_db()
+        self.assertEqual(
+            self.profile.verification_status,
+            'pending',
+            'the submission must actually have gone through',
+        )
+        return response
+
+    def test_get_onscreen_language_prefers_an_answered_english(self):
+        from crush_lu.utils.i18n import get_onscreen_language
+
+        self.profile.language_explicitly_set = True
+        self.profile.save(update_fields=['language_explicitly_set'])
+
+        request = RequestFactory().get('/')
+        request.LANGUAGE_CODE = 'fr'
+
+        self.assertEqual(
+            get_onscreen_language(user=self.user, request=request), 'en'
+        )
+
+    def test_get_onscreen_language_still_defers_for_an_unanswered_english(self):
+        """The majority case must not regress: no answer, follow the browser."""
+        from crush_lu.utils.i18n import get_onscreen_language
+
+        request = RequestFactory().get('/')
+        request.LANGUAGE_CODE = 'fr'
+
+        self.assertEqual(
+            get_onscreen_language(user=self.user, request=request), 'fr'
+        )
+
+    def test_signup_inferring_a_language_is_not_an_answer(self):
+        """Profile creation seeds preferred_language from request.LANGUAGE_CODE.
+
+        That is a guess made on the member's behalf, so it must leave the flag
+        alone — otherwise every profile is born "explicit" and the flag says
+        nothing. A stored fr still wins on screen, but on its own evidence.
+        """
+        from crush_lu.models import CrushProfile
+
+        inferred = CrushProfile.objects.create(
+            user=User.objects.create_user(
+                username='inferred@crush.lu',
+                email='inferred@crush.lu',
+                password='password123',
+            ),
+            gender='M',
+            location='Luxembourg',
+            preferred_language='fr',
+        )
+        self.assertFalse(inferred.language_explicitly_set)
+
+
 # =============================================================================
 # PART 6: USER LANGUAGE PREFERENCE TESTS (LOW)
 # =============================================================================

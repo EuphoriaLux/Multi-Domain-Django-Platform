@@ -644,6 +644,84 @@ class TestLuxidProfileDataOverwrite(TestCase):
         profile.refresh_from_db()
         self.assertEqual(profile.date_of_birth, date(1990, 1, 1))
 
+    def test_luxid_locale_fills_in_an_unanswered_language(self):
+        """Unchanged behaviour: nobody has answered, so the claim is the best
+        evidence available and still wins."""
+        user, profile, _ = _make_user_with_pending_profile()
+        self.assertEqual(profile.preferred_language, "en")
+        self.assertFalse(profile.language_explicitly_set)
+
+        self._run_pre_social_login(user, claims={"locale": "fr-LU"})
+
+        profile.refresh_from_db()
+        self.assertEqual(profile.preferred_language, "fr")
+
+    def test_luxid_locale_does_not_overwrite_an_answered_english(self):
+        """The reason this guard needed the flag rather than == "en".
+
+        A member who picked English stores exactly what an untouched profile
+        stores, so the old value-only guard could not see the difference and
+        overwrote them from their LuxID locale. That lost the preference and
+        defeated the flag downstream too: get_onscreen_language reads a stored
+        de/fr as self-evidently chosen and never consults the flag again.
+        """
+        user, profile, _ = _make_user_with_pending_profile()
+        profile.language_explicitly_set = True
+        profile.save(update_fields=["language_explicitly_set"])
+
+        self._run_pre_social_login(user, claims={"locale": "fr-LU"})
+
+        profile.refresh_from_db()
+        self.assertEqual(profile.preferred_language, "en")
+        self.assertTrue(profile.language_explicitly_set)
+
+    def test_luxid_locale_reads_the_flag_from_the_row_not_a_stale_instance(self):
+        """The interleaving raised in review.
+
+        The handler decides from a profile it loaded earlier in the request. If
+        a language switch commits en/True after that load, the guard reads the
+        stale False, passes honestly, and the save — which names
+        preferred_language in update_fields — leaves the row on fr/True: the
+        explicit English gone despite the guard. Reading both columns back
+        inside the transaction is what fixes it, and in production the FOR
+        UPDATE also blocks that switch until the handler commits (SQLite has
+        `has_select_for_update = False`, so only the re-read is exercised here).
+
+        The stale instance is handed to the handler directly, which is a more
+        faithful model of the race than trying to time two threads.
+        """
+        user, profile, _ = _make_user_with_pending_profile()
+        stale = CrushProfile.objects.get(pk=profile.pk)
+        self.assertFalse(stale.language_explicitly_set, "precondition")
+
+        # The switch commits after the handler already holds `stale`.
+        CrushProfile.objects.filter(pk=profile.pk).update(
+            preferred_language="en", language_explicitly_set=True
+        )
+
+        with patch.object(CrushProfile.objects, "get", return_value=stale):
+            self._run_pre_social_login(user, claims={"locale": "fr-LU"})
+
+        profile.refresh_from_db()
+        self.assertEqual(profile.preferred_language, "en")
+        self.assertTrue(profile.language_explicitly_set)
+
+    def test_luxid_locale_does_not_overwrite_a_language_inferred_at_signup(self):
+        """The half of the old guard the flag does NOT replace.
+
+        Signup seeds preferred_language from request.LANGUAGE_CODE, leaving the
+        flag False. Gating on the flag alone would newly clobber that inferred
+        value, so == "en" has to stay in the condition beside it.
+        """
+        user, profile, _ = _make_user_with_pending_profile()
+        profile.preferred_language = "fr"
+        profile.save(update_fields=["preferred_language"])
+
+        self._run_pre_social_login(user, claims={"locale": "de-LU"})
+
+        profile.refresh_from_db()
+        self.assertEqual(profile.preferred_language, "fr")
+
     def test_luxid_provider_overwrites_existing_gender(self):
         user, profile, _ = _make_user_with_pending_profile(gender="M")
 
