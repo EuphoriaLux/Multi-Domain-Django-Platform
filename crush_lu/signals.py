@@ -2617,6 +2617,9 @@ def _execute_luxid_direct_verify(user, profile, submission, request):
     """
     now = timezone.now()
     with transaction.atomic():
+        # Keep this local: signals are registered during AppConfig.ready(), so
+        # importing the service only when the handler runs avoids an app-load
+        # dependency cycle through the models package.
         from .services.profile_verification import claim_profile_verification
 
         # Conditional claim, matching the coach/check-in verification paths

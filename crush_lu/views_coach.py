@@ -63,7 +63,10 @@ from .notification_service import (
     notify_profile_rejected,
 )
 from .referrals import check_and_apply_profile_approved_reward
-from .services.profile_verification import claim_profile_verification
+from .services.profile_verification import (
+    claim_profile_verification,
+    transition_unverified_profile,
+)
 
 
 # Coach views
@@ -1350,7 +1353,36 @@ def coach_review_profile(request, submission_id):
 
                     # Only the winning verification path owns referral and
                     # approval-notification side effects.
-                    check_and_apply_profile_approved_reward(submission.profile)
+                    try:
+                        check_and_apply_profile_approved_reward(submission.profile)
+                    except Exception:
+                        # Referral work is best-effort. A transient failure
+                        # must not strand the already-claimed verification
+                        # before the submission and notification are saved.
+                        logger.exception(
+                            "Failed to apply profile-approved referral reward "
+                            "for submission %s",
+                            submission.pk,
+                        )
+
+                    try:
+                        # The atomic QuerySet.update() deliberately bypasses
+                        # post_save. Re-run the previous full-save Outlook
+                        # behavior explicitly, without a second profile write
+                        # that could reintroduce the stale-instance race.
+                        from .signals import sync_profile_to_outlook
+
+                        sync_profile_to_outlook(
+                            sender=CrushProfile,
+                            instance=submission.profile,
+                            created=False,
+                            update_fields=None,
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Failed to sync coach-approved profile %s to Outlook",
+                            submission.profile_id,
+                        )
 
                     # Send approval notification to user (push first, email fallback)
                     try:
@@ -1378,29 +1410,39 @@ def coach_review_profile(request, submission_id):
                     )
 
             elif submission.status == "rejected":
-                submission.profile.is_approved = False
-                submission.profile.verification_status = "rejected"
-                submission.profile.save()
-                messages.info(request, _("Profile rejected."))
+                transitioned = transition_unverified_profile(
+                    submission.profile,
+                    target_status="rejected",
+                )
+                if transitioned:
+                    messages.info(request, _("Profile rejected."))
 
-                # Send rejection notification to user (push first, email fallback)
-                try:
-                    result = notify_profile_rejected(
-                        user=submission.profile.user,
-                        profile=submission.profile,
-                        feedback=submission.feedback_to_user,
-                        request=request,
-                    )
-                    if result.any_delivered:
-                        logger.info(
-                            f"Profile rejection notification sent: push={result.push_success}, email={result.email_sent}"
+                    # Send rejection notification to user (push first, email fallback)
+                    try:
+                        result = notify_profile_rejected(
+                            user=submission.profile.user,
+                            profile=submission.profile,
+                            feedback=submission.feedback_to_user,
+                            request=request,
                         )
-                except Exception as e:
-                    logger.error(f"Failed to send profile rejection notification: {e}")
+                        if result.any_delivered:
+                            logger.info(
+                                f"Profile rejection notification sent: push={result.push_success}, email={result.email_sent}"
+                            )
+                    except Exception as e:
+                        logger.error(
+                            f"Failed to send profile rejection notification: {e}"
+                        )
+                else:
+                    messages.info(
+                        request,
+                        _(
+                            "This member was already verified by another path. "
+                            "The rejection review was saved without de-verifying them."
+                        ),
+                    )
 
             elif submission.status == "revision":
-                messages.info(request, _("Revision requested."))
-
                 # Track that this submission has been through a coach review
                 # cycle. The next time a coach opens it (after the user
                 # resubmits) the review template surfaces a "resubmission"
@@ -1413,24 +1455,38 @@ def coach_review_profile(request, submission_id):
                 # keeps state consistent between request and resubmit.
                 submission.coach = None
 
-                # Unlock the profile so the user can edit and resubmit.
-                submission.profile.verification_status = "incomplete"
-                submission.profile.save()
+                # Unlock only a profile that is still unverified. A LuxID or
+                # event claim that committed first must never be undone by
+                # this stale coach form.
+                transitioned = transition_unverified_profile(
+                    submission.profile,
+                    target_status="incomplete",
+                )
+                if transitioned:
+                    messages.info(request, _("Revision requested."))
 
-                # Send revision request to user (push first, email fallback)
-                try:
-                    result = notify_profile_revision(
-                        user=submission.profile.user,
-                        profile=submission.profile,
-                        feedback=submission.feedback_to_user,
-                        request=request,
-                    )
-                    if result.any_delivered:
-                        logger.info(
-                            f"Profile revision notification sent: push={result.push_success}, email={result.email_sent}"
+                    # Send revision request to user (push first, email fallback)
+                    try:
+                        result = notify_profile_revision(
+                            user=submission.profile.user,
+                            profile=submission.profile,
+                            feedback=submission.feedback_to_user,
+                            request=request,
                         )
-                except Exception as e:
-                    logger.error(f"Failed to send profile revision request: {e}")
+                        if result.any_delivered:
+                            logger.info(
+                                f"Profile revision notification sent: push={result.push_success}, email={result.email_sent}"
+                            )
+                    except Exception as e:
+                        logger.error(f"Failed to send profile revision request: {e}")
+                else:
+                    messages.info(
+                        request,
+                        _(
+                            "This member was already verified by another path. "
+                            "The revision review was saved without de-verifying them."
+                        ),
+                    )
 
             elif submission.status == "recontact_coach":
                 messages.info(request, _("User asked to recontact coach."))

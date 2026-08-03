@@ -57,40 +57,19 @@ class CoachReviewAtomicVerificationTests(TestCase):
         self.client.force_login(self.coach_user)
 
     def _approve(self):
+        return self._review("approved")
+
+    def _review(self, status):
         return self.client.post(
             reverse("crush_lu:coach_review_profile", args=[self.submission.pk]),
             data={
-                "status": "approved",
+                "status": status,
                 "coach_notes": "Identity reviewed.",
                 "feedback_to_user": "Welcome!",
             },
         )
 
-    @patch("crush_lu.views_coach.notify_profile_approved")
-    @patch("crush_lu.views_coach.check_and_apply_profile_approved_reward")
-    def test_winning_coach_claim_stamps_admin_and_runs_side_effects_once(
-        self, reward, notify
-    ):
-        notify.return_value = SimpleNamespace(any_delivered=False)
-
-        response = self._approve()
-
-        self.assertEqual(response.status_code, 302)
-        self.profile.refresh_from_db()
-        self.submission.refresh_from_db()
-        self.assertTrue(self.profile.is_approved)
-        self.assertEqual(self.profile.verification_status, "verified")
-        self.assertEqual(self.profile.verification_method, "admin")
-        self.assertEqual(self.submission.status, "approved")
-        reward.assert_called_once()
-        notify.assert_called_once()
-
-    @patch("crush_lu.views_coach.notify_profile_approved")
-    @patch("crush_lu.views_coach.check_and_apply_profile_approved_reward")
-    def test_door_claim_between_form_fetch_and_save_is_never_overwritten(
-        self, reward, notify
-    ):
-        """A door scan that commits mid-review owns method and side effects."""
+    def _review_after_door_claim(self, status):
         original_save = ProfileReviewForm.save
 
         def save_after_door_claim(form, commit=True):
@@ -107,7 +86,64 @@ class CoachReviewAtomicVerificationTests(TestCase):
             return submission
 
         with patch.object(ProfileReviewForm, "save", new=save_after_door_claim):
-            response = self._approve()
+            return self._review(status)
+
+    @patch("crush_lu.signals.sync_profile_to_outlook")
+    @patch("crush_lu.views_coach.notify_profile_approved")
+    @patch("crush_lu.views_coach.check_and_apply_profile_approved_reward")
+    def test_winning_coach_claim_stamps_admin_and_runs_side_effects_once(
+        self, reward, notify, outlook_sync
+    ):
+        notify.return_value = SimpleNamespace(any_delivered=False)
+
+        response = self._approve()
+
+        self.assertEqual(response.status_code, 302)
+        self.profile.refresh_from_db()
+        self.submission.refresh_from_db()
+        self.assertTrue(self.profile.is_approved)
+        self.assertEqual(self.profile.verification_status, "verified")
+        self.assertEqual(self.profile.verification_method, "admin")
+        self.assertEqual(self.submission.status, "approved")
+        reward.assert_called_once()
+        notify.assert_called_once()
+        outlook_sync.assert_called_once()
+        sync_kwargs = outlook_sync.call_args.kwargs
+        self.assertIs(sync_kwargs["sender"], CrushProfile)
+        self.assertEqual(sync_kwargs["instance"].pk, self.profile.pk)
+        self.assertIs(sync_kwargs["created"], False)
+        self.assertIsNone(sync_kwargs["update_fields"])
+
+    @patch("crush_lu.signals.sync_profile_to_outlook")
+    @patch("crush_lu.views_coach.notify_profile_approved")
+    @patch(
+        "crush_lu.views_coach.check_and_apply_profile_approved_reward",
+        side_effect=RuntimeError("temporary reward failure"),
+    )
+    def test_reward_failure_does_not_strand_submission_or_notification(
+        self, reward, notify, outlook_sync
+    ):
+        notify.return_value = SimpleNamespace(any_delivered=False)
+
+        response = self._approve()
+
+        self.assertEqual(response.status_code, 302)
+        self.profile.refresh_from_db()
+        self.submission.refresh_from_db()
+        self.assertEqual(self.profile.verification_status, "verified")
+        self.assertEqual(self.profile.verification_method, "admin")
+        self.assertEqual(self.submission.status, "approved")
+        reward.assert_called_once()
+        notify.assert_called_once()
+        outlook_sync.assert_called_once()
+
+    @patch("crush_lu.views_coach.notify_profile_approved")
+    @patch("crush_lu.views_coach.check_and_apply_profile_approved_reward")
+    def test_door_claim_between_form_fetch_and_save_is_never_overwritten(
+        self, reward, notify
+    ):
+        """A door scan that commits mid-review owns method and side effects."""
+        response = self._review_after_door_claim("approved")
 
         self.assertEqual(response.status_code, 302)
         self.profile.refresh_from_db()
@@ -117,4 +153,31 @@ class CoachReviewAtomicVerificationTests(TestCase):
         self.assertEqual(self.profile.verification_method, "coach_event")
         self.assertEqual(self.submission.status, "approved")
         reward.assert_not_called()
+        notify.assert_not_called()
+
+    @patch("crush_lu.views_coach.notify_profile_rejected")
+    def test_door_claim_blocks_stale_rejection_from_deverifying_member(self, notify):
+        response = self._review_after_door_claim("rejected")
+
+        self.assertEqual(response.status_code, 302)
+        self.profile.refresh_from_db()
+        self.submission.refresh_from_db()
+        self.assertTrue(self.profile.is_approved)
+        self.assertEqual(self.profile.verification_status, "verified")
+        self.assertEqual(self.profile.verification_method, "coach_event")
+        self.assertEqual(self.submission.status, "rejected")
+        notify.assert_not_called()
+
+    @patch("crush_lu.views_coach.notify_profile_revision")
+    def test_door_claim_blocks_stale_revision_from_deverifying_member(self, notify):
+        response = self._review_after_door_claim("revision")
+
+        self.assertEqual(response.status_code, 302)
+        self.profile.refresh_from_db()
+        self.submission.refresh_from_db()
+        self.assertTrue(self.profile.is_approved)
+        self.assertEqual(self.profile.verification_status, "verified")
+        self.assertEqual(self.profile.verification_method, "coach_event")
+        self.assertEqual(self.submission.status, "revision")
+        self.assertIsNone(self.submission.coach_id)
         notify.assert_not_called()

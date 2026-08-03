@@ -39,3 +39,32 @@ def claim_profile_verification(
     profile.verification_status = "verified"
     profile.verification_method = method
     return True
+
+
+def transition_unverified_profile(
+    profile: CrushProfile,
+    *,
+    target_status: str,
+    transition_from: Iterable[str] = ("incomplete", "pending", "rejected"),
+) -> bool:
+    """Move an unverified profile without clobbering a concurrent verifier.
+
+    Coach review forms can remain open while LuxID or an event scan verifies
+    the same member. Rejection and revision decisions may update the profile
+    only while it is still in an unverified state; once another path has
+    committed ``verified``, the stale form records its review decision without
+    silently de-verifying the member.
+    """
+    transitioned = CrushProfile.objects.filter(
+        pk=profile.pk,
+        verification_status__in=tuple(transition_from),
+    ).update(
+        is_approved=False,
+        verification_status=target_status,
+    )
+    if not transitioned:
+        return False
+
+    profile.is_approved = False
+    profile.verification_status = target_status
+    return True
