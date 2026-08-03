@@ -696,14 +696,20 @@ def create_profile(request):
                 "verified",
             )
 
-            # Set preferred language from current request language on first submission
+            # Language inferred from the URL prefix on first submission. Same
+            # class as the LuxID locale claim: a guess made on the member's
+            # behalf, so it must yield to an explicit pick — this runs on an
+            # EXISTING profile, and following a /fr/create-profile/ link on
+            # another device would otherwise erase a deliberate English.
+            #
+            # Decided under the row lock below rather than here. Reading the
+            # flag at this point would read the instance the form was built
+            # from, which is exactly the stale value a concurrent switch
+            # invalidates.
+            inferred_language = None
             if is_first_submission and hasattr(request, "LANGUAGE_CODE"):
-                current_lang = request.LANGUAGE_CODE
-                if is_valid_language(current_lang):
-                    profile.preferred_language = current_lang
-                    logger.debug(
-                        f"Set preferred_language to '{current_lang}' for {request.user.email}"
-                    )
+                if is_valid_language(request.LANGUAGE_CODE):
+                    inferred_language = request.LANGUAGE_CODE
 
             # Mark profile as submitted — waiting for LuxId verification
             profile.completion_status = (
@@ -720,6 +726,36 @@ def create_profile(request):
 
             try:
                 with transaction.atomic():
+                    # Both language columns come from the DB under a row lock,
+                    # never from the instance the form was built on.
+                    #
+                    # profile.save() below writes the WHOLE row, so without
+                    # this it would push that stale snapshot back over the
+                    # language columns — and it would do so whether or not the
+                    # inference runs, silently reverting language_explicitly_set
+                    # to False for a switch that landed while the member was
+                    # filling the form in another tab. Re-reading is what stops
+                    # the clobber; the FOR UPDATE is what stops the switch from
+                    # landing between the read and the save, since it blocks
+                    # that UPDATE until this transaction commits.
+                    locked = (
+                        CrushProfile.objects.select_for_update()
+                        .filter(pk=profile.pk)
+                        .values("preferred_language", "language_explicitly_set")
+                        .first()
+                    )
+                    if locked:
+                        profile.preferred_language = locked["preferred_language"]
+                        profile.language_explicitly_set = locked[
+                            "language_explicitly_set"
+                        ]
+                    if inferred_language and not profile.language_explicitly_set:
+                        profile.preferred_language = inferred_language
+                        logger.debug(
+                            f"Set preferred_language to '{inferred_language}' "
+                            f"for {request.user.email}"
+                        )
+
                     profile.save()
                     logger.info(f"Profile submitted for review: {request.user.email}")
 

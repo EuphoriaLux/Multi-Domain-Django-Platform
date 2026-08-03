@@ -649,6 +649,27 @@ class CrushProfile(models.Model):
         default="en",
         help_text=_("Preferred language for emails and notifications"),
     )
+    # Whether preferred_language above is an answer or just the default.
+    #
+    # The field is default="en" and non-blank, so "en" alone cannot tell a
+    # member who chose English from one who never opened the setting — and the
+    # two want opposite treatment on routes outside i18n_patterns, which have
+    # no /fr/ prefix and fall back to Accept-Language. Without this flag the
+    # only safe reading of a stored "en" is "no answer given", which hands an
+    # explicit-English member a French page on a French browser.
+    #
+    # Set by the language switcher (views_language.set_language_with_profile),
+    # and only there: values inferred on the member's behalf — signup's
+    # request.LANGUAGE_CODE, a LuxID locale claim — deliberately leave it
+    # False, because inferring a language is not the member answering.
+    # Read by utils.i18n.get_onscreen_language.
+    language_explicitly_set = models.BooleanField(
+        default=False,
+        help_text=_(
+            "True when the member picked their language themselves, rather "
+            "than it being inferred from their browser or LuxID locale."
+        ),
+    )
 
     # --- Event Identity (2026 redesign) ------------------------------------
     # Structured replacement for the free-text bio/interests fields above:
@@ -1034,12 +1055,31 @@ class CrushProfile(models.Model):
             user_id=self.user_id, status="active"
         ).exists()
 
+    @classmethod
+    def from_db(cls, db, field_names, values):
+        instance = super().from_db(db, field_names, values)
+        # Remember what the language columns held when this instance was read,
+        # so save() below can tell "this code path chose a language" from "this
+        # code path never touched it and is about to write back a stale copy".
+        # Skipped for deferred loads, which Django saves via update_fields
+        # anyway and so cannot clobber.
+        if (
+            "preferred_language" in field_names
+            and "language_explicitly_set" in field_names
+        ):
+            instance._loaded_language = (
+                instance.preferred_language,
+                instance.language_explicitly_set,
+            )
+        return instance
+
     def save(self, *args, **kwargs):
         """
         Override save to:
         1. Keep verification_status in sync with legacy is_approved field.
         2. Enforce phone verification protection at model level.
         3. Delete old photo blobs when photos are replaced to prevent orphans.
+        4. Protect an untouched language choice from stale full-row saves.
         """
         # Sync legacy is_approved → verification_status (backward compat while
         # old code still writes is_approved directly).
@@ -1064,6 +1104,62 @@ class CrushProfile(models.Model):
                     self.phone_verified_at = old_instance.phone_verified_at
                     self.phone_verification_uid = old_instance.phone_verification_uid
 
+                # Preserve a language choice this save never made, for the same
+                # reason and off the same read as the verified phone above.
+                #
+                # A full-row save writes every column from an instance that was
+                # loaded when the request began, so any of the ~33 profile saves
+                # across the app will happily push a minutes-old language back
+                # over one the member changed in another tab meanwhile. That
+                # became load-bearing with language_explicitly_set: reverting it
+                # to False turns an answered English back into "never asked",
+                # and off-prefix pages start following Accept-Language again.
+                #
+                # Only values this save did not set are restored — comparing
+                # against what the instance was loaded with is what tells the
+                # difference, so a deliberate change still writes normally.
+                # Callers naming update_fields are already precise and are left
+                # alone; the language switcher is one of them.
+                #
+                # KNOWN RESIDUAL, and deliberate. This read is not locked, so a
+                # switch committing between it and the UPDATE below is still
+                # lost. What it buys is scale: the window shrinks from a whole
+                # request — a member filling in a form for minutes while
+                # autosave fires — to the gap between two adjacent queries. The
+                # verified-phone protection above has had exactly this window in
+                # production since it was written.
+                #
+                # Closing it needs the read and the write in one statement, and
+                # both routes there cost more than the bug:
+                #   - select_for_update() here raises TransactionManagementError
+                #     for any of the ~33 profile saves not already inside an
+                #     atomic block, because ATOMIC_REQUESTS is off. CI cannot
+                #     catch that: it runs SQLite, where the lock is a silent
+                #     no-op (has_select_for_update is False), so the breakage
+                #     would only appear on production Postgres.
+                #   - Computing update_fields to omit these two columns turns
+                #     post_save's update_fields from None into a frozenset on
+                #     every profile save, and code deliberately reads a
+                #     update_fields-less save as "refresh everything" (see
+                #     trigger_wallet_pass_update_on_profile_change).
+                # The real fix is for these columns not to sit on a row that 33
+                # callers full-row save — i.e. their own table, written only by
+                # the switcher. That is a schema change, not a patch.
+                loaded_language = getattr(self, "_loaded_language", None)
+                if (
+                    kwargs.get("update_fields") is None
+                    and loaded_language is not None
+                    and (
+                        self.preferred_language,
+                        self.language_explicitly_set,
+                    )
+                    == loaded_language
+                ):
+                    self.preferred_language = old_instance.preferred_language
+                    self.language_explicitly_set = (
+                        old_instance.language_explicitly_set
+                    )
+
                 # Clean up old photo blobs when replaced or cleared
                 for field_name in ("photo_1", "photo_2", "photo_3"):
                     old_photo = getattr(old_instance, field_name)
@@ -1076,6 +1172,12 @@ class CrushProfile(models.Model):
             except CrushProfile.DoesNotExist:
                 pass
         super().save(*args, **kwargs)
+        # This instance is now in step with the row, so a later save on it
+        # judges "touched since" against what was actually written.
+        self._loaded_language = (
+            self.preferred_language,
+            self.language_explicitly_set,
+        )
 
     def reset_phone_verification(self):
         """

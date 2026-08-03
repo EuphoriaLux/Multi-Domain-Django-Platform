@@ -547,6 +547,12 @@ class CrushProfileAdmin(admin.ModelAdmin):
                     "not_on_whatsapp",
                     "location",
                     "preferred_language",
+                    # Shown beside the language because it changes what the
+                    # language MEANS: an unticked "en" is the default nobody
+                    # touched, and off-prefix pages follow the browser instead.
+                    # Tick it when a member asks for English in writing —
+                    # otherwise only the switcher sets it.
+                    "language_explicitly_set",
                     "event_languages",
                 ),
                 "description": _("Core profile information"),
