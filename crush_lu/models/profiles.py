@@ -1055,12 +1055,31 @@ class CrushProfile(models.Model):
             user_id=self.user_id, status="active"
         ).exists()
 
+    @classmethod
+    def from_db(cls, db, field_names, values):
+        instance = super().from_db(db, field_names, values)
+        # Remember what the language columns held when this instance was read,
+        # so save() below can tell "this code path chose a language" from "this
+        # code path never touched it and is about to write back a stale copy".
+        # Skipped for deferred loads, which Django saves via update_fields
+        # anyway and so cannot clobber.
+        if (
+            "preferred_language" in field_names
+            and "language_explicitly_set" in field_names
+        ):
+            instance._loaded_language = (
+                instance.preferred_language,
+                instance.language_explicitly_set,
+            )
+        return instance
+
     def save(self, *args, **kwargs):
         """
         Override save to:
         1. Keep verification_status in sync with legacy is_approved field.
         2. Enforce phone verification protection at model level.
         3. Delete old photo blobs when photos are replaced to prevent orphans.
+        4. Protect an untouched language choice from stale full-row saves.
         """
         # Sync legacy is_approved → verification_status (backward compat while
         # old code still writes is_approved directly).
@@ -1085,6 +1104,37 @@ class CrushProfile(models.Model):
                     self.phone_verified_at = old_instance.phone_verified_at
                     self.phone_verification_uid = old_instance.phone_verification_uid
 
+                # Preserve a language choice this save never made, for the same
+                # reason and off the same read as the verified phone above.
+                #
+                # A full-row save writes every column from an instance that was
+                # loaded when the request began, so any of the ~33 profile saves
+                # across the app will happily push a minutes-old language back
+                # over one the member changed in another tab meanwhile. That
+                # became load-bearing with language_explicitly_set: reverting it
+                # to False turns an answered English back into "never asked",
+                # and off-prefix pages start following Accept-Language again.
+                #
+                # Only values this save did not set are restored — comparing
+                # against what the instance was loaded with is what tells the
+                # difference, so a deliberate change still writes normally.
+                # Callers naming update_fields are already precise and are left
+                # alone; the language switcher is one of them.
+                loaded_language = getattr(self, "_loaded_language", None)
+                if (
+                    kwargs.get("update_fields") is None
+                    and loaded_language is not None
+                    and (
+                        self.preferred_language,
+                        self.language_explicitly_set,
+                    )
+                    == loaded_language
+                ):
+                    self.preferred_language = old_instance.preferred_language
+                    self.language_explicitly_set = (
+                        old_instance.language_explicitly_set
+                    )
+
                 # Clean up old photo blobs when replaced or cleared
                 for field_name in ("photo_1", "photo_2", "photo_3"):
                     old_photo = getattr(old_instance, field_name)
@@ -1097,6 +1147,12 @@ class CrushProfile(models.Model):
             except CrushProfile.DoesNotExist:
                 pass
         super().save(*args, **kwargs)
+        # This instance is now in step with the row, so a later save on it
+        # judges "touched since" against what was actually written.
+        self._loaded_language = (
+            self.preferred_language,
+            self.language_explicitly_set,
+        )
 
     def reset_phone_verification(self):
         """

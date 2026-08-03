@@ -753,6 +753,106 @@ class ExplicitLanguageChoiceTests(SiteTestMixin, TestCase):
             'inferring a language is not the member answering',
         )
 
+    def test_a_stale_full_row_save_cannot_revert_a_language_choice(self):
+        """Model-level protection, because there are ~33 of these call sites.
+
+        Any full-row save writes every column from an instance loaded when the
+        request began, so a switch landing mid-request gets pushed back to its
+        old value — reverting language_explicitly_set to False turns an answered
+        English into "never asked" and off-prefix pages resume following
+        Accept-Language. Chasing each caller was losing to the third one found
+        (the settings autosave), so CrushProfile.save() now restores language
+        columns this save did not itself set, off the same row read it already
+        does for the verified phone.
+        """
+        from crush_lu.models import CrushProfile
+
+        stale = CrushProfile.objects.get(pk=self.profile.pk)
+        self.assertEqual(stale.preferred_language, 'en')
+        self.assertFalse(stale.language_explicitly_set)
+
+        # The member picks English in another tab; it commits.
+        CrushProfile.objects.filter(pk=self.profile.pk).update(
+            preferred_language='en', language_explicitly_set=True
+        )
+
+        # The long-running request finishes and saves its whole row.
+        stale.bio = 'edited in the other tab'
+        stale.save()
+
+        self.profile.refresh_from_db()
+        self.assertTrue(
+            self.profile.language_explicitly_set,
+            'a save that never touched the language must not revert it',
+        )
+        self.assertEqual(self.profile.bio, 'edited in the other tab')
+
+    def test_a_deliberate_language_change_still_saves(self):
+        """The protection must not swallow real edits — only untouched ones."""
+        from crush_lu.models import CrushProfile
+
+        profile = CrushProfile.objects.get(pk=self.profile.pk)
+        profile.preferred_language = 'de'
+        profile.save()
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.preferred_language, 'de')
+
+    def test_the_settings_autosave_cannot_revert_a_language_choice(self):
+        """The specific caller review flagged: form.save() is a full-row save."""
+        import json
+
+        from crush_lu.models import CrushProfile
+
+        import crush_lu.views as crush_views
+
+        self.profile.is_approved = True
+        self.profile.verification_status = 'verified'
+        self.profile.save()
+
+        # The switch has to land AFTER the view loads the profile and before
+        # form.save(). Committing it before the POST proves nothing — the view
+        # would just read the fresh row and there would be no staleness to
+        # clobber. _get_profile_form_initial_data runs in exactly that window.
+        original = crush_views._get_profile_form_initial_data
+
+        def switch_lands_now(profile_arg):
+            CrushProfile.objects.filter(pk=self.profile.pk).update(
+                preferred_language='en', language_explicitly_set=True
+            )
+            return original(profile_arg)
+
+        with patch.object(
+            crush_views, '_get_profile_form_initial_data', switch_lands_now
+        ):
+            response = self._autosave_event_languages()
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.event_languages, ['en', 'fr'])
+        self.assertTrue(
+            self.profile.language_explicitly_set,
+            'the autosave must not revert the flag it never touched',
+        )
+
+    def _autosave_event_languages(self):
+        import json
+
+        response = self.client.post(
+            '/api/profile/settings/',
+            data=json.dumps(
+                {'section': 'event_identity', 'event_languages': ['en', 'fr']}
+            ),
+            content_type='application/json',
+            HTTP_HOST='crush.lu',
+        )
+        # Assert the save actually happened. "about" was folded into
+        # "event_identity" by the 2026 redesign and now falls through to
+        # "Invalid section", writing nothing — which would satisfy the caller's
+        # assertions for entirely the wrong reason.
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(response.json().get('success'), response.content)
+        return response
+
     def test_a_switch_landing_mid_submission_is_not_clobbered(self):
         """The interleaving raised in review, made deterministic.
 
