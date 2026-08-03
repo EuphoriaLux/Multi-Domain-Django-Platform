@@ -63,6 +63,7 @@ from .notification_service import (
     notify_profile_rejected,
 )
 from .referrals import check_and_apply_profile_approved_reward
+from .services.profile_verification import claim_profile_verification
 
 
 # Coach views
@@ -1316,7 +1317,8 @@ def coach_review_profile(request, submission_id):
         form = ProfileReviewForm(request.POST, instance=submission)
         if form.is_valid():
             submission = form.save(commit=False)
-            submission.reviewed_at = timezone.now()
+            reviewed_at = timezone.now()
+            submission.reviewed_at = reviewed_at
 
             # Update profile approval status and send notifications
             if submission.status == "approved":
@@ -1337,29 +1339,43 @@ def coach_review_profile(request, submission_id):
                     return render(
                         request, "crush_lu/coach_review_profile.html", context
                     )
-                submission.profile.is_approved = True
-                submission.profile.approved_at = timezone.now()
-                submission.profile.verification_status = "verified"
-                submission.profile.save()
-                messages.success(request, _("Profile approved!"))
+                claimed = claim_profile_verification(
+                    submission.profile,
+                    method="admin",
+                    approved_at=reviewed_at,
+                    claim_from=("incomplete", "pending", "rejected"),
+                )
+                if claimed:
+                    messages.success(request, _("Profile approved!"))
 
-                # Award referral bonus points to the referrer (if this user was referred)
-                check_and_apply_profile_approved_reward(submission.profile)
+                    # Only the winning verification path owns referral and
+                    # approval-notification side effects.
+                    check_and_apply_profile_approved_reward(submission.profile)
 
-                # Send approval notification to user (push first, email fallback)
-                try:
-                    result = notify_profile_approved(
-                        user=submission.profile.user,
-                        profile=submission.profile,
-                        coach_notes=submission.feedback_to_user,
-                        request=request,
-                    )
-                    if result.any_delivered:
-                        logger.info(
-                            f"Profile approval notification sent: push={result.push_success}, email={result.email_sent}"
+                    # Send approval notification to user (push first, email fallback)
+                    try:
+                        result = notify_profile_approved(
+                            user=submission.profile.user,
+                            profile=submission.profile,
+                            coach_notes=submission.feedback_to_user,
+                            request=request,
                         )
-                except Exception as e:
-                    logger.error(f"Failed to send profile approval notification: {e}")
+                        if result.any_delivered:
+                            logger.info(
+                                f"Profile approval notification sent: push={result.push_success}, email={result.email_sent}"
+                            )
+                    except Exception as e:
+                        logger.error(
+                            f"Failed to send profile approval notification: {e}"
+                        )
+                else:
+                    messages.info(
+                        request,
+                        _(
+                            "This member was already verified by another path. "
+                            "The review was saved without changing their verification."
+                        ),
+                    )
 
             elif submission.status == "rejected":
                 submission.profile.is_approved = False

@@ -2617,19 +2617,19 @@ def _execute_luxid_direct_verify(user, profile, submission, request):
     """
     now = timezone.now()
     with transaction.atomic():
+        from .services.profile_verification import claim_profile_verification
+
         # Conditional claim, matching the coach/check-in verification paths
-        # (`views_checkin._apply_verification`). An unconditional save here
+        # through their shared service. An unconditional save here
         # would let a LuxID callback that read `pending` overwrite a method a
         # door scan had already committed — and both would then emit the
         # approval notification and referral work. Whoever claims the
         # transition owns it; the loser leaves the record alone.
-        claimed = CrushProfile.objects.filter(
-            pk=profile.pk, verification_status__in=("incomplete", "pending")
-        ).update(
-            is_approved=True,
+        claimed = claim_profile_verification(
+            profile,
+            method="luxid",
             approved_at=now,
-            verification_status="verified",
-            verification_method="luxid",
+            claim_from=("incomplete", "pending"),
         )
         if not claimed:
             logger.info(
@@ -2638,11 +2638,6 @@ def _execute_luxid_direct_verify(user, profile, submission, request):
                 profile.pk,
             )
             return False
-        profile.is_approved = True
-        profile.approved_at = now
-        profile.verification_status = "verified"
-        profile.verification_method = "luxid"
-
         if submission and submission.status == "pending":
             submission.status = "approved"
             submission.reviewed_at = now

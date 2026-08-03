@@ -24,6 +24,7 @@ from django.views.decorators.http import require_POST
 from .decorators import coach_required
 from .models import CrushProfile, EventRegistration, ProfileSubmission
 from .models.events import SEAT_HOLDING_STATUSES
+from .services.profile_verification import claim_profile_verification
 
 logger = logging.getLogger(__name__)
 
@@ -111,21 +112,13 @@ def _apply_verification(profile, method, coach, now, claim_from=("pending",)):
     # overwrite the method that actually came first, and both would send the
     # welcome email. The UPDATE's own WHERE clause settles it without needing
     # every caller to hold the same lock.
-    claimed = CrushProfile.objects.filter(
-        pk=profile.pk, verification_status__in=claim_from
-    ).update(
-        is_approved=True,
+    if not claim_profile_verification(
+        profile,
+        method=method,
         approved_at=now,
-        verification_status="verified",
-        verification_method=method,
-    )
-    if not claimed:
+        claim_from=claim_from,
+    ):
         return False
-    # Keep the in-memory instance consistent with the row we just wrote.
-    profile.is_approved = True
-    profile.approved_at = now
-    profile.verification_status = "verified"
-    profile.verification_method = method
 
     # Approve a pending submission opportunistically, gated on the
     # expired-latest invariant: when the newest row was closed out by the pivot
