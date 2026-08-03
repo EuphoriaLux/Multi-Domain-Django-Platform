@@ -696,10 +696,20 @@ def create_profile(request):
                 "verified",
             )
 
-            # Set preferred language from current request language on first submission
+            # Set preferred language from current request language on first
+            # submission — but only where the member has not answered for
+            # themselves. This reads the URL prefix, so it is an inference, the
+            # same class as the LuxID locale claim, and it must yield to an
+            # explicit pick for the same reason: it runs on an EXISTING profile,
+            # and following a /fr/create-profile/ link on another device would
+            # otherwise erase a deliberate English. Worse than the LuxID case,
+            # since this save writes the whole row — the flag would survive as
+            # True while the answer it vouches for had been swapped underneath
+            # it, and get_onscreen_language takes a stored fr as self-evidently
+            # chosen without ever consulting the flag again.
             if is_first_submission and hasattr(request, "LANGUAGE_CODE"):
                 current_lang = request.LANGUAGE_CODE
-                if is_valid_language(current_lang):
+                if is_valid_language(current_lang) and not profile.language_explicitly_set:
                     profile.preferred_language = current_lang
                     logger.debug(
                         f"Set preferred_language to '{current_lang}' for {request.user.email}"

@@ -688,6 +688,122 @@ class ExplicitLanguageChoiceTests(SiteTestMixin, TestCase):
         self.assertEqual(self.profile.preferred_language, 'en')
         self.assertFalse(self.profile.language_explicitly_set)
 
+    def test_a_switch_always_writes_both_columns(self):
+        """Guards the interleaving described in review, without racing threads.
+
+        ``update_fields`` writes ONLY the columns it names, so a save that
+        omits the half it thinks is unchanged lets two overlapping switches
+        blend: both read en/False, one picks fr and saves, then the one picking
+        en saves without ``preferred_language`` because its own stale copy
+        already said "en" — and the row lands on fr/True. Naming both columns
+        every time is what makes the later save overwrite cleanly, so that is
+        the invariant pinned here.
+        """
+        from crush_lu.models import CrushProfile
+
+        seen = []
+        original_save = CrushProfile.save
+
+        def spy(instance, *args, **kwargs):
+            seen.append(kwargs.get('update_fields'))
+            return original_save(instance, *args, **kwargs)
+
+        # 'en' is the no-op pick — the one whose update_fields used to be
+        # short, and so exactly the one that corrupted the row.
+        with patch.object(CrushProfile, 'save', spy):
+            self._switch_to('en')
+
+        writes = [set(f) for f in seen if f]
+        self.assertIn(
+            {'preferred_language', 'language_explicitly_set'},
+            writes,
+            f'both columns must be written together; saw {writes}',
+        )
+
+    def test_first_submission_does_not_overwrite_an_answered_language(self):
+        """``create_profile`` infers the language from the URL prefix.
+
+        That is an inference on an EXISTING profile, so it has to yield to an
+        explicit pick exactly as the LuxID path does — otherwise opening a
+        /fr/create-profile/ link on another device erases a deliberate English.
+        This one is the more damaging of the two: it saves the whole row, so
+        the flag would survive as True while the answer it vouches for had been
+        swapped underneath it, and get_onscreen_language reads the resulting
+        stored "fr" as self-evidently chosen without consulting the flag again.
+        """
+        self.profile.language_explicitly_set = True
+        self.profile.save(update_fields=['language_explicitly_set'])
+
+        self._submit_profile_from_french()
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.preferred_language, 'en')
+        self.assertTrue(self.profile.language_explicitly_set)
+
+    def test_first_submission_still_infers_when_nobody_has_answered(self):
+        """The other side: unchanged behaviour for the majority case."""
+        self.assertFalse(self.profile.language_explicitly_set)
+
+        self._submit_profile_from_french()
+
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.preferred_language, 'fr')
+        self.assertFalse(
+            self.profile.language_explicitly_set,
+            'inferring a language is not the member answering',
+        )
+
+    def _submit_profile_from_french(self):
+        """POST a first profile submission through the /fr/ prefix."""
+        from allauth.account.models import EmailAddress
+        from django.urls import reverse
+        from django.utils.translation import override as translation_override
+
+        EmailAddress.objects.update_or_create(
+            user=self.user,
+            email=self.user.email,
+            defaults={'verified': True, 'primary': True},
+        )
+        # The submission gate needs a verified phone and a seen coach intro.
+        self.profile.phone_number = '+35212345678'
+        self.profile.phone_verified = True
+        self.profile.phone_verified_at = timezone.now()
+        self.profile.coach_intro_seen_at = timezone.now()
+        self.profile.save()
+        self.assertNotIn(
+            self.profile.verification_status,
+            ('pending', 'verified'),
+            'precondition: this must count as a FIRST submission',
+        )
+
+        with translation_override('fr'):
+            url = reverse('crush_lu:create_profile')
+        self.assertTrue(url.startswith('/fr/'), url)
+
+        response = self.client.post(
+            url,
+            {
+                'phone_number': '+35212345678',
+                'date_of_birth': (
+                    timezone.now().date() - timedelta(days=30 * 365)
+                ).isoformat(),
+                'gender': 'F',
+                'location': 'canton-luxembourg',
+                'bio': 'Testing bio',
+                'interests': 'Reading, Hiking',
+                'event_languages': ['en', 'fr'],
+            },
+            follow=True,
+            HTTP_HOST='crush.lu',
+        )
+        self.profile.refresh_from_db()
+        self.assertEqual(
+            self.profile.verification_status,
+            'pending',
+            'the submission must actually have gone through',
+        )
+        return response
+
     def test_get_onscreen_language_prefers_an_answered_english(self):
         from crush_lu.utils.i18n import get_onscreen_language
 

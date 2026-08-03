@@ -66,27 +66,38 @@ def set_language_with_profile(request):
                 profile = getattr(request.user, 'crushprofile', None)
                 if profile:
                     old_language = profile.preferred_language
-                    # A pick that matches the value already stored still has to
-                    # be recorded. preferred_language is default="en", so for an
-                    # English member "choose English" is a no-op on the value and
-                    # was skipped entirely by the old change-only early-out —
-                    # leaving the one member whose intent we most need on record
+                    # Both halves, every time, even when one already looks
+                    # correct on this instance.
+                    #
+                    # Two things force that. A pick matching the stored value is
+                    # still a pick: preferred_language is default="en", so an
+                    # English member choosing English changes nothing, and a
+                    # change-only write records nothing at all — leaving the
+                    # member whose intent we most need on record
                     # indistinguishable from one who never opened the setting.
-                    # The flag is what carries that, so the write is now keyed on
-                    # either half being stale, not on the language alone.
-                    fields = []
-                    if old_language != new_language:
-                        profile.preferred_language = new_language
-                        fields.append('preferred_language')
-                    if not profile.language_explicitly_set:
-                        profile.language_explicitly_set = True
-                        fields.append('language_explicitly_set')
-                    if fields:
-                        profile.save(update_fields=fields)
-                        logger.info(
-                            f"Updated preferred_language for user {request.user.id}: "
-                            f"{old_language} -> {new_language} (fields={fields})"
-                        )
+                    #
+                    # And omitting the unchanged half is not merely redundant,
+                    # it corrupts. update_fields writes ONLY the named columns,
+                    # so two overlapping switches interleave: both read en/False,
+                    # one picks fr and saves, then the one picking en saves a
+                    # list omitting preferred_language because its own stale copy
+                    # already said "en". The row lands on fr/True — a blend
+                    # neither member asked for, and the explicit English this
+                    # flag exists to protect is the half that loses. Naming both
+                    # columns makes the later save overwrite cleanly instead:
+                    # last pick wins whole, rather than half of each.
+                    profile.preferred_language = new_language
+                    profile.language_explicitly_set = True
+                    profile.save(
+                        update_fields=[
+                            'preferred_language',
+                            'language_explicitly_set',
+                        ]
+                    )
+                    logger.info(
+                        f"Updated preferred_language for user {request.user.id}: "
+                        f"{old_language} -> {new_language} (explicit)"
+                    )
             except Exception as e:
                 # Don't fail the language switch if profile update fails
                 logger.warning(
