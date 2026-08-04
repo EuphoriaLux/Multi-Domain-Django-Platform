@@ -124,33 +124,36 @@
         // The server counts what SumUp has recorded, and nothing else — it
         // cannot tell whether a failure the widget reported and a provider
         // record arriving later are one refused card or two, and three attempts
-        // to make it guess all broke. This is the other half, and it lives here
-        // because only the page knows which failures it has actually shown.
+        // to make it guess all broke. Neither can the page. So it no longer
+        // tries: this is only "is there news?", and the answer being wrong
+        // costs a repeated sentence rather than an abandoned payment.
         //
         // Seeded from the page itself, not fetched. Fetching cannot be made
         // safe however early it starts: the status endpoint does a live
         // provider read, so a slow one can answer with state recorded AFTER a
         // card was submitted, and the page would file that very failure as one
         // it had already seen. Rendered with the HTML, this is the count as it
-        // stood before the page existed.
+        // stood before the page existed. It moves from there on two events
+        // only — a poll that sees a higher one, and the answer to a failure
+        // report, which is a count the server took from a fresh read of the
+        // checkout at the moment the customer was shown the refusal.
         let acknowledgedFailures = Number("{{ attempt_marker|escapejs }}") || 0;
-        // Set when the SDK reports a refusal itself, for a card that was
-        // actually submitted. SumUp records that same attempt moments later and
-        // the count rises for a failure already on screen, so the next rise is
-        // absorbed rather than reported twice. A flag and not an increment:
-        // if SumUp never records the attempt, nothing was absorbed and the next
-        // genuine refusal still reports normally.
-        let absorbNextFailure = false;
 
         function watchCheckout() {
+            // A new attempt is underway, so the last one's message is stale and
+            // the clock starts again: the window is five minutes from the last
+            // thing the card did, not from the first card of the evening.
+            deadline = Date.now() + POLL_WINDOW_MS;
+            errorEl.classList.add("hidden");
+            statusEl.classList.remove("hidden");
             if (watching) {
+                // Already polling. "auth-screen" follows "sent" for the same
+                // card, and a retry can arrive while the previous attempt's
+                // watch is still running — scheduling again here would stack a
+                // second timer on top of the first and double the poll rate.
                 return;
             }
             watching = true;
-            deadline = Date.now() + POLL_WINDOW_MS;
-            // A new attempt is underway, so the last one's message is stale.
-            errorEl.classList.add("hidden");
-            statusEl.classList.remove("hidden");
             scheduleNextPoll();
         }
 
@@ -160,9 +163,16 @@
             }
             if (Date.now() > deadline) {
                 stopWatching();
-                // Never leave a dead page. The return route re-reads the
-                // checkout and says plainly whether it was paid.
-                window.location.href = returnUrl;
+                if (errorEl.classList.contains("hidden")) {
+                    // Never leave a dead page: there is nothing on screen but a
+                    // spinner that has given up. The return route re-reads the
+                    // checkout and says plainly whether it was paid.
+                    window.location.href = returnUrl;
+                }
+                // Otherwise the page is already telling the truth and the
+                // widget is still mounted, so it is not dead — and navigating
+                // now would throw away a card the customer may be halfway
+                // through typing.
                 return;
             }
             fetch(statusUrl, { headers: { Accept: "application/json" } })
@@ -177,33 +187,33 @@
                     }
                     const failures = Number((data && data.attempt_marker) || 0);
                     if (failures > acknowledgedFailures) {
-                        // How many refusals have appeared that the customer has
-                        // not been shown. Counted, not treated as one event: the
-                        // count can rise by two in a single poll — SumUp
-                        // catching up on the decline the SDK reported, plus a
-                        // second card refused since. Letting the absorb flag
-                        // swallow the whole rise would drop the one that is
-                        // genuinely new and leave the page spinning to the
-                        // deadline over it.
-                        let unseen = failures - acknowledgedFailures;
                         acknowledgedFailures = failures;
-                        if (absorbNextFailure) {
-                            // Exactly one of them is the refusal the SDK already
-                            // put on screen. Not news; anything beyond it is.
-                            absorbNextFailure = false;
-                            unseen -= 1;
-                        }
-                        if (unseen > 0) {
-                            // A card was refused that the customer has not been
-                            // told about. The checkout stays payable — SumUp
-                            // keeps it open so another can be tried — so don't
-                            // leave and don't keep spinning: say so, and let
-                            // them retry in the widget still on screen.
-                            stopWatching();
+                        // A card was refused. Say so — and keep watching.
+                        //
+                        // The checkout stays payable, SumUp keeps it open so
+                        // another card can be tried, and a retry that goes
+                        // behind a 3-D Secure challenge is invisible to the SDK
+                        // — this poll is then the only thing that will ever
+                        // hear how it ends. Stopping here is how a retry that
+                        // SUCCEEDED left the customer sitting on a decline with
+                        // their money taken, which is the exact hang this whole
+                        // page exists to fix.
+                        //
+                        // Because showing is no longer destructive, it does not
+                        // matter whether this rise is the refusal the SDK
+                        // already reported or a fresh one: the box says the
+                        // same thing either way and the watch survives it. That
+                        // is what retired the flag this used to need — nothing
+                        // on the page could tell those two apart, and three
+                        // attempts to guess all failed differently.
+                        if (errorEl.classList.contains("hidden")) {
+                            // Only when nothing is up: the SDK's own message
+                            // names the reason the bank gave, and this generic
+                            // one would replace it with less.
                             errorEl.textContent = defaultError;
                             errorEl.classList.remove("hidden");
-                            return;
                         }
+                        statusEl.classList.add("hidden");
                     }
                     scheduleNextPoll();
                 })
@@ -254,13 +264,26 @@
                         return res.ok ? res.json() : null;
                     })
                     .then(function (data) {
+                        if (!data) {
+                            return;
+                        }
+                        // The server re-read the checkout to answer this, so
+                        // its count is the authority on whether SumUp has
+                        // recorded the attempt the customer is now looking at.
+                        // Taking it here is what stops the poll announcing that
+                        // same refusal over again a few seconds later, and it
+                        // settles the question by asking rather than guessing.
+                        const reported = Number(data.attempt_marker || 0);
+                        if (reported > acknowledgedFailures) {
+                            acknowledgedFailures = reported;
+                        }
                         // The server verifies against SumUp before answering,
                         // and an SDK error raised AFTER the money was captured
-                        // is a real sequence. Polling has already stopped by
-                        // now, so this is the last thing the page hears — if
-                        // the payment actually went through, correct the
-                        // decline the customer is looking at and move on.
-                        if (data && data.settled) {
+                        // is a real sequence. If the payment actually went
+                        // through, correct the decline the customer is looking
+                        // at and move on.
+                        if (data.settled) {
+                            stopWatching();
                             errorEl.classList.add("hidden");
                             window.location.href = returnUrl;
                         }
@@ -300,14 +323,16 @@
                         return;
                     }
                     if (type === "error" || type === "fail" || type === "invalid") {
-                        // Only when a card was actually in flight. The widget
-                        // also rejects cards before submitting them, and SumUp
-                        // never hears about those — absorbing a rise that will
-                        // never come would swallow the next real refusal.
-                        if (watching) {
-                            absorbNextFailure = true;
-                        }
-                        stopWatching();
+                        // Say what happened, but do NOT stop watching. The
+                        // checkout stays payable and the widget stays mounted,
+                        // so the customer's next card is one they enter right
+                        // here — and if that one goes behind a 3DS challenge
+                        // the SDK will never speak again. Only the poll can
+                        // hear it, and it has to still be listening.
+                        //
+                        // Hiding the spinner is enough to stop the page
+                        // contradicting itself; nothing needs to be torn down.
+                        statusEl.classList.add("hidden");
                         errorEl.textContent =
                             (body && (body.message || body.error_message)) || defaultError;
                         errorEl.classList.remove("hidden");

@@ -2325,6 +2325,41 @@ class FailureReasonLifecycleTests(SiteTestMixin, TestCase):
         self.assertEqual(self.tx.status, PaymentTransaction.Status.FAILED)
 
     @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_snapshot_cannot_land_on_a_row_paid_while_sumup_was_read(self, mock_get):
+        """The same race as its three siblings, in the last writer to get a lock.
+
+        The Coach Panel's re-check holds this row as it was loaded while the
+        provider answers, and that read is the slowest of them. A poll finishing
+        inside that window pays the row and clears its reason; writing the
+        snapshot blind afterwards puts a failed payload and a decline back onto
+        a payment that has just been paid.
+        """
+        from crush_lu.views_payments import refresh_sumup_snapshot
+
+        def a_poll_pays_the_row_mid_read(_checkout_id):
+            PaymentTransaction.objects.filter(pk=self.tx.pk).update(
+                status=PaymentTransaction.Status.PAID,
+                raw_response={"id": "CHK_LIFE", "status": "PAID"},
+                failure_reason="",
+            )
+            return {
+                "id": "CHK_LIFE",
+                "status": "FAILED",
+                "transactions": [{"status": "FAILED", "failure_reason": "DECLINED"}],
+            }
+
+        mock_get.side_effect = a_poll_pays_the_row_mid_read
+
+        # Still answers with what SumUp said — the caller compares the two
+        # records and this disagreement is exactly what it needs to see.
+        self.assertEqual(refresh_sumup_snapshot(self.tx), "FAILED")
+
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(self.tx.failure_reason, "")
+        self.assertEqual(self.tx.raw_response["status"], "PAID")
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
     def test_refreshing_never_quietly_confirms_a_seat(self, mock_get):
         """A written-off row that SumUp calls PAID is a discrepancy, not a fix.
 
@@ -3104,8 +3139,48 @@ class DeclineDoesNotHangThePageTests(SiteTestMixin, TestCase):
 
         self.assertContains(response, "acknowledgedFailures")
         self.assertContains(response, "attempt_marker")
-        # And it absorbs SumUp catching up on a refusal it displayed itself.
-        self.assertContains(response, "absorbNextFailure")
+
+    def _widget_script(self):
+        response = self.client.get(
+            reverse("crush_lu:sumup_widget", kwargs={"checkout_id": "CHK_HANG"})
+        )
+        self.assertEqual(response.status_code, 200)
+        return response.content.decode()
+
+    def test_showing_a_decline_does_not_stop_the_watch(self):
+        """The one invariant that keeps a retry from stranding somebody.
+
+        A refused card leaves the checkout payable, so the customer's next card
+        goes into the widget still on screen — and if that one goes behind a 3DS
+        challenge the SDK never speaks again. Tearing the watch down when a
+        decline is displayed means the retry that SUCCEEDS is never heard: money
+        taken, seat not granted, page showing an error. That is the original
+        hang, re-entered through the door marked "handled".
+        """
+        body = self._widget_script()
+
+        # The poll's decline branch.
+        branch = body.split("if (failures > acknowledgedFailures) {", 1)[1].split(
+            "scheduleNextPoll();", 1
+        )[0]
+        self.assertNotIn("stopWatching", branch)
+
+        # And the SDK's own, which reports the same kind of refusal.
+        sdk = body.split('if (type === "error"', 1)[1].split("reportFailure(", 1)[0]
+        self.assertNotIn("stopWatching", sdk)
+
+    def test_no_flag_tries_to_guess_which_refusal_a_rise_is(self):
+        """Three designs died here; none of them could have worked.
+
+        Nothing on the page can tell SumUp catching up on the refusal the SDK
+        just displayed from a second card refused since — they are the same
+        event from the page's side. A flag that guessed wrong one way announced
+        a stale decline over a card still in flight; wrong the other way it
+        swallowed a real one and spun to the five-minute deadline. Showing is
+        idempotent now, so there is nothing left to guess and nothing to carry
+        between attempts.
+        """
+        self.assertNotIn("absorbNextFailure", self._widget_script())
 
 
 class TerminalWriteRaceTests(SiteTestMixin, TestCase):
@@ -3584,10 +3659,20 @@ class ErrorAfterCaptureTests(SiteTestMixin, TestCase):
 
         body = response.content.decode()
         # The whole of reportFailure, not up to the next "function" — it has
-        # inline callbacks of its own.
-        report = body.split("function reportFailure(", 1)[1][:2000]
+        # inline callbacks of its own — and not a fixed slice either, which
+        # silently stopped covering the tail the first time a comment grew.
+        report = body.split("function reportFailure(", 1)[1].split(
+            "if (typeof SumUpCard", 1
+        )[0]
         self.assertIn("data.settled", report)
         self.assertIn("returnUrl", report)
+        # It also takes the count from its own answer. That count came from a
+        # server-side re-read of the checkout at the moment the customer was
+        # shown the refusal, which is the only party that can say whether SumUp
+        # has recorded it — the page would otherwise be guessing, and every
+        # design that guessed here was wrong.
+        self.assertIn("data.attempt_marker", report)
+        self.assertIn("acknowledgedFailures", report)
 
 
 class RecheckMismatchDirectionTests(SiteTestMixin, TestCase):
