@@ -4796,3 +4796,97 @@ class CommunitySupporterBadgeTests(SiteTestMixin, TestCase):
 
         self.assertFalse(EventRegistration.objects.exists())
         self.assertFalse(PremiumMembership.objects.exists())
+
+
+class WidgetNativeCommerceGateTests(SiteTestMixin, TestCase):
+    """Closing the creation endpoint does not close the checkout.
+
+    A checkout created on the web stays payable from its URL, and opening that
+    URL inside the iOS/Android shell mounts the SumUp SDK -- the external
+    purchase surface the store-compliance gate exists to remove. The card form
+    is the step that prevents the charge, so the gate has to be here too.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        self.user = User.objects.create_user(
+            username="widget@crush.lu", email="widget@crush.lu", password="password123"
+        )
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        self.client.force_login(self.user)
+
+    def _widget(self, checkout_id, native=False):
+        url = f"/payments/sumup/widget/{checkout_id}/"
+        if native:
+            # A native request is redirected to the language-prefixed URL, and
+            # the marker survives the hop -- follow it, or every assertion here
+            # would be checking a 302 rather than the view.
+            url += "?source=android_app"
+        return self.client.get(url, follow=True)
+
+    def _tx(self, purpose, checkout_id, **kwargs):
+        return PaymentTransaction.objects.create(
+            transaction_reference=f"REF-{checkout_id}",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id=checkout_id,
+            amount=Decimal("10.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=purpose,
+            user=self.user,
+            **kwargs,
+        )
+
+    @override_settings(ANDROID_NATIVE_COMMERCE_ENABLED=False)
+    def test_a_donation_widget_is_refused_in_a_native_session(self):
+        self._tx(PaymentTransaction.Purpose.DONATION, "CHK_W_DON")
+
+        # Answers exactly as an unknown checkout, so it is not an oracle.
+        self.assertEqual(self._widget("CHK_W_DON", native=True).status_code, 404)
+
+    @override_settings(ANDROID_NATIVE_COMMERCE_ENABLED=False)
+    def test_the_same_donation_widget_is_fine_on_the_web(self):
+        self._tx(PaymentTransaction.Purpose.DONATION, "CHK_W_DON2")
+
+        self.assertEqual(self._widget("CHK_W_DON2").status_code, 200)
+
+    @override_settings(ANDROID_NATIVE_COMMERCE_ENABLED=True)
+    def test_the_gate_is_about_the_flag_not_about_being_in_the_app(self):
+        self._tx(PaymentTransaction.Purpose.DONATION, "CHK_W_DON3")
+
+        self.assertEqual(self._widget("CHK_W_DON3", native=True).status_code, 200)
+
+    @override_settings(ANDROID_NATIVE_COMMERCE_ENABLED=False)
+    def test_an_event_ticket_widget_still_works_in_the_app(self):
+        """Seats are a real-world service, not an in-app digital purchase.
+
+        Nothing suppresses the event surfaces on native, and refusing here
+        would stop members paying for a seat in the app for no reason.
+        """
+        event = MeetupEvent.objects.create(
+            title="Native",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("10.00"),
+            is_published=True,
+        )
+        reg = EventRegistration.objects.create(
+            user=self.user, event=event, status="pending"
+        )
+        self._tx(
+            PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            "CHK_W_EVT",
+            event_registration=reg,
+        )
+
+        self.assertEqual(self._widget("CHK_W_EVT", native=True).status_code, 200)

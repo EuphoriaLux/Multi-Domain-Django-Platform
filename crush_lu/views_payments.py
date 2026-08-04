@@ -1651,6 +1651,35 @@ def sumup_widget_view(request, checkout_id):
         )
         raise Http404("No payment found.")
 
+    # Store compliance, for the same reason and by the same logic as the line
+    # above: closing the creation endpoint is not enough, because a checkout
+    # created on the web stays payable from its URL, and opening that URL in the
+    # native shell mounts the SumUp SDK — the exact external purchase surface
+    # the gate exists to remove. THIS is the step that prevents the charge.
+    #
+    # Scoped to the purposes whose surfaces the app already suppresses: the
+    # donation card and the Premium tiles in _products.html both disappear when
+    # suppress_native_commerce is set. Event registration is deliberately NOT
+    # included — a ticket to a real-world event is not the kind of purchase the
+    # stores require to go through their billing, and refusing it here would
+    # stop members paying for seats inside the app for no reason.
+    #
+    # Like the Premium refusal, this answers exactly as an unknown checkout so
+    # it is not an oracle, and it is NOT applied to the return page or the
+    # status/failure endpoints: those report on a payment that may already have
+    # been taken, and someone who just handed over money is owed the truth.
+    if tx_obj.purpose in (
+        PaymentTransaction.Purpose.DONATION,
+        PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
+    ) and _native_commerce_suppressed(request):
+        logger.warning(
+            "Blocked SumUp widget for checkout %s (%s): native session with "
+            "commerce disabled",
+            checkout_id,
+            tx_obj.purpose,
+        )
+        raise Http404("No payment found.")
+
     context = {
         "checkout_id": checkout_id,
         "transaction": tx_obj,
