@@ -136,6 +136,16 @@
                         window.location.href = returnUrl;
                         return;
                     }
+                    if (data && data.attempt_failed) {
+                        // Refused, but the checkout is still payable — SumUp
+                        // keeps it open so another card can be tried. Don't
+                        // leave, and don't keep spinning: say so and let them
+                        // retry in the widget that is still on screen.
+                        stopWatching();
+                        errorEl.textContent = defaultError;
+                        errorEl.classList.remove("hidden");
+                        return;
+                    }
                     scheduleNextPoll();
                 })
                 .catch(function () {

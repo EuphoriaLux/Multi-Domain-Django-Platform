@@ -608,6 +608,41 @@ def _record_pending_failure(tx_obj, reason, data):
         return changed
 
 
+def _record_terminal_failure(tx_obj, sumup_status, data):
+    """Close a checkout SumUp reports as dead, under a lock.
+
+    Same guard as the other two write paths, and it matters most here because
+    this one moves ``status``. A checkout we deactivated ourselves comes back
+    from SumUp as FAILED — that is what deactivation looks like from outside —
+    so a poll still in flight when the member opens a replacement would
+    otherwise reset the row from CANCELLED to FAILED and replace our own
+    account of the supersession with a generic one.
+
+    Returns True when the row was closed here.
+    """
+    with transaction.atomic():
+        locked = PaymentTransaction.objects.select_for_update().get(pk=tx_obj.pk)
+        if locked.status != PaymentTransaction.Status.PENDING:
+            logger.info(
+                "Late SumUp %s for checkout %s ignored — already %s locally.",
+                sumup_status,
+                tx_obj.sumup_checkout_id,
+                locked.status,
+            )
+            return False
+
+        locked.status = PaymentTransaction.Status.FAILED
+        locked.raw_response = data
+        locked.failure_reason = describe_sumup_failure(data)
+        locked.save(
+            update_fields=["status", "raw_response", "failure_reason", "updated_at"]
+        )
+        # The caller logs from tx_obj, so give it the values that were stored.
+        tx_obj.status = locked.status
+        tx_obj.failure_reason = locked.failure_reason
+        return True
+
+
 def _append_widget_note(tx_obj, note):
     """Add the widget's own wording to a payment that has not completed.
 
@@ -669,17 +704,23 @@ def _sync_checkout_with_sumup(tx_obj):
     if sumup_status in ("PAID", "SUCCESSFUL"):
         _apply_paid_checkout(tx_obj, data)
     elif sumup_status in ("FAILED", "CANCELLED", "EXPIRED"):
-        tx_obj.status = PaymentTransaction.Status.FAILED
-        tx_obj.raw_response = data
-        tx_obj.failure_reason = describe_sumup_failure(data)
-        tx_obj.save()
-        logger.warning(
-            "SumUp checkout %s (%s) ended %s: %s",
-            tx_obj.sumup_checkout_id,
-            tx_obj.transaction_reference,
-            sumup_status,
-            tx_obj.failure_reason,
-        )
+        # Locked and re-read like the other two write paths. This was the last
+        # one still writing a stale in-memory row, and a full save() at that —
+        # so it overwrote every field, not just its own. The interleaving that
+        # bites: a poll reads the row as PENDING, the member opens a
+        # replacement checkout (which locks the row, deactivates this checkout
+        # at SumUp and records CANCELLED with our own supersession note), then
+        # SumUp answers this poll with FAILED — because it was just deactivated
+        # — and the stale save puts the row back to FAILED with a generic
+        # reason, erasing the record of what actually happened.
+        if _record_terminal_failure(tx_obj, sumup_status, data):
+            logger.warning(
+                "SumUp checkout %s (%s) ended %s: %s",
+                tx_obj.sumup_checkout_id,
+                tx_obj.transaction_reference,
+                sumup_status,
+                tx_obj.failure_reason,
+            )
     elif _has_unsuccessful_attempt(data):
         # Still PENDING at SumUp, but with card attempts recorded against it.
         # That is exactly what a *declined* card looks like: SumUp leaves the
@@ -997,12 +1038,22 @@ def sumup_widget_status(request, checkout_id):
     ):
         _sync_checkout_with_sumup(tx_obj)
 
+    settled = tx_obj.status != PaymentTransaction.Status.PENDING
     return JsonResponse(
         {
             "status": tx_obj.status,
             # The one field the page acts on: stop polling and move on.
-            "settled": tx_obj.status != PaymentTransaction.Status.PENDING,
+            "settled": settled,
             "paid": tx_obj.status == PaymentTransaction.Status.PAID,
+            # A refused card is not "settled" — SumUp keeps the checkout open so
+            # another one can be tried, which is why the row stays PENDING. But
+            # the page cannot be left waiting on it: if the SDK went quiet
+            # (exactly the case this polling exists for) the customer would
+            # watch "Confirming your payment" for the full five minutes over a
+            # card that was declined a moment after the 3DS screen. Telling the
+            # page an attempt failed lets it stop, say so, and let them try
+            # another card on the same still-payable checkout.
+            "attempt_failed": not settled and bool(tx_obj.failure_reason),
         }
     )
 

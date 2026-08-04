@@ -38887,3 +38887,31 @@ msgstr "Le paiement est en attente ou n'a pas été finalisé."
 #: crush_lu/views_payments.py
 msgid "Payment transaction reference not found."
 msgstr "Référence de transaction introuvable."
+
+#: crush_lu/templates/crush_lu/payments/sumup_widget.html
+msgid "Complete Payment"
+msgstr "Finaliser le paiement"
+
+#: crush_lu/templates/crush_lu/payments/sumup_widget.html
+msgid "Complete Your Payment"
+msgstr "Finalisez votre paiement"
+
+#: crush_lu/templates/crush_lu/payments/sumup_widget.html
+msgid "Total Amount"
+msgstr "Montant total"
+
+#: crush_lu/templates/crush_lu/payments/sumup_widget.html
+msgid "Confirming your payment — please don't close this page."
+msgstr "Confirmation de votre paiement — veuillez ne pas fermer cette page."
+
+#: crush_lu/templates/crush_lu/payments/sumup_widget.html
+msgid "Loading secure SumUp payment checkout..."
+msgstr "Chargement du paiement sécurisé SumUp..."
+
+#: crush_lu/templates/crush_lu/payments/sumup_widget.html
+msgid "Encrypted & PCI-DSS Compliant via SumUp"
+msgstr "Chiffré et conforme PCI-DSS via SumUp"
+
+#: crush_lu/templates/crush_lu/payments/sumup_widget.html
+msgid "The payment could not be completed. Please check your card details and try again."
+msgstr "Le paiement n'a pas pu être finalisé. Veuillez vérifier les informations de votre carte et réessayer."

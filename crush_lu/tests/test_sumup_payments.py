@@ -3007,3 +3007,171 @@ class WidgetNoteRaceTests(SiteTestMixin, TestCase):
 
         self.tx.refresh_from_db()
         self.assertIn("Card widget reported", self.tx.failure_reason)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class DeclineDoesNotHangThePageTests(SiteTestMixin, TestCase):
+    """A refused card must not leave the page spinning.
+
+    This is the bug the whole polling change exists to prevent, in the one
+    shape it did not cover: SumUp keeps a checkout PENDING after a decline so
+    another card can be tried, so "settled" stays false — and if the SDK went
+    quiet (exactly why the poll exists) the customer watched "Confirming your
+    payment" for the full five-minute window over a card refused seconds after
+    the 3DS screen.
+    """
+
+    def setUp(self):
+        super().setUp()
+        from django.core.cache import cache
+
+        cache.clear()
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        self.user = User.objects.create_user(
+            username="hang@crush.lu", email="hang@crush.lu", password="password123"
+        )
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Hang",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        self.tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-HANG",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_HANG",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+        self.url = reverse(
+            "crush_lu:sumup_widget_status", kwargs={"checkout_id": "CHK_HANG"}
+        )
+        self.client.force_login(self.user)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_declined_card_tells_the_page_to_stop_waiting(self, mock_get):
+        mock_get.return_value = {
+            "id": "CHK_HANG",
+            "status": "PENDING",
+            "transactions": [{"status": "FAILED", "failure_reason": "DECLINED"}],
+        }
+
+        body = self.client.get(self.url).json()
+
+        # Not settled — the checkout is still payable, and must stay that way.
+        self.assertFalse(body["settled"])
+        self.assertEqual(body["status"], PaymentTransaction.Status.PENDING)
+        # But the page now knows to stop and let them try another card.
+        self.assertTrue(body["attempt_failed"])
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_an_ordinary_wait_does_not_look_like_a_decline(self, mock_get):
+        """Nobody has paid yet is not the same as somebody was refused."""
+        mock_get.return_value = {"id": "CHK_HANG", "status": "PENDING"}
+
+        body = self.client.get(self.url).json()
+
+        self.assertFalse(body["settled"])
+        self.assertFalse(body["attempt_failed"])
+
+    def test_the_widget_page_reacts_to_a_failed_attempt(self):
+        response = self.client.get(
+            reverse("crush_lu:sumup_widget", kwargs={"checkout_id": "CHK_HANG"})
+        )
+
+        self.assertContains(response, "attempt_failed")
+
+
+class TerminalWriteRaceTests(SiteTestMixin, TestCase):
+    """The last unlocked write, and the one that moved `status`."""
+
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(
+            username="term@crush.lu", email="term@crush.lu", password="password123"
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Terminal",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        self.tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-TERM",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_TERM",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+
+    def test_a_late_failure_cannot_undo_a_supersession(self):
+        """Deactivating a checkout makes SumUp report it FAILED.
+
+        So a poll still in flight when the member opens a replacement would
+        reset the row from CANCELLED back to FAILED and replace our own account
+        of the supersession with a generic one — losing the distinction the
+        CANCELLED status exists to record.
+        """
+        from crush_lu.views_payments import _record_terminal_failure
+
+        ours = "Superseded by a newer checkout — the member re-opened the page."
+        PaymentTransaction.objects.filter(pk=self.tx.pk).update(
+            status=PaymentTransaction.Status.CANCELLED, failure_reason=ours
+        )
+
+        wrote = _record_terminal_failure(
+            self.tx, "FAILED", {"id": "CHK_TERM", "status": "FAILED"}
+        )
+
+        self.assertFalse(wrote)
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.CANCELLED)
+        self.assertEqual(self.tx.failure_reason, ours)
+
+    def test_a_genuine_terminal_failure_still_closes_the_row(self):
+        from crush_lu.views_payments import _record_terminal_failure
+
+        wrote = _record_terminal_failure(
+            self.tx,
+            "FAILED",
+            {
+                "id": "CHK_TERM",
+                "status": "FAILED",
+                "transactions": [{"status": "FAILED", "failure_reason": "LOST_CARD"}],
+            },
+        )
+
+        self.assertTrue(wrote)
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.FAILED)
+        self.assertIn("LOST_CARD", self.tx.failure_reason)
