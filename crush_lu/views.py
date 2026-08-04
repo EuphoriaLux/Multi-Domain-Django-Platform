@@ -445,6 +445,10 @@ def dashboard(request):
 
         _now = timezone.now()
         for _reg in registrations:
+            # A registration whose event is over. The status alone can't say
+            # this: a no-show keeps `confirmed` forever, so without a date test
+            # the card below would still offer its ticket months afterwards.
+            _reg.is_past = bool(_reg.event and _reg.event.end_time < _now)
             _reg.can_cancel = bool(
                 _reg.event
                 and _reg.event.date_time > _now
