@@ -184,11 +184,22 @@ class Command(BaseCommand):
                 # failed before ``failure_reason`` existed can be given one,
                 # which is the whole reason someone runs this command.
                 reported = refresh_sumup_snapshot(tx_obj)
-                if reported:
+                if not reported:
+                    # Say so. This branch used to return in silence when SumUp
+                    # was unreachable, which in a command whose entire job is
+                    # diagnosis reads as "nothing to report" rather than "could
+                    # not ask" — the two an operator most needs to tell apart.
                     self.stdout.write(
-                        f"  refreshed    detail recorded (SumUp says {reported}; "
-                        f"status left at {tx_obj.status})"
+                        self.style.ERROR(
+                            "  refreshed    could not reach SumUp — nothing "
+                            "recorded (see the log for the provider error)"
+                        )
                     )
+                    return
+                self.stdout.write(
+                    f"  refreshed    detail recorded (SumUp says {reported}; "
+                    f"status left at {tx_obj.status})"
+                )
                 if reported in ("PAID", "SUCCESSFUL"):
                     self.stdout.write(
                         self.style.ERROR(

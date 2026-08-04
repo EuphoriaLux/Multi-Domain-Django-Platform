@@ -2508,3 +2508,117 @@ class PaymentAdminChangelistTests(SiteTestMixin, TestCase):
         with self.assertNumQueries(0):
             admin_obj.get_buyer(row)
             admin_obj.get_bought(row)
+
+
+class SumUpCheckoutStatusCommandTests(SiteTestMixin, TestCase):
+    """The command an operator reaches for when SumUp says "Échec".
+
+    It had no coverage at all, and it is the one piece of this that gets run
+    by hand against production, where a wrong answer is acted on.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(
+            username="cli@crush.lu", email="cli@crush.lu", password="password123"
+        )
+        self.event = MeetupEvent.objects.create(
+            title="CLI",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        self.tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-CLI",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_CLI",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.FAILED,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+
+    def _run(self, **kwargs):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        out = StringIO()
+        call_command(
+            "sumup_checkout_status", reference="CRUSH-EVT-CLI", stdout=out, **kwargs
+        )
+        return out.getvalue()
+
+    @patch("crush_lu.services.sumup.SumUpClient.get_checkout")
+    def test_sync_gives_an_old_failure_its_reason(self, mock_get):
+        """The point of running this: explaining payments that already failed.
+
+        Rows that failed before failure_reason existed are exactly the ones
+        someone is staring at, and the normal sync path refuses to touch them.
+        """
+        mock_get.return_value = {
+            "id": "CHK_CLI",
+            "status": "FAILED",
+            "transactions": [{"status": "FAILED", "failure_reason": "DO_NOT_HONOR"}],
+        }
+
+        output = self._run(sync=True)
+
+        self.tx.refresh_from_db()
+        self.assertIn("DO_NOT_HONOR", self.tx.failure_reason)
+        self.assertIn("detail recorded", output)
+        # Status is not the refresh path's to change.
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.FAILED)
+
+    @patch("crush_lu.services.sumup.SumUpClient.get_checkout")
+    def test_it_shouts_when_sumup_says_paid_but_we_say_failed(self, mock_get):
+        """Money taken with nothing delivered. Never resolve this quietly."""
+        mock_get.return_value = {"id": "CHK_CLI", "status": "PAID"}
+
+        output = self._run(sync=True)
+
+        self.registration.refresh_from_db()
+        self.assertIn("check whether this member was charged", output)
+        self.assertFalse(self.registration.payment_confirmed)
+
+    @patch("crush_lu.services.sumup.SumUpClient.get_checkout")
+    def test_an_unreachable_provider_is_said_out_loud(self, mock_get):
+        """Could-not-ask and nothing-to-report must not look the same.
+
+        Narrow but real: the command reads the checkout once to print it and
+        again to record it, so the provider can be there for the first and gone
+        for the second. That second failure used to return in silence.
+        """
+        mock_get.side_effect = [
+            {"id": "CHK_CLI", "status": "FAILED"},
+            SumUpError("boom"),
+        ]
+
+        output = self._run(sync=True)
+
+        self.assertIn("could not reach SumUp", output)
+
+    @patch("crush_lu.services.sumup.SumUpClient.get_checkout")
+    def test_it_prints_the_attempts_without_being_asked_to_sync(self, mock_get):
+        """Read-only by default — looking must never change anything."""
+        mock_get.return_value = {
+            "id": "CHK_CLI",
+            "status": "FAILED",
+            "transactions": [{"status": "FAILED", "failure_reason": "LOST_CARD"}],
+        }
+
+        output = self._run()
+
+        self.assertIn("LOST_CARD", output)
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.failure_reason, "")
