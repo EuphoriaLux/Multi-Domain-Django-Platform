@@ -198,6 +198,139 @@ class TestMergeProfiles:
         assert keeper_profile.bio == 'Keeper bio'
         assert not CrushProfile.objects.filter(user=dup_user).exists()
 
+    def test_supporter_status_survives_the_merge(
+        self, keeper_with_profile, duplicate_with_profile
+    ):
+        """It was paid for, so losing it to a merge would be taking it back.
+
+        The duplicate's profile is the one deleted, so a donation that happened
+        to land on that account would otherwise vanish while the member can
+        still see the badge they bought.
+        """
+        keeper_user, keeper_profile = keeper_with_profile
+        dup_user, dup_profile = duplicate_with_profile
+
+        dup_profile.is_community_supporter = True
+        dup_profile.save(update_fields=['is_community_supporter'])
+        assert not keeper_profile.is_community_supporter
+
+        merge_accounts(keeper_user, dup_user)
+
+        keeper_profile.refresh_from_db()
+        assert keeper_profile.is_community_supporter
+
+    def test_pending_donation_follows_the_keeper(
+        self, keeper_with_profile, duplicate_with_profile
+    ):
+        """A donation names nobody but tx.user, so the merge must move it.
+
+        Left on the duplicate, a checkout paid during or after the merge looks
+        up a profile that has just been deleted -- money taken, no badge -- and
+        the keeper cannot open the widget for a payment they made.
+        """
+        from decimal import Decimal
+
+        from crush_lu.models.payments import PaymentTransaction
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        keeper_user, keeper_profile = keeper_with_profile
+        dup_user, _dup_profile = duplicate_with_profile
+
+        tx = PaymentTransaction.objects.create(
+            transaction_reference='CRUSH-DON-MERGE',
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id='CHK_DON_MERGE',
+            amount=Decimal('10.00'),
+            currency='EUR',
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.DONATION,
+            user=dup_user,
+        )
+
+        merge_accounts(keeper_user, dup_user)
+
+        tx.refresh_from_db()
+        assert tx.user == keeper_user
+
+        # And the badge it was paying for still lands, on the account that lives.
+        _apply_paid_checkout(tx, {'status': 'PAID'})
+        keeper_profile.refresh_from_db()
+        assert keeper_profile.is_community_supporter
+
+    def test_supporter_status_is_re_read_not_trusted_from_memory(
+        self, keeper_with_profile, duplicate_with_profile
+    ):
+        """The badge may be granted after the caller loaded the profile.
+
+        merge_accounts reads `user.crushprofile`, a cached reverse relation
+        that can be arbitrarily old. A donation confirming between that load
+        and the transfer would leave the in-memory flag False while the row
+        says True -- and the profile is deleted immediately after, with nothing
+        to recover it (_apply_paid_checkout will not re-apply a PAID checkout).
+        """
+        from crush_lu.models import CrushProfile
+
+        keeper_user, keeper_profile = keeper_with_profile
+        dup_user, dup_profile = duplicate_with_profile
+
+        # Grant it straight to the row, leaving the cached instance stale --
+        # exactly the shape of the race.
+        CrushProfile.objects.filter(pk=dup_profile.pk).update(
+            is_community_supporter=True
+        )
+        assert dup_profile.is_community_supporter is False   # still stale in memory
+
+        merge_accounts(keeper_user, dup_user)
+
+        keeper_profile.refresh_from_db()
+        assert keeper_profile.is_community_supporter
+
+    def test_event_payments_are_not_moved_to_the_keeper(
+        self, keeper_with_profile, duplicate_with_profile
+    ):
+        """Only donations follow the account; seat payments must stay put.
+
+        A duplicate registration for an event the keeper is already in gets
+        deleted below, which SET_NULLs its payment's event_registration. Moved
+        to the keeper, that becomes a pending checkout they own and can open
+        but which can no longer confirm a seat -- it would take the money and
+        grant nothing. Left behind it is unreachable rather than payable.
+        """
+        from decimal import Decimal
+
+        from crush_lu.models.payments import PaymentTransaction
+
+        keeper_user, _keeper_profile = keeper_with_profile
+        dup_user, _dup_profile = duplicate_with_profile
+
+        event_tx = PaymentTransaction.objects.create(
+            transaction_reference='CRUSH-EVT-MERGE',
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id='CHK_EVT_MERGE',
+            amount=Decimal('15.00'),
+            currency='EUR',
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=dup_user,
+        )
+
+        merge_accounts(keeper_user, dup_user)
+
+        event_tx.refresh_from_db()
+        assert event_tx.user == dup_user
+
+    def test_merge_does_not_invent_supporter_status(
+        self, keeper_with_profile, duplicate_with_profile
+    ):
+        """OR, not "set" — neither side supporting must stay not supporting."""
+        keeper_user, keeper_profile = keeper_with_profile
+        dup_user, _dup_profile = duplicate_with_profile
+
+        merge_accounts(keeper_user, dup_user)
+
+        keeper_profile.refresh_from_db()
+        assert not keeper_profile.is_community_supporter
+
 
 class TestMergeEventRegistrations:
     def test_moves_registration(self, keeper_user, duplicate_user, merge_event):
@@ -316,3 +449,46 @@ class TestMergeAtomicity:
         # Duplicate user should NOT be deactivated (rolled back)
         duplicate_user.refresh_from_db()
         assert duplicate_user.is_active is True
+
+
+class TestLockOrderInvariant:
+    """The one thing about this merge that no runtime test can check.
+
+    ``merge_accounts`` and ``views_payments._apply_paid_checkout`` both touch a
+    PaymentTransaction row and a CrushProfile row under a lock. If they take
+    those two in opposite orders, a donation confirming while an admin merges
+    the donor's account is an ABBA deadlock, and PostgreSQL breaks it by
+    aborting one of the transactions -- possibly the payment callback, halfway
+    through confirming a real charge.
+
+    This cannot be caught by exercising the code: the test suite (and CI) run
+    on SQLite, which ignores ``select_for_update`` entirely, so a reversed
+    order passes every functional test and only fails in production. Hence a
+    structural assertion on the source itself.
+    """
+
+    def test_merge_takes_the_payment_lock_before_the_profile_lock(self):
+        import inspect
+
+        from crush_lu.services import account_merge
+
+        src = inspect.getsource(account_merge.merge_accounts)
+        payment = src.index("PaymentTransaction.objects.filter")
+        profile = src.index("CrushProfile.objects.select_for_update")
+        assert payment < profile, (
+            "merge_accounts must reassign donation PaymentTransactions BEFORE "
+            "locking CrushProfiles — see the LOCK ORDER note in that function."
+        )
+
+    def test_payment_confirmation_takes_them_in_the_same_order(self):
+        import inspect
+
+        from crush_lu import views_payments
+
+        src = inspect.getsource(views_payments._apply_paid_checkout)
+        payment = src.index("PaymentTransaction.objects.select_for_update")
+        profile = src.index("CrushProfile.objects.select_for_update")
+        assert payment < profile, (
+            "_apply_paid_checkout must lock the PaymentTransaction BEFORE the "
+            "CrushProfile — reversing it deadlocks against merge_accounts."
+        )

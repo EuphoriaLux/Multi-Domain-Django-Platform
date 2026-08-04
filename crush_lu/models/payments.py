@@ -23,6 +23,7 @@ class PaymentTransaction(models.Model):
     class Purpose(models.TextChoices):
         EVENT_REGISTRATION = "event_registration", _("Event Registration")
         PREMIUM_MEMBERSHIP = "premium_membership", _("Premium Membership")
+        DONATION = "donation", _("Donation / Support")
 
     transaction_reference = models.CharField(
         max_length=64,

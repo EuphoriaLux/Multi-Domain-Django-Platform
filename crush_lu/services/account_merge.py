@@ -30,6 +30,7 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
     from allauth.account.models import EmailAddress
     from allauth.socialaccount.models import SocialAccount
     from crush_lu.models import (
+        CrushProfile,
         EventRegistration,
         EventConnection,
         ConnectionMessage,
@@ -77,6 +78,45 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
             ea.delete()
             log.append(f"Deleted duplicate email address {ea.email}")
 
+    # 2b. Donation PaymentTransactions follow the surviving account.
+    #
+    # LOCK ORDER: PaymentTransaction before CrushProfile. This must happen
+    # BEFORE the profile handling below, and the reason is a deadlock, not
+    # readability. _apply_paid_checkout takes the same two locks in that order
+    # -- it locks the transaction with select_for_update, then writes the
+    # profile -- and this function taking them the other way round is a
+    # textbook ABBA cycle that PostgreSQL resolves by aborting one side. The
+    # side it aborts might be the payment callback, mid-confirmation. Keep
+    # these two blocks in this order; see the matching note in
+    # views_payments._apply_paid_checkout.
+    #
+    # Doing it first also makes the badge decision below strictly better: a
+    # donation confirming concurrently either committed before we lock these
+    # rows (so its grant is visible when we read the profiles) or blocks on
+    # them until we commit. Either way nobody reads a half-applied payment.
+    #
+    # Donations ONLY. Seat and membership rows resolve their owner through the
+    # object they link to, so they need no help -- and moving them does harm:
+    # step 5 below deletes a duplicate registration when the keeper already has
+    # one for that event, which SET_NULLs its payment's event_registration. A
+    # moved row would then be a pending checkout the keeper owns and can open,
+    # but which _apply_paid_checkout can no longer route to a seat -- it would
+    # take the money and confirm nothing. Left on the duplicate it is at least
+    # unreachable rather than payable.
+    #
+    # A donation points at nothing -- _payment_owner_ids falls back to tx.user
+    # for exactly that shape -- so one left behind is stranded on a deactivated
+    # user: a checkout paid during or after the merge looks up a profile that
+    # has since been moved or deleted and grants no badge, and the keeper
+    # cannot open the widget or return page for a payment they made.
+    from crush_lu.models.payments import PaymentTransaction
+
+    moved_payments = PaymentTransaction.objects.filter(
+        user=duplicate_user, purpose=PaymentTransaction.Purpose.DONATION
+    ).update(user=keeper_user)
+    if moved_payments:
+        log.append(f"Moved {moved_payments} donation transaction(s) to keeper")
+
     # 3. Handle CrushProfile (OneToOne)
     keeper_profile = getattr(keeper_user, 'crushprofile', None)
     dup_profile = getattr(duplicate_user, 'crushprofile', None)
@@ -93,6 +133,27 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
         ReferralAttribution.objects.filter(referrer=dup_profile).update(
             referrer=keeper_profile
         )
+        # Supporter status was paid for, so it survives the merge on OR
+        # semantics: the keeper's profile is the one that lives, and dropping
+        # the flag because the donation happened to land on the duplicate would
+        # take away something the member was charged for and can see.
+        #
+        # Re-read under a lock rather than trusting the instances above. Those
+        # come from the caller's cached ``user.crushprofile``, which can be
+        # arbitrarily old, and a donation confirming between that load and this
+        # line would leave the flag False in memory while it is True in the
+        # row -- so the badge would be skipped and then deleted with the
+        # profile. Nothing recovers it afterwards: _apply_paid_checkout is
+        # idempotent and will not re-apply an already-PAID checkout.
+        supporter = dict(
+            CrushProfile.objects.select_for_update()
+            .filter(pk__in=[dup_profile.pk, keeper_profile.pk])
+            .values_list("pk", "is_community_supporter")
+        )
+        if supporter.get(dup_profile.pk) and not supporter.get(keeper_profile.pk):
+            keeper_profile.is_community_supporter = True
+            keeper_profile.save(update_fields=["is_community_supporter"])
+            log.append("Carried Community Supporter status over to keeper's profile")
         # Delete duplicate's profile (cascades ProfileSubmissions)
         dup_profile.delete()
         log.append(

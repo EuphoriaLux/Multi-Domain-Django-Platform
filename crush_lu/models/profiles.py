@@ -471,6 +471,11 @@ class CrushProfile(models.Model):
         db_index=True,
         help_text=_("How the profile became verified (set at the verification point)"),
     )
+    is_community_supporter = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text=_("Whether user has donated to support Crush.lu"),
+    )
 
     # Onboarding Journey (Step 1 of 7: /welcome/)
     INTENT_PROBE_CHOICES = [
