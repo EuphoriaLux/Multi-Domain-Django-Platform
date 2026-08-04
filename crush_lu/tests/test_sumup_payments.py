@@ -2097,3 +2097,261 @@ class WidgetStatusPollingTests(SiteTestMixin, TestCase):
         self.assertContains(response, "/payments/sumup/widget/CHK_POLL/status/")
         # The page must react to auth-screen rather than sitting on it.
         self.assertContains(response, "watchCheckout")
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class FailureReasonLifecycleTests(SiteTestMixin, TestCase):
+    """What the recorded reason does across a checkout's whole life.
+
+    A declined attempt leaves the checkout payable, so one row can carry a
+    refusal and then a success. The reason has to keep up with that, and the
+    payload behind it has to be the one that explains the current state.
+    """
+
+    def setUp(self):
+        super().setUp()
+        from django.core.cache import cache
+
+        cache.clear()
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        self.user = User.objects.create_user(
+            username="life@crush.lu", email="life@crush.lu", password="password123"
+        )
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Retry",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        self.tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-LIFE",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_LIFE",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+            raw_response={"id": "CHK_LIFE", "status": "PENDING"},
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_pending_decline_stores_the_payload_it_was_read_from(self, mock_get):
+        """The Coach Panel's raw response must be the one that explains it.
+
+        Saving only the summary left "Raw provider response" showing the
+        checkout-creation payload — no transactions array at all — while
+        claiming to be the last thing SumUp returned.
+        """
+        from crush_lu.views_payments import _sync_checkout_with_sumup
+
+        mock_get.return_value = {
+            "id": "CHK_LIFE",
+            "status": "PENDING",
+            "transactions": [{"status": "FAILED", "failure_reason": "DECLINED"}],
+        }
+
+        _sync_checkout_with_sumup(self.tx)
+
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.PENDING)
+        self.assertIn("DECLINED", self.tx.failure_reason)
+        self.assertEqual(
+            self.tx.raw_response["transactions"][0]["failure_reason"], "DECLINED"
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_successful_retry_clears_the_earlier_refusal(self, mock_get):
+        """Same checkout, second card. The row must not stay filed as failed."""
+        from crush_lu.views_payments import _sync_checkout_with_sumup
+
+        mock_get.return_value = {
+            "id": "CHK_LIFE",
+            "status": "PENDING",
+            "transactions": [{"status": "FAILED", "failure_reason": "DECLINED"}],
+        }
+        _sync_checkout_with_sumup(self.tx)
+        self.tx.refresh_from_db()
+        self.assertNotEqual(self.tx.failure_reason, "")
+
+        mock_get.return_value = {
+            "id": "CHK_LIFE",
+            "status": "PAID",
+            "transactions": [
+                {"status": "FAILED", "failure_reason": "DECLINED"},
+                {"status": "SUCCESSFUL"},
+            ],
+        }
+        with self.captureOnCommitCallbacks(execute=True):
+            _sync_checkout_with_sumup(self.tx)
+
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(self.tx.failure_reason, "")
+        # The refusal is not lost — it is still in the payload.
+        self.assertEqual(len(self.tx.raw_response["transactions"]), 2)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_settled_row_can_still_be_refreshed_for_detail(self, mock_get):
+        """_sync_checkout_with_sumup won't touch a terminal row — by design.
+
+        Which left the Coach Panel's re-check doing nothing at all on a FAILED
+        payment while reporting that it had checked, and gave rows that failed
+        before this field existed no way to ever get a reason.
+        """
+        from crush_lu.views_payments import refresh_sumup_snapshot
+
+        self.tx.status = PaymentTransaction.Status.FAILED
+        self.tx.save(update_fields=["status"])
+        mock_get.return_value = {
+            "id": "CHK_LIFE",
+            "status": "FAILED",
+            "transactions": [{"status": "FAILED", "failure_reason": "EXPIRED_CARD"}],
+        }
+
+        reported = refresh_sumup_snapshot(self.tx)
+
+        self.assertEqual(reported, "FAILED")
+        self.tx.refresh_from_db()
+        self.assertIn("EXPIRED_CARD", self.tx.failure_reason)
+        self.assertEqual(self.tx.raw_response["status"], "FAILED")
+        # Status is the caller's business, never this function's.
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.FAILED)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_refreshing_never_quietly_confirms_a_seat(self, mock_get):
+        """A written-off row that SumUp calls PAID is a discrepancy, not a fix.
+
+        Money taken with nothing delivered needs a human. Reporting it is this
+        path's job; granting the seat is not.
+        """
+        from crush_lu.views_payments import refresh_sumup_snapshot
+
+        self.tx.status = PaymentTransaction.Status.FAILED
+        self.tx.save(update_fields=["status"])
+        mock_get.return_value = {"id": "CHK_LIFE", "status": "PAID"}
+
+        reported = refresh_sumup_snapshot(self.tx)
+
+        self.assertEqual(reported, "PAID")
+        self.tx.refresh_from_db()
+        self.registration.refresh_from_db()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.FAILED)
+        self.assertFalse(self.registration.payment_confirmed)
+        # And it is not described as a failure, because it is not one.
+        self.assertEqual(self.tx.failure_reason, "")
+
+
+class RecheckActionBoundsTests(SiteTestMixin, TestCase):
+    """The admin action runs inline, so it has to stop before the request does.
+
+    Production has no task worker (AGENTS.md): every re-check is a 10s-timeout
+    provider call inside the admin request, under a gunicorn timeout. Selecting
+    a screenful of unreachable checkouts must not get the request killed
+    part-way through applying payments.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(
+            username="coach@crush.lu",
+            email="coach@crush.lu",
+            password="password123",
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Bulk",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        for index in range(6):
+            registration = EventRegistration.objects.create(
+                user=User.objects.create_user(
+                    username=f"bulk{index}@crush.lu",
+                    email=f"bulk{index}@crush.lu",
+                    password="password123",
+                ),
+                event=self.event,
+                status="pending",
+            )
+            PaymentTransaction.objects.create(
+                transaction_reference=f"CRUSH-EVT-BULK-{index}",
+                provider=PaymentTransaction.Provider.SUMUP,
+                sumup_checkout_id=f"CHK_BULK_{index}",
+                amount=Decimal("1.00"),
+                currency="EUR",
+                status=PaymentTransaction.Status.PENDING,
+                purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+                user=self.user,
+                event_registration=registration,
+            )
+
+    def _run_action(self):
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+
+        from crush_lu.admin.payments import PaymentTransactionAdmin
+        from crush_lu.admin.site import crush_admin_site
+
+        request = RequestFactory().post("/crush-admin/")
+        request.user = self.user
+        request.session = {}
+        request._messages = FallbackStorage(request)
+
+        admin_obj = PaymentTransactionAdmin(PaymentTransaction, crush_admin_site)
+        admin_obj.recheck_with_sumup(
+            request, PaymentTransaction.objects.order_by("transaction_reference")
+        )
+        return [str(message) for message in request._messages]
+
+    @override_settings(SUMUP_ADMIN_RECHECK_LIMIT=2)
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_it_stops_at_the_limit(self, mock_get):
+        mock_get.return_value = {"status": "PENDING"}
+
+        self._run_action()
+
+        self.assertEqual(mock_get.call_count, 2)
+
+    @override_settings(SUMUP_ADMIN_RECHECK_LIMIT=2)
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_cap_is_never_reported_as_completion(self, mock_get):
+        """Silent truncation reads as "all done" when it isn't."""
+        mock_get.return_value = {"status": "PENDING"}
+
+        messages_shown = " ".join(self._run_action())
+
+        self.assertIn("not checked", messages_shown)
+        self.assertIn("CRUSH-EVT-BULK-2", messages_shown)
+
+    @override_settings(SUMUP_ADMIN_RECHECK_BUDGET_SECONDS=-1)
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_an_exhausted_time_budget_stops_it_too(self, mock_get):
+        mock_get.return_value = {"status": "PENDING"}
+
+        messages_shown = " ".join(self._run_action())
+
+        mock_get.assert_not_called()
+        self.assertIn("not checked", messages_shown)

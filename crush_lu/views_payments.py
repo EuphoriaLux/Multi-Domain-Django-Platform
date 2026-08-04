@@ -346,6 +346,14 @@ def _apply_paid_checkout(tx_obj, data):
 
         locked.status = PaymentTransaction.Status.PAID
         locked.raw_response = data
+        # A declined attempt leaves the checkout payable and records a reason,
+        # so the SAME row can go on to be paid by a second card. Leaving the
+        # reason behind would file every such payment under a failure that no
+        # longer applies — and the Coach Panel promises this field is blank on
+        # a payment that went through. The refused attempt is not lost: it is
+        # still in the transactions array on raw_response, which this replaces
+        # with the payload that reports the success.
+        locked.failure_reason = ""
         locked.save()
 
         if (
@@ -594,7 +602,14 @@ def _sync_checkout_with_sumup(tx_obj):
         reason = describe_sumup_failure(data)
         if reason and reason != tx_obj.failure_reason:
             tx_obj.failure_reason = reason
-            tx_obj.save(update_fields=["failure_reason", "updated_at"])
+            # The payload too, not just the summary. This is the branch the
+            # whole change exists for, and the Coach Panel's "Raw provider
+            # response" would otherwise still be showing the checkout-creation
+            # payload — no transactions array, none of the diagnostic fields
+            # this recheck just fetched — while claiming to be the last thing
+            # SumUp returned.
+            tx_obj.raw_response = data
+            tx_obj.save(update_fields=["failure_reason", "raw_response", "updated_at"])
             logger.info(
                 "SumUp checkout %s (%s) is still open after a failed attempt: %s",
                 tx_obj.sumup_checkout_id,
@@ -603,6 +618,45 @@ def _sync_checkout_with_sumup(tx_obj):
             )
 
     tx_obj.refresh_from_db()
+
+
+def refresh_sumup_snapshot(tx_obj):
+    """Re-read a checkout we have already settled, for its detail only.
+
+    ``_sync_checkout_with_sumup`` returns immediately for any non-PENDING row,
+    which is what stops a terminal row being re-applied — and it also means the
+    Coach Panel's "Re-check with SumUp" did nothing whatsoever on a FAILED or
+    CANCELLED payment while reporting that it had checked. Rows that failed
+    before ``failure_reason`` existed could never be given one.
+
+    So: fetch, record what SumUp says, change nothing else. ``status`` is not
+    touched here on purpose. If SumUp reports a checkout PAID that we have
+    written off, that is a discrepancy for a human to look at — quietly
+    confirming a seat from an admin refresh is not this function's call to
+    make, and the caller surfaces the mismatch instead.
+
+    Returns SumUp's reported status, or "" if it could not be reached.
+    """
+    if not tx_obj.sumup_checkout_id:
+        return ""
+
+    try:
+        data = SumUpClient().get_checkout(tx_obj.sumup_checkout_id)
+    except SumUpError as exc:
+        logger.warning(
+            "SumUp refresh failed for checkout %s: %s", tx_obj.sumup_checkout_id, exc
+        )
+        return ""
+
+    reported = (data.get("status") or "").upper()
+    tx_obj.raw_response = data
+    # Don't describe a success as a failure. A checkout SumUp reports as paid
+    # has nothing to explain, whatever our row happens to say about it.
+    tx_obj.failure_reason = (
+        "" if reported in ("PAID", "SUCCESSFUL") else describe_sumup_failure(data)
+    )
+    tx_obj.save(update_fields=["raw_response", "failure_reason", "updated_at"])
+    return reported
 
 
 @csrf_exempt

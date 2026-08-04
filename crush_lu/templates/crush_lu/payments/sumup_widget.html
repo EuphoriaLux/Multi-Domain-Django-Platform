@@ -90,43 +90,71 @@
         //
         // Only the server decides; this asks "has it settled yet?" and does not
         // send a status of its own.
+        // Each poll is scheduled only once the previous one has settled, rather
+        // than on a fixed interval. A slow SumUp read can take up to ten
+        // seconds server-side, so setInterval at 3s would stack several
+        // requests from one widget on top of each other — and the server-side
+        // throttle expires after 3s, so it would not absorb them either.
+        //
+        // Which makes a count of polls the wrong budget too: it would mean
+        // anything between 5 and 20 minutes depending on how SumUp is feeling.
+        // A wall-clock deadline says what was actually meant.
         const POLL_INTERVAL_MS = 3000;
-        const POLL_LIMIT = 100; // ~5 minutes, longer than a bank app takes
+        const POLL_WINDOW_MS = 5 * 60 * 1000; // longer than a bank app takes
         let pollTimer = null;
-        let pollsLeft = POLL_LIMIT;
+        let watching = false;
+        let deadline = 0;
 
         function watchCheckout() {
-            if (pollTimer) {
+            if (watching) {
                 return;
             }
+            watching = true;
+            deadline = Date.now() + POLL_WINDOW_MS;
             statusEl.classList.remove("hidden");
-            pollTimer = setInterval(function () {
-                if (pollsLeft-- <= 0) {
-                    stopWatching();
-                    // Never leave a dead page. The return route re-reads the
-                    // checkout and says plainly whether it was paid.
-                    window.location.href = returnUrl;
-                    return;
-                }
-                fetch(statusUrl, { headers: { Accept: "application/json" } })
-                    .then(function (res) {
-                        return res.ok ? res.json() : null;
-                    })
-                    .then(function (data) {
-                        if (data && data.settled) {
-                            stopWatching();
-                            window.location.href = returnUrl;
-                        }
-                    })
-                    .catch(function () {
-                        /* transient — the next tick tries again */
-                    });
-            }, POLL_INTERVAL_MS);
+            pollTimer = setTimeout(pollOnce, POLL_INTERVAL_MS);
+        }
+
+        function pollOnce() {
+            if (!watching) {
+                return;
+            }
+            if (Date.now() > deadline) {
+                stopWatching();
+                // Never leave a dead page. The return route re-reads the
+                // checkout and says plainly whether it was paid.
+                window.location.href = returnUrl;
+                return;
+            }
+            fetch(statusUrl, { headers: { Accept: "application/json" } })
+                .then(function (res) {
+                    return res.ok ? res.json() : null;
+                })
+                .then(function (data) {
+                    if (data && data.settled) {
+                        stopWatching();
+                        window.location.href = returnUrl;
+                        return;
+                    }
+                    scheduleNextPoll();
+                })
+                .catch(function () {
+                    // Transient — try again on the next tick rather than
+                    // abandoning a payment that may still be in flight.
+                    scheduleNextPoll();
+                });
+        }
+
+        function scheduleNextPoll() {
+            if (watching) {
+                pollTimer = setTimeout(pollOnce, POLL_INTERVAL_MS);
+            }
         }
 
         function stopWatching() {
+            watching = false;
             if (pollTimer) {
-                clearInterval(pollTimer);
+                clearTimeout(pollTimer);
                 pollTimer = null;
             }
             statusEl.classList.add("hidden");
