@@ -356,11 +356,14 @@ def dashboard(request):
         # rows exist — no falling back to legacy messaging).
         latest_submission = ProfileSubmission.latest_for_profile(profile)
 
-        # Get user's event registrations
-        registrations = (
+        # Every registration, oldest first. The dashboard renders only the NEXT
+        # one plus counts — the full history lives on my_events, which already
+        # splits upcoming/past properly. One query serves both the next-event
+        # card and every count below.
+        registrations = list(
             EventRegistration.objects.filter(user=request.user)
             .select_related("event")
-            .order_by("-event__date_time")
+            .order_by("event__date_time")
         )
 
         # Get connection count (exclude blocked counterparts so a blocked
@@ -390,10 +393,9 @@ def dashboard(request):
 
         coach = latest_submission.coach if latest_submission else None
 
-        # Whether user has attended at least one event (event-history display)
-        has_attended_event = EventRegistration.objects.filter(
-            user=request.user, status="attended"
-        ).exists()
+        # Derived from the list already in memory rather than its own query.
+        attended_count = sum(1 for _r in registrations if _r.status == "attended")
+        has_attended_event = attended_count > 0
 
         # Premium = active PremiumMembership (paid or comped). Premium unlocks
         # RECEIVING Crush Connect Drops; LuxID unlocks APPEARING in the
@@ -434,9 +436,6 @@ def dashboard(request):
         if verifier and coach and verifier.get("coach_id") == coach.id:
             verifier = None
 
-        # Event Lobby CTA per registration card. The gate checks cost queries,
-        # so only evaluate attended registrations still in a live/recap phase
-        # (at most one or two rows); every other card renders no lobby CTA.
         from .services.event_lobby import (
             PHASE_CLOSED,
             event_lobby_phase,
@@ -444,34 +443,70 @@ def dashboard(request):
         )
 
         _now = timezone.now()
-        for _reg in registrations:
-            # A registration whose event is over. The status alone can't say
-            # this: a no-show keeps `confirmed` forever, so without a date test
-            # the card below would still offer its ticket months afterwards.
-            _reg.is_past = bool(_reg.event and _reg.event.end_time < _now)
-            _reg.can_cancel = bool(
-                _reg.event
-                and _reg.event.date_time > _now
-                # A pending (unpaid) seat can be given up like any other --
-                # omitting it hid the Cancel button from the dashboard, even
-                # though event_cancel() itself accepts the status.
-                #
-                # Deliberately NOT SEAT_HOLDING_STATUSES: that set means "holds
-                # a seat" and includes "attended", but event_cancel rejects an
-                # attended registration outright, so offering Cancel to someone
-                # who checked in early is a button that cannot work.
-                and _reg.status in ("confirmed", "pending", "waitlist")
+
+        def _is_live_registration(reg):
+            """A seat on an event that hasn't finished yet.
+
+            Mirrors my_events: a cancelled seat, or one on an unpublished or
+            cancelled event, is not something the member still holds.
+            """
+            event = reg.event
+            if not event or not event.is_published or event.is_cancelled:
+                return False
+            if reg.status not in (*SEAT_HOLDING_STATUSES, "waitlist"):
+                return False
+            return event.end_time >= _now
+
+        # `registrations` is ascending, so the first live seat IS the next one.
+        upcoming_registrations = [r for r in registrations if _is_live_registration(r)]
+        upcoming_count = len(upcoming_registrations)
+        next_registration = (
+            upcoming_registrations[0] if upcoming_registrations else None
+        )
+
+        if next_registration:
+            next_registration.can_cancel = next_registration.status in (
+                "confirmed",
+                "pending",
+                "waitlist",
             )
-            if (
-                _reg.status == "attended"
-                and _reg.event
-                and event_lobby_phase(_reg.event, _now) != PHASE_CLOSED
-            ):
-                _reg.lobby_cta = lobby_cta(
-                    request.user, _reg.event, registration=_reg, now=_now
-                )
-            else:
-                _reg.lobby_cta = None
+            # A pending (unpaid) seat can be given up like any other. Deliberately
+            # NOT SEAT_HOLDING_STATUSES: that set includes "attended", and
+            # event_cancel() rejects an attended registration outright, so
+            # offering Cancel to someone who checked in early cannot work.
+            next_registration.is_pending_payment = next_registration.status == "pending"
+
+        # Anything that needs the member to act, surfaced above the fold instead
+        # of buried at its chronological position in a long list.
+        pending_payment_registrations = [
+            r for r in upcoming_registrations if r.status == "pending"
+        ]
+
+        # Post-event actions, newest first. An attended event stays here only
+        # while something can still be DONE with it — the lobby is open, or the
+        # connection window has not closed. Once both shut, the event becomes
+        # history and belongs on my_events, not on a dashboard strip. The lobby
+        # gate costs queries, so it is only evaluated for those few rows.
+        post_event_actions = []
+        for _reg in reversed(registrations):
+            if _reg.status != "attended" or not _reg.event:
+                continue
+            _lobby_open = event_lobby_phase(_reg.event, _now) != PHASE_CLOSED
+            _crush_open = _reg.event.connection_window_active
+            if not _lobby_open and not _crush_open:
+                continue
+            _cta = None
+            if _lobby_open:
+                _cta = lobby_cta(request.user, _reg.event, registration=_reg, now=_now)
+                if _cta == "promo_only":
+                    _cta = None
+            post_event_actions.append(
+                {
+                    "event": _reg.event,
+                    "lobby_cta": _cta,
+                    "show_my_crush": _crush_open,
+                }
+            )
 
         # Next current or upcoming published event (drives "attend to unlock" CTA).
         next_event_candidates = MeetupEvent.objects.filter(
@@ -509,7 +544,13 @@ def dashboard(request):
             "profile": profile,
             "submission": latest_submission,
             "coach": coach,
-            "registrations": registrations,
+            # The single next seat, plus honest counts. The template no longer
+            # loops the whole history — my_events owns that.
+            "next_registration": next_registration,
+            "upcoming_count": upcoming_count,
+            "attended_count": attended_count,
+            "pending_payment_registrations": pending_payment_registrations,
+            "post_event_actions": post_event_actions,
             "connection_count": connection_count,
             "referral_url": referral_url,
             "has_attended_event": has_attended_event,
