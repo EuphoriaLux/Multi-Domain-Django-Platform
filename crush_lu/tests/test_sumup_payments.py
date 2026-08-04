@@ -2176,6 +2176,67 @@ class FailureReasonLifecycleTests(SiteTestMixin, TestCase):
         )
 
     @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_fresh_detail_lands_even_when_the_summary_reads_the_same(self, mock_get):
+        """Whether there's something new to say ≠ whether the snapshot is stale.
+
+        SumUp can return detail the summary does not mention — a later
+        timestamp, a code it did not have before — and gating the write on the
+        summary alone left "Raw provider response" claiming to be the last
+        thing SumUp returned while holding an older payload.
+        """
+        from crush_lu.views_payments import _sync_checkout_with_sumup
+
+        mock_get.return_value = {
+            "id": "CHK_LIFE",
+            "status": "PENDING",
+            "transactions": [{"status": "FAILED", "failure_reason": "DECLINED"}],
+        }
+        _sync_checkout_with_sumup(self.tx)
+        self.tx.refresh_from_db()
+        reason_before = self.tx.failure_reason
+
+        mock_get.return_value = {
+            "id": "CHK_LIFE",
+            "status": "PENDING",
+            "transactions": [
+                {
+                    "status": "FAILED",
+                    "failure_reason": "DECLINED",
+                    "timestamp": "2026-08-04T09:00:00Z",
+                }
+            ],
+        }
+        _sync_checkout_with_sumup(self.tx)
+
+        self.tx.refresh_from_db()
+        # Same story, so the summary is unchanged...
+        self.assertEqual(self.tx.failure_reason, reason_before)
+        # ...but the payload behind it is the one just fetched.
+        self.assertEqual(
+            self.tx.raw_response["transactions"][0]["timestamp"],
+            "2026-08-04T09:00:00Z",
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_an_unchanged_poll_does_not_write(self, mock_get):
+        """This branch is re-entered every few seconds for a whole payment."""
+        from crush_lu.views_payments import _sync_checkout_with_sumup
+
+        mock_get.return_value = {
+            "id": "CHK_LIFE",
+            "status": "PENDING",
+            "transactions": [{"status": "FAILED", "failure_reason": "DECLINED"}],
+        }
+        _sync_checkout_with_sumup(self.tx)
+        self.tx.refresh_from_db()
+        written_at = self.tx.updated_at
+
+        _sync_checkout_with_sumup(self.tx)
+
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.updated_at, written_at)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
     def test_a_successful_retry_clears_the_earlier_refusal(self, mock_get):
         """Same checkout, second card. The row must not stay filed as failed."""
         from crush_lu.views_payments import _sync_checkout_with_sumup
@@ -2355,3 +2416,95 @@ class RecheckActionBoundsTests(SiteTestMixin, TestCase):
 
         mock_get.assert_not_called()
         self.assertIn("not checked", messages_shown)
+
+
+class PaymentAdminChangelistTests(SiteTestMixin, TestCase):
+    """The changelist has to find and render staff-opened payments cheaply.
+
+    Both of these are about the same mismatch: ``PaymentTransaction.user`` is
+    whoever *opened* the checkout, which for a staff-opened one is the staff
+    account — while the Buyer column deliberately shows the member the payment
+    is for.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.staff = User.objects.create_user(
+            username="staff@crush.lu",
+            email="staff@crush.lu",
+            password="password123",
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.member = User.objects.create_user(
+            username="member@crush.lu",
+            email="member@crush.lu",
+            password="password123",
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Changelist",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.member, event=self.event, status="pending"
+        )
+        # Staff opened it on the member's behalf: user=staff, buyer=member.
+        self.tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-STAFFOPENED",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_STAFFOPENED",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.staff,
+            event_registration=self.registration,
+        )
+
+    def _admin(self):
+        from crush_lu.admin.payments import PaymentTransactionAdmin
+        from crush_lu.admin.site import crush_admin_site
+
+        return PaymentTransactionAdmin(PaymentTransaction, crush_admin_site)
+
+    def test_it_is_findable_by_the_buyer_shown_in_the_column(self):
+        """Searching the email printed on screen has to return the row.
+
+        It didn't: search_fields covered only ``user``, so the payments most
+        likely to need looking up were the ones that could not be found.
+        """
+        from django.test import RequestFactory
+
+        admin_obj = self._admin()
+        request = RequestFactory().get("/crush-admin/")
+        request.user = self.staff
+
+        queryset, _unused = admin_obj.get_search_results(
+            request, admin_obj.get_queryset(request), "member@crush.lu"
+        )
+
+        self.assertIn(self.tx, queryset)
+
+    def test_rendering_a_row_costs_no_extra_queries(self):
+        """The display methods walk relations list_display cannot reveal.
+
+        Without select_related this was a handful of queries per row, which on
+        a full page is several hundred.
+        """
+        from django.test import RequestFactory
+
+        admin_obj = self._admin()
+        request = RequestFactory().get("/crush-admin/")
+        request.user = self.staff
+
+        row = admin_obj.get_queryset(request).get(pk=self.tx.pk)
+        with self.assertNumQueries(0):
+            admin_obj.get_buyer(row)
+            admin_obj.get_bought(row)

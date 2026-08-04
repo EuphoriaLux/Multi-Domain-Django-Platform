@@ -600,22 +600,29 @@ def _sync_checkout_with_sumup(tx_obj):
         # (A PENDING checkout with no attempts is just one nobody has paid yet;
         # there is nothing to say about it.)
         reason = describe_sumup_failure(data)
-        if reason and reason != tx_obj.failure_reason:
+        # Two separate questions, and gating both on the summary got the second
+        # one wrong. Whether there is anything NEW TO SAY is the summary
+        # changing; whether the stored payload is STALE is the payload
+        # differing. SumUp can return fresh diagnostic detail — a later
+        # timestamp, a code it did not have before — under a summary that reads
+        # identically, and the Coach Panel's "Raw provider response" claims to
+        # be the last thing SumUp returned. Comparing the payload keeps that
+        # promise without writing on every poll that changed nothing; this
+        # branch is re-entered every few seconds for the life of the checkout.
+        if reason and (reason != tx_obj.failure_reason or data != tx_obj.raw_response):
+            changed = reason != tx_obj.failure_reason
             tx_obj.failure_reason = reason
-            # The payload too, not just the summary. This is the branch the
-            # whole change exists for, and the Coach Panel's "Raw provider
-            # response" would otherwise still be showing the checkout-creation
-            # payload — no transactions array, none of the diagnostic fields
-            # this recheck just fetched — while claiming to be the last thing
-            # SumUp returned.
             tx_obj.raw_response = data
             tx_obj.save(update_fields=["failure_reason", "raw_response", "updated_at"])
-            logger.info(
-                "SumUp checkout %s (%s) is still open after a failed attempt: %s",
-                tx_obj.sumup_checkout_id,
-                tx_obj.transaction_reference,
-                reason,
-            )
+            if changed:
+                # Only when the account of it actually changed — the log is for
+                # someone reading back what happened, not a per-poll heartbeat.
+                logger.info(
+                    "SumUp checkout %s (%s) is still open after a failed attempt: %s",
+                    tx_obj.sumup_checkout_id,
+                    tx_obj.transaction_reference,
+                    reason,
+                )
 
     tx_obj.refresh_from_db()
 

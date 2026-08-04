@@ -167,10 +167,38 @@ class Command(BaseCommand):
         if sync:
             # Imported here so the module stays importable without pulling the
             # whole view layer in for a --recent listing.
-            from crush_lu.views_payments import _sync_checkout_with_sumup
+            from crush_lu.views_payments import (
+                _sync_checkout_with_sumup,
+                refresh_sumup_snapshot,
+            )
 
             before = tx_obj.status
-            _sync_checkout_with_sumup(tx_obj)
+            if before == PaymentTransaction.Status.PENDING:
+                _sync_checkout_with_sumup(tx_obj)
+            else:
+                # ``_sync_checkout_with_sumup`` returns immediately for a
+                # settled row — that early return is what stops a terminal
+                # payment being re-applied — so --sync on a FAILED row used to
+                # do nothing while printing "unchanged". Recording the detail is
+                # still worth doing, and it is the only way the payments that
+                # failed before ``failure_reason`` existed can be given one,
+                # which is the whole reason someone runs this command.
+                reported = refresh_sumup_snapshot(tx_obj)
+                if reported:
+                    self.stdout.write(
+                        f"  refreshed    detail recorded (SumUp says {reported}; "
+                        f"status left at {tx_obj.status})"
+                    )
+                if reported in ("PAID", "SUCCESSFUL"):
+                    self.stdout.write(
+                        self.style.ERROR(
+                            "  ⚠ recorded here as "
+                            f"{tx_obj.status} but SumUp reports {reported} — "
+                            "check whether this member was charged."
+                        )
+                    )
+                return
+
             tx_obj.refresh_from_db()
             if tx_obj.status != before:
                 self.stdout.write(
