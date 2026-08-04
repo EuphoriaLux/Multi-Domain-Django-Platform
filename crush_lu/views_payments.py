@@ -819,8 +819,20 @@ def _apply_paid_checkout(tx_obj, data):
             # badge. Guarded on the current value so a repeat donation does not
             # rewrite a row that already says the same thing; the enclosing
             # PAID check already makes the whole block run once per checkout.
+            #
+            # LOCK ORDER: PaymentTransaction (locked at the top of this
+            # function) before CrushProfile. account_merge.merge_accounts takes
+            # the same two in the same order, and it must stay that way — the
+            # two of them taking them in opposite orders is an ABBA cycle that
+            # PostgreSQL breaks by aborting one transaction, which here would be
+            # a payment callback dying mid-confirmation. select_for_update
+            # rather than a plain read because the save() below locks the row
+            # anyway; taking the lock at the read closes the window in which a
+            # merge could see a stale False and delete the profile.
             profile = (
-                CrushProfile.objects.filter(user_id=locked.user_id).first()
+                CrushProfile.objects.select_for_update()
+                .filter(user_id=locked.user_id)
+                .first()
                 if locked.user_id
                 else None
             )

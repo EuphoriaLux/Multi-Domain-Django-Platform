@@ -449,3 +449,46 @@ class TestMergeAtomicity:
         # Duplicate user should NOT be deactivated (rolled back)
         duplicate_user.refresh_from_db()
         assert duplicate_user.is_active is True
+
+
+class TestLockOrderInvariant:
+    """The one thing about this merge that no runtime test can check.
+
+    ``merge_accounts`` and ``views_payments._apply_paid_checkout`` both touch a
+    PaymentTransaction row and a CrushProfile row under a lock. If they take
+    those two in opposite orders, a donation confirming while an admin merges
+    the donor's account is an ABBA deadlock, and PostgreSQL breaks it by
+    aborting one of the transactions -- possibly the payment callback, halfway
+    through confirming a real charge.
+
+    This cannot be caught by exercising the code: the test suite (and CI) run
+    on SQLite, which ignores ``select_for_update`` entirely, so a reversed
+    order passes every functional test and only fails in production. Hence a
+    structural assertion on the source itself.
+    """
+
+    def test_merge_takes_the_payment_lock_before_the_profile_lock(self):
+        import inspect
+
+        from crush_lu.services import account_merge
+
+        src = inspect.getsource(account_merge.merge_accounts)
+        payment = src.index("PaymentTransaction.objects.filter")
+        profile = src.index("CrushProfile.objects.select_for_update")
+        assert payment < profile, (
+            "merge_accounts must reassign donation PaymentTransactions BEFORE "
+            "locking CrushProfiles — see the LOCK ORDER note in that function."
+        )
+
+    def test_payment_confirmation_takes_them_in_the_same_order(self):
+        import inspect
+
+        from crush_lu import views_payments
+
+        src = inspect.getsource(views_payments._apply_paid_checkout)
+        payment = src.index("PaymentTransaction.objects.select_for_update")
+        profile = src.index("CrushProfile.objects.select_for_update")
+        assert payment < profile, (
+            "_apply_paid_checkout must lock the PaymentTransaction BEFORE the "
+            "CrushProfile — reversing it deadlocks against merge_accounts."
+        )
