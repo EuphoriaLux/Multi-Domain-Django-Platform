@@ -47,18 +47,25 @@ class CrushConnectWaitlist(models.Model):
     # environment, and restating it made the admin advertise a figure the
     # checkout did not necessarily charge.
     #
-    # Scope note: ``selected_as_tester`` DOES grant access, in two places, and
+    # Scope note: ``selected_as_tester`` DOES grant access, in three places, and
     # is the only thing that does during the beta:
     #   - connect_phase.receiver_access_open() — opens the receiver track
     #     (Today's Drop) while CRUSH_CONNECT_LAUNCHED is off;
     #   - views_premium — lets the member past the PREMIUM_REDIRECTS_TO_BETA
     #     funnel and buy Premium, which is how they obtain the active
-    #     PremiumMembership the receiver entitlement gate then requires.
+    #     PremiumMembership the receiver entitlement gate then requires;
+    #   - views_payments._premium_purchase_refused — re-asks at each of the
+    #     three moments money can move (opening the checkout, opening the card
+    #     widget, granting Premium at completion), because the pending
+    #     PremiumMembership minted by views_premium is a capability that
+    #     otherwise outlives the permission that created it. Clearing this flag
+    #     revokes a purchase already in flight, which is what makes rotating
+    #     testers safe.
     # Being on the waitlist grants nothing by itself; joining is self-serve, so
-    # only this staff-set flag opens either door. (An earlier note here said
-    # these flags were tracking-only and that the gate required a premium coach
-    # — both stopped being true when the beta phase and the purchase allowlist
-    # landed.)
+    # only this staff-set flag opens any of those doors. (An earlier note here
+    # said these flags were tracking-only and that the gate required a premium
+    # coach — both stopped being true when the beta phase and the purchase
+    # allowlist landed.)
     selected_as_tester = models.BooleanField(
         default=False,
         help_text=_("Hand-picked beta tester: may buy Premium and receive Drops"),

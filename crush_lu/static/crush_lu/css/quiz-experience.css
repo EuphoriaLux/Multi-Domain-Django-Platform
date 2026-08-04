@@ -421,7 +421,8 @@ button.quiz-choice:hover:not(:disabled) {
     object-fit: contain;
 }
 
-.quiz-media > iframe {
+.quiz-media > iframe,
+.quiz-media__audio-body > iframe {
     width: 100%;
     border: 0;
 }
