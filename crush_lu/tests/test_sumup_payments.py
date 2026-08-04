@@ -4108,6 +4108,33 @@ class CommunitySupporterBadgeTests(SiteTestMixin, TestCase):
         tx.refresh_from_db()
         self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
 
+    def test_the_support_card_reaches_the_page_that_includes_it(self):
+        """The card is inert without two things it does not render itself.
+
+        It posts to a hardcoded path, and it reads the CSRF token out of the
+        hidden input base.html renders -- CSRF_COOKIE_HTTPONLY is on, so there
+        is no cookie to fall back to. Either one going missing leaves a button
+        that looks fine and fails on click, which no unit test would catch.
+        """
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        self.client.force_login(self.user)
+
+        # Language-prefixed: on crush.lu the member-facing routes are inside
+        # i18n_patterns, so the bare path redirects.
+        response = self.client.get("/en/my-events/", follow=True)
+        body = response.content.decode()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Support Crush.lu", body)
+        self.assertIn("/payments/sumup/create-donation-checkout/", body)
+        self.assertIn('name="csrfmiddlewaretoken"', body)
+
     def test_a_paid_donation_touches_no_seat_and_no_membership(self):
         """A donation shares _apply_paid_checkout with the two things it isn't."""
         from crush_lu.views_payments import _apply_paid_checkout
