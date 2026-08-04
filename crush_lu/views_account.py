@@ -1268,6 +1268,7 @@ def export_user_data(request):
             "bio": profile.bio,
             "interests": profile.interests,
             "status": getattr(profile, "status", None),
+            "is_community_supporter": profile.is_community_supporter,
             "created_at": profile.created_at.isoformat() if hasattr(profile, "created_at") and profile.created_at else None,
         }
 

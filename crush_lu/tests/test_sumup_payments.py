@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
+from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone, translation
@@ -3945,6 +3946,10 @@ class DonationCheckoutTests(SiteTestMixin, TestCase):
         # hardcodes and the one production serves.
         self.url = "/payments/sumup/create-donation-checkout/"
         self.client.force_login(self.user)
+        # The create-checkout cooldown lives in the cache, which outlives the
+        # per-test database rollback -- without this, whichever test ran first
+        # would throttle the rest.
+        cache.clear()
 
     def _post(self, amount):
         return self.client.post(
@@ -4071,6 +4076,74 @@ class DonationCheckoutTests(SiteTestMixin, TestCase):
             Decimal("2.00"),
         )
 
+    @override_settings(ANDROID_NATIVE_COMMERCE_ENABLED=False)
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_a_native_shell_without_commerce_may_not_open_a_checkout(
+        self, mock_create
+    ):
+        """Hiding the button does not close the endpoint the webview can reach.
+
+        Apple and Google both treat payment taken outside their billing as
+        grounds for rejection, so the gate _products.html applies to the Premium
+        CTA has to hold on the server too.
+        """
+        response = self.client.post(
+            f"{self.url}?source=android_app",
+            data=json.dumps({"amount": "10.00"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        mock_create.assert_not_called()
+        self.assertFalse(PaymentTransaction.objects.exists())
+
+    @override_settings(ANDROID_NATIVE_COMMERCE_ENABLED=True)
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_a_native_shell_with_commerce_enabled_may_open_one(self, mock_create):
+        """The gate is about the commerce flag, not about being in the app."""
+        mock_create.return_value = {"id": "CHK_DON_NATIVE", "status": "PENDING"}
+
+        response = self.client.post(
+            f"{self.url}?source=android_app",
+            data=json.dumps({"amount": "10.00"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            PaymentTransaction.objects.filter(
+                sumup_checkout_id="CHK_DON_NATIVE"
+            ).exists()
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_refuses_a_magnitude_quantize_cannot_represent(self, mock_create):
+        """quantize() is not total, and it runs before the ceiling check.
+
+        "1e30" parses, is finite, and would be caught by DONATION_MAX_EUR --
+        except quantize() raises InvalidOperation first, which without its own
+        guard is a 500 on an amount the endpoint means to refuse with a 400.
+        """
+        for amount in ("1e30", "1e400", "-1e30"):
+            with self.subTest(amount=amount):
+                response = self._post(amount)
+                self.assertEqual(response.status_code, 400)
+        mock_create.assert_not_called()
+        self.assertFalse(PaymentTransaction.objects.exists())
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_a_second_checkout_in_quick_succession_is_throttled(self, mock_create):
+        """Every call costs a live SumUp request and leaves a PENDING row."""
+        mock_create.return_value = {"id": "CHK_DON_T1", "status": "PENDING"}
+
+        first = self._post("10.00")
+        second = self._post("10.00")
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 429)
+        self.assertEqual(mock_create.call_count, 1)
+        self.assertEqual(PaymentTransaction.objects.count(), 1)
+
     @patch("crush_lu.views_payments.SumUpClient.create_checkout")
     def test_refuses_a_json_body_that_is_not_an_object(self, mock_create):
         """A JSON body need not be a dict -- and a non-dict has no .get().
@@ -4185,6 +4258,51 @@ class CommunitySupporterBadgeTests(SiteTestMixin, TestCase):
         self.assertIn("Support Crush.lu", body)
         self.assertIn("/payments/sumup/create-donation-checkout/", body)
         self.assertIn('name="csrfmiddlewaretoken"', body)
+
+    @override_settings(ANDROID_NATIVE_COMMERCE_ENABLED=False)
+    def test_the_card_offers_no_purchase_inside_a_native_shell(self):
+        """Store compliance, checked on the surface the reviewer would see."""
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        self.client.force_login(self.user)
+
+        response = self.client.get("/en/my-events/?source=android_app", follow=True)
+        body = response.content.decode()
+
+        self.assertEqual(response.status_code, 200)
+        # The card still introduces itself; only the paying half is withheld.
+        self.assertIn("Support Crush.lu", body)
+        self.assertIn("Available outside the mobile app", body)
+        self.assertNotIn("/payments/sumup/create-donation-checkout/", body)
+        self.assertNotIn('id="js-submit-donation"', body)
+
+    def test_the_badge_appears_in_the_gdpr_export(self):
+        """The export promises all of a member's personal data.
+
+        Supporter status is persisted on the profile and shown back to them on
+        the card, so an export that omits it disagrees with what they can see.
+        """
+        from django.test import RequestFactory
+
+        from crush_lu.views_payments import _apply_paid_checkout
+        from crush_lu.views_account import export_user_data
+
+        _apply_paid_checkout(self._donation(user=self.user), {"status": "PAID"})
+
+        request = RequestFactory().get("/")
+        # Re-fetch: setUp's CrushProfile.objects.create populated the reverse
+        # relation cache on self.user, so user.crushprofile would hand the view
+        # the pre-donation instance. A real request loads the user fresh.
+        request.user = User.objects.get(pk=self.user.pk)
+        data = json.loads(export_user_data(request).content)
+
+        self.assertIn("is_community_supporter", data["profile"])
+        self.assertTrue(data["profile"]["is_community_supporter"])
 
     def test_a_paid_donation_touches_no_seat_and_no_membership(self):
         """A donation shares _apply_paid_checkout with the two things it isn't."""

@@ -40,6 +40,19 @@
         </p>
         {% endif %}
 
+        {% comment %}
+        Same store-compliance gate _products.html applies to the Premium CTA:
+        inside the iOS/Android shell with native commerce disabled, no external
+        purchase surface may be offered. The header and the earned badge above
+        still render -- it is only the paying half that goes. views_payments
+        enforces the same condition, because hiding a button does not close an
+        endpoint a webview can still reach.
+        {% endcomment %}
+        {% if suppress_native_commerce %}
+        <p class="mt-4 text-xs rounded-xl p-3 text-center bg-gray-50 dark:bg-white/10 text-gray-600 dark:text-purple-200 border border-gray-200 dark:border-white/20">
+            {% trans "Available outside the mobile app" %}
+        </p>
+        {% else %}
         <!-- Donation Amount Options -->
         <div class="mt-4" id="donation-card-form">
             <label class="block text-xs font-bold uppercase tracking-wider mb-2.5 text-gray-700 dark:text-purple-200">{% trans "Choose Contribution Amount" %}</label>
@@ -94,9 +107,11 @@
             </svg>
             <span>{% trans "Secure checkout · Apple Pay, Google Pay & Cards" %}</span>
         </div>
+        {% endif %}{# suppress_native_commerce #}
     </div>
 </div>
 
+{% if not suppress_native_commerce %}
 <script nonce="{{ csp_nonce }}">
     document.addEventListener("DOMContentLoaded", function () {
         const tierBtns = document.querySelectorAll(".js-donation-tier-btn");
@@ -104,6 +119,12 @@
         const submitBtn = document.getElementById("js-submit-donation");
         const btnText = document.getElementById("donation-btn-text");
         const errorEl = document.getElementById("donation-error");
+
+        // The paying half of the card is not rendered on a native session with
+        // commerce suppressed, so there is nothing here to wire up.
+        if (!submitBtn || !customInput) {
+            return;
+        }
 
         let selectedAmount = 10;
 
@@ -150,9 +171,15 @@
         });
 
         submitBtn.addEventListener("click", function () {
+            // A non-empty custom field is authoritative, valid or not. Taking
+            // it only when it already passed the minimum meant typing "1" left
+            // finalAmount on the last preset, so the checks below saw a valid
+            // €10 and opened a €10 checkout for someone who asked for €1. The
+            // input is not in a form, so its `min` attribute never intervenes.
             let finalAmount = selectedAmount;
-            if (customInput.value && parseFloat(customInput.value) >= 2) {
-                finalAmount = parseFloat(customInput.value);
+            const custom = customInput.value.trim();
+            if (custom !== "") {
+                finalAmount = parseFloat(custom);
             }
 
             if (isNaN(finalAmount) || finalAmount < 2) {
@@ -206,3 +233,4 @@
         });
     });
 </script>
+{% endif %}{# suppress_native_commerce — nothing purchasable, not even its script #}

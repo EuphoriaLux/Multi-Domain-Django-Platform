@@ -40,6 +40,30 @@ SUMUP_SYNC_THROTTLE_SECONDS = 3
 DONATION_MIN_EUR = Decimal("2.00")
 DONATION_MAX_EUR = Decimal("500.00")
 
+# How long one member must wait between opening donation checkouts. Long enough
+# that a stuck button or a script cannot mint provider resources in a loop,
+# short enough that someone who genuinely mistyped an amount just retries.
+DONATION_CREATE_COOLDOWN_SECONDS = 10
+
+
+def _native_commerce_suppressed(request):
+    """Is this a native-app session that may not take payment?
+
+    Mirrors ``crush_user_context``'s ``suppress_native_commerce`` exactly -- the
+    template gate and the endpoint must not be able to disagree about whether a
+    surface is purchasable.
+    """
+    from crush_lu.ios_app_utils import (
+        is_android_native_request,
+        is_ios_native_request,
+    )
+
+    if is_ios_native_request(request):
+        return not getattr(settings, "IOS_NATIVE_COMMERCE_ENABLED", False)
+    if is_android_native_request(request):
+        return not getattr(settings, "ANDROID_NATIVE_COMMERCE_ENABLED", False)
+    return False
+
 
 def _may_ask_sumup(scope, checkout_id):
     """Claim the right to make one provider call for this checkout, or don't.
@@ -336,6 +360,17 @@ def create_sumup_donation_checkout(request):
     """
     Creates a SumUp checkout session for a voluntary project donation.
     """
+    # Store-compliance gate, enforced here and not only in the template. Apple
+    # and Google both treat taking payment for a digital good outside their
+    # billing as grounds for rejection, and _products.html already hides its
+    # Premium CTA on a native session with commerce disabled. A hidden button
+    # is not a closed endpoint -- the webview can still reach this URL -- so the
+    # same condition has to hold on the server.
+    if _native_commerce_suppressed(request):
+        return JsonResponse(
+            {"error": _("Available outside the mobile app.")}, status=403
+        )
+
     try:
         if request.body:
             data = json.loads(request.body.decode("utf-8"))
@@ -376,7 +411,15 @@ def create_sumup_donation_checkout(request):
     # before the range checks also means 1.999 is treated as the EUR 2.00 it
     # will actually be charged, rather than rejected against a value nothing
     # downstream would have used.
-    amount = amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    #
+    # Guarded, because quantize() is not total: a finite Decimal whose result
+    # would exceed the context precision raises InvalidOperation. "1e30" clears
+    # both the parse and the is_finite() check above and would 500 here -- the
+    # ceiling below never gets to reject it, because this line runs first.
+    try:
+        amount = amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    except InvalidOperation:
+        return JsonResponse({"error": _("Invalid donation amount.")}, status=400)
 
     if amount < DONATION_MIN_EUR:
         return JsonResponse({"error": _("Minimum donation amount is €2.00.")}, status=400)
@@ -392,6 +435,22 @@ def create_sumup_donation_checkout(request):
                 % {"max": f"{DONATION_MAX_EUR:.0f}"}
             },
             status=400,
+        )
+
+    # Throttle here rather than at the top of the view: this is the first line
+    # past which a request costs anything. Every call beyond it is a live SumUp
+    # request plus a PENDING row, and nothing but a disabled button stood
+    # between a held-down key (or a script) and an unbounded number of both.
+    # Charging the cooldown before validation instead would lock out a member
+    # for ten seconds over a typo they never got to correct. cache.add is the
+    # atomic form, the same primitive _may_ask_sumup uses.
+    if not cache.add(
+        f"sumup:donation:create:{request.user.id}",
+        1,
+        timeout=DONATION_CREATE_COOLDOWN_SECONDS,
+    ):
+        return JsonResponse(
+            {"error": _("Please wait a moment before trying again.")}, status=429
         )
 
     checkout_ref = f"CRUSH-DON-{request.user.id}-{uuid.uuid4().hex[:6]}"
