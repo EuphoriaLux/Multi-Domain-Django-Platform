@@ -14444,4 +14444,229 @@ document.addEventListener("alpine:init", function () {
             selectSchedule() { this.sendMode = "schedule"; },
         };
     });
+
+    // Community Supporter donation card (components/support_card.html).
+    //
+    // Every user-visible string arrives on data- attributes rather than
+    // gettext() here: the card's strings were written as {% trans %} in the
+    // template and so live in the `django` catalog, while gettext() in this
+    // file reads `djangojs`. Passing them in keeps one copy of each string,
+    // in the catalog the translators already have.
+    //
+    // The card is only ever rendered with commerce enabled -- the template
+    // withholds this whole half inside a native shell -- so there is no
+    // "nothing to wire up" guard to port.
+    Alpine.data("donationCard", function () {
+        return {
+            min: 2,
+            max: 500,
+            endpoint: "",
+            labelSupport: "",
+            msgMin: "",
+            msgMax: "",
+            msgPreparing: "",
+            msgUnavailable: "",
+            msgFailed: "",
+
+            // The amount shown on the button. Distinct from `activeTier`: a
+            // typed amount equal to a preset still leaves every preset
+            // unhighlighted, so the two cannot be derived from each other.
+            amount: NaN,
+            activeTier: null,
+            busy: false,
+            errorMessage: "",
+
+            init: function () {
+                var el = this.$root;
+                this.min = parseFloat(el.getAttribute("data-min") || "2");
+                this.max = parseFloat(el.getAttribute("data-max") || "500");
+                this.endpoint = el.getAttribute("data-endpoint") || "";
+                this.labelSupport = el.getAttribute("data-label-support") || "";
+                this.msgMin = el.getAttribute("data-msg-min") || "";
+                this.msgMax = el.getAttribute("data-msg-max") || "";
+                this.msgPreparing = el.getAttribute("data-msg-preparing") || "";
+                this.msgUnavailable = el.getAttribute("data-msg-unavailable") || "";
+                this.msgFailed = el.getAttribute("data-msg-failed") || "";
+
+                // data-default names the tier the template already rendered
+                // active, so this re-asserts the server's state rather than
+                // changing it -- no flash, and the card still reads correctly
+                // if Alpine never boots.
+                this.activeTier = el.getAttribute("data-default");
+                this.amount = this.toCents(this.activeTier || "");
+                this.syncTiers();
+            },
+
+            get hasError() {
+                return this.errorMessage !== "";
+            },
+
+            get buttonLabel() {
+                if (this.busy) {
+                    return this.msgPreparing;
+                }
+                if (!isNaN(this.amount) && this.amount > 0) {
+                    return this.labelSupport + " (€" + this.amount.toFixed(2) + ")";
+                }
+                return this.labelSupport;
+            },
+
+            // Round the decimal the member typed, not its binary float, so this
+            // agrees with the server's Decimal ROUND_HALF_UP on every input.
+            //
+            // toFixed() rounds the float and gets 2.355 wrong (€2.35 shown, €2.36
+            // charged). Nudging by Number.EPSILON first looks like it fixes that
+            // and does for 2.355 -- but it is still float arithmetic and diverges
+            // on 4.6% of half-cent amounts: toCents(10.075) gave 10.07 where the
+            // server says 10.08. Digits are the only representation both sides
+            // agree on, so parse them.
+            //
+            // Half-up needs only "is the remainder >= 0.005", which is true
+            // exactly when the third decimal digit is 5-9 -- later digits cannot
+            // change that, so they are ignored rather than examined.
+            toCents: function (value) {
+                var text = String(value).trim();
+                if (!/^\d+(\.\d*)?$|^\.\d+$/.test(text)) {
+                    return NaN;   // scientific notation, signs, junk — let the caller reject it
+                }
+                var parts = text.split(".");
+                var whole = parseInt(parts[0] || "0", 10);
+                var frac = parts[1] || "";
+                var cents = whole * 100 + parseInt(frac.slice(0, 2).padEnd(2, "0"), 10);
+                if (frac.length > 2 && frac.charCodeAt(2) >= 53) {
+                    cents += 1;
+                }
+                return cents / 100;
+            },
+
+            selectTier: function () {
+                // $el, not $root: the handler sits on the clicked button, which
+                // is what carries the amount.
+                var btn = this.$el;
+                if (this.$refs.custom) this.$refs.custom.value = "";
+                this.activeTier = btn.getAttribute("data-amount");
+                this.amount = this.toCents(this.activeTier || "");
+                this.syncTiers();
+            },
+
+            onCustomInput: function () {
+                var raw = this.customRaw();
+                var cents = this.toCents(raw);
+                // Only a usable amount moves the button and clears the presets.
+                // Half-typed input ("1", "") leaves the last selection showing;
+                // submit() is where a non-empty custom field takes over
+                // regardless.
+                if (!isNaN(cents) && cents >= this.min) {
+                    this.activeTier = null;
+                    this.amount = cents;
+                    this.syncTiers();
+                }
+            },
+
+            submit: function () {
+                var self = this;
+                var final = this.effectiveAmount();
+
+                if (isNaN(final) || final < this.min) {
+                    this.errorMessage = this.msgMin;
+                    return;
+                }
+
+                // Mirrors DONATION_MAX_EUR in views_payments.py. The server is
+                // what actually enforces this; checking here only saves a round
+                // trip on an obvious slipped decimal point.
+                if (final > this.max) {
+                    this.errorMessage = this.msgMax;
+                    return;
+                }
+
+                this.errorMessage = "";
+                this.busy = true;
+
+                // The endpoint comes in as an absolute path from the template,
+                // like every other checkout call site. Reversing it by name
+                // would tie the partial to which urlconf is active and turn a
+                // NoReverseMatch into a 500 on the whole page.
+                //
+                // CSRF comes from the hidden input base.html renders --
+                // CSRF_COOKIE_HTTPONLY is on, so there is no cookie to read.
+                fetch(this.endpoint, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": (document.querySelector("[name=csrfmiddlewaretoken]") || {}).value || ""
+                    },
+                    body: JSON.stringify({ amount: final })
+                })
+                    .then(function (res) { return res.json(); })
+                    .then(function (data) {
+                        if (data.success && data.widget_url) {
+                            window.location.href = data.widget_url;
+                        } else {
+                            throw new Error(data.error || self.msgUnavailable);
+                        }
+                    })
+                    .catch(function (err) {
+                        self.busy = false;
+                        // Put the attempted figure back on the button; only an
+                        // amount that already passed both bounds gets this far.
+                        self.amount = self.toCents(String(final));
+                        self.errorMessage = err.message || self.msgFailed;
+                    });
+            },
+
+            customRaw: function () {
+                return this.$refs.custom ? (this.$refs.custom.value || "").trim() : "";
+            },
+
+            // A non-empty custom field is authoritative, valid or not. Taking it
+            // only when it already passed the minimum meant typing "1" left the
+            // amount on the last preset, so the checks in submit() saw a valid
+            // €10 and opened a €10 checkout for someone who asked for €1. The
+            // input is not in a form, so its `min` attribute never intervenes.
+            // Resolved to the cent from the typed digits, so the figure checked,
+            // the figure on the button and the figure SumUp charges are one.
+            effectiveAmount: function () {
+                var custom = this.customRaw();
+                return custom !== "" ? this.toCents(custom) : this.amount;
+            },
+
+            // Toggles only the classes that differ between the two states, so
+            // the shared ones stay where the template put them instead of being
+            // restated (and kept in sync) here.
+            syncTiers: function () {
+                var active = this.activeTier;
+                var buttons = this.$root.querySelectorAll("[data-amount]");
+                buttons.forEach(function (btn) {
+                    var on = btn.getAttribute("data-amount") === active;
+
+                    btn.classList.toggle("border-2", on);
+                    btn.classList.toggle("border-pink-500", on);
+                    btn.classList.toggle("bg-pink-500", on);
+                    btn.classList.toggle("shadow-md", on);
+                    btn.classList.toggle("border", !on);
+                    btn.classList.toggle("border-gray-200", !on);
+                    btn.classList.toggle("dark:border-white/20", !on);
+                    btn.classList.toggle("bg-gray-50", !on);
+                    btn.classList.toggle("dark:bg-white/10", !on);
+                    btn.classList.toggle("hover:bg-pink-50", !on);
+                    btn.classList.toggle("dark:hover:bg-pink-600/30", !on);
+
+                    var amountSpan = btn.querySelector(".tier-amount");
+                    if (amountSpan) {
+                        amountSpan.classList.toggle("text-white", on);
+                        amountSpan.classList.toggle("text-gray-900", !on);
+                        amountSpan.classList.toggle("dark:text-white", !on);
+                    }
+
+                    var labelSpan = btn.querySelector(".tier-label");
+                    if (labelSpan) {
+                        labelSpan.classList.toggle("text-pink-100", on);
+                        labelSpan.classList.toggle("text-gray-600", !on);
+                        labelSpan.classList.toggle("dark:text-purple-200", !on);
+                    }
+                });
+            },
+        };
+    });
 });
