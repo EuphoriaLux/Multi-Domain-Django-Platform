@@ -3,21 +3,30 @@
 
 {% block title %}{% trans "Quiz Control" %} - {{ event.title }}{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'crush_lu/css/quiz-experience.css' %}">
+{% endblock %}
+
+{% block body_class %}quiz-stage-page{% endblock %}
+
 {% block content %}
-<div class="min-h-screen bg-crush-dark pt-4 pb-8">
-    <div class="mx-auto max-w-2xl px-4"
+<div class="quiz-stage-shell px-4 pb-10 pt-4 sm:pt-6">
+    <main class="quiz-stage-inner quiz-host-layout"
          x-data="quizHost"
          data-quiz-id="{{ quiz.id }}"
          data-quiz-night="{{ is_quiz_night|yesno:'true,false' }}"
          data-table-count="{{ tables.count }}"
          data-table-members="{{ table_members_json }}"
-         data-i18n='{"pts":"{% trans "pts" %}","anchor":"{% trans "Anchor" %}","rotator":"{% trans "Rotator" %}","table":"{% trans "Table" %}","complete":"{% trans "complete" %}","noMembers":"{% trans "No members assigned" %}","now":"{% trans "NOW" %}","done":"{% trans "DONE" %}","draft":"{% trans "Draft" %}","active":"{% trans "Active" %}","paused":"{% trans "Paused" %}","finished":"{% trans "Finished" %}","dissolveTable":"{% trans "Dissolve table" %}","confirmDissolve":"{% trans "Confirm — dissolve?" %}","consolidatePlan":"{% trans "Reduce {from} → {to} tables. The moves below will run on confirm." %}","consolidateNoOp":"{% trans "Tables are already consolidated." %}","consolidateMove":"{% trans "{name}: Table {from} → Table {to} ({role})" %}","consolidateFailed":"{% trans "Consolidation failed." %}","consolidateSuccess":"{% trans "Tables consolidated." %}"}'>
+         data-i18n='{"pts":"{% trans "pts" %}","anchor":"{% trans "Anchor" %}","rotator":"{% trans "Rotator" %}","table":"{% trans "Table" %}","complete":"{% trans "complete" %}","noMembers":"{% trans "No members assigned" %}","now":"{% trans "NOW" %}","done":"{% trans "DONE" %}","draft":"{% trans "Draft" %}","active":"{% trans "Active" %}","paused":"{% trans "Paused" %}","finished":"{% trans "Finished" %}","connected":"{% trans "WebSocket connected" %}","disconnected":"{% trans "Disconnected" %}","roundComplete":"{% trans "Round Complete!" %}","loadingMedia":"{% trans "Loading media" %}","previewReady":"{% trans "Preview loaded here" %}","mediaUnavailable":"{% trans "Media unavailable" %}","mediaLabel":"{% trans "Quiz media" %}","dissolveTable":"{% trans "Dissolve table" %}","confirmDissolve":"{% trans "Confirm — dissolve?" %}","consolidatePlan":"{% trans "Reduce {from} → {to} tables. The moves below will run on confirm." %}","consolidateNoOp":"{% trans "Tables are already consolidated." %}","consolidateMove":"{% trans "{name}: Table {from} → Table {to} ({role})" %}","consolidateFailed":"{% trans "Consolidation failed." %}","consolidateSuccess":"{% trans "Tables consolidated." %}"}'>
 
         {# --- Header --- #}
-        <div class="mb-6">
-            <h1 class="text-2xl font-bold text-white">{% trans "Quiz Host Panel" %}</h1>
-            <p class="mt-1 text-gray-400">{{ event.title }}</p>
-            <div class="mt-2 flex items-center gap-2">
+        <header class="quiz-host-header quiz-stage-header">
+            <div class="min-w-0">
+                <p class="quiz-stage-kicker">{% trans "Run of show" %}</p>
+                <h1 class="quiz-stage-title">{% trans "Quiz Host Panel" %}</h1>
+                <p class="quiz-stage-subtitle truncate">{{ event.title }}</p>
+            </div>
+            <div class="flex flex-wrap items-center justify-end gap-2">
                 <span class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium" x-bind:class="statusBadgeClass">
                     <span class="h-2 w-2 rounded-full" x-bind:class="statusDotClass"></span>
                     <span x-text="statusText"></span>
@@ -25,21 +34,27 @@
                 <span x-show="hasBonusRound" class="inline-flex items-center rounded-full bg-amber-900/50 px-3 py-1 text-xs font-medium text-amber-300">
                     <span x-text="isBonusLabel"></span>
                 </span>
-                <span x-show="isConnected" class="text-xs text-green-400">{% trans "WebSocket connected" %}</span>
-                <span x-show="isDisconnected" class="text-xs text-red-400">{% trans "Disconnected" %}</span>
+                <span class="quiz-status-strip">
+                    <span class="quiz-connection-dot" x-bind:class="hostConnectionDotClass" aria-hidden="true"></span>
+                    <span x-text="hostConnectionLabel"></span>
+                </span>
             </div>
-        </div>
+        </header>
+
+        <p class="sr-only" role="status" aria-live="polite" aria-atomic="true" x-text="liveAnnouncement"></p>
 
         {# --- Error / feedback banner --- #}
+        <div class="quiz-host-alerts space-y-3">
         <div x-show="hasError"
              x-cloak
-             class="mb-4 rounded-lg border border-amber-600 bg-amber-900/40 px-4 py-3 text-sm text-amber-300">
+             role="alert"
+             class="rounded-xl border border-amber-500/60 bg-amber-950/60 px-4 py-3 text-sm text-amber-200">
             <span x-text="errorMessage"></span>
         </div>
 
         {# --- Rotation capacity warnings (persistent) --- #}
         {% if rotation_warnings %}
-        <div class="mb-4 rounded-lg border border-amber-600/60 bg-amber-900/20 px-4 py-3 text-sm text-amber-200">
+        <div class="rounded-xl border border-amber-500/50 bg-amber-950/40 px-4 py-3 text-sm text-amber-200">
             <p class="mb-1 font-semibold">{% trans "Rotation capacity warnings" %}</p>
             <ul class="list-inside list-disc space-y-1 text-xs text-amber-300/90">
                 {% for w in rotation_warnings %}
@@ -48,13 +63,15 @@
             </ul>
         </div>
         {% endif %}
+        </div>
 
         {# --- Round selector --- #}
-        <div class="mb-6 rounded-xl bg-slate-800 p-4 shadow-lg">
-            <div class="mb-3 flex items-center justify-between">
-                <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-400">{% trans "Rounds" %}</h2>
+        <details class="quiz-details quiz-host-rounds" x-bind:open="canStart">
+            <summary>
+                <span>{% trans "Rounds" %}</span>
                 <span class="quiz-round-progress-text text-xs text-gray-500"></span>
-            </div>
+            </summary>
+            <div class="quiz-details__body">
             {# Progress bar #}
             <div class="mb-4 h-1.5 overflow-hidden rounded-full bg-slate-700">
                 <div class="quiz-round-progress-bar h-full rounded-full bg-gradient-to-r from-crush-purple to-crush-pink transition-all duration-500" style="width: 0%"></div>
@@ -85,16 +102,18 @@
                 </button>
                 {% endfor %}
             </div>
-        </div>
+            </div>
+        </details>
 
         {# --- Table Overview (who sits where) --- #}
-        <div x-show="showQuizNight" class="mb-6 rounded-xl bg-slate-800 p-4 shadow-lg">
-            <h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">
+        <details x-show="showQuizNight" class="quiz-details quiz-host-tables" x-bind:open="canStart">
+            <summary>
                 <svg class="mr-1 inline-block h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
                 </svg>
                 {% trans "Table Setup" %}
-            </h2>
+            </summary>
+            <div class="quiz-details__body">
 
             {# Unassigned attendees — checked in but with no table membership (e.g. their original table was dissolved). One row per orphan with a destination picker. #}
             {% if unassigned_attendees %}
@@ -158,11 +177,11 @@
             </div>
 
             <div x-ref="tableoverview" class="grid grid-cols-1 gap-3 sm:grid-cols-2"></div>
-
-        </div>
+            </div>
+        </details>
 
         {# --- Current question info --- #}
-        <div x-show="hasCurrentQuestion" class="mb-6 rounded-xl bg-slate-800 p-4 shadow-lg">
+        <section x-show="hasCurrentQuestion" x-cloak class="quiz-host-question quiz-focus-panel p-5">
             <div class="flex items-center justify-between text-sm text-gray-400">
                 <span x-text="questionProgress"></span>
                 <span x-text="currentRoundTitle"></span>
@@ -177,10 +196,10 @@
                 <p class="text-xs font-semibold uppercase tracking-wider text-green-400 mb-1">{% trans "Correct Answer" %}</p>
                 <p class="text-sm text-green-300 font-medium" x-text="correctAnswerText"></p>
             </div>
-        </div>
+        </section>
 
         {# --- Table Scoring Grid (Quiz Night) --- #}
-        <div x-show="showScoringGrid" class="mb-6 rounded-xl bg-slate-800 p-4 shadow-lg">
+        <section x-show="showScoringGrid" x-cloak class="quiz-host-scoring quiz-focus-panel p-5">
             <div class="mb-3 flex items-center justify-between">
                 <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-400">{% trans "Score Tables" %}</h2>
                 <span x-show="hasTables" x-text="scoringProgress" class="text-sm font-medium text-amber-400"></span>
@@ -196,14 +215,16 @@
                     <div class="grid grid-cols-2 gap-2">
                         <button x-on:click="scoreTableCorrectFromEl"
                                 data-table-id="{{ table.id }}"
-                                class="quiz-table-btn quiz-table-correct flex items-center justify-center gap-1 rounded-lg bg-slate-600 py-3 text-sm font-semibold text-gray-300 transition-all hover:bg-green-600 hover:text-white active:scale-95">
+                                aria-label="{% blocktrans with table_number=table.table_number %}Mark Table {{ table_number }} correct{% endblocktrans %}"
+                                class="quiz-action quiz-table-btn quiz-table-correct flex items-center justify-center gap-1 rounded-lg bg-slate-600 py-3 text-sm font-semibold text-gray-300 transition-all hover:bg-green-600 hover:text-white active:scale-95">
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
                             </svg>
                         </button>
                         <button x-on:click="scoreTableWrongFromEl"
                                 data-table-id="{{ table.id }}"
-                                class="quiz-table-btn quiz-table-wrong flex items-center justify-center gap-1 rounded-lg bg-slate-600 py-3 text-sm font-semibold text-gray-300 transition-all hover:bg-red-600 hover:text-white active:scale-95">
+                                aria-label="{% blocktrans with table_number=table.table_number %}Mark Table {{ table_number }} wrong{% endblocktrans %}"
+                                class="quiz-action quiz-table-btn quiz-table-wrong flex items-center justify-center gap-1 rounded-lg bg-slate-600 py-3 text-sm font-semibold text-gray-300 transition-all hover:bg-red-600 hover:text-white active:scale-95">
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
                             </svg>
@@ -212,26 +233,28 @@
                 </div>
                 {% endfor %}
             </div>
-        </div>
+        </section>
 
         {# --- Quiz finished banner --- #}
-        <div x-show="isFinished" class="mb-6 rounded-xl bg-green-900/40 border border-green-600 p-4 shadow-lg">
+        <div class="quiz-host-state space-y-3">
+        <div x-show="isFinished" x-cloak class="rounded-xl bg-green-900/40 border border-green-600 p-4 shadow-lg">
             <p class="text-center text-lg font-bold text-green-300">{% trans "Quiz Complete!" %}</p>
             <p class="mt-1 text-center text-sm text-green-400">{% trans "This quiz has ended. Final results are shown below." %}</p>
         </div>
 
         {# --- Round complete banner --- #}
-        <div x-show="isRoundComplete" class="mb-6 rounded-xl bg-amber-900/40 border border-amber-600 p-4 shadow-lg">
+        <div x-show="isRoundComplete" x-cloak class="rounded-xl bg-amber-900/40 border border-amber-600 p-4 shadow-lg">
             <p class="text-center text-lg font-bold text-amber-300">{% trans "Round Complete!" %}</p>
             <p class="mt-1 text-center text-sm text-amber-400">{% trans "Score any remaining tables, then rotate or select the next round." %}</p>
         </div>
+        </div>
 
         {# --- Host controls --- #}
-        <div class="space-y-3">
+        <aside class="quiz-host-controls quiz-surface space-y-3">
             {# Primary action — full width, prominent #}
             <button x-on:click="nextQuestion"
                     x-show="showNextQuestion"
-                    class="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-crush-purple to-crush-pink py-5 text-lg font-bold text-white shadow-lg transition-all hover:opacity-90 active:scale-[0.98]">
+                    class="quiz-action quiz-primary-action flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-crush-purple to-crush-pink py-5 text-lg font-bold text-white transition-all hover:brightness-110 active:scale-[0.98]">
                 <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/>
                 </svg>
@@ -240,7 +263,7 @@
 
             <button x-on:click="startQuiz"
                     x-show="canStart"
-                    class="flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 py-5 text-lg font-bold text-white shadow-lg transition-all hover:bg-green-500 active:scale-[0.98]">
+                    class="quiz-action flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 py-5 text-lg font-bold text-white shadow-lg transition-all hover:bg-green-500 active:scale-[0.98]">
                 <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -250,7 +273,7 @@
 
             <button x-on:click="resumeQuiz"
                     x-show="canResume"
-                    class="flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 py-5 text-lg font-bold text-white shadow-lg transition-all hover:bg-green-500 active:scale-[0.98]">
+                    class="quiz-action flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 py-5 text-lg font-bold text-white shadow-lg transition-all hover:bg-green-500 active:scale-[0.98]">
                 <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -261,7 +284,7 @@
             {# Rotate Tables — prominent when available #}
             <button x-on:click="triggerRotate"
                     x-show="canRotate"
-                    class="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-600 py-5 text-lg font-bold text-white shadow-lg transition-all hover:bg-amber-500 active:scale-[0.98] animate-pulse">
+                    class="quiz-action flex w-full items-center justify-center gap-2 rounded-xl bg-amber-600 py-5 text-lg font-bold text-white shadow-lg transition-all hover:bg-amber-500 active:scale-[0.98] animate-pulse">
                 <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                 </svg>
@@ -269,9 +292,9 @@
             </button>
 
             {# Secondary actions — row of smaller buttons #}
-            <div class="grid grid-cols-3 gap-2">
+            <div class="grid grid-cols-2 gap-2">
                 <button x-on:click="showLeaderboard"
-                        class="flex flex-col items-center justify-center gap-1 rounded-xl bg-slate-700 py-3 text-xs font-medium text-gray-300 shadow transition-all hover:bg-slate-600 active:scale-95">
+                        class="quiz-action flex flex-col items-center justify-center gap-1 rounded-xl bg-slate-700 py-3 text-xs font-medium text-gray-300 shadow transition-all hover:bg-slate-600 active:scale-95">
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
                     </svg>
@@ -280,17 +303,19 @@
 
                 <button x-on:click="pauseQuiz"
                         x-show="canPause"
-                        class="flex flex-col items-center justify-center gap-1 rounded-xl bg-yellow-700/80 py-3 text-xs font-medium text-yellow-100 shadow transition-all hover:bg-yellow-600 active:scale-95">
+                        class="quiz-action flex flex-col items-center justify-center gap-1 rounded-xl bg-yellow-700/80 py-3 text-xs font-medium text-yellow-100 shadow transition-all hover:bg-yellow-600 active:scale-95">
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                     {% trans "Pause" %}
                 </button>
+            </div>
 
+            <div class="quiz-host-danger space-y-2">
                 <button x-on:click="endQuiz"
                         x-show="canEnd"
                         x-bind:class="endQuizBtnClass"
-                        class="flex flex-col items-center justify-center gap-1 rounded-xl py-3 text-xs font-medium shadow transition-all active:scale-95">
+                        class="quiz-action flex w-full flex-col items-center justify-center gap-1 rounded-xl py-3 text-xs font-medium shadow transition-all active:scale-95">
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/>
@@ -298,31 +323,33 @@
                     <span x-show="isNotConfirmingEnd">{% trans "End Quiz" %}</span>
                     <span x-show="isConfirmingEnd">{% trans "Confirm End?" %}</span>
                 </button>
-            </div>
 
             {# Reset Quiz — only shown when finished/paused. Two-tap confirmation to avoid accidental reset. #}
             <button x-on:click="resetQuiz"
                     x-show="canReset"
                     x-bind:class="resetQuizBtnClass"
-                    class="mt-2 flex w-full flex-col items-center justify-center gap-1 rounded-xl py-3 text-xs font-medium shadow transition-all active:scale-95">
+                    class="quiz-action flex w-full flex-col items-center justify-center gap-1 rounded-xl py-3 text-xs font-medium shadow transition-all active:scale-95">
                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                 </svg>
                 <span x-show="isNotConfirmingReset">{% trans "Reset Quiz (clears scores)" %}</span>
                 <span x-show="isConfirmingReset">{% trans "Confirm — wipe scores and reset?" %}</span>
             </button>
-        </div>
+            </div>
+        </aside>
 
-        {# --- Live leaderboard preview (always visible) --- #}
-        <div class="mt-6 rounded-xl bg-slate-800 p-4 shadow-lg">
-            <h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">{% trans "Current Standings" %}</h2>
+        {# --- Live leaderboard preview --- #}
+        <details class="quiz-details quiz-host-standings">
+            <summary>{% trans "Current Standings" %}</summary>
+            <div class="quiz-details__body">
             {# Rendered via JS for CSP compliance #}
             <div x-ref="tableboard" class="space-y-2"></div>
             <p x-show="hasNoLeaderboard" class="text-center text-sm text-gray-500 py-4">
                 {% trans "Standings will appear after the first question is scored." %}
             </p>
-        </div>
-    </div>
+            </div>
+        </details>
+    </main>
 </div>
 {% endblock %}
 

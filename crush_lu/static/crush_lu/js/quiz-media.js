@@ -1,31 +1,13 @@
 /**
- * quiz-media.js — shared, CSP-safe renderer for Quiz Night media stimuli.
+ * Shared, CSP-safe renderer for Quiz Night media stimuli.
  *
- * The Quiz Night templates all run under the Alpine.js CSP build, so media is
- * built imperatively with document.createElement (no x-for, no inline bindings).
- * Mirrors the _avatarNode URL-sanitization pattern in quiz-display.js: every
- * URL assigned to an element attribute is reduced to either itself (validated)
- * or null via a single sanitizeMediaUrl() helper, and only the sanitized local
- * is ever assigned to .src. This is recognised by CodeQL as a sanitizer for
- * js/xss + js/client-side-unvalidated-url-redirection.
- *
- * Exposes a single global `QuizMedia` with:
- *  - render(container, media, opts): fill *container* (cleared first)
- *  - clear(container): tear down any rendered media, halting playback
- *
- * media = { kind: "none"|"image"|"video"|"audio",
- *           url:  str|null,
- *           source: "upload"|"external"|null,
- *           description: str }   // optional alt text / accessible label
- * opts  = { size: "player"|"display" } — sizing variant
+ * QuizMedia.render(container, media, options) remains backwards compatible.
+ * The renderer now owns the common Night Stage frame and local load state in
+ * addition to the underlying image/video/audio/embed element.
  */
 (function (global) {
     "use strict";
 
-    // Hosts allowed for external embeds. MUST stay in sync with the Python
-    // allowlist QUIZ_EMBED_HOSTS in crush_lu/models/quiz.py — the server only
-    // ever broadcasts already-normalized embed URLs, but we re-check on the
-    // client as defense-in-depth (never trust a WS payload).
     var EMBED_HOSTS = [
         "www.youtube-nocookie.com",
         "youtube.com",
@@ -37,16 +19,6 @@
         "soundcloud.com",
     ];
 
-    /**
-     * Return *url* if it is safe to assign for the given media source, else null.
-     *
-     * - external: must be http(s) and on the embed allowlist
-     * - upload:   must be http(s); same-origin or https (Azure Blob in prod)
-     *
-     * Returning the validated URL (not a boolean) keeps the sanitized value on
-     * the same data-flow line as the eventual `.src` assignment, which is the
-     * shape CodeQL recognises as a sanitizer.
-     */
     function sanitizeMediaUrl(url, source) {
         if (typeof url !== "string" || !url) return null;
         var u;
@@ -65,7 +37,6 @@
             }
             return null;
         }
-        // upload: same-origin, https (Azure Blob in prod), or Azurite local emulator (127.0.0.1 / localhost)
         if (u.origin === global.location.origin) return u.href;
         if (scheme === "https:") return u.href;
         if (u.hostname === "127.0.0.1" || u.hostname === "localhost") return u.href;
@@ -76,26 +47,50 @@
         while (node && node.firstChild) node.removeChild(node.firstChild);
     }
 
-    /**
-     * Tear down rendered media: pausing/removing the node halts any in-flight
-     * audio/video/iframe playback so it cannot bleed into other screens.
-     */
     function clear(container) {
         if (!container) return;
-        var kids = container.childNodes;
-        for (var i = 0; i < kids.length; i++) {
-            var el = kids[i];
+        var playable = container.querySelectorAll("audio, video, iframe");
+        for (var i = 0; i < playable.length; i++) {
+            var el = playable[i];
             try {
                 if (el.pause) el.pause();
                 if (el.contentWindow && el.contentWindow.postMessage) {
-                    // Best-effort stop for YouTube/Vimeo embeds.
-                    el.contentWindow.postMessage('{"event":"command","func":"stopVideo","args":""}', "*");
+                    el.contentWindow.postMessage(
+                        '{"event":"command","func":"stopVideo","args":""}',
+                        "*",
+                    );
                 }
             } catch (e) {
-                /* cross-origin iframe — ignore */
+                /* A cross-origin iframe can reject access while being removed. */
             }
         }
         clearChildren(container);
+    }
+
+    function makeStatus(label) {
+        var status = document.createElement("span");
+        status.className = "quiz-media__status";
+        status.setAttribute("role", "status");
+
+        var dot = document.createElement("span");
+        dot.className = "quiz-media__status-dot";
+        dot.setAttribute("aria-hidden", "true");
+        status.appendChild(dot);
+
+        var copy = document.createElement("span");
+        copy.textContent = label;
+        status.appendChild(copy);
+        status._copy = copy;
+        return status;
+    }
+
+    function renderUnavailable(container, opts) {
+        var wrapper = document.createElement("div");
+        wrapper.className = "quiz-media quiz-media--error";
+        wrapper.setAttribute("data-status", "error");
+        var status = makeStatus(opts.unavailableLabel || "Media unavailable");
+        wrapper.appendChild(status);
+        container.appendChild(wrapper);
     }
 
     function render(container, media, opts) {
@@ -104,58 +99,104 @@
         if (!media || media.kind === "none" || !media.url) return;
 
         var o = opts || {};
-        var isDisplay = o.size === "display";
-        // Sanitize first; a null safeUrl means we render nothing.
+        var size = o.size === "display" ? "display" : "player";
         var safeUrl = sanitizeMediaUrl(media.url, media.source);
-        if (!safeUrl) return;
+        if (!safeUrl) {
+            renderUnavailable(container, o);
+            return;
+        }
 
         var description =
             typeof media.description === "string" && media.description.trim()
                 ? media.description.trim()
                 : "";
+        var mediaLabel = description || o.mediaLabel || "Quiz media";
+        var loadingLabel = o.loadingLabel || "Loading media";
+        var readyLabel = o.readyLabel || "Media ready";
+
+        var wrapper = document.createElement("div");
+        wrapper.className =
+            "quiz-media quiz-media--" + media.kind + " quiz-media--" + size;
+        wrapper.setAttribute("data-status", "loading");
+        wrapper.setAttribute("aria-busy", "true");
+
+        var status = makeStatus(loadingLabel);
+        if (!o.showReadyStatus) status.classList.add("quiz-media__status--auto-hide");
+        wrapper.appendChild(status);
 
         var node = null;
-
         if (media.source === "external") {
             node = document.createElement("iframe");
             node.src = safeUrl;
             node.setAttribute("allowfullscreen", "");
             node.setAttribute("allow", "autoplay; encrypted-media; picture-in-picture");
             node.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
-            node.title = description;
-            node.className = isDisplay
-                ? "w-full rounded-2xl bg-black"
-                : "w-full rounded-xl bg-black";
-            node.style.aspectRatio = media.kind === "audio" ? "auto" : "16 / 9";
-            node.style.border = "0";
-            node.style.minHeight = media.kind === "audio" ? "152px" : "";
+            node.title = mediaLabel;
+            if (media.kind === "audio") node.style.minHeight = "9.5rem";
         } else if (media.kind === "image") {
             node = document.createElement("img");
             node.src = safeUrl;
-            // Empty alt = decorative ONLY when no description is provided; when
-            // the stimulus is the question (e.g. "what city is this?"), an
-            // author-provided description is used so screen readers get it.
-            node.alt = description;
-            node.className = isDisplay
-                ? "w-full max-h-[55vh] object-contain rounded-2xl bg-black/40"
-                : "w-full max-h-72 object-contain rounded-xl bg-black/40";
+            node.alt = mediaLabel;
         } else if (media.kind === "video") {
             node = document.createElement("video");
             node.src = safeUrl;
             node.setAttribute("controls", "");
             node.setAttribute("playsinline", "");
-            node.className = isDisplay
-                ? "w-full max-h-[55vh] rounded-2xl bg-black"
-                : "w-full max-h-72 rounded-xl bg-black";
+            node.setAttribute("aria-label", mediaLabel);
         } else if (media.kind === "audio") {
             node = document.createElement("audio");
             node.src = safeUrl;
             node.setAttribute("controls", "");
-            node.setAttribute("aria-label", description);
-            node.className = "w-full";
+            node.setAttribute("aria-label", mediaLabel);
         }
 
-        if (node) container.appendChild(node);
+        if (!node) {
+            renderUnavailable(container, o);
+            return;
+        }
+
+        var ready = function () {
+            wrapper.setAttribute("data-status", "ready");
+            wrapper.setAttribute("aria-busy", "false");
+            status._copy.textContent = readyLabel;
+        };
+        var unavailable = function () {
+            wrapper.setAttribute("data-status", "error");
+            wrapper.setAttribute("aria-busy", "false");
+            status.classList.remove("quiz-media__status--auto-hide");
+            status._copy.textContent = o.unavailableLabel || "Media unavailable";
+        };
+
+        if (node.tagName === "IMG" || node.tagName === "IFRAME") {
+            node.addEventListener("load", ready, { once: true });
+        } else if (node.tagName === "VIDEO") {
+            node.addEventListener("loadeddata", ready, { once: true });
+        } else {
+            node.addEventListener("loadedmetadata", ready, { once: true });
+        }
+        node.addEventListener("error", unavailable, { once: true });
+
+        if (media.kind === "audio") {
+            var art = document.createElement("div");
+            art.className = "quiz-media__audio-art";
+            art.setAttribute("aria-hidden", "true");
+            art.textContent = "\u266B";
+
+            var body = document.createElement("div");
+            body.className = "quiz-media__audio-body";
+            var label = document.createElement("p");
+            label.className = "quiz-media__audio-label";
+            label.textContent = o.audioLabel || "Audio";
+            body.appendChild(label);
+            body.appendChild(node);
+
+            wrapper.appendChild(art);
+            wrapper.appendChild(body);
+        } else {
+            wrapper.appendChild(node);
+        }
+
+        container.appendChild(wrapper);
     }
 
     global.QuizMedia = { render: render, clear: clear };
