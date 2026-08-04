@@ -1115,7 +1115,6 @@ def _append_widget_note(tx_obj, note):
         locked.save(update_fields=["failure_reason", "updated_at"])
         return True
 
-
 def _sync_checkout_with_sumup(tx_obj):
     """Re-read the checkout from SumUp and apply whatever it reports.
 
