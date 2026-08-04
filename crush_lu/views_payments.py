@@ -17,6 +17,7 @@ from django.utils.translation import override
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
+from crush_lu.connect_phase import is_selected_beta_tester
 from crush_lu.models.events import (
     SEAT_HOLDING_STATUSES,
     EventRegistration,
@@ -258,6 +259,33 @@ def create_sumup_premium_checkout(request, membership_id):
 
     if membership.status != "pending":
         return JsonResponse({"error": _("This membership is not pending payment.")}, status=400)
+
+    # Ask the beta allowlist again, here, at the moment money is about to move.
+    # views_premium checks it when the pending membership is MINTED, and nothing
+    # between there and confirm() ever re-asks -- so the pending row was a
+    # capability that outlived the permission that created it. De-selecting a
+    # tester in the admin bounced them off the coach directory while leaving
+    # this endpoint, which they already hold a link to, fully payable: they
+    # could still be charged and still have a coach permanently assigned.
+    # Rotating testers in and out is the normal way to run the beta, so that
+    # gap is a matter of when, not if.
+    #
+    # Judged on ``membership.user``, never ``request.user``: the ownership check
+    # above deliberately lets staff open a checkout on a member's behalf, so
+    # reading the allowlist off the request would ask about the staff account
+    # and break staff-assisted purchases. The entitlement belongs to the buyer.
+    if getattr(settings, "PREMIUM_REDIRECTS_TO_BETA", False) and not (
+        is_selected_beta_tester(membership.user)
+    ):
+        logger.warning(
+            "Blocked premium checkout for membership %s: user %s is not a "
+            "selected beta tester",
+            membership.id,
+            membership.user_id,
+        )
+        return JsonResponse(
+            {"error": _("Premium is invite-only during the beta.")}, status=403
+        )
 
     fee = getattr(settings, "SUMUP_PREMIUM_MONTHLY_FEE", 10.00)
     amount = Decimal(str(fee))
