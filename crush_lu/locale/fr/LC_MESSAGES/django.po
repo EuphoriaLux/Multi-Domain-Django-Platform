@@ -38915,3 +38915,63 @@ msgstr "Chiffré et conforme PCI-DSS via SumUp"
 #: crush_lu/templates/crush_lu/payments/sumup_widget.html
 msgid "The payment could not be completed. Please check your card details and try again."
 msgstr "Le paiement n'a pas pu être finalisé. Veuillez vérifier les informations de votre carte et réessayer."
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Ready to preview before saving."
+msgstr "Prêt à être prévisualisé avant l'enregistrement."
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "This file is larger than the 25 MB limit."
+msgstr "Ce fichier dépasse la limite de 25 Mo."
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "This file type does not match the selected media type."
+msgstr "Ce type de fichier ne correspond pas au type de média sélectionné."
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Choose what players should see or hear with this question."
+msgstr "Choisissez ce que les joueurs doivent voir ou entendre avec cette question."
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Media source"
+msgstr "Source du média"
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Upload"
+msgstr "Téléverser"
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Use a file from this device"
+msgstr "Utiliser un fichier de cet appareil"
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "External link"
+msgstr "Lien externe"
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "YouTube, Vimeo, Spotify, or SoundCloud"
+msgstr "YouTube, Vimeo, Spotify ou SoundCloud"
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Choose an image or a short video/audio clip up to 25 MB."
+msgstr "Choisissez une image ou un court extrait vidéo/audio de 25 Mo maximum."
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "External media link"
+msgstr "Lien de média externe"
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Paste a watch or share link. Supported links are converted to safe embeds when the question is shown."
+msgstr "Collez un lien de lecture ou de partage. Les liens pris en charge sont convertis en intégrations sécurisées lors de l'affichage de la question."
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Saving an external link replaces the current uploaded file."
+msgstr "L'enregistrement d'un lien externe remplace le fichier actuellement téléversé."
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Describe what players need to perceive"
+msgstr "Décrivez ce que les joueurs doivent percevoir"
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Write a concise equivalent for players using a screen reader, especially when identifying the media is part of the question."
+msgstr "Rédigez un équivalent concis pour les joueurs utilisant un lecteur d'écran, en particulier lorsque l'identification du média fait partie de la question."

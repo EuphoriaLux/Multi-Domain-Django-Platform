@@ -43,6 +43,18 @@ def _effective_media_kind(request, question):
     return "none"
 
 
+def _effective_media_source(request, question):
+    """Return the source choice to restore in the authoring form."""
+    posted = request.POST.get("media_source_choice")
+    if posted in ("upload", "external"):
+        return posted
+    if question is not None and question.media_file:
+        return "upload"
+    if question is not None and question.media_url:
+        return "external"
+    return "upload"
+
+
 def _parse_choices_json(raw_json, question_type):
     """Parse and validate choices JSON from form submission.
 
@@ -322,6 +334,8 @@ def coach_quiz_question_add(request, event_id, round_id):
             "quiz": quiz,
             "quiz_round": quiz_round,
             "media_kind_selected": "none",
+            "media_source_selected": "upload",
+            "media_file_max_bytes": QUIZ_MEDIA_MAX_BYTES,
             "coach": request.coach,
         },
     )
@@ -356,6 +370,8 @@ def coach_quiz_question_edit(request, event_id, question_id):
             "choices_json_de": choices_by_lang["de"],
             "choices_json_fr": choices_by_lang["fr"],
             "media_kind_selected": _effective_media_kind(request, question),
+            "media_source_selected": _effective_media_source(request, question),
+            "media_file_max_bytes": QUIZ_MEDIA_MAX_BYTES,
             "coach": request.coach,
         },
     )
@@ -433,7 +449,15 @@ def _save_question(request, event, quiz_round, question=None):
     media_url = request.POST.get("media_url", "").strip()
     media_file = request.FILES.get("media_file")
     media_clear = request.POST.get("media_clear") == "1"
-    media_description = request.POST.get("media_description", "").strip()[:300]
+    media_source = request.POST.get("media_source_choice", "")
+
+    # The explicit source selector maps onto the existing file/URL fields.
+    # Requests from older clients that omit it keep the previous behaviour.
+    if media_source == "upload":
+        media_url = ""
+    elif media_source == "external":
+        media_file = None
+        media_clear = True
 
     if media_kind not in dict(QuizQuestion.MEDIA_KIND_CHOICES):
         media_kind = "none"
@@ -452,11 +476,7 @@ def _save_question(request, event, quiz_round, question=None):
             will_have_file = True  # keep existing upload
         if media_url:
             will_have_url = True
-    if (
-        media_kind != "none"
-        and not will_have_file
-        and not will_have_url
-    ):
+    if media_kind != "none" and not will_have_file and not will_have_url:
         messages.error(
             request,
             _(
@@ -488,7 +508,9 @@ def _save_question(request, event, quiz_round, question=None):
         if not any(content_type.startswith(prefix) for prefix in allowed):
             messages.error(
                 request,
-                _("Uploaded file type (%s) does not match the selected media kind (%s).")
+                _(
+                    "Uploaded file type (%s) does not match the selected media kind (%s)."
+                )
                 % (content_type or "unknown", media_kind),
             )
             return _render_question_form(request, event, quiz_round, question)
@@ -535,7 +557,7 @@ def _save_question(request, event, quiz_round, question=None):
     if question is not None and question.media_file:
         stale_file_names.append(question.media_file.name)
 
-    media_description = (request.POST.get("media_description") or "").strip()
+    media_description = (request.POST.get("media_description") or "").strip()[:300]
     q.media_kind = media_kind
     q.media_url = media_url if media_kind != "none" else ""
     q.media_description = media_description if media_kind != "none" else ""
@@ -593,7 +615,11 @@ def _render_question_form(request, event, quiz_round, question):
             # Preserve media POST data on validation failure so the coach
             # doesn't lose their selections.
             "media_kind_selected": _effective_media_kind(request, question),
+            "media_source_selected": _effective_media_source(request, question),
+            "media_file_max_bytes": QUIZ_MEDIA_MAX_BYTES,
             "media_url_post": request.POST.get("media_url", ""),
+            "media_description_post": request.POST.get("media_description", ""),
+            "media_form_posted": True,
             "coach": request.coach,
         },
     )
