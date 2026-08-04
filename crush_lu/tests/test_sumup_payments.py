@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
-from django.utils import timezone
+from django.utils import timezone, translation
 
 from crush_lu.models.events import EventRegistration, MeetupEvent
 from crush_lu.models.payments import PaymentTransaction
@@ -3661,3 +3661,152 @@ class RecheckMismatchDirectionTests(SiteTestMixin, TestCase):
         mock_get.return_value = {"id": "CHK_MISMATCH", "status": "PAID"}
 
         self.assertNotIn("check whether this member was charged", self._run_action())
+
+
+class CommandSelectorAndMismatchTests(SiteTestMixin, TestCase):
+    """Two ways the status command could mislead the operator running it."""
+
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(
+            username="sel@crush.lu", email="sel@crush.lu", password="password123"
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Selector",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        self.tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-SEL",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_SEL",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PAID,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+
+    def _run(self, **kwargs):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        out = StringIO()
+        call_command("sumup_checkout_status", stdout=out, **kwargs)
+        return out.getvalue()
+
+    def test_two_selectors_are_refused_rather_than_one_silently_winning(self):
+        """The lookup takes the first and ignores the rest.
+
+        With --sync that means reconciling the payment named by whichever won,
+        while the operator believes the others narrowed it.
+        """
+        from django.core.management import CommandError
+
+        with self.assertRaises(CommandError) as caught:
+            self._run(reference="CRUSH-EVT-SEL", registration_id=self.registration.id)
+
+        self.assertIn("Give one selector", str(caught.exception))
+
+    @patch("crush_lu.services.sumup.SumUpClient.get_checkout")
+    def test_a_paid_row_sumup_calls_failed_is_flagged(self, mock_get):
+        """The mirror mismatch, in the command as well as the admin.
+
+        A seat granted against a checkout that never settled — it used to print
+        as an ordinary refresh here after the admin had been fixed.
+        """
+        mock_get.return_value = {"id": "CHK_SEL", "status": "FAILED"}
+
+        output = self._run(reference="CRUSH-EVT-SEL", sync=True)
+
+        self.assertIn("check whether this member was charged", output)
+
+    @patch("crush_lu.services.sumup.SumUpClient.get_checkout")
+    def test_agreement_stays_quiet(self, mock_get):
+        mock_get.return_value = {"id": "CHK_SEL", "status": "PAID"}
+
+        output = self._run(reference="CRUSH-EVT-SEL", sync=True)
+
+        self.assertNotIn("check whether this member was charged", output)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class WidgetScriptEscapingTests(SiteTestMixin, TestCase):
+    """Values interpolated into the page's JavaScript are escaped for JS.
+
+    A <script> block is raw text: HTML escaping is both wrong there (entities
+    are never decoded) and insufficient (it does not neutralise a quote or a
+    backslash for a JS string). ``{% trans %}`` on a quoted literal returns
+    SafeString, so without escapejs nothing escapes these at all.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        self.user = User.objects.create_user(
+            username="esc@crush.lu", email="esc@crush.lu", password="password123"
+        )
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Escaping",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-ESC",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_ESC",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+        self.client.force_login(self.user)
+
+    def _script(self, language):
+        with translation.override(language):
+            response = self.client.get(
+                reverse("crush_lu:sumup_widget", kwargs={"checkout_id": "CHK_ESC"}),
+                HTTP_ACCEPT_LANGUAGE=language,
+            )
+        self.assertEqual(response.status_code, 200)
+        return response.content.decode()
+
+    def test_no_html_entity_reaches_the_script(self):
+        """Entities are not decoded in raw text — one would be read literally."""
+        for language in ("en", "fr", "de"):
+            body = self._script(language)
+            line = [row for row in body.splitlines() if "const defaultError" in row][0]
+            self.assertNotIn("&#", line, f"{language}: HTML entity in a JS string")
+            self.assertNotIn("&amp;", line)
+
+    def test_the_error_text_is_the_translated_one(self):
+        body = self._script("fr")
+        self.assertIn("Le paiement", body)

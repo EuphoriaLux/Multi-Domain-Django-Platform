@@ -63,13 +63,28 @@
 <script nonce="{{ csp_nonce }}" type="text/javascript" src="https://gateway.sumup.com/gateway/ecom/card/v2/sdk.js"></script>
 <script nonce="{{ csp_nonce }}">
     document.addEventListener("DOMContentLoaded", function () {
-        const checkoutId = "{{ checkout_id }}";
-        const returnUrl = "{{ return_url }}";
+        {% comment %}
+        Same reason as defaultError below: these are JavaScript string
+        literals, so escapejs. return_url carries a query string, and
+        HTML-escaping an "&" in one produces "&amp;" — a redirect to the wrong
+        URL the moment a second parameter is added.
+        {% endcomment %}
+        const checkoutId = "{{ checkout_id|escapejs }}";
+        const returnUrl = "{{ return_url|escapejs }}";
         const failureUrl = "{% url 'crush_lu:sumup_widget_failure' checkout_id %}";
         const statusUrl = "{% url 'crush_lu:sumup_widget_status' checkout_id %}";
         const errorEl = document.getElementById("sumup-error");
         const statusEl = document.getElementById("sumup-status");
-        const defaultError = "{% trans 'The payment could not be completed. Please check your card details and try again.' %}";
+        {% trans 'The payment could not be completed. Please check your card details and try again.' as default_error_text %}
+        {% comment %}
+        escapejs, because a JavaScript string literal is not HTML and escaping
+        it as HTML is both wrong and insufficient. Translating a quoted literal
+        returns SafeString, so nothing escapes this at all — a catalogue entry
+        containing a double quote or a backslash would close the string and
+        take the whole script with it, and the payment page's JS with that. No
+        entry does today; escapejs means none ever can.
+        {% endcomment %}
+        const defaultError = "{{ default_error_text|escapejs }}";
 
         // CSRF_COOKIE_HTTPONLY is True, so document.cookie can't see csrftoken.
         // Read the hidden input base.html renders instead (same as HTMX does).
@@ -162,13 +177,23 @@
                     }
                     const failures = Number((data && data.attempt_marker) || 0);
                     if (failures > acknowledgedFailures) {
+                        // How many refusals have appeared that the customer has
+                        // not been shown. Counted, not treated as one event: the
+                        // count can rise by two in a single poll — SumUp
+                        // catching up on the decline the SDK reported, plus a
+                        // second card refused since. Letting the absorb flag
+                        // swallow the whole rise would drop the one that is
+                        // genuinely new and leave the page spinning to the
+                        // deadline over it.
+                        let unseen = failures - acknowledgedFailures;
                         acknowledgedFailures = failures;
                         if (absorbNextFailure) {
-                            // SumUp catching up on the refusal the SDK already
-                            // put on screen. Not news, and not a reason to stop
-                            // watching a card that is still being decided.
+                            // Exactly one of them is the refusal the SDK already
+                            // put on screen. Not news; anything beyond it is.
                             absorbNextFailure = false;
-                        } else {
+                            unseen -= 1;
+                        }
+                        if (unseen > 0) {
                             // A card was refused that the customer has not been
                             // told about. The checkout stays payable — SumUp
                             // keeps it open so another can be tried — so don't

@@ -60,6 +60,23 @@ class Command(BaseCommand):
         selective = any(
             options.get(key) for key in ("reference", "checkout_id", "registration_id")
         )
+        # One payment, named one way. The lookup takes the first selector it
+        # finds and ignores the rest, so combining copied identifiers would let
+        # an operator reconcile — and with --sync, potentially grant — the
+        # payment named by whichever happened to win, while believing the
+        # others had narrowed it.
+        chosen = [
+            key
+            for key in ("reference", "checkout_id", "registration_id")
+            if options.get(key)
+        ]
+        if len(chosen) > 1:
+            named = ", ".join("--" + key.replace("_", "-") for key in chosen)
+            raise CommandError(
+                f"Give one selector, not {len(chosen)}: {named} name different "
+                "things and only the first would be used."
+            )
+
         # A repair flag that silently does nothing is worse than one that
         # refuses: the listing mode never touches the provider, so --sync on it
         # applied nothing at all while --help promised "apply what SumUp
@@ -229,15 +246,16 @@ class Command(BaseCommand):
                     f"  refreshed    detail recorded (SumUp says {reported}; "
                     f"status left at {tx_obj.status})"
                 )
-                # Only when the two records DISAGREE. A locally paid row that
-                # SumUp also calls paid is the ordinary case, and shouting
-                # "check whether this member was charged" at it makes a routine
-                # refresh look like a financial anomaly — the same mistake the
-                # admin action made, in its sibling.
-                if (
-                    reported in ("PAID", "SUCCESSFUL")
-                    and tx_obj.status != PaymentTransaction.Status.PAID
-                ):
+                # Only when the two records DISAGREE, and in either direction.
+                # SumUp calling a row we wrote off paid is money taken with
+                # nothing delivered; SumUp NOT calling a row we marked paid
+                # paid is a seat granted against a checkout that never settled.
+                # Both are the money and the entitlement coming apart. Agreement
+                # stays quiet, because a warning that fires on the ordinary case
+                # is one nobody reads.
+                provider_paid = reported in ("PAID", "SUCCESSFUL")
+                locally_paid = tx_obj.status == PaymentTransaction.Status.PAID
+                if provider_paid != locally_paid:
                     self.stdout.write(
                         self.style.ERROR(
                             "  ⚠ recorded here as "

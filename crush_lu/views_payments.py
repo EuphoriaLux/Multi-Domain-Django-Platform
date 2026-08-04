@@ -851,26 +851,48 @@ def refresh_sumup_snapshot(tx_obj):
         return ""
 
     reported = (data.get("status") or "").upper()
-    tx_obj.raw_response = data
-    if reported in ("PAID", "SUCCESSFUL"):
-        # Don't describe a success as a failure. A checkout SumUp reports as
-        # paid has nothing to explain, whatever our row happens to say about it.
-        tx_obj.failure_reason = ""
-    elif tx_obj.status != PaymentTransaction.Status.CANCELLED:
-        _provider, notes = _split_failure_reason(tx_obj.failure_reason)
-        tx_obj.failure_reason = _join_failure_reason(
-            describe_sumup_failure(data), notes
-        )
-    else:
-        # A CANCELLED row carries a reason WE wrote — "superseded by a newer
-        # checkout" — and SumUp has no idea that is what happened: it reports a
-        # deactivated checkout as a plain FAILED with no card attempt. Taking
-        # its wording here would replace the one sentence that distinguishes a
-        # checkout we killed from a card a bank refused, which is the whole
-        # reason CANCELLED exists as a separate status. The snapshot still
-        # refreshes; only the account of it is ours to keep.
-        pass
-    tx_obj.save(update_fields=["raw_response", "failure_reason", "updated_at"])
+    was = tx_obj.status
+    with transaction.atomic():
+        # The fourth writer, and the last one that was doing this unlocked. The
+        # provider read above takes real time, and a reconciliation that loaded
+        # this row as PENDING can apply PAID while it is in flight — clearing
+        # the failure reason as it goes. Writing a diagnostic snapshot blind
+        # then puts a failed payload and a reason back onto a payment that has
+        # just been paid.
+        locked = PaymentTransaction.objects.select_for_update().get(pk=tx_obj.pk)
+        if locked.status != was:
+            logger.info(
+                "Discarded an admin refresh for checkout %s — the row moved "
+                "from %s to %s while SumUp was being read.",
+                tx_obj.sumup_checkout_id,
+                was,
+                locked.status,
+            )
+            tx_obj.refresh_from_db()
+            return reported
+
+        locked.raw_response = data
+        if reported in ("PAID", "SUCCESSFUL"):
+            # Don't describe a success as a failure. A checkout SumUp reports as
+            # paid has nothing to explain, whatever our row says about it.
+            locked.failure_reason = ""
+        elif locked.status != PaymentTransaction.Status.CANCELLED:
+            _provider, notes = _split_failure_reason(locked.failure_reason)
+            locked.failure_reason = _join_failure_reason(
+                describe_sumup_failure(data), notes
+            )
+        else:
+            # A CANCELLED row carries a reason WE wrote — "superseded by a
+            # newer checkout" — and SumUp has no idea that is what happened: it
+            # reports a deactivated checkout as a plain FAILED with no card
+            # attempt. Taking its wording here would replace the one sentence
+            # that distinguishes a checkout we killed from a card a bank
+            # refused, which is the whole reason CANCELLED exists as a separate
+            # status. The snapshot still refreshes; only the account is ours.
+            pass
+        locked.save(update_fields=["raw_response", "failure_reason", "updated_at"])
+
+    tx_obj.refresh_from_db()
     return reported
 
 
