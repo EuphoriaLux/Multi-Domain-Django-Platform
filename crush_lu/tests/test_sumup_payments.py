@@ -1731,6 +1731,12 @@ class FailedAttemptVisibilityTests(SiteTestMixin, TestCase):
     def setUp(self):
         super().setUp()
         self.client.defaults["HTTP_HOST"] = "crush.lu"
+        # The provider-call throttle lives in the cache, which outlives a test.
+        # Every test here uses the same checkout id, so a leftover key would
+        # silently skip the SumUp call the next test is asserting on.
+        from django.core.cache import cache
+
+        cache.clear()
         self.user = User.objects.create_user(
             username="fail@crush.lu", email="fail@crush.lu", password="password123"
         )
@@ -1817,6 +1823,27 @@ class FailedAttemptVisibilityTests(SiteTestMixin, TestCase):
         self.registration.refresh_from_db()
         self.assertEqual(self.tx.status, PaymentTransaction.Status.PENDING)
         self.assertFalse(self.registration.payment_confirmed)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_repeated_reports_do_not_hammer_sumup(self, mock_get):
+        """Nothing stops a client posting here in a loop, so the cap lives here.
+
+        The report itself is still recorded every time — only the provider call
+        is rationed, because that is the finite resource.
+        """
+        mock_get.return_value = {"id": "CHK_DECLINED", "status": "PENDING"}
+        self.client.force_login(self.user)
+
+        for attempt in range(5):
+            self.client.post(
+                self.url,
+                data=json.dumps({"type": "fail", "message": f"try {attempt}"}),
+                content_type="application/json",
+            )
+
+        self.assertEqual(mock_get.call_count, 1)
+        self.tx.refresh_from_db()
+        self.assertIn("try 4", self.tx.failure_reason)
 
     @patch("crush_lu.views_payments.SumUpClient.get_checkout")
     def test_a_stranger_cannot_scribble_on_someone_elses_payment(self, mock_get):
@@ -2019,6 +2046,29 @@ class WidgetStatusPollingTests(SiteTestMixin, TestCase):
             self.client.get(self.url)
 
         self.assertEqual(mock_get.call_count, 1)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_the_poll_loop_does_not_starve_a_failure_report(self, mock_get):
+        """Why the two throttles are scoped separately rather than sharing a key.
+
+        The poll runs every 3 seconds for the whole payment, so one shared key
+        would mean a genuine failure report almost always arrives inside a
+        window the poll just claimed — and the one sync that report exists to
+        trigger would be dropped.
+        """
+        mock_get.return_value = {"id": "CHK_POLL", "status": "PENDING"}
+        self.client.force_login(self.user)
+
+        self.client.get(self.url)  # a poll claims its slot
+        self.client.post(
+            reverse(
+                "crush_lu:sumup_widget_failure", kwargs={"checkout_id": "CHK_POLL"}
+            ),
+            data=json.dumps({"type": "fail", "message": "declined"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(mock_get.call_count, 2)
 
     @patch("crush_lu.views_payments.SumUpClient.get_checkout")
     def test_a_stranger_cannot_watch_someone_elses_payment(self, mock_get):

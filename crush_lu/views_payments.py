@@ -30,9 +30,31 @@ from crush_lu.views_ticket import _generate_checkin_token
 
 logger = logging.getLogger(__name__)
 
-# How long one checkout's status may be served from our own row before the
-# widget's polling is allowed to hit SumUp again.
-SUMUP_POLL_THROTTLE_SECONDS = 3
+# How long one checkout's status may be served from our own row before a
+# browser-driven path is allowed to hit SumUp about it again.
+SUMUP_SYNC_THROTTLE_SECONDS = 3
+
+
+def _may_ask_sumup(scope, checkout_id):
+    """Claim the right to make one provider call for this checkout, or don't.
+
+    ``cache.add`` is the atomic form and the reason this is a function rather
+    than an inline get-then-set: two requests landing in the same tick — two
+    tabs, a fast retry — can both pass a ``cache.get`` check before either
+    ``set`` lands, and then both call SumUp. ``add`` is a single operation, so
+    exactly one of them wins.
+
+    Scoped per caller on purpose. The widget's poll and its failure report ask
+    SumUp the same question, but they are not the same kind of caller: the poll
+    runs on a 3s loop, and sharing one key with it would let that loop routinely
+    swallow the single sync a genuine failure report needs. Separate scopes cap
+    each independently, which is what the bound is actually for.
+
+    Returns True at most once per SUMUP_SYNC_THROTTLE_SECONDS per scope.
+    """
+    return cache.add(
+        f"sumup-{scope}:{checkout_id}", True, timeout=SUMUP_SYNC_THROTTLE_SECONDS
+    )
 
 
 @login_required
@@ -811,14 +833,13 @@ def sumup_widget_status(request, checkout_id):
     if request.user.id not in _payment_owner_ids(tx_obj) and not request.user.is_staff:
         raise Http404("No payment found.")
 
-    # One provider call per checkout per few seconds, however fast the page
-    # polls. The browser sets the interval, and a stale answer costs nothing —
-    # the next poll picks the change up.
-    throttle_key = f"sumup-poll:{checkout_id}"
-    if tx_obj.status == PaymentTransaction.Status.PENDING and not cache.get(
-        throttle_key
+    # Bound the provider calls: the browser owns the polling interval, so the
+    # ceiling has to live here. A throttled answer costs nothing — it is read
+    # from a row that another worker may just have updated, and the next poll
+    # picks up anything it missed.
+    if tx_obj.status == PaymentTransaction.Status.PENDING and _may_ask_sumup(
+        "poll", checkout_id
     ):
-        cache.set(throttle_key, True, timeout=SUMUP_POLL_THROTTLE_SECONDS)
         _sync_checkout_with_sumup(tx_obj)
 
     return JsonResponse(
@@ -878,7 +899,14 @@ def report_sumup_widget_failure(request, checkout_id):
     # Ask SumUp first — if the checkout is genuinely terminal, its verdict and
     # its wording are better than the widget's, and this is also the path that
     # would catch a payment that actually succeeded despite a widget error.
-    _sync_checkout_with_sumup(tx_obj)
+    #
+    # Bounded like the poll is. Nothing stops an owner (or a retry loop in some
+    # future version of the widget) posting here as fast as it likes, and while
+    # the checkout stays PENDING — the normal state after a decline — every one
+    # of those posts would otherwise be a live call to SumUp. The report itself
+    # is still always recorded below; only the provider call is rationed.
+    if _may_ask_sumup("report", checkout_id):
+        _sync_checkout_with_sumup(tx_obj)
 
     if tx_obj.status == PaymentTransaction.Status.PENDING:
         note = f"Card widget reported '{widget_type}'"
