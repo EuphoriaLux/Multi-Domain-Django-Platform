@@ -2267,6 +2267,36 @@ class FailureReasonLifecycleTests(SiteTestMixin, TestCase):
         # The refusal is not lost — it is still in the payload.
         self.assertEqual(len(self.tx.raw_response["transactions"]), 2)
 
+    def test_a_late_decline_cannot_land_on_a_row_that_was_paid(self):
+        """The poll and the failure report are allowed to ask SumUp at once.
+
+        So a report holding a PENDING payload can be overtaken mid-call by a
+        poll that comes back PAID and applies it. Writing blind then puts a
+        failure reason and a superseded payload back onto a paid row — the
+        exact state _apply_paid_checkout clears, reintroduced by a race.
+        """
+        from crush_lu.views_payments import _record_pending_failure
+
+        # What the slower request is still holding when it resumes.
+        stale = {
+            "id": "CHK_LIFE",
+            "status": "PENDING",
+            "transactions": [{"status": "FAILED", "failure_reason": "DECLINED"}],
+        }
+        # Meanwhile the faster one has already paid the row.
+        PaymentTransaction.objects.filter(pk=self.tx.pk).update(
+            status=PaymentTransaction.Status.PAID,
+            raw_response={"id": "CHK_LIFE", "status": "PAID"},
+        )
+
+        wrote = _record_pending_failure(self.tx, "a stale decline", stale)
+
+        self.assertFalse(wrote)
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(self.tx.failure_reason, "")
+        self.assertEqual(self.tx.raw_response["status"], "PAID")
+
     @patch("crush_lu.views_payments.SumUpClient.get_checkout")
     def test_a_settled_row_can_still_be_refreshed_for_detail(self, mock_get):
         """_sync_checkout_with_sumup won't touch a terminal row — by design.
@@ -2622,3 +2652,101 @@ class SumUpCheckoutStatusCommandTests(SiteTestMixin, TestCase):
         self.assertIn("LOST_CARD", output)
         self.tx.refresh_from_db()
         self.assertEqual(self.tx.failure_reason, "")
+
+
+class RecheckActionHonestyTests(SiteTestMixin, TestCase):
+    """The action must never report an outage as a successful verification."""
+
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(
+            username="honest@crush.lu",
+            email="honest@crush.lu",
+            password="password123",
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Honesty",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        self.tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-HONEST",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_HONEST",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+
+    def _admin(self):
+        from crush_lu.admin.payments import PaymentTransactionAdmin
+        from crush_lu.admin.site import crush_admin_site
+
+        return PaymentTransactionAdmin(PaymentTransaction, crush_admin_site)
+
+    def _run_action(self):
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+
+        request = RequestFactory().post("/crush-admin/")
+        request.user = self.user
+        request.session = {}
+        request._messages = FallbackStorage(request)
+
+        self._admin().recheck_with_sumup(request, PaymentTransaction.objects.all())
+        return [str(message) for message in request._messages]
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_an_outage_is_not_reported_as_a_clean_check(self, mock_get):
+        """Both helpers swallow SumUpError, so the try/except never fires.
+
+        A coach was told every row had been verified when not one had been
+        asked about — a false all-clear on money.
+        """
+        mock_get.side_effect = SumUpError("SumUp is down")
+
+        messages_shown = " ".join(self._run_action())
+
+        self.assertIn("no answer from SumUp", messages_shown)
+        self.assertIn("NOT checked", messages_shown)
+        self.assertNotIn("Re-checked 1 transaction", messages_shown)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_real_check_still_reports_success(self, mock_get):
+        mock_get.return_value = {"id": "CHK_HONEST", "status": "PENDING"}
+
+        messages_shown = " ".join(self._run_action())
+
+        self.assertIn("Re-checked 1 transaction", messages_shown)
+
+    def test_the_action_survives_the_read_only_admin(self):
+        """A read-only ModelAdmin must not hide its one action.
+
+        Django only filters an action by permission when the action declares
+        one via ``permissions=``; an action without ``allowed_permissions`` is
+        kept regardless of has_change_permission. Pinned because the fix for a
+        misreading of that rule — adding permissions=["change"] — would silently
+        remove the action from a screen that denies change permission by design.
+        """
+        from django.test import RequestFactory
+
+        request = RequestFactory().get("/crush-admin/")
+        request.user = self.user
+        admin_obj = self._admin()
+
+        self.assertFalse(admin_obj.has_change_permission(request))
+        self.assertIn("recheck_with_sumup", admin_obj.get_actions(request))

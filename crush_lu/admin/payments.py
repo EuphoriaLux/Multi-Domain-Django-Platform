@@ -279,8 +279,7 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
                 if settled:
                     reported = refresh_sumup_snapshot(tx_obj)
                 else:
-                    _sync_checkout_with_sumup(tx_obj)
-                    reported = ""
+                    reported = _sync_checkout_with_sumup(tx_obj)
             except Exception as exc:  # provider call — never 500 the admin
                 failed += 1
                 logger.error(
@@ -292,6 +291,23 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
                 self.message_user(
                     request,
                     f"{tx_obj.transaction_reference}: could not reach SumUp ({exc}).",
+                    level=messages.ERROR,
+                )
+                continue
+
+            if not reported:
+                # Both helpers swallow SumUpError and return quietly, so the
+                # except above never fires on an outage — and this action was
+                # counting those as checked and finishing with "Re-checked N
+                # transaction(s) with SumUp". During a SumUp outage a coach
+                # would be told every row was verified when not one had been
+                # asked about, which is worse than an error: it is a false all
+                # clear on money.
+                failed += 1
+                self.message_user(
+                    request,
+                    f"{tx_obj.transaction_reference}: no answer from SumUp — "
+                    "NOT checked, nothing recorded.",
                     level=messages.ERROR,
                 )
                 continue

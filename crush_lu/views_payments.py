@@ -558,15 +558,58 @@ def _has_unsuccessful_attempt(data):
     )
 
 
+def _record_pending_failure(tx_obj, reason, data):
+    """Write a decline against a checkout that is still open, under a lock.
+
+    Blind writes lose a race here that they must not lose. The widget's poll
+    and its failure report are deliberately allowed to ask SumUp at the same
+    time (they hold separate throttle slots so the poll cannot starve the
+    report), so a report holding a PENDING payload can be overtaken mid-call by
+    a poll that comes back PAID and applies it. Persisting without re-reading
+    then puts a failure reason and a superseded payload back onto a row that
+    has just been paid — precisely the state ``_apply_paid_checkout`` clears,
+    reintroduced through the back door.
+
+    Returns True when the reason itself changed, i.e. when there is something
+    new to say about this payment rather than merely a fresher payload.
+    """
+    with transaction.atomic():
+        locked = PaymentTransaction.objects.select_for_update().get(pk=tx_obj.pk)
+        # Re-read, not the caller's copy: the whole point is that it may be
+        # stale by now.
+        if locked.status != PaymentTransaction.Status.PENDING:
+            logger.info(
+                "Discarded a late SumUp decline for checkout %s — the row is "
+                "%s now, so the attempt it describes has been superseded.",
+                tx_obj.sumup_checkout_id,
+                locked.status,
+            )
+            return False
+        if reason == locked.failure_reason and data == locked.raw_response:
+            return False
+
+        changed = reason != locked.failure_reason
+        locked.failure_reason = reason
+        locked.raw_response = data
+        locked.save(update_fields=["failure_reason", "raw_response", "updated_at"])
+        return changed
+
+
 def _sync_checkout_with_sumup(tx_obj):
     """Re-read the checkout from SumUp and apply whatever it reports.
 
     Every path that can mark a payment complete funnels through here, so no
     caller has to be trusted — both the webhook and the return URL are public,
     unauthenticated endpoints.
+
+    Returns the status SumUp reported, or "" when it could not be asked at all
+    — because it was unreachable, or because the row was already settled and
+    there was nothing to ask. Callers that report to a human need to tell "we
+    checked and nothing changed" apart from "we never got an answer"; without
+    a return value, an outage looked exactly like a clean verification.
     """
     if tx_obj.status != PaymentTransaction.Status.PENDING:
-        return
+        return ""
 
     try:
         data = SumUpClient().get_checkout(tx_obj.sumup_checkout_id)
@@ -574,7 +617,7 @@ def _sync_checkout_with_sumup(tx_obj):
         logger.warning(
             "SumUp verification failed for checkout %s: %s", tx_obj.sumup_checkout_id, exc
         )
-        return
+        return ""
 
     sumup_status = (data.get("status") or "").upper()
     if sumup_status in ("PAID", "SUCCESSFUL"):
@@ -599,32 +642,27 @@ def _sync_checkout_with_sumup(tx_obj):
         # payable. What changes is that the decline stops being invisible.
         # (A PENDING checkout with no attempts is just one nobody has paid yet;
         # there is nothing to say about it.)
+        # Two separate questions, and _record_pending_failure decides both under
+        # a lock. Whether there is anything NEW TO SAY is the summary changing;
+        # whether the stored payload is STALE is the payload differing. SumUp
+        # can return fresh diagnostic detail — a later timestamp, a code it did
+        # not have before — under a summary that reads identically, and the
+        # Coach Panel's "Raw provider response" claims to be the last thing
+        # SumUp returned. Comparing rather than always writing matters because
+        # this branch is re-entered every few seconds for a whole checkout.
         reason = describe_sumup_failure(data)
-        # Two separate questions, and gating both on the summary got the second
-        # one wrong. Whether there is anything NEW TO SAY is the summary
-        # changing; whether the stored payload is STALE is the payload
-        # differing. SumUp can return fresh diagnostic detail — a later
-        # timestamp, a code it did not have before — under a summary that reads
-        # identically, and the Coach Panel's "Raw provider response" claims to
-        # be the last thing SumUp returned. Comparing the payload keeps that
-        # promise without writing on every poll that changed nothing; this
-        # branch is re-entered every few seconds for the life of the checkout.
-        if reason and (reason != tx_obj.failure_reason or data != tx_obj.raw_response):
-            changed = reason != tx_obj.failure_reason
-            tx_obj.failure_reason = reason
-            tx_obj.raw_response = data
-            tx_obj.save(update_fields=["failure_reason", "raw_response", "updated_at"])
-            if changed:
-                # Only when the account of it actually changed — the log is for
-                # someone reading back what happened, not a per-poll heartbeat.
-                logger.info(
-                    "SumUp checkout %s (%s) is still open after a failed attempt: %s",
-                    tx_obj.sumup_checkout_id,
-                    tx_obj.transaction_reference,
-                    reason,
-                )
+        if reason and _record_pending_failure(tx_obj, reason, data):
+            # Only when the account of it actually changed — the log is for
+            # someone reading back what happened, not a per-poll heartbeat.
+            logger.info(
+                "SumUp checkout %s (%s) is still open after a failed attempt: %s",
+                tx_obj.sumup_checkout_id,
+                tx_obj.transaction_reference,
+                reason,
+            )
 
     tx_obj.refresh_from_db()
+    return sumup_status
 
 
 def refresh_sumup_snapshot(tx_obj):
