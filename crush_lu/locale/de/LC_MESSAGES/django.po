@@ -39157,3 +39157,73 @@ msgstr "Tisch %(table_number)s als richtig markieren"
 #, python-format
 msgid "Mark Table %(table_number)s wrong"
 msgstr "Tisch %(table_number)s als falsch markieren"
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Ready to preview before saving."
+msgstr "Bereit zur Vorschau vor dem Speichern."
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "This file is larger than the 25 MB limit."
+msgstr "Diese Datei überschreitet das Limit von 25 MB."
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "This file type does not match the selected media type."
+msgstr "Dieser Dateityp entspricht nicht dem ausgewählten Medientyp."
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Choose what players should see or hear with this question."
+msgstr "Wähle, was die Spielenden bei dieser Frage sehen oder hören sollen."
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Media source"
+msgstr "Medienquelle"
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Upload"
+msgstr "Hochladen"
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Use a file from this device"
+msgstr "Datei von diesem Gerät verwenden"
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "External link"
+msgstr "Externer Link"
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "YouTube, Vimeo, Spotify, or SoundCloud"
+msgstr "YouTube, Vimeo, Spotify oder SoundCloud"
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Choose an image or a short video/audio clip up to 25 MB."
+msgstr "Wähle ein Bild oder einen kurzen Video-/Audioclip bis 25 MB."
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "External media link"
+msgstr "Externer Medienlink"
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid ""
+"Paste a watch or share link. Supported links are converted to safe embeds "
+"when the question is shown."
+msgstr ""
+"Füge einen Wiedergabe- oder Freigabelink ein. Unterstützte Links werden beim"
+" Anzeigen der Frage in sichere Einbettungen umgewandelt."
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Saving an external link replaces the current uploaded file."
+msgstr ""
+"Beim Speichern eines externen Links wird die aktuell hochgeladene Datei "
+"ersetzt."
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Describe what players need to perceive"
+msgstr "Beschreibe, was die Spielenden wahrnehmen müssen"
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid ""
+"Write a concise equivalent for players using a screen reader, especially "
+"when identifying the media is part of the question."
+msgstr ""
+"Schreibe eine knappe Entsprechung für Spielende, die einen Screenreader "
+"verwenden, insbesondere wenn das Erkennen des Mediums Teil der Frage ist."

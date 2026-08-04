@@ -13059,6 +13059,13 @@ document.addEventListener("alpine:init", function () {
             choicesFr: [],
             correctTrueFalse: "true",
             mediaKind: "none",
+            mediaSource: "upload",
+            mediaMaxBytes: 25 * 1024 * 1024,
+            fileName: "",
+            fileMeta: "",
+            fileFeedback: "",
+            fileAccepted: true,
+            previewUrl: "",
 
             init: function () {
                 var el = this.$el;
@@ -13066,6 +13073,12 @@ document.addEventListener("alpine:init", function () {
                     el.getAttribute("data-question-type") || "multiple_choice";
                 this.mediaKind =
                     el.getAttribute("data-media-kind") || "none";
+                this.mediaSource =
+                    el.getAttribute("data-media-source") || "upload";
+                this.mediaMaxBytes = parseInt(
+                    el.getAttribute("data-media-max-bytes") || "26214400",
+                    10,
+                );
 
                 var langs = ["en", "de", "fr"];
                 var props = ["choicesEn", "choicesDe", "choicesFr"];
@@ -13108,6 +13121,10 @@ document.addEventListener("alpine:init", function () {
                 this._renderAllChoices();
             },
 
+            destroy: function () {
+                this._revokePreviewUrl();
+            },
+
             // Current language's choices (getter)
             get currentChoices() {
                 if (this.activeLang === "de") return this.choicesDe;
@@ -13130,8 +13147,142 @@ document.addEventListener("alpine:init", function () {
                 return this.mediaKind !== "none";
             },
             selectMediaKind: function () {
-                var sel = this.$refs.mediaKindSelect;
-                this.mediaKind = sel ? sel.value : "none";
+                var selected = this.$el.querySelector(
+                    'input[name="media_kind"]:checked',
+                );
+                var nextKind = selected ? selected.value : "none";
+                if (nextKind !== this.mediaKind) {
+                    this.mediaKind = nextKind;
+                    this._clearLocalPreview(true);
+                }
+            },
+            selectMediaSource: function () {
+                var selected = this.$el.querySelector(
+                    'input[name="media_source_choice"]:checked',
+                );
+                this.mediaSource = selected ? selected.value : "upload";
+                if (this.mediaSource === "external") {
+                    this._clearLocalPreview(true);
+                }
+            },
+            get isUploadSource() {
+                return this.mediaSource === "upload";
+            },
+            get isExternalSource() {
+                return this.mediaSource === "external";
+            },
+            get mediaNoneClass() {
+                return this.mediaKind === "none" ? "is-selected" : "";
+            },
+            get mediaImageClass() {
+                return this.mediaKind === "image" ? "is-selected" : "";
+            },
+            get mediaVideoClass() {
+                return this.mediaKind === "video" ? "is-selected" : "";
+            },
+            get mediaAudioClass() {
+                return this.mediaKind === "audio" ? "is-selected" : "";
+            },
+            get uploadSourceClass() {
+                return this.isUploadSource ? "is-selected" : "";
+            },
+            get externalSourceClass() {
+                return this.isExternalSource ? "is-selected" : "";
+            },
+            get mediaAccept() {
+                if (this.mediaKind === "image") return "image/*";
+                if (this.mediaKind === "video") return "video/*";
+                if (this.mediaKind === "audio")
+                    return "audio/*,application/ogg";
+                return "";
+            },
+            get hasFileFeedback() {
+                return Boolean(this.fileFeedback);
+            },
+            get fileFeedbackClass() {
+                return this.fileAccepted
+                    ? "text-green-600 dark:text-green-400"
+                    : "text-red-600 dark:text-red-400";
+            },
+            get hasLocalPreview() {
+                return Boolean(this.previewUrl) && this.fileAccepted;
+            },
+            get previewIsImage() {
+                return this.hasLocalPreview && this.mediaKind === "image";
+            },
+            get previewIsVideo() {
+                return this.hasLocalPreview && this.mediaKind === "video";
+            },
+            get previewIsAudio() {
+                return this.hasLocalPreview && this.mediaKind === "audio";
+            },
+            selectMediaFile: function () {
+                var input = this.$refs.mediaFile;
+                var file = input && input.files ? input.files[0] : null;
+                this._revokePreviewUrl();
+                this.fileName = file ? file.name : "";
+                this.fileMeta = file
+                    ? this._formatFileSize(file.size) +
+                      (file.type ? " · " + file.type : "")
+                    : "";
+                this.fileFeedback = "";
+                this.fileAccepted = true;
+                if (!file) return;
+
+                var expected = this.mediaKind + "/";
+                var typeMatches =
+                    file.type.indexOf(expected) === 0 ||
+                    (this.mediaKind === "audio" &&
+                        file.type === "application/ogg");
+                if (!typeMatches) {
+                    this.fileAccepted = false;
+                    this.fileFeedback =
+                        this.$el.getAttribute("data-file-type-mismatch") ||
+                        "This file type does not match the selected media type.";
+                } else if (file.size > this.mediaMaxBytes) {
+                    this.fileAccepted = false;
+                    this.fileFeedback =
+                        this.$el.getAttribute("data-file-too-large") ||
+                        "This file is too large.";
+                } else {
+                    this.fileFeedback =
+                        this.$el.getAttribute("data-file-ready") ||
+                        "Ready to preview before saving.";
+                    if (window.URL && window.URL.createObjectURL) {
+                        this.previewUrl = window.URL.createObjectURL(file);
+                    }
+                }
+                if (input && input.setCustomValidity) {
+                    input.setCustomValidity(
+                        this.fileAccepted ? "" : this.fileFeedback,
+                    );
+                }
+            },
+            _formatFileSize: function (bytes) {
+                if (bytes < 1024) return bytes + " B";
+                if (bytes < 1024 * 1024)
+                    return (bytes / 1024).toFixed(1) + " KB";
+                return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+            },
+            _revokePreviewUrl: function () {
+                if (
+                    this.previewUrl &&
+                    window.URL &&
+                    window.URL.revokeObjectURL
+                ) {
+                    window.URL.revokeObjectURL(this.previewUrl);
+                }
+                this.previewUrl = "";
+            },
+            _clearLocalPreview: function (resetInput) {
+                this._revokePreviewUrl();
+                this.fileName = "";
+                this.fileMeta = "";
+                this.fileFeedback = "";
+                this.fileAccepted = true;
+                var input = this.$refs.mediaFile;
+                if (input && input.setCustomValidity) input.setCustomValidity("");
+                if (resetInput && input) input.value = "";
             },
 
             // Language tab switching

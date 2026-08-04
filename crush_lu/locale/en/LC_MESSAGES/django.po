@@ -26796,6 +26796,66 @@ msgstr ""
 msgid "Choose one audience. The three standard options cover the usual event flows; specialized access rules are grouped under Advanced."
 msgstr ""
 
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Ready to preview before saving."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "This file is larger than the 25 MB limit."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "This file type does not match the selected media type."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Choose what players should see or hear with this question."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Media source"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Upload"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Use a file from this device"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "External link"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "YouTube, Vimeo, Spotify, or SoundCloud"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Choose an image or a short video/audio clip up to 25 MB."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "External media link"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Paste a watch or share link. Supported links are converted to safe embeds when the question is shown."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Saving an external link replaces the current uploaded file."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Describe what players need to perceive"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Write a concise equivalent for players using a screen reader, especially when identifying the media is part of the question."
+msgstr ""
+
 msgid "Advanced: Private Invitation Settings"
 msgstr ""
 
