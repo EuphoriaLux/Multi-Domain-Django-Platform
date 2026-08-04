@@ -39080,6 +39080,26 @@ msgstr ""
 "Le paiement n'a pas pu être finalisé. Veuillez vérifier les informations de "
 "votre carte et réessayer."
 
+#: crush_lu/views_payments.py
+msgid "Premium is invite-only during the beta."
+msgstr "Premium est disponible uniquement sur invitation pendant la bêta."
+
+#: crush_lu/views_payments.py
+msgid ""
+"Your payment went through, but we could not activate your Premium membership"
+" yet. Please contact support@crush.lu and we will sort it out."
+msgstr ""
+"Votre paiement a bien été effectué, mais nous n'avons pas encore pu activer "
+"votre abonnement Premium. Contactez support@crush.lu et nous réglerons cela."
+
+#: crush_lu/views_payments.py
+msgid ""
+"We have already received a payment for this membership. Please contact "
+"support@crush.lu so we can finish setting it up."
+msgstr ""
+"Nous avons déjà reçu un paiement pour cet abonnement. Contactez "
+"support@crush.lu afin que nous puissions finaliser sa configuration."
+
 msgid "Support Crush.lu"
 msgstr "Soutenir Crush.lu"
 
