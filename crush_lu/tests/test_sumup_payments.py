@@ -3313,10 +3313,43 @@ class RetryAfterDeclineTests(SiteTestMixin, TestCase):
         self.registration.refresh_from_db()
         self.assertTrue(self.registration.payment_confirmed)
 
-    def test_the_widget_baselines_before_reacting(self):
+    def test_the_widget_baselines_at_load_not_at_submission(self):
+        """The baseline has to predate any attempt of ours.
+
+        Reading it when an attempt STARTS is a hair too late: a card refused
+        before that read lands would be filed as already-known, and then
+        nothing would ever report it — the same five-minute silence, reached
+        from the opposite side.
+        """
         response = self.client.get(
             reverse("crush_lu:sumup_widget", kwargs={"checkout_id": "CHK_RETRY"})
         )
 
         self.assertContains(response, "shownFailureMarker")
-        self.assertContains(response, "attempt_marker")
+        self.assertContains(response, "baselineReady")
+        # watchCheckout must not take the baseline itself.
+        body = response.content.decode()
+        watch = body.split("function watchCheckout()", 1)[1].split("function ", 1)[0]
+        self.assertNotIn("attempt_marker", watch)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_the_failure_report_hands_back_the_marker_it_created(self, mock_get):
+        """The SDK error path shows a failure the poll never told the page about.
+
+        So the page has to learn that marker from its own report, or the next
+        attempt's first poll re-reports a refusal already on screen.
+        """
+        mock_get.return_value = {"id": "CHK_RETRY", "status": "PENDING"}
+
+        response = self.client.post(
+            reverse(
+                "crush_lu:sumup_widget_failure", kwargs={"checkout_id": "CHK_RETRY"}
+            ),
+            data=json.dumps({"type": "fail", "message": "Declined"}),
+            content_type="application/json",
+        )
+
+        marker = response.json()["attempt_marker"]
+        self.assertTrue(marker)
+        # And it is the marker the poll would report for the same state.
+        self.assertEqual(self._poll()["attempt_marker"], marker)

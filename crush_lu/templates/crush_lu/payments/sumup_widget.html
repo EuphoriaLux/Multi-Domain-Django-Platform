@@ -110,6 +110,33 @@
         // a second card seconds after it was submitted and call it failed while
         // the bank was still deciding.
         let shownFailureMarker = "";
+        // Whether that baseline has been established. Until it has, a failure
+        // already on record is indistinguishable from one that just happened,
+        // so the page keeps watching rather than guess.
+        let baselineReady = false;
+
+        // Take the baseline NOW, at page load, while no attempt of ours can
+        // possibly have produced a failure yet. Reading it when an attempt
+        // STARTS is too late by a hair: a card refused fast enough for the
+        // decline to land before that read would be recorded as "already
+        // known", and then nothing would ever report it — the page would sit on
+        // "Confirming your payment" until the deadline, which is the exact hang
+        // this polling exists to prevent, arrived at from the other side.
+        fetch(statusUrl, { headers: { Accept: "application/json" } })
+            .then(function (res) {
+                return res.ok ? res.json() : null;
+            })
+            .then(function (data) {
+                if (data) {
+                    shownFailureMarker = data.attempt_marker || "";
+                }
+                baselineReady = true;
+            })
+            .catch(function () {
+                // No baseline: treat nothing as already-seen. A duplicate error
+                // message is a far smaller failure than a silent five minutes.
+                baselineReady = true;
+            });
 
         function watchCheckout() {
             if (watching) {
@@ -117,17 +144,13 @@
             }
             watching = true;
             deadline = Date.now() + POLL_WINDOW_MS;
-            // A new attempt is underway, so last attempt's message is stale.
+            // A new attempt is underway, so the last one's message is stale.
             errorEl.classList.add("hidden");
             statusEl.classList.remove("hidden");
-            // Read once straight away without reacting to any failure it
-            // reports: whatever is on record belongs to an earlier attempt, not
-            // the card just submitted. That baseline is what makes a retry
-            // distinguishable from the decline before it.
-            pollOnce(true);
+            scheduleNextPoll();
         }
 
-        function pollOnce(isBaseline) {
+        function pollOnce() {
             if (!watching) {
                 return;
             }
@@ -148,10 +171,9 @@
                         window.location.href = returnUrl;
                         return;
                     }
-                    if (data && isBaseline) {
-                        shownFailureMarker = data.attempt_marker || "";
-                    } else if (
+                    if (
                         data &&
+                        baselineReady &&
                         data.attempt_failed &&
                         data.attempt_marker !== shownFailureMarker
                     ) {
@@ -177,9 +199,7 @@
 
         function scheduleNextPoll() {
             if (watching) {
-                pollTimer = setTimeout(function () {
-                    pollOnce(false);
-                }, POLL_INTERVAL_MS);
+                pollTimer = setTimeout(pollOnce, POLL_INTERVAL_MS);
             }
         }
 
@@ -212,7 +232,21 @@
                         message: (body && (body.message || body.error_message)) || "",
                     }),
                     keepalive: true,
-                }).catch(function () {});
+                })
+                    .then(function (res) {
+                        return res.ok ? res.json() : null;
+                    })
+                    .then(function (data) {
+                        // The customer is looking at this failure right now, so
+                        // record that it has been shown. Without this the page
+                        // never learns the marker its own report created, and
+                        // the next attempt's first poll reports a refusal the
+                        // customer has already read as though it were new.
+                        if (data && data.attempt_marker) {
+                            shownFailureMarker = data.attempt_marker;
+                        }
+                    })
+                    .catch(function () {});
             } catch (e) {
                 /* reporting is best-effort */
             }
