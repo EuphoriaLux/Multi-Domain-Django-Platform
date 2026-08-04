@@ -104,20 +104,28 @@
         let pollTimer = null;
         let watching = false;
         let deadline = 0;
-        // Which failure the customer has already been shown. The server's flag
-        // only says "a failure is on record for this checkout", and that stays
-        // true across a retry — so acting on the flag alone would stop watching
-        // a second card seconds after it was submitted and call it failed while
-        // the bank was still deciding.
+        // How many refused cards the customer has already been told about.
         //
-        // Seeded from the page itself, not fetched. Fetching the baseline
-        // cannot be made safe however early it starts: the status endpoint does
-        // a live provider read, so a slow one can answer with state recorded
-        // AFTER a card was submitted — and the page would then file that very
-        // failure as one it had already seen and never report it. Rendered with
-        // the HTML, this value is the record as it stood before the page
-        // existed, so nothing done from here can be inside it.
-        let shownFailureMarker = "{{ attempt_marker|escapejs }}";
+        // The server counts what SumUp has recorded, and nothing else — it
+        // cannot tell whether a failure the widget reported and a provider
+        // record arriving later are one refused card or two, and three attempts
+        // to make it guess all broke. This is the other half, and it lives here
+        // because only the page knows which failures it has actually shown.
+        //
+        // Seeded from the page itself, not fetched. Fetching cannot be made
+        // safe however early it starts: the status endpoint does a live
+        // provider read, so a slow one can answer with state recorded AFTER a
+        // card was submitted, and the page would file that very failure as one
+        // it had already seen. Rendered with the HTML, this is the count as it
+        // stood before the page existed.
+        let acknowledgedFailures = Number("{{ attempt_marker|escapejs }}") || 0;
+        // Set when the SDK reports a refusal itself, for a card that was
+        // actually submitted. SumUp records that same attempt moments later and
+        // the count rises for a failure already on screen, so the next rise is
+        // absorbed rather than reported twice. A flag and not an increment:
+        // if SumUp never records the attempt, nothing was absorbed and the next
+        // genuine refusal still reports normally.
+        let absorbNextFailure = false;
 
         function watchCheckout() {
             if (watching) {
@@ -152,21 +160,25 @@
                         window.location.href = returnUrl;
                         return;
                     }
-                    if (
-                        data &&
-                        data.attempt_failed &&
-                        data.attempt_marker !== shownFailureMarker
-                    ) {
-                        // Refused, and it is this attempt that was refused —
-                        // not one we already reported. The checkout is still
-                        // payable (SumUp keeps it open so another card can be
-                        // tried), so don't leave and don't keep spinning: say
-                        // so, and let them retry in the widget still on screen.
-                        shownFailureMarker = data.attempt_marker || "";
-                        stopWatching();
-                        errorEl.textContent = defaultError;
-                        errorEl.classList.remove("hidden");
-                        return;
+                    const failures = Number((data && data.attempt_marker) || 0);
+                    if (failures > acknowledgedFailures) {
+                        acknowledgedFailures = failures;
+                        if (absorbNextFailure) {
+                            // SumUp catching up on the refusal the SDK already
+                            // put on screen. Not news, and not a reason to stop
+                            // watching a card that is still being decided.
+                            absorbNextFailure = false;
+                        } else {
+                            // A card was refused that the customer has not been
+                            // told about. The checkout stays payable — SumUp
+                            // keeps it open so another can be tried — so don't
+                            // leave and don't keep spinning: say so, and let
+                            // them retry in the widget still on screen.
+                            stopWatching();
+                            errorEl.textContent = defaultError;
+                            errorEl.classList.remove("hidden");
+                            return;
+                        }
                     }
                     scheduleNextPoll();
                 })
@@ -212,21 +224,7 @@
                         message: (body && (body.message || body.error_message)) || "",
                     }),
                     keepalive: true,
-                })
-                    .then(function (res) {
-                        return res.ok ? res.json() : null;
-                    })
-                    .then(function (data) {
-                        // The customer is looking at this failure right now, so
-                        // record that it has been shown. Without this the page
-                        // never learns the marker its own report created, and
-                        // the next attempt's first poll reports a refusal the
-                        // customer has already read as though it were new.
-                        if (data && data.attempt_marker) {
-                            shownFailureMarker = data.attempt_marker;
-                        }
-                    })
-                    .catch(function () {});
+                }).catch(function () {});
             } catch (e) {
                 /* reporting is best-effort */
             }
@@ -261,6 +259,13 @@
                         return;
                     }
                     if (type === "error" || type === "fail" || type === "invalid") {
+                        // Only when a card was actually in flight. The widget
+                        // also rejects cards before submitting them, and SumUp
+                        // never hears about those — absorbing a rise that will
+                        // never come would swallow the next real refusal.
+                        if (watching) {
+                            absorbNextFailure = true;
+                        }
                         stopWatching();
                         errorEl.textContent =
                             (body && (body.message || body.error_message)) || defaultError;

@@ -3093,11 +3093,19 @@ class DeclineDoesNotHangThePageTests(SiteTestMixin, TestCase):
         self.assertFalse(body["attempt_failed"])
 
     def test_the_widget_page_reacts_to_a_failed_attempt(self):
+        """It acts on the count rising past what it has already shown.
+
+        Not on the server's "is anything on record" flag, which stays true
+        across a retry and would stop the page watching a second card.
+        """
         response = self.client.get(
             reverse("crush_lu:sumup_widget", kwargs={"checkout_id": "CHK_HANG"})
         )
 
-        self.assertContains(response, "attempt_failed")
+        self.assertContains(response, "acknowledgedFailures")
+        self.assertContains(response, "attempt_marker")
+        # And it absorbs SumUp catching up on a refusal it displayed itself.
+        self.assertContains(response, "absorbNextFailure")
 
 
 class TerminalWriteRaceTests(SiteTestMixin, TestCase):
@@ -3287,76 +3295,70 @@ class RetryAfterDeclineTests(SiteTestMixin, TestCase):
         self.assertNotEqual(second["attempt_marker"], first["attempt_marker"])
 
     @patch("crush_lu.views_payments.SumUpClient.get_checkout")
-    def test_a_provider_record_arriving_late_is_not_a_new_refusal(self, mock_get):
-        """The SDK can report a decline before SumUp has recorded the attempt.
+    def test_widget_reports_never_move_the_count(self, mock_get):
+        """The count is SumUp's alone, however often the widget reports.
 
-        The provider record then lands during the retry and fills in a half
-        that was empty. Judged by wording that reads as a brand-new refusal —
-        so the page stopped watching a second card over the first card's
-        decline arriving late. Counting failures instead makes the two views of
-        one event agree: SumUp catching up is not another failure.
+        Counting reports made a duplicated SDK callback — or an owner posting
+        twice — look like a second refused card. The server cannot tell one
+        from the other, so it no longer tries: reconciling a failure the page
+        already displayed is the page's job, since only the page knows.
         """
-        # SumUp has not recorded the attempt yet; only the SDK knows.
+        from crush_lu.views_payments import attempt_marker
+
         mock_get.return_value = {"id": "CHK_RETRY", "status": "PENDING"}
-        reported = self.client.post(
+        url = reverse(
+            "crush_lu:sumup_widget_failure", kwargs={"checkout_id": "CHK_RETRY"}
+        )
+
+        for _unused in range(3):
+            self.client.post(
+                url,
+                data=json.dumps({"type": "fail", "message": "Declined"}),
+                content_type="application/json",
+            )
+
+        self.tx.refresh_from_db()
+        self.assertEqual(attempt_marker(self.tx), "")
+        # The notes are all still on the record for whoever reads it later.
+        self.assertEqual(self.tx.failure_reason.count("Card widget reported"), 3)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_provider_record_arriving_late_does_not_double_count(self, mock_get):
+        """SumUp catching up on a reported decline is one card, not two."""
+        mock_get.return_value = {"id": "CHK_RETRY", "status": "PENDING"}
+        self.client.post(
             reverse(
                 "crush_lu:sumup_widget_failure", kwargs={"checkout_id": "CHK_RETRY"}
             ),
             data=json.dumps({"type": "fail", "message": "Declined"}),
             content_type="application/json",
-        ).json()["attempt_marker"]
-        self.assertTrue(reported)
+        )
 
-        # The customer retries; SumUp now catches up on the FIRST decline.
         mock_get.return_value = {
             "id": "CHK_RETRY",
             "status": "PENDING",
             "transactions": [{"status": "FAILED", "failure_reason": "DECLINED"}],
         }
-        during_retry = self._poll()
 
-        self.assertEqual(during_retry["attempt_marker"], reported)
+        self.assertEqual(self._poll()["attempt_marker"], "1")
 
     @patch("crush_lu.views_payments.SumUpClient.get_checkout")
-    def test_a_second_card_refused_after_a_late_record_does_move_it(self, mock_get):
-        """And the retry genuinely failing must still reach the customer."""
-        mock_get.return_value = {"id": "CHK_RETRY", "status": "PENDING"}
-        reported = self.client.post(
-            reverse(
-                "crush_lu:sumup_widget_failure", kwargs={"checkout_id": "CHK_RETRY"}
-            ),
-            data=json.dumps({"type": "fail", "message": "Declined"}),
-            content_type="application/json",
-        ).json()["attempt_marker"]
+    def test_a_second_refused_card_moves_the_count(self, mock_get):
+        """And a genuinely new refusal must still reach the customer."""
+        mock_get.return_value = {
+            "id": "CHK_RETRY",
+            "status": "PENDING",
+            "transactions": [{"status": "FAILED"}],
+        }
+        self.assertEqual(self._poll()["attempt_marker"], "1")
 
         mock_get.return_value = {
             "id": "CHK_RETRY",
             "status": "PENDING",
-            "transactions": [
-                {"status": "FAILED", "failure_reason": "DECLINED"},
-                {"status": "FAILED", "failure_reason": "DECLINED"},
-            ],
+            "transactions": [{"status": "FAILED"}, {"status": "FAILED"}],
         }
-        after_second = self._poll()
 
-        self.assertTrue(after_second["attempt_failed"])
-        self.assertNotEqual(after_second["attempt_marker"], reported)
-
-    def test_a_member_cannot_inflate_their_own_failure_count(self):
-        """The note joiner is what the count reads, so it is stripped from the
-        customer-influenced part."""
-        self.client.post(
-            reverse(
-                "crush_lu:sumup_widget_failure", kwargs={"checkout_id": "CHK_RETRY"}
-            ),
-            data=json.dumps({"type": "fail", "message": "a | b | c | d"}),
-            content_type="application/json",
-        )
-
-        from crush_lu.views_payments import attempt_marker
-
-        self.tx.refresh_from_db()
-        self.assertEqual(attempt_marker(self.tx), "1")
+        self.assertEqual(self._poll()["attempt_marker"], "2")
 
     @patch("crush_lu.views_payments.SumUpClient.get_checkout")
     def test_a_retry_that_succeeds_still_settles(self, mock_get):
@@ -3413,7 +3415,7 @@ class RetryAfterDeclineTests(SiteTestMixin, TestCase):
 
         self.assertContains(response, attempt_marker(self.tx))
         body = response.content.decode()
-        seed = body.split("let shownFailureMarker =", 1)[1].split(";", 1)[0]
+        seed = body.split("let acknowledgedFailures =", 1)[1].split(";", 1)[0]
         self.assertIn(attempt_marker(self.tx), seed)
         # And nothing fetches it — a fetched baseline is the bug above.
         watch = body.split("function watchCheckout()", 1)[1].split("function ", 1)[0]
@@ -3425,8 +3427,8 @@ class RetryAfterDeclineTests(SiteTestMixin, TestCase):
         )
 
         body = response.content.decode()
-        seed = body.split("let shownFailureMarker =", 1)[1].split(";", 1)[0]
-        self.assertEqual(seed.strip(), '""')
+        seed = body.split("let acknowledgedFailures =", 1)[1].split(";", 1)[0]
+        self.assertIn('""', seed)
 
     @patch("crush_lu.views_payments.SumUpClient.get_checkout")
     def test_the_failure_report_agrees_with_the_poll(self, mock_get):

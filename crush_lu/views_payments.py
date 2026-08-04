@@ -673,10 +673,9 @@ def _record_terminal_failure(tx_obj, sumup_status, data):
 # discarding the widget half AND moving the marker, which told the page a fresh
 # card had been refused when nothing had happened but a refresh.
 WIDGET_NOTE_SEPARATOR = "\n— widget: "
-# What separates one widget note from the next. Counting these is how the
-# attempt marker knows about failures SumUp has not recorded yet, so the
-# customer-supplied part of a note has this stripped out of it — otherwise a
-# member could inflate their own failure count by typing it.
+# What separates one widget note from the next. Nothing is counted from it —
+# the attempt marker is the provider's count alone — so this is only for
+# reading the notes back in the Coach Panel.
 NOTE_JOIN = " | "
 
 
@@ -693,29 +692,23 @@ def _join_failure_reason(provider, notes):
 
 
 def attempt_marker(tx_obj):
-    """How many refused attempts this checkout is known to have had.
+    """How many refused attempts SUMUP has recorded against this checkout.
 
-    A COUNT, deliberately, after three rounds of getting this wrong with a
-    digest of the reason. The reason is prose, and prose moves for reasons that
-    are not another refused card: a refresh rewrites SumUp's account of the
-    same attempts, a note records what the customer was shown, and the provider
-    record for a decline the SDK already reported arrives later and fills in a
-    half that was empty. Every one of those read as "a new card was refused" to
-    a page comparing text, and each fix for one of them re-created another.
+    A count, and only of SumUp's own record. Three earlier versions of this
+    tried to fold in what the widget had reported, so that a decline the SDK
+    saw before SumUp recorded it would still be visible — and every one of them
+    broke, because the server cannot tell whether a widget report and a
+    provider record that arrives later are the same refused card or two of
+    them. Counting reports made a duplicated callback look like a second card;
+    hashing the reason made a rewording look like one.
 
-    Counting answers the question the page is actually asking — "has anything
-    failed since the last one I told you about?" — and is indifferent to
-    wording, to ordering, and to which side learned it first.
-
-    The larger of the two sources, because they are two views of the same
-    events rather than two sets of them: SumUp's transactions array, and the
-    widget's own reports for failures SumUp has not recorded yet.
+    So it does not try. This is a plain, monotonic count of what the provider
+    says, which is unambiguous. Reconciling it with a failure the widget
+    already displayed is the page's job — only the page knows which failures it
+    has shown, and it knows that without asking anyone.
     """
     provider_failures = _count_failed_attempts(tx_obj.raw_response)
-    _provider, notes = _split_failure_reason(tx_obj.failure_reason)
-    note_failures = notes.count(NOTE_JOIN) + 1 if notes else 0
-    known = max(provider_failures, note_failures)
-    return str(known) if known else ""
+    return str(provider_failures) if provider_failures else ""
 
 
 def _append_widget_note(tx_obj, note):
