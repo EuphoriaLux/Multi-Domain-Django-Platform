@@ -166,11 +166,13 @@
             submitBtn.disabled = true;
             btnText.textContent = "{% trans 'Preparing secure checkout...' %}";
 
-            {# Absolute path, like every other checkout call site (my_events.html,
-               event_detail.html, choose_coach.html). The route is registered
-               un-prefixed on the crush.lu urlconf; reversing it by name here
-               would tie this partial to which urlconf is active and turn a
-               NoReverseMatch into a 500 on the whole page. #}
+            {% comment %}
+            Absolute path, like every other checkout call site (my_events.html,
+            event_detail.html, choose_coach.html). The route is registered
+            un-prefixed on the crush.lu urlconf; reversing it by name here would
+            tie this partial to which urlconf is active and turn a
+            NoReverseMatch into a 500 on the whole page.
+            {% endcomment %}
             fetch("/payments/sumup/create-donation-checkout/", {
                 method: "POST",
                 headers: {
