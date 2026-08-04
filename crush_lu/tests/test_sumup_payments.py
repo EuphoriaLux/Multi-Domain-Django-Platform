@@ -246,6 +246,11 @@ class SumUpPaymentViewsTests(SiteTestMixin, TestCase):
         self.assertEqual(response.status_code, 400)
         mock_create_checkout.assert_not_called()
 
+    # This test is about checkout mechanics, not the beta allowlist. The funnel
+    # defaults ON (settings.py: _env_bool(..., default=True)), so say so
+    # explicitly rather than depending on whatever the environment happens to
+    # hold -- PremiumBetaAllowlistTests below owns the gate's own behaviour.
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=False)
     @patch("crush_lu.views_payments.SumUpClient.create_checkout")
     @patch("crush_lu.views_payments.SumUpClient.create_customer")
     def test_create_sumup_premium_checkout_view(self, mock_create_customer, mock_create_checkout):
@@ -382,6 +387,10 @@ class SumUpPaymentViewsTests(SiteTestMixin, TestCase):
         self.assertEqual(self.registration.status, "pending")
         self.assertFalse(self.registration.payment_confirmed)
 
+    # Webhook plumbing, not the beta allowlist — see PremiumBetaAllowlistTests
+    # for the gate itself. The funnel defaults ON, and completion now withholds
+    # the grant from a non-tester, so pin it off here.
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=False)
     @patch("crush_lu.views_payments.SumUpClient.get_checkout")
     def test_sumup_webhook_premium_membership(self, mock_get_checkout):
         tx = PaymentTransaction.objects.create(
@@ -483,6 +492,446 @@ class PremiumPriceConsistencyTests(SiteTestMixin, TestCase):
         self.assertEqual(response.status_code, 200)
         tx = PaymentTransaction.objects.get(sumup_checkout_id="CHK_PRICE_001")
         self.assertEqual(tx.amount, Decimal("15.00"))
+
+
+# PREMIUM_REDIRECTS_TO_BETA is pinned ON for the whole class rather than
+# inherited: it defaults True in settings.py, but a local .env or a CI env var
+# can set it False, and these tests would then exercise the open-funnel path and
+# fail (or pass for the wrong reason). The gate's own behaviour must not depend
+# on the environment -- test_gate_lifts_when_the_beta_funnel_is_off overrides it
+# back off per-method, which stacks on top of this.
+@override_settings(
+    ROOT_URLCONF="azureproject.urls_crush", PREMIUM_REDIRECTS_TO_BETA=True
+)
+class PremiumBetaAllowlistTests(SiteTestMixin, TestCase):
+    """The beta allowlist is re-checked at every moment a premium purchase can
+    be judged, not only where the pending membership is minted.
+
+    views_premium gates minting; before this, nothing between there and
+    ``confirm()`` asked again, so a pending row was a capability that outlived
+    the permission that created it. Rotating a tester out of the beta left them
+    holding a payable link.
+
+    Three surfaces, because revocation has to reach all of them: opening the
+    checkout, opening the widget (the step that actually prevents a charge), and
+    granting Premium at completion (which can only withhold the entitlement --
+    the money is already captured by then).
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        from crush_lu.models.profiles import UserDataConsent
+
+        self.user = User.objects.create_user(
+            username="beta@crush.lu", email="beta@crush.lu", password="password123"
+        )
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        CrushProfile.objects.create(
+            user=self.user, verification_status="verified", completion_status="step4"
+        )
+        self.coach_user = User.objects.create_user(
+            username="betacoach@crush.lu",
+            email="betacoach@crush.lu",
+            password="password123",
+        )
+        self.coach = CrushCoach.objects.create(
+            user=self.coach_user,
+            is_active=True,
+            accepting_premium=True,
+            max_premium_members=10,
+        )
+        self.membership = PremiumMembership.objects.create(
+            user=self.user, coach=self.coach, status="pending"
+        )
+
+    def _select_as_tester(self, user=None, selected=True):
+        from crush_lu.models import CrushConnectWaitlist
+
+        entry, _created = CrushConnectWaitlist.objects.get_or_create(
+            user=user or self.user
+        )
+        entry.selected_as_tester = selected
+        entry.save(update_fields=["selected_as_tester"])
+        return entry
+
+    def _make_staff(self, email):
+        """Staff user that can actually reach the view.
+
+        consent_middleware redirects anyone without Crush.lu consent, so a staff
+        account created without it never reaches the allowlist under test and
+        the assertion would pass for the wrong reason.
+        """
+        from crush_lu.models.profiles import UserDataConsent
+
+        staff = User.objects.create_user(
+            username=email, email=email, password="password123", is_staff=True
+        )
+        UserDataConsent.objects.update_or_create(
+            user=staff,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        return staff
+
+    def _post(self, membership=None):
+        return self.client.post(
+            reverse(
+                "crush_lu:sumup_create_premium_checkout",
+                kwargs={"membership_id": (membership or self.membership).id},
+            )
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    @patch("crush_lu.views_payments.SumUpClient.create_customer")
+    def test_non_tester_holding_pending_membership_cannot_pay(
+        self, mock_create_customer, mock_create_checkout
+    ):
+        """The gap itself: a pending row is no longer enough on its own."""
+        self.client.force_login(self.user)
+
+        response = self._post()
+
+        self.assertEqual(response.status_code, 403)
+        mock_create_checkout.assert_not_called()
+        mock_create_customer.assert_not_called()
+        self.assertFalse(PaymentTransaction.objects.exists())
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    @patch("crush_lu.views_payments.SumUpClient.create_customer")
+    def test_deselecting_a_tester_revokes_an_already_minted_checkout(
+        self, mock_create_customer, mock_create_checkout
+    ):
+        """Rotation: selected, minted a pending row, then rotated out.
+
+        This is the realistic path — the member passed the allowlist legitimately
+        and kept the link. De-selection has to reach the payment endpoint too, or
+        it only appears to revoke access.
+        """
+        entry = self._select_as_tester()
+        self.client.force_login(self.user)
+
+        entry.selected_as_tester = False
+        entry.save(update_fields=["selected_as_tester"])
+
+        response = self._post()
+
+        self.assertEqual(response.status_code, 403)
+        mock_create_checkout.assert_not_called()
+        self.membership.refresh_from_db()
+        self.assertEqual(self.membership.status, "pending")
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    @patch("crush_lu.views_payments.SumUpClient.create_customer")
+    def test_being_on_the_waitlist_is_not_being_selected(
+        self, mock_create_customer, mock_create_checkout
+    ):
+        """A waitlist row grants nothing; only ``selected_as_tester`` does."""
+        self._select_as_tester(selected=False)
+        self.client.force_login(self.user)
+
+        response = self._post()
+
+        self.assertEqual(response.status_code, 403)
+        mock_create_checkout.assert_not_called()
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    @patch("crush_lu.views_payments.SumUpClient.create_customer")
+    def test_selected_tester_can_pay(self, mock_create_customer, mock_create_checkout):
+        """The allowlist opens the path it is supposed to open."""
+        mock_create_customer.return_value = {"customer_id": f"crush-user-{self.user.id}"}
+        mock_create_checkout.return_value = {"id": "CHK_BETA_OK", "status": "PENDING"}
+        self._select_as_tester()
+        self.client.force_login(self.user)
+
+        response = self._post()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["success"])
+        tx = PaymentTransaction.objects.get(sumup_checkout_id="CHK_BETA_OK")
+        self.assertEqual(tx.premium_membership, self.membership)
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    @patch("crush_lu.views_payments.SumUpClient.create_customer")
+    def test_staff_may_still_act_for_a_selected_member(
+        self, mock_create_customer, mock_create_checkout
+    ):
+        """Judged on the buyer, not the requester.
+
+        Staff-assisted purchase is a supported path. Reading the allowlist off
+        ``request.user`` would ask about the staff account — which has no
+        waitlist row — and break it.
+        """
+        mock_create_customer.return_value = {"customer_id": "crush-staff"}
+        mock_create_checkout.return_value = {
+            "id": "CHK_BETA_STAFF",
+            "status": "PENDING",
+        }
+        self._select_as_tester()
+        self.client.force_login(self._make_staff("staff@crush.lu"))
+
+        response = self._post()
+
+        self.assertEqual(response.status_code, 200)
+        mock_create_checkout.assert_called_once()
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    @patch("crush_lu.views_payments.SumUpClient.create_customer")
+    def test_staff_cannot_launder_the_allowlist_for_a_non_tester(
+        self, mock_create_customer, mock_create_checkout
+    ):
+        """The staff ownership bypass must not become an allowlist bypass."""
+        self.client.force_login(self._make_staff("staff2@crush.lu"))
+
+        response = self._post()
+
+        self.assertEqual(response.status_code, 403)
+        mock_create_checkout.assert_not_called()
+
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=False)
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    @patch("crush_lu.views_payments.SumUpClient.create_customer")
+    def test_gate_lifts_when_the_beta_funnel_is_off(
+        self, mock_create_customer, mock_create_checkout
+    ):
+        """Turning the funnel off must restore open self-serve purchase — the
+        new check is scoped to the beta, not a second permanent gate."""
+        mock_create_customer.return_value = {"customer_id": f"crush-user-{self.user.id}"}
+        mock_create_checkout.return_value = {"id": "CHK_BETA_OFF", "status": "PENDING"}
+        self.client.force_login(self.user)
+
+        response = self._post()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            PaymentTransaction.objects.filter(sumup_checkout_id="CHK_BETA_OFF").exists()
+        )
+
+    # --- revocation must reach an ALREADY-CREATED checkout (Codex P1) --------
+    #
+    # Blocking creation is not enough on its own: a tester who opened a checkout
+    # and was de-selected while it was in flight still held a payable widget,
+    # and the completion path called confirm() without asking again.
+
+    def _open_checkout(self):
+        """A checkout that already exists, as if opened while still selected."""
+        return PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-PREM-REVOKE-1",
+            sumup_checkout_id="CHK_REVOKED",
+            amount=Decimal("10.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
+            user=self.user,
+            premium_membership=self.membership,
+        )
+
+    def test_deselected_tester_cannot_reach_the_card_form(self):
+        """The widget is the step that PREVENTS the charge, so it must close."""
+        self._open_checkout()
+        self._select_as_tester(selected=False)
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse(
+                "crush_lu:sumup_widget",
+                kwargs={"checkout_id": "CHK_REVOKED"},
+            )
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_selected_tester_still_reaches_the_card_form(self):
+        self._open_checkout()
+        self._select_as_tester()
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse(
+                "crush_lu:sumup_widget",
+                kwargs={"checkout_id": "CHK_REVOKED"},
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_completion_does_not_grant_premium_to_a_deselected_tester(self):
+        """The race the widget block cannot close: widget already open, card
+        submitted, member de-selected in between.
+
+        SumUp has captured the money by now, so the transaction stays PAID --
+        dropping it would lose the only record of a real charge. What we refuse
+        is the grant. Same contract as the seat branch.
+        """
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        tx = self._open_checkout()
+        self._select_as_tester(selected=False)
+
+        _apply_paid_checkout(tx, {"id": "CHK_REVOKED", "status": "PAID"})
+
+        tx.refresh_from_db()
+        self.membership.refresh_from_db()
+        self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(self.membership.status, "pending")
+        self.assertFalse(self.membership.payment_confirmed)
+        self.user.crushprofile.refresh_from_db()
+        self.assertIsNone(self.user.crushprofile.assigned_coach)
+
+    def test_completion_grants_premium_to_a_selected_tester(self):
+        """The guard must not break the path it is protecting."""
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        tx = self._open_checkout()
+        self._select_as_tester()
+
+        _apply_paid_checkout(tx, {"id": "CHK_REVOKED", "status": "PAID"})
+
+        tx.refresh_from_db()
+        self.membership.refresh_from_db()
+        self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(self.membership.status, "active")
+        self.assertTrue(self.membership.payment_confirmed)
+        self.user.crushprofile.refresh_from_db()
+        self.assertEqual(self.user.crushprofile.assigned_coach, self.coach)
+
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=False)
+    def test_completion_is_unaffected_when_the_funnel_is_off(self):
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        tx = self._open_checkout()
+
+        _apply_paid_checkout(tx, {"id": "CHK_REVOKED", "status": "PAID"})
+
+        self.membership.refresh_from_db()
+        self.assertEqual(self.membership.status, "active")
+
+    def test_the_completion_check_reads_the_waitlist_under_a_lock(self):
+        """The grant and a concurrent de-selection must have a definite order.
+
+        An unlocked read leaves a window between "is this user a tester" and
+        confirm(): an admin de-selecting inside it would be overtaken and
+        Premium granted anyway. Asserted at the query level because the race
+        itself cannot be reproduced deterministically in a test.
+        """
+        from django.db.models.query import QuerySet
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        tx = self._open_checkout()
+        self._select_as_tester()
+
+        # Asserted on the ORM call, not on "FOR UPDATE" appearing in the SQL:
+        # the local test backend is SQLite, whose has_select_for_update is
+        # False, so Django emits the query without the clause and a SQL-level
+        # assertion would fail here while passing against production Postgres.
+        original = QuerySet.select_for_update
+        locked_models = []
+
+        def _spy(self, *args, **kwargs):
+            locked_models.append(self.model.__name__)
+            return original(self, *args, **kwargs)
+
+        with patch.object(QuerySet, "select_for_update", _spy):
+            _apply_paid_checkout(tx, {"id": "CHK_REVOKED", "status": "PAID"})
+
+        self.assertIn("CrushConnectWaitlist", locked_models)
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    @patch("crush_lu.views_payments.SumUpClient.create_customer")
+    def test_a_captured_payment_blocks_a_second_checkout(
+        self, mock_create_customer, mock_create_checkout
+    ):
+        """Re-selecting a de-selected tester must not re-arm the pay button.
+
+        The withheld grant leaves the membership pending with a PAID row against
+        it. "Pending" was the only thing this endpoint required, so the member
+        could be charged twice for the same membership.
+        """
+        tx = self._open_checkout()
+        tx.status = PaymentTransaction.Status.PAID
+        tx.save(update_fields=["status"])
+        self._select_as_tester()  # reconciled by re-selecting, as staff would
+        self.client.force_login(self.user)
+
+        with self.assertLogs("crush_lu.views_payments", level="ERROR"):
+            response = self._post()
+
+        self.assertEqual(response.status_code, 409)
+        mock_create_checkout.assert_not_called()
+        self.assertEqual(PaymentTransaction.objects.count(), 1)
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    @patch("crush_lu.views_payments.SumUpClient.create_customer")
+    def test_an_unpaid_prior_attempt_does_not_block_a_retry(
+        self, mock_create_customer, mock_create_checkout
+    ):
+        """Only a CAPTURED payment blocks. A declined or abandoned attempt must
+        still be retryable, or one bad card would strand the member."""
+        mock_create_customer.return_value = {"customer_id": f"crush-user-{self.user.id}"}
+        mock_create_checkout.return_value = {"id": "CHK_RETRY_OK", "status": "PENDING"}
+        self._open_checkout()  # left PENDING
+        self._select_as_tester()
+        self.client.force_login(self.user)
+
+        response = self._post()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["success"])
+
+    def test_the_payment_outcome_messages_are_translated(self):
+        """A charged DE/FR member must not be told what happened in English.
+
+        These land on the most sensitive path there is -- money taken, nothing
+        granted -- so an untranslated string here is worse than anywhere else.
+        Catches the usual failure: the catalog entry exists but its msgid
+        differs from the source by a space, so it never matches.
+        """
+        messages_under_test = [
+            "Premium is invite-only during the beta.",
+            "Your payment went through, but we could not activate your Premium "
+            "membership yet. Please contact support@crush.lu and we will sort "
+            "it out.",
+            "We have already received a payment for this membership. Please "
+            "contact support@crush.lu so we can finish setting it up.",
+        ]
+        for lang in ("de", "fr"):
+            for source in messages_under_test:
+                with self.subTest(lang=lang, msgid=source[:40]):
+                    with translation.override(lang):
+                        self.assertNotEqual(
+                            translation.gettext(source),
+                            source,
+                            f"untranslated in {lang}",
+                        )
+
+    def test_a_charged_customer_is_told_premium_was_not_activated(self):
+        """PAID but not granted must not read as an ordinary successful buy.
+
+        Pre-existing gap that this PR makes more reachable: the coach-filled-up
+        and request-cancelled paths land here too, and the page said only
+        "Payment completed successfully" before dropping them on the hub.
+        """
+        tx = self._open_checkout()
+        self._select_as_tester(selected=False)
+        tx.status = PaymentTransaction.Status.PAID
+        tx.save(update_fields=["status"])
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            "/payments/sumup/return/", {"ref": tx.transaction_reference}, follow=True
+        )
+
+        texts = [str(m) for m in response.context["messages"]]
+        self.assertTrue(
+            any("could not activate" in t for t in texts),
+            f"no withheld-entitlement warning in {texts}",
+        )
+        self.assertFalse(
+            any("You're Premium" in t or "now a Premium member" in t for t in texts),
+            f"claimed Premium it did not grant: {texts}",
+        )
 
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
@@ -677,7 +1126,13 @@ class PaymentCompletionRevalidationTests(SiteTestMixin, TestCase):
         self.assertTrue(self.registration.payment_confirmed)
 
 
-@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+# These cover completion mechanics, coach naming and the return page's locale --
+# not the beta allowlist, which PremiumBetaAllowlistTests owns. The completion
+# path now refuses to grant Premium to a non-tester while the funnel is on, and
+# the funnel defaults ON, so state the assumption instead of inheriting it.
+@override_settings(
+    ROOT_URLCONF="azureproject.urls_crush", PREMIUM_REDIRECTS_TO_BETA=False
+)
 class PremiumCompletionRevalidationTests(SiteTestMixin, TestCase):
     """The same in-flight problem on the Premium side.
 
@@ -1175,7 +1630,16 @@ class PremiumCompletionRevalidationTests(SiteTestMixin, TestCase):
         self.membership.refresh_from_db()
         self.assertEqual(self.membership.status, "pending")
         texts = [str(m) for m in response.wsgi_request._messages]
-        self.assertFalse(any("Premium" in t for t in texts), texts)
+        # Must not CLAIM Premium. Asserted on the claim itself rather than on
+        # the word "Premium" appearing at all -- the page now also has to SAY
+        # the entitlement was withheld, and that sentence necessarily names it.
+        self.assertFalse(
+            any("You're Premium" in t or "now a Premium member" in t for t in texts),
+            texts,
+        )
+        # ...and silence is not acceptable either: the charge is real, so saying
+        # only "Payment completed successfully" reads as an ordinary purchase.
+        self.assertTrue(any("could not activate" in t for t in texts), texts)
 
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
