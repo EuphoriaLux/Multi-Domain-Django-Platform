@@ -24,6 +24,11 @@ document.addEventListener("alpine:init", function () {
         var strRotator = this.$el.dataset.strRotator || "rotator";
         var strPts = this.$el.dataset.strPts || "pts";
         var strTablesScored = this.$el.dataset.strTablesScored || "tables scored";
+        var strLoadingMedia = this.$el.dataset.strLoadingMedia || "Loading media";
+        var strMediaUnavailable =
+            this.$el.dataset.strMediaUnavailable || "Media unavailable";
+        var strMediaLabel = this.$el.dataset.strMediaLabel || "Quiz media";
+        var strAudio = this.$el.dataset.strAudio || "Audio";
 
         return {
             // --- Config ---
@@ -69,6 +74,7 @@ document.addEventListener("alpine:init", function () {
             roundName: "",
             isBonusRound: false,
             questionPoints: 10,
+            questionMedia: { kind: "none", url: null },
 
             // --- Scoring progress ---
             scoredCount: 0,
@@ -156,6 +162,17 @@ document.addEventListener("alpine:init", function () {
                 if (this.timerPercent > 20) return "bg-yellow-500";
                 return "bg-red-500";
             },
+            get timerUrgencyClass() {
+                if (this.timerPercent > 50) return "text-green-400";
+                if (this.timerPercent > 20) return "text-amber-300";
+                return "is-urgent text-red-300";
+            },
+            get questionLengthClass() {
+                var length = (this.questionText || "").length;
+                if (length > 240) return "quiz-display-question--long";
+                if (length > 120) return "quiz-display-question--medium";
+                return "";
+            },
 
             get scoringProgressText() {
                 return (
@@ -186,6 +203,19 @@ document.addEventListener("alpine:init", function () {
             },
             get hasPodium() {
                 return this.leaderboardTables.length >= 3;
+            },
+            get liveAnnouncement() {
+                if (this.isWaiting) return strWaiting;
+                if (this.isQuestion) {
+                    return [this.roundLabel, this.questionText]
+                        .filter(Boolean)
+                        .join(". ");
+                }
+                if (this.isScoring) return this.scoringProgressText;
+                if (this.isReveal || this.isLeaderboard || this.isFinished) {
+                    return this.roundLabel;
+                }
+                return "";
             },
 
             // Podium getters
@@ -587,6 +617,10 @@ document.addEventListener("alpine:init", function () {
                 if (window.QuizMedia) {
                     window.QuizMedia.render(container, this.questionMedia, {
                         size: "display",
+                        loadingLabel: strLoadingMedia,
+                        unavailableLabel: strMediaUnavailable,
+                        mediaLabel: strMediaLabel,
+                        audioLabel: strAudio,
                     });
                 }
             },
@@ -989,19 +1023,21 @@ document.addEventListener("alpine:init", function () {
             renderChoices: function () {
                 var grid = this.$refs.choicesgrid;
                 if (!grid) return;
-                grid.innerHTML = "";
+                grid.replaceChildren();
                 this.choices.forEach(function (choice, idx) {
                     var card = document.createElement("div");
-                    card.className =
-                        "flex items-center gap-4 rounded-xl bg-slate-800 px-6 py-5 ring-1 ring-white/10";
-                    var letter = String.fromCharCode(65 + idx);
-                    card.innerHTML =
-                        '<span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-crush-purple/20 text-xl font-bold text-crush-purple">' +
-                        letter +
-                        "</span>" +
-                        '<span class="text-2xl font-medium text-white">' +
-                        choice +
-                        "</span>";
+                    card.className = "quiz-choice";
+
+                    var key = document.createElement("span");
+                    key.className = "quiz-choice__key";
+                    key.setAttribute("aria-hidden", "true");
+                    key.textContent = String.fromCharCode(65 + idx);
+                    card.appendChild(key);
+
+                    var copy = document.createElement("span");
+                    copy.className = "quiz-choice__text";
+                    copy.textContent = choice;
+                    card.appendChild(copy);
                     grid.appendChild(card);
                 });
             },

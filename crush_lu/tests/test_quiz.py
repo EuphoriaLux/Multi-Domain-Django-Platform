@@ -2287,6 +2287,37 @@ class TestQuizTableDisplay:
         assert response.status_code == 200
         assert b"quizDisplay" in response.content
 
+    @pytest.mark.parametrize("language", ["en", "de", "fr"])
+    def test_display_includes_language_aware_join_qr(
+        self, client, quiz_event, language
+    ):
+        response = client.get(
+            f"/{language}/quiz/{quiz_event.event_id}/display/"
+        )
+
+        assert response.status_code == 200
+        assert f"/{language}/events/{quiz_event.event_id}/quiz/" in response.context[
+            "join_url"
+        ]
+        assert response.context["join_qr_data_url"].startswith(
+            "data:image/png;base64,"
+        )
+        assert response.context["join_qr_data_url"].encode() in response.content
+
+    def test_display_omits_join_qr_when_generation_fails(
+        self, client, quiz_event, mocker
+    ):
+        mocker.patch(
+            "crush_lu.qr_utils.generate_qr_code_base64",
+            side_effect=RuntimeError("QR renderer unavailable"),
+        )
+
+        response = client.get(f"/en/quiz/{quiz_event.event_id}/display/")
+
+        assert response.status_code == 200
+        assert response.context["join_qr_data_url"] is None
+        assert b"quiz-join-panel" not in response.content
+
     def test_legacy_url_redirects_to_language_prefixed(self, client, quiz_event):
         """Legacy /quiz/<id>/display/ redirects to language-prefixed URL."""
         response = client.get(f"/quiz/{quiz_event.event_id}/display/")

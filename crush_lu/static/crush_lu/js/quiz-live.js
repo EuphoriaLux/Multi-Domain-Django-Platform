@@ -166,6 +166,15 @@ document.addEventListener("alpine:init", function () {
             get isDisconnected() {
                 return !this.connected;
             },
+            get connectionLabel() {
+                if (!this._i18n) return "";
+                return this.connected
+                    ? this._i18n.connected
+                    : this._i18n.reconnecting;
+            },
+            get connectionDotClass() {
+                return this.connected ? "text-green-400" : "text-red-400";
+            },
             get hasAnswered() {
                 return this.answered;
             },
@@ -269,6 +278,23 @@ document.addEventListener("alpine:init", function () {
             },
             get hasLeaderboardData() {
                 return this.tables.length > 0;
+            },
+            get showStandingsPanel() {
+                return this.hasLeaderboardData && !this.isQuestion && !this.isFinished;
+            },
+            get liveAnnouncement() {
+                if (!this._i18n) return "";
+                if (!this.connected) return this._i18n.reconnecting;
+                if (this.isQuestion) {
+                    return [this.questionProgress, this.questionText]
+                        .filter(Boolean)
+                        .join(". ");
+                }
+                if (this.isRotate) return this.rotateMessage;
+                if (this.isReview && this.tableScoredFeedback) {
+                    return this.tableScoredFeedback;
+                }
+                return this.connectionLabel;
             },
 
             // --- Init ---
@@ -583,6 +609,9 @@ document.addEventListener("alpine:init", function () {
                 if (window.QuizMedia) {
                     window.QuizMedia.render(container, media, {
                         size: "player",
+                        loadingLabel: this._i18n.loadingMedia,
+                        unavailableLabel: this._i18n.mediaUnavailable,
+                        mediaLabel: this._i18n.mediaLabel,
                     });
                 }
             },
@@ -630,27 +659,23 @@ document.addEventListener("alpine:init", function () {
                         buttons[i].getAttribute("data-choice-index"),
                         10,
                     );
-                    // Reset
-                    buttons[i].className = buttons[i].className
-                        .replace(/bg-\S+|ring-\S+/g, "")
-                        .trim();
-                    var cls = "bg-slate-700";
+                    buttons[i].classList.remove(
+                        "is-selected",
+                        "is-correct",
+                        "is-wrong",
+                    );
                     if (!this.isQuizNight) {
                         if (this.answered && this.selectedIndex === idx) {
                             if (this.lastResult && this.lastResult.is_correct) {
-                                cls = "bg-green-700 ring-2 ring-green-400";
+                                buttons[i].classList.add("is-correct");
                             } else if (this.lastResult && !this.lastResult.is_correct) {
-                                cls = "bg-red-700 ring-2 ring-red-400";
+                                buttons[i].classList.add("is-wrong");
                             } else {
-                                cls = "bg-crush-purple ring-2 ring-crush-pink";
+                                buttons[i].classList.add("is-selected");
                             }
                         } else if (this.selectedIndex === idx) {
-                            cls = "bg-crush-purple/50 ring-2 ring-crush-pink";
+                            buttons[i].classList.add("is-selected");
                         }
-                    }
-                    var parts = cls.split(" ");
-                    for (var j = 0; j < parts.length; j++) {
-                        buttons[i].classList.add(parts[j]);
                     }
                 }
             },
@@ -663,20 +688,35 @@ document.addEventListener("alpine:init", function () {
                 container.innerHTML = "";
                 var self = this;
                 for (var i = 0; i < this.choices.length; i++) {
-                    var btn = document.createElement("button");
+                    var btn = document.createElement(
+                        this.isQuizNight ? "div" : "button",
+                    );
                     btn.setAttribute("data-choice-index", String(i));
-                    btn.className =
-                        "quiz-choice-btn w-full rounded-xl bg-slate-700 p-4 text-left text-white transition-all";
-                    btn.textContent = this.choices[i].text;
-                    btn.addEventListener("click", function () {
-                        if (self.answered) return;
-                        var index = parseInt(
-                            this.getAttribute("data-choice-index"),
-                            10,
-                        );
-                        self.selectedIndex = index;
-                        self._updateChoiceButtons();
-                    });
+                    btn.className = "quiz-choice quiz-choice-btn";
+
+                    var key = document.createElement("span");
+                    key.className = "quiz-choice__key";
+                    key.setAttribute("aria-hidden", "true");
+                    key.textContent = String.fromCharCode(65 + i);
+                    btn.appendChild(key);
+
+                    var copy = document.createElement("span");
+                    copy.className = "quiz-choice__text";
+                    copy.textContent = this.choices[i].text;
+                    btn.appendChild(copy);
+
+                    if (!this.isQuizNight) {
+                        btn.type = "button";
+                        btn.addEventListener("click", function () {
+                            if (self.answered) return;
+                            var index = parseInt(
+                                this.getAttribute("data-choice-index"),
+                                10,
+                            );
+                            self.selectedIndex = index;
+                            self._updateChoiceButtons();
+                        });
+                    }
                     container.appendChild(btn);
                 }
             },
@@ -689,12 +729,14 @@ document.addEventListener("alpine:init", function () {
                 var badge = document.createElement("span");
                 if (this.userRole === "anchor") {
                     badge.className =
-                        "inline-flex items-center gap-1 rounded-full bg-blue-900/40 px-3 py-1 text-xs font-medium text-blue-300";
-                    badge.textContent = "\u{1F4CC} " + this._i18n.anchorHere;
+                        "quiz-player-role inline-flex items-center gap-1 rounded-full bg-blue-900/40 px-3 py-1 text-xs font-medium text-blue-300";
+                    badge.setAttribute("aria-label", this._i18n.anchorHere);
+                    badge.textContent = "\u{1F4CC} " + this._i18n.anchor;
                 } else {
                     badge.className =
-                        "inline-flex items-center gap-1 rounded-full bg-amber-900/40 px-3 py-1 text-xs font-medium text-amber-300";
-                    badge.textContent = "\u{1F504} " + this._i18n.rotatorYouMove;
+                        "quiz-player-role inline-flex items-center gap-1 rounded-full bg-amber-900/40 px-3 py-1 text-xs font-medium text-amber-300";
+                    badge.setAttribute("aria-label", this._i18n.rotatorYouMove);
+                    badge.textContent = "\u{1F504} " + this._i18n.rotator;
                 }
                 container.appendChild(badge);
             },
@@ -973,6 +1015,15 @@ document.addEventListener("alpine:init", function () {
             get isDisconnected() {
                 return !this.connected;
             },
+            get hostConnectionLabel() {
+                if (!this._i18n) return "";
+                return this.connected
+                    ? this._i18n.connected
+                    : this._i18n.disconnected;
+            },
+            get hostConnectionDotClass() {
+                return this.connected ? "text-green-400" : "text-red-400";
+            },
             get showQuizNight() {
                 return this.isQuizNight;
             },
@@ -1071,6 +1122,21 @@ document.addEventListener("alpine:init", function () {
             },
             get hasTables() {
                 return this.totalTables > 0;
+            },
+            get liveAnnouncement() {
+                if (!this._i18n) return "";
+                if (!this.connected) return this._i18n.disconnected;
+                if (this.roundComplete) return this._i18n.roundComplete;
+                if (this.hasCurrentQuestion) {
+                    return [
+                        this.questionProgress,
+                        this.currentQuestionText,
+                        this.scoringProgress,
+                    ]
+                        .filter(Boolean)
+                        .join(". ");
+                }
+                return this.statusText;
             },
             get isBonusLabel() {
                 return this.isBonusRound ? "BONUS x2" : "";
@@ -1939,6 +2005,11 @@ document.addEventListener("alpine:init", function () {
                 if (window.QuizMedia) {
                     window.QuizMedia.render(container, media, {
                         size: "player",
+                        loadingLabel: this._i18n.loadingMedia,
+                        readyLabel: this._i18n.previewReady,
+                        unavailableLabel: this._i18n.mediaUnavailable,
+                        mediaLabel: this._i18n.mediaLabel,
+                        showReadyStatus: true,
                     });
                 }
             },

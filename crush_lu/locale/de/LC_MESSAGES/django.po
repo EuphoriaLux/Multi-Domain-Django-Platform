@@ -39057,6 +39057,107 @@ msgstr "Außerhalb der mobilen App verfügbar."
 msgid "SumUp did not return a valid checkout ID."
 msgstr "SumUp hat keine gültige Checkout-ID zurückgegeben."
 
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Get ready"
+msgstr "Mach dich bereit"
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Question complete"
+msgstr "Frage abgeschlossen"
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Final results"
+msgstr "Endergebnisse"
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Next round"
+msgstr "Nächste Runde"
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+#: crush_lu/templates/crush_lu/quiz_coach.html
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Loading media"
+msgstr "Medium wird geladen"
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+#: crush_lu/templates/crush_lu/quiz_coach.html
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Media unavailable"
+msgstr "Medium nicht verfügbar"
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+#: crush_lu/templates/crush_lu/quiz_coach.html
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Quiz media"
+msgstr "Quizmedium"
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Projector display"
+msgstr "Projektoranzeige"
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "PIN digit"
+msgstr "PIN-Ziffer"
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Connecting to quiz..."
+msgstr "Verbindung zum Quiz wird hergestellt..."
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Crush Quiz Night"
+msgstr "Crush Quiz Night"
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "QR code to open the quiz"
+msgstr "QR-Code zum Öffnen des Quiz"
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Join on your phone"
+msgstr "Auf dem Handy teilnehmen"
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Scan to join"
+msgstr "Scannen und teilnehmen"
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid ""
+"Sign in and complete event check-in first. The QR code does not bypass "
+"attendance access."
+msgstr ""
+"Melde dich an und schließe zuerst den Event-Check-in ab. Der QR-Code umgeht "
+"die Teilnahmeberechtigung nicht."
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Find your table and meet your teammates."
+msgstr "Finde deinen Tisch und lerne deine Teammitglieder kennen."
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Answers locked"
+msgstr "Antworten gesperrt"
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Current standings"
+msgstr "Aktueller Stand"
+
+#: crush_lu/templates/crush_lu/quiz_coach.html
+msgid "Run of show"
+msgstr "Ablaufsteuerung"
+
+#: crush_lu/templates/crush_lu/quiz_coach.html
+msgid "Preview loaded here"
+msgstr "Vorschau hier geladen"
+
+#: crush_lu/templates/crush_lu/quiz_coach.html
+#, python-format
+msgid "Mark Table %(table_number)s correct"
+msgstr "Tisch %(table_number)s als richtig markieren"
+
+#: crush_lu/templates/crush_lu/quiz_coach.html
+#, python-format
+msgid "Mark Table %(table_number)s wrong"
+msgstr "Tisch %(table_number)s als falsch markieren"
+
 #: crush_lu/templates/crush_lu/coach_quiz_question_form.html
 msgid "Ready to preview before saving."
 msgstr "Bereit zur Vorschau vor dem Speichern."

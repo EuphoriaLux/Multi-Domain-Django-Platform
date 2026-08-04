@@ -3,216 +3,197 @@
 
 {% block title %}{% trans "Live Quiz" %} - {{ event.title }}{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'crush_lu/css/quiz-experience.css' %}">
+{% endblock %}
+
+{% block body_class %}quiz-stage-page{% endblock %}
+
 {% block content %}
-<div class="min-h-screen bg-crush-dark pt-4 pb-8">
-    <div class="mx-auto max-w-lg px-4"
-         x-data="quizLive"
-         data-quiz-id="{{ quiz.id }}"
-         data-quiz-night="{{ is_quiz_night|yesno:'true,false' }}"
-         {% if user_table_number %}data-table-number="{{ user_table_number }}"{% endif %}
-         {% if user_role %}data-user-role="{{ user_role }}"{% endif %}
-         data-tablemates="{{ tablemates_json }}"
-         data-quiz-status="{{ quiz_status }}"
-         data-i18n='{"pts":"{% trans "pts" %}","anchor":"{% trans "Anchor" %}","rotator":"{% trans "Rotator" %}","anchorStay":"{% trans "Anchor (stay at table)" %}","rotatorMove":"{% trans "Rotator (you move!)" %}","anchorHere":"{% trans "Anchor – stay here" %}","rotatorYouMove":"{% trans "Rotator – you move!" %}","yourTablemates":"{% trans "Your tablemates" %}","table":"{% trans "Table" %}"}'>
+<div class="quiz-stage-shell px-4 pb-10 pt-4 sm:pt-6">
+    <main class="quiz-stage-inner max-w-2xl"
+          x-data="quizLive"
+          data-quiz-id="{{ quiz.id }}"
+          data-quiz-night="{{ is_quiz_night|yesno:'true,false' }}"
+          {% if user_table_number %}data-table-number="{{ user_table_number }}"{% endif %}
+          {% if user_role %}data-user-role="{{ user_role }}"{% endif %}
+          data-tablemates="{{ tablemates_json }}"
+          data-quiz-status="{{ quiz_status }}"
+          data-i18n='{"pts":"{% trans "pts" %}","anchor":"{% trans "Anchor" %}","rotator":"{% trans "Rotator" %}","anchorStay":"{% trans "Anchor (stay at table)" %}","rotatorMove":"{% trans "Rotator (you move!)" %}","anchorHere":"{% trans "Anchor – stay here" %}","rotatorYouMove":"{% trans "Rotator – you move!" %}","yourTablemates":"{% trans "Your tablemates" %}","table":"{% trans "Table" %}","connected":"{% trans "Connected" %}","reconnecting":"{% trans "Reconnecting..." %}","loadingMedia":"{% trans "Loading media" %}","mediaUnavailable":"{% trans "Media unavailable" %}","mediaLabel":"{% trans "Quiz media" %}"}'>
 
-        {# --- Header --- #}
-        <div class="mb-6 text-center">
-            <h1 class="text-2xl font-bold text-white">{{ event.title }}</h1>
-            <p class="mt-1 text-sm text-gray-400" x-text="roundTitle"></p>
-        </div>
+        <header class="quiz-stage-header">
+            <div class="min-w-0">
+                <p class="quiz-stage-kicker">{% trans "Live Quiz" %}</p>
+                <h1 class="quiz-stage-title truncate">{{ event.title }}</h1>
+                <p class="quiz-stage-subtitle" x-text="roundTitle"></p>
+            </div>
+            <div class="quiz-status-strip" aria-hidden="true">
+                <span class="quiz-connection-dot" x-bind:class="connectionDotClass"></span>
+                <span x-text="connectionLabel"></span>
+            </div>
+        </header>
 
-        {# --- Error banner --- #}
+        <p class="sr-only" role="status" aria-live="polite" aria-atomic="true" x-text="liveAnnouncement"></p>
+
         <div x-show="hasError"
              x-cloak
-             class="mb-4 rounded-lg border border-red-600 bg-red-900/40 px-4 py-3 text-center text-sm text-red-300">
+             role="alert"
+             class="mb-4 rounded-xl border border-red-500/60 bg-red-950/60 px-4 py-3 text-center text-sm text-red-200">
             <span x-text="errorMessage"></span>
         </div>
 
-        {# --- Table Info (Quiz Night) --- #}
-        <div x-show="hasTableInfo" class="mb-4 rounded-xl bg-gradient-to-br from-slate-800 to-slate-800/80 p-4 shadow-lg ring-1 ring-white/5">
-            {# Table header with number + score #}
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-crush-purple/20 text-lg font-bold text-crush-purple" x-text="tableLabel"></div>
-                    <div x-ref="rolebadge"></div>
-                </div>
-                <div class="text-right">
-                    <p class="text-2xl font-bold text-crush-pink" x-text="personalScoreLabel"></p>
-                    <p class="text-xs text-gray-400">{% trans "Your Score" %}</p>
-                </div>
-            </div>
-            {# Tablemates with roles (rendered via JS for CSP compliance) #}
-            <div class="mt-3" x-ref="tablemates"></div>
-            {# Table scored feedback #}
-            <div x-show="hasTableScoredFeedback"
-                 x-bind:class="tableScoredFeedbackClass"
-                 class="mt-2 rounded-lg p-2 text-center font-semibold animate-pulse"
-                 x-text="tableScoredFeedback"></div>
-        </div>
+        <details x-show="hasTableInfo" x-cloak class="quiz-details mb-4">
+            <summary class="normal-case tracking-normal">
+                <span class="quiz-player-meta flex-1">
+                    <span class="quiz-player-table" x-text="tableLabel"></span>
+                    <span class="min-w-0" x-ref="rolebadge"></span>
+                    <span class="quiz-player-score">
+                        <strong x-text="personalScoreLabel"></strong>
+                        <span>{% trans "Your Score" %}</span>
+                    </span>
+                </span>
+            </summary>
+            <div class="quiz-details__body" x-ref="tablemates"></div>
+        </details>
+
+        <div x-show="hasTableScoredFeedback"
+             x-cloak
+             x-bind:class="tableScoredFeedbackClass"
+             class="quiz-feedback mb-4 rounded-xl p-3 text-center font-semibold"
+             x-text="tableScoredFeedback"></div>
 
         {% if is_coach_viewer %}
-        {# --- Coach Overview (not assigned to a table) --- #}
-        <div class="mb-4 rounded-xl bg-slate-800 p-4 shadow-lg ring-1 ring-amber-500/20">
-            <div class="mb-3 flex items-center gap-2">
-                <span class="inline-flex items-center rounded-full bg-amber-900/40 px-3 py-1 text-xs font-medium text-amber-300">
-                    {% trans "Coach View" %}
-                </span>
-                <span class="text-sm text-gray-400">{% trans "You are not assigned to a table" %}</span>
+        <details class="quiz-details mb-4">
+            <summary>{% trans "Coach View" %} · {% trans "Table Setup" %}</summary>
+            <div class="quiz-details__body">
+                <p class="mb-3 text-sm text-slate-400">{% trans "You are not assigned to a table" %}</p>
+                <div x-ref="coachtables" class="grid grid-cols-1 gap-3 sm:grid-cols-2"
+                     data-all-tables="{{ all_tables_json }}"></div>
             </div>
-            <h2 class="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">
-                {% trans "Table Setup" %}
-            </h2>
-            <div x-ref="coachtables" class="grid grid-cols-1 gap-3 sm:grid-cols-2"
-                 data-all-tables="{{ all_tables_json }}"></div>
-        </div>
+        </details>
         {% endif %}
 
-        {# --- Waiting Screen --- #}
-        <div x-show="isWaiting" class="rounded-xl bg-slate-800 p-8 text-center shadow-lg">
-            <div class="mx-auto mb-4 h-16 w-16 animate-pulse rounded-full bg-crush-purple/30 flex items-center justify-center">
-                <svg class="h-8 w-8 text-crush-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
+        <section x-show="isWaiting" x-cloak class="quiz-key-moment quiz-focus-panel">
+            <div class="quiz-key-moment__ghost mb-3">
+                {% include "crush_lu/includes/ghost-story-blushing-reader.html" with class="w-full h-full" %}
             </div>
-            <h2 class="text-xl font-semibold text-white">{% trans "Waiting for the quiz to start..." %}</h2>
-            <p class="mt-2 text-gray-400">{% trans "The host will launch the first question soon." %}</p>
-        </div>
+            <p class="quiz-stage-kicker">{% trans "Get ready" %}</p>
+            <h2 class="text-2xl font-bold text-white">{% trans "Waiting for the quiz to start..." %}</h2>
+            <p class="mx-auto mt-2 max-w-md text-slate-400">{% trans "The host will launch the first question soon." %}</p>
+        </section>
 
-        {# --- Question Screen --- #}
-        <div x-show="isQuestion" class="space-y-4">
-            {# Timer bar #}
-            <div class="relative h-2 overflow-hidden rounded-full bg-slate-700">
-                <div class="h-full rounded-full bg-gradient-to-r from-crush-purple to-crush-pink transition-all duration-1000"
-                     x-bind:style="timerBarStyle"></div>
-            </div>
-            <div class="flex items-center justify-between text-sm text-gray-400">
+        <section x-show="isQuestion" x-cloak class="quiz-question-stage">
+            <div class="quiz-timer-row">
                 <span x-text="questionProgress"></span>
-                <span x-text="countdownDisplay"></span>
+                <strong class="tabular-nums text-white" x-text="countdownDisplay"></strong>
+            </div>
+            <div class="quiz-timer-track" aria-hidden="true">
+                <div class="quiz-timer-fill" x-bind:style="timerBarStyle"></div>
             </div>
 
-            {# Question text #}
-            <div class="rounded-xl bg-slate-800 p-6 shadow-lg">
-                <p class="text-lg font-medium text-white" x-text="questionText"></p>
-                <p class="mt-1 text-sm text-crush-purple" x-text="pointsLabel"></p>
+            <div class="quiz-focus-panel quiz-question-card">
+                <div class="quiz-question-eyebrow">
+                    <span x-text="roundTitle"></span>
+                    <span x-text="pointsLabel"></span>
+                </div>
+                <p class="quiz-question-copy" x-text="questionText"></p>
             </div>
 
-            {# Optional media stimulus (image/video/audio) - rendered via JS #}
             <div x-ref="media"></div>
+            <div class="quiz-choice-grid" x-ref="choices"></div>
 
-            {# Answer choices (rendered via JS for CSP compliance) #}
-            <div class="space-y-3" x-ref="choices"></div>
-
-            {# Submit button (legacy only - not quiz night) #}
             <div x-show="showAnswerControls">
                 <button x-show="hasSelected"
                         x-bind:disabled="hasAnswered"
                         x-on:click="submitAnswer"
-                        class="w-full rounded-2xl bg-gradient-to-r from-crush-purple to-crush-pink py-4 text-center text-lg font-bold text-white shadow-lg shadow-crush-purple/25 transition-all hover:opacity-90 hover:shadow-crush-purple/40 active:scale-[0.98] disabled:opacity-40 disabled:shadow-none">
-                    <span class="flex items-center justify-center gap-2">
-                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-                        </svg>
-                        {% trans "Submit Answer" %}
-                    </span>
+                        class="quiz-action quiz-primary-action flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-crush-purple to-crush-pink px-5 py-4 text-lg font-bold text-white transition hover:brightness-110 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40">
+                    <svg class="h-5 w-5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    {% trans "Submit Answer" %}
                 </button>
 
-                {# Answer feedback #}
-                <div x-show="hasAnswered" class="mt-3 rounded-2xl p-5 text-center shadow-lg" x-bind:class="feedbackClass">
+                <div x-show="hasAnswered"
+                     x-cloak
+                     class="quiz-feedback mt-3 rounded-2xl p-5 text-center"
+                     x-bind:class="feedbackClass">
                     <p class="text-lg font-bold" x-text="feedbackText"></p>
                     <p class="mt-1 text-sm opacity-80" x-text="pointsFeedback"></p>
                 </div>
             </div>
-        </div>
+        </section>
 
-        {# --- Review Screen (post-answer, waiting for next question) --- #}
-        <div x-show="isReview" class="space-y-4">
-            <div class="rounded-xl bg-slate-800 p-6 text-center shadow-lg">
-                <p class="text-lg font-medium text-white" x-text="questionText"></p>
-                <p class="mt-1 text-sm text-crush-purple" x-text="pointsLabel"></p>
+        <section x-show="isReview" x-cloak class="space-y-4">
+            <div class="quiz-focus-panel quiz-question-card text-center">
+                <p class="quiz-stage-kicker">{% trans "Question complete" %}</p>
+                <p class="quiz-question-copy" x-text="questionText"></p>
+                <p class="quiz-question-points" x-text="pointsLabel"></p>
             </div>
             <div x-show="hasTableScoredFeedback"
                  x-bind:class="tableScoredFeedbackClass"
-                 class="rounded-xl p-6 text-center shadow-lg">
+                 class="quiz-feedback rounded-xl p-6 text-center">
                 <p class="text-2xl font-bold" x-text="tableScoredFeedback"></p>
             </div>
-            <div class="rounded-xl bg-slate-800 p-4 text-center">
-                <div class="mx-auto mb-2 h-8 w-8 animate-pulse rounded-full bg-crush-purple/30 flex items-center justify-center">
-                    <svg class="h-4 w-4 text-crush-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                </div>
-                <p class="text-gray-400">{% trans "Waiting for the next question..." %}</p>
+            <div class="quiz-utility-panel p-4 text-center">
+                <span class="inline-flex items-center gap-2 text-sm text-slate-400">
+                    <span class="h-2 w-2 animate-pulse rounded-full bg-crush-purple" aria-hidden="true"></span>
+                    {% trans "Waiting for the next question..." %}
+                </span>
             </div>
-        </div>
+        </section>
 
-        {# --- Leaderboard Screen removed: now a persistent panel below --- #}
-
-        {# --- Finished Screen --- #}
-        <div x-show="isFinished" class="space-y-4">
-            <div class="rounded-xl bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 p-8 text-center shadow-lg ring-1 ring-crush-purple/30">
-                <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-500/20">
-                    <svg class="h-8 w-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                    </svg>
+        <section x-show="isFinished" x-cloak class="space-y-4">
+            <div class="quiz-key-moment quiz-key-moment--celebrate quiz-focus-panel">
+                <div class="quiz-key-moment__ghost mb-3">
+                    {% include "crush_lu/includes/ghost-story-party.html" with class="w-full h-full" %}
                 </div>
-                <h2 class="text-2xl font-bold text-white">{% trans "Quiz Complete!" %}</h2>
-                <p class="mt-2 text-gray-400">{% trans "Thanks for playing!" %}</p>
+                <p class="quiz-stage-kicker">{% trans "Final results" %}</p>
+                <h2 class="text-3xl font-bold text-white">{% trans "Quiz Complete!" %}</h2>
+                <p class="mt-2 text-slate-400">{% trans "Thanks for playing!" %}</p>
                 <div x-show="hasPersonalScore" class="mt-4">
-                    <p class="text-sm text-gray-400">{% trans "Your Score" %}</p>
+                    <p class="text-xs uppercase tracking-wider text-slate-400">{% trans "Your Score" %}</p>
                     <p class="text-3xl font-bold text-crush-pink" x-text="personalScoreLabel"></p>
                 </div>
             </div>
 
-            {# Final leaderboard #}
-            <h2 class="text-center text-xl font-bold text-white">{% trans "Final Results" %}</h2>
-            <div class="space-y-2" x-ref="tableboard"></div>
-            <div x-show="hasIndividualScores">
-                <h3 class="mb-2 text-center text-sm font-semibold uppercase tracking-wider text-gray-400">{% trans "Top Players" %}</h3>
-                <div class="space-y-1" x-ref="playerboard"></div>
+            <div class="quiz-surface p-4">
+                <h2 class="mb-3 text-center text-lg font-bold text-white">{% trans "Final Results" %}</h2>
+                <div class="space-y-2" x-ref="tableboard"></div>
+                <div x-show="hasIndividualScores">
+                    <h3 class="mb-2 mt-4 text-center text-xs font-semibold uppercase tracking-wider text-slate-400">{% trans "Top Players" %}</h3>
+                    <div class="space-y-1" x-ref="playerboard"></div>
+                </div>
             </div>
 
-            <div class="mt-4 text-center">
+            <div class="text-center">
                 <a href="{% url 'crush_lu:event_detail' event.id %}"
-                   class="inline-block rounded-xl bg-slate-700 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-600">
+                   class="quiz-action inline-flex items-center rounded-xl bg-slate-700 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-crush-pink">
                     {% trans "Back to Event" %}
                 </a>
             </div>
-        </div>
+        </section>
 
-        {# --- Rotate Screen --- #}
-        <div x-show="isRotate" class="rounded-xl bg-slate-800 p-8 text-center shadow-lg">
-            <div class="mx-auto mb-4 h-16 w-16 animate-spin rounded-full border-4 border-crush-purple border-t-transparent"></div>
-            <h2 class="text-xl font-semibold text-white">{% trans "Time to rotate!" %}</h2>
-            <p class="mt-2 text-lg font-bold text-crush-pink" x-text="rotateMessage"></p>
-            <p x-show="hasNextTable" class="mt-1 text-sm text-gray-400" x-text="nextTableLabel"></p>
-        </div>
-
-        {# --- Persistent Leaderboard Panel --- #}
-        <div x-show="hasLeaderboardData" class="mt-4 rounded-xl bg-slate-800 p-4 shadow-lg">
-            <h2 class="mb-3 text-center text-sm font-semibold uppercase tracking-wider text-gray-400">
-                {% trans "Leaderboard" %}
-            </h2>
-            {# Table rankings (rendered via JS for CSP compliance) #}
-            <div class="space-y-2" x-ref="tableboard_persistent"></div>
-            {# Individual top scorers (rendered via JS for CSP compliance) #}
-            <div x-show="hasIndividualScores">
-                <h3 class="mb-2 mt-3 text-center text-sm font-semibold uppercase tracking-wider text-gray-400">
-                    {% trans "Top Players" %}
-                </h3>
-                <div class="space-y-1" x-ref="playerboard_persistent"></div>
+        <section x-show="isRotate" x-cloak class="quiz-key-moment quiz-focus-panel">
+            <div class="quiz-key-moment__ghost mb-3">
+                {% include "crush_lu/includes/ghost-story-running.html" with class="w-full h-full" %}
             </div>
-        </div>
+            <p class="quiz-stage-kicker">{% trans "Next round" %}</p>
+            <h2 class="text-2xl font-bold text-white">{% trans "Time to rotate!" %}</h2>
+            <p class="mt-3 text-xl font-bold text-crush-pink" x-text="rotateMessage"></p>
+            <p x-show="hasNextTable" class="mt-1 text-sm text-slate-400" x-text="nextTableLabel"></p>
+        </section>
 
-        {# --- Connection status --- #}
-        <div class="mt-6 text-center">
-            <span x-show="isConnected" class="inline-flex items-center gap-1 text-xs text-green-400">
-                <span class="h-2 w-2 rounded-full bg-green-400"></span> {% trans "Connected" %}
-            </span>
-            <span x-show="isDisconnected" class="inline-flex items-center gap-1 text-xs text-red-400">
-                <span class="h-2 w-2 rounded-full bg-red-400"></span> {% trans "Reconnecting..." %}
-            </span>
-        </div>
-    </div>
+        <details x-show="showStandingsPanel" x-cloak class="quiz-details mt-4">
+            <summary>{% trans "Leaderboard" %}</summary>
+            <div class="quiz-details__body">
+                <div class="space-y-2" x-ref="tableboard_persistent"></div>
+                <div x-show="hasIndividualScores">
+                    <h3 class="mb-2 mt-4 text-center text-xs font-semibold uppercase tracking-wider text-slate-400">{% trans "Top Players" %}</h3>
+                    <div class="space-y-1" x-ref="playerboard_persistent"></div>
+                </div>
+            </div>
+        </details>
+    </main>
 </div>
 {% endblock %}
 

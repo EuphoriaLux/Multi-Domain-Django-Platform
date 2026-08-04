@@ -1,11 +1,13 @@
 import secrets
 import json
+import logging
 import os
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
+from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from crush_lu.models import CrushCoach, CrushProfile
@@ -17,6 +19,9 @@ from crush_lu.models.quiz import (
     QuizTableMembership,
 )
 from crush_lu.throttling import QuizPinRateThrottle, ratelimit_view
+
+
+logger = logging.getLogger(__name__)
 
 
 def _photo_url(profile):
@@ -300,12 +305,30 @@ def quiz_table_display(request, event_id):
         event_id=event_id, status__in=["confirmed", "attended"]
     ).count()
 
+    # The waiting-screen QR is only a shortcut to the existing attendee route.
+    # quiz_live_view remains responsible for login and attended-registration
+    # checks, so the code grants no additional access.
+    join_url = request.build_absolute_uri(
+        reverse("crush_lu:quiz_live", args=[event_id])
+    )
+    join_qr_data_url = None
+    try:
+        from crush_lu.qr_utils import generate_qr_code_base64
+
+        join_qr_data_url = generate_qr_code_base64(join_url, box_size=6, border=4)
+    except Exception:
+        # A missing/failed optional QR dependency must never take down the
+        # projector. The template simply omits the join panel.
+        logger.exception("Quiz join QR generation failed for event %s", event_id)
+
     context = {
         "quiz": quiz,
         "event": quiz.event,
         "num_tables": quiz.num_tables or 0,
         "confirmed_count": confirmed_count,
         "pin_required": pin_required,
+        "join_url": join_url,
+        "join_qr_data_url": join_qr_data_url,
     }
     return render(request, "crush_lu/quiz_display.html", context)
 

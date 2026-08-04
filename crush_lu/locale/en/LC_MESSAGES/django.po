@@ -26861,3 +26861,93 @@ msgstr ""
 
 msgid "Configure this event as invitation-only. You can invite existing users directly or send external guest invitations (managed via EventInvitation inline below)."
 msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Get ready"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Question complete"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_live.html crush_lu/templates/crush_lu/quiz_display.html
+msgid "Final results"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Next round"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_live.html crush_lu/templates/crush_lu/quiz_coach.html crush_lu/templates/crush_lu/quiz_display.html
+msgid "Loading media"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_live.html crush_lu/templates/crush_lu/quiz_coach.html crush_lu/templates/crush_lu/quiz_display.html
+msgid "Media unavailable"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_live.html crush_lu/templates/crush_lu/quiz_coach.html crush_lu/templates/crush_lu/quiz_display.html
+msgid "Quiz media"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Projector display"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "PIN digit"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Connecting to quiz..."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Crush Quiz Night"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "QR code to open the quiz"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Join on your phone"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Scan to join"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Sign in and complete event check-in first. The QR code does not bypass attendance access."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Find your table and meet your teammates."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Answers locked"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Current standings"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_coach.html
+msgid "Run of show"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_coach.html
+msgid "Preview loaded here"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_coach.html
+#, python-format
+msgid "Mark Table %(table_number)s correct"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_coach.html
+#, python-format
+msgid "Mark Table %(table_number)s wrong"
+msgstr ""
