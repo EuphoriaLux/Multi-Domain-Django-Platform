@@ -1,7 +1,7 @@
 import json
 import logging
 import uuid
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from django.conf import settings
 from django.contrib import messages
@@ -24,7 +24,7 @@ from crush_lu.models.events import (
     MeetupEvent,
 )
 from crush_lu.models.payments import PaymentTransaction
-from crush_lu.models.profiles import PremiumMembership
+from crush_lu.models.profiles import CrushProfile, PremiumMembership
 from crush_lu.services.sumup import SumUpClient, SumUpError
 from crush_lu.utils.i18n import get_onscreen_language
 from crush_lu.views_ticket import _generate_checkin_token
@@ -34,6 +34,36 @@ logger = logging.getLogger(__name__)
 # How long one checkout's status may be served from our own row before a
 # browser-driven path is allowed to hit SumUp about it again.
 SUMUP_SYNC_THROTTLE_SECONDS = 3
+
+# Bounds on a voluntary support donation. The floor keeps the card fee from
+# eating the whole contribution; the ceiling is a typo guard, not a policy on
+# generosity — the error points anyone genuinely wanting to give more at us.
+DONATION_MIN_EUR = Decimal("2.00")
+DONATION_MAX_EUR = Decimal("500.00")
+
+# How long one member must wait between opening donation checkouts. Long enough
+# that a stuck button or a script cannot mint provider resources in a loop,
+# short enough that someone who genuinely mistyped an amount just retries.
+DONATION_CREATE_COOLDOWN_SECONDS = 10
+
+
+def _native_commerce_suppressed(request):
+    """Is this a native-app session that may not take payment?
+
+    Mirrors ``crush_user_context``'s ``suppress_native_commerce`` exactly -- the
+    template gate and the endpoint must not be able to disagree about whether a
+    surface is purchasable.
+    """
+    from crush_lu.ios_app_utils import (
+        is_android_native_request,
+        is_ios_native_request,
+    )
+
+    if is_ios_native_request(request):
+        return not getattr(settings, "IOS_NATIVE_COMMERCE_ENABLED", False)
+    if is_android_native_request(request):
+        return not getattr(settings, "ANDROID_NATIVE_COMMERCE_ENABLED", False)
+    return False
 
 
 def _may_ask_sumup(scope, checkout_id):
@@ -379,6 +409,162 @@ def create_sumup_premium_checkout(request, membership_id):
     })
 
 
+@login_required
+@require_POST
+def create_sumup_donation_checkout(request):
+    """
+    Creates a SumUp checkout session for a voluntary project donation.
+    """
+    # Store-compliance gate, enforced here and not only in the template. Apple
+    # and Google both treat taking payment for a digital good outside their
+    # billing as grounds for rejection, and _products.html already hides its
+    # Premium CTA on a native session with commerce disabled. A hidden button
+    # is not a closed endpoint -- the webview can still reach this URL -- so the
+    # same condition has to hold on the server.
+    if _native_commerce_suppressed(request):
+        return JsonResponse(
+            {"error": _("Available outside the mobile app.")}, status=403
+        )
+
+    try:
+        if request.body:
+            data = json.loads(request.body.decode("utf-8"))
+            # A JSON body is not necessarily an object. ``[1,2]`` and ``"x"``
+            # both parse fine and then have no .get(), which would be an
+            # AttributeError the except clause below deliberately does not
+            # catch -- a malformed body has to be a 400, not a 500.
+            if not isinstance(data, dict):
+                return JsonResponse(
+                    {"error": _("Invalid donation amount.")}, status=400
+                )
+            raw_amount = data.get("amount")
+        else:
+            raw_amount = request.POST.get("amount")
+        if raw_amount is None:
+            return JsonResponse({"error": _("Donation amount is required.")}, status=400)
+        amount = Decimal(str(raw_amount))
+    except (TypeError, ValueError, InvalidOperation):
+        # Named exceptions, not a bare ``Exception``. The amount is the only
+        # thing being parsed here; anything else that raises is a bug in this
+        # view and must surface as a 500 rather than be reported to the member
+        # as "your amount was invalid".
+        return JsonResponse({"error": _("Invalid donation amount.")}, status=400)
+
+    # "Infinity" and "NaN" are perfectly valid Decimal literals. Infinity slips
+    # past the range check below (no comparison is ever true for it in the
+    # rejecting direction) and reaches SumUp as ``inf``; NaN raises
+    # InvalidOperation from the comparison itself, outside the try above, and
+    # would 500. Neither is a donation, so both are refused up front.
+    if not amount.is_finite():
+        return JsonResponse({"error": _("Invalid donation amount.")}, status=400)
+
+    # Money, to the cent, before anything reads the value. Left un-quantized, a
+    # custom amount of 2.355 produced three different numbers for one donation:
+    # the description said EUR 2.35, ``float(amount)`` handed SumUp 2.355, and
+    # PaymentTransaction.amount (decimal_places=2) stored a rounded third. The
+    # member must be charged, shown and recorded the same figure. Quantizing
+    # before the range checks also means 1.999 is treated as the EUR 2.00 it
+    # will actually be charged, rather than rejected against a value nothing
+    # downstream would have used.
+    #
+    # Guarded, because quantize() is not total: a finite Decimal whose result
+    # would exceed the context precision raises InvalidOperation. "1e30" clears
+    # both the parse and the is_finite() check above and would 500 here -- the
+    # ceiling below never gets to reject it, because this line runs first.
+    try:
+        amount = amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    except InvalidOperation:
+        return JsonResponse({"error": _("Invalid donation amount.")}, status=400)
+
+    if amount < DONATION_MIN_EUR:
+        return JsonResponse({"error": _("Minimum donation amount is €2.00.")}, status=400)
+
+    # The amount is chosen by the member -- the card offers presets but also a
+    # free-text field, so a slipped decimal point or a hand-rolled POST can ask
+    # for an arbitrary sum. Cap it so a typo cannot open a five-figure checkout
+    # (and cannot leave a bogus PENDING row behind when SumUp then refuses it).
+    if amount > DONATION_MAX_EUR:
+        return JsonResponse(
+            {
+                "error": _("Maximum donation amount is €%(max)s. Please contact us for larger contributions.")
+                % {"max": f"{DONATION_MAX_EUR:.0f}"}
+            },
+            status=400,
+        )
+
+    # Throttle here rather than at the top of the view: this is the first line
+    # past which a request costs anything. Every call beyond it is a live SumUp
+    # request plus a PENDING row, and nothing but a disabled button stood
+    # between a held-down key (or a script) and an unbounded number of both.
+    # Charging the cooldown before validation instead would lock out a member
+    # for ten seconds over a typo they never got to correct. cache.add is the
+    # atomic form, the same primitive _may_ask_sumup uses.
+    claimed = cache.add(
+        f"sumup:donation:create:{request.user.id}",
+        1,
+        timeout=DONATION_CREATE_COOLDOWN_SECONDS,
+    )
+    # None is not False. django-redis runs with IGNORE_EXCEPTIONS, so a Redis
+    # outage makes cache.add return None -- and treating that falsy value as a
+    # live cooldown would turn a cache blip into "nobody may donate at all",
+    # which is a far worse failure than the burst the throttle exists to stop.
+    # _may_ask_sumup draws exactly this distinction; this follows it.
+    if claimed is False:
+        return JsonResponse(
+            {"error": _("Please wait a moment before trying again.")}, status=429
+        )
+
+    checkout_ref = f"CRUSH-DON-{request.user.id}-{uuid.uuid4().hex[:6]}"
+    description = f"Crush.lu Project Support (€{amount:.2f})"
+    return_url = request.build_absolute_uri(f"/payments/sumup/return/?ref={checkout_ref}")
+
+    client = SumUpClient()
+    try:
+        checkout_data = client.create_checkout(
+            amount=float(amount),
+            currency="EUR",
+            checkout_reference=checkout_ref,
+            description=description,
+            return_url=return_url,
+        )
+    except SumUpError as exc:
+        # No DEBUG mock-checkout fallback here. Neither sibling
+        # (create_sumup_event_checkout, create_sumup_premium_checkout) has one,
+        # and fabricating a checkout id writes a PaymentTransaction pointing at
+        # a checkout SumUp has never heard of -- which then fails every later
+        # status sync in a way that looks like a provider problem.
+        logger.error("Failed to create SumUp donation checkout: %s", exc)
+        return JsonResponse(
+            {"error": _("Unable to initiate donation checkout. Please try again later.")},
+            status=500,
+        )
+
+    checkout_id = checkout_data.get("id")
+    if not checkout_id:
+        return JsonResponse({"error": _("SumUp did not return a valid checkout ID.")}, status=500)
+
+    PaymentTransaction.objects.create(
+        transaction_reference=checkout_ref,
+        provider=PaymentTransaction.Provider.SUMUP,
+        sumup_checkout_id=checkout_id,
+        amount=amount,
+        currency="EUR",
+        status=PaymentTransaction.Status.PENDING,
+        purpose=PaymentTransaction.Purpose.DONATION,
+        user=request.user,
+        raw_response=checkout_data,
+    )
+
+    return JsonResponse({
+        "success": True,
+        "checkout_id": checkout_id,
+        "checkout_reference": checkout_ref,
+        "amount": float(amount),
+        "currency": "EUR",
+        "widget_url": f"/payments/sumup/widget/{checkout_id}/",
+    })
+
+
 def _send_registration_confirmation_safely(registration):
     """Send the post-payment confirmation without letting it break the payment.
 
@@ -625,6 +811,61 @@ def _apply_paid_checkout(tx_obj, data):
                         pm.coach_id,
                         exc,
                     )
+
+        elif locked.purpose == PaymentTransaction.Purpose.DONATION:
+            # A donation buys nothing revocable — there is no seat to re-validate
+            # and no membership to grant, so unlike the two branches above this
+            # one cannot fail in a way that needs a refund. It only marks the
+            # badge. Guarded on the current value so a repeat donation does not
+            # rewrite a row that already says the same thing; the enclosing
+            # PAID check already makes the whole block run once per checkout.
+            #
+            # LOCK ORDER: PaymentTransaction (locked at the top of this
+            # function) before CrushProfile. account_merge.merge_accounts takes
+            # the same two in the same order, and it must stay that way — the
+            # two of them taking them in opposite orders is an ABBA cycle that
+            # PostgreSQL breaks by aborting one transaction, which here would be
+            # a payment callback dying mid-confirmation. select_for_update
+            # rather than a plain read because the save() below locks the row
+            # anyway; taking the lock at the read closes the window in which a
+            # merge could see a stale False and delete the profile.
+            profile = (
+                CrushProfile.objects.select_for_update()
+                .filter(user_id=locked.user_id)
+                .first()
+                if locked.user_id
+                else None
+            )
+            if profile is None:
+                # Paid, and there is nowhere to put what it bought. The badge
+                # lives on CrushProfile, and my_events -- which renders the
+                # donation card -- only requires a login, so a coach (who may
+                # not hold a dating profile) or anyone who signed up without
+                # finishing onboarding can reach the card and pay.
+                #
+                # The money stays recorded; that is not in question. What must
+                # not happen is this passing in silence, which is what it did:
+                # every other "charged but not granted" path in this file is an
+                # error-level line naming what a human has to do, and this was
+                # the one exception. Whether such a donor should be refused up
+                # front, or granted the badge later if a profile appears, is a
+                # product decision -- until it is made, at least nobody has to
+                # discover it from a complaint.
+                logger.error(
+                    "SumUp donation %s completed for user %s but they have no "
+                    "CrushProfile — payment recorded, Community Supporter NOT "
+                    "granted, manual follow-up required.",
+                    locked.transaction_reference,
+                    locked.user_id,
+                )
+            elif not profile.is_community_supporter:
+                profile.is_community_supporter = True
+                profile.save(update_fields=["is_community_supporter"])
+                logger.info(
+                    "Granted Community Supporter badge to user %s via SumUp donation %s",
+                    locked.user_id,
+                    locked.transaction_reference,
+                )
 
 
 def describe_sumup_failure(data):
@@ -1429,6 +1670,35 @@ def sumup_widget_view(request, checkout_id):
             "is not a selected beta tester",
             checkout_id,
             tx_obj.premium_membership_id,
+        )
+        raise Http404("No payment found.")
+
+    # Store compliance, for the same reason and by the same logic as the line
+    # above: closing the creation endpoint is not enough, because a checkout
+    # created on the web stays payable from its URL, and opening that URL in the
+    # native shell mounts the SumUp SDK — the exact external purchase surface
+    # the gate exists to remove. THIS is the step that prevents the charge.
+    #
+    # Scoped to the purposes whose surfaces the app already suppresses: the
+    # donation card and the Premium tiles in _products.html both disappear when
+    # suppress_native_commerce is set. Event registration is deliberately NOT
+    # included — a ticket to a real-world event is not the kind of purchase the
+    # stores require to go through their billing, and refusing it here would
+    # stop members paying for seats inside the app for no reason.
+    #
+    # Like the Premium refusal, this answers exactly as an unknown checkout so
+    # it is not an oracle, and it is NOT applied to the return page or the
+    # status/failure endpoints: those report on a payment that may already have
+    # been taken, and someone who just handed over money is owed the truth.
+    if tx_obj.purpose in (
+        PaymentTransaction.Purpose.DONATION,
+        PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
+    ) and _native_commerce_suppressed(request):
+        logger.warning(
+            "Blocked SumUp widget for checkout %s (%s): native session with "
+            "commerce disabled",
+            checkout_id,
+            tx_obj.purpose,
         )
         raise Http404("No payment found.")
 

@@ -39099,3 +39099,96 @@ msgid ""
 msgstr ""
 "Nous avons déjà reçu un paiement pour cet abonnement. Contactez "
 "support@crush.lu afin que nous puissions finaliser sa configuration."
+
+msgid "Support Crush.lu"
+msgstr "Soutenir Crush.lu"
+
+msgid "Help us keep real-life singles meetups growing in Luxembourg!"
+msgstr ""
+"Aidez-nous à développer les rencontres réelles pour célibataires au "
+"Luxembourg !"
+
+msgid "Community Supporter"
+msgstr "Soutien de la communauté"
+
+msgid ""
+"Thank you for being a Community Supporter! You can make additional "
+"contributions anytime below."
+msgstr ""
+"Merci de soutenir la communauté ! Vous pouvez contribuer à nouveau à tout "
+"moment ci-dessous."
+
+msgid "Choose Contribution Amount"
+msgstr "Choisissez le montant"
+
+msgid "Coffee"
+msgstr "Café"
+
+msgid "Supporter"
+msgstr "Soutien"
+
+msgid "Sponsor"
+msgstr "Sponsor"
+
+msgid "Custom amount"
+msgstr "Montant libre"
+
+msgid "Support the Project"
+msgstr "Soutenir le projet"
+
+msgid "Secure checkout · Apple Pay, Google Pay & Cards"
+msgstr "Paiement sécurisé · Apple Pay, Google Pay et cartes"
+
+msgid "Minimum contribution amount is €2.00."
+msgstr "Le montant minimum est de 2,00 €."
+
+msgid ""
+"Maximum contribution amount is €500. Please contact us for larger "
+"contributions."
+msgstr ""
+"Le montant maximum est de 500 €. Pour une contribution plus importante, "
+"contactez-nous."
+
+msgid "Preparing secure checkout..."
+msgstr "Préparation du paiement sécurisé…"
+
+msgid "Unable to initiate payment."
+msgstr "Impossible de lancer le paiement."
+
+msgid "Payment initialization failed. Please try again."
+msgstr "Échec de l'initialisation du paiement. Veuillez réessayer."
+
+msgid "Donation amount is required."
+msgstr "Le montant du don est requis."
+
+msgid "Invalid donation amount."
+msgstr "Montant du don invalide."
+
+msgid "Minimum donation amount is €2.00."
+msgstr "Le montant minimum du don est de 2,00 €."
+
+msgid ""
+"Maximum donation amount is €%(max)s. Please contact us for larger "
+"contributions."
+msgstr ""
+"Le montant maximum du don est de %(max)s €. Pour une contribution plus "
+"importante, contactez-nous."
+
+msgid "Unable to initiate donation checkout. Please try again later."
+msgstr "Impossible de lancer le paiement. Veuillez réessayer plus tard."
+
+msgid ""
+"Crush Connect is live: a weekly coach-picked match and a daily Drop of fresh"
+" faces."
+msgstr ""
+"Crush Connect est arrivé : un match choisi par un coach chaque semaine et un"
+" Drop quotidien de nouveaux visages."
+
+msgid "Please wait a moment before trying again."
+msgstr "Veuillez patienter un instant avant de réessayer."
+
+msgid "Available outside the mobile app."
+msgstr "Disponible en dehors de l'application mobile."
+
+msgid "SumUp did not return a valid checkout ID."
+msgstr "SumUp n'a pas renvoyé d'identifiant de paiement valide."
