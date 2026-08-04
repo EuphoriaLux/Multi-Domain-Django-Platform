@@ -4036,6 +4036,57 @@ class DonationCheckoutTests(SiteTestMixin, TestCase):
         self.assertEqual(response.status_code, 500)
         self.assertFalse(PaymentTransaction.objects.exists())
 
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_one_donation_is_one_number_everywhere(self, mock_create):
+        """Charged, shown and recorded must agree, to the cent.
+
+        Un-quantized, 2.355 produced three different figures for one gift: the
+        description said EUR 2.35, SumUp was handed 2.355, and the amount column
+        (decimal_places=2) stored a rounded third.
+        """
+        mock_create.return_value = {"id": "CHK_DON_Q", "status": "PENDING"}
+
+        response = self._post("2.355")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["amount"], 2.36)
+
+        tx = PaymentTransaction.objects.get(sumup_checkout_id="CHK_DON_Q")
+        self.assertEqual(tx.amount, Decimal("2.36"))
+
+        kwargs = mock_create.call_args.kwargs
+        self.assertEqual(kwargs["amount"], 2.36)
+        self.assertIn("2.36", kwargs["description"])
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_rounding_up_to_the_floor_is_accepted(self, mock_create):
+        """1.999 is charged as EUR 2.00, so it must not be judged against 1.999."""
+        mock_create.return_value = {"id": "CHK_DON_F", "status": "PENDING"}
+
+        response = self._post("1.999")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            PaymentTransaction.objects.get(sumup_checkout_id="CHK_DON_F").amount,
+            Decimal("2.00"),
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_refuses_a_json_body_that_is_not_an_object(self, mock_create):
+        """A JSON body need not be a dict -- and a non-dict has no .get().
+
+        That AttributeError is deliberately outside the caught set, so without
+        the shape check this is a 500 on a merely malformed request.
+        """
+        for body in ("[1, 2]", '"just a string"', "42", "null"):
+            with self.subTest(body=body):
+                response = self.client.post(
+                    self.url, data=body, content_type="application/json"
+                )
+                self.assertEqual(response.status_code, 400)
+        mock_create.assert_not_called()
+        self.assertFalse(PaymentTransaction.objects.exists())
+
 
 class CommunitySupporterBadgeTests(SiteTestMixin, TestCase):
     """What a paid donation actually grants."""

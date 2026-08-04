@@ -64,15 +64,23 @@
             <div class="flex items-center gap-2 mb-4">
                 <div class="relative flex-1">
                     <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none font-bold text-gray-700 dark:text-white">€</span>
-                    <input type="number" id="donation-custom-amount" step="1" min="2" placeholder="{% trans 'Custom amount' %}" class="w-full pl-8 pr-4 py-2.5 text-sm rounded-xl bg-gray-50 dark:bg-white/15 border border-gray-300 dark:border-white/30 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-purple-200 focus:outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-500 transition-colors font-medium">
+                    {# STYLE.md: hand-rolled inputs use .input-crush, not a re-derived box. #}
+                    <input type="number" id="donation-custom-amount" step="0.01" min="2" max="500" placeholder="{% trans 'Custom amount' %}" class="input-crush w-full pl-8">
                 </div>
             </div>
 
             <!-- Error Message -->
             <p id="donation-error" class="hidden text-xs font-semibold rounded-xl p-2.5 mb-3 text-center bg-rose-50 dark:bg-rose-950/80 border border-rose-200 dark:border-rose-400/40 text-rose-700 dark:text-rose-200" role="alert"></p>
 
-            <!-- Submit Button without "SumUp" text -->
-            <button type="button" id="js-submit-donation" class="w-full py-3.5 px-4 rounded-xl font-extrabold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white border border-pink-400/30">
+            {% comment %}
+            .btn-crush-solid, not a hand-rolled gradient. STYLE.md reserves the
+            gradient (.btn-crush-primary) for the single hero conversion CTA on
+            a page, and this card renders on My Events and the dashboard, both
+            of which already have one -- a second gradient button would stop the
+            gradient meaning anything. Solid is the documented class for "any
+            other primary action".
+            {% endcomment %}
+            <button type="button" id="js-submit-donation" class="btn-crush-solid w-full flex items-center justify-center gap-2">
                 <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.684a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
                 </svg>

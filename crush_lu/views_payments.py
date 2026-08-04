@@ -1,7 +1,7 @@
 import json
 import logging
 import uuid
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from django.conf import settings
 from django.contrib import messages
@@ -339,6 +339,14 @@ def create_sumup_donation_checkout(request):
     try:
         if request.body:
             data = json.loads(request.body.decode("utf-8"))
+            # A JSON body is not necessarily an object. ``[1,2]`` and ``"x"``
+            # both parse fine and then have no .get(), which would be an
+            # AttributeError the except clause below deliberately does not
+            # catch -- a malformed body has to be a 400, not a 500.
+            if not isinstance(data, dict):
+                return JsonResponse(
+                    {"error": _("Invalid donation amount.")}, status=400
+                )
             raw_amount = data.get("amount")
         else:
             raw_amount = request.POST.get("amount")
@@ -359,6 +367,16 @@ def create_sumup_donation_checkout(request):
     # would 500. Neither is a donation, so both are refused up front.
     if not amount.is_finite():
         return JsonResponse({"error": _("Invalid donation amount.")}, status=400)
+
+    # Money, to the cent, before anything reads the value. Left un-quantized, a
+    # custom amount of 2.355 produced three different numbers for one donation:
+    # the description said EUR 2.35, ``float(amount)`` handed SumUp 2.355, and
+    # PaymentTransaction.amount (decimal_places=2) stored a rounded third. The
+    # member must be charged, shown and recorded the same figure. Quantizing
+    # before the range checks also means 1.999 is treated as the EUR 2.00 it
+    # will actually be charged, rather than rejected against a value nothing
+    # downstream would have used.
+    amount = amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     if amount < DONATION_MIN_EUR:
         return JsonResponse({"error": _("Minimum donation amount is €2.00.")}, status=400)
@@ -390,15 +408,16 @@ def create_sumup_donation_checkout(request):
             return_url=return_url,
         )
     except SumUpError as exc:
+        # No DEBUG mock-checkout fallback here. Neither sibling
+        # (create_sumup_event_checkout, create_sumup_premium_checkout) has one,
+        # and fabricating a checkout id writes a PaymentTransaction pointing at
+        # a checkout SumUp has never heard of -- which then fails every later
+        # status sync in a way that looks like a provider problem.
         logger.error("Failed to create SumUp donation checkout: %s", exc)
-        if settings.DEBUG and not getattr(settings, "SUMUP_API_KEY", ""):
-            mock_id = f"MOCK-DON-{uuid.uuid4().hex[:8]}"
-            checkout_data = {"id": mock_id, "status": "PENDING"}
-        else:
-            return JsonResponse(
-                {"error": _("Unable to initiate donation checkout. Please try again later.")},
-                status=500,
-            )
+        return JsonResponse(
+            {"error": _("Unable to initiate donation checkout. Please try again later.")},
+            status=500,
+        )
 
     checkout_id = checkout_data.get("id")
     if not checkout_id:
