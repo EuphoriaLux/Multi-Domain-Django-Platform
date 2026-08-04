@@ -39163,3 +39163,12 @@ msgid ""
 msgstr ""
 "Crush Connect est arrivé : un match choisi par un coach chaque semaine et un"
 " Drop quotidien de nouveaux visages."
+
+msgid "Please wait a moment before trying again."
+msgstr "Veuillez patienter un instant avant de réessayer."
+
+msgid "Available outside the mobile app."
+msgstr "Disponible en dehors de l'application mobile."
+
+msgid "SumUp did not return a valid checkout ID."
+msgstr "SumUp n'a pas renvoyé d'identifiant de paiement valide."

@@ -257,6 +257,68 @@ class TestMergeProfiles:
         keeper_profile.refresh_from_db()
         assert keeper_profile.is_community_supporter
 
+    def test_supporter_status_is_re_read_not_trusted_from_memory(
+        self, keeper_with_profile, duplicate_with_profile
+    ):
+        """The badge may be granted after the caller loaded the profile.
+
+        merge_accounts reads `user.crushprofile`, a cached reverse relation
+        that can be arbitrarily old. A donation confirming between that load
+        and the transfer would leave the in-memory flag False while the row
+        says True -- and the profile is deleted immediately after, with nothing
+        to recover it (_apply_paid_checkout will not re-apply a PAID checkout).
+        """
+        from crush_lu.models import CrushProfile
+
+        keeper_user, keeper_profile = keeper_with_profile
+        dup_user, dup_profile = duplicate_with_profile
+
+        # Grant it straight to the row, leaving the cached instance stale --
+        # exactly the shape of the race.
+        CrushProfile.objects.filter(pk=dup_profile.pk).update(
+            is_community_supporter=True
+        )
+        assert dup_profile.is_community_supporter is False   # still stale in memory
+
+        merge_accounts(keeper_user, dup_user)
+
+        keeper_profile.refresh_from_db()
+        assert keeper_profile.is_community_supporter
+
+    def test_event_payments_are_not_moved_to_the_keeper(
+        self, keeper_with_profile, duplicate_with_profile
+    ):
+        """Only donations follow the account; seat payments must stay put.
+
+        A duplicate registration for an event the keeper is already in gets
+        deleted below, which SET_NULLs its payment's event_registration. Moved
+        to the keeper, that becomes a pending checkout they own and can open
+        but which can no longer confirm a seat -- it would take the money and
+        grant nothing. Left behind it is unreachable rather than payable.
+        """
+        from decimal import Decimal
+
+        from crush_lu.models.payments import PaymentTransaction
+
+        keeper_user, _keeper_profile = keeper_with_profile
+        dup_user, _dup_profile = duplicate_with_profile
+
+        event_tx = PaymentTransaction.objects.create(
+            transaction_reference='CRUSH-EVT-MERGE',
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id='CHK_EVT_MERGE',
+            amount=Decimal('15.00'),
+            currency='EUR',
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=dup_user,
+        )
+
+        merge_accounts(keeper_user, dup_user)
+
+        event_tx.refresh_from_db()
+        assert event_tx.user == dup_user
+
     def test_merge_does_not_invent_supporter_status(
         self, keeper_with_profile, duplicate_with_profile
     ):

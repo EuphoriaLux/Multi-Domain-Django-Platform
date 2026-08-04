@@ -30,6 +30,7 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
     from allauth.account.models import EmailAddress
     from allauth.socialaccount.models import SocialAccount
     from crush_lu.models import (
+        CrushProfile,
         EventRegistration,
         EventConnection,
         ConnectionMessage,
@@ -97,7 +98,20 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
         # semantics: the keeper's profile is the one that lives, and dropping
         # the flag because the donation happened to land on the duplicate would
         # take away something the member was charged for and can see.
-        if dup_profile.is_community_supporter and not keeper_profile.is_community_supporter:
+        #
+        # Re-read under a lock rather than trusting the instances above. Those
+        # come from the caller's cached ``user.crushprofile``, which can be
+        # arbitrarily old, and a donation confirming between that load and this
+        # line would leave the flag False in memory while it is True in the
+        # row -- so the badge would be skipped and then deleted with the
+        # profile. Nothing recovers it afterwards: _apply_paid_checkout is
+        # idempotent and will not re-apply an already-PAID checkout.
+        supporter = dict(
+            CrushProfile.objects.select_for_update()
+            .filter(pk__in=[dup_profile.pk, keeper_profile.pk])
+            .values_list("pk", "is_community_supporter")
+        )
+        if supporter.get(dup_profile.pk) and not supporter.get(keeper_profile.pk):
             keeper_profile.is_community_supporter = True
             keeper_profile.save(update_fields=["is_community_supporter"])
             log.append("Carried Community Supporter status over to keeper's profile")
@@ -115,22 +129,29 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
     if updated:
         log.append(f"Updated {updated} referral attribution(s) pointing to duplicate")
 
-    # 4b. PaymentTransactions follow the surviving account.
+    # 4b. Donation PaymentTransactions follow the surviving account.
     #
-    # The seat- and membership-linked ones resolve their owner through the row
-    # they point at, which this merge already moves. A donation points at
-    # nothing -- _payment_owner_ids falls back to tx.user for exactly that
-    # shape -- so leaving these behind strands them on a deactivated user: a
-    # checkout paid during or after the merge would look up a profile that has
-    # since been moved or deleted and grant no badge, and the keeper could not
-    # open the widget or return page for a payment they made.
+    # A donation points at nothing -- _payment_owner_ids falls back to tx.user
+    # for exactly that shape -- so one left behind is stranded on a deactivated
+    # user: a checkout paid during or after the merge looks up a profile that
+    # has since been moved or deleted and grants no badge, and the keeper
+    # cannot open the widget or return page for a payment they made.
+    #
+    # Donations ONLY. Seat and membership rows resolve their owner through the
+    # object they link to, so they need no help -- and moving them does harm:
+    # step 5 below deletes a duplicate registration when the keeper already has
+    # one for that event, which SET_NULLs its payment's event_registration. A
+    # moved row would then be a pending checkout the keeper owns and can open,
+    # but which _apply_paid_checkout can no longer route to a seat -- it would
+    # take the money and confirm nothing. Left on the duplicate it is at least
+    # unreachable rather than payable.
     from crush_lu.models.payments import PaymentTransaction
 
-    moved_payments = PaymentTransaction.objects.filter(user=duplicate_user).update(
-        user=keeper_user
-    )
+    moved_payments = PaymentTransaction.objects.filter(
+        user=duplicate_user, purpose=PaymentTransaction.Purpose.DONATION
+    ).update(user=keeper_user)
     if moved_payments:
-        log.append(f"Moved {moved_payments} payment transaction(s) to keeper")
+        log.append(f"Moved {moved_payments} donation transaction(s) to keeper")
 
     # 5. EventRegistrations (unique_together: event, user)
     for reg in EventRegistration.objects.filter(user=duplicate_user):
