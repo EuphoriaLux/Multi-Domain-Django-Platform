@@ -21,6 +21,20 @@
         <!-- Payment errors reported by the widget (declined card, network, …) -->
         <p id="sumup-error" class="hidden text-sm text-rose-600 dark:text-rose-400 text-center mb-4" role="alert" aria-live="polite"></p>
 
+        <!-- Shown once the card is with SumUp and the page is waiting on the
+             outcome — including across a 3DS challenge, which the widget does
+             not report the end of. Without it the page looks frozen. -->
+        <div id="sumup-status" class="hidden mb-4" role="status" aria-live="polite">
+            {# flex sits on the inner div: "hidden flex" on one element is a coin-toss between two display utilities #}
+            <div class="flex items-center justify-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                <svg class="animate-spin h-4 w-4 text-rose-500" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>{% trans "Confirming your payment — please don't close this page." %}</span>
+            </div>
+        </div>
+
         <!-- SumUp Card Widget Mount Target.
              `no-loading` opts this subtree out of the global navigation overlay
              (page-loading.js). The SDK renders its own form in here and handles
@@ -52,7 +66,9 @@
         const checkoutId = "{{ checkout_id }}";
         const returnUrl = "{{ return_url }}";
         const failureUrl = "{% url 'crush_lu:sumup_widget_failure' checkout_id %}";
+        const statusUrl = "{% url 'crush_lu:sumup_widget_status' checkout_id %}";
         const errorEl = document.getElementById("sumup-error");
+        const statusEl = document.getElementById("sumup-status");
         const defaultError = "{% trans 'The payment could not be completed. Please check your card details and try again.' %}";
 
         // CSRF_COOKIE_HTTPONLY is True, so document.cookie can't see csrftoken.
@@ -60,6 +76,60 @@
         function getCsrfToken() {
             const input = document.querySelector('input[name="csrfmiddlewaretoken"]');
             return input ? input.value : "";
+        }
+
+        // Watch the checkout from our own server once the card has been sent.
+        //
+        // The widget stops talking to us the moment the bank takes over the
+        // 3-D Secure challenge: it emits "auth-screen" when the challenge
+        // STARTS and then, in practice, nothing at all. A customer who
+        // completed 3DS was therefore left sitting on this page indefinitely —
+        // paid, with no way for the page to find out. SumUp's guidance for
+        // widget integrations says as much: read the final result back from the
+        // checkout on your server. This is that half.
+        //
+        // Only the server decides; this asks "has it settled yet?" and does not
+        // send a status of its own.
+        const POLL_INTERVAL_MS = 3000;
+        const POLL_LIMIT = 100; // ~5 minutes, longer than a bank app takes
+        let pollTimer = null;
+        let pollsLeft = POLL_LIMIT;
+
+        function watchCheckout() {
+            if (pollTimer) {
+                return;
+            }
+            statusEl.classList.remove("hidden");
+            pollTimer = setInterval(function () {
+                if (pollsLeft-- <= 0) {
+                    stopWatching();
+                    // Never leave a dead page. The return route re-reads the
+                    // checkout and says plainly whether it was paid.
+                    window.location.href = returnUrl;
+                    return;
+                }
+                fetch(statusUrl, { headers: { Accept: "application/json" } })
+                    .then(function (res) {
+                        return res.ok ? res.json() : null;
+                    })
+                    .then(function (data) {
+                        if (data && data.settled) {
+                            stopWatching();
+                            window.location.href = returnUrl;
+                        }
+                    })
+                    .catch(function () {
+                        /* transient — the next tick tries again */
+                    });
+            }, POLL_INTERVAL_MS);
+        }
+
+        function stopWatching() {
+            if (pollTimer) {
+                clearInterval(pollTimer);
+                pollTimer = null;
+            }
+            statusEl.classList.add("hidden");
         }
 
         // Tell the server the attempt failed. A declined card is otherwise
@@ -103,13 +173,21 @@
                     // That is what the return page reported as "payment is
                     // pending or was not completed".
                     if (type === "success") {
+                        stopWatching();
                         window.location.href = returnUrl;
                         return;
                     }
+                    // Still not a result — but from here the card IS with
+                    // SumUp, so the payment can complete without the widget
+                    // ever mentioning it again (a 3DS challenge ends at the
+                    // bank, not here). Start watching the checkout on the
+                    // server so the page can move on by itself.
                     if (type === "sent" || type === "auth-screen") {
+                        watchCheckout();
                         return;
                     }
                     if (type === "error" || type === "fail" || type === "invalid") {
+                        stopWatching();
                         errorEl.textContent =
                             (body && (body.message || body.error_message)) || defaultError;
                         errorEl.classList.remove("hidden");

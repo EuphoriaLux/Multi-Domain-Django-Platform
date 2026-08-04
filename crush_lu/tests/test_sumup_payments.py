@@ -1903,3 +1903,147 @@ class FailedAttemptVisibilityTests(SiteTestMixin, TestCase):
         self.assertEqual(response.status_code, 302)
         self.tx.refresh_from_db()
         self.assertEqual(self.tx.failure_reason, "")
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class WidgetStatusPollingTests(SiteTestMixin, TestCase):
+    """The page must be able to find out for itself that a payment landed.
+
+    A member completed 3-D Secure and sat on the widget page indefinitely. The
+    widget emits "auth-screen" when the challenge *starts* and then goes quiet —
+    the bank finishes the payment, not the SDK — so nothing on the page ever
+    learned the money had gone through. This endpoint is the other half: the
+    page asks the server, and the server asks SumUp.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        from django.core.cache import cache
+
+        cache.clear()
+        self.user = User.objects.create_user(
+            username="poll@crush.lu", email="poll@crush.lu", password="password123"
+        )
+        self.other = User.objects.create_user(
+            username="other@crush.lu", email="other@crush.lu", password="password123"
+        )
+        from crush_lu.models.profiles import UserDataConsent
+
+        for user in (self.user, self.other):
+            UserDataConsent.objects.update_or_create(
+                user=user,
+                defaults={
+                    "powerup_consent_given": True,
+                    "crushlu_consent_given": True,
+                },
+            )
+        self.event = MeetupEvent.objects.create(
+            title="Polled",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        self.tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-POLL",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_POLL",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+        self.url = reverse(
+            "crush_lu:sumup_widget_status", kwargs={"checkout_id": "CHK_POLL"}
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_payment_completed_behind_3ds_settles_the_seat(self, mock_get):
+        """The whole point: nobody had to come back for this to be applied."""
+        mock_get.return_value = {"id": "CHK_POLL", "status": "PAID"}
+        self.client.force_login(self.user)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["settled"], True)
+        self.assertEqual(response.json()["paid"], True)
+        self.registration.refresh_from_db()
+        self.assertTrue(self.registration.payment_confirmed)
+        self.assertEqual(self.registration.status, "confirmed")
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_an_unfinished_payment_keeps_the_page_waiting(self, mock_get):
+        mock_get.return_value = {"id": "CHK_POLL", "status": "PENDING"}
+        self.client.force_login(self.user)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.json()["settled"], False)
+        self.assertEqual(response.json()["paid"], False)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_refusal_settles_too_so_the_page_stops_spinning(self, mock_get):
+        mock_get.return_value = {
+            "id": "CHK_POLL",
+            "status": "FAILED",
+            "transactions": [{"status": "FAILED", "failure_reason": "3DS_FAILED"}],
+        }
+        self.client.force_login(self.user)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.json()["settled"], True)
+        self.assertEqual(response.json()["paid"], False)
+        self.tx.refresh_from_db()
+        self.assertIn("3DS_FAILED", self.tx.failure_reason)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_polling_hard_does_not_hammer_sumup(self, mock_get):
+        """The browser sets the interval, so the throttle has to live here."""
+        mock_get.return_value = {"id": "CHK_POLL", "status": "PENDING"}
+        self.client.force_login(self.user)
+
+        for _unused in range(5):
+            self.client.get(self.url)
+
+        self.assertEqual(mock_get.call_count, 1)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_stranger_cannot_watch_someone_elses_payment(self, mock_get):
+        mock_get.return_value = {"id": "CHK_POLL", "status": "PAID"}
+        self.client.force_login(self.other)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 404)
+        mock_get.assert_not_called()
+
+    def test_it_is_not_reachable_anonymously(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 302)
+
+    def test_the_widget_page_wires_the_poll_up(self):
+        """Renders the template — a missing URL name is a 500 on the pay page."""
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse("crush_lu:sumup_widget", kwargs={"checkout_id": "CHK_POLL"})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "/payments/sumup/widget/CHK_POLL/status/")
+        # The page must react to auth-screen rather than sitting on it.
+        self.assertContains(response, "watchCheckout")

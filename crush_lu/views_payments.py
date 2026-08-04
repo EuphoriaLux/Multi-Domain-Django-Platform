@@ -7,6 +7,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import redirect_to_login
+from django.core.cache import cache
 from django.db import transaction
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -14,7 +15,7 @@ from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.utils.translation import override
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from crush_lu.models.events import (
     SEAT_HOLDING_STATUSES,
@@ -28,6 +29,10 @@ from crush_lu.utils.i18n import get_onscreen_language
 from crush_lu.views_ticket import _generate_checkin_token
 
 logger = logging.getLogger(__name__)
+
+# How long one checkout's status may be served from our own row before the
+# widget's polling is allowed to hit SumUp again.
+SUMUP_POLL_THROTTLE_SECONDS = 3
 
 
 @login_required
@@ -780,6 +785,50 @@ def _sumup_return_response(request, tx_obj):
         messages.warning(request, _("Payment is pending or was not completed."))
 
     return redirect("crush_lu:home")
+
+
+@login_required
+@require_GET
+def sumup_widget_status(request, checkout_id):
+    """Has this checkout resolved yet? Polled by the widget after 3DS.
+
+    The card widget does not reliably announce the end of a 3-D Secure
+    challenge. SumUp's own guidance for widget integrations is that
+    ``onResponse`` emits ``auth-screen`` when the challenge *starts*, and that
+    the final result must then be read back from the checkout resource on the
+    server — the SDK is not the source of truth once the bank takes over.
+    Without that second half, a customer who completed 3DS sat on the payment
+    page forever: the widget had nothing more to say, and the page had no other
+    way to learn the payment had gone through.
+
+    Answers from our row after re-reading SumUp, so it can never be talked into
+    a "paid" it has not verified. Side effects are the webhook's, deliberately:
+    a payment that completed while the browser was stuck on the challenge is
+    applied here — seat confirmed, ticket issued — rather than waiting for a
+    callback that may never come.
+    """
+    tx_obj = get_object_or_404(PaymentTransaction, sumup_checkout_id=checkout_id)
+    if request.user.id not in _payment_owner_ids(tx_obj) and not request.user.is_staff:
+        raise Http404("No payment found.")
+
+    # One provider call per checkout per few seconds, however fast the page
+    # polls. The browser sets the interval, and a stale answer costs nothing —
+    # the next poll picks the change up.
+    throttle_key = f"sumup-poll:{checkout_id}"
+    if tx_obj.status == PaymentTransaction.Status.PENDING and not cache.get(
+        throttle_key
+    ):
+        cache.set(throttle_key, True, timeout=SUMUP_POLL_THROTTLE_SECONDS)
+        _sync_checkout_with_sumup(tx_obj)
+
+    return JsonResponse(
+        {
+            "status": tx_obj.status,
+            # The one field the page acts on: stop polling and move on.
+            "settled": tx_obj.status != PaymentTransaction.Status.PENDING,
+            "paid": tx_obj.status == PaymentTransaction.Status.PAID,
+        }
+    )
 
 
 @login_required
