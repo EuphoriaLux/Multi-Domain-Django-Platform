@@ -444,11 +444,17 @@ def create_sumup_donation_checkout(request):
     # Charging the cooldown before validation instead would lock out a member
     # for ten seconds over a typo they never got to correct. cache.add is the
     # atomic form, the same primitive _may_ask_sumup uses.
-    if not cache.add(
+    claimed = cache.add(
         f"sumup:donation:create:{request.user.id}",
         1,
         timeout=DONATION_CREATE_COOLDOWN_SECONDS,
-    ):
+    )
+    # None is not False. django-redis runs with IGNORE_EXCEPTIONS, so a Redis
+    # outage makes cache.add return None -- and treating that falsy value as a
+    # live cooldown would turn a cache blip into "nobody may donate at all",
+    # which is a far worse failure than the burst the throttle exists to stop.
+    # _may_ask_sumup draws exactly this distinction; this follows it.
+    if claimed is False:
         return JsonResponse(
             {"error": _("Please wait a moment before trying again.")}, status=429
         )

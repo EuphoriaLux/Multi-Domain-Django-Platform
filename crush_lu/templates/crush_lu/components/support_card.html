@@ -143,21 +143,41 @@
             }
         }
 
-        // Round to cents the way the server does. toFixed() rounds the binary
-        // float, so 2.355 displays as €2.35 while the server's Decimal
-        // ROUND_HALF_UP charges €2.36 -- the member would read one figure on
-        // the button and be billed another. Nudging by EPSILON first reproduces
-        // half-up on the decimal the member actually typed. The submit path
-        // sends this same rounded value, so the server's own quantize is then
-        // a no-op and the two cannot disagree.
+        // Round the decimal the member typed, not its binary float, so this
+        // agrees with the server's Decimal ROUND_HALF_UP on every input.
+        //
+        // toFixed() rounds the float and gets 2.355 wrong (€2.35 shown, €2.36
+        // charged). Nudging by Number.EPSILON first looks like it fixes that
+        // and does for 2.355 -- but it is still float arithmetic and diverges
+        // on 4.6% of half-cent amounts: toCents(10.075) gave 10.07 where the
+        // server says 10.08. Digits are the only representation both sides
+        // agree on, so parse them.
+        //
+        // Half-up needs only "is the remainder >= 0.005", which is true
+        // exactly when the third decimal digit is 5-9 -- later digits cannot
+        // change that, so they are ignored rather than examined.
         function toCents(value) {
-            return Math.round((value + Number.EPSILON) * 100) / 100;
+            const text = String(value).trim();
+            if (!/^\d+(\.\d*)?$|^\.\d+$/.test(text)) {
+                return NaN;   // scientific notation, signs, junk — let the caller reject it
+            }
+            const parts = text.split(".");
+            const whole = parseInt(parts[0] || "0", 10);
+            const frac = parts[1] || "";
+            let cents = whole * 100 + parseInt(frac.slice(0, 2).padEnd(2, "0"), 10);
+            if (frac.length > 2 && frac.charCodeAt(2) >= 53) {
+                cents += 1;
+            }
+            return cents / 100;
         }
 
-        function updateAmountDisplay(amount) {
-            selectedAmount = amount;
-            if (amount > 0) {
-                btnText.textContent = "{% trans 'Support the Project' %} (€" + toCents(parseFloat(amount)).toFixed(2) + ")";
+        // Takes the raw text the member typed (or a preset's data-amount), not
+        // a parsed float, so toCents sees the digits themselves.
+        function updateAmountDisplay(raw) {
+            const cents = toCents(raw);
+            selectedAmount = cents;
+            if (!isNaN(cents) && cents > 0) {
+                btnText.textContent = "{% trans 'Support the Project' %} (€" + cents.toFixed(2) + ")";
             } else {
                 btnText.textContent = "{% trans 'Support the Project' %}";
             }
@@ -168,16 +188,16 @@
                 tierBtns.forEach(b => setTierState(b, false));
                 setTierState(btn, true);
                 customInput.value = "";
-                const val = parseFloat(btn.getAttribute("data-amount"));
-                updateAmountDisplay(val);
+                updateAmountDisplay(btn.getAttribute("data-amount"));
             });
         });
 
         customInput.addEventListener("input", function () {
-            const val = parseFloat(customInput.value);
-            if (!isNaN(val) && val >= 2) {
+            const raw = customInput.value.trim();
+            const cents = toCents(raw);
+            if (!isNaN(cents) && cents >= 2) {
                 tierBtns.forEach(b => setTierState(b, false));
-                updateAmountDisplay(val);
+                updateAmountDisplay(raw);
             }
         });
 
@@ -187,18 +207,13 @@
             // finalAmount on the last preset, so the checks below saw a valid
             // €10 and opened a €10 checkout for someone who asked for €1. The
             // input is not in a form, so its `min` attribute never intervenes.
+            // To the cent before it is judged or sent, from the typed digits,
+            // so the figure checked here, the figure on the button and the
+            // figure SumUp charges are all the same one.
             let finalAmount = selectedAmount;
             const custom = customInput.value.trim();
             if (custom !== "") {
-                finalAmount = parseFloat(custom);
-            }
-
-            // To the cent before it is judged or sent, so the figure checked
-            // here, the figure on the button and the figure SumUp charges are
-            // all the same one. isNaN is checked first because toCents(NaN) is
-            // NaN and would sail through unnoticed.
-            if (!isNaN(finalAmount)) {
-                finalAmount = toCents(finalAmount);
+                finalAmount = toCents(custom);
             }
 
             if (isNaN(finalAmount) || finalAmount < 2) {

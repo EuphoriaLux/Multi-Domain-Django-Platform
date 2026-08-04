@@ -4144,6 +4144,24 @@ class DonationCheckoutTests(SiteTestMixin, TestCase):
         self.assertEqual(mock_create.call_count, 1)
         self.assertEqual(PaymentTransaction.objects.count(), 1)
 
+    @patch("crush_lu.views_payments.cache.add", return_value=None)
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_a_cache_outage_does_not_close_donations(self, mock_create, _mock_add):
+        """None is not False.
+
+        django-redis runs with IGNORE_EXCEPTIONS, so an unreachable Redis makes
+        cache.add return None. Reading that falsy value as a live cooldown
+        would turn a cache blip into "nobody may donate", which is a far worse
+        failure than the burst the throttle exists to prevent.
+        """
+        mock_create.return_value = {"id": "CHK_DON_NOCACHE", "status": "PENDING"}
+
+        first = self._post("10.00")
+        second = self._post("10.00")
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+
     @patch("crush_lu.views_payments.SumUpClient.create_checkout")
     def test_refuses_a_json_body_that_is_not_an_object(self, mock_create):
         """A JSON body need not be a dict -- and a non-dict has no .get().

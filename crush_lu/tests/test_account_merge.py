@@ -219,6 +219,44 @@ class TestMergeProfiles:
         keeper_profile.refresh_from_db()
         assert keeper_profile.is_community_supporter
 
+    def test_pending_donation_follows_the_keeper(
+        self, keeper_with_profile, duplicate_with_profile
+    ):
+        """A donation names nobody but tx.user, so the merge must move it.
+
+        Left on the duplicate, a checkout paid during or after the merge looks
+        up a profile that has just been deleted -- money taken, no badge -- and
+        the keeper cannot open the widget for a payment they made.
+        """
+        from decimal import Decimal
+
+        from crush_lu.models.payments import PaymentTransaction
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        keeper_user, keeper_profile = keeper_with_profile
+        dup_user, _dup_profile = duplicate_with_profile
+
+        tx = PaymentTransaction.objects.create(
+            transaction_reference='CRUSH-DON-MERGE',
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id='CHK_DON_MERGE',
+            amount=Decimal('10.00'),
+            currency='EUR',
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.DONATION,
+            user=dup_user,
+        )
+
+        merge_accounts(keeper_user, dup_user)
+
+        tx.refresh_from_db()
+        assert tx.user == keeper_user
+
+        # And the badge it was paying for still lands, on the account that lives.
+        _apply_paid_checkout(tx, {'status': 'PAID'})
+        keeper_profile.refresh_from_db()
+        assert keeper_profile.is_community_supporter
+
     def test_merge_does_not_invent_supporter_status(
         self, keeper_with_profile, duplicate_with_profile
     ):

@@ -115,6 +115,23 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
     if updated:
         log.append(f"Updated {updated} referral attribution(s) pointing to duplicate")
 
+    # 4b. PaymentTransactions follow the surviving account.
+    #
+    # The seat- and membership-linked ones resolve their owner through the row
+    # they point at, which this merge already moves. A donation points at
+    # nothing -- _payment_owner_ids falls back to tx.user for exactly that
+    # shape -- so leaving these behind strands them on a deactivated user: a
+    # checkout paid during or after the merge would look up a profile that has
+    # since been moved or deleted and grant no badge, and the keeper could not
+    # open the widget or return page for a payment they made.
+    from crush_lu.models.payments import PaymentTransaction
+
+    moved_payments = PaymentTransaction.objects.filter(user=duplicate_user).update(
+        user=keeper_user
+    )
+    if moved_payments:
+        log.append(f"Moved {moved_payments} payment transaction(s) to keeper")
+
     # 5. EventRegistrations (unique_together: event, user)
     for reg in EventRegistration.objects.filter(user=duplicate_user):
         if not EventRegistration.objects.filter(
