@@ -1,4 +1,3 @@
-import hashlib
 import json
 import logging
 import uuid
@@ -552,6 +551,26 @@ def describe_sumup_failure(data):
     return "; ".join(parts)
 
 
+def _count_failed_attempts(data):
+    """How many cards SumUp says were submitted against this checkout and refused.
+
+    One definition of "refused", shared by the question "did anything fail?"
+    and the question "has anything failed since last time?" — they must not be
+    able to disagree about what counts.
+    """
+    if not isinstance(data, dict):
+        return 0
+    transactions = data.get("transactions")
+    if not isinstance(transactions, list):
+        return 0
+    return sum(
+        1
+        for tx in transactions
+        if isinstance(tx, dict)
+        and (tx.get("status") or "").upper() not in ("SUCCESSFUL", "PAID", "PENDING")
+    )
+
+
 def _has_unsuccessful_attempt(data):
     """Did a card get submitted against this checkout and not go through?
 
@@ -560,16 +579,7 @@ def _has_unsuccessful_attempt(data):
     checkout PENDING so the customer can retry, which is why a decline never
     showed up anywhere on our side.
     """
-    if not isinstance(data, dict):
-        return False
-    transactions = data.get("transactions")
-    if not isinstance(transactions, list):
-        return False
-    return any(
-        isinstance(tx, dict)
-        and (tx.get("status") or "").upper() not in ("SUCCESSFUL", "PAID", "PENDING")
-        for tx in transactions
-    )
+    return _count_failed_attempts(data) > 0
 
 
 def _record_pending_failure(tx_obj, reason, data):
@@ -663,6 +673,11 @@ def _record_terminal_failure(tx_obj, sumup_status, data):
 # discarding the widget half AND moving the marker, which told the page a fresh
 # card had been refused when nothing had happened but a refresh.
 WIDGET_NOTE_SEPARATOR = "\n— widget: "
+# What separates one widget note from the next. Counting these is how the
+# attempt marker knows about failures SumUp has not recorded yet, so the
+# customer-supplied part of a note has this stripped out of it — otherwise a
+# member could inflate their own failure count by typing it.
+NOTE_JOIN = " | "
 
 
 def _split_failure_reason(text):
@@ -678,26 +693,29 @@ def _join_failure_reason(provider, notes):
 
 
 def attempt_marker(tx_obj):
-    """An opaque handle on WHICH failure is currently on record.
+    """How many refused attempts this checkout is known to have had.
 
-    The page needs to tell a new refusal from one it has already shown, and
-    neither ``failure_reason`` (sticky until PAID) nor SumUp's transactions
-    array (cumulative) answers that on its own — but a digest of the reason
-    changes exactly when the account of the failure does, which is the question.
+    A COUNT, deliberately, after three rounds of getting this wrong with a
+    digest of the reason. The reason is prose, and prose moves for reasons that
+    are not another refused card: a refresh rewrites SumUp's account of the
+    same attempts, a note records what the customer was shown, and the provider
+    record for a decline the SDK already reported arrives later and fills in a
+    half that was empty. Every one of those read as "a new card was refused" to
+    a page comparing text, and each fix for one of them re-created another.
 
-    Derived from SumUp's half only. The widget's own notes are a record of what
-    the customer was already shown, so folding them in would make the marker
-    move for a failure the page had itself just displayed — and, worse, move it
-    back again on the next refresh, which is a refused card as far as the page
-    can tell.
+    Counting answers the question the page is actually asking — "has anything
+    failed since the last one I told you about?" — and is indifferent to
+    wording, to ordering, and to which side learned it first.
 
-    A digest rather than the text: the reason carries SumUp's own wording,
-    written for the Coach Panel, and the customer sees our message instead.
+    The larger of the two sources, because they are two views of the same
+    events rather than two sets of them: SumUp's transactions array, and the
+    widget's own reports for failures SumUp has not recorded yet.
     """
-    provider, _notes = _split_failure_reason(tx_obj.failure_reason)
-    if not provider:
-        return ""
-    return hashlib.sha256(provider.encode("utf-8")).hexdigest()[:16]
+    provider_failures = _count_failed_attempts(tx_obj.raw_response)
+    _provider, notes = _split_failure_reason(tx_obj.failure_reason)
+    note_failures = notes.count(NOTE_JOIN) + 1 if notes else 0
+    known = max(provider_failures, note_failures)
+    return str(known) if known else ""
 
 
 def _append_widget_note(tx_obj, note):
@@ -729,7 +747,7 @@ def _append_widget_note(tx_obj, note):
         # notes rather than the whole field is what stops a long history eating
         # the separator and taking SumUp's account with it.
         provider, notes = _split_failure_reason(locked.failure_reason)
-        notes = f"{notes} | {note}" if notes else note
+        notes = f"{notes}{NOTE_JOIN}{note}" if notes else note
         locked.failure_reason = _join_failure_reason(provider, notes[-1000:])
         locked.save(update_fields=["failure_reason", "updated_at"])
         return True
@@ -1156,7 +1174,10 @@ def report_sumup_widget_failure(request, checkout_id):
     widget_type = str(payload.get("type") or "error")[:40]
     # Truncated because it is attacker-controlled in the sense that any logged-in
     # owner can post arbitrary text here; it lands in a TextField and in the log.
-    widget_message = str(payload.get("message") or "")[:300]
+    # "|" removed because notes are counted by their joiner, and that count is
+    # what tells the page whether another card was refused. Left in, a member
+    # could inflate their own failure count by typing it into a card form.
+    widget_message = str(payload.get("message") or "")[:300].replace("|", "/")
 
     logger.warning(
         "SumUp widget reported '%s' for checkout %s (%s), user %s: %s",

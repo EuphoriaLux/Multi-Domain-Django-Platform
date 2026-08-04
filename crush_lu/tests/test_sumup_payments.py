@@ -3287,6 +3287,78 @@ class RetryAfterDeclineTests(SiteTestMixin, TestCase):
         self.assertNotEqual(second["attempt_marker"], first["attempt_marker"])
 
     @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_provider_record_arriving_late_is_not_a_new_refusal(self, mock_get):
+        """The SDK can report a decline before SumUp has recorded the attempt.
+
+        The provider record then lands during the retry and fills in a half
+        that was empty. Judged by wording that reads as a brand-new refusal —
+        so the page stopped watching a second card over the first card's
+        decline arriving late. Counting failures instead makes the two views of
+        one event agree: SumUp catching up is not another failure.
+        """
+        # SumUp has not recorded the attempt yet; only the SDK knows.
+        mock_get.return_value = {"id": "CHK_RETRY", "status": "PENDING"}
+        reported = self.client.post(
+            reverse(
+                "crush_lu:sumup_widget_failure", kwargs={"checkout_id": "CHK_RETRY"}
+            ),
+            data=json.dumps({"type": "fail", "message": "Declined"}),
+            content_type="application/json",
+        ).json()["attempt_marker"]
+        self.assertTrue(reported)
+
+        # The customer retries; SumUp now catches up on the FIRST decline.
+        mock_get.return_value = {
+            "id": "CHK_RETRY",
+            "status": "PENDING",
+            "transactions": [{"status": "FAILED", "failure_reason": "DECLINED"}],
+        }
+        during_retry = self._poll()
+
+        self.assertEqual(during_retry["attempt_marker"], reported)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_second_card_refused_after_a_late_record_does_move_it(self, mock_get):
+        """And the retry genuinely failing must still reach the customer."""
+        mock_get.return_value = {"id": "CHK_RETRY", "status": "PENDING"}
+        reported = self.client.post(
+            reverse(
+                "crush_lu:sumup_widget_failure", kwargs={"checkout_id": "CHK_RETRY"}
+            ),
+            data=json.dumps({"type": "fail", "message": "Declined"}),
+            content_type="application/json",
+        ).json()["attempt_marker"]
+
+        mock_get.return_value = {
+            "id": "CHK_RETRY",
+            "status": "PENDING",
+            "transactions": [
+                {"status": "FAILED", "failure_reason": "DECLINED"},
+                {"status": "FAILED", "failure_reason": "DECLINED"},
+            ],
+        }
+        after_second = self._poll()
+
+        self.assertTrue(after_second["attempt_failed"])
+        self.assertNotEqual(after_second["attempt_marker"], reported)
+
+    def test_a_member_cannot_inflate_their_own_failure_count(self):
+        """The note joiner is what the count reads, so it is stripped from the
+        customer-influenced part."""
+        self.client.post(
+            reverse(
+                "crush_lu:sumup_widget_failure", kwargs={"checkout_id": "CHK_RETRY"}
+            ),
+            data=json.dumps({"type": "fail", "message": "a | b | c | d"}),
+            content_type="application/json",
+        )
+
+        from crush_lu.views_payments import attempt_marker
+
+        self.tx.refresh_from_db()
+        self.assertEqual(attempt_marker(self.tx), "1")
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
     def test_a_retry_that_succeeds_still_settles(self, mock_get):
         """The outcome the bug destroyed: told it failed, then paid anyway."""
         mock_get.return_value = {
@@ -3325,9 +3397,15 @@ class RetryAfterDeclineTests(SiteTestMixin, TestCase):
         from crush_lu.views_payments import attempt_marker
 
         PaymentTransaction.objects.filter(pk=self.tx.pk).update(
-            failure_reason="an earlier decline"
+            failure_reason="SumUp reports the checkout as PENDING; attempt FAILED",
+            raw_response={
+                "id": "CHK_RETRY",
+                "status": "PENDING",
+                "transactions": [{"status": "FAILED"}],
+            },
         )
         self.tx.refresh_from_db()
+        self.assertTrue(attempt_marker(self.tx))
 
         response = self.client.get(
             reverse("crush_lu:sumup_widget", kwargs={"checkout_id": "CHK_RETRY"})
