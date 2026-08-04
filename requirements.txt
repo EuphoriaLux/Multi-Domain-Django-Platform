@@ -2,7 +2,7 @@
 Django==6.0.7  # Security patch (PYSEC-2026-2090..2092: cache_page cookie leak, DomainNameValidator header injection, GDALRaster over-read); requires Python 3.12+
 djangorestframework==3.17.1
 djangorestframework-simplejwt==5.5.1
-django-crispy-forms==2.6
+django-crispy-forms==2.7
 crispy-tailwind==1.0.3
 django-cors-headers==4.9.0
 django-htmx==1.28.0  # HTMX server-side integration
@@ -45,7 +45,7 @@ gunicorn==26.0.0
 channels==4.3.2
 channels-redis==4.3.0
 django-redis==7.0.0  # Redis cache backend for Django 6.0
-uvicorn[standard]==0.51.0
+uvicorn[standard]==0.52.0
 
 # Utilities
 python-dotenv==1.2.2  # Updated from 1.0.1
