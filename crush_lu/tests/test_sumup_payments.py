@@ -2663,6 +2663,40 @@ class SumUpCheckoutStatusCommandTests(SiteTestMixin, TestCase):
         self.assertNotIn("unchanged", output)
 
     @patch("crush_lu.services.sumup.SumUpClient.get_checkout")
+    def test_a_paid_row_sumup_agrees_about_is_not_flagged(self, mock_get):
+        """The sibling of the admin bug — fixed there, still live here.
+
+        Shouting "check whether this member was charged" at two records that
+        agree makes a routine refresh look like a financial anomaly.
+        """
+        PaymentTransaction.objects.filter(pk=self.tx.pk).update(
+            status=PaymentTransaction.Status.PAID
+        )
+        mock_get.return_value = {"id": "CHK_CLI", "status": "PAID"}
+
+        output = self._run(sync=True)
+
+        self.assertNotIn("check whether this member was charged", output)
+        self.assertIn("detail recorded", output)
+
+    def test_sync_without_a_selector_is_refused_not_ignored(self):
+        """--help promises it applies things; listing mode never asks SumUp.
+
+        So --sync on a bare listing quietly applied nothing at all. Refusing
+        beats syncing the recent rows: that would fire a provider call per row
+        and could confirm seats nobody asked about, off a command someone ran
+        just to look around.
+        """
+        from io import StringIO
+
+        from django.core.management import CommandError, call_command
+
+        with self.assertRaises(CommandError) as caught:
+            call_command("sumup_checkout_status", sync=True, stdout=StringIO())
+
+        self.assertIn("--sync needs one payment to act on", str(caught.exception))
+
+    @patch("crush_lu.services.sumup.SumUpClient.get_checkout")
     def test_it_prints_the_attempts_without_being_asked_to_sync(self, mock_get):
         """Read-only by default — looking must never change anything."""
         mock_get.return_value = {
@@ -2882,3 +2916,94 @@ class RefreshAndReportHonestyTests(SiteTestMixin, TestCase):
         self.assertEqual(tx.failure_reason, ours)
         # The snapshot itself still refreshes; only the wording is ours to keep.
         self.assertEqual(tx.raw_response["status"], "FAILED")
+
+
+class ThrottleFailureModeTests(TestCase):
+    """The throttle guards a quota; the read it gates is how someone gets a seat."""
+
+    def setUp(self):
+        super().setUp()
+        from django.core.cache import cache
+
+        cache.clear()
+
+    def test_an_unavailable_cache_does_not_block_the_provider_read(self):
+        """django-redis with IGNORE_EXCEPTIONS returns None, not an exception.
+
+        None is falsy, so "we lost the rate limiter" became "refuse every
+        provider read" — a member who had just completed 3DS would sit on the
+        polling screen for the whole five-minute window while SumUp had the
+        payment marked paid the entire time.
+        """
+        from crush_lu.views_payments import _may_ask_sumup
+
+        with patch("crush_lu.views_payments.cache.add", return_value=None):
+            self.assertTrue(_may_ask_sumup("poll", "CHK_NOCACHE"))
+
+    def test_a_genuine_throttle_hit_is_still_a_no(self):
+        """Failing open must not mean never throttling."""
+        from crush_lu.views_payments import _may_ask_sumup
+
+        self.assertTrue(_may_ask_sumup("poll", "CHK_REAL"))
+        self.assertFalse(_may_ask_sumup("poll", "CHK_REAL"))
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class WidgetNoteRaceTests(SiteTestMixin, TestCase):
+    """The widget note is a second write, and needed its own guard."""
+
+    def setUp(self):
+        super().setUp()
+        from django.core.cache import cache
+
+        cache.clear()
+        self.user = User.objects.create_user(
+            username="race@crush.lu", email="race@crush.lu", password="password123"
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Race",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        self.tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-RACE",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_RACE",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+
+    def test_a_note_cannot_land_on_a_payment_that_completed_first(self):
+        """Locking only the provider-summary write closed half the hole."""
+        from crush_lu.views_payments import _append_widget_note
+
+        PaymentTransaction.objects.filter(pk=self.tx.pk).update(
+            status=PaymentTransaction.Status.PAID, failure_reason=""
+        )
+
+        recorded = _append_widget_note(self.tx, "Card widget reported 'fail'")
+
+        self.assertFalse(recorded)
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.failure_reason, "")
+
+    def test_a_note_on_a_still_pending_payment_is_kept(self):
+        from crush_lu.views_payments import _append_widget_note
+
+        self.assertTrue(_append_widget_note(self.tx, "Card widget reported 'fail'"))
+
+        self.tx.refresh_from_db()
+        self.assertIn("Card widget reported", self.tx.failure_reason)

@@ -57,14 +57,27 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        selective = any(
+            options.get(key) for key in ("reference", "checkout_id", "registration_id")
+        )
+        # A repair flag that silently does nothing is worse than one that
+        # refuses: the listing mode never touches the provider, so --sync on it
+        # applied nothing at all while --help promised "apply what SumUp
+        # reports". Refusing rather than syncing the recent rows is deliberate —
+        # that would fire a provider call per row and could confirm seats nobody
+        # asked about, off a command someone ran to look around.
+        if options["sync"] and not selective:
+            raise CommandError(
+                "--sync needs one payment to act on: pass --reference, "
+                "--checkout-id or --registration-id. Without a selector this "
+                "command only lists, and would apply nothing."
+            )
+
         rows = self._select(options)
         if not rows:
             self.stdout.write(self.style.WARNING("No matching transactions."))
             return
 
-        selective = any(
-            options.get(key) for key in ("reference", "checkout_id", "registration_id")
-        )
         for tx_obj in rows:
             self._print_local(tx_obj)
             # Listing everything would fire one API call per row; only reach for
@@ -216,7 +229,15 @@ class Command(BaseCommand):
                     f"  refreshed    detail recorded (SumUp says {reported}; "
                     f"status left at {tx_obj.status})"
                 )
-                if reported in ("PAID", "SUCCESSFUL"):
+                # Only when the two records DISAGREE. A locally paid row that
+                # SumUp also calls paid is the ordinary case, and shouting
+                # "check whether this member was charged" at it makes a routine
+                # refresh look like a financial anomaly — the same mistake the
+                # admin action made, in its sibling.
+                if (
+                    reported in ("PAID", "SUCCESSFUL")
+                    and tx_obj.status != PaymentTransaction.Status.PAID
+                ):
                     self.stdout.write(
                         self.style.ERROR(
                             "  ⚠ recorded here as "

@@ -50,11 +50,24 @@ def _may_ask_sumup(scope, checkout_id):
     swallow the single sync a genuine failure report needs. Separate scopes cap
     each independently, which is what the bound is actually for.
 
-    Returns True at most once per SUMUP_SYNC_THROTTLE_SECONDS per scope.
+    Fails OPEN when the cache itself is unavailable. Production configures
+    django-redis with IGNORE_EXCEPTIONS, so a Redis outage makes ``cache.add``
+    return None rather than raise — and None is falsy, which would have turned
+    "we lost the rate limiter" into "refuse every provider read". A member who
+    had just completed 3DS would then sit on the polling screen for the whole
+    five-minute window while SumUp had the payment marked paid all along. The
+    throttle protects a quota; the read it gates is how someone gets their seat.
+    Losing the first must not cost the second.
+
+    Returns True at most once per SUMUP_SYNC_THROTTLE_SECONDS per scope, and
+    True whenever the cache cannot answer.
     """
-    return cache.add(
+    claimed = cache.add(
         f"sumup-{scope}:{checkout_id}", True, timeout=SUMUP_SYNC_THROTTLE_SECONDS
     )
+    # None means the backend swallowed an error; False means the key was
+    # genuinely already there. Only the second is a real "no".
+    return True if claimed is None else claimed
 
 
 @login_required
@@ -595,6 +608,39 @@ def _record_pending_failure(tx_obj, reason, data):
         return changed
 
 
+def _append_widget_note(tx_obj, note):
+    """Add the widget's own wording to a payment that has not completed.
+
+    Locked and re-read for the same reason ``_record_pending_failure`` is, and
+    it is a separate write so it needs its own guard: an in-flight poll can
+    apply a successful payment between this request's SumUp read and this save,
+    and an unlocked write would then stamp a failure note onto a row
+    ``_apply_paid_checkout`` had just cleared. Locking only the first of the two
+    writes closed half the hole.
+
+    Returns True when the note was recorded.
+    """
+    with transaction.atomic():
+        locked = PaymentTransaction.objects.select_for_update().get(pk=tx_obj.pk)
+        if locked.status != PaymentTransaction.Status.PENDING:
+            logger.info(
+                "Discarded a widget failure note for checkout %s — the payment "
+                "is %s now.",
+                tx_obj.sumup_checkout_id,
+                locked.status,
+            )
+            return False
+
+        combined = (
+            f"{locked.failure_reason} | {note}" if locked.failure_reason else note
+        )
+        # One checkout can absorb several refused cards, and each one appends.
+        # Keep the tail: the most recent attempt is the one being investigated.
+        locked.failure_reason = combined[-1000:]
+        locked.save(update_fields=["failure_reason", "updated_at"])
+        return True
+
+
 def _sync_checkout_with_sumup(tx_obj):
     """Re-read the checkout from SumUp and apply whatever it reports.
 
@@ -1017,16 +1063,10 @@ def report_sumup_widget_failure(request, checkout_id):
     if _may_ask_sumup("report", checkout_id):
         _sync_checkout_with_sumup(tx_obj)
 
-    if tx_obj.status == PaymentTransaction.Status.PENDING:
-        note = f"Card widget reported '{widget_type}'"
-        if widget_message:
-            note += f": {widget_message}"
-        existing = tx_obj.failure_reason
-        combined = f"{existing} | {note}" if existing else note
-        # One checkout can absorb several refused cards, and each one appends.
-        # Keep the tail: the most recent attempt is the one being investigated.
-        tx_obj.failure_reason = combined[-1000:]
-        tx_obj.save(update_fields=["failure_reason", "updated_at"])
+    note = f"Card widget reported '{widget_type}'"
+    if widget_message:
+        note += f": {widget_message}"
+    _append_widget_note(tx_obj, note)
 
     return JsonResponse({"status": "recorded"})
 
