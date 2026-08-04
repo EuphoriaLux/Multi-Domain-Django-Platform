@@ -836,7 +836,29 @@ def _apply_paid_checkout(tx_obj, data):
                 if locked.user_id
                 else None
             )
-            if profile and not profile.is_community_supporter:
+            if profile is None:
+                # Paid, and there is nowhere to put what it bought. The badge
+                # lives on CrushProfile, and my_events -- which renders the
+                # donation card -- only requires a login, so a coach (who may
+                # not hold a dating profile) or anyone who signed up without
+                # finishing onboarding can reach the card and pay.
+                #
+                # The money stays recorded; that is not in question. What must
+                # not happen is this passing in silence, which is what it did:
+                # every other "charged but not granted" path in this file is an
+                # error-level line naming what a human has to do, and this was
+                # the one exception. Whether such a donor should be refused up
+                # front, or granted the badge later if a profile appears, is a
+                # product decision -- until it is made, at least nobody has to
+                # discover it from a complaint.
+                logger.error(
+                    "SumUp donation %s completed for user %s but they have no "
+                    "CrushProfile — payment recorded, Community Supporter NOT "
+                    "granted, manual follow-up required.",
+                    locked.transaction_reference,
+                    locked.user_id,
+                )
+            elif not profile.is_community_supporter:
                 profile.is_community_supporter = True
                 profile.save(update_fields=["is_community_supporter"])
                 logger.info(

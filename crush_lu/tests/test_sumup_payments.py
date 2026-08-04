@@ -4709,10 +4709,20 @@ class CommunitySupporterBadgeTests(SiteTestMixin, TestCase):
             user=profileless, ref="CRUSH-DON-NP", checkout_id="CHK_DON_NP"
         )
 
-        _apply_paid_checkout(tx, {"status": "PAID"})
+        with self.assertLogs("crush_lu.views_payments", level="ERROR") as logs:
+            _apply_paid_checkout(tx, {"status": "PAID"})
 
         tx.refresh_from_db()
         self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+
+        # And it does not pass in silence. my_events renders the donation card
+        # behind a login only -- no profile required -- so a coach, or anyone
+        # who signed up without finishing onboarding, can reach it and pay.
+        # Every other charged-but-not-granted path in views_payments says so at
+        # error level; this was the one exception.
+        recorded = "".join(logs.output)
+        self.assertIn("Community Supporter NOT", recorded)
+        self.assertIn("manual follow-up required", recorded)
 
     def test_the_support_card_reaches_the_page_that_includes_it(self):
         """The card is inert without two things it does not render itself.
