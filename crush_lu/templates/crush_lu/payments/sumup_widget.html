@@ -224,7 +224,23 @@
                         message: (body && (body.message || body.error_message)) || "",
                     }),
                     keepalive: true,
-                }).catch(function () {});
+                })
+                    .then(function (res) {
+                        return res.ok ? res.json() : null;
+                    })
+                    .then(function (data) {
+                        // The server verifies against SumUp before answering,
+                        // and an SDK error raised AFTER the money was captured
+                        // is a real sequence. Polling has already stopped by
+                        // now, so this is the last thing the page hears — if
+                        // the payment actually went through, correct the
+                        // decline the customer is looking at and move on.
+                        if (data && data.settled) {
+                            errorEl.classList.add("hidden");
+                            window.location.href = returnUrl;
+                        }
+                    })
+                    .catch(function () {});
             } catch (e) {
                 /* reporting is best-effort */
             }

@@ -1198,13 +1198,23 @@ def report_sumup_widget_failure(request, checkout_id):
         note += f": {widget_message}"
     _append_widget_note(tx_obj, note)
 
-    # Hand back the marker this write produced. The widget has just shown the
-    # customer this failure itself, so it needs to record that it has seen it —
-    # otherwise the next attempt's poll reads a marker the page never learned
-    # about and reports an already-reported refusal as a fresh one.
+    # Answer with where the payment actually stands, not just "noted".
+    #
+    # The sync above can find the checkout PAID — an SDK error raised after the
+    # money was captured is a real sequence, and the page has already stopped
+    # polling by the time it calls this. Saying only "recorded" left that
+    # customer looking at a decline for a payment that went through, with
+    # nothing left running to correct it. This is the last thing the page hears
+    # on that path, so it has to carry the verdict.
     tx_obj.refresh_from_db()
+    settled = tx_obj.status != PaymentTransaction.Status.PENDING
     return JsonResponse(
-        {"status": "recorded", "attempt_marker": attempt_marker(tx_obj)}
+        {
+            "status": "recorded",
+            "settled": settled,
+            "paid": tx_obj.status == PaymentTransaction.Status.PAID,
+            "attempt_marker": attempt_marker(tx_obj),
+        }
     )
 
 
