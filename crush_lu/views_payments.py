@@ -260,6 +260,40 @@ def create_sumup_premium_checkout(request, membership_id):
     if membership.status != "pending":
         return JsonResponse({"error": _("This membership is not pending payment.")}, status=400)
 
+    # A captured payment that never became an entitlement leaves this membership
+    # PENDING with a PAID transaction against it -- the coach filled up, the
+    # request stopped being pending, or the buyer lost their beta seat. "Pending"
+    # was the only thing this endpoint required, so the member was then one
+    # button away from paying for the same membership twice, and re-selecting a
+    # de-selected tester is exactly the moment that button comes back.
+    # Re-opening the ORIGINAL checkout cannot repair it either: _apply_paid_
+    # checkout returns immediately for a row that is already PAID.
+    #
+    # Refuse until a human reconciles, rather than trying to self-heal. The
+    # remedies differ per cause (refund, coach reassignment, re-selection) and
+    # each needs a decision this endpoint cannot make.
+    if PaymentTransaction.objects.filter(
+        premium_membership=membership,
+        status=PaymentTransaction.Status.PAID,
+    ).exists():
+        logger.error(
+            "Refused a second premium checkout for membership %s (user=%s): a "
+            "PAID transaction is already recorded against it and Premium was "
+            "never granted — needs reconciliation, not another charge.",
+            membership.id,
+            membership.user_id,
+        )
+        return JsonResponse(
+            {
+                "error": _(
+                    "We have already received a payment for this membership. "
+                    "Please contact support@crush.lu so we can finish setting "
+                    "it up."
+                )
+            },
+            status=409,
+        )
+
     # Ask the beta allowlist again, here, at the moment money is about to move.
     # views_premium checks it when the pending membership is MINTED, and nothing
     # between there and confirm() ever re-asked -- so the pending row was a
@@ -1201,14 +1235,23 @@ def _sumup_return_response(request, tx_obj):
                 # Deliberately vague about the cause: the remedies differ
                 # (refund, coach reassignment, re-selection) and none of them is
                 # the member's to action. What they need is to know the money
-                # moved, that they did not get what they paid for, and that it
-                # is being handled.
+                # moved and that they did not get what they paid for.
+                #
+                # It does NOT say "our team has been notified". The only signal
+                # this path emits is logger.error, which lands in App Insights
+                # as an ordinary trace on a SUCCESSFUL request -- and
+                # infra/alerts.bicep alerts on failed requests, server
+                # exceptions, response time and availability, none of which this
+                # trips. Nothing pages anyone and no work item exists, so
+                # promising proactive contact would be false, and worse, it
+                # would talk the member out of the one action that actually
+                # reaches a human.
                 messages.warning(
                     request,
                     _(
                         "Your payment went through, but we could not activate "
-                        "your Premium membership yet. Our team has been "
-                        "notified and will be in touch shortly."
+                        "your Premium membership yet. Please contact "
+                        "support@crush.lu and we will sort it out."
                     ),
                 )
             return redirect("crush_lu:crush_connect_hub")

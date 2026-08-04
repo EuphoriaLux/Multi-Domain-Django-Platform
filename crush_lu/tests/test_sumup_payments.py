@@ -838,6 +838,74 @@ class PremiumBetaAllowlistTests(SiteTestMixin, TestCase):
 
         self.assertIn("CrushConnectWaitlist", locked_models)
 
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    @patch("crush_lu.views_payments.SumUpClient.create_customer")
+    def test_a_captured_payment_blocks_a_second_checkout(
+        self, mock_create_customer, mock_create_checkout
+    ):
+        """Re-selecting a de-selected tester must not re-arm the pay button.
+
+        The withheld grant leaves the membership pending with a PAID row against
+        it. "Pending" was the only thing this endpoint required, so the member
+        could be charged twice for the same membership.
+        """
+        tx = self._open_checkout()
+        tx.status = PaymentTransaction.Status.PAID
+        tx.save(update_fields=["status"])
+        self._select_as_tester()  # reconciled by re-selecting, as staff would
+        self.client.force_login(self.user)
+
+        with self.assertLogs("crush_lu.views_payments", level="ERROR"):
+            response = self._post()
+
+        self.assertEqual(response.status_code, 409)
+        mock_create_checkout.assert_not_called()
+        self.assertEqual(PaymentTransaction.objects.count(), 1)
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    @patch("crush_lu.views_payments.SumUpClient.create_customer")
+    def test_an_unpaid_prior_attempt_does_not_block_a_retry(
+        self, mock_create_customer, mock_create_checkout
+    ):
+        """Only a CAPTURED payment blocks. A declined or abandoned attempt must
+        still be retryable, or one bad card would strand the member."""
+        mock_create_customer.return_value = {"customer_id": f"crush-user-{self.user.id}"}
+        mock_create_checkout.return_value = {"id": "CHK_RETRY_OK", "status": "PENDING"}
+        self._open_checkout()  # left PENDING
+        self._select_as_tester()
+        self.client.force_login(self.user)
+
+        response = self._post()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["success"])
+
+    def test_the_payment_outcome_messages_are_translated(self):
+        """A charged DE/FR member must not be told what happened in English.
+
+        These land on the most sensitive path there is -- money taken, nothing
+        granted -- so an untranslated string here is worse than anywhere else.
+        Catches the usual failure: the catalog entry exists but its msgid
+        differs from the source by a space, so it never matches.
+        """
+        messages_under_test = [
+            "Premium is invite-only during the beta.",
+            "Your payment went through, but we could not activate your Premium "
+            "membership yet. Please contact support@crush.lu and we will sort "
+            "it out.",
+            "We have already received a payment for this membership. Please "
+            "contact support@crush.lu so we can finish setting it up.",
+        ]
+        for lang in ("de", "fr"):
+            for source in messages_under_test:
+                with self.subTest(lang=lang, msgid=source[:40]):
+                    with translation.override(lang):
+                        self.assertNotEqual(
+                            translation.gettext(source),
+                            source,
+                            f"untranslated in {lang}",
+                        )
+
     def test_a_charged_customer_is_told_premium_was_not_activated(self):
         """PAID but not granted must not read as an ordinary successful buy.
 
