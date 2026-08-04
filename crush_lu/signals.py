@@ -3868,10 +3868,6 @@ def sync_profile_to_outlook(sender, instance, created, update_fields, **kwargs):
         logger.debug(f"Skipping Outlook sync for test user: {instance.user.email}")
         return
 
-    # Only sync if phone number exists (required for caller ID)
-    if not instance.phone_number:
-        return
-
     # This signal runs on the web request thread and every branch below makes
     # blocking Graph calls, so the work is deferred to on_commit: outside a
     # transaction it runs immediately, and inside one it can no longer write a
@@ -3880,13 +3876,21 @@ def sync_profile_to_outlook(sender, instance, created, update_fields, **kwargs):
     def _service():
         return GraphContactsService(retry_budget=INTERACTIVE_RETRY_SLEEP_TOTAL)
 
-    # Only sync phone-verified profiles (caller ID requires verified phone)
-    if not instance.phone_verified:
-        # If profile was previously synced but phone is now unverified, delete the contact
+    # A contact should exist only for a profile with a *verified* phone number.
+    # Both "no number at all" and "number no longer verified" mean any contact
+    # we synced earlier has to go. These used to be separate: a cleared number
+    # returned early, before the delete branch, stranding the contact in the
+    # shared mailbox forever -- the same silent failure this module is being
+    # cleaned up for.
+    if not instance.phone_number or not instance.phone_verified:
         if instance.outlook_contact_id:
             contact_id = instance.outlook_contact_id
 
-            def _delete_unverified():
+            reason = (
+                "phone cleared" if not instance.phone_number else "phone unverified"
+            )
+
+            def _delete_stale_contact():
                 try:
                     _service().delete_contact(contact_id)
                     # Clear the contact ID using update() to avoid infinite recursion
@@ -3894,14 +3898,15 @@ def sync_profile_to_outlook(sender, instance, created, update_fields, **kwargs):
                         outlook_contact_id=""
                     )
                     logger.info(
-                        f"Deleted Outlook contact for unverified phone {instance.pk}"
+                        f"Deleted Outlook contact for profile {instance.pk} ({reason})"
                     )
                 except Exception as e:
                     logger.warning(
-                        f"Failed to delete Outlook contact for unverified phone {instance.pk}: {e}"
+                        f"Failed to delete Outlook contact for profile "
+                        f"{instance.pk} ({reason}): {e}"
                     )
 
-            transaction.on_commit(_delete_unverified)
+            transaction.on_commit(_delete_stale_contact)
         return
 
     # Check if relevant fields were updated (if update_fields provided)

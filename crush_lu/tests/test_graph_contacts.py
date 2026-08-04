@@ -236,6 +236,42 @@ class TestImmutableIds:
         get_call = request.call_args_list[0]
         assert get_call.kwargs["headers"]["Prefer"] == IMMUTABLE_ID_PREFER
 
+    def test_update_survives_an_unmigrated_legacy_id(self, service, profile):
+        """The critical deploy-ordering case. Rows written before this change
+        still hold restIds; if the immutable-dialect 404 were believed, the ID
+        would be cleared and sync_profile would create a SECOND contact -- for
+        every pre-existing profile, on the first nightly run after deploy."""
+        from crush_lu.models import CrushProfile
+
+        profile.outlook_contact_id = "LEGACY"
+        profile.save(update_fields=["outlook_contact_id"])
+        responses = [
+            _response(404),  # ETag GET, immutable dialect -> not found
+            _response(200, {"id": "LEGACY"}, {"ETag": 'W/"1"'}),  # legacy retry
+            _response(404),  # PATCH, immutable dialect
+            _response(204),  # PATCH, legacy retry
+        ]
+
+        with mock.patch("requests.request", side_effect=responses):
+            assert service.update_contact(profile, force=True) is True
+
+        # The ID must survive: clearing it is what causes the duplicate.
+        assert CrushProfile.objects.get(pk=profile.pk).outlook_contact_id == "LEGACY"
+
+    def test_update_still_clears_when_both_dialects_404(self, service, profile):
+        """The fallback must not mask a genuinely deleted contact -- that one
+        does need clearing so it gets recreated."""
+        from crush_lu.models import CrushProfile
+
+        profile.outlook_contact_id = "GONE"
+        profile.save(update_fields=["outlook_contact_id"])
+        responses = [_response(404), _response(404)]
+
+        with mock.patch("requests.request", side_effect=responses):
+            assert service.update_contact(profile, force=True) is False
+
+        assert CrushProfile.objects.get(pk=profile.pk).outlook_contact_id == ""
+
     def test_delete_sends_the_immutable_id_header(self, service):
         """The ID being deleted came from create/backfill/list, so it is an
         immutable ID. Without the header Graph can 404 -- and delete_contact
@@ -247,6 +283,27 @@ class TestImmutableIds:
             assert service.delete_contact("IMMUTABLE", force=True) is True
 
         assert request.call_args.kwargs["headers"]["Prefer"] == IMMUTABLE_ID_PREFER
+
+    def test_delete_falls_back_to_the_legacy_dialect(self, service):
+        """A stored ID is only immutable once the backfill has run. Believing
+        the first 404 would report a clean delete while the contact -- and its
+        PII -- stayed in the shared mailbox."""
+        responses = [_response(404), _response(204)]
+
+        with mock.patch("requests.request", side_effect=responses) as request:
+            assert service.delete_contact("LEGACY", force=True) is True
+
+        assert request.call_count == 2
+        assert "Prefer" in request.call_args_list[0].kwargs["headers"]
+        assert "Prefer" not in request.call_args_list[1].kwargs["headers"]
+
+    def test_delete_reports_gone_only_when_both_dialects_404(self, service):
+        responses = [_response(404), _response(404)]
+
+        with mock.patch("requests.request", side_effect=responses) as request:
+            assert service.delete_contact("REALLY-GONE", force=True) is True
+
+        assert request.call_count == 2
 
     def test_photo_upload_sends_the_immutable_id_header(self, service):
         """Same dialect problem on the photo PUT: a 404 here means every new
@@ -267,6 +324,48 @@ class TestImmutableIds:
                 service._upload_contact_photo("IMMUTABLE", profile, "token")
 
         assert request.call_args.kwargs["headers"]["Prefer"] == IMMUTABLE_ID_PREFER
+
+    def test_conflict_retry_clears_the_id_when_the_contact_vanished(
+        self, service, profile
+    ):
+        """A contact can be deleted between the conflicting write and the 412
+        retry. If the dead ID is not cleared the profile is stranded: sync_profile
+        keeps choosing update over create, and update keeps 404ing."""
+        from crush_lu.models import CrushProfile
+
+        profile.outlook_contact_id = "GONE"
+        profile.save(update_fields=["outlook_contact_id"])
+        responses = [
+            _response(200, {"id": "GONE"}, {"ETag": 'W/"1"'}),  # first ETag GET
+            _response(412),  # PATCH -> concurrency conflict
+            _response(404),  # retry ETag GET, immutable dialect
+            _response(404),  # retry ETag GET, legacy dialect -> really gone
+        ]
+
+        with mock.patch("requests.request", side_effect=responses):
+            assert service.update_contact(profile, force=True) is False
+
+        assert CrushProfile.objects.get(pk=profile.pk).outlook_contact_id == ""
+
+    def test_conflict_retry_clears_the_id_when_the_patch_404s(self, service, profile):
+        """Same stranding, one step later: the retry GET succeeds but the
+        contact is deleted before the retry PATCH lands."""
+        from crush_lu.models import CrushProfile
+
+        profile.outlook_contact_id = "GONE"
+        profile.save(update_fields=["outlook_contact_id"])
+        responses = [
+            _response(200, {"id": "GONE"}, {"ETag": 'W/"1"'}),
+            _response(412),
+            _response(200, {"id": "GONE"}, {"ETag": 'W/"2"'}),
+            _response(404),  # retry PATCH, immutable dialect
+            _response(404),  # retry PATCH, legacy dialect -> really gone
+        ]
+
+        with mock.patch("requests.request", side_effect=responses):
+            assert service.update_contact(profile, force=True) is False
+
+        assert CrushProfile.objects.get(pk=profile.pk).outlook_contact_id == ""
 
     def test_translate_maps_ids_and_skips_errored_entries(self, service):
         """Already-immutable IDs come back with errorDetails; they must be
@@ -583,6 +682,141 @@ class TestMsalAppCaching:
 
         assert first is not second
         graph_contacts._MSAL_APP_CACHE.clear()
+
+
+# ---------------------------------------------------------------------------
+# Signal wiring
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestSignalWiring:
+    """The post_save handler defers its Graph calls to on_commit. That is the
+    one part of this change with no natural unit test, so it is pinned here
+    rather than left to reasoning.
+
+    Uses django_capture_on_commit_callbacks rather than transaction=True: a
+    TransactionTestCase flushes the database, which destroys the seed rows the
+    Connect data migrations install, and with --reuse-db in addopts that damage
+    outlives the run and breaks the rest of the suite.
+    """
+
+    @pytest.fixture
+    def profile(self, django_user_model):
+        from crush_lu.models import CrushProfile
+
+        user = django_user_model.objects.create_user(
+            username="signal@crush.lu", email="signal@crush.lu"
+        )
+        return CrushProfile.objects.create(
+            user=user,
+            date_of_birth=date(1990, 1, 1),
+            is_approved=True,
+            phone_number="+352621777777",
+            phone_verified=True,
+            outlook_contact_id="EXISTING",
+        )
+
+    @staticmethod
+    def _patched_service():
+        """Re-enable the signal path and hand back the stub service it uses."""
+        stub = mock.Mock()
+        stub.sync_profile.return_value = "EXISTING"
+        stub.delete_contact.return_value = True
+        return mock.patch.multiple(
+            graph_contacts,
+            is_sync_enabled=mock.Mock(return_value=True),
+            GraphContactsService=mock.Mock(return_value=stub),
+        ), stub
+
+    def test_sync_does_not_fire_when_the_transaction_rolls_back(self, profile):
+        """The whole point of the on_commit deferral: no contact is written for
+        a profile whose save is undone. Has teeth because an inline (undeferred)
+        Graph call would have landed before the rollback."""
+        from django.db import transaction as db_transaction
+
+        patcher, stub = self._patched_service()
+
+        class Rollback(Exception):
+            pass
+
+        with patcher:
+            with pytest.raises(Rollback):
+                with db_transaction.atomic():
+                    profile.location = "Esch-sur-Alzette"
+                    profile.save()
+                    raise Rollback()
+
+        stub.sync_profile.assert_not_called()
+
+    def test_sync_is_deferred_then_fires_on_commit(
+        self, profile, django_capture_on_commit_callbacks
+    ):
+        patcher, stub = self._patched_service()
+
+        with patcher:
+            with django_capture_on_commit_callbacks() as callbacks:
+                profile.location = "Differdange"
+                profile.save()
+                # Deferred: the save itself must not have touched Graph.
+                stub.sync_profile.assert_not_called()
+
+            assert len(callbacks) == 1
+            for callback in callbacks:
+                callback()
+
+        stub.sync_profile.assert_called_once()
+
+    @staticmethod
+    def _write_bypassing_save(profile, **fields):
+        """Apply a change the way the only paths that can reach this state do.
+
+        CrushProfile.save() restores phone_number *and* phone_verified from the
+        DB whenever the stored row is verified, so neither field can be cleared
+        through save() at all. The paths that can are QuerySet.update() plus a
+        hand-sent post_save -- exactly what _luxid_save_profile does.
+        """
+        from django.db.models.signals import post_save
+
+        from crush_lu.models import CrushProfile
+
+        CrushProfile.objects.filter(pk=profile.pk).update(**fields)
+        for field, value in fields.items():
+            setattr(profile, field, value)
+        post_save.send(
+            sender=CrushProfile,
+            instance=profile,
+            created=False,
+            update_fields=frozenset(fields),
+        )
+
+    def test_clearing_the_phone_number_deletes_the_contact(
+        self, profile, django_capture_on_commit_callbacks
+    ):
+        """The handler used to return early on a falsy phone_number, *before*
+        the delete branch, so a profile whose number was wiped kept a live
+        contact in the shared mailbox indefinitely."""
+        from crush_lu.models import CrushProfile
+
+        patcher, stub = self._patched_service()
+
+        with patcher:
+            with django_capture_on_commit_callbacks(execute=True):
+                self._write_bypassing_save(profile, phone_number="")
+
+        stub.delete_contact.assert_called_once_with("EXISTING")
+        assert CrushProfile.objects.get(pk=profile.pk).outlook_contact_id == ""
+
+    def test_unverifying_the_phone_still_deletes_the_contact(
+        self, profile, django_capture_on_commit_callbacks
+    ):
+        patcher, stub = self._patched_service()
+
+        with patcher:
+            with django_capture_on_commit_callbacks(execute=True):
+                self._write_bypassing_save(profile, phone_verified=False)
+
+        stub.delete_contact.assert_called_once_with("EXISTING")
 
 
 # ---------------------------------------------------------------------------

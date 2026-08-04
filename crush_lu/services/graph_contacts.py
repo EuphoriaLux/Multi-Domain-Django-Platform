@@ -19,7 +19,10 @@ Graph API endpoints used:
 Exchange constraints this module has to respect:
 - Contact IDs are not stable unless you ask for immutable ones, so every
   create/read sends Prefer: IdType="ImmutableId". A stale ID 404s and the sync
-  would otherwise recreate the contact as a duplicate.
+  would otherwise recreate the contact as a duplicate. Requests carrying an
+  already-stored ID go through _request_stored_contact(), which re-checks a 404
+  in the legacy dialect first -- rows written before this existed still hold
+  restIds, and believing that 404 would duplicate every one of them.
   https://learn.microsoft.com/graph/outlook-immutable-id
 - Caller-ID lookup in Outlook/Teams matches mobilePhone only in strict E.164,
   so numbers are normalized on the way out.
@@ -331,6 +334,57 @@ class GraphContactsService:
 
         return response  # Should not reach here
 
+    def _request_stored_contact(self, method, url, headers, **kwargs):
+        """
+        Request a contact by its stored ID, tolerating the legacy ID dialect.
+
+        A stored outlook_contact_id is only an immutable ID once
+        backfill_outlook_immutable_ids has run against this database. Asserting
+        the immutable dialect on a row that still holds a legacy restId risks a
+        404 for a contact that is perfectly alive -- and every 404 path here
+        clears the stored ID, so the next sync would create a *second* contact
+        for that member. That is precisely the duplication this change exists to
+        prevent, and it would hit every pre-existing profile at once on the
+        first nightly run after deploy.
+
+        Rather than make correctness depend on someone remembering to run a
+        management command, a 404 is re-checked once without the Prefer header
+        before it is believed. Costs nothing when the ID is already immutable
+        (no 404, no second call), and self-heals when it is not.
+
+        Args:
+            method: HTTP method
+            url: Request URL containing the stored contact ID
+            headers: Headers WITHOUT the Prefer header; it is added here
+            **kwargs: Passed through to the request
+
+        Returns:
+            requests.Response: from whichever dialect the contact answered to.
+        """
+        response = self._request_with_retry(
+            method,
+            url,
+            headers={**headers, "Prefer": IMMUTABLE_ID_PREFER},
+            **kwargs,
+        )
+
+        if response.status_code != 404:
+            return response
+
+        legacy_response = self._request_with_retry(
+            method, url, headers=headers, **kwargs
+        )
+
+        if legacy_response.status_code != 404:
+            logger.warning(
+                "Outlook contact answered to the legacy restId dialect but not "
+                "the immutable one. Stored IDs have not been migrated yet -- run "
+                "`manage.py backfill_outlook_immutable_ids` so contacts survive "
+                "being moved between folders."
+            )
+
+        return legacy_response
+
     def _build_contact_payload(self, profile) -> dict:
         """
         Build the contact JSON payload from a CrushProfile.
@@ -525,15 +579,15 @@ class GraphContactsService:
             headers = {
                 "Authorization": f"Bearer {token}",
                 "Content-Type": content_type,
-                # contact_id is an immutable ID, so this request has to speak
-                # the same dialect -- the header is per-request, not per-session.
-                "Prefer": IMMUTABLE_ID_PREFER,
             }
 
-            response = self._request_with_retry(
+            # contact_id may be in either dialect depending on whether the
+            # backfill has run, so the header is applied (and retried without)
+            # by the helper rather than hardcoded here.
+            response = self._request_stored_contact(
                 "put",
                 endpoint,
-                headers=headers,
+                headers,
                 data=photo_content,
                 timeout=PHOTO_TIMEOUT,
             )
@@ -552,6 +606,23 @@ class GraphContactsService:
         except Exception as e:
             logger.warning(f"Error uploading photo for contact {contact_id}: {e}")
             return False
+
+    @staticmethod
+    def _forget_contact_id(profile) -> None:
+        """
+        Drop a contact ID that Outlook no longer recognises.
+
+        Clearing it is what lets sync_profile fall through to create_contact and
+        rebuild the contact. Every 404 path must go through here: leaving a dead
+        ID on the profile strands it permanently, because update_contact keeps
+        being chosen over create_contact and keeps failing.
+        """
+        logger.warning(
+            f"Outlook contact {profile.outlook_contact_id} not found for "
+            f"profile {profile.pk}, will recreate"
+        )
+        profile.outlook_contact_id = ""
+        profile.save(update_fields=["outlook_contact_id"])
 
     @staticmethod
     def _remember_photo_key(profile, photo_key: str) -> None:
@@ -656,25 +727,17 @@ class GraphContactsService:
             payload = self._build_contact_payload(profile)
 
             endpoint = f"{GRAPH_API_BASE}/users/{self.mailbox}/contacts/{profile.outlook_contact_id}"
-            auth_header = {
-                "Authorization": f"Bearer {token}",
-                "Prefer": IMMUTABLE_ID_PREFER,
-            }
+            auth_header = {"Authorization": f"Bearer {token}"}
 
             # Fetch current ETag to avoid 412 concurrency conflicts
-            get_response = self._request_with_retry(
+            get_response = self._request_stored_contact(
                 "get",
                 endpoint,
-                headers=auth_header,
+                auth_header,
                 params={"$select": "id"},
             )
             if get_response.status_code == 404:
-                logger.warning(
-                    f"Outlook contact {profile.outlook_contact_id} not found for "
-                    f"profile {profile.pk}, will recreate"
-                )
-                profile.outlook_contact_id = ""
-                profile.save(update_fields=["outlook_contact_id"])
+                self._forget_contact_id(profile)
                 return False
             if get_response.status_code == 429:
                 logger.error(
@@ -691,8 +754,8 @@ class GraphContactsService:
             if etag:
                 headers["If-Match"] = etag
 
-            response = self._request_with_retry(
-                "patch", endpoint, headers=headers, json=payload
+            response = self._request_stored_contact(
+                "patch", endpoint, headers, json=payload
             )
 
             if response.status_code in [200, 204]:
@@ -710,12 +773,7 @@ class GraphContactsService:
                 return True
             elif response.status_code == 404:
                 # Contact no longer exists - clear the ID and try to create
-                logger.warning(
-                    f"Outlook contact {profile.outlook_contact_id} not found for "
-                    f"profile {profile.pk}, will recreate"
-                )
-                profile.outlook_contact_id = ""
-                profile.save(update_fields=["outlook_contact_id"])
+                self._forget_contact_id(profile)
                 return False
             elif response.status_code == 412:
                 # ETag mismatch - contact was modified concurrently, retry once
@@ -723,18 +781,28 @@ class GraphContactsService:
                     f"Concurrency conflict updating contact for profile "
                     f"{profile.pk}, retrying"
                 )
-                get_response = self._request_with_retry(
+                get_response = self._request_stored_contact(
                     "get",
                     endpoint,
-                    headers=auth_header,
+                    auth_header,
                     params={"$select": "id"},
                 )
+                # The contact can be deleted between the conflicting write and
+                # this retry. Without this the dead ID is never cleared and the
+                # profile is stuck: update is chosen over create forever.
+                if get_response.status_code == 404:
+                    self._forget_contact_id(profile)
+                    return False
+
                 etag = get_response.headers.get("ETag")
                 if etag:
                     headers["If-Match"] = etag
-                response = self._request_with_retry(
-                    "patch", endpoint, headers=headers, json=payload
+                response = self._request_stored_contact(
+                    "patch", endpoint, headers, json=payload
                 )
+                if response.status_code == 404:
+                    self._forget_contact_id(profile)
+                    return False
                 if response.status_code in [200, 204]:
                     logger.info(
                         f"Updated Outlook contact for profile {profile.pk} "
@@ -784,17 +852,16 @@ class GraphContactsService:
             endpoint = (
                 f"{GRAPH_API_BASE}/users/{self.mailbox}/contacts/{outlook_contact_id}"
             )
-            headers = {
-                "Authorization": f"Bearer {token}",
-                # The ID being deleted is an immutable ID (from create, from the
-                # backfill, or from a list call), so this request must use the
-                # same dialect. Without it Graph can 404 -- and 404 is treated
-                # as success below, which would silently leave the contact and
-                # its PII sitting in the shared mailbox.
-                "Prefer": IMMUTABLE_ID_PREFER,
-            }
+            headers = {"Authorization": f"Bearer {token}"}
 
-            response = self._request_with_retry("delete", endpoint, headers=headers)
+            # Routed through the dialect-tolerant helper for two reasons: the ID
+            # may be immutable (from create/backfill/list) and needs the Prefer
+            # header, or it may still be a legacy restId and must not be given
+            # one. Getting it wrong here is the worst case in this module --
+            # 404 is treated as success below, so a dialect mismatch would
+            # report a clean deletion while leaving the contact and its PII
+            # sitting in the shared mailbox.
+            response = self._request_stored_contact("delete", endpoint, headers)
 
             if response.status_code in [200, 204]:
                 logger.info(f"Deleted Outlook contact: {outlook_contact_id}")
@@ -1134,6 +1201,12 @@ class GraphContactsService:
             except Exception as e:
                 logger.error(f"Error deleting contact {display_name}: {e}")
                 stats["errors"] += 1
+
+            # Same pacing as sync_all_profiles. A mailbox with a lot of stray
+            # contacts would otherwise burst far harder than the nightly sync
+            # against the 10,000-requests-per-10-minutes mailbox budget, and
+            # this is an admin cleanup where wall-clock does not matter.
+            time.sleep(SYNC_DELAY_BETWEEN_PROFILES)
 
         logger.info(
             f"Deletion complete: {stats['deleted']} deleted, "

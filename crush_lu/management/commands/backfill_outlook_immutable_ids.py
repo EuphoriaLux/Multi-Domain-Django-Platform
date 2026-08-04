@@ -12,6 +12,13 @@ GraphContactsService now sends Prefer: IdType="ImmutableId" on create and read,
 so new contacts are safe. This command converts the IDs written before that,
 using the Graph translateExchangeIds function (1000 IDs per call).
 
+This is convergence, not a prerequisite: the service does not depend on this
+command having run. _request_stored_contact() re-checks any 404 in the legacy
+dialect before believing it, so an unmigrated row keeps working (at the cost of
+a second request per operation) instead of being cleared and duplicated. Run
+this to stop paying that cost -- and because until a row is migrated, its
+contact still loses its ID if somebody moves it between folders.
+
 Usage:
     # ALWAYS start here
     python manage.py backfill_outlook_immutable_ids --dry-run
