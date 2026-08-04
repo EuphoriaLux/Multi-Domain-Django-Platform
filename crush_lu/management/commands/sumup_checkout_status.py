@@ -174,7 +174,23 @@ class Command(BaseCommand):
 
             before = tx_obj.status
             if before == PaymentTransaction.Status.PENDING:
-                _sync_checkout_with_sumup(tx_obj)
+                # Its own read, deliberately — the reconciliation that can
+                # confirm a seat re-reads from SumUp rather than trusting a
+                # payload handed to it. But that means a second call, which can
+                # fail on its own, and the error is swallowed inside. Without
+                # checking the answer the command would print "synced unchanged
+                # (pending)" directly beneath a dump showing SumUp reported the
+                # checkout PAID — announcing that the repair had been
+                # considered and declined, when it had never been attempted.
+                if not _sync_checkout_with_sumup(tx_obj):
+                    self.stdout.write(
+                        self.style.ERROR(
+                            "  synced       no answer from SumUp on the second "
+                            "read — NOT synced (see the log for the provider "
+                            "error); re-run to apply it"
+                        )
+                    )
+                    return
             else:
                 # ``_sync_checkout_with_sumup`` returns immediately for a
                 # settled row — that early return is what stops a terminal

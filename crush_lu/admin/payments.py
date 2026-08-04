@@ -318,10 +318,19 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
 
             if settled:
                 # Deliberately does not act on a mismatch — it says so instead.
-                # A checkout SumUp calls PAID under a row we wrote off is a real
+                # A checkout SumUp calls PAID under a row we WROTE OFF is a real
                 # discrepancy (money taken, nothing delivered), and confirming a
                 # seat off the back of an admin refresh is a human's decision.
-                if reported in ("PAID", "SUCCESSFUL"):
+                #
+                # "Settled" is not "written off", though: a PAID row is settled
+                # too, and SumUp agreeing that it was paid is the single most
+                # ordinary thing this action can find. Flagging that as a
+                # financial anomaly would train coaches to ignore the warning
+                # that matters.
+                if (
+                    reported in ("PAID", "SUCCESSFUL")
+                    and tx_obj.status != PaymentTransaction.Status.PAID
+                ):
                     self.message_user(
                         request,
                         f"{tx_obj.transaction_reference}: recorded as "

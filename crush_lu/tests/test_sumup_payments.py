@@ -2639,6 +2639,30 @@ class SumUpCheckoutStatusCommandTests(SiteTestMixin, TestCase):
         self.assertIn("could not reach SumUp", output)
 
     @patch("crush_lu.services.sumup.SumUpClient.get_checkout")
+    def test_a_swallowed_second_read_is_not_reported_as_unchanged(self, mock_get):
+        """The command reads twice; the second read has its own failure mode.
+
+        The reconciliation deliberately re-reads rather than trusting a payload
+        handed to it, so --sync makes a second call whose error is swallowed
+        inside. Unchecked, the command printed "synced unchanged (pending)"
+        directly beneath a dump showing SumUp reported the checkout PAID —
+        announcing that the repair had been considered and declined when it had
+        never been attempted.
+        """
+        PaymentTransaction.objects.filter(pk=self.tx.pk).update(
+            status=PaymentTransaction.Status.PENDING
+        )
+        mock_get.side_effect = [
+            {"id": "CHK_CLI", "status": "PAID"},
+            SumUpError("gone for the second read"),
+        ]
+
+        output = self._run(sync=True)
+
+        self.assertIn("NOT synced", output)
+        self.assertNotIn("unchanged", output)
+
+    @patch("crush_lu.services.sumup.SumUpClient.get_checkout")
     def test_it_prints_the_attempts_without_being_asked_to_sync(self, mock_get):
         """Read-only by default — looking must never change anything."""
         mock_get.return_value = {
@@ -2750,3 +2774,111 @@ class RecheckActionHonestyTests(SiteTestMixin, TestCase):
 
         self.assertFalse(admin_obj.has_change_permission(request))
         self.assertIn("recheck_with_sumup", admin_obj.get_actions(request))
+
+
+class RefreshAndReportHonestyTests(SiteTestMixin, TestCase):
+    """Two ways a refresh can mislead the person reading it."""
+
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(
+            username="refresh@crush.lu",
+            email="refresh@crush.lu",
+            password="password123",
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Refresh",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+
+    def _tx(self, status, reason=""):
+        return PaymentTransaction.objects.create(
+            transaction_reference=f"CRUSH-EVT-REF-{status}",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id=f"CHK_REF_{status}",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=status,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+            failure_reason=reason,
+        )
+
+    def _run_action(self, queryset):
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+
+        from crush_lu.admin.payments import PaymentTransactionAdmin
+        from crush_lu.admin.site import crush_admin_site
+
+        request = RequestFactory().post("/crush-admin/")
+        request.user = self.user
+        request.session = {}
+        request._messages = FallbackStorage(request)
+
+        PaymentTransactionAdmin(
+            PaymentTransaction, crush_admin_site
+        ).recheck_with_sumup(request, queryset)
+        return " ".join(str(message) for message in request._messages)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_paid_row_that_sumup_also_calls_paid_is_not_an_anomaly(self, mock_get):
+        """The most ordinary thing this action can find.
+
+        Flagging it as "check whether this member was charged" would train
+        coaches to ignore the warning that actually matters.
+        """
+        tx = self._tx(PaymentTransaction.Status.PAID)
+        mock_get.return_value = {"id": tx.sumup_checkout_id, "status": "PAID"}
+
+        messages_shown = self._run_action(PaymentTransaction.objects.filter(pk=tx.pk))
+
+        self.assertNotIn("check whether this member was charged", messages_shown)
+        self.assertIn("refreshed from SumUp", messages_shown)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_written_off_row_that_sumup_calls_paid_still_shouts(self, mock_get):
+        """The case the warning exists for must survive the fix above."""
+        tx = self._tx(PaymentTransaction.Status.FAILED)
+        mock_get.return_value = {"id": tx.sumup_checkout_id, "status": "PAID"}
+
+        messages_shown = self._run_action(PaymentTransaction.objects.filter(pk=tx.pk))
+
+        self.assertIn("check whether this member was charged", messages_shown)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_refreshing_a_superseded_row_keeps_our_own_account_of_it(self, mock_get):
+        """SumUp cannot know we deactivated it — it just says FAILED.
+
+        Taking its wording would erase the one sentence separating a checkout
+        we killed from a card a bank refused, which is why CANCELLED exists.
+        """
+        from crush_lu.views_payments import refresh_sumup_snapshot
+
+        ours = "Superseded by a newer checkout — the member re-opened the page."
+        tx = self._tx(PaymentTransaction.Status.CANCELLED, reason=ours)
+        mock_get.return_value = {
+            "id": tx.sumup_checkout_id,
+            "status": "FAILED",
+            "transactions": [],
+        }
+
+        refresh_sumup_snapshot(tx)
+
+        tx.refresh_from_db()
+        self.assertEqual(tx.failure_reason, ours)
+        # The snapshot itself still refreshes; only the wording is ours to keep.
+        self.assertEqual(tx.raw_response["status"], "FAILED")

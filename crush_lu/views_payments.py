@@ -695,11 +695,21 @@ def refresh_sumup_snapshot(tx_obj):
 
     reported = (data.get("status") or "").upper()
     tx_obj.raw_response = data
-    # Don't describe a success as a failure. A checkout SumUp reports as paid
-    # has nothing to explain, whatever our row happens to say about it.
-    tx_obj.failure_reason = (
-        "" if reported in ("PAID", "SUCCESSFUL") else describe_sumup_failure(data)
-    )
+    if reported in ("PAID", "SUCCESSFUL"):
+        # Don't describe a success as a failure. A checkout SumUp reports as
+        # paid has nothing to explain, whatever our row happens to say about it.
+        tx_obj.failure_reason = ""
+    elif tx_obj.status != PaymentTransaction.Status.CANCELLED:
+        tx_obj.failure_reason = describe_sumup_failure(data)
+    else:
+        # A CANCELLED row carries a reason WE wrote — "superseded by a newer
+        # checkout" — and SumUp has no idea that is what happened: it reports a
+        # deactivated checkout as a plain FAILED with no card attempt. Taking
+        # its wording here would replace the one sentence that distinguishes a
+        # checkout we killed from a card a bank refused, which is the whole
+        # reason CANCELLED exists as a separate status. The snapshot still
+        # refreshes; only the account of it is ours to keep.
+        pass
     tx_obj.save(update_fields=["raw_response", "failure_reason", "updated_at"])
     return reported
 
