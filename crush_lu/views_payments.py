@@ -363,7 +363,7 @@ def _send_registration_confirmation_safely(registration):
         )
 
 
-def _premium_purchase_refused(membership):
+def _premium_purchase_refused(membership, *, lock=False):
     """True when the beta allowlist refuses this membership's BUYER.
 
     A premium purchase gets judged at three separate moments -- opening the
@@ -376,12 +376,38 @@ def _premium_purchase_refused(membership):
     let staff act for a member, so reading the allowlist off the requester would
     ask about the staff account -- which has no waitlist row -- and would let the
     staff bypass launder the allowlist. The entitlement belongs to the buyer.
+
+    ``lock=True`` reads the waitlist row ``FOR UPDATE`` and belongs to the
+    completion path ONLY. That path is inside a transaction that is about to
+    grant a permanent entitlement, and an unlocked read leaves a window: an
+    admin de-selecting between the read and ``confirm()`` would be overtaken and
+    Premium granted despite the revocation. Holding the lock orders the two
+    deterministically -- the de-selection either lands before the read (refused)
+    or blocks until after the grant.
+
+    The other two call sites deliberately stay unlocked. They run outside any
+    transaction, and the checkout creator goes on to make SumUp network calls --
+    holding a row lock across provider I/O is exactly the shape to avoid. Being
+    advisory there is fine, because the completion check is the one that
+    actually gates the entitlement.
     """
     if membership is None:
         return False
-    return bool(
-        getattr(settings, "PREMIUM_REDIRECTS_TO_BETA", False)
-    ) and not is_selected_beta_tester(membership.user)
+    if not getattr(settings, "PREMIUM_REDIRECTS_TO_BETA", False):
+        return False
+    if not lock:
+        return not is_selected_beta_tester(membership.user)
+
+    from crush_lu.models.crush_connect import CrushConnectWaitlist
+
+    entry = (
+        CrushConnectWaitlist.objects.select_for_update()
+        .filter(user_id=membership.user_id)
+        .first()
+    )
+    # Mirrors is_selected_beta_tester's semantics exactly: no row, or a row that
+    # is not selected, both mean "not a tester".
+    return not (entry and entry.selected_as_tester)
 
 
 def _apply_paid_checkout(tx_obj, data):
@@ -515,7 +541,7 @@ def _apply_paid_checkout(tx_obj, data):
             # refuse to do is grant Premium. Logged at error level because it
             # needs a human: refund, or re-select the member if the de-selection
             # was the mistake.
-            if _premium_purchase_refused(pm):
+            if _premium_purchase_refused(pm, lock=True):
                 logger.error(
                     "SumUp payment %s completed for PremiumMembership %s "
                     "(user=%s, coach=%s) but the buyer is no longer a selected "
@@ -1162,6 +1188,29 @@ def _sumup_return_response(request, tx_obj):
                     )
                 else:
                     messages.success(request, _("You're now a Premium member."))
+            else:
+                # PAID but not granted. Three ways to get here and they are all
+                # the same to the customer: the coach filled up mid-flight, the
+                # request stopped being pending, or the buyer is no longer a
+                # selected tester. _apply_paid_checkout logs each at error level
+                # for a human, but until now this page said only "Payment
+                # completed successfully" and dropped them on the hub with
+                # nothing to show for it -- the charge is real, so silence here
+                # reads as a purchase that worked.
+                #
+                # Deliberately vague about the cause: the remedies differ
+                # (refund, coach reassignment, re-selection) and none of them is
+                # the member's to action. What they need is to know the money
+                # moved, that they did not get what they paid for, and that it
+                # is being handled.
+                messages.warning(
+                    request,
+                    _(
+                        "Your payment went through, but we could not activate "
+                        "your Premium membership yet. Our team has been "
+                        "notified and will be in touch shortly."
+                    ),
+                )
             return redirect("crush_lu:crush_connect_hub")
     else:
         messages.warning(request, _("Payment is pending or was not completed."))

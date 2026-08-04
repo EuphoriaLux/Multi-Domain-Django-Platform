@@ -808,6 +808,63 @@ class PremiumBetaAllowlistTests(SiteTestMixin, TestCase):
         self.membership.refresh_from_db()
         self.assertEqual(self.membership.status, "active")
 
+    def test_the_completion_check_reads_the_waitlist_under_a_lock(self):
+        """The grant and a concurrent de-selection must have a definite order.
+
+        An unlocked read leaves a window between "is this user a tester" and
+        confirm(): an admin de-selecting inside it would be overtaken and
+        Premium granted anyway. Asserted at the query level because the race
+        itself cannot be reproduced deterministically in a test.
+        """
+        from django.db.models.query import QuerySet
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        tx = self._open_checkout()
+        self._select_as_tester()
+
+        # Asserted on the ORM call, not on "FOR UPDATE" appearing in the SQL:
+        # the local test backend is SQLite, whose has_select_for_update is
+        # False, so Django emits the query without the clause and a SQL-level
+        # assertion would fail here while passing against production Postgres.
+        original = QuerySet.select_for_update
+        locked_models = []
+
+        def _spy(self, *args, **kwargs):
+            locked_models.append(self.model.__name__)
+            return original(self, *args, **kwargs)
+
+        with patch.object(QuerySet, "select_for_update", _spy):
+            _apply_paid_checkout(tx, {"id": "CHK_REVOKED", "status": "PAID"})
+
+        self.assertIn("CrushConnectWaitlist", locked_models)
+
+    def test_a_charged_customer_is_told_premium_was_not_activated(self):
+        """PAID but not granted must not read as an ordinary successful buy.
+
+        Pre-existing gap that this PR makes more reachable: the coach-filled-up
+        and request-cancelled paths land here too, and the page said only
+        "Payment completed successfully" before dropping them on the hub.
+        """
+        tx = self._open_checkout()
+        self._select_as_tester(selected=False)
+        tx.status = PaymentTransaction.Status.PAID
+        tx.save(update_fields=["status"])
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            "/payments/sumup/return/", {"ref": tx.transaction_reference}, follow=True
+        )
+
+        texts = [str(m) for m in response.context["messages"]]
+        self.assertTrue(
+            any("could not activate" in t for t in texts),
+            f"no withheld-entitlement warning in {texts}",
+        )
+        self.assertFalse(
+            any("You're Premium" in t or "now a Premium member" in t for t in texts),
+            f"claimed Premium it did not grant: {texts}",
+        )
+
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
 class CheckoutGuardTests(SiteTestMixin, TestCase):
@@ -1505,7 +1562,16 @@ class PremiumCompletionRevalidationTests(SiteTestMixin, TestCase):
         self.membership.refresh_from_db()
         self.assertEqual(self.membership.status, "pending")
         texts = [str(m) for m in response.wsgi_request._messages]
-        self.assertFalse(any("Premium" in t for t in texts), texts)
+        # Must not CLAIM Premium. Asserted on the claim itself rather than on
+        # the word "Premium" appearing at all -- the page now also has to SAY
+        # the entitlement was withheld, and that sentence necessarily names it.
+        self.assertFalse(
+            any("You're Premium" in t or "now a Premium member" in t for t in texts),
+            texts,
+        )
+        # ...and silence is not acceptable either: the charge is real, so saying
+        # only "Payment completed successfully" reads as an ordinary purchase.
+        self.assertTrue(any("could not activate" in t for t in texts), texts)
 
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
