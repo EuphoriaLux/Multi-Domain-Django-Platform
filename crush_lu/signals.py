@@ -3853,7 +3853,11 @@ def sync_profile_to_outlook(sender, instance, created, update_fields, **kwargs):
         update_fields: Set of field names being updated (if using update_fields)
         **kwargs: Additional signal arguments
     """
-    from crush_lu.services.graph_contacts import GraphContactsService, is_sync_enabled
+    from crush_lu.services.graph_contacts import (
+        INTERACTIVE_RETRY_SLEEP_TOTAL,
+        GraphContactsService,
+        is_sync_enabled,
+    )
 
     # Skip sync if not in production environment
     if not is_sync_enabled():
@@ -3868,24 +3872,36 @@ def sync_profile_to_outlook(sender, instance, created, update_fields, **kwargs):
     if not instance.phone_number:
         return
 
+    # This signal runs on the web request thread and every branch below makes
+    # blocking Graph calls, so the work is deferred to on_commit: outside a
+    # transaction it runs immediately, and inside one it can no longer write a
+    # contact for a profile whose transaction later rolls back. The tightened
+    # retry budget keeps a throttled Graph call from parking the request.
+    def _service():
+        return GraphContactsService(retry_budget=INTERACTIVE_RETRY_SLEEP_TOTAL)
+
     # Only sync phone-verified profiles (caller ID requires verified phone)
     if not instance.phone_verified:
         # If profile was previously synced but phone is now unverified, delete the contact
         if instance.outlook_contact_id:
-            try:
-                service = GraphContactsService()
-                service.delete_contact(instance.outlook_contact_id)
-                # Clear the contact ID using update() to avoid infinite recursion
-                CrushProfile.objects.filter(pk=instance.pk).update(
-                    outlook_contact_id=""
-                )
-                logger.info(
-                    f"Deleted Outlook contact for unverified phone {instance.pk}"
-                )
-            except Exception as e:
-                logger.warning(
-                    f"Failed to delete Outlook contact for unverified phone {instance.pk}: {e}"
-                )
+            contact_id = instance.outlook_contact_id
+
+            def _delete_unverified():
+                try:
+                    _service().delete_contact(contact_id)
+                    # Clear the contact ID using update() to avoid infinite recursion
+                    CrushProfile.objects.filter(pk=instance.pk).update(
+                        outlook_contact_id=""
+                    )
+                    logger.info(
+                        f"Deleted Outlook contact for unverified phone {instance.pk}"
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to delete Outlook contact for unverified phone {instance.pk}: {e}"
+                    )
+
+            transaction.on_commit(_delete_unverified)
         return
 
     # Check if relevant fields were updated (if update_fields provided)
@@ -3904,12 +3920,15 @@ def sync_profile_to_outlook(sender, instance, created, update_fields, **kwargs):
         should_sync = True
 
     if should_sync:
-        try:
-            service = GraphContactsService()
-            service.sync_profile(instance)
-        except Exception as e:
-            # Don't fail the save if Outlook sync fails
-            logger.warning(f"Failed to sync profile {instance.pk} to Outlook: {e}")
+
+        def _sync():
+            try:
+                _service().sync_profile(instance)
+            except Exception as e:
+                # Don't fail the save if Outlook sync fails
+                logger.warning(f"Failed to sync profile {instance.pk} to Outlook: {e}")
+
+        transaction.on_commit(_sync)
 
 
 @receiver(post_save, sender=User)
@@ -3924,7 +3943,11 @@ def sync_user_to_outlook_on_name_change(
 
     Only runs in production when OUTLOOK_CONTACT_SYNC_ENABLED=true.
     """
-    from crush_lu.services.graph_contacts import GraphContactsService, is_sync_enabled
+    from crush_lu.services.graph_contacts import (
+        INTERACTIVE_RETRY_SLEEP_TOTAL,
+        GraphContactsService,
+        is_sync_enabled,
+    )
 
     # Skip for new users (no profile yet)
     if created:
@@ -3950,11 +3973,15 @@ def sync_user_to_outlook_on_name_change(
     if not profile.phone_number or not profile.outlook_contact_id:
         return
 
-    try:
-        service = GraphContactsService()
-        service.sync_profile(profile)
-    except Exception as e:
-        logger.warning(f"Failed to sync user {instance.pk} to Outlook: {e}")
+    def _sync():
+        try:
+            GraphContactsService(
+                retry_budget=INTERACTIVE_RETRY_SLEEP_TOTAL
+            ).sync_profile(profile)
+        except Exception as e:
+            logger.warning(f"Failed to sync user {instance.pk} to Outlook: {e}")
+
+    transaction.on_commit(_sync)
 
 
 @receiver(pre_delete, sender=CrushProfile)
@@ -3974,7 +4001,11 @@ def delete_outlook_contact_on_profile_delete(sender, instance, **kwargs):
         instance: The CrushProfile instance being deleted
         **kwargs: Additional signal arguments
     """
-    from crush_lu.services.graph_contacts import GraphContactsService, is_sync_enabled
+    from crush_lu.services.graph_contacts import (
+        INTERACTIVE_RETRY_SLEEP_TOTAL,
+        GraphContactsService,
+        is_sync_enabled,
+    )
 
     # Skip deletion if not in production environment
     if not is_sync_enabled():
@@ -3987,26 +4018,38 @@ def delete_outlook_contact_on_profile_delete(sender, instance, **kwargs):
         )
         return
 
-    try:
-        service = GraphContactsService()
-        success = service.delete_contact(instance.outlook_contact_id)
+    # Capture what we need now: this is pre_delete, so by the time the callback
+    # runs the row is gone and instance.user would re-query a deleted user.
+    contact_id = instance.outlook_contact_id
+    profile_pk = instance.pk
+    user_email = instance.user.email
 
-        if success:
-            logger.info(
-                f"Deleted Outlook contact {instance.outlook_contact_id} for profile {instance.pk} "
-                f"(user: {instance.user.email})"
+    def _delete():
+        try:
+            success = GraphContactsService(
+                retry_budget=INTERACTIVE_RETRY_SLEEP_TOTAL
+            ).delete_contact(contact_id)
+
+            if success:
+                logger.info(
+                    f"Deleted Outlook contact {contact_id} for profile {profile_pk} "
+                    f"(user: {user_email})"
+                )
+            else:
+                logger.warning(
+                    f"Failed to delete Outlook contact {contact_id} for profile {profile_pk}"
+                )
+        except Exception as e:
+            # Don't fail the deletion if Outlook sync fails
+            # The profile will be deleted regardless, but log critically for manual cleanup
+            logger.error(
+                f"CRITICAL: Failed to delete Outlook contact {contact_id} "
+                f"for profile {profile_pk}. MANUAL CLEANUP REQUIRED. Error: {e}"
             )
-        else:
-            logger.warning(
-                f"Failed to delete Outlook contact {instance.outlook_contact_id} for profile {instance.pk}"
-            )
-    except Exception as e:
-        # Don't fail the deletion if Outlook sync fails
-        # The profile will be deleted regardless, but log critically for manual cleanup
-        logger.error(
-            f"CRITICAL: Failed to delete Outlook contact {instance.outlook_contact_id} "
-            f"for profile {instance.pk}. MANUAL CLEANUP REQUIRED. Error: {e}"
-        )
+
+    # Deferred to on_commit so a rolled-back delete doesn't destroy the Outlook
+    # contact whose ID we would then have lost.
+    transaction.on_commit(_delete)
 
 
 # =============================================================================

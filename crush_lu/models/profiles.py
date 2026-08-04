@@ -742,6 +742,14 @@ class CrushProfile(models.Model):
         blank=True,
         help_text=_("Microsoft Graph contact ID for Outlook sync"),
     )
+    outlook_photo_key = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text=_(
+            "photo_1 storage key last uploaded to the Outlook contact, so "
+            "unchanged photos are not re-uploaded on every sync"
+        ),
+    )
 
     # Referral Rewards
     MEMBERSHIP_TIER_CHOICES = [

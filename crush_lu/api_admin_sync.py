@@ -94,9 +94,12 @@ def sync_contacts_endpoint(request):
 @require_http_methods(["POST"])
 def delete_all_contacts_endpoint(request):
     """
-    Delete all synced Outlook contacts.
+    Delete the Outlook contacts this service created.
 
-    Use with caution - this removes all contacts that have outlook_contact_id.
+    Use with caution - this removes every contact in the shared mailbox that
+    carries the 'Crush.lu' category, whether or not the database still tracks
+    it. Contacts a human filed in noreply@crush.lu are left alone unless the
+    request explicitly opts in with {"include_foreign": true}.
 
     Authentication: Bearer token via Authorization header
 
@@ -106,11 +109,14 @@ def delete_all_contacts_endpoint(request):
         "stats": {
             "total": 161,
             "deleted": 161,
-            "errors": 0
+            "errors": 0,
+            "skipped": 3
         },
         "timestamp": "2026-01-29T17:00:00Z"
     }
     """
+    import json
+
     from django.utils import timezone
 
     # Authenticate request
@@ -129,18 +135,35 @@ def delete_all_contacts_endpoint(request):
             'error': 'Outlook contact sync is not enabled for this environment'
         }, status=503)
 
+    # Opt-in escape hatch for wiping contacts we did not create. Off by default:
+    # noreply@crush.lu is a shared mailbox and this endpoint is reachable with
+    # nothing but the bearer token.
+    include_foreign = False
+    if request.body:
+        try:
+            include_foreign = bool(
+                json.loads(request.body).get('include_foreign', False)
+            )
+        except (ValueError, AttributeError):
+            pass
+
     try:
         # Initialize service
         service = GraphContactsService()
 
-        # Delete all contacts directly from Outlook (not just database-tracked ones)
-        logger.warning("Deleting ALL Outlook contacts via admin API (including orphaned)")
-        stats = service.delete_all_contacts_from_outlook()
+        # Delete contacts directly from Outlook (not just database-tracked ones)
+        logger.warning(
+            f"Deleting Outlook contacts via admin API (including orphaned; "
+            f"include_foreign={include_foreign})"
+        )
+        stats = service.delete_all_contacts_from_outlook(
+            include_foreign=include_foreign
+        )
 
         logger.info(
             f"Contact deletion completed: "
             f"total={stats['total']}, deleted={stats['deleted']}, "
-            f"errors={stats['errors']}"
+            f"errors={stats['errors']}, skipped={stats.get('skipped', 0)}"
         )
 
         return JsonResponse({
