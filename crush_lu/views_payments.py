@@ -262,21 +262,14 @@ def create_sumup_premium_checkout(request, membership_id):
 
     # Ask the beta allowlist again, here, at the moment money is about to move.
     # views_premium checks it when the pending membership is MINTED, and nothing
-    # between there and confirm() ever re-asks -- so the pending row was a
+    # between there and confirm() ever re-asked -- so the pending row was a
     # capability that outlived the permission that created it. De-selecting a
     # tester in the admin bounced them off the coach directory while leaving
     # this endpoint, which they already hold a link to, fully payable: they
     # could still be charged and still have a coach permanently assigned.
     # Rotating testers in and out is the normal way to run the beta, so that
     # gap is a matter of when, not if.
-    #
-    # Judged on ``membership.user``, never ``request.user``: the ownership check
-    # above deliberately lets staff open a checkout on a member's behalf, so
-    # reading the allowlist off the request would ask about the staff account
-    # and break staff-assisted purchases. The entitlement belongs to the buyer.
-    if getattr(settings, "PREMIUM_REDIRECTS_TO_BETA", False) and not (
-        is_selected_beta_tester(membership.user)
-    ):
+    if _premium_purchase_refused(membership):
         logger.warning(
             "Blocked premium checkout for membership %s: user %s is not a "
             "selected beta tester",
@@ -368,6 +361,27 @@ def _send_registration_confirmation_safely(registration):
             registration.id,
             type(exc).__name__,
         )
+
+
+def _premium_purchase_refused(membership):
+    """True when the beta allowlist refuses this membership's BUYER.
+
+    A premium purchase gets judged at three separate moments -- opening the
+    checkout, opening the widget, and granting Premium at completion -- and each
+    is a place revocation has to reach. One predicate for all three so they
+    cannot drift into disagreeing about who may buy, the same reason
+    ``_payment_owner_ids`` is shared.
+
+    Always asks about ``membership.user``. Both checkout creators deliberately
+    let staff act for a member, so reading the allowlist off the requester would
+    ask about the staff account -- which has no waitlist row -- and would let the
+    staff bypass launder the allowlist. The entitlement belongs to the buyer.
+    """
+    if membership is None:
+        return False
+    return bool(
+        getattr(settings, "PREMIUM_REDIRECTS_TO_BETA", False)
+    ) and not is_selected_beta_tester(membership.user)
 
 
 def _apply_paid_checkout(tx_obj, data):
@@ -487,6 +501,33 @@ def _apply_paid_checkout(tx_obj, data):
             and locked.premium_membership
         ):
             pm = locked.premium_membership
+
+            # Re-validate the allowlist at completion, exactly as the seat
+            # branch above re-validates the registration. Blocking checkout
+            # creation is not enough on its own: a tester who opened a checkout
+            # and was de-selected while it was in flight still holds a payable
+            # widget, and granting here would hand them the permanent coach
+            # assignment that de-selection was meant to prevent.
+            #
+            # Same contract as every other refusal in this function -- SumUp has
+            # already captured the money, so the transaction stays PAID because
+            # dropping it would lose the only record of a real charge. What we
+            # refuse to do is grant Premium. Logged at error level because it
+            # needs a human: refund, or re-select the member if the de-selection
+            # was the mistake.
+            if _premium_purchase_refused(pm):
+                logger.error(
+                    "SumUp payment %s completed for PremiumMembership %s "
+                    "(user=%s, coach=%s) but the buyer is no longer a selected "
+                    "beta tester — payment recorded, Premium NOT granted, "
+                    "refund or re-selection required.",
+                    locked.transaction_reference,
+                    pm.id,
+                    pm.user_id,
+                    pm.coach_id,
+                )
+                return
+
             if pm.status == "pending":
                 # No pre-setting of payment_confirmed/payment_date here.
                 # ``confirm()`` sets both itself on success, and on failure it
@@ -1281,6 +1322,24 @@ def sumup_widget_view(request, checkout_id):
     tx_obj = get_object_or_404(PaymentTransaction, sumup_checkout_id=checkout_id)
     if request.user.id not in _payment_owner_ids(tx_obj) and not request.user.is_staff:
         raise Http404("No payment found.")
+
+    # Revocation has to reach the card form, not only checkout creation. THIS is
+    # the step that prevents the charge; refusing at completion only withholds
+    # the entitlement, after SumUp has captured the money and a human owes a
+    # refund. Deliberately NOT applied to the return page or the status/failure
+    # endpoints below -- those report on a payment that may already have
+    # happened, and someone who just handed over money is owed the truth about
+    # it. Answers exactly like an unknown checkout, so it is not an oracle for
+    # which checkouts exist.
+    if _premium_purchase_refused(tx_obj.premium_membership):
+        logger.warning(
+            "Blocked SumUp widget for checkout %s: the buyer of membership %s "
+            "is not a selected beta tester",
+            checkout_id,
+            tx_obj.premium_membership_id,
+        )
+        raise Http404("No payment found.")
+
     context = {
         "checkout_id": checkout_id,
         "transaction": tx_obj,

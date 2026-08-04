@@ -387,6 +387,10 @@ class SumUpPaymentViewsTests(SiteTestMixin, TestCase):
         self.assertEqual(self.registration.status, "pending")
         self.assertFalse(self.registration.payment_confirmed)
 
+    # Webhook plumbing, not the beta allowlist — see PremiumBetaAllowlistTests
+    # for the gate itself. The funnel defaults ON, and completion now withholds
+    # the grant from a non-tester, so pin it off here.
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=False)
     @patch("crush_lu.views_payments.SumUpClient.get_checkout")
     def test_sumup_webhook_premium_membership(self, mock_get_checkout):
         tx = PaymentTransaction.objects.create(
@@ -490,15 +494,28 @@ class PremiumPriceConsistencyTests(SiteTestMixin, TestCase):
         self.assertEqual(tx.amount, Decimal("15.00"))
 
 
-@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+# PREMIUM_REDIRECTS_TO_BETA is pinned ON for the whole class rather than
+# inherited: it defaults True in settings.py, but a local .env or a CI env var
+# can set it False, and these tests would then exercise the open-funnel path and
+# fail (or pass for the wrong reason). The gate's own behaviour must not depend
+# on the environment -- test_gate_lifts_when_the_beta_funnel_is_off overrides it
+# back off per-method, which stacks on top of this.
+@override_settings(
+    ROOT_URLCONF="azureproject.urls_crush", PREMIUM_REDIRECTS_TO_BETA=True
+)
 class PremiumBetaAllowlistTests(SiteTestMixin, TestCase):
-    """The beta allowlist is re-checked where the money moves, not only where
-    the pending membership is minted.
+    """The beta allowlist is re-checked at every moment a premium purchase can
+    be judged, not only where the pending membership is minted.
 
     views_premium gates minting; before this, nothing between there and
     ``confirm()`` asked again, so a pending row was a capability that outlived
     the permission that created it. Rotating a tester out of the beta left them
     holding a payable link.
+
+    Three surfaces, because revocation has to reach all of them: opening the
+    checkout, opening the widget (the step that actually prevents a charge), and
+    granting Premium at completion (which can only withhold the entitlement --
+    the money is already captured by then).
     """
 
     def setUp(self):
@@ -691,6 +708,105 @@ class PremiumBetaAllowlistTests(SiteTestMixin, TestCase):
         self.assertTrue(
             PaymentTransaction.objects.filter(sumup_checkout_id="CHK_BETA_OFF").exists()
         )
+
+    # --- revocation must reach an ALREADY-CREATED checkout (Codex P1) --------
+    #
+    # Blocking creation is not enough on its own: a tester who opened a checkout
+    # and was de-selected while it was in flight still held a payable widget,
+    # and the completion path called confirm() without asking again.
+
+    def _open_checkout(self):
+        """A checkout that already exists, as if opened while still selected."""
+        return PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-PREM-REVOKE-1",
+            sumup_checkout_id="CHK_REVOKED",
+            amount=Decimal("10.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
+            user=self.user,
+            premium_membership=self.membership,
+        )
+
+    def test_deselected_tester_cannot_reach_the_card_form(self):
+        """The widget is the step that PREVENTS the charge, so it must close."""
+        self._open_checkout()
+        self._select_as_tester(selected=False)
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse(
+                "crush_lu:sumup_widget",
+                kwargs={"checkout_id": "CHK_REVOKED"},
+            )
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_selected_tester_still_reaches_the_card_form(self):
+        self._open_checkout()
+        self._select_as_tester()
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse(
+                "crush_lu:sumup_widget",
+                kwargs={"checkout_id": "CHK_REVOKED"},
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_completion_does_not_grant_premium_to_a_deselected_tester(self):
+        """The race the widget block cannot close: widget already open, card
+        submitted, member de-selected in between.
+
+        SumUp has captured the money by now, so the transaction stays PAID --
+        dropping it would lose the only record of a real charge. What we refuse
+        is the grant. Same contract as the seat branch.
+        """
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        tx = self._open_checkout()
+        self._select_as_tester(selected=False)
+
+        _apply_paid_checkout(tx, {"id": "CHK_REVOKED", "status": "PAID"})
+
+        tx.refresh_from_db()
+        self.membership.refresh_from_db()
+        self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(self.membership.status, "pending")
+        self.assertFalse(self.membership.payment_confirmed)
+        self.user.crushprofile.refresh_from_db()
+        self.assertIsNone(self.user.crushprofile.assigned_coach)
+
+    def test_completion_grants_premium_to_a_selected_tester(self):
+        """The guard must not break the path it is protecting."""
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        tx = self._open_checkout()
+        self._select_as_tester()
+
+        _apply_paid_checkout(tx, {"id": "CHK_REVOKED", "status": "PAID"})
+
+        tx.refresh_from_db()
+        self.membership.refresh_from_db()
+        self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(self.membership.status, "active")
+        self.assertTrue(self.membership.payment_confirmed)
+        self.user.crushprofile.refresh_from_db()
+        self.assertEqual(self.user.crushprofile.assigned_coach, self.coach)
+
+    @override_settings(PREMIUM_REDIRECTS_TO_BETA=False)
+    def test_completion_is_unaffected_when_the_funnel_is_off(self):
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        tx = self._open_checkout()
+
+        _apply_paid_checkout(tx, {"id": "CHK_REVOKED", "status": "PAID"})
+
+        self.membership.refresh_from_db()
+        self.assertEqual(self.membership.status, "active")
 
 
 @override_settings(ROOT_URLCONF="azureproject.urls_crush")
@@ -885,7 +1001,13 @@ class PaymentCompletionRevalidationTests(SiteTestMixin, TestCase):
         self.assertTrue(self.registration.payment_confirmed)
 
 
-@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+# These cover completion mechanics, coach naming and the return page's locale --
+# not the beta allowlist, which PremiumBetaAllowlistTests owns. The completion
+# path now refuses to grant Premium to a non-tester while the funnel is on, and
+# the funnel defaults ON, so state the assumption instead of inheriting it.
+@override_settings(
+    ROOT_URLCONF="azureproject.urls_crush", PREMIUM_REDIRECTS_TO_BETA=False
+)
 class PremiumCompletionRevalidationTests(SiteTestMixin, TestCase):
     """The same in-flight problem on the Premium side.
 
