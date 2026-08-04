@@ -111,7 +111,7 @@ jobs:
           echo "🧹 Tracked CSS removed — only the artifact can satisfy the check below"
 
       - name: Download built CSS
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: built-css
 
