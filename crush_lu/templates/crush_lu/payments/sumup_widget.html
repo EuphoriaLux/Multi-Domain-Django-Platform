@@ -21,6 +21,20 @@
         <!-- Payment errors reported by the widget (declined card, network, …) -->
         <p id="sumup-error" class="hidden text-sm text-rose-600 dark:text-rose-400 text-center mb-4" role="alert" aria-live="polite"></p>
 
+        <!-- Shown once the card is with SumUp and the page is waiting on the
+             outcome — including across a 3DS challenge, which the widget does
+             not report the end of. Without it the page looks frozen. -->
+        <div id="sumup-status" class="hidden mb-4" role="status" aria-live="polite">
+            {# flex sits on the inner div: "hidden flex" on one element is a coin-toss between two display utilities #}
+            <div class="flex items-center justify-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                <svg class="animate-spin h-4 w-4 text-rose-500" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>{% trans "Confirming your payment — please don't close this page." %}</span>
+            </div>
+        </div>
+
         <!-- SumUp Card Widget Mount Target.
              `no-loading` opts this subtree out of the global navigation overlay
              (page-loading.js). The SDK renders its own form in here and handles
@@ -49,10 +63,249 @@
 <script nonce="{{ csp_nonce }}" type="text/javascript" src="https://gateway.sumup.com/gateway/ecom/card/v2/sdk.js"></script>
 <script nonce="{{ csp_nonce }}">
     document.addEventListener("DOMContentLoaded", function () {
-        const checkoutId = "{{ checkout_id }}";
-        const returnUrl = "{{ return_url }}";
+        {% comment %}
+        Same reason as defaultError below: these are JavaScript string
+        literals, so escapejs. return_url carries a query string, and
+        HTML-escaping an "&" in one produces "&amp;" — a redirect to the wrong
+        URL the moment a second parameter is added.
+        {% endcomment %}
+        const checkoutId = "{{ checkout_id|escapejs }}";
+        const returnUrl = "{{ return_url|escapejs }}";
+        const failureUrl = "{% url 'crush_lu:sumup_widget_failure' checkout_id %}";
+        const statusUrl = "{% url 'crush_lu:sumup_widget_status' checkout_id %}";
         const errorEl = document.getElementById("sumup-error");
-        const defaultError = "{% trans 'The payment could not be completed. Please check your card details and try again.' %}";
+        const statusEl = document.getElementById("sumup-status");
+        {% trans 'The payment could not be completed. Please check your card details and try again.' as default_error_text %}
+        {% comment %}
+        escapejs, because a JavaScript string literal is not HTML and escaping
+        it as HTML is both wrong and insufficient. Translating a quoted literal
+        returns SafeString, so nothing escapes this at all — a catalogue entry
+        containing a double quote or a backslash would close the string and
+        take the whole script with it, and the payment page's JS with that. No
+        entry does today; escapejs means none ever can.
+        {% endcomment %}
+        const defaultError = "{{ default_error_text|escapejs }}";
+
+        // CSRF_COOKIE_HTTPONLY is True, so document.cookie can't see csrftoken.
+        // Read the hidden input base.html renders instead (same as HTMX does).
+        function getCsrfToken() {
+            const input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+            return input ? input.value : "";
+        }
+
+        // Watch the checkout from our own server once the card has been sent.
+        //
+        // The widget stops talking to us the moment the bank takes over the
+        // 3-D Secure challenge: it emits "auth-screen" when the challenge
+        // STARTS and then, in practice, nothing at all. A customer who
+        // completed 3DS was therefore left sitting on this page indefinitely —
+        // paid, with no way for the page to find out. SumUp's guidance for
+        // widget integrations says as much: read the final result back from the
+        // checkout on your server. This is that half.
+        //
+        // Only the server decides; this asks "has it settled yet?" and does not
+        // send a status of its own.
+        // Each poll is scheduled only once the previous one has settled, rather
+        // than on a fixed interval. A slow SumUp read can take up to ten
+        // seconds server-side, so setInterval at 3s would stack several
+        // requests from one widget on top of each other — and the server-side
+        // throttle expires after 3s, so it would not absorb them either.
+        //
+        // Which makes a count of polls the wrong budget too: it would mean
+        // anything between 5 and 20 minutes depending on how SumUp is feeling.
+        // A wall-clock deadline says what was actually meant.
+        const POLL_INTERVAL_MS = 3000;
+        const POLL_WINDOW_MS = 5 * 60 * 1000; // longer than a bank app takes
+        let pollTimer = null;
+        let watching = false;
+        let deadline = 0;
+        // How many refused cards the customer has already been told about.
+        //
+        // The server counts what SumUp has recorded, and nothing else — it
+        // cannot tell whether a failure the widget reported and a provider
+        // record arriving later are one refused card or two, and three attempts
+        // to make it guess all broke. Neither can the page. So it no longer
+        // tries: this is only "is there news?", and the answer being wrong
+        // costs a repeated sentence rather than an abandoned payment.
+        //
+        // Seeded from the page itself, not fetched. Fetching cannot be made
+        // safe however early it starts: the status endpoint does a live
+        // provider read, so a slow one can answer with state recorded AFTER a
+        // card was submitted, and the page would file that very failure as one
+        // it had already seen. Rendered with the HTML, this is the count as it
+        // stood before the page existed. It moves from there on two events
+        // only — a poll that sees a higher one, and the answer to a failure
+        // report, which is a count the server took from a fresh read of the
+        // checkout at the moment the customer was shown the refusal.
+        let acknowledgedFailures = Number("{{ attempt_marker|escapejs }}") || 0;
+
+        function watchCheckout() {
+            // A new attempt is underway, so the last one's message is stale and
+            // the clock starts again: the window is five minutes from the last
+            // thing the card did, not from the first card of the evening.
+            deadline = Date.now() + POLL_WINDOW_MS;
+            errorEl.classList.add("hidden");
+            statusEl.classList.remove("hidden");
+            if (watching) {
+                // Already polling. "auth-screen" follows "sent" for the same
+                // card, and a retry can arrive while the previous attempt's
+                // watch is still running — scheduling again here would stack a
+                // second timer on top of the first and double the poll rate.
+                return;
+            }
+            watching = true;
+            scheduleNextPoll();
+        }
+
+        function pollOnce() {
+            if (!watching) {
+                return;
+            }
+            if (Date.now() > deadline) {
+                stopWatching();
+                if (errorEl.classList.contains("hidden")) {
+                    // Never leave a dead page: there is nothing on screen but a
+                    // spinner that has given up. The return route re-reads the
+                    // checkout and says plainly whether it was paid.
+                    window.location.href = returnUrl;
+                }
+                // Otherwise the page is already telling the truth and the
+                // widget is still mounted, so it is not dead — and navigating
+                // now would throw away a card the customer may be halfway
+                // through typing.
+                return;
+            }
+            fetch(statusUrl, { headers: { Accept: "application/json" } })
+                .then(function (res) {
+                    return res.ok ? res.json() : null;
+                })
+                .then(function (data) {
+                    if (data && data.settled) {
+                        stopWatching();
+                        window.location.href = returnUrl;
+                        return;
+                    }
+                    const failures = Number((data && data.attempt_marker) || 0);
+                    if (failures > acknowledgedFailures) {
+                        acknowledgedFailures = failures;
+                        // A card was refused. Say so — and keep watching.
+                        //
+                        // The checkout stays payable, SumUp keeps it open so
+                        // another card can be tried, and a retry that goes
+                        // behind a 3-D Secure challenge is invisible to the SDK
+                        // — this poll is then the only thing that will ever
+                        // hear how it ends. Stopping here is how a retry that
+                        // SUCCEEDED left the customer sitting on a decline with
+                        // their money taken, which is the exact hang this whole
+                        // page exists to fix.
+                        //
+                        // Because showing is no longer destructive, it does not
+                        // matter whether this rise is the refusal the SDK
+                        // already reported or a fresh one: the box says the
+                        // same thing either way and the watch survives it. That
+                        // is what retired the flag this used to need — nothing
+                        // on the page could tell those two apart, and three
+                        // attempts to guess all failed differently.
+                        if (errorEl.classList.contains("hidden")) {
+                            // Only when nothing is up: the SDK's own message
+                            // names the reason the bank gave, and this generic
+                            // one would replace it with less.
+                            errorEl.textContent = defaultError;
+                            errorEl.classList.remove("hidden");
+                        }
+                        statusEl.classList.add("hidden");
+                    }
+                    scheduleNextPoll();
+                })
+                .catch(function () {
+                    // Transient — try again on the next tick rather than
+                    // abandoning a payment that may still be in flight.
+                    scheduleNextPoll();
+                });
+        }
+
+        function scheduleNextPoll() {
+            if (watching) {
+                pollTimer = setTimeout(pollOnce, POLL_INTERVAL_MS);
+            }
+        }
+
+        function stopWatching() {
+            watching = false;
+            if (pollTimer) {
+                clearTimeout(pollTimer);
+                pollTimer = null;
+            }
+            statusEl.classList.add("hidden");
+        }
+
+        // Tell the server the attempt failed. A declined card is otherwise
+        // invisible to us: SumUp keeps the checkout open so another card can be
+        // tried, so no webhook fires and the customer never reaches the return
+        // page — the transaction would stay "pending" forever while SumUp's
+        // dashboard showed a failed sale nobody could trace back to a member.
+        // Fire-and-forget: the customer is looking at an error message, and a
+        // reporting failure must not become a second one.
+        function reportFailure(type, body) {
+            try {
+                fetch(failureUrl, {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": getCsrfToken(),
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        type: type,
+                        message: (body && (body.message || body.error_message)) || "",
+                    }),
+                    keepalive: true,
+                })
+                    .then(function (res) {
+                        return res.ok ? res.json() : null;
+                    })
+                    .then(function (data) {
+                        if (!data) {
+                            return;
+                        }
+                        // This response carries `attempt_marker`, and it must
+                        // NOT be used to move acknowledgedFailures. It is very
+                        // tempting: the server re-read the checkout to answer,
+                        // so its count looks like the authority on whether
+                        // SumUp has recorded the refusal now on screen.
+                        //
+                        // But the answer describes when it was READ, not when
+                        // it was asked. This request is issued the moment the
+                        // SDK reports a decline, and the customer can enter a
+                        // new card while it is still outstanding — the
+                        // provider read behind it takes seconds. A response
+                        // that lands after SumUp recorded the SECOND card's
+                        // refusal counts that one too, and adopting it here
+                        // marks a decline as seen that nobody has seen. The
+                        // poll then finds no rise, says nothing, and spins to
+                        // the deadline: the exact hang this page exists to fix.
+                        //
+                        // There is nothing to gain by trying. The poll picks
+                        // that record up on its own a few seconds later, and
+                        // the message is still on screen when it does, so it
+                        // is absorbed by the guard that will not overwrite what
+                        // is already displayed.
+                        //
+                        // The server verifies against SumUp before answering,
+                        // and an SDK error raised AFTER the money was captured
+                        // is a real sequence. If the payment actually went
+                        // through, correct the decline the customer is looking
+                        // at and move on. That is all this answer is for.
+                        if (data.settled) {
+                            stopWatching();
+                            errorEl.classList.add("hidden");
+                            window.location.href = returnUrl;
+                        }
+                    })
+                    .catch(function () {});
+            } catch (e) {
+                /* reporting is best-effort */
+            }
+        }
 
         if (typeof SumUpCard !== "undefined") {
             document.getElementById("sumup-loading").style.display = "none";
@@ -69,16 +322,34 @@
                     // That is what the return page reported as "payment is
                     // pending or was not completed".
                     if (type === "success") {
+                        stopWatching();
                         window.location.href = returnUrl;
                         return;
                     }
+                    // Still not a result — but from here the card IS with
+                    // SumUp, so the payment can complete without the widget
+                    // ever mentioning it again (a 3DS challenge ends at the
+                    // bank, not here). Start watching the checkout on the
+                    // server so the page can move on by itself.
                     if (type === "sent" || type === "auth-screen") {
+                        watchCheckout();
                         return;
                     }
                     if (type === "error" || type === "fail" || type === "invalid") {
+                        // Say what happened, but do NOT stop watching. The
+                        // checkout stays payable and the widget stays mounted,
+                        // so the customer's next card is one they enter right
+                        // here — and if that one goes behind a 3DS challenge
+                        // the SDK will never speak again. Only the poll can
+                        // hear it, and it has to still be listening.
+                        //
+                        // Hiding the spinner is enough to stop the page
+                        // contradicting itself; nothing needs to be torn down.
+                        statusEl.classList.add("hidden");
                         errorEl.textContent =
                             (body && (body.message || body.error_message)) || defaultError;
                         errorEl.classList.remove("hidden");
+                        reportFailure(type, body);
                     }
                 },
             });

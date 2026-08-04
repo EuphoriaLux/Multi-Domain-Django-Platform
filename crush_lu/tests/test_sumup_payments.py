@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
-from django.utils import timezone
+from django.utils import timezone, translation
 
 from crush_lu.models.events import EventRegistration, MeetupEvent
 from crush_lu.models.payments import PaymentTransaction
@@ -1428,10 +1428,12 @@ class SupersedeCheckoutTests(SiteTestMixin, TestCase):
         self.assertEqual(second.json()["checkout_id"], "CHK_B")
         # The old one is dead at SumUp, so it cannot also be paid.
         mock_deactivate.assert_called_once_with("CHK_A")
-        self.assertEqual(
-            PaymentTransaction.objects.get(sumup_checkout_id="CHK_A").status,
-            PaymentTransaction.Status.FAILED,
-        )
+        superseded = PaymentTransaction.objects.get(sumup_checkout_id="CHK_A")
+        # CANCELLED, not FAILED: SumUp's dashboard lists a deactivated checkout
+        # as a failed sale, so our own record has to say which "Échec" rows are
+        # our supersessions and which are a bank refusing a card.
+        self.assertEqual(superseded.status, PaymentTransaction.Status.CANCELLED)
+        self.assertIn("Superseded", superseded.failure_reason)
         self.assertEqual(
             PaymentTransaction.objects.get(sumup_checkout_id="CHK_B").status,
             PaymentTransaction.Status.PENDING,
@@ -1663,3 +1665,2253 @@ class SupersedeFailureModeTests(SiteTestMixin, TestCase):
         self.assertNotEqual(self.registration.status, "confirmed")
         # Money captured -- the record must survive for the refund/top-up.
         self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+
+
+class DescribeSumUpFailureTests(TestCase):
+    """The "why" extracted from a checkout payload.
+
+    SumUp's dashboard shows a failed online payment as the word "Échec" and a
+    struck-through amount. Everything useful is in the checkout resource, and
+    this is what turns it into a sentence a coach can read.
+    """
+
+    def test_names_the_decline_reason_from_the_attempt(self):
+        from crush_lu.views_payments import describe_sumup_failure
+
+        reason = describe_sumup_failure(
+            {
+                "status": "PENDING",
+                "transactions": [
+                    {"status": "FAILED", "failure_reason": "AUTHORISATION_ERROR"}
+                ],
+            }
+        )
+
+        self.assertIn("PENDING", reason)
+        self.assertIn("FAILED", reason)
+        self.assertIn("AUTHORISATION_ERROR", reason)
+
+    def test_says_outright_when_no_card_was_ever_submitted(self):
+        """The case that points back at us rather than at the card.
+
+        An EXPIRED or deactivated checkout carries no transactions at all, and
+        that difference is the whole question when a merchant is staring at a
+        row of failures wondering whether a customer's bank refused them.
+        """
+        from crush_lu.views_payments import describe_sumup_failure
+
+        reason = describe_sumup_failure({"status": "EXPIRED", "transactions": []})
+
+        self.assertIn("EXPIRED", reason)
+        self.assertIn("no card attempt", reason)
+
+    def test_survives_a_payload_shaped_unlike_the_documentation(self):
+        """This runs on live provider output during a payment; it may not 500."""
+        from crush_lu.views_payments import describe_sumup_failure
+
+        self.assertEqual(describe_sumup_failure(None), "")
+        self.assertEqual(describe_sumup_failure("nonsense"), "")
+        self.assertIn(
+            "UNKNOWN", describe_sumup_failure({"transactions": ["not-a-dict"]})
+        )
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class FailedAttemptVisibilityTests(SiteTestMixin, TestCase):
+    """A refused card must stop being invisible on our side.
+
+    Before this, the widget printed an error in the customer's browser and that
+    was the end of it: SumUp leaves a checkout PENDING after a decline so
+    another card can be tried, so no webhook fired, the customer never reached
+    the return page, and the PaymentTransaction sat PENDING with nothing
+    recorded. The only evidence was a "Échec" row in SumUp's dashboard, in a
+    different system, naming no member and no registration.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        # The provider-call throttle lives in the cache, which outlives a test.
+        # Every test here uses the same checkout id, so a leftover key would
+        # silently skip the SumUp call the next test is asserting on.
+        from django.core.cache import cache
+
+        cache.clear()
+        self.user = User.objects.create_user(
+            username="fail@crush.lu", email="fail@crush.lu", password="password123"
+        )
+        self.other = User.objects.create_user(
+            username="nosy@crush.lu", email="nosy@crush.lu", password="password123"
+        )
+        from crush_lu.models.profiles import UserDataConsent
+
+        for user in (self.user, self.other):
+            UserDataConsent.objects.update_or_create(
+                user=user,
+                defaults={
+                    "powerup_consent_given": True,
+                    "crushlu_consent_given": True,
+                },
+            )
+        self.event = MeetupEvent.objects.create(
+            title="Declined",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        self.tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-DECLINED",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_DECLINED",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+        self.url = reverse(
+            "crush_lu:sumup_widget_failure",
+            kwargs={"checkout_id": "CHK_DECLINED"},
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_decline_leaves_the_checkout_payable_but_recorded(self, mock_get):
+        """PENDING is correct here — the customer can still try another card."""
+        mock_get.return_value = {
+            "id": "CHK_DECLINED",
+            "status": "PENDING",
+            "transactions": [
+                {"status": "FAILED", "failure_reason": "INSUFFICIENT_FUNDS"}
+            ],
+        }
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            self.url,
+            data=json.dumps({"type": "fail", "message": "Card was declined"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.PENDING)
+        self.assertIn("INSUFFICIENT_FUNDS", self.tx.failure_reason)
+        self.assertIn("Card was declined", self.tx.failure_reason)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_the_browser_cannot_talk_a_payment_into_being_paid(self, mock_get):
+        """Same contract as the webhook: the posted body is a hint, not truth."""
+        mock_get.return_value = {"id": "CHK_DECLINED", "status": "PENDING"}
+        self.client.force_login(self.user)
+
+        self.client.post(
+            self.url,
+            data=json.dumps({"type": "success", "status": "PAID"}),
+            content_type="application/json",
+        )
+
+        self.tx.refresh_from_db()
+        self.registration.refresh_from_db()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.PENDING)
+        self.assertFalse(self.registration.payment_confirmed)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_repeated_reports_do_not_hammer_sumup(self, mock_get):
+        """Nothing stops a client posting here in a loop, so the cap lives here.
+
+        The report itself is still recorded every time — only the provider call
+        is rationed, because that is the finite resource.
+        """
+        mock_get.return_value = {"id": "CHK_DECLINED", "status": "PENDING"}
+        self.client.force_login(self.user)
+
+        for attempt in range(5):
+            self.client.post(
+                self.url,
+                data=json.dumps({"type": "fail", "message": f"try {attempt}"}),
+                content_type="application/json",
+            )
+
+        self.assertEqual(mock_get.call_count, 1)
+        self.tx.refresh_from_db()
+        self.assertIn("try 4", self.tx.failure_reason)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_stranger_cannot_scribble_on_someone_elses_payment(self, mock_get):
+        mock_get.return_value = {"id": "CHK_DECLINED", "status": "PENDING"}
+        self.client.force_login(self.other)
+
+        response = self.client.post(
+            self.url,
+            data=json.dumps({"type": "fail", "message": "not mine"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.failure_reason, "")
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_terminal_failure_closes_the_row_with_its_reason(self, mock_get):
+        mock_get.return_value = {
+            "id": "CHK_DECLINED",
+            "status": "FAILED",
+            "transactions": [{"status": "FAILED", "error_message": "3DS aborted"}],
+        }
+        self.client.force_login(self.user)
+
+        self.client.post(
+            self.url,
+            data=json.dumps({"type": "error", "message": "widget error"}),
+            content_type="application/json",
+        )
+
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.FAILED)
+        self.assertIn("3DS aborted", self.tx.failure_reason)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_payment_that_actually_succeeded_is_still_applied(self, mock_get):
+        """The widget can report an error on a checkout SumUp did capture.
+
+        Asking SumUp first means this path repairs the seat instead of filing a
+        failure against a payment the member was really charged for.
+        """
+        mock_get.return_value = {"id": "CHK_DECLINED", "status": "PAID"}
+        self.client.force_login(self.user)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(
+                self.url,
+                data=json.dumps({"type": "error", "message": "widget hiccup"}),
+                content_type="application/json",
+            )
+
+        self.tx.refresh_from_db()
+        self.registration.refresh_from_db()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.PAID)
+        self.assertTrue(self.registration.payment_confirmed)
+
+    def test_the_widget_page_renders_and_carries_the_reporting_url(self):
+        """Renders the real template, not just the view.
+
+        The reporting endpoint is reached through ``{% url %}`` in the widget
+        page, so a name that does not resolve is a 500 on the payment screen —
+        and the widget view had no test rendering it at all.
+        """
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse("crush_lu:sumup_widget", kwargs={"checkout_id": "CHK_DECLINED"})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "/payments/sumup/widget/CHK_DECLINED/failed/")
+        # base.html renders the token the reporting fetch reads; without it the
+        # POST is a 403 nobody sees (see test_template_hygiene).
+        self.assertContains(response, "csrfmiddlewaretoken")
+
+    def test_an_anonymous_post_cannot_reach_a_payment(self):
+        response = self.client.post(
+            self.url,
+            data=json.dumps({"type": "fail"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.failure_reason, "")
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class WidgetStatusPollingTests(SiteTestMixin, TestCase):
+    """The page must be able to find out for itself that a payment landed.
+
+    A member completed 3-D Secure and sat on the widget page indefinitely. The
+    widget emits "auth-screen" when the challenge *starts* and then goes quiet —
+    the bank finishes the payment, not the SDK — so nothing on the page ever
+    learned the money had gone through. This endpoint is the other half: the
+    page asks the server, and the server asks SumUp.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        from django.core.cache import cache
+
+        cache.clear()
+        self.user = User.objects.create_user(
+            username="poll@crush.lu", email="poll@crush.lu", password="password123"
+        )
+        self.other = User.objects.create_user(
+            username="other@crush.lu", email="other@crush.lu", password="password123"
+        )
+        from crush_lu.models.profiles import UserDataConsent
+
+        for user in (self.user, self.other):
+            UserDataConsent.objects.update_or_create(
+                user=user,
+                defaults={
+                    "powerup_consent_given": True,
+                    "crushlu_consent_given": True,
+                },
+            )
+        self.event = MeetupEvent.objects.create(
+            title="Polled",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        self.tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-POLL",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_POLL",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+        self.url = reverse(
+            "crush_lu:sumup_widget_status", kwargs={"checkout_id": "CHK_POLL"}
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_payment_completed_behind_3ds_settles_the_seat(self, mock_get):
+        """The whole point: nobody had to come back for this to be applied."""
+        mock_get.return_value = {"id": "CHK_POLL", "status": "PAID"}
+        self.client.force_login(self.user)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["settled"], True)
+        self.assertEqual(response.json()["paid"], True)
+        self.registration.refresh_from_db()
+        self.assertTrue(self.registration.payment_confirmed)
+        self.assertEqual(self.registration.status, "confirmed")
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_an_unfinished_payment_keeps_the_page_waiting(self, mock_get):
+        mock_get.return_value = {"id": "CHK_POLL", "status": "PENDING"}
+        self.client.force_login(self.user)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.json()["settled"], False)
+        self.assertEqual(response.json()["paid"], False)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_refusal_settles_too_so_the_page_stops_spinning(self, mock_get):
+        mock_get.return_value = {
+            "id": "CHK_POLL",
+            "status": "FAILED",
+            "transactions": [{"status": "FAILED", "failure_reason": "3DS_FAILED"}],
+        }
+        self.client.force_login(self.user)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.json()["settled"], True)
+        self.assertEqual(response.json()["paid"], False)
+        self.tx.refresh_from_db()
+        self.assertIn("3DS_FAILED", self.tx.failure_reason)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_polling_hard_does_not_hammer_sumup(self, mock_get):
+        """The browser sets the interval, so the throttle has to live here."""
+        mock_get.return_value = {"id": "CHK_POLL", "status": "PENDING"}
+        self.client.force_login(self.user)
+
+        for _unused in range(5):
+            self.client.get(self.url)
+
+        self.assertEqual(mock_get.call_count, 1)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_the_poll_loop_does_not_starve_a_failure_report(self, mock_get):
+        """Why the two throttles are scoped separately rather than sharing a key.
+
+        The poll runs every 3 seconds for the whole payment, so one shared key
+        would mean a genuine failure report almost always arrives inside a
+        window the poll just claimed — and the one sync that report exists to
+        trigger would be dropped.
+        """
+        mock_get.return_value = {"id": "CHK_POLL", "status": "PENDING"}
+        self.client.force_login(self.user)
+
+        self.client.get(self.url)  # a poll claims its slot
+        self.client.post(
+            reverse(
+                "crush_lu:sumup_widget_failure", kwargs={"checkout_id": "CHK_POLL"}
+            ),
+            data=json.dumps({"type": "fail", "message": "declined"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(mock_get.call_count, 2)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_stranger_cannot_watch_someone_elses_payment(self, mock_get):
+        mock_get.return_value = {"id": "CHK_POLL", "status": "PAID"}
+        self.client.force_login(self.other)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 404)
+        mock_get.assert_not_called()
+
+    def test_it_is_not_reachable_anonymously(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 302)
+
+    def test_the_widget_page_wires_the_poll_up(self):
+        """Renders the template — a missing URL name is a 500 on the pay page."""
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse("crush_lu:sumup_widget", kwargs={"checkout_id": "CHK_POLL"})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "/payments/sumup/widget/CHK_POLL/status/")
+        # The page must react to auth-screen rather than sitting on it.
+        self.assertContains(response, "watchCheckout")
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class FailureReasonLifecycleTests(SiteTestMixin, TestCase):
+    """What the recorded reason does across a checkout's whole life.
+
+    A declined attempt leaves the checkout payable, so one row can carry a
+    refusal and then a success. The reason has to keep up with that, and the
+    payload behind it has to be the one that explains the current state.
+    """
+
+    def setUp(self):
+        super().setUp()
+        from django.core.cache import cache
+
+        cache.clear()
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        self.user = User.objects.create_user(
+            username="life@crush.lu", email="life@crush.lu", password="password123"
+        )
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Retry",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        self.tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-LIFE",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_LIFE",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+            raw_response={"id": "CHK_LIFE", "status": "PENDING"},
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_pending_decline_stores_the_payload_it_was_read_from(self, mock_get):
+        """The Coach Panel's raw response must be the one that explains it.
+
+        Saving only the summary left "Raw provider response" showing the
+        checkout-creation payload — no transactions array at all — while
+        claiming to be the last thing SumUp returned.
+        """
+        from crush_lu.views_payments import _sync_checkout_with_sumup
+
+        mock_get.return_value = {
+            "id": "CHK_LIFE",
+            "status": "PENDING",
+            "transactions": [{"status": "FAILED", "failure_reason": "DECLINED"}],
+        }
+
+        _sync_checkout_with_sumup(self.tx)
+
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.PENDING)
+        self.assertIn("DECLINED", self.tx.failure_reason)
+        self.assertEqual(
+            self.tx.raw_response["transactions"][0]["failure_reason"], "DECLINED"
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_fresh_detail_lands_even_when_the_summary_reads_the_same(self, mock_get):
+        """Whether there's something new to say ≠ whether the snapshot is stale.
+
+        SumUp can return detail the summary does not mention — a later
+        timestamp, a code it did not have before — and gating the write on the
+        summary alone left "Raw provider response" claiming to be the last
+        thing SumUp returned while holding an older payload.
+        """
+        from crush_lu.views_payments import _sync_checkout_with_sumup
+
+        mock_get.return_value = {
+            "id": "CHK_LIFE",
+            "status": "PENDING",
+            "transactions": [{"status": "FAILED", "failure_reason": "DECLINED"}],
+        }
+        _sync_checkout_with_sumup(self.tx)
+        self.tx.refresh_from_db()
+        reason_before = self.tx.failure_reason
+
+        mock_get.return_value = {
+            "id": "CHK_LIFE",
+            "status": "PENDING",
+            "transactions": [
+                {
+                    "status": "FAILED",
+                    "failure_reason": "DECLINED",
+                    "timestamp": "2026-08-04T09:00:00Z",
+                }
+            ],
+        }
+        _sync_checkout_with_sumup(self.tx)
+
+        self.tx.refresh_from_db()
+        # Same story, so the summary is unchanged...
+        self.assertEqual(self.tx.failure_reason, reason_before)
+        # ...but the payload behind it is the one just fetched.
+        self.assertEqual(
+            self.tx.raw_response["transactions"][0]["timestamp"],
+            "2026-08-04T09:00:00Z",
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_an_unchanged_poll_does_not_write(self, mock_get):
+        """This branch is re-entered every few seconds for a whole payment."""
+        from crush_lu.views_payments import _sync_checkout_with_sumup
+
+        mock_get.return_value = {
+            "id": "CHK_LIFE",
+            "status": "PENDING",
+            "transactions": [{"status": "FAILED", "failure_reason": "DECLINED"}],
+        }
+        _sync_checkout_with_sumup(self.tx)
+        self.tx.refresh_from_db()
+        written_at = self.tx.updated_at
+
+        _sync_checkout_with_sumup(self.tx)
+
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.updated_at, written_at)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_successful_retry_clears_the_earlier_refusal(self, mock_get):
+        """Same checkout, second card. The row must not stay filed as failed."""
+        from crush_lu.views_payments import _sync_checkout_with_sumup
+
+        mock_get.return_value = {
+            "id": "CHK_LIFE",
+            "status": "PENDING",
+            "transactions": [{"status": "FAILED", "failure_reason": "DECLINED"}],
+        }
+        _sync_checkout_with_sumup(self.tx)
+        self.tx.refresh_from_db()
+        self.assertNotEqual(self.tx.failure_reason, "")
+
+        mock_get.return_value = {
+            "id": "CHK_LIFE",
+            "status": "PAID",
+            "transactions": [
+                {"status": "FAILED", "failure_reason": "DECLINED"},
+                {"status": "SUCCESSFUL"},
+            ],
+        }
+        with self.captureOnCommitCallbacks(execute=True):
+            _sync_checkout_with_sumup(self.tx)
+
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(self.tx.failure_reason, "")
+        # The refusal is not lost — it is still in the payload.
+        self.assertEqual(len(self.tx.raw_response["transactions"]), 2)
+
+    def test_a_late_decline_cannot_land_on_a_row_that_was_paid(self):
+        """The poll and the failure report are allowed to ask SumUp at once.
+
+        So a report holding a PENDING payload can be overtaken mid-call by a
+        poll that comes back PAID and applies it. Writing blind then puts a
+        failure reason and a superseded payload back onto a paid row — the
+        exact state _apply_paid_checkout clears, reintroduced by a race.
+        """
+        from crush_lu.views_payments import _record_pending_failure
+
+        # What the slower request is still holding when it resumes.
+        stale = {
+            "id": "CHK_LIFE",
+            "status": "PENDING",
+            "transactions": [{"status": "FAILED", "failure_reason": "DECLINED"}],
+        }
+        # Meanwhile the faster one has already paid the row.
+        PaymentTransaction.objects.filter(pk=self.tx.pk).update(
+            status=PaymentTransaction.Status.PAID,
+            raw_response={"id": "CHK_LIFE", "status": "PAID"},
+        )
+
+        wrote = _record_pending_failure(self.tx, "a stale decline", stale)
+
+        self.assertFalse(wrote)
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(self.tx.failure_reason, "")
+        self.assertEqual(self.tx.raw_response["status"], "PAID")
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_settled_row_can_still_be_refreshed_for_detail(self, mock_get):
+        """_sync_checkout_with_sumup won't touch a terminal row — by design.
+
+        Which left the Coach Panel's re-check doing nothing at all on a FAILED
+        payment while reporting that it had checked, and gave rows that failed
+        before this field existed no way to ever get a reason.
+        """
+        from crush_lu.views_payments import refresh_sumup_snapshot
+
+        self.tx.status = PaymentTransaction.Status.FAILED
+        self.tx.save(update_fields=["status"])
+        mock_get.return_value = {
+            "id": "CHK_LIFE",
+            "status": "FAILED",
+            "transactions": [{"status": "FAILED", "failure_reason": "EXPIRED_CARD"}],
+        }
+
+        reported = refresh_sumup_snapshot(self.tx)
+
+        self.assertEqual(reported, "FAILED")
+        self.tx.refresh_from_db()
+        self.assertIn("EXPIRED_CARD", self.tx.failure_reason)
+        self.assertEqual(self.tx.raw_response["status"], "FAILED")
+        # Status is the caller's business, never this function's.
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.FAILED)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_snapshot_cannot_land_on_a_row_paid_while_sumup_was_read(self, mock_get):
+        """The same race as its three siblings, in the last writer to get a lock.
+
+        The Coach Panel's re-check holds this row as it was loaded while the
+        provider answers, and that read is the slowest of them. A poll finishing
+        inside that window pays the row and clears its reason; writing the
+        snapshot blind afterwards puts a failed payload and a decline back onto
+        a payment that has just been paid.
+        """
+        from crush_lu.views_payments import refresh_sumup_snapshot
+
+        def a_poll_pays_the_row_mid_read(_checkout_id):
+            PaymentTransaction.objects.filter(pk=self.tx.pk).update(
+                status=PaymentTransaction.Status.PAID,
+                raw_response={"id": "CHK_LIFE", "status": "PAID"},
+                failure_reason="",
+            )
+            return {
+                "id": "CHK_LIFE",
+                "status": "FAILED",
+                "transactions": [{"status": "FAILED", "failure_reason": "DECLINED"}],
+            }
+
+        mock_get.side_effect = a_poll_pays_the_row_mid_read
+
+        # Still answers with what SumUp said — the caller compares the two
+        # records and this disagreement is exactly what it needs to see.
+        self.assertEqual(refresh_sumup_snapshot(self.tx), "FAILED")
+
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(self.tx.failure_reason, "")
+        self.assertEqual(self.tx.raw_response["status"], "PAID")
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_refreshing_never_quietly_confirms_a_seat(self, mock_get):
+        """A written-off row that SumUp calls PAID is a discrepancy, not a fix.
+
+        Money taken with nothing delivered needs a human. Reporting it is this
+        path's job; granting the seat is not.
+        """
+        from crush_lu.views_payments import refresh_sumup_snapshot
+
+        self.tx.status = PaymentTransaction.Status.FAILED
+        self.tx.save(update_fields=["status"])
+        mock_get.return_value = {"id": "CHK_LIFE", "status": "PAID"}
+
+        reported = refresh_sumup_snapshot(self.tx)
+
+        self.assertEqual(reported, "PAID")
+        self.tx.refresh_from_db()
+        self.registration.refresh_from_db()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.FAILED)
+        self.assertFalse(self.registration.payment_confirmed)
+        # And it is not described as a failure, because it is not one.
+        self.assertEqual(self.tx.failure_reason, "")
+
+
+class RecheckActionBoundsTests(SiteTestMixin, TestCase):
+    """The admin action runs inline, so it has to stop before the request does.
+
+    Production has no task worker (AGENTS.md): every re-check is a 10s-timeout
+    provider call inside the admin request, under a gunicorn timeout. Selecting
+    a screenful of unreachable checkouts must not get the request killed
+    part-way through applying payments.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(
+            username="coach@crush.lu",
+            email="coach@crush.lu",
+            password="password123",
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Bulk",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        for index in range(6):
+            registration = EventRegistration.objects.create(
+                user=User.objects.create_user(
+                    username=f"bulk{index}@crush.lu",
+                    email=f"bulk{index}@crush.lu",
+                    password="password123",
+                ),
+                event=self.event,
+                status="pending",
+            )
+            PaymentTransaction.objects.create(
+                transaction_reference=f"CRUSH-EVT-BULK-{index}",
+                provider=PaymentTransaction.Provider.SUMUP,
+                sumup_checkout_id=f"CHK_BULK_{index}",
+                amount=Decimal("1.00"),
+                currency="EUR",
+                status=PaymentTransaction.Status.PENDING,
+                purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+                user=self.user,
+                event_registration=registration,
+            )
+
+    def _run_action(self):
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+
+        from crush_lu.admin.payments import PaymentTransactionAdmin
+        from crush_lu.admin.site import crush_admin_site
+
+        request = RequestFactory().post("/crush-admin/")
+        request.user = self.user
+        request.session = {}
+        request._messages = FallbackStorage(request)
+
+        admin_obj = PaymentTransactionAdmin(PaymentTransaction, crush_admin_site)
+        admin_obj.recheck_with_sumup(
+            request, PaymentTransaction.objects.order_by("transaction_reference")
+        )
+        return [str(message) for message in request._messages]
+
+    @override_settings(SUMUP_ADMIN_RECHECK_LIMIT=2)
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_it_stops_at_the_limit(self, mock_get):
+        mock_get.return_value = {"status": "PENDING"}
+
+        self._run_action()
+
+        self.assertEqual(mock_get.call_count, 2)
+
+    @override_settings(SUMUP_ADMIN_RECHECK_LIMIT=2)
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_cap_is_never_reported_as_completion(self, mock_get):
+        """Silent truncation reads as "all done" when it isn't."""
+        mock_get.return_value = {"status": "PENDING"}
+
+        messages_shown = " ".join(self._run_action())
+
+        self.assertIn("not checked", messages_shown)
+        self.assertIn("CRUSH-EVT-BULK-2", messages_shown)
+
+    @override_settings(SUMUP_ADMIN_RECHECK_BUDGET_SECONDS=-1)
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_an_exhausted_time_budget_stops_it_too(self, mock_get):
+        mock_get.return_value = {"status": "PENDING"}
+
+        messages_shown = " ".join(self._run_action())
+
+        mock_get.assert_not_called()
+        self.assertIn("not checked", messages_shown)
+
+
+class PaymentAdminChangelistTests(SiteTestMixin, TestCase):
+    """The changelist has to find and render staff-opened payments cheaply.
+
+    Both of these are about the same mismatch: ``PaymentTransaction.user`` is
+    whoever *opened* the checkout, which for a staff-opened one is the staff
+    account — while the Buyer column deliberately shows the member the payment
+    is for.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.staff = User.objects.create_user(
+            username="staff@crush.lu",
+            email="staff@crush.lu",
+            password="password123",
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.member = User.objects.create_user(
+            username="member@crush.lu",
+            email="member@crush.lu",
+            password="password123",
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Changelist",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.member, event=self.event, status="pending"
+        )
+        # Staff opened it on the member's behalf: user=staff, buyer=member.
+        self.tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-STAFFOPENED",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_STAFFOPENED",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.staff,
+            event_registration=self.registration,
+        )
+
+    def _admin(self):
+        from crush_lu.admin.payments import PaymentTransactionAdmin
+        from crush_lu.admin.site import crush_admin_site
+
+        return PaymentTransactionAdmin(PaymentTransaction, crush_admin_site)
+
+    def test_it_is_findable_by_the_buyer_shown_in_the_column(self):
+        """Searching the email printed on screen has to return the row.
+
+        It didn't: search_fields covered only ``user``, so the payments most
+        likely to need looking up were the ones that could not be found.
+        """
+        from django.test import RequestFactory
+
+        admin_obj = self._admin()
+        request = RequestFactory().get("/crush-admin/")
+        request.user = self.staff
+
+        queryset, _unused = admin_obj.get_search_results(
+            request, admin_obj.get_queryset(request), "member@crush.lu"
+        )
+
+        self.assertIn(self.tx, queryset)
+
+    def test_rendering_a_row_costs_no_extra_queries(self):
+        """The display methods walk relations list_display cannot reveal.
+
+        Without select_related this was a handful of queries per row, which on
+        a full page is several hundred.
+        """
+        from django.test import RequestFactory
+
+        admin_obj = self._admin()
+        request = RequestFactory().get("/crush-admin/")
+        request.user = self.staff
+
+        row = admin_obj.get_queryset(request).get(pk=self.tx.pk)
+        with self.assertNumQueries(0):
+            admin_obj.get_buyer(row)
+            admin_obj.get_bought(row)
+
+
+class SumUpCheckoutStatusCommandTests(SiteTestMixin, TestCase):
+    """The command an operator reaches for when SumUp says "Échec".
+
+    It had no coverage at all, and it is the one piece of this that gets run
+    by hand against production, where a wrong answer is acted on.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(
+            username="cli@crush.lu", email="cli@crush.lu", password="password123"
+        )
+        self.event = MeetupEvent.objects.create(
+            title="CLI",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        self.tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-CLI",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_CLI",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.FAILED,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+
+    def _run(self, **kwargs):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        out = StringIO()
+        call_command(
+            "sumup_checkout_status", reference="CRUSH-EVT-CLI", stdout=out, **kwargs
+        )
+        return out.getvalue()
+
+    @patch("crush_lu.services.sumup.SumUpClient.get_checkout")
+    def test_sync_gives_an_old_failure_its_reason(self, mock_get):
+        """The point of running this: explaining payments that already failed.
+
+        Rows that failed before failure_reason existed are exactly the ones
+        someone is staring at, and the normal sync path refuses to touch them.
+        """
+        mock_get.return_value = {
+            "id": "CHK_CLI",
+            "status": "FAILED",
+            "transactions": [{"status": "FAILED", "failure_reason": "DO_NOT_HONOR"}],
+        }
+
+        output = self._run(sync=True)
+
+        self.tx.refresh_from_db()
+        self.assertIn("DO_NOT_HONOR", self.tx.failure_reason)
+        self.assertIn("detail recorded", output)
+        # Status is not the refresh path's to change.
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.FAILED)
+
+    @patch("crush_lu.services.sumup.SumUpClient.get_checkout")
+    def test_it_shouts_when_sumup_says_paid_but_we_say_failed(self, mock_get):
+        """Money taken with nothing delivered. Never resolve this quietly."""
+        mock_get.return_value = {"id": "CHK_CLI", "status": "PAID"}
+
+        output = self._run(sync=True)
+
+        self.registration.refresh_from_db()
+        self.assertIn("check whether this member was charged", output)
+        self.assertFalse(self.registration.payment_confirmed)
+
+    @patch("crush_lu.services.sumup.SumUpClient.get_checkout")
+    def test_an_unreachable_provider_is_said_out_loud(self, mock_get):
+        """Could-not-ask and nothing-to-report must not look the same.
+
+        Narrow but real: the command reads the checkout once to print it and
+        again to record it, so the provider can be there for the first and gone
+        for the second. That second failure used to return in silence.
+        """
+        mock_get.side_effect = [
+            {"id": "CHK_CLI", "status": "FAILED"},
+            SumUpError("boom"),
+        ]
+
+        output = self._run(sync=True)
+
+        self.assertIn("could not reach SumUp", output)
+
+    @patch("crush_lu.services.sumup.SumUpClient.get_checkout")
+    def test_a_swallowed_second_read_is_not_reported_as_unchanged(self, mock_get):
+        """The command reads twice; the second read has its own failure mode.
+
+        The reconciliation deliberately re-reads rather than trusting a payload
+        handed to it, so --sync makes a second call whose error is swallowed
+        inside. Unchecked, the command printed "synced unchanged (pending)"
+        directly beneath a dump showing SumUp reported the checkout PAID —
+        announcing that the repair had been considered and declined when it had
+        never been attempted.
+        """
+        PaymentTransaction.objects.filter(pk=self.tx.pk).update(
+            status=PaymentTransaction.Status.PENDING
+        )
+        mock_get.side_effect = [
+            {"id": "CHK_CLI", "status": "PAID"},
+            SumUpError("gone for the second read"),
+        ]
+
+        output = self._run(sync=True)
+
+        self.assertIn("NOT synced", output)
+        self.assertNotIn("unchanged", output)
+
+    @patch("crush_lu.services.sumup.SumUpClient.get_checkout")
+    def test_a_paid_row_sumup_agrees_about_is_not_flagged(self, mock_get):
+        """The sibling of the admin bug — fixed there, still live here.
+
+        Shouting "check whether this member was charged" at two records that
+        agree makes a routine refresh look like a financial anomaly.
+        """
+        PaymentTransaction.objects.filter(pk=self.tx.pk).update(
+            status=PaymentTransaction.Status.PAID
+        )
+        mock_get.return_value = {"id": "CHK_CLI", "status": "PAID"}
+
+        output = self._run(sync=True)
+
+        self.assertNotIn("check whether this member was charged", output)
+        self.assertIn("detail recorded", output)
+
+    def test_sync_without_a_selector_is_refused_not_ignored(self):
+        """--help promises it applies things; listing mode never asks SumUp.
+
+        So --sync on a bare listing quietly applied nothing at all. Refusing
+        beats syncing the recent rows: that would fire a provider call per row
+        and could confirm seats nobody asked about, off a command someone ran
+        just to look around.
+        """
+        from io import StringIO
+
+        from django.core.management import CommandError, call_command
+
+        with self.assertRaises(CommandError) as caught:
+            call_command("sumup_checkout_status", sync=True, stdout=StringIO())
+
+        self.assertIn("--sync needs one payment to act on", str(caught.exception))
+
+    @patch("crush_lu.services.sumup.SumUpClient.get_checkout")
+    def test_it_prints_the_attempts_without_being_asked_to_sync(self, mock_get):
+        """Read-only by default — looking must never change anything."""
+        mock_get.return_value = {
+            "id": "CHK_CLI",
+            "status": "FAILED",
+            "transactions": [{"status": "FAILED", "failure_reason": "LOST_CARD"}],
+        }
+
+        output = self._run()
+
+        self.assertIn("LOST_CARD", output)
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.failure_reason, "")
+
+
+class RecheckActionHonestyTests(SiteTestMixin, TestCase):
+    """The action must never report an outage as a successful verification."""
+
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(
+            username="honest@crush.lu",
+            email="honest@crush.lu",
+            password="password123",
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Honesty",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        self.tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-HONEST",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_HONEST",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+
+    def _admin(self):
+        from crush_lu.admin.payments import PaymentTransactionAdmin
+        from crush_lu.admin.site import crush_admin_site
+
+        return PaymentTransactionAdmin(PaymentTransaction, crush_admin_site)
+
+    def _run_action(self):
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+
+        request = RequestFactory().post("/crush-admin/")
+        request.user = self.user
+        request.session = {}
+        request._messages = FallbackStorage(request)
+
+        self._admin().recheck_with_sumup(request, PaymentTransaction.objects.all())
+        return [str(message) for message in request._messages]
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_an_outage_is_not_reported_as_a_clean_check(self, mock_get):
+        """Both helpers swallow SumUpError, so the try/except never fires.
+
+        A coach was told every row had been verified when not one had been
+        asked about — a false all-clear on money.
+        """
+        mock_get.side_effect = SumUpError("SumUp is down")
+
+        messages_shown = " ".join(self._run_action())
+
+        self.assertIn("no answer from SumUp", messages_shown)
+        self.assertIn("NOT checked", messages_shown)
+        self.assertNotIn("Re-checked 1 transaction", messages_shown)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_real_check_still_reports_success(self, mock_get):
+        mock_get.return_value = {"id": "CHK_HONEST", "status": "PENDING"}
+
+        messages_shown = " ".join(self._run_action())
+
+        self.assertIn("Re-checked 1 transaction", messages_shown)
+
+    def test_the_action_survives_the_read_only_admin(self):
+        """A read-only ModelAdmin must not hide its one action.
+
+        Django only filters an action by permission when the action declares
+        one via ``permissions=``; an action without ``allowed_permissions`` is
+        kept regardless of has_change_permission. Pinned because the fix for a
+        misreading of that rule — adding permissions=["change"] — would silently
+        remove the action from a screen that denies change permission by design.
+        """
+        from django.test import RequestFactory
+
+        request = RequestFactory().get("/crush-admin/")
+        request.user = self.user
+        admin_obj = self._admin()
+
+        self.assertFalse(admin_obj.has_change_permission(request))
+        self.assertIn("recheck_with_sumup", admin_obj.get_actions(request))
+
+
+class RefreshAndReportHonestyTests(SiteTestMixin, TestCase):
+    """Two ways a refresh can mislead the person reading it."""
+
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(
+            username="refresh@crush.lu",
+            email="refresh@crush.lu",
+            password="password123",
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Refresh",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+
+    def _tx(self, status, reason=""):
+        return PaymentTransaction.objects.create(
+            transaction_reference=f"CRUSH-EVT-REF-{status}",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id=f"CHK_REF_{status}",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=status,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+            failure_reason=reason,
+        )
+
+    def _run_action(self, queryset):
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+
+        from crush_lu.admin.payments import PaymentTransactionAdmin
+        from crush_lu.admin.site import crush_admin_site
+
+        request = RequestFactory().post("/crush-admin/")
+        request.user = self.user
+        request.session = {}
+        request._messages = FallbackStorage(request)
+
+        PaymentTransactionAdmin(
+            PaymentTransaction, crush_admin_site
+        ).recheck_with_sumup(request, queryset)
+        return " ".join(str(message) for message in request._messages)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_paid_row_that_sumup_also_calls_paid_is_not_an_anomaly(self, mock_get):
+        """The most ordinary thing this action can find.
+
+        Flagging it as "check whether this member was charged" would train
+        coaches to ignore the warning that actually matters.
+        """
+        tx = self._tx(PaymentTransaction.Status.PAID)
+        mock_get.return_value = {"id": tx.sumup_checkout_id, "status": "PAID"}
+
+        messages_shown = self._run_action(PaymentTransaction.objects.filter(pk=tx.pk))
+
+        self.assertNotIn("check whether this member was charged", messages_shown)
+        self.assertIn("refreshed from SumUp", messages_shown)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_written_off_row_that_sumup_calls_paid_still_shouts(self, mock_get):
+        """The case the warning exists for must survive the fix above."""
+        tx = self._tx(PaymentTransaction.Status.FAILED)
+        mock_get.return_value = {"id": tx.sumup_checkout_id, "status": "PAID"}
+
+        messages_shown = self._run_action(PaymentTransaction.objects.filter(pk=tx.pk))
+
+        self.assertIn("check whether this member was charged", messages_shown)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_refreshing_a_superseded_row_keeps_our_own_account_of_it(self, mock_get):
+        """SumUp cannot know we deactivated it — it just says FAILED.
+
+        Taking its wording would erase the one sentence separating a checkout
+        we killed from a card a bank refused, which is why CANCELLED exists.
+        """
+        from crush_lu.views_payments import refresh_sumup_snapshot
+
+        ours = "Superseded by a newer checkout — the member re-opened the page."
+        tx = self._tx(PaymentTransaction.Status.CANCELLED, reason=ours)
+        mock_get.return_value = {
+            "id": tx.sumup_checkout_id,
+            "status": "FAILED",
+            "transactions": [],
+        }
+
+        refresh_sumup_snapshot(tx)
+
+        tx.refresh_from_db()
+        self.assertEqual(tx.failure_reason, ours)
+        # The snapshot itself still refreshes; only the wording is ours to keep.
+        self.assertEqual(tx.raw_response["status"], "FAILED")
+
+
+class ThrottleFailureModeTests(TestCase):
+    """The throttle guards a quota; the read it gates is how someone gets a seat."""
+
+    def setUp(self):
+        super().setUp()
+        from django.core.cache import cache
+
+        cache.clear()
+
+    def test_an_unavailable_cache_does_not_block_the_provider_read(self):
+        """django-redis with IGNORE_EXCEPTIONS returns None, not an exception.
+
+        None is falsy, so "we lost the rate limiter" became "refuse every
+        provider read" — a member who had just completed 3DS would sit on the
+        polling screen for the whole five-minute window while SumUp had the
+        payment marked paid the entire time.
+        """
+        from crush_lu.views_payments import _may_ask_sumup
+
+        with patch("crush_lu.views_payments.cache.add", return_value=None):
+            self.assertTrue(_may_ask_sumup("poll", "CHK_NOCACHE"))
+
+    def test_a_genuine_throttle_hit_is_still_a_no(self):
+        """Failing open must not mean never throttling."""
+        from crush_lu.views_payments import _may_ask_sumup
+
+        self.assertTrue(_may_ask_sumup("poll", "CHK_REAL"))
+        self.assertFalse(_may_ask_sumup("poll", "CHK_REAL"))
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class WidgetNoteRaceTests(SiteTestMixin, TestCase):
+    """The widget note is a second write, and needed its own guard."""
+
+    def setUp(self):
+        super().setUp()
+        from django.core.cache import cache
+
+        cache.clear()
+        self.user = User.objects.create_user(
+            username="race@crush.lu", email="race@crush.lu", password="password123"
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Race",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        self.tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-RACE",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_RACE",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+
+    def test_a_note_cannot_land_on_a_payment_that_completed_first(self):
+        """Locking only the provider-summary write closed half the hole."""
+        from crush_lu.views_payments import _append_widget_note
+
+        PaymentTransaction.objects.filter(pk=self.tx.pk).update(
+            status=PaymentTransaction.Status.PAID, failure_reason=""
+        )
+
+        recorded = _append_widget_note(self.tx, "Card widget reported 'fail'")
+
+        self.assertFalse(recorded)
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.failure_reason, "")
+
+    def test_a_note_on_a_still_pending_payment_is_kept(self):
+        from crush_lu.views_payments import _append_widget_note
+
+        self.assertTrue(_append_widget_note(self.tx, "Card widget reported 'fail'"))
+
+        self.tx.refresh_from_db()
+        self.assertIn("Card widget reported", self.tx.failure_reason)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class DeclineDoesNotHangThePageTests(SiteTestMixin, TestCase):
+    """A refused card must not leave the page spinning.
+
+    This is the bug the whole polling change exists to prevent, in the one
+    shape it did not cover: SumUp keeps a checkout PENDING after a decline so
+    another card can be tried, so "settled" stays false — and if the SDK went
+    quiet (exactly why the poll exists) the customer watched "Confirming your
+    payment" for the full five-minute window over a card refused seconds after
+    the 3DS screen.
+    """
+
+    def setUp(self):
+        super().setUp()
+        from django.core.cache import cache
+
+        cache.clear()
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        self.user = User.objects.create_user(
+            username="hang@crush.lu", email="hang@crush.lu", password="password123"
+        )
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Hang",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        self.tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-HANG",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_HANG",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+        self.url = reverse(
+            "crush_lu:sumup_widget_status", kwargs={"checkout_id": "CHK_HANG"}
+        )
+        self.client.force_login(self.user)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_declined_card_tells_the_page_to_stop_waiting(self, mock_get):
+        mock_get.return_value = {
+            "id": "CHK_HANG",
+            "status": "PENDING",
+            "transactions": [{"status": "FAILED", "failure_reason": "DECLINED"}],
+        }
+
+        body = self.client.get(self.url).json()
+
+        # Not settled — the checkout is still payable, and must stay that way.
+        self.assertFalse(body["settled"])
+        self.assertEqual(body["status"], PaymentTransaction.Status.PENDING)
+        # But the page now knows to stop and let them try another card.
+        self.assertTrue(body["attempt_failed"])
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_an_ordinary_wait_does_not_look_like_a_decline(self, mock_get):
+        """Nobody has paid yet is not the same as somebody was refused."""
+        mock_get.return_value = {"id": "CHK_HANG", "status": "PENDING"}
+
+        body = self.client.get(self.url).json()
+
+        self.assertFalse(body["settled"])
+        self.assertFalse(body["attempt_failed"])
+
+    def test_the_widget_page_reacts_to_a_failed_attempt(self):
+        """It acts on the count rising past what it has already shown.
+
+        Not on the server's "is anything on record" flag, which stays true
+        across a retry and would stop the page watching a second card.
+        """
+        response = self.client.get(
+            reverse("crush_lu:sumup_widget", kwargs={"checkout_id": "CHK_HANG"})
+        )
+
+        self.assertContains(response, "acknowledgedFailures")
+        self.assertContains(response, "attempt_marker")
+
+    def _widget_script(self):
+        response = self.client.get(
+            reverse("crush_lu:sumup_widget", kwargs={"checkout_id": "CHK_HANG"})
+        )
+        self.assertEqual(response.status_code, 200)
+        return response.content.decode()
+
+    def test_showing_a_decline_does_not_stop_the_watch(self):
+        """The one invariant that keeps a retry from stranding somebody.
+
+        A refused card leaves the checkout payable, so the customer's next card
+        goes into the widget still on screen — and if that one goes behind a 3DS
+        challenge the SDK never speaks again. Tearing the watch down when a
+        decline is displayed means the retry that SUCCEEDS is never heard: money
+        taken, seat not granted, page showing an error. That is the original
+        hang, re-entered through the door marked "handled".
+        """
+        body = self._widget_script()
+
+        # The poll's decline branch.
+        branch = body.split("if (failures > acknowledgedFailures) {", 1)[1].split(
+            "scheduleNextPoll();", 1
+        )[0]
+        self.assertNotIn("stopWatching", branch)
+
+        # And the SDK's own, which reports the same kind of refusal.
+        sdk = body.split('if (type === "error"', 1)[1].split("reportFailure(", 1)[0]
+        self.assertNotIn("stopWatching", sdk)
+
+    def test_no_flag_tries_to_guess_which_refusal_a_rise_is(self):
+        """Three designs died here; none of them could have worked.
+
+        Nothing on the page can tell SumUp catching up on the refusal the SDK
+        just displayed from a second card refused since — they are the same
+        event from the page's side. A flag that guessed wrong one way announced
+        a stale decline over a card still in flight; wrong the other way it
+        swallowed a real one and spun to the five-minute deadline. Showing is
+        idempotent now, so there is nothing left to guess and nothing to carry
+        between attempts.
+        """
+        self.assertNotIn("absorbNextFailure", self._widget_script())
+
+
+class TerminalWriteRaceTests(SiteTestMixin, TestCase):
+    """The last unlocked write, and the one that moved `status`."""
+
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(
+            username="term@crush.lu", email="term@crush.lu", password="password123"
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Terminal",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        self.tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-TERM",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_TERM",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+
+    def test_a_late_failure_cannot_undo_a_supersession(self):
+        """Deactivating a checkout makes SumUp report it FAILED.
+
+        So a poll still in flight when the member opens a replacement would
+        reset the row from CANCELLED back to FAILED and replace our own account
+        of the supersession with a generic one — losing the distinction the
+        CANCELLED status exists to record.
+        """
+        from crush_lu.views_payments import _record_terminal_failure
+
+        ours = "Superseded by a newer checkout — the member re-opened the page."
+        PaymentTransaction.objects.filter(pk=self.tx.pk).update(
+            status=PaymentTransaction.Status.CANCELLED, failure_reason=ours
+        )
+
+        wrote = _record_terminal_failure(
+            self.tx, "FAILED", {"id": "CHK_TERM", "status": "FAILED"}
+        )
+
+        self.assertFalse(wrote)
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.CANCELLED)
+        self.assertEqual(self.tx.failure_reason, ours)
+
+    def test_a_genuine_terminal_failure_still_closes_the_row(self):
+        from crush_lu.views_payments import _record_terminal_failure
+
+        wrote = _record_terminal_failure(
+            self.tx,
+            "FAILED",
+            {
+                "id": "CHK_TERM",
+                "status": "FAILED",
+                "transactions": [{"status": "FAILED", "failure_reason": "LOST_CARD"}],
+            },
+        )
+
+        self.assertTrue(wrote)
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.FAILED)
+        self.assertIn("LOST_CARD", self.tx.failure_reason)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class RetryAfterDeclineTests(SiteTestMixin, TestCase):
+    """A second card must not be judged by the first card's failure.
+
+    failure_reason is sticky for a pending checkout's whole life and SumUp's
+    transactions array is cumulative, so "a failure is on record" stays true
+    right through a retry. Acting on that alone stopped watching the second
+    card seconds after it was submitted and called it failed while the bank was
+    still deciding — this change's own bug, on the retry path.
+    """
+
+    def setUp(self):
+        super().setUp()
+        from django.core.cache import cache
+
+        cache.clear()
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        self.user = User.objects.create_user(
+            username="retry@crush.lu", email="retry@crush.lu", password="password123"
+        )
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Retry",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        self.tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-RETRY",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_RETRY",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+        self.url = reverse(
+            "crush_lu:sumup_widget_status", kwargs={"checkout_id": "CHK_RETRY"}
+        )
+        self.client.force_login(self.user)
+
+    def _poll(self):
+        from django.core.cache import cache
+
+        # The throttle is not what this is testing.
+        cache.clear()
+        return self.client.get(self.url).json()
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_an_unresolved_retry_carries_the_first_declines_marker(self, mock_get):
+        """The marker must not move while the second card is still in flight.
+
+        The page baselines on the marker when a new attempt starts, so an
+        unchanged marker is what keeps it watching instead of bailing.
+        """
+        declined = {
+            "id": "CHK_RETRY",
+            "status": "PENDING",
+            "transactions": [{"status": "FAILED", "failure_reason": "DECLINED"}],
+        }
+        mock_get.return_value = declined
+        first = self._poll()
+        self.assertTrue(first["attempt_failed"])
+        self.assertTrue(first["attempt_marker"])
+
+        # Card #2 submitted; its 3DS is still running, so SumUp still reports
+        # only card #1's attempt.
+        during_retry = self._poll()
+
+        self.assertEqual(during_retry["attempt_marker"], first["attempt_marker"])
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_second_decline_moves_the_marker(self, mock_get):
+        """And a genuinely new refusal must still reach the customer."""
+        mock_get.return_value = {
+            "id": "CHK_RETRY",
+            "status": "PENDING",
+            "transactions": [{"status": "FAILED", "failure_reason": "DECLINED"}],
+        }
+        first = self._poll()
+
+        mock_get.return_value = {
+            "id": "CHK_RETRY",
+            "status": "PENDING",
+            "transactions": [
+                {"status": "FAILED", "failure_reason": "DECLINED"},
+                {"status": "FAILED", "failure_reason": "INSUFFICIENT_FUNDS"},
+            ],
+        }
+        second = self._poll()
+
+        self.assertTrue(second["attempt_failed"])
+        self.assertNotEqual(second["attempt_marker"], first["attempt_marker"])
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_widget_reports_never_move_the_count(self, mock_get):
+        """The count is SumUp's alone, however often the widget reports.
+
+        Counting reports made a duplicated SDK callback — or an owner posting
+        twice — look like a second refused card. The server cannot tell one
+        from the other, so it no longer tries: reconciling a failure the page
+        already displayed is the page's job, since only the page knows.
+        """
+        from crush_lu.views_payments import attempt_marker
+
+        mock_get.return_value = {"id": "CHK_RETRY", "status": "PENDING"}
+        url = reverse(
+            "crush_lu:sumup_widget_failure", kwargs={"checkout_id": "CHK_RETRY"}
+        )
+
+        for _unused in range(3):
+            self.client.post(
+                url,
+                data=json.dumps({"type": "fail", "message": "Declined"}),
+                content_type="application/json",
+            )
+
+        self.tx.refresh_from_db()
+        self.assertEqual(attempt_marker(self.tx), "")
+        # The notes are all still on the record for whoever reads it later.
+        self.assertEqual(self.tx.failure_reason.count("Card widget reported"), 3)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_provider_record_arriving_late_does_not_double_count(self, mock_get):
+        """SumUp catching up on a reported decline is one card, not two."""
+        mock_get.return_value = {"id": "CHK_RETRY", "status": "PENDING"}
+        self.client.post(
+            reverse(
+                "crush_lu:sumup_widget_failure", kwargs={"checkout_id": "CHK_RETRY"}
+            ),
+            data=json.dumps({"type": "fail", "message": "Declined"}),
+            content_type="application/json",
+        )
+
+        mock_get.return_value = {
+            "id": "CHK_RETRY",
+            "status": "PENDING",
+            "transactions": [{"status": "FAILED", "failure_reason": "DECLINED"}],
+        }
+
+        self.assertEqual(self._poll()["attempt_marker"], "1")
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_second_refused_card_moves_the_count(self, mock_get):
+        """And a genuinely new refusal must still reach the customer."""
+        mock_get.return_value = {
+            "id": "CHK_RETRY",
+            "status": "PENDING",
+            "transactions": [{"status": "FAILED"}],
+        }
+        self.assertEqual(self._poll()["attempt_marker"], "1")
+
+        mock_get.return_value = {
+            "id": "CHK_RETRY",
+            "status": "PENDING",
+            "transactions": [{"status": "FAILED"}, {"status": "FAILED"}],
+        }
+
+        self.assertEqual(self._poll()["attempt_marker"], "2")
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_retry_that_succeeds_still_settles(self, mock_get):
+        """The outcome the bug destroyed: told it failed, then paid anyway."""
+        mock_get.return_value = {
+            "id": "CHK_RETRY",
+            "status": "PENDING",
+            "transactions": [{"status": "FAILED", "failure_reason": "DECLINED"}],
+        }
+        self._poll()
+
+        mock_get.return_value = {
+            "id": "CHK_RETRY",
+            "status": "PAID",
+            "transactions": [
+                {"status": "FAILED", "failure_reason": "DECLINED"},
+                {"status": "SUCCESSFUL"},
+            ],
+        }
+        with self.captureOnCommitCallbacks(execute=True):
+            settled = self._poll()
+
+        self.assertTrue(settled["settled"])
+        self.assertTrue(settled["paid"])
+        self.assertFalse(settled["attempt_failed"])
+        self.registration.refresh_from_db()
+        self.assertTrue(self.registration.payment_confirmed)
+
+    def test_the_baseline_is_served_with_the_page_not_fetched(self):
+        """It has to be true by construction, not by winning a race.
+
+        Fetching it cannot be made safe however early it starts: the status
+        endpoint does a live provider read, so a slow one can answer with state
+        recorded AFTER a card was submitted, and the page would file that very
+        failure as already-seen and never report it. Rendered with the HTML, it
+        is the record as it stood before the page existed.
+        """
+        from crush_lu.views_payments import attempt_marker
+
+        PaymentTransaction.objects.filter(pk=self.tx.pk).update(
+            failure_reason="SumUp reports the checkout as PENDING; attempt FAILED",
+            raw_response={
+                "id": "CHK_RETRY",
+                "status": "PENDING",
+                "transactions": [{"status": "FAILED"}],
+            },
+        )
+        self.tx.refresh_from_db()
+        self.assertTrue(attempt_marker(self.tx))
+
+        response = self.client.get(
+            reverse("crush_lu:sumup_widget", kwargs={"checkout_id": "CHK_RETRY"})
+        )
+
+        self.assertContains(response, attempt_marker(self.tx))
+        body = response.content.decode()
+        seed = body.split("let acknowledgedFailures =", 1)[1].split(";", 1)[0]
+        self.assertIn(attempt_marker(self.tx), seed)
+        # And nothing fetches it — a fetched baseline is the bug above.
+        watch = body.split("function watchCheckout()", 1)[1].split("function ", 1)[0]
+        self.assertNotIn("attempt_marker", watch)
+
+    def test_a_page_with_no_failure_yet_seeds_an_empty_baseline(self):
+        response = self.client.get(
+            reverse("crush_lu:sumup_widget", kwargs={"checkout_id": "CHK_RETRY"})
+        )
+
+        body = response.content.decode()
+        seed = body.split("let acknowledgedFailures =", 1)[1].split(";", 1)[0]
+        self.assertIn('""', seed)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_the_failure_report_agrees_with_the_poll(self, mock_get):
+        """The report's marker must be what a poll would say for the same state.
+
+        The SDK error path shows a failure the poll never told the page about,
+        so the page takes the marker from its own report — and the two have to
+        agree, or the next poll looks like a fresh refusal.
+        """
+        mock_get.return_value = {"id": "CHK_RETRY", "status": "PENDING"}
+
+        response = self.client.post(
+            reverse(
+                "crush_lu:sumup_widget_failure", kwargs={"checkout_id": "CHK_RETRY"}
+            ),
+            data=json.dumps({"type": "fail", "message": "Declined"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(
+            self._poll()["attempt_marker"], response.json()["attempt_marker"]
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_widget_note_never_moves_the_marker(self, mock_get):
+        """The deterministic bug, not a timing window.
+
+        The note was appended to the same field the marker hashed, so recording
+        what the customer had been shown moved the marker — and the next
+        refresh, re-deriving SumUp's half, moved it back. Either way the page
+        read a refreshed record as a newly refused card and stopped watching a
+        retry that was still in flight.
+        """
+        mock_get.return_value = {
+            "id": "CHK_RETRY",
+            "status": "PENDING",
+            "transactions": [{"status": "FAILED", "failure_reason": "DECLINED"}],
+        }
+        before = self._poll()["attempt_marker"]
+        self.assertTrue(before)
+
+        self.client.post(
+            reverse(
+                "crush_lu:sumup_widget_failure", kwargs={"checkout_id": "CHK_RETRY"}
+            ),
+            data=json.dumps({"type": "fail", "message": "Declined"}),
+            content_type="application/json",
+        )
+        after_note = self._poll()["attempt_marker"]
+
+        # And a refresh that learns nothing new must not move it back.
+        after_refresh = self._poll()["attempt_marker"]
+
+        self.assertEqual(after_note, before)
+        self.assertEqual(after_refresh, before)
+        # The note is still on the record for whoever reads it later.
+        self.tx.refresh_from_db()
+        self.assertIn("Card widget reported", self.tx.failure_reason)
+        self.assertIn("DECLINED", self.tx.failure_reason)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class ErrorAfterCaptureTests(SiteTestMixin, TestCase):
+    """An SDK error raised after the money was taken must not read as a decline."""
+
+    def setUp(self):
+        super().setUp()
+        from django.core.cache import cache
+
+        cache.clear()
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        self.user = User.objects.create_user(
+            username="late@crush.lu", email="late@crush.lu", password="password123"
+        )
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Late",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        self.tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-LATE",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_LATE",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+        self.client.force_login(self.user)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_the_report_answers_with_the_payment_that_actually_happened(self, mock_get):
+        """The page has stopped polling by the time it reports, so this reply
+        is the last thing it hears. Saying only "recorded" left a paying
+        customer looking at a decline with nothing left running to fix it."""
+        mock_get.return_value = {"id": "CHK_LATE", "status": "PAID"}
+
+        with self.captureOnCommitCallbacks(execute=True):
+            body = self.client.post(
+                reverse(
+                    "crush_lu:sumup_widget_failure",
+                    kwargs={"checkout_id": "CHK_LATE"},
+                ),
+                data=json.dumps({"type": "error", "message": "network blip"}),
+                content_type="application/json",
+            ).json()
+
+        self.assertTrue(body["settled"])
+        self.assertTrue(body["paid"])
+        self.registration.refresh_from_db()
+        self.assertTrue(self.registration.payment_confirmed)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_genuine_decline_still_reports_unsettled(self, mock_get):
+        mock_get.return_value = {
+            "id": "CHK_LATE",
+            "status": "PENDING",
+            "transactions": [{"status": "FAILED", "failure_reason": "DECLINED"}],
+        }
+
+        body = self.client.post(
+            reverse(
+                "crush_lu:sumup_widget_failure", kwargs={"checkout_id": "CHK_LATE"}
+            ),
+            data=json.dumps({"type": "fail", "message": "Declined"}),
+            content_type="application/json",
+        ).json()
+
+        self.assertFalse(body["settled"])
+        self.assertFalse(body["paid"])
+
+    def test_the_page_leaves_when_its_own_report_comes_back_settled(self):
+        response = self.client.get(
+            reverse("crush_lu:sumup_widget", kwargs={"checkout_id": "CHK_LATE"})
+        )
+
+        body = response.content.decode()
+        # The whole of reportFailure, not up to the next "function" — it has
+        # inline callbacks of its own — and not a fixed slice either, which
+        # silently stopped covering the tail the first time a comment grew.
+        report = body.split("function reportFailure(", 1)[1].split(
+            "if (typeof SumUpCard", 1
+        )[0]
+        self.assertIn("data.settled", report)
+        self.assertIn("returnUrl", report)
+
+    def test_the_report_answer_never_moves_the_poll_baseline(self):
+        """It describes when it was read, not when it was asked.
+
+        This request goes out the instant the SDK reports a decline, and the
+        provider read behind it takes seconds — long enough for the customer to
+        enter a second card. A response landing after SumUp recorded THAT card's
+        refusal counts it too, and taking the number here would mark a decline
+        as seen that nobody has seen. The poll would then find no rise, say
+        nothing, and spin to the five-minute deadline.
+
+        Nothing is lost by leaving it alone: the poll finds that record itself a
+        few seconds later, while the message is still on screen, and the guard
+        against overwriting a displayed message absorbs it.
+        """
+        response = self.client.get(
+            reverse("crush_lu:sumup_widget", kwargs={"checkout_id": "CHK_LATE"})
+        )
+
+        report = (
+            response.content.decode()
+            .split("function reportFailure(", 1)[1]
+            .split("if (typeof SumUpCard", 1)[0]
+        )
+        # The word may appear in the comment saying why not; an assignment
+        # may not.
+        self.assertNotIn("acknowledgedFailures =", report)
+
+
+class RecheckMismatchDirectionTests(SiteTestMixin, TestCase):
+    """Both directions of a money/entitlement mismatch deserve the same alarm."""
+
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(
+            username="mismatch@crush.lu",
+            email="mismatch@crush.lu",
+            password="password123",
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Mismatch",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        self.tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-MISMATCH",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_MISMATCH",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PAID,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+
+    def _run_action(self):
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+
+        from crush_lu.admin.payments import PaymentTransactionAdmin
+        from crush_lu.admin.site import crush_admin_site
+
+        request = RequestFactory().post("/crush-admin/")
+        request.user = self.user
+        request.session = {}
+        request._messages = FallbackStorage(request)
+
+        PaymentTransactionAdmin(
+            PaymentTransaction, crush_admin_site
+        ).recheck_with_sumup(request, PaymentTransaction.objects.all())
+        return " ".join(str(message) for message in request._messages)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_paid_row_sumup_calls_failed_is_flagged(self, mock_get):
+        """A seat granted against a checkout that never settled.
+
+        The mirror of "money taken, nothing delivered", and it used to pass as
+        an ordinary refresh.
+        """
+        mock_get.return_value = {"id": "CHK_MISMATCH", "status": "FAILED"}
+
+        self.assertIn("check whether this member was charged", self._run_action())
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_agreement_stays_quiet(self, mock_get):
+        mock_get.return_value = {"id": "CHK_MISMATCH", "status": "PAID"}
+
+        self.assertNotIn("check whether this member was charged", self._run_action())
+
+
+class CommandSelectorAndMismatchTests(SiteTestMixin, TestCase):
+    """Two ways the status command could mislead the operator running it."""
+
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(
+            username="sel@crush.lu", email="sel@crush.lu", password="password123"
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Selector",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        self.tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-SEL",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_SEL",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PAID,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+
+    def _run(self, **kwargs):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        out = StringIO()
+        call_command("sumup_checkout_status", stdout=out, **kwargs)
+        return out.getvalue()
+
+    def test_two_selectors_are_refused_rather_than_one_silently_winning(self):
+        """The lookup takes the first and ignores the rest.
+
+        With --sync that means reconciling the payment named by whichever won,
+        while the operator believes the others narrowed it.
+        """
+        from django.core.management import CommandError
+
+        with self.assertRaises(CommandError) as caught:
+            self._run(reference="CRUSH-EVT-SEL", registration_id=self.registration.id)
+
+        self.assertIn("Give one selector", str(caught.exception))
+
+    @patch("crush_lu.services.sumup.SumUpClient.get_checkout")
+    def test_a_paid_row_sumup_calls_failed_is_flagged(self, mock_get):
+        """The mirror mismatch, in the command as well as the admin.
+
+        A seat granted against a checkout that never settled — it used to print
+        as an ordinary refresh here after the admin had been fixed.
+        """
+        mock_get.return_value = {"id": "CHK_SEL", "status": "FAILED"}
+
+        output = self._run(reference="CRUSH-EVT-SEL", sync=True)
+
+        self.assertIn("check whether this member was charged", output)
+
+    @patch("crush_lu.services.sumup.SumUpClient.get_checkout")
+    def test_agreement_stays_quiet(self, mock_get):
+        mock_get.return_value = {"id": "CHK_SEL", "status": "PAID"}
+
+        output = self._run(reference="CRUSH-EVT-SEL", sync=True)
+
+        self.assertNotIn("check whether this member was charged", output)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class WidgetScriptEscapingTests(SiteTestMixin, TestCase):
+    """Values interpolated into the page's JavaScript are escaped for JS.
+
+    A <script> block is raw text: HTML escaping is both wrong there (entities
+    are never decoded) and insufficient (it does not neutralise a quote or a
+    backslash for a JS string). ``{% trans %}`` on a quoted literal returns
+    SafeString, so without escapejs nothing escapes these at all.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        self.user = User.objects.create_user(
+            username="esc@crush.lu", email="esc@crush.lu", password="password123"
+        )
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Escaping",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-ESC",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_ESC",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+        self.client.force_login(self.user)
+
+    def _script(self, language):
+        with translation.override(language):
+            response = self.client.get(
+                reverse("crush_lu:sumup_widget", kwargs={"checkout_id": "CHK_ESC"}),
+                HTTP_ACCEPT_LANGUAGE=language,
+            )
+        self.assertEqual(response.status_code, 200)
+        return response.content.decode()
+
+    def test_no_html_entity_reaches_the_script(self):
+        """Entities are not decoded in raw text — one would be read literally."""
+        for language in ("en", "fr", "de"):
+            body = self._script(language)
+            line = [row for row in body.splitlines() if "const defaultError" in row][0]
+            self.assertNotIn("&#", line, f"{language}: HTML entity in a JS string")
+            self.assertNotIn("&amp;", line)
+
+    def test_the_error_text_is_the_translated_one(self):
+        body = self._script("fr")
+        self.assertIn("Le paiement", body)

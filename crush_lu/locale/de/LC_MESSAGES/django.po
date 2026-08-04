@@ -38744,3 +38744,31 @@ msgstr "Die Zahlung ist ausstehend oder wurde nicht abgeschlossen."
 #: crush_lu/views_payments.py
 msgid "Payment transaction reference not found."
 msgstr "Zahlungsreferenz nicht gefunden."
+
+#: crush_lu/templates/crush_lu/payments/sumup_widget.html
+msgid "Complete Payment"
+msgstr "Zahlung abschließen"
+
+#: crush_lu/templates/crush_lu/payments/sumup_widget.html
+msgid "Complete Your Payment"
+msgstr "Schließen Sie Ihre Zahlung ab"
+
+#: crush_lu/templates/crush_lu/payments/sumup_widget.html
+msgid "Total Amount"
+msgstr "Gesamtbetrag"
+
+#: crush_lu/templates/crush_lu/payments/sumup_widget.html
+msgid "Confirming your payment — please don't close this page."
+msgstr "Ihre Zahlung wird bestätigt — bitte schließen Sie diese Seite nicht."
+
+#: crush_lu/templates/crush_lu/payments/sumup_widget.html
+msgid "Loading secure SumUp payment checkout..."
+msgstr "Sicherer SumUp-Bezahlvorgang wird geladen..."
+
+#: crush_lu/templates/crush_lu/payments/sumup_widget.html
+msgid "Encrypted & PCI-DSS Compliant via SumUp"
+msgstr "Verschlüsselt und PCI-DSS-konform über SumUp"
+
+#: crush_lu/templates/crush_lu/payments/sumup_widget.html
+msgid "The payment could not be completed. Please check your card details and try again."
+msgstr "Die Zahlung konnte nicht abgeschlossen werden. Bitte überprüfen Sie Ihre Kartendaten und versuchen Sie es erneut."
