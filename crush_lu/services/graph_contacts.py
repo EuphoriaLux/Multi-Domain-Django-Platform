@@ -421,16 +421,21 @@ class GraphContactsService:
 
         # Mobile phone (primary identifier for caller ID). Must be strict E.164
         # or Outlook/Teams will never match it against an inbound call.
-        if profile.phone_number:
-            e164 = normalize_e164(profile.phone_number)
-            if e164:
-                payload["mobilePhone"] = e164
-            else:
-                logger.warning(
-                    f"Profile {profile.pk} phone_number is not normalizable to "
-                    f"E.164; syncing contact without a mobile number (caller ID "
-                    f"will not match)"
-                )
+        #
+        # The key is always emitted, as null when there is no usable number.
+        # Graph PATCH is a merge, so *omitting* it would leave whatever was
+        # synced before in place: a member whose number becomes unusable would
+        # keep resolving caller ID from their previous one, which by then may
+        # have been reassigned to somebody else entirely.
+        e164 = normalize_e164(profile.phone_number)
+        payload["mobilePhone"] = e164
+
+        if profile.phone_number and not e164:
+            logger.warning(
+                f"Profile {profile.pk} phone_number is not normalizable to "
+                f"E.164; clearing the Outlook mobile number (caller ID cannot "
+                f"match it)"
+            )
 
         # Email
         if user.email:
@@ -517,7 +522,13 @@ class GraphContactsService:
 
             # Upload photo via Graph API
             endpoint = f"{GRAPH_API_BASE}/users/{self.mailbox}/contacts/{contact_id}/photo/$value"
-            headers = {"Authorization": f"Bearer {token}", "Content-Type": content_type}
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": content_type,
+                # contact_id is an immutable ID, so this request has to speak
+                # the same dialect -- the header is per-request, not per-session.
+                "Prefer": IMMUTABLE_ID_PREFER,
+            }
 
             response = self._request_with_retry(
                 "put",
@@ -775,6 +786,12 @@ class GraphContactsService:
             )
             headers = {
                 "Authorization": f"Bearer {token}",
+                # The ID being deleted is an immutable ID (from create, from the
+                # backfill, or from a list call), so this request must use the
+                # same dialect. Without it Graph can 404 -- and 404 is treated
+                # as success below, which would silently leave the contact and
+                # its PII sitting in the shared mailbox.
+                "Prefer": IMMUTABLE_ID_PREFER,
             }
 
             response = self._request_with_retry("delete", endpoint, headers=headers)

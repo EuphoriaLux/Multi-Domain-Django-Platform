@@ -151,14 +151,24 @@ class TestBuildContactPayload:
 
         assert payload["mobilePhone"] == "+352621123456"
 
-    def test_unnormalizable_phone_is_omitted_not_forwarded(self, service, profile):
-        """Better to sync a contact with no number than one that looks correct
-        in Outlook but can never match."""
+    def test_unnormalizable_phone_clears_the_number(self, service, profile):
+        """Explicit null, not an omitted key. Graph PATCH is a merge, so
+        omitting mobilePhone would leave the previously synced number live --
+        and caller ID would keep resolving a number this member no longer has,
+        which by then may belong to somebody else."""
         profile.phone_number = "621123456"
 
         payload = service._build_contact_payload(profile)
 
-        assert "mobilePhone" not in payload
+        assert "mobilePhone" in payload
+        assert payload["mobilePhone"] is None
+
+    def test_blank_phone_also_clears_rather_than_omitting(self, service, profile):
+        profile.phone_number = ""
+
+        payload = service._build_contact_payload(profile)
+
+        assert payload["mobilePhone"] is None
 
     def test_contact_is_stamped_with_the_crush_category(self, service, profile):
         """The category is the only thing that distinguishes our rows from a
@@ -225,6 +235,38 @@ class TestImmutableIds:
 
         get_call = request.call_args_list[0]
         assert get_call.kwargs["headers"]["Prefer"] == IMMUTABLE_ID_PREFER
+
+    def test_delete_sends_the_immutable_id_header(self, service):
+        """The ID being deleted came from create/backfill/list, so it is an
+        immutable ID. Without the header Graph can 404 -- and delete_contact
+        treats 404 as success, silently leaving the contact and its PII in the
+        shared mailbox."""
+        with mock.patch(
+            "requests.request", return_value=_response(204)
+        ) as request:
+            assert service.delete_contact("IMMUTABLE", force=True) is True
+
+        assert request.call_args.kwargs["headers"]["Prefer"] == IMMUTABLE_ID_PREFER
+
+    def test_photo_upload_sends_the_immutable_id_header(self, service):
+        """Same dialect problem on the photo PUT: a 404 here means every new
+        profile syncs its contact but never gets a picture, and the key is not
+        remembered so the full sync retries the failure forever."""
+        profile = SimpleNamespace(
+            pk=1,
+            photo_1=SimpleNamespace(
+                name="users/1/photos/abc.jpg",
+                read=lambda: b"jpegbytes",
+                seek=lambda _: None,
+            ),
+            outlook_photo_key="",
+        )
+
+        with mock.patch("requests.request", return_value=_response(200)) as request:
+            with mock.patch.object(GraphContactsService, "_remember_photo_key"):
+                service._upload_contact_photo("IMMUTABLE", profile, "token")
+
+        assert request.call_args.kwargs["headers"]["Prefer"] == IMMUTABLE_ID_PREFER
 
     def test_translate_maps_ids_and_skips_errored_entries(self, service):
         """Already-immutable IDs come back with errorDetails; they must be
@@ -367,6 +409,57 @@ class TestDeleteAllScoping:
 
         assert len(deleted) == 4
         assert stats["skipped"] == 0
+
+
+@pytest.mark.django_db
+class TestDeleteAllEndpointFlagParsing:
+    """include_foreign is the only thing standing between this HTTP endpoint
+    and every contact in a shared mailbox, so it must not be coerced --
+    bool("false") and bool("0") are both True in Python."""
+
+    # Literal path: the domain middleware swaps urlconf per host, so
+    # reverse() would build a /crush/... path that 404s under crush.lu.
+    URL = "/api/admin/sync-contacts/delete-all/"
+
+    def _post(self, client, body):
+        import json as _json
+
+        with mock.patch(
+            "crush_lu.api_admin_sync._authenticate_admin_request", return_value=True
+        ), mock.patch(
+            "crush_lu.api_admin_sync.is_sync_enabled", return_value=True
+        ), mock.patch(
+            "crush_lu.api_admin_sync.GraphContactsService"
+        ) as service_cls:
+            service_cls.return_value.delete_all_contacts_from_outlook.return_value = {
+                "total": 0,
+                "deleted": 0,
+                "errors": 0,
+                "skipped": 0,
+            }
+            client.post(
+                self.URL,
+                data=_json.dumps(body),
+                content_type="application/json",
+                HTTP_HOST="crush.lu",
+            )
+        return service_cls.return_value.delete_all_contacts_from_outlook
+
+    @pytest.mark.parametrize("body", [{"include_foreign": "false"}, {"include_foreign": "0"}])
+    def test_stringy_false_does_not_enable_the_destructive_path(self, client, body):
+        called = self._post(client, body)
+
+        called.assert_called_once_with(include_foreign=False)
+
+    def test_json_true_enables_it(self, client):
+        called = self._post(client, {"include_foreign": True})
+
+        called.assert_called_once_with(include_foreign=True)
+
+    def test_absent_flag_defaults_to_safe(self, client):
+        called = self._post(client, {})
+
+        called.assert_called_once_with(include_foreign=False)
 
 
 # ---------------------------------------------------------------------------

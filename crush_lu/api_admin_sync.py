@@ -138,11 +138,15 @@ def delete_all_contacts_endpoint(request):
     # Opt-in escape hatch for wiping contacts we did not create. Off by default:
     # noreply@crush.lu is a shared mailbox and this endpoint is reachable with
     # nothing but the bearer token.
+    # Compared with `is True` rather than coerced: bool("false") and bool("0")
+    # are both True in Python, so a caller sending a stringified flag from a
+    # templated env var or form value would silently opt into the destructive
+    # path. Only a real JSON `true` enables it.
     include_foreign = False
     if request.body:
         try:
-            include_foreign = bool(
-                json.loads(request.body).get('include_foreign', False)
+            include_foreign = (
+                json.loads(request.body).get('include_foreign', False) is True
             )
         except (ValueError, AttributeError):
             pass
