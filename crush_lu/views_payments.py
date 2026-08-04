@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import uuid
@@ -1054,6 +1055,20 @@ def sumup_widget_status(request, checkout_id):
             # page an attempt failed lets it stop, say so, and let them try
             # another card on the same still-payable checkout.
             "attempt_failed": not settled and bool(tx_obj.failure_reason),
+            # WHICH failure, so the page can tell a new one from the one it has
+            # already shown. failure_reason is sticky for the life of a pending
+            # checkout, and SumUp's transactions array is cumulative, so "is
+            # there a failure on record" stays true right through a retry — the
+            # page would stop watching a second card three seconds after it was
+            # submitted, and call it failed while the bank was still deciding.
+            # That is this change's own bug on the retry path. An opaque digest,
+            # not the text: the reason is provider wording written for the Coach
+            # Panel, and the customer sees our own message instead.
+            "attempt_marker": (
+                hashlib.sha256(tx_obj.failure_reason.encode("utf-8")).hexdigest()[:16]
+                if tx_obj.failure_reason
+                else ""
+            ),
         }
     )
 

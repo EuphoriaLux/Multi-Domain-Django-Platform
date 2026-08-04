@@ -3175,3 +3175,148 @@ class TerminalWriteRaceTests(SiteTestMixin, TestCase):
         self.tx.refresh_from_db()
         self.assertEqual(self.tx.status, PaymentTransaction.Status.FAILED)
         self.assertIn("LOST_CARD", self.tx.failure_reason)
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class RetryAfterDeclineTests(SiteTestMixin, TestCase):
+    """A second card must not be judged by the first card's failure.
+
+    failure_reason is sticky for a pending checkout's whole life and SumUp's
+    transactions array is cumulative, so "a failure is on record" stays true
+    right through a retry. Acting on that alone stopped watching the second
+    card seconds after it was submitted and called it failed while the bank was
+    still deciding — this change's own bug, on the retry path.
+    """
+
+    def setUp(self):
+        super().setUp()
+        from django.core.cache import cache
+
+        cache.clear()
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        self.user = User.objects.create_user(
+            username="retry@crush.lu", email="retry@crush.lu", password="password123"
+        )
+        from crush_lu.models.profiles import UserDataConsent
+
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        self.event = MeetupEvent.objects.create(
+            title="Retry",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        self.tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-RETRY",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_RETRY",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+        self.url = reverse(
+            "crush_lu:sumup_widget_status", kwargs={"checkout_id": "CHK_RETRY"}
+        )
+        self.client.force_login(self.user)
+
+    def _poll(self):
+        from django.core.cache import cache
+
+        # The throttle is not what this is testing.
+        cache.clear()
+        return self.client.get(self.url).json()
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_an_unresolved_retry_carries_the_first_declines_marker(self, mock_get):
+        """The marker must not move while the second card is still in flight.
+
+        The page baselines on the marker when a new attempt starts, so an
+        unchanged marker is what keeps it watching instead of bailing.
+        """
+        declined = {
+            "id": "CHK_RETRY",
+            "status": "PENDING",
+            "transactions": [{"status": "FAILED", "failure_reason": "DECLINED"}],
+        }
+        mock_get.return_value = declined
+        first = self._poll()
+        self.assertTrue(first["attempt_failed"])
+        self.assertTrue(first["attempt_marker"])
+
+        # Card #2 submitted; its 3DS is still running, so SumUp still reports
+        # only card #1's attempt.
+        during_retry = self._poll()
+
+        self.assertEqual(during_retry["attempt_marker"], first["attempt_marker"])
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_second_decline_moves_the_marker(self, mock_get):
+        """And a genuinely new refusal must still reach the customer."""
+        mock_get.return_value = {
+            "id": "CHK_RETRY",
+            "status": "PENDING",
+            "transactions": [{"status": "FAILED", "failure_reason": "DECLINED"}],
+        }
+        first = self._poll()
+
+        mock_get.return_value = {
+            "id": "CHK_RETRY",
+            "status": "PENDING",
+            "transactions": [
+                {"status": "FAILED", "failure_reason": "DECLINED"},
+                {"status": "FAILED", "failure_reason": "INSUFFICIENT_FUNDS"},
+            ],
+        }
+        second = self._poll()
+
+        self.assertTrue(second["attempt_failed"])
+        self.assertNotEqual(second["attempt_marker"], first["attempt_marker"])
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_retry_that_succeeds_still_settles(self, mock_get):
+        """The outcome the bug destroyed: told it failed, then paid anyway."""
+        mock_get.return_value = {
+            "id": "CHK_RETRY",
+            "status": "PENDING",
+            "transactions": [{"status": "FAILED", "failure_reason": "DECLINED"}],
+        }
+        self._poll()
+
+        mock_get.return_value = {
+            "id": "CHK_RETRY",
+            "status": "PAID",
+            "transactions": [
+                {"status": "FAILED", "failure_reason": "DECLINED"},
+                {"status": "SUCCESSFUL"},
+            ],
+        }
+        with self.captureOnCommitCallbacks(execute=True):
+            settled = self._poll()
+
+        self.assertTrue(settled["settled"])
+        self.assertTrue(settled["paid"])
+        self.assertFalse(settled["attempt_failed"])
+        self.registration.refresh_from_db()
+        self.assertTrue(self.registration.payment_confirmed)
+
+    def test_the_widget_baselines_before_reacting(self):
+        response = self.client.get(
+            reverse("crush_lu:sumup_widget", kwargs={"checkout_id": "CHK_RETRY"})
+        )
+
+        self.assertContains(response, "shownFailureMarker")
+        self.assertContains(response, "attempt_marker")

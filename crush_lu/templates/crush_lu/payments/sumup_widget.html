@@ -104,6 +104,12 @@
         let pollTimer = null;
         let watching = false;
         let deadline = 0;
+        // Which failure the customer has already been shown. The server's flag
+        // only says "a failure is on record for this checkout", and that stays
+        // true across a retry — so acting on the flag alone would stop watching
+        // a second card seconds after it was submitted and call it failed while
+        // the bank was still deciding.
+        let shownFailureMarker = "";
 
         function watchCheckout() {
             if (watching) {
@@ -111,11 +117,17 @@
             }
             watching = true;
             deadline = Date.now() + POLL_WINDOW_MS;
+            // A new attempt is underway, so last attempt's message is stale.
+            errorEl.classList.add("hidden");
             statusEl.classList.remove("hidden");
-            pollTimer = setTimeout(pollOnce, POLL_INTERVAL_MS);
+            // Read once straight away without reacting to any failure it
+            // reports: whatever is on record belongs to an earlier attempt, not
+            // the card just submitted. That baseline is what makes a retry
+            // distinguishable from the decline before it.
+            pollOnce(true);
         }
 
-        function pollOnce() {
+        function pollOnce(isBaseline) {
             if (!watching) {
                 return;
             }
@@ -136,11 +148,19 @@
                         window.location.href = returnUrl;
                         return;
                     }
-                    if (data && data.attempt_failed) {
-                        // Refused, but the checkout is still payable — SumUp
-                        // keeps it open so another card can be tried. Don't
-                        // leave, and don't keep spinning: say so and let them
-                        // retry in the widget that is still on screen.
+                    if (data && isBaseline) {
+                        shownFailureMarker = data.attempt_marker || "";
+                    } else if (
+                        data &&
+                        data.attempt_failed &&
+                        data.attempt_marker !== shownFailureMarker
+                    ) {
+                        // Refused, and it is this attempt that was refused —
+                        // not one we already reported. The checkout is still
+                        // payable (SumUp keeps it open so another card can be
+                        // tried), so don't leave and don't keep spinning: say
+                        // so, and let them retry in the widget still on screen.
+                        shownFailureMarker = data.attempt_marker || "";
                         stopWatching();
                         errorEl.textContent = defaultError;
                         errorEl.classList.remove("hidden");
@@ -157,7 +177,9 @@
 
         function scheduleNextPoll() {
             if (watching) {
-                pollTimer = setTimeout(pollOnce, POLL_INTERVAL_MS);
+                pollTimer = setTimeout(function () {
+                    pollOnce(false);
+                }, POLL_INTERVAL_MS);
             }
         }
 
