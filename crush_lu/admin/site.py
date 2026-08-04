@@ -220,6 +220,7 @@ class CrushLuAdminSite(admin.AdminSite):
             'meetupevent': {'order': 1, 'icon': '🎉', 'group': 'Events & Meetups'},
             'eventregistration': {'order': 2, 'icon': '✅', 'group': 'Events & Meetups'},
             'eventinvitation': {'order': 3, 'icon': '💌', 'group': 'Events & Meetups'},
+            'paymenttransaction': {'order': 4, 'icon': '💳', 'group': 'Events & Meetups'},  # SumUp checkouts
             'presentationqueue': {'order': 5, 'icon': '📋', 'group': 'Events & Meetups'},
             'presentationrating': {'order': 6, 'icon': '⭐', 'group': 'Events & Meetups'},
             'eventpoll': {'order': 7, 'icon': '🗳️', 'group': 'Events & Meetups'},

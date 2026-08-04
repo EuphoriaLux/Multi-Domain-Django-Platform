@@ -104,8 +104,27 @@ def create_sumup_event_checkout(request, registration_id):
         client = SumUpClient()
         for old in superseded:
             if client.deactivate_checkout(old.sumup_checkout_id):
-                old.status = PaymentTransaction.Status.FAILED
-                old.save(update_fields=["status"])
+                # CANCELLED, not FAILED. Both are terminal and behave
+                # identically everywhere (_sync_checkout_with_sumup returns
+                # early for any non-PENDING row, and only PAID unlocks
+                # anything), but they answer different questions. SumUp's
+                # dashboard lists a deactivated checkout as a failed sale, so
+                # an organiser looking at a row of "Échec" needs some way to
+                # tell the ones we killed ourselves from the ones a bank
+                # declined. Marking our own supersessions FAILED made those two
+                # indistinguishable in the only record we control.
+                old.status = PaymentTransaction.Status.CANCELLED
+                # Deliberately not translated: this field is read in the Coach
+                # Panel, which is forced to English, and it would otherwise be
+                # frozen in whatever language the member happened to browse in.
+                old.failure_reason = (
+                    "Superseded by a newer checkout — the member re-opened the "
+                    "payment page, so this one was deactivated at SumUp before "
+                    "any card was charged."
+                )
+                # updated_at is auto_now, so it only moves if it is named here —
+                # and the admin shows it as when the row was last touched.
+                old.save(update_fields=["status", "failure_reason", "updated_at"])
                 logger.info(
                     "Superseded SumUp checkout %s for registration %s",
                     old.sumup_checkout_id,
@@ -431,6 +450,79 @@ def _apply_paid_checkout(tx_obj, data):
                     )
 
 
+def describe_sumup_failure(data):
+    """Say, in words, why SumUp did not pay a checkout.
+
+    SumUp's own dashboard shows a failed online payment as nothing but "Échec"
+    and a struck-through amount, which is where every "why did our test payment
+    fail?" investigation starts and stops. The detail it does not show is in the
+    checkout resource: each card attempt is an entry in ``transactions``, with
+    its own status and — when the acquirer supplies one — a decline code.
+
+    Returns a one-line summary suitable for the Coach Panel. Defensive about
+    shape throughout: this runs on a live provider payload during a payment, and
+    a KeyError here would be a 500 on somebody's checkout.
+    """
+    if not isinstance(data, dict):
+        return ""
+
+    status = (data.get("status") or "").upper() or "UNKNOWN"
+    parts = [f"SumUp reports the checkout as {status}"]
+
+    transactions = data.get("transactions")
+    if isinstance(transactions, list) and transactions:
+        for tx in transactions:
+            if not isinstance(tx, dict):
+                continue
+            attempt = (tx.get("status") or "UNKNOWN").upper()
+            # SumUp is not consistent about which of these it populates, and
+            # the useful one differs by decline type, so take whichever came.
+            detail = next(
+                (
+                    str(tx[key])
+                    for key in (
+                        "failure_reason",
+                        "error_message",
+                        "message",
+                        "auth_code",
+                    )
+                    if tx.get(key)
+                ),
+                "",
+            )
+            summary = f"attempt {attempt}"
+            if detail:
+                summary += f" ({detail})"
+            parts.append(summary)
+    else:
+        # No transactions array at all means no card was ever submitted: the
+        # checkout expired, or we deactivated it. Worth stating outright,
+        # because it rules out the card and points back at us.
+        parts.append("no card attempt was recorded against it")
+
+    return "; ".join(parts)
+
+
+def _has_unsuccessful_attempt(data):
+    """Did a card get submitted against this checkout and not go through?
+
+    Kept separate from the status check because SumUp answers "was it paid?"
+    and "was a card refused?" independently: a declined attempt leaves the
+    checkout PENDING so the customer can retry, which is why a decline never
+    showed up anywhere on our side.
+    """
+    if not isinstance(data, dict):
+        return False
+    transactions = data.get("transactions")
+    if not isinstance(transactions, list):
+        return False
+    return any(
+        isinstance(tx, dict)
+        and (tx.get("status") or "").upper() not in ("SUCCESSFUL", "PAID", "PENDING")
+        for tx in transactions
+    )
+
+
 def _sync_checkout_with_sumup(tx_obj):
     """Re-read the checkout from SumUp and apply whatever it reports.
 
@@ -455,7 +547,33 @@ def _sync_checkout_with_sumup(tx_obj):
     elif sumup_status in ("FAILED", "CANCELLED", "EXPIRED"):
         tx_obj.status = PaymentTransaction.Status.FAILED
         tx_obj.raw_response = data
+        tx_obj.failure_reason = describe_sumup_failure(data)
         tx_obj.save()
+        logger.warning(
+            "SumUp checkout %s (%s) ended %s: %s",
+            tx_obj.sumup_checkout_id,
+            tx_obj.transaction_reference,
+            sumup_status,
+            tx_obj.failure_reason,
+        )
+    elif _has_unsuccessful_attempt(data):
+        # Still PENDING at SumUp, but with card attempts recorded against it.
+        # That is exactly what a *declined* card looks like: SumUp leaves the
+        # checkout open so the customer can try another one, so the row stays
+        # PENDING here too — closing it would kill a checkout that is still
+        # payable. What changes is that the decline stops being invisible.
+        # (A PENDING checkout with no attempts is just one nobody has paid yet;
+        # there is nothing to say about it.)
+        reason = describe_sumup_failure(data)
+        if reason and reason != tx_obj.failure_reason:
+            tx_obj.failure_reason = reason
+            tx_obj.save(update_fields=["failure_reason", "updated_at"])
+            logger.info(
+                "SumUp checkout %s (%s) is still open after a failed attempt: %s",
+                tx_obj.sumup_checkout_id,
+                tx_obj.transaction_reference,
+                reason,
+            )
 
     tx_obj.refresh_from_db()
 
@@ -662,6 +780,69 @@ def _sumup_return_response(request, tx_obj):
         messages.warning(request, _("Payment is pending or was not completed."))
 
     return redirect("crush_lu:home")
+
+
+@login_required
+@require_POST
+def report_sumup_widget_failure(request, checkout_id):
+    """The card widget telling us a payment attempt did not go through.
+
+    Until this existed, a declined card was silent server-side. The widget
+    printed a message in the customer's browser and stopped; SumUp left the
+    checkout PENDING so another card could be tried, so neither the webhook nor
+    the return page ever fired, and the PaymentTransaction sat PENDING forever
+    with nothing recorded. The only trace of the whole event was a row in
+    SumUp's dashboard reading "Échec" — off in a different system, with no
+    reference tying it back to a member or a registration.
+
+    The posted body is a *hint*, exactly as in the webhook: it is written by the
+    browser, so it names the checkout and supplies the widget's own wording, and
+    then the checkout is re-read from SumUp for anything authoritative. It
+    cannot move a payment to PAID; ``_sync_checkout_with_sumup`` is the only
+    thing that decides status, and it asks SumUp.
+    """
+    tx_obj = get_object_or_404(PaymentTransaction, sumup_checkout_id=checkout_id)
+    if request.user.id not in _payment_owner_ids(tx_obj) and not request.user.is_staff:
+        raise Http404("No payment found.")
+
+    try:
+        payload = json.loads(request.body.decode("utf-8")) if request.body else {}
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        payload = {}
+    if not isinstance(payload, dict):
+        payload = {}
+
+    widget_type = str(payload.get("type") or "error")[:40]
+    # Truncated because it is attacker-controlled in the sense that any logged-in
+    # owner can post arbitrary text here; it lands in a TextField and in the log.
+    widget_message = str(payload.get("message") or "")[:300]
+
+    logger.warning(
+        "SumUp widget reported '%s' for checkout %s (%s), user %s: %s",
+        widget_type,
+        checkout_id,
+        tx_obj.transaction_reference,
+        request.user.id,
+        widget_message or "(no message)",
+    )
+
+    # Ask SumUp first — if the checkout is genuinely terminal, its verdict and
+    # its wording are better than the widget's, and this is also the path that
+    # would catch a payment that actually succeeded despite a widget error.
+    _sync_checkout_with_sumup(tx_obj)
+
+    if tx_obj.status == PaymentTransaction.Status.PENDING:
+        note = f"Card widget reported '{widget_type}'"
+        if widget_message:
+            note += f": {widget_message}"
+        existing = tx_obj.failure_reason
+        combined = f"{existing} | {note}" if existing else note
+        # One checkout can absorb several refused cards, and each one appends.
+        # Keep the tail: the most recent attempt is the one being investigated.
+        tx_obj.failure_reason = combined[-1000:]
+        tx_obj.save(update_fields=["failure_reason", "updated_at"])
+
+    return JsonResponse({"status": "recorded"})
 
 
 @login_required

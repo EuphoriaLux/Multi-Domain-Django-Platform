@@ -91,6 +91,14 @@ class PaymentTransaction(models.Model):
         blank=True,
         help_text=_("Raw JSON response / webhook payload from payment provider"),
     )
+    failure_reason = models.TextField(
+        blank=True,
+        default="",
+        help_text=_(
+            "Why this payment did not complete, in words. The provider's own "
+            "wording where it gives one."
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -216,6 +216,8 @@ from .event_lobby import (
 
 from .metrics import WeeklyMetricsSnapshotAdmin
 
+from .payments import PaymentTransactionAdmin
+
 from .changelog import PatchReleaseAdmin, PatchNoteAdmin, PatchNoteInline
 
 from .quiz import (
@@ -332,6 +334,7 @@ from crush_lu.models import (
     CacheStationAttempt,
     CacheChallengeAttempt,
     WeeklyMetricsSnapshot,
+    PaymentTransaction,
     UserReport,
     UserBlock,
     EventLobbyParticipation,
@@ -371,6 +374,9 @@ crush_admin_site.register(MeetupEvent, MeetupEventAdmin)
 crush_admin_site.register(EventRegistration, EventRegistrationAdmin)
 crush_admin_site.register(EventInvitation, EventInvitationAdmin)
 crush_admin_site.register(EventFeedback, EventFeedbackAdmin)
+
+# Payments (SumUp) — event fees and Connect Premium in one place
+crush_admin_site.register(PaymentTransaction, PaymentTransactionAdmin)
 
 # Phone Verification Call Log
 crush_admin_site.register(CallAttempt, CallAttemptAdmin)

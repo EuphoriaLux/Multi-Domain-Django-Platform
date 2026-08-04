@@ -1,0 +1,180 @@
+"""
+sumup_checkout_status — ask SumUp what actually happened to a payment.
+
+SumUp's merchant dashboard shows a failed online payment as "Échec" and a
+struck-through amount, and nothing else. The detail sits in the checkout
+resource: the ``transactions`` array records each card attempt with its own
+status and, where the acquirer gave one, a decline reason. This prints it.
+
+Usage::
+
+    # What have we opened lately, and what does our side think happened?
+    python manage.py sumup_checkout_status
+
+    # Interrogate SumUp about a specific payment (any one of these)
+    python manage.py sumup_checkout_status --reference CRUSH-EVT-42-a1b2c3
+    python manage.py sumup_checkout_status --checkout-id 8f2c...
+    python manage.py sumup_checkout_status --registration-id 42
+
+    # Same, but also apply what SumUp reports (confirms a seat if it was paid)
+    python manage.py sumup_checkout_status --registration-id 42 --sync
+
+Read-only unless ``--sync`` is passed. ``--sync`` runs the same reconciliation
+the webhook and the return page use, so a payment that succeeded while our row
+was stuck PENDING is properly applied rather than merely described.
+"""
+
+import json
+
+from django.core.management.base import BaseCommand, CommandError
+
+from crush_lu.models.payments import PaymentTransaction
+from crush_lu.services.sumup import SumUpClient, SumUpError
+
+
+class Command(BaseCommand):
+    help = "Show what SumUp reports for a checkout, including why it failed."
+
+    def add_arguments(self, parser):
+        parser.add_argument("--reference", help="Our transaction_reference")
+        parser.add_argument("--checkout-id", help="SumUp checkout id")
+        parser.add_argument(
+            "--registration-id",
+            type=int,
+            help="EventRegistration id — shows every checkout opened for it",
+        )
+        parser.add_argument(
+            "--recent",
+            type=int,
+            default=10,
+            help="How many recent transactions to list when no selector is "
+            "given (default: 10)",
+        )
+        parser.add_argument(
+            "--sync",
+            action="store_true",
+            help="Apply what SumUp reports, don't just print it",
+        )
+
+    def handle(self, *args, **options):
+        rows = self._select(options)
+        if not rows:
+            self.stdout.write(self.style.WARNING("No matching transactions."))
+            return
+
+        selective = any(
+            options.get(key) for key in ("reference", "checkout_id", "registration_id")
+        )
+        for tx_obj in rows:
+            self._print_local(tx_obj)
+            # Listing everything would fire one API call per row; only reach for
+            # the provider when a specific payment was asked about.
+            if selective:
+                self._print_remote(tx_obj, sync=options["sync"])
+            self.stdout.write("")
+
+        if not selective:
+            self.stdout.write(
+                "Pass --reference / --checkout-id / --registration-id to ask "
+                "SumUp what happened to one of these."
+            )
+
+    def _select(self, options):
+        qs = PaymentTransaction.objects.all().order_by("-created_at")
+        if options.get("reference"):
+            return list(qs.filter(transaction_reference=options["reference"]))
+        if options.get("checkout_id"):
+            return list(qs.filter(sumup_checkout_id=options["checkout_id"]))
+        if options.get("registration_id"):
+            return list(qs.filter(event_registration_id=options["registration_id"]))
+        recent = options["recent"]
+        if recent < 1:
+            raise CommandError("--recent must be at least 1")
+        return list(qs[:recent])
+
+    def _print_local(self, tx_obj):
+        self.stdout.write(
+            self.style.MIGRATE_HEADING(
+                f"{tx_obj.transaction_reference}  "
+                f"{tx_obj.amount} {tx_obj.currency}  "
+                f"[{tx_obj.status}]"
+            )
+        )
+        self.stdout.write(f"  created      {tx_obj.created_at:%Y-%m-%d %H:%M:%S %Z}")
+        self.stdout.write(f"  purpose      {tx_obj.purpose}")
+        self.stdout.write(f"  checkout id  {tx_obj.sumup_checkout_id or '(none)'}")
+        if tx_obj.event_registration_id:
+            reg = tx_obj.event_registration
+            self.stdout.write(
+                f"  buyer        {reg.user.email} "
+                f"(registration {reg.id}, status {reg.status}, "
+                f"paid={reg.payment_confirmed})"
+            )
+            self.stdout.write(f"  event        {reg.event.title}")
+        elif tx_obj.premium_membership_id:
+            pm = tx_obj.premium_membership
+            self.stdout.write(
+                f"  buyer        {pm.user.email} "
+                f"(premium {pm.id}, status {pm.status})"
+            )
+        if tx_obj.failure_reason:
+            self.stdout.write(
+                self.style.WARNING(f"  reason       {tx_obj.failure_reason}")
+            )
+
+    def _print_remote(self, tx_obj, sync=False):
+        if not tx_obj.sumup_checkout_id:
+            self.stdout.write("  SumUp        (no checkout id recorded)")
+            return
+
+        try:
+            data = SumUpClient().get_checkout(tx_obj.sumup_checkout_id)
+        except SumUpError as exc:
+            self.stdout.write(self.style.ERROR(f"  SumUp        unreachable: {exc}"))
+            return
+
+        remote_status = (data.get("status") or "UNKNOWN").upper()
+        self.stdout.write(f"  SumUp says   {remote_status}")
+
+        transactions = data.get("transactions") or []
+        if not transactions:
+            self.stdout.write(
+                "  attempts     none — no card was ever submitted against this "
+                "checkout (it expired, or we deactivated it when a newer one "
+                "was opened)"
+            )
+        for attempt in transactions:
+            if not isinstance(attempt, dict):
+                continue
+            bits = [f"status={attempt.get('status')}"]
+            for key in (
+                "failure_reason",
+                "error_message",
+                "message",
+                "auth_code",
+                "payment_type",
+                "entry_mode",
+                "timestamp",
+            ):
+                if attempt.get(key):
+                    bits.append(f"{key}={attempt[key]}")
+            self.stdout.write(f"  attempt      {', '.join(bits)}")
+
+        self.stdout.write("  raw:")
+        for line in json.dumps(data, indent=2, ensure_ascii=False).splitlines():
+            self.stdout.write(f"    {line}")
+
+        if sync:
+            # Imported here so the module stays importable without pulling the
+            # whole view layer in for a --recent listing.
+            from crush_lu.views_payments import _sync_checkout_with_sumup
+
+            before = tx_obj.status
+            _sync_checkout_with_sumup(tx_obj)
+            tx_obj.refresh_from_db()
+            if tx_obj.status != before:
+                self.stdout.write(
+                    self.style.SUCCESS(f"  synced       {before} → {tx_obj.status}")
+                )
+            else:
+                self.stdout.write(f"  synced       unchanged ({tx_obj.status})")

@@ -205,6 +205,7 @@ urlpatterns = [
     path('payments/sumup/create-event-checkout/<int:registration_id>/', views_payments.create_sumup_event_checkout, name='sumup_create_event_checkout'),
     path('payments/sumup/create-premium-checkout/<int:membership_id>/', views_payments.create_sumup_premium_checkout, name='sumup_create_premium_checkout'),
     path('payments/sumup/widget/<str:checkout_id>/', views_payments.sumup_widget_view, name='sumup_widget'),
+    path('payments/sumup/widget/<str:checkout_id>/failed/', views_payments.report_sumup_widget_failure, name='sumup_widget_failure'),
     path('payments/sumup/return/', views_payments.sumup_payment_return, name='sumup_payment_return'),
     path('payments/sumup/webhook/', views_payments.sumup_webhook, name='sumup_webhook'),
 

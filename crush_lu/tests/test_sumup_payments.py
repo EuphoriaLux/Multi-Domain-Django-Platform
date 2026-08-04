@@ -1428,10 +1428,12 @@ class SupersedeCheckoutTests(SiteTestMixin, TestCase):
         self.assertEqual(second.json()["checkout_id"], "CHK_B")
         # The old one is dead at SumUp, so it cannot also be paid.
         mock_deactivate.assert_called_once_with("CHK_A")
-        self.assertEqual(
-            PaymentTransaction.objects.get(sumup_checkout_id="CHK_A").status,
-            PaymentTransaction.Status.FAILED,
-        )
+        superseded = PaymentTransaction.objects.get(sumup_checkout_id="CHK_A")
+        # CANCELLED, not FAILED: SumUp's dashboard lists a deactivated checkout
+        # as a failed sale, so our own record has to say which "Échec" rows are
+        # our supersessions and which are a bank refusing a card.
+        self.assertEqual(superseded.status, PaymentTransaction.Status.CANCELLED)
+        self.assertIn("Superseded", superseded.failure_reason)
         self.assertEqual(
             PaymentTransaction.objects.get(sumup_checkout_id="CHK_B").status,
             PaymentTransaction.Status.PENDING,
@@ -1663,3 +1665,241 @@ class SupersedeFailureModeTests(SiteTestMixin, TestCase):
         self.assertNotEqual(self.registration.status, "confirmed")
         # Money captured -- the record must survive for the refund/top-up.
         self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+
+
+class DescribeSumUpFailureTests(TestCase):
+    """The "why" extracted from a checkout payload.
+
+    SumUp's dashboard shows a failed online payment as the word "Échec" and a
+    struck-through amount. Everything useful is in the checkout resource, and
+    this is what turns it into a sentence a coach can read.
+    """
+
+    def test_names_the_decline_reason_from_the_attempt(self):
+        from crush_lu.views_payments import describe_sumup_failure
+
+        reason = describe_sumup_failure(
+            {
+                "status": "PENDING",
+                "transactions": [
+                    {"status": "FAILED", "failure_reason": "AUTHORISATION_ERROR"}
+                ],
+            }
+        )
+
+        self.assertIn("PENDING", reason)
+        self.assertIn("FAILED", reason)
+        self.assertIn("AUTHORISATION_ERROR", reason)
+
+    def test_says_outright_when_no_card_was_ever_submitted(self):
+        """The case that points back at us rather than at the card.
+
+        An EXPIRED or deactivated checkout carries no transactions at all, and
+        that difference is the whole question when a merchant is staring at a
+        row of failures wondering whether a customer's bank refused them.
+        """
+        from crush_lu.views_payments import describe_sumup_failure
+
+        reason = describe_sumup_failure({"status": "EXPIRED", "transactions": []})
+
+        self.assertIn("EXPIRED", reason)
+        self.assertIn("no card attempt", reason)
+
+    def test_survives_a_payload_shaped_unlike_the_documentation(self):
+        """This runs on live provider output during a payment; it may not 500."""
+        from crush_lu.views_payments import describe_sumup_failure
+
+        self.assertEqual(describe_sumup_failure(None), "")
+        self.assertEqual(describe_sumup_failure("nonsense"), "")
+        self.assertIn(
+            "UNKNOWN", describe_sumup_failure({"transactions": ["not-a-dict"]})
+        )
+
+
+@override_settings(ROOT_URLCONF="azureproject.urls_crush")
+class FailedAttemptVisibilityTests(SiteTestMixin, TestCase):
+    """A refused card must stop being invisible on our side.
+
+    Before this, the widget printed an error in the customer's browser and that
+    was the end of it: SumUp leaves a checkout PENDING after a decline so
+    another card can be tried, so no webhook fired, the customer never reached
+    the return page, and the PaymentTransaction sat PENDING with nothing
+    recorded. The only evidence was a "Échec" row in SumUp's dashboard, in a
+    different system, naming no member and no registration.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        self.user = User.objects.create_user(
+            username="fail@crush.lu", email="fail@crush.lu", password="password123"
+        )
+        self.other = User.objects.create_user(
+            username="nosy@crush.lu", email="nosy@crush.lu", password="password123"
+        )
+        from crush_lu.models.profiles import UserDataConsent
+
+        for user in (self.user, self.other):
+            UserDataConsent.objects.update_or_create(
+                user=user,
+                defaults={
+                    "powerup_consent_given": True,
+                    "crushlu_consent_given": True,
+                },
+            )
+        self.event = MeetupEvent.objects.create(
+            title="Declined",
+            description="d",
+            event_type="speed_dating",
+            location="Luxembourg",
+            address="10 Grand Rue",
+            date_time=timezone.now() + timezone.timedelta(days=2),
+            registration_deadline=timezone.now() + timezone.timedelta(days=1),
+            registration_fee=Decimal("1.00"),
+            is_published=True,
+        )
+        self.registration = EventRegistration.objects.create(
+            user=self.user, event=self.event, status="pending"
+        )
+        self.tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-DECLINED",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_DECLINED",
+            amount=Decimal("1.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.user,
+            event_registration=self.registration,
+        )
+        self.url = reverse(
+            "crush_lu:sumup_widget_failure",
+            kwargs={"checkout_id": "CHK_DECLINED"},
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_decline_leaves_the_checkout_payable_but_recorded(self, mock_get):
+        """PENDING is correct here — the customer can still try another card."""
+        mock_get.return_value = {
+            "id": "CHK_DECLINED",
+            "status": "PENDING",
+            "transactions": [
+                {"status": "FAILED", "failure_reason": "INSUFFICIENT_FUNDS"}
+            ],
+        }
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            self.url,
+            data=json.dumps({"type": "fail", "message": "Card was declined"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.PENDING)
+        self.assertIn("INSUFFICIENT_FUNDS", self.tx.failure_reason)
+        self.assertIn("Card was declined", self.tx.failure_reason)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_the_browser_cannot_talk_a_payment_into_being_paid(self, mock_get):
+        """Same contract as the webhook: the posted body is a hint, not truth."""
+        mock_get.return_value = {"id": "CHK_DECLINED", "status": "PENDING"}
+        self.client.force_login(self.user)
+
+        self.client.post(
+            self.url,
+            data=json.dumps({"type": "success", "status": "PAID"}),
+            content_type="application/json",
+        )
+
+        self.tx.refresh_from_db()
+        self.registration.refresh_from_db()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.PENDING)
+        self.assertFalse(self.registration.payment_confirmed)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_stranger_cannot_scribble_on_someone_elses_payment(self, mock_get):
+        mock_get.return_value = {"id": "CHK_DECLINED", "status": "PENDING"}
+        self.client.force_login(self.other)
+
+        response = self.client.post(
+            self.url,
+            data=json.dumps({"type": "fail", "message": "not mine"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.failure_reason, "")
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_terminal_failure_closes_the_row_with_its_reason(self, mock_get):
+        mock_get.return_value = {
+            "id": "CHK_DECLINED",
+            "status": "FAILED",
+            "transactions": [{"status": "FAILED", "error_message": "3DS aborted"}],
+        }
+        self.client.force_login(self.user)
+
+        self.client.post(
+            self.url,
+            data=json.dumps({"type": "error", "message": "widget error"}),
+            content_type="application/json",
+        )
+
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.FAILED)
+        self.assertIn("3DS aborted", self.tx.failure_reason)
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_payment_that_actually_succeeded_is_still_applied(self, mock_get):
+        """The widget can report an error on a checkout SumUp did capture.
+
+        Asking SumUp first means this path repairs the seat instead of filing a
+        failure against a payment the member was really charged for.
+        """
+        mock_get.return_value = {"id": "CHK_DECLINED", "status": "PAID"}
+        self.client.force_login(self.user)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(
+                self.url,
+                data=json.dumps({"type": "error", "message": "widget hiccup"}),
+                content_type="application/json",
+            )
+
+        self.tx.refresh_from_db()
+        self.registration.refresh_from_db()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.PAID)
+        self.assertTrue(self.registration.payment_confirmed)
+
+    def test_the_widget_page_renders_and_carries_the_reporting_url(self):
+        """Renders the real template, not just the view.
+
+        The reporting endpoint is reached through ``{% url %}`` in the widget
+        page, so a name that does not resolve is a 500 on the payment screen —
+        and the widget view had no test rendering it at all.
+        """
+        self.client.force_login(self.user)
+
+        response = self.client.get(
+            reverse("crush_lu:sumup_widget", kwargs={"checkout_id": "CHK_DECLINED"})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "/payments/sumup/widget/CHK_DECLINED/failed/")
+        # base.html renders the token the reporting fetch reads; without it the
+        # POST is a 403 nobody sees (see test_template_hygiene).
+        self.assertContains(response, "csrfmiddlewaretoken")
+
+    def test_an_anonymous_post_cannot_reach_a_payment(self):
+        response = self.client.post(
+            self.url,
+            data=json.dumps({"type": "fail"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.failure_reason, "")

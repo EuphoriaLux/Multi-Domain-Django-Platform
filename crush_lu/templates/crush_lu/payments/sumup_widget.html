@@ -51,8 +51,42 @@
     document.addEventListener("DOMContentLoaded", function () {
         const checkoutId = "{{ checkout_id }}";
         const returnUrl = "{{ return_url }}";
+        const failureUrl = "{% url 'crush_lu:sumup_widget_failure' checkout_id %}";
         const errorEl = document.getElementById("sumup-error");
         const defaultError = "{% trans 'The payment could not be completed. Please check your card details and try again.' %}";
+
+        // CSRF_COOKIE_HTTPONLY is True, so document.cookie can't see csrftoken.
+        // Read the hidden input base.html renders instead (same as HTMX does).
+        function getCsrfToken() {
+            const input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+            return input ? input.value : "";
+        }
+
+        // Tell the server the attempt failed. A declined card is otherwise
+        // invisible to us: SumUp keeps the checkout open so another card can be
+        // tried, so no webhook fires and the customer never reaches the return
+        // page — the transaction would stay "pending" forever while SumUp's
+        // dashboard showed a failed sale nobody could trace back to a member.
+        // Fire-and-forget: the customer is looking at an error message, and a
+        // reporting failure must not become a second one.
+        function reportFailure(type, body) {
+            try {
+                fetch(failureUrl, {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": getCsrfToken(),
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        type: type,
+                        message: (body && (body.message || body.error_message)) || "",
+                    }),
+                    keepalive: true,
+                }).catch(function () {});
+            } catch (e) {
+                /* reporting is best-effort */
+            }
+        }
 
         if (typeof SumUpCard !== "undefined") {
             document.getElementById("sumup-loading").style.display = "none";
@@ -79,6 +113,7 @@
                         errorEl.textContent =
                             (body && (body.message || body.error_message)) || defaultError;
                         errorEl.classList.remove("hidden");
+                        reportFailure(type, body);
                     }
                 },
             });
