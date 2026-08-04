@@ -3915,3 +3915,206 @@ class WidgetScriptEscapingTests(SiteTestMixin, TestCase):
     def test_the_error_text_is_the_translated_one(self):
         body = self._script("fr")
         self.assertIn("Le paiement", body)
+
+
+class DonationCheckoutTests(SiteTestMixin, TestCase):
+    """Opening a voluntary support checkout.
+
+    The amount is the one thing here a member types, and it goes straight to a
+    payment provider — so most of this is about what the view refuses.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.client.defaults["HTTP_HOST"] = "crush.lu"
+        self.user = User.objects.create_user(
+            username="donor@crush.lu", email="donor@crush.lu", password="password123"
+        )
+        from crush_lu.models.profiles import UserDataConsent
+
+        # Without this the consent middleware redirects every request here,
+        # and each assertion below would be checking a 302 instead of the view.
+        UserDataConsent.objects.update_or_create(
+            user=self.user,
+            defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
+        )
+        # The literal path, not reverse(). On crush.lu the routing middleware
+        # swaps in the urls_crush urlconf, where this route is registered
+        # un-prefixed -- so the namespaced /crush/... form reverse() builds
+        # against ROOT_URLCONF 404s here. This is the path the support card
+        # hardcodes and the one production serves.
+        self.url = "/payments/sumup/create-donation-checkout/"
+        self.client.force_login(self.user)
+
+    def _post(self, amount):
+        return self.client.post(
+            self.url,
+            data=json.dumps({"amount": amount}),
+            content_type="application/json",
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_opens_a_checkout_and_records_it_pending(self, mock_create):
+        mock_create.return_value = {"id": "CHK_DON_123", "status": "PENDING"}
+
+        response = self._post("10.00")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertTrue(body["success"])
+        self.assertEqual(body["checkout_id"], "CHK_DON_123")
+        self.assertIn("/payments/sumup/widget/CHK_DON_123/", body["widget_url"])
+
+        tx = PaymentTransaction.objects.get(sumup_checkout_id="CHK_DON_123")
+        self.assertEqual(tx.amount, Decimal("10.00"))
+        self.assertEqual(tx.purpose, PaymentTransaction.Purpose.DONATION)
+        self.assertEqual(tx.status, PaymentTransaction.Status.PENDING)
+        self.assertEqual(tx.user, self.user)
+        # Nothing was bought, so neither link may be set — _payment_owner_ids
+        # falls back to tx.user for exactly this shape of row.
+        self.assertIsNone(tx.event_registration_id)
+        self.assertIsNone(tx.premium_membership_id)
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_anonymous_visitors_cannot_open_one(self, mock_create):
+        self.client.logout()
+
+        response = self._post("10.00")
+
+        self.assertIn(response.status_code, (302, 403))
+        mock_create.assert_not_called()
+        self.assertFalse(PaymentTransaction.objects.exists())
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_refuses_an_amount_under_the_floor(self, mock_create):
+        response = self._post("1.50")
+
+        self.assertEqual(response.status_code, 400)
+        mock_create.assert_not_called()
+        self.assertFalse(PaymentTransaction.objects.exists())
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_refuses_an_amount_over_the_ceiling(self, mock_create):
+        """A slipped decimal point must not open a five-figure checkout."""
+        response = self._post("50000.00")
+
+        self.assertEqual(response.status_code, 400)
+        mock_create.assert_not_called()
+        self.assertFalse(PaymentTransaction.objects.exists())
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_refuses_amounts_that_are_not_numbers(self, mock_create):
+        for amount in ("abc", "", None, "10; DROP TABLE", []):
+            with self.subTest(amount=amount):
+                response = self._post(amount)
+                self.assertEqual(response.status_code, 400)
+        mock_create.assert_not_called()
+        self.assertFalse(PaymentTransaction.objects.exists())
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_refuses_the_decimal_literals_that_are_not_amounts(self, mock_create):
+        """"Infinity" and "NaN" parse as Decimal — neither is a donation.
+
+        Infinity is the dangerous one: no ``< min`` or ``> max`` comparison
+        rejects it, so it would sail through to SumUp as ``inf``. NaN fails the
+        other way — comparing it raises, which without the finite check would
+        surface as a 500 rather than a 400.
+        """
+        for amount in ("Infinity", "-Infinity", "NaN"):
+            with self.subTest(amount=amount):
+                response = self._post(amount)
+                self.assertEqual(response.status_code, 400)
+        mock_create.assert_not_called()
+        self.assertFalse(PaymentTransaction.objects.exists())
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_a_provider_failure_leaves_no_transaction_behind(self, mock_create):
+        mock_create.side_effect = SumUpError("SumUp is down")
+
+        response = self._post("10.00")
+
+        self.assertEqual(response.status_code, 500)
+        self.assertFalse(PaymentTransaction.objects.exists())
+
+
+class CommunitySupporterBadgeTests(SiteTestMixin, TestCase):
+    """What a paid donation actually grants."""
+
+    def setUp(self):
+        super().setUp()
+        self.user = User.objects.create_user(
+            username="badge@crush.lu", email="badge@crush.lu", password="password123"
+        )
+        self.profile = CrushProfile.objects.create(
+            user=self.user, verification_status="verified"
+        )
+
+    def _donation(self, **kwargs):
+        return PaymentTransaction.objects.create(
+            transaction_reference=kwargs.pop("ref", "CRUSH-DON-TEST"),
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id=kwargs.pop("checkout_id", "CHK_DON_PAID"),
+            amount=Decimal("10.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.DONATION,
+            **kwargs,
+        )
+
+    def test_a_paid_donation_grants_the_badge(self):
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        tx = self._donation(user=self.user)
+        self.assertFalse(self.profile.is_community_supporter)
+
+        _apply_paid_checkout(tx, {"status": "PAID"})
+
+        self.profile.refresh_from_db()
+        tx.refresh_from_db()
+        self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+        self.assertTrue(self.profile.is_community_supporter)
+
+    def test_applying_the_same_donation_twice_is_harmless(self):
+        """The browser return and SumUp's callback routinely race each other."""
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        tx = self._donation(user=self.user)
+
+        _apply_paid_checkout(tx, {"status": "PAID"})
+        _apply_paid_checkout(tx, {"status": "PAID"})
+
+        self.profile.refresh_from_db()
+        self.assertTrue(self.profile.is_community_supporter)
+
+    def test_a_donor_without_a_profile_does_not_break_the_payment(self):
+        """The badge is a nice-to-have; the money is not.
+
+        Donating needs only an account — no CrushProfile, no onboarding — so
+        this row is reachable in production. It must still be recorded PAID.
+        """
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        profileless = User.objects.create_user(
+            username="noprofile@crush.lu",
+            email="noprofile@crush.lu",
+            password="password123",
+        )
+        tx = self._donation(
+            user=profileless, ref="CRUSH-DON-NP", checkout_id="CHK_DON_NP"
+        )
+
+        _apply_paid_checkout(tx, {"status": "PAID"})
+
+        tx.refresh_from_db()
+        self.assertEqual(tx.status, PaymentTransaction.Status.PAID)
+
+    def test_a_paid_donation_touches_no_seat_and_no_membership(self):
+        """A donation shares _apply_paid_checkout with the two things it isn't."""
+        from crush_lu.views_payments import _apply_paid_checkout
+
+        tx = self._donation(user=self.user)
+
+        _apply_paid_checkout(tx, {"status": "PAID"})
+
+        self.assertFalse(EventRegistration.objects.exists())
+        self.assertFalse(PremiumMembership.objects.exists())

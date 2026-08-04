@@ -1,7 +1,7 @@
 import json
 import logging
 import uuid
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
 from django.contrib import messages
@@ -23,7 +23,7 @@ from crush_lu.models.events import (
     MeetupEvent,
 )
 from crush_lu.models.payments import PaymentTransaction
-from crush_lu.models.profiles import PremiumMembership
+from crush_lu.models.profiles import CrushProfile, PremiumMembership
 from crush_lu.services.sumup import SumUpClient, SumUpError
 from crush_lu.utils.i18n import get_onscreen_language
 from crush_lu.views_ticket import _generate_checkin_token
@@ -33,6 +33,12 @@ logger = logging.getLogger(__name__)
 # How long one checkout's status may be served from our own row before a
 # browser-driven path is allowed to hit SumUp about it again.
 SUMUP_SYNC_THROTTLE_SECONDS = 3
+
+# Bounds on a voluntary support donation. The floor keeps the card fee from
+# eating the whole contribution; the ceiling is a typo guard, not a policy on
+# generosity — the error points anyone genuinely wanting to give more at us.
+DONATION_MIN_EUR = Decimal("2.00")
+DONATION_MAX_EUR = Decimal("500.00")
 
 
 def _may_ask_sumup(scope, checkout_id):
@@ -324,6 +330,102 @@ def create_sumup_premium_checkout(request, membership_id):
     })
 
 
+@login_required
+@require_POST
+def create_sumup_donation_checkout(request):
+    """
+    Creates a SumUp checkout session for a voluntary project donation.
+    """
+    try:
+        if request.body:
+            data = json.loads(request.body.decode("utf-8"))
+            raw_amount = data.get("amount")
+        else:
+            raw_amount = request.POST.get("amount")
+        if raw_amount is None:
+            return JsonResponse({"error": _("Donation amount is required.")}, status=400)
+        amount = Decimal(str(raw_amount))
+    except (TypeError, ValueError, InvalidOperation):
+        # Named exceptions, not a bare ``Exception``. The amount is the only
+        # thing being parsed here; anything else that raises is a bug in this
+        # view and must surface as a 500 rather than be reported to the member
+        # as "your amount was invalid".
+        return JsonResponse({"error": _("Invalid donation amount.")}, status=400)
+
+    # "Infinity" and "NaN" are perfectly valid Decimal literals. Infinity slips
+    # past the range check below (no comparison is ever true for it in the
+    # rejecting direction) and reaches SumUp as ``inf``; NaN raises
+    # InvalidOperation from the comparison itself, outside the try above, and
+    # would 500. Neither is a donation, so both are refused up front.
+    if not amount.is_finite():
+        return JsonResponse({"error": _("Invalid donation amount.")}, status=400)
+
+    if amount < DONATION_MIN_EUR:
+        return JsonResponse({"error": _("Minimum donation amount is €2.00.")}, status=400)
+
+    # The amount is chosen by the member -- the card offers presets but also a
+    # free-text field, so a slipped decimal point or a hand-rolled POST can ask
+    # for an arbitrary sum. Cap it so a typo cannot open a five-figure checkout
+    # (and cannot leave a bogus PENDING row behind when SumUp then refuses it).
+    if amount > DONATION_MAX_EUR:
+        return JsonResponse(
+            {
+                "error": _("Maximum donation amount is €%(max)s. Please contact us for larger contributions.")
+                % {"max": f"{DONATION_MAX_EUR:.0f}"}
+            },
+            status=400,
+        )
+
+    checkout_ref = f"CRUSH-DON-{request.user.id}-{uuid.uuid4().hex[:6]}"
+    description = f"Crush.lu Project Support (€{amount:.2f})"
+    return_url = request.build_absolute_uri(f"/payments/sumup/return/?ref={checkout_ref}")
+
+    client = SumUpClient()
+    try:
+        checkout_data = client.create_checkout(
+            amount=float(amount),
+            currency="EUR",
+            checkout_reference=checkout_ref,
+            description=description,
+            return_url=return_url,
+        )
+    except SumUpError as exc:
+        logger.error("Failed to create SumUp donation checkout: %s", exc)
+        if settings.DEBUG and not getattr(settings, "SUMUP_API_KEY", ""):
+            mock_id = f"MOCK-DON-{uuid.uuid4().hex[:8]}"
+            checkout_data = {"id": mock_id, "status": "PENDING"}
+        else:
+            return JsonResponse(
+                {"error": _("Unable to initiate donation checkout. Please try again later.")},
+                status=500,
+            )
+
+    checkout_id = checkout_data.get("id")
+    if not checkout_id:
+        return JsonResponse({"error": _("SumUp did not return a valid checkout ID.")}, status=500)
+
+    PaymentTransaction.objects.create(
+        transaction_reference=checkout_ref,
+        provider=PaymentTransaction.Provider.SUMUP,
+        sumup_checkout_id=checkout_id,
+        amount=amount,
+        currency="EUR",
+        status=PaymentTransaction.Status.PENDING,
+        purpose=PaymentTransaction.Purpose.DONATION,
+        user=request.user,
+        raw_response=checkout_data,
+    )
+
+    return JsonResponse({
+        "success": True,
+        "checkout_id": checkout_id,
+        "checkout_reference": checkout_ref,
+        "amount": float(amount),
+        "currency": "EUR",
+        "widget_url": f"/payments/sumup/widget/{checkout_id}/",
+    })
+
+
 def _send_registration_confirmation_safely(registration):
     """Send the post-payment confirmation without letting it break the payment.
 
@@ -496,6 +598,27 @@ def _apply_paid_checkout(tx_obj, data):
                         pm.coach_id,
                         exc,
                     )
+
+        elif locked.purpose == PaymentTransaction.Purpose.DONATION:
+            # A donation buys nothing revocable — there is no seat to re-validate
+            # and no membership to grant, so unlike the two branches above this
+            # one cannot fail in a way that needs a refund. It only marks the
+            # badge. Guarded on the current value so a repeat donation does not
+            # rewrite a row that already says the same thing; the enclosing
+            # PAID check already makes the whole block run once per checkout.
+            profile = (
+                CrushProfile.objects.filter(user_id=locked.user_id).first()
+                if locked.user_id
+                else None
+            )
+            if profile and not profile.is_community_supporter:
+                profile.is_community_supporter = True
+                profile.save(update_fields=["is_community_supporter"])
+                logger.info(
+                    "Granted Community Supporter badge to user %s via SumUp donation %s",
+                    locked.user_id,
+                    locked.transaction_reference,
+                )
 
 
 def describe_sumup_failure(data):
