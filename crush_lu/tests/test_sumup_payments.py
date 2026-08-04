@@ -3666,13 +3666,33 @@ class ErrorAfterCaptureTests(SiteTestMixin, TestCase):
         )[0]
         self.assertIn("data.settled", report)
         self.assertIn("returnUrl", report)
-        # It also takes the count from its own answer. That count came from a
-        # server-side re-read of the checkout at the moment the customer was
-        # shown the refusal, which is the only party that can say whether SumUp
-        # has recorded it — the page would otherwise be guessing, and every
-        # design that guessed here was wrong.
-        self.assertIn("data.attempt_marker", report)
-        self.assertIn("acknowledgedFailures", report)
+
+    def test_the_report_answer_never_moves_the_poll_baseline(self):
+        """It describes when it was read, not when it was asked.
+
+        This request goes out the instant the SDK reports a decline, and the
+        provider read behind it takes seconds — long enough for the customer to
+        enter a second card. A response landing after SumUp recorded THAT card's
+        refusal counts it too, and taking the number here would mark a decline
+        as seen that nobody has seen. The poll would then find no rise, say
+        nothing, and spin to the five-minute deadline.
+
+        Nothing is lost by leaving it alone: the poll finds that record itself a
+        few seconds later, while the message is still on screen, and the guard
+        against overwriting a displayed message absorbs it.
+        """
+        response = self.client.get(
+            reverse("crush_lu:sumup_widget", kwargs={"checkout_id": "CHK_LATE"})
+        )
+
+        report = (
+            response.content.decode()
+            .split("function reportFailure(", 1)[1]
+            .split("if (typeof SumUpCard", 1)[0]
+        )
+        # The word may appear in the comment saying why not; an assignment
+        # may not.
+        self.assertNotIn("acknowledgedFailures =", report)
 
 
 class RecheckMismatchDirectionTests(SiteTestMixin, TestCase):

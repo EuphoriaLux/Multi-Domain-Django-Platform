@@ -267,21 +267,34 @@
                         if (!data) {
                             return;
                         }
-                        // The server re-read the checkout to answer this, so
-                        // its count is the authority on whether SumUp has
-                        // recorded the attempt the customer is now looking at.
-                        // Taking it here is what stops the poll announcing that
-                        // same refusal over again a few seconds later, and it
-                        // settles the question by asking rather than guessing.
-                        const reported = Number(data.attempt_marker || 0);
-                        if (reported > acknowledgedFailures) {
-                            acknowledgedFailures = reported;
-                        }
+                        // This response carries `attempt_marker`, and it must
+                        // NOT be used to move acknowledgedFailures. It is very
+                        // tempting: the server re-read the checkout to answer,
+                        // so its count looks like the authority on whether
+                        // SumUp has recorded the refusal now on screen.
+                        //
+                        // But the answer describes when it was READ, not when
+                        // it was asked. This request is issued the moment the
+                        // SDK reports a decline, and the customer can enter a
+                        // new card while it is still outstanding — the
+                        // provider read behind it takes seconds. A response
+                        // that lands after SumUp recorded the SECOND card's
+                        // refusal counts that one too, and adopting it here
+                        // marks a decline as seen that nobody has seen. The
+                        // poll then finds no rise, says nothing, and spins to
+                        // the deadline: the exact hang this page exists to fix.
+                        //
+                        // There is nothing to gain by trying. The poll picks
+                        // that record up on its own a few seconds later, and
+                        // the message is still on screen when it does, so it
+                        // is absorbed by the guard that will not overwrite what
+                        // is already displayed.
+                        //
                         // The server verifies against SumUp before answering,
                         // and an SDK error raised AFTER the money was captured
                         // is a real sequence. If the payment actually went
                         // through, correct the decline the customer is looking
-                        // at and move on.
+                        // at and move on. That is all this answer is for.
                         if (data.settled) {
                             stopWatching();
                             errorEl.classList.add("hidden");
