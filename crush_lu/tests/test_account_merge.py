@@ -198,6 +198,39 @@ class TestMergeProfiles:
         assert keeper_profile.bio == 'Keeper bio'
         assert not CrushProfile.objects.filter(user=dup_user).exists()
 
+    def test_supporter_status_survives_the_merge(
+        self, keeper_with_profile, duplicate_with_profile
+    ):
+        """It was paid for, so losing it to a merge would be taking it back.
+
+        The duplicate's profile is the one deleted, so a donation that happened
+        to land on that account would otherwise vanish while the member can
+        still see the badge they bought.
+        """
+        keeper_user, keeper_profile = keeper_with_profile
+        dup_user, dup_profile = duplicate_with_profile
+
+        dup_profile.is_community_supporter = True
+        dup_profile.save(update_fields=['is_community_supporter'])
+        assert not keeper_profile.is_community_supporter
+
+        merge_accounts(keeper_user, dup_user)
+
+        keeper_profile.refresh_from_db()
+        assert keeper_profile.is_community_supporter
+
+    def test_merge_does_not_invent_supporter_status(
+        self, keeper_with_profile, duplicate_with_profile
+    ):
+        """OR, not "set" — neither side supporting must stay not supporting."""
+        keeper_user, keeper_profile = keeper_with_profile
+        dup_user, _dup_profile = duplicate_with_profile
+
+        merge_accounts(keeper_user, dup_user)
+
+        keeper_profile.refresh_from_db()
+        assert not keeper_profile.is_community_supporter
+
 
 class TestMergeEventRegistrations:
     def test_moves_registration(self, keeper_user, duplicate_user, merge_event):

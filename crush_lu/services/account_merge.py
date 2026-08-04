@@ -93,6 +93,14 @@ def merge_accounts(keeper_user, duplicate_user, admin_user=None):
         ReferralAttribution.objects.filter(referrer=dup_profile).update(
             referrer=keeper_profile
         )
+        # Supporter status was paid for, so it survives the merge on OR
+        # semantics: the keeper's profile is the one that lives, and dropping
+        # the flag because the donation happened to land on the duplicate would
+        # take away something the member was charged for and can see.
+        if dup_profile.is_community_supporter and not keeper_profile.is_community_supporter:
+            keeper_profile.is_community_supporter = True
+            keeper_profile.save(update_fields=["is_community_supporter"])
+            log.append("Carried Community Supporter status over to keeper's profile")
         # Delete duplicate's profile (cascades ProfileSubmissions)
         dup_profile.delete()
         log.append(

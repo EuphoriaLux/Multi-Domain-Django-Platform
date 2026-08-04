@@ -143,10 +143,21 @@
             }
         }
 
+        // Round to cents the way the server does. toFixed() rounds the binary
+        // float, so 2.355 displays as €2.35 while the server's Decimal
+        // ROUND_HALF_UP charges €2.36 -- the member would read one figure on
+        // the button and be billed another. Nudging by EPSILON first reproduces
+        // half-up on the decimal the member actually typed. The submit path
+        // sends this same rounded value, so the server's own quantize is then
+        // a no-op and the two cannot disagree.
+        function toCents(value) {
+            return Math.round((value + Number.EPSILON) * 100) / 100;
+        }
+
         function updateAmountDisplay(amount) {
             selectedAmount = amount;
             if (amount > 0) {
-                btnText.textContent = "{% trans 'Support the Project' %} (€" + parseFloat(amount).toFixed(2) + ")";
+                btnText.textContent = "{% trans 'Support the Project' %} (€" + toCents(parseFloat(amount)).toFixed(2) + ")";
             } else {
                 btnText.textContent = "{% trans 'Support the Project' %}";
             }
@@ -180,6 +191,14 @@
             const custom = customInput.value.trim();
             if (custom !== "") {
                 finalAmount = parseFloat(custom);
+            }
+
+            // To the cent before it is judged or sent, so the figure checked
+            // here, the figure on the button and the figure SumUp charges are
+            // all the same one. isNaN is checked first because toCents(NaN) is
+            // NaN and would sail through unnoticed.
+            if (!isNaN(finalAmount)) {
+                finalAmount = toCents(finalAmount);
             }
 
             if (isNaN(finalAmount) || finalAmount < 2) {
