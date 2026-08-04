@@ -599,11 +599,16 @@ def _record_pending_failure(tx_obj, reason, data):
                 locked.status,
             )
             return False
-        if reason == locked.failure_reason and data == locked.raw_response:
+        # Rewrite SumUp's half, keep the widget's. Replacing the whole field
+        # dropped the record of what the customer had been shown, and moved the
+        # attempt marker off the back of a refresh that learned nothing new.
+        previous_provider, notes = _split_failure_reason(locked.failure_reason)
+        combined = _join_failure_reason(reason, notes)
+        if combined == locked.failure_reason and data == locked.raw_response:
             return False
 
-        changed = reason != locked.failure_reason
-        locked.failure_reason = reason
+        changed = reason != previous_provider
+        locked.failure_reason = combined
         locked.raw_response = data
         locked.save(update_fields=["failure_reason", "raw_response", "updated_at"])
         return changed
@@ -634,7 +639,12 @@ def _record_terminal_failure(tx_obj, sumup_status, data):
 
         locked.status = PaymentTransaction.Status.FAILED
         locked.raw_response = data
-        locked.failure_reason = describe_sumup_failure(data)
+        # SumUp's half only; the widget's record of what the customer was shown
+        # survives into the closed row, where a coach reading it back wants both.
+        _provider, notes = _split_failure_reason(locked.failure_reason)
+        locked.failure_reason = _join_failure_reason(
+            describe_sumup_failure(data), notes
+        )
         locked.save(
             update_fields=["status", "raw_response", "failure_reason", "updated_at"]
         )
@@ -642,6 +652,29 @@ def _record_terminal_failure(tx_obj, sumup_status, data):
         tx_obj.status = locked.status
         tx_obj.failure_reason = locked.failure_reason
         return True
+
+
+# ``failure_reason`` carries two things with different lifetimes: SumUp's
+# account of the attempts, which a refresh legitimately rewrites in place, and
+# the widget's own wording for a failure the customer has already been shown,
+# which is a one-off record. One string is right for reading them — the Coach
+# Panel wants both — but they must not overwrite each other, and only the first
+# may move the attempt marker. Re-deriving the provider half was silently
+# discarding the widget half AND moving the marker, which told the page a fresh
+# card had been refused when nothing had happened but a refresh.
+WIDGET_NOTE_SEPARATOR = "\n— widget: "
+
+
+def _split_failure_reason(text):
+    """Return (SumUp's account, the widget's own notes)."""
+    provider, _sep, notes = (text or "").partition(WIDGET_NOTE_SEPARATOR)
+    return provider, notes
+
+
+def _join_failure_reason(provider, notes):
+    if not notes:
+        return provider
+    return f"{provider}{WIDGET_NOTE_SEPARATOR}{notes}"
 
 
 def attempt_marker(tx_obj):
@@ -652,12 +685,19 @@ def attempt_marker(tx_obj):
     array (cumulative) answers that on its own — but a digest of the reason
     changes exactly when the account of the failure does, which is the question.
 
+    Derived from SumUp's half only. The widget's own notes are a record of what
+    the customer was already shown, so folding them in would make the marker
+    move for a failure the page had itself just displayed — and, worse, move it
+    back again on the next refresh, which is a refused card as far as the page
+    can tell.
+
     A digest rather than the text: the reason carries SumUp's own wording,
     written for the Coach Panel, and the customer sees our message instead.
     """
-    if not tx_obj.failure_reason:
+    provider, _notes = _split_failure_reason(tx_obj.failure_reason)
+    if not provider:
         return ""
-    return hashlib.sha256(tx_obj.failure_reason.encode("utf-8")).hexdigest()[:16]
+    return hashlib.sha256(provider.encode("utf-8")).hexdigest()[:16]
 
 
 def _append_widget_note(tx_obj, note):
@@ -683,12 +723,14 @@ def _append_widget_note(tx_obj, note):
             )
             return False
 
-        combined = (
-            f"{locked.failure_reason} | {note}" if locked.failure_reason else note
-        )
-        # One checkout can absorb several refused cards, and each one appends.
-        # Keep the tail: the most recent attempt is the one being investigated.
-        locked.failure_reason = combined[-1000:]
+        # Into the widget's half, leaving SumUp's alone. One checkout can absorb
+        # several refused cards, so notes accumulate; the tail is kept because
+        # the most recent attempt is the one being investigated. Truncating the
+        # notes rather than the whole field is what stops a long history eating
+        # the separator and taking SumUp's account with it.
+        provider, notes = _split_failure_reason(locked.failure_reason)
+        notes = f"{notes} | {note}" if notes else note
+        locked.failure_reason = _join_failure_reason(provider, notes[-1000:])
         locked.save(update_fields=["failure_reason", "updated_at"])
         return True
 
@@ -804,7 +846,10 @@ def refresh_sumup_snapshot(tx_obj):
         # paid has nothing to explain, whatever our row happens to say about it.
         tx_obj.failure_reason = ""
     elif tx_obj.status != PaymentTransaction.Status.CANCELLED:
-        tx_obj.failure_reason = describe_sumup_failure(data)
+        _provider, notes = _split_failure_reason(tx_obj.failure_reason)
+        tx_obj.failure_reason = _join_failure_reason(
+            describe_sumup_failure(data), notes
+        )
     else:
         # A CANCELLED row carries a reason WE wrote — "superseded by a newer
         # checkout" — and SumUp has no idea that is what happened: it reports a
@@ -1167,6 +1212,15 @@ def sumup_widget_view(request, checkout_id):
         "transaction": tx_obj,
         "amount": tx_obj.amount,
         "currency": tx_obj.currency,
+        # The failure baseline, rendered into the page rather than fetched by
+        # it. Fetching cannot be made safe here however early it is started:
+        # the status endpoint does a live provider read, so its answer can
+        # reflect state recorded AFTER the customer submitted a card, and the
+        # page would file that failure as one it had already seen. Serving the
+        # value with the HTML makes it true by construction — it is the record
+        # as it stood before this page existed, so nothing the customer does
+        # from here can be inside it.
+        "attempt_marker": attempt_marker(tx_obj),
         "return_url": request.build_absolute_uri(f"/payments/sumup/return/?ref={tx_obj.transaction_reference}"),
     }
     return render(request, "crush_lu/payments/sumup_widget.html", context)

@@ -109,34 +109,15 @@
         // true across a retry — so acting on the flag alone would stop watching
         // a second card seconds after it was submitted and call it failed while
         // the bank was still deciding.
-        let shownFailureMarker = "";
-        // Whether that baseline has been established. Until it has, a failure
-        // already on record is indistinguishable from one that just happened,
-        // so the page keeps watching rather than guess.
-        let baselineReady = false;
-
-        // Take the baseline NOW, at page load, while no attempt of ours can
-        // possibly have produced a failure yet. Reading it when an attempt
-        // STARTS is too late by a hair: a card refused fast enough for the
-        // decline to land before that read would be recorded as "already
-        // known", and then nothing would ever report it — the page would sit on
-        // "Confirming your payment" until the deadline, which is the exact hang
-        // this polling exists to prevent, arrived at from the other side.
-        fetch(statusUrl, { headers: { Accept: "application/json" } })
-            .then(function (res) {
-                return res.ok ? res.json() : null;
-            })
-            .then(function (data) {
-                if (data) {
-                    shownFailureMarker = data.attempt_marker || "";
-                }
-                baselineReady = true;
-            })
-            .catch(function () {
-                // No baseline: treat nothing as already-seen. A duplicate error
-                // message is a far smaller failure than a silent five minutes.
-                baselineReady = true;
-            });
+        //
+        // Seeded from the page itself, not fetched. Fetching the baseline
+        // cannot be made safe however early it starts: the status endpoint does
+        // a live provider read, so a slow one can answer with state recorded
+        // AFTER a card was submitted — and the page would then file that very
+        // failure as one it had already seen and never report it. Rendered with
+        // the HTML, this value is the record as it stood before the page
+        // existed, so nothing done from here can be inside it.
+        let shownFailureMarker = "{{ attempt_marker|escapejs }}";
 
         function watchCheckout() {
             if (watching) {
@@ -173,7 +154,6 @@
                     }
                     if (
                         data &&
-                        baselineReady &&
                         data.attempt_failed &&
                         data.attempt_marker !== shownFailureMarker
                     ) {

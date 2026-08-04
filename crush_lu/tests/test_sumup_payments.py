@@ -3313,31 +3313,50 @@ class RetryAfterDeclineTests(SiteTestMixin, TestCase):
         self.registration.refresh_from_db()
         self.assertTrue(self.registration.payment_confirmed)
 
-    def test_the_widget_baselines_at_load_not_at_submission(self):
-        """The baseline has to predate any attempt of ours.
+    def test_the_baseline_is_served_with_the_page_not_fetched(self):
+        """It has to be true by construction, not by winning a race.
 
-        Reading it when an attempt STARTS is a hair too late: a card refused
-        before that read lands would be filed as already-known, and then
-        nothing would ever report it — the same five-minute silence, reached
-        from the opposite side.
+        Fetching it cannot be made safe however early it starts: the status
+        endpoint does a live provider read, so a slow one can answer with state
+        recorded AFTER a card was submitted, and the page would file that very
+        failure as already-seen and never report it. Rendered with the HTML, it
+        is the record as it stood before the page existed.
         """
+        from crush_lu.views_payments import attempt_marker
+
+        PaymentTransaction.objects.filter(pk=self.tx.pk).update(
+            failure_reason="an earlier decline"
+        )
+        self.tx.refresh_from_db()
+
         response = self.client.get(
             reverse("crush_lu:sumup_widget", kwargs={"checkout_id": "CHK_RETRY"})
         )
 
-        self.assertContains(response, "shownFailureMarker")
-        self.assertContains(response, "baselineReady")
-        # watchCheckout must not take the baseline itself.
+        self.assertContains(response, attempt_marker(self.tx))
         body = response.content.decode()
+        seed = body.split("let shownFailureMarker =", 1)[1].split(";", 1)[0]
+        self.assertIn(attempt_marker(self.tx), seed)
+        # And nothing fetches it — a fetched baseline is the bug above.
         watch = body.split("function watchCheckout()", 1)[1].split("function ", 1)[0]
         self.assertNotIn("attempt_marker", watch)
 
-    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
-    def test_the_failure_report_hands_back_the_marker_it_created(self, mock_get):
-        """The SDK error path shows a failure the poll never told the page about.
+    def test_a_page_with_no_failure_yet_seeds_an_empty_baseline(self):
+        response = self.client.get(
+            reverse("crush_lu:sumup_widget", kwargs={"checkout_id": "CHK_RETRY"})
+        )
 
-        So the page has to learn that marker from its own report, or the next
-        attempt's first poll re-reports a refusal already on screen.
+        body = response.content.decode()
+        seed = body.split("let shownFailureMarker =", 1)[1].split(";", 1)[0]
+        self.assertEqual(seed.strip(), '""')
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_the_failure_report_agrees_with_the_poll(self, mock_get):
+        """The report's marker must be what a poll would say for the same state.
+
+        The SDK error path shows a failure the poll never told the page about,
+        so the page takes the marker from its own report — and the two have to
+        agree, or the next poll looks like a fresh refusal.
         """
         mock_get.return_value = {"id": "CHK_RETRY", "status": "PENDING"}
 
@@ -3349,7 +3368,43 @@ class RetryAfterDeclineTests(SiteTestMixin, TestCase):
             content_type="application/json",
         )
 
-        marker = response.json()["attempt_marker"]
-        self.assertTrue(marker)
-        # And it is the marker the poll would report for the same state.
-        self.assertEqual(self._poll()["attempt_marker"], marker)
+        self.assertEqual(
+            self._poll()["attempt_marker"], response.json()["attempt_marker"]
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_widget_note_never_moves_the_marker(self, mock_get):
+        """The deterministic bug, not a timing window.
+
+        The note was appended to the same field the marker hashed, so recording
+        what the customer had been shown moved the marker — and the next
+        refresh, re-deriving SumUp's half, moved it back. Either way the page
+        read a refreshed record as a newly refused card and stopped watching a
+        retry that was still in flight.
+        """
+        mock_get.return_value = {
+            "id": "CHK_RETRY",
+            "status": "PENDING",
+            "transactions": [{"status": "FAILED", "failure_reason": "DECLINED"}],
+        }
+        before = self._poll()["attempt_marker"]
+        self.assertTrue(before)
+
+        self.client.post(
+            reverse(
+                "crush_lu:sumup_widget_failure", kwargs={"checkout_id": "CHK_RETRY"}
+            ),
+            data=json.dumps({"type": "fail", "message": "Declined"}),
+            content_type="application/json",
+        )
+        after_note = self._poll()["attempt_marker"]
+
+        # And a refresh that learns nothing new must not move it back.
+        after_refresh = self._poll()["attempt_marker"]
+
+        self.assertEqual(after_note, before)
+        self.assertEqual(after_refresh, before)
+        # The note is still on the record for whoever reads it later.
+        self.tx.refresh_from_db()
+        self.assertIn("Card widget reported", self.tx.failure_reason)
+        self.assertIn("DECLINED", self.tx.failure_reason)
