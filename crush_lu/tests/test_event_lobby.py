@@ -1427,9 +1427,43 @@ class TestLobbyCta:
 
         full_width = render_to_string(
             "crush_lu/components/event_lobby_cta.html",
-            {"cta": lobby.CTA_ENTER_RECAP, "event": event, "block": True},
+            {"cta": lobby.CTA_ENTER_RECAP, "event": event, "hero": True},
         )
         assert "w-full" in full_width
+
+    def test_dashboard_recap_cta_is_the_compact_variant(self, client):
+        """The hero variant must not leak into the dashboard action strip.
+
+        This asserts on the rendered PAGE, not on the component: the flag that
+        selects the variant used to be called `block`, and Django puts a truthy
+        BlockNode in the context under that exact name inside every
+        {% block %}. render_to_string() has no enclosing block, so the
+        component-level test above kept passing while every real surface
+        rendered the full-width hero button and overflowed the card on mobile.
+        """
+        member = _make_member("cta_compact")
+        event = _make_event()
+        _join(member, event)
+        _end_event(event)  # recap phase — this is what yields enter_recap
+        _login(client, member)
+
+        response = client.get(reverse("crush_lu:dashboard"))
+
+        assert response.status_code == 200
+        lobby_url = reverse("crush_lu:event_lobby", kwargs={"event_id": event.pk})
+        anchor = re.search(
+            rf'<a[^>]*href="{re.escape(lobby_url)}"[^>]*>',
+            response.content.decode(),
+        )
+        assert anchor is not None, "recap CTA missing from the dashboard strip"
+        tag = anchor.group(0)
+        # "w-full" is useless as a discriminator here — the compact variant
+        # carries max-w-full. Match on the markers unique to each variant.
+        assert "btn-crush-solid" in tag, f"expected the compact variant, got: {tag}"
+        assert "w-40" in tag, f"expected the compact variant, got: {tag}"
+        assert (
+            "bg-gradient-to-r" not in tag
+        ), f"hero variant leaked onto the dashboard: {tag}"
 
     def test_dashboard_attendee_action_is_labelled_my_crush(self, client):
         member = _make_member("cta_dashboard", membership=False, luxid=False)
