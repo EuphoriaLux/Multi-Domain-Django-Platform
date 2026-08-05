@@ -24,7 +24,7 @@ Everything below was re-verified against the worktree at
 
 | Brief said | Verified reality |
 |---|---|
-| The rule is implemented **3×** | **4×**. The third copy is not a template — it is Python: `crush_lu/views_coach.py:2713-2839` rebuilds all six branches as **querysets** to pick SMS invitees. `crush_lu/admin/events.py:71-111` holds a fourth copy of the semantics as organizer-facing labels. |
+| The rule is implemented **3×** | **4×**. The third copy is not a template — it is Python: `crush_lu/views_coach.py:2713-2839` rebuilds all six branches as **querysets** to pick SMS invitees. `crush_lu/admin/events.py:66-112` holds a fourth copy of the semantics as organizer-facing labels (`STANDARD_CHOICES`/`ADVANCED_CHOICES` at 66–83, `AUDIENCE_DESCRIPTIONS` at 84–112). |
 | `coach_event_sms_invite.html:156` is a partial copy of the ladder | It is **9 lines** (156–164) of descriptive header text, with no `profile_exists` or `completed` case and no CTA. Harmless; not a gate. |
 | `event_detail.html` ladder is ~250 lines from line 522 | Start line correct. It is **328 lines, 522–849**, nested inside a larger action area spanning 362–872. |
 | Template context uses `can_register` / `is_registered` | Neither name exists. The real context keys are `user_profile`, `user_registration`, `event_full_for_user`, `premium_reserved_seat_available`, `language_requirement_met`, plus the model property `event.is_registration_accepting`. |
@@ -36,7 +36,8 @@ Everything below was re-verified against the worktree at
 | `docs/plans/` | Does not exist. Repo precedent is `docs/superpowers/plans/` beside `docs/superpowers/specs/`, which is where this file lives. |
 
 **One more finding the brief did not have.** `event_detail.html` branches on
-`user_profile.is_approved` (lines 539, 644, 729, 777) while `event_register`
+`user_profile.is_approved` (lines 539, 644, 729, 777 and 779 — five branches,
+the last nested inside the 777 `elif`) while `event_register`
 branches on `verification_status` (lines 884, 907, 939, 973). `CrushProfile.save()`
 syncs `is_approved → verification_status` but never the reverse, and the model
 comments `is_approved` as legacy. **The page and the gate read different fields
@@ -57,12 +58,20 @@ message and a different redirect target.
 | 1021–1026 | language, via `event.user_meets_language_requirement(user)` |
 | 1028–1034 | duplicate registration (cancelled rows excluded, so they are reusable) |
 | 1036–1039 | `is_registration_accepting` — **silent** redirect, deliberately no flash |
-| 1053–1245 | POST: `select_for_update`, re-check, capacity → waitlist, payment status |
+| 1053–1239 | POST: `select_for_update`, re-check, capacity → waitlist, payment status |
+| 1240–1245 | GET `else`: builds the unbound form |
 
-Note the redirect asymmetry: a **missing** profile always redirects to
-`create_profile`; a **wrong-state** profile redirects to `event_detail` — except
-in the `completed` branch, which sends it to `create_profile`. This is
-load-bearing and must survive the refactor.
+Note the redirect asymmetry **within the ladder** (846–994): a **missing** profile
+redirects to `create_profile`; a **wrong-state** profile redirects to
+`event_detail` — except in the `completed` branch, which sends it to
+`create_profile`. This is load-bearing and must survive the refactor.
+
+The private-invitation path (804–845) does **not** follow that rule and is a
+genuine exception: an *invited existing user* with no profile goes to
+`create_profile` (819–830), but an *external guest* with no profile is logged as
+a security issue and sent to **`event_detail`** (831–845). Since `evaluate()` is
+never called on the private path (§8), this asymmetry stays where it is — but do
+not "tidy" it into the general rule during PR2.
 
 ---
 
@@ -575,7 +584,7 @@ It also retires the `unverified` branch's reliance on `is_approved=False`
 (line 2759) in favour of `verification_status`, matching the gate and the model's
 own note that `is_approved` is legacy.
 
-### 4.4 `admin/events.py:71-111`
+### 4.4 `admin/events.py:66-112`
 
 Keeps its own `AUDIENCE_DESCRIPTIONS` — organizer-facing copy is a different
 vocabulary from member-facing denial messages, and conflating them would make both
@@ -682,11 +691,11 @@ driving four consumers off the same tables.
    body. Extend that idiom to the **dashboard** and **event_list**, asserting both
    CTA presence/absence and the unlock link's target per state.
 
-   Follow `test_dashboard_event_status.py` for those: it uses
-   `@override_settings(ROOT_URLCONF="azureproject.urls_crush")` **and**
-   `HTTP_HOST="crush.lu"` (line 78), and it has a scoped-regex helper at lines
-   34–41 with a comment explaining that a page-wide `assertContains` would be a
-   false pass. Scope the assertion to the new section, or a string appearing
+   Follow `test_dashboard_event_status.py` for those: it decorates the class with
+   `@override_settings(ROOT_URLCONF="azureproject.urls_crush")` (line 71) **and**
+   passes `HTTP_HOST="crush.lu"` on each request (line 78), and it has a
+   scoped-regex helper at lines 32–43 whose comment explains that a page-wide
+   `assertContains` would be a false pass. Scope the assertion to the new section, or a string appearing
    elsewhere on the dashboard will pass the test for the wrong reason.
 
    Reusable fixtures: `_make_member` / `_make_coach` in
