@@ -11,7 +11,8 @@ Two defects these lock down (see crush_lu/templates/crush_lu/dashboard.html):
 
   2. The ticket CTA tested status but never the date. A no-show keeps
      ``confirmed`` forever, so an event months past kept rendering "Confirmed"
-     plus a live ticket button.
+     plus a live ticket button. A seat the admin explicitly flipped to
+     ``no_show`` reads "Missed" alongside it, the same word my_events uses.
 """
 
 from datetime import timedelta
@@ -105,6 +106,25 @@ class DashboardEventStatusTests(TestCase):
         response = self._get()
         self.assertContains(response, _badge("Missed"))
         self.assertNotContains(response, _badge("Confirmed"))
+        self.assertNotContains(
+            response, reverse("crush_lu:event_ticket", args=[event.id])
+        )
+
+    def test_past_no_show_reads_missed(self):
+        """`no_show` is the same fact as an unscanned `confirmed`, said aloud.
+
+        The admin action mark_unattended_as_no_show (crush_lu/admin/quiz.py)
+        flips still-`confirmed` and `pending` seats to `no_show` once the host
+        confirms nobody arrived. Falling through to "Past" here would tell the
+        member less than the untouched row next to it, and my_events already
+        calls this exact status "Missed" (views_events.py, entry.no_show).
+        """
+        event = _make_event("Marked absent", days_from_now=-60)
+        self._register(event, "no_show")
+
+        response = self._get()
+        self.assertContains(response, _badge("Missed"))
+        self.assertNotContains(response, _badge("Past"))
         self.assertNotContains(
             response, reverse("crush_lu:event_ticket", args=[event.id])
         )

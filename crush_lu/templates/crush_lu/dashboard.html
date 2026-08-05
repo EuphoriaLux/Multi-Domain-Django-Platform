@@ -96,9 +96,12 @@
                                 {% comment %}
                                 The event is over and the seat was never scanned. A no-show
                                 keeps `confirmed` forever, so status alone would render it
-                                "Confirmed" -- live-looking -- months afterwards.
+                                "Confirmed" -- live-looking -- months afterwards. `no_show`
+                                is the same fact stated explicitly, set by the admin action
+                                mark_unattended_as_no_show, so both read "Missed" -- which is
+                                also what my_events calls it (views_events.py, entry.no_show).
                                 {% endcomment %}
-                                {% if registration.status == 'confirmed' %}
+                                {% if registration.status == 'confirmed' or registration.status == 'no_show' %}
                                     <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">{% trans "Missed" %}</span>
                                 {% else %}
                                     <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full">{% trans "Past" %}</span>
