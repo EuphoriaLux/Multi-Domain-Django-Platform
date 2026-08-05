@@ -417,8 +417,14 @@ class Reason:
 
     code: str                          # "profile_missing", "not_verified", …
     message: str                       # already interpolated — see below
+    # Where the GATE sends you on a failed POST. Preserves today's behaviour
+    # exactly: create_profile for a missing profile, event_detail otherwise.
+    redirect_url_name: str = "crush_lu:event_detail"
+    # The ADVISORY unlock shown on a card. Independent of the redirect: an
+    # "unverified members only" denial has a redirect but no unlock, while a
+    # language denial has both, pointing at different places.
     unlock_label: str | None = None
-    unlock_url_name: str | None = None  # URL *name*, e.g. "crush_lu:create_profile"
+    unlock_url_name: str | None = None  # URL *name*, e.g. "crush_lu:edit_profile"
     unlock_query: dict | None = None    # e.g. {"next": request.path} for login
 
     @property
@@ -514,10 +520,21 @@ verdict = eligibility.evaluate(
 )
 if not verdict.eligible:
     messages.error(request, verdict.denial.message)
-    if verdict.denial.unlock_url_name:
-        return redirect(verdict.denial.unlock_url_name)
-    return redirect("crush_lu:event_detail", event_id=event.id)
+    if verdict.denial.redirect_url_name == "crush_lu:event_detail":
+        return redirect("crush_lu:event_detail", event_id=event.id)
+    return redirect(verdict.denial.redirect_url_name)
 ```
+
+> ⚠️ **The gate redirect and the advisory unlock are different fields on purpose.**
+> Conflating them breaks one of the two callers. Today a language failure
+> redirects to `event_detail` (`views_events.py:1026`) — but the *unlock* a
+> dashboard card should offer is "Update your languages", pointing at
+> `edit_profile`. If one field served both, either PR2 silently changes where a
+> failed registration lands (a member-visible behaviour change the gate matrix
+> would not catch, since it asserts on row creation, not redirect targets), or the
+> dashboard has no unlock to render and the one-step-away card disappears.
+> `redirect_url_name` preserves today's behaviour exactly; `unlock_url_name` is
+> new and advisory.
 
 ### Caller: a template
 
@@ -526,10 +543,22 @@ if not verdict.eligible:
   <a href="{% url 'crush_lu:event_register' event.id %}" class="btn-crush-primary btn-block btn-lg">
     {% if event_full_for_user %}{% trans "Join Waitlist" %}{% else %}{% trans "Register for This Event" %}{% endif %}
   </a>
-{% else %}
+{% elif eligibility.denial %}
   {% include "crush_lu/components/eligibility_notice.html" with verdict=eligibility %}
+{% else %}
+  {# Eligible but not bookable — availability, not a denial. #}
+  {% include "crush_lu/components/availability_notice.html" with verdict=eligibility %}
 {% endif %}
 ```
+
+> ⚠️ **Three branches, not two.** `eligible` and `bookable` are separate axes (§2),
+> so `not can_register` does **not** imply a denial exists. An eligible member
+> viewing an event past its deadline has `eligible=True`, `availability="closed"`
+> and `denial=None` — feeding that into the denial partial renders nothing and
+> silently drops today's "Registration is closed for this event." box
+> (`event_detail.html:558-568`, and four more copies in the ladder). The
+> availability states get their own small partial. A `{% if %}`/`{% else %}` here
+> would be a member-visible regression on every closed event.
 
 Inside the partial the unlock button uses `unlock_href()`, which resolves the name
 *and* appends any query string:
@@ -640,9 +669,9 @@ collapses to:
     )
     if not verdict.eligible:
         messages.error(request, verdict.denial.message)
-        if verdict.denial.unlock_url_name:
-            return redirect(verdict.denial.unlock_url_name)
-        return redirect("crush_lu:event_detail", event_id=event.id)
+        if verdict.denial.redirect_url_name == "crush_lu:event_detail":
+            return redirect("crush_lu:event_detail", event_id=event.id)
+        return redirect(verdict.denial.redirect_url_name)
 ```
 
 > ⚠️ **The `check_requirement` flag is load-bearing, not decoration.** Today the
@@ -664,10 +693,12 @@ checks stay in the view: the former needs `request.user`, and the latter's
 deliberate silence (no flash, comment at 1037–1038) is view policy, not
 eligibility.
 
-The redirect asymmetry is carried on `Reason.unlock_url_name`: reasons whose fix
-is "create a profile" carry `"crush_lu:create_profile"`; the rest leave it `None`,
-and the view falls back to `redirect("crush_lu:event_detail", event_id=…)`. Names,
-not paths — see the i18n warning in §3.
+The redirect asymmetry is carried on `Reason.redirect_url_name`: reasons whose fix
+is "create a profile" carry `"crush_lu:create_profile"`; the rest keep the default
+`"crush_lu:event_detail"`. That field is **not** `unlock_url_name` — the gate's
+redirect and the card's advisory unlock are deliberately separate (§3), so adding
+an unlock to a reason never moves where a failed POST lands. Names, not paths —
+see the i18n warning in §3.
 
 ### 4.2 `event_detail.html:522-849`
 
@@ -797,24 +828,62 @@ cannot be added in one place and forgotten in the other. `apply_registration_aud
 profile is never `None` here** — the S0 case cannot arise on this surface.
 
 The view already scans a bounded upcoming window at lines 549–557 to compute
-`next_event`. That window is what the section builds on:
+`next_event`. That window is what the section builds on.
+
+> **Why this section states constraints instead of worked code.** Three successive
+> review rounds found defects in this section's illustrative snippet — and only in
+> this section, plus §3's samples. §0's corrections, §2's set-collapse and
+> PR1–PR3 have gone untouched throughout, because those describe code that
+> *exists* and reviewers can check against it. A snippet for a view nobody has
+> written yet has no compiler, no tests, and no ground truth, so each fix invites
+> the next round of critique without converging. Every finding is captured below
+> as a requirement PR4 must satisfy; the code gets written against real tests when
+> PR4 is scoped. Pretending otherwise wastes review capacity that PR1–PR3 need.
+
+**Requirements PR4 must satisfy.** Each one is here because a review round caught
+the snippet violating it:
+
+1. **Scan a bounded window, and bound it in SQL.** `_filter_private_events`
+   (`views_events.py:147-172`) is a list comprehension — it **materialises whatever
+   it is handed**. Passing an unsliced queryset evaluates every future published
+   event before any limit applies, so the "constant-size query" property is lost
+   exactly when the catalogue grows. Apply the SQL slice (or chunk) *before*
+   materialising, while still fetching enough rows to fill the section.
+2. **Filter ended events before they consume the scan window.** The candidate
+   filter uses `date_time__gte=live_lookback_cutoff(_now)`, a seven-day lookback
+   that deliberately retains recently-ended events. The existing code follows it
+   with a Python `e.end_time >= now` pass (`views_events.py:191`, `views.py:473`);
+   omit that and a week of finished events can fill the scan limit and render an
+   empty state while joinable events sit just past it.
+3. **Exclude private-invitation events** via `_filter_private_events`, as
+   `event_list` does at `views_events.py:216-217`. Otherwise a published private
+   event is evaluated as ordinary: a Register CTA for a non-invitee the gate
+   refuses at line 813, or an irrelevant unlock card for an invitee whose path
+   bypasses the requirement entirely (§4.1).
+4. **Preload registrations into a dict** and pass them to `evaluate()`, so
+   `availability` can reach `"registered"` without a query per event. An
+   already-registered member must get the ticket/details treatment, not a second
+   Register CTA.
+5. **Filter on `verdict.can_register or verdict.one_step_away`**, never on the
+   verdict object — `Eligibility` has no `__bool__`, so a bare truthiness test
+   passes everything through, including non-actionable denials the omission rule
+   below says to drop.
+6. **Respect gender-pool capacity before promising a CTA.** `with_registration_counts()`
+   annotates *total* confirmed/waitlist only, but `event_register` waitlists a
+   member whose **gender pool** is full even when total capacity remains
+   (`views_events.py:1146-1159`, `gender_pool_full and not total_full`). Availability
+   must consult `is_gender_pool_full(user_gender)` for events where
+   `gender_limits_active`, or the section shows "Register" to a member who is
+   immediately waitlisted — the precise "don't advertise what the gate refuses"
+   failure this plan exists to end.
+7. **Two queries, both constant** — the events window and one registration
+   lookup. No per-event work.
+
+For reference, the shape (illustrative only — PR4 owns the real thing):
 
 ```python
-candidates = _filter_private_events(          # reuse views_events.py:147
-    MeetupEvent.objects.with_registration_counts()
-    .filter(is_published=True, is_cancelled=False,
-            date_time__gte=MeetupEvent.live_lookback_cutoff(_now))
-    .order_by("date_time"),
-    request.user,
-)
-registered = dict(
-    EventRegistration.objects.filter(user=request.user)
-    .exclude(status="cancelled")
-    .values_list("event_id", "status")
-)
-
 shown = []
-for event in candidates[:UPCOMING_SCAN_LIMIT]:
+for event in candidates:          # bounded + private-filtered + ended-filtered
     verdict = eligibility.evaluate(
         request.user, event, profile=profile, now=_now,
         registration=registered.get(event.id),
@@ -837,35 +906,17 @@ No per-event work.
 > let `evaluate()` do the classifying.
 >
 > **This applies to the list page too** — neither member-facing surface may use it
-> as a pre-filter, because both show near-misses. `eligible_events_q()` is
-> therefore narrower in scope than §2 first implied: it is for callers that want
-> *only* joinable events and will never render a denial — an "events you can join"
-> API, a digest email, a count. Any surface that explains itself must fetch wider
-> and classify in Python.
-
-> ⚠️ **Filter on the verdict's states, not on the verdict.** `Eligibility` is a
-> plain dataclass with no `__bool__`, so a walrus like
-> `if (v := evaluate(...))` is **always true** and filters nothing — it would push
-> non-actionable denials into the list, contradicting the omission rule below and
-> suppressing the empty state while rendering unusable cards. Test
-> `v.can_register or v.one_step_away` explicitly.
-
-> ⚠️ **Bound the scan, and slice after the Python pass.** Language is evaluated
-> only in Python (§2), so slicing before `evaluate()` can fill the list with
-> language-ineligible events and hide joinable ones behind them. Scan up to
-> `UPCOMING_SCAN_LIMIT` and stop once `UPCOMING_SHOWN` survive — the ceiling keeps
-> a pathological catalogue from walking the table.
-
-> ⚠️ **Private-invitation events must be filtered out of the candidate set.**
-> `event_list` already routes its querysets through `_filter_private_events`
-> (`views_events.py:147`, applied at 216–217); a raw
-> `is_published=True, is_cancelled=False` scan does not, so a published private
-> event would reach `evaluate()` as if it were ordinary. Two ways that goes wrong:
-> a non-invitee gets a Register CTA for an event `event_register` will refuse at
-> line 813, and an *invitee* gets an unlock card for a requirement that the private
-> path bypasses entirely (§4.1). Reuse the existing helper rather than
-> reimplementing the visibility rule — it is the same "don't advertise what the
-> gate refuses" principle the whole plan is built on.
+> as a pre-filter, because both show near-misses.
+>
+> **`eligible_events_q()` is a SQL *narrowing*, never a sufficient answer.** It
+> evaluates only the indexable axes; by design it does **not** evaluate language
+> (Python-only, §2), registration state, or availability. So even a caller that
+> genuinely wants joinable-events-only — a digest email, an API, a count — must
+> still run `evaluate()` over the narrowed rows before emitting anything
+> member-visible, or it will include language-ineligible events, events the member
+> is already registered for, and events past their deadline. Treat the helper as
+> "cheaply discard the definitely-ineligible", not as "these are the joinable
+> events".
 
 The section slots in after `dashboard.html:161` — below "Your next event"
 (section 5), above the counts grid (section 6) — reusing the
@@ -949,10 +1000,29 @@ driving four consumers off the same tables.
    > The fix is **not** to edit `STATES`/`EXPECTED` — those are the audited spec and
    > must stay byte-identical (§7, PR1). Build the equivalence test on a separate,
    > wider fixture set: the cross product of the four `verification_status` values ×
-   > `phone_verified` ∈ {T, F} × `has_coach` ∈ {T, F} = **16 profiles**, with the
-   > expectation derived from `allowed_requirements()` itself. The 42-cell gate
-   > matrix keeps proving the *view*; the 16-profile product proves the *two
-   > representations agree* across every input combination that can reach them.
+   > `phone_verified` ∈ {T, F} × `has_coach` ∈ {T, F} = **16 profiles**.
+   >
+   > ⚠️ **But do not derive that test's expectations from `allowed_requirements()`.**
+   > Doing so only proves `profile_pool_q()` agrees with the service — it says
+   > nothing about whether the service agrees with the **gate**, which is the thing
+   > the audit actually pinned. A PR2 regression that dropped `incomplete + coach`
+   > from `allowed_requirements()` would change production behaviour (the gate
+   > admits any non-rejected profile with a coach, `views_events.py:907-924`) and
+   > still pass a self-derived matrix, because the expectation would have moved with
+   > the bug. That is a tautology, not a test.
+   >
+   > So the 16-profile product needs **two** assertions, not one:
+   > 1. `profile_pool_q(req)` ⟺ `req in allowed_requirements(p)` — the two
+   >    representations agree (self-derived is fine *here*; both sides are the thing
+   >    under test).
+   > 2. `req in allowed_requirements(p)` ⟺ a real POST to `event_register`
+   >    creates a row — the service agrees with the gate. This one must drive the
+   >    view, exactly as `test_gate_matrix` does, and it is what catches the coach
+   >    regression. Reuse `_try_register()`.
+   >
+   > Assertion 2 is the load-bearing one and the only one that would have caught the
+   > original audit's defects. Budget for the rate-limit fixture: 96 POSTs at
+   > `5/h` per user needs the same `cache.clear()` the existing suite uses.
 
 4. **Rendered-page assertions — non-negotiable.** This repo has been bitten
    *precisely* here: the audit spec exists because the gate was fixed and the page
@@ -1099,6 +1169,30 @@ non-invitees and an irrelevant unlock card to invitees (§5).
 `one_step_away` now requires `availability in ("open", "waitlist")`. Without that,
 a member failing a fixable requirement on an event whose deadline has passed is
 told to "Complete your profile" for an event they still could not join.
+
+**Losing the "Registration is closed" box (PR3).**
+`eligible` and `bookable` are separate axes, so `not can_register` does not imply a
+denial. An eligible member on a closed event has `denial=None`; a two-branch
+template would render nothing where today's ladder shows a closed notice in five
+places. Needs three branches and an availability partial (§3). Caught by a
+rendered-page test on a past-deadline event.
+
+**PR2 silently changing where failed registrations land.**
+`redirect_url_name` is separate from `unlock_url_name` precisely so the gate keeps
+today's targets while cards get advisory unlocks. Note the gate matrix asserts on
+**row creation, not redirect targets**, so it would not catch this — PR2 needs an
+explicit redirect-target assertion per denial reason.
+
+**A Register CTA for a member the gender pool will waitlist.**
+`with_registration_counts()` annotates totals only, but the gate waitlists on a
+full *gender* pool even when total capacity remains. Availability must consult
+`is_gender_pool_full()` where `gender_limits_active`, or the new surfaces
+re-create the exact mismatch this plan exists to remove.
+
+**A self-derived equivalence test that proves nothing.**
+If the 16-profile matrix takes its expectations from `allowed_requirements()`, a
+regression moves the expectation with it. Assertion 2 in §6 — driving real POSTs
+through `event_register` — is the one that actually pins the service to the gate.
 
 **Untranslated placeholders in denial messages.**
 The age and language reasons interpolate event data, so they must be built inside
