@@ -3892,7 +3892,22 @@ def sync_profile_to_outlook(sender, instance, created, update_fields, **kwargs):
 
             def _delete_stale_contact():
                 try:
-                    _service().delete_contact(contact_id)
+                    deleted = _service().delete_contact(contact_id)
+
+                    # Only drop the ID once the contact is actually gone.
+                    # delete_contact() returns False for a throttle that
+                    # outlasted the retry budget, a 5xx, or an auth failure --
+                    # clearing on those would discard the only DB handle to a
+                    # contact still sitting in the shared mailbox, so neither a
+                    # later sync nor the DB-tracked cleanup could remove its PII.
+                    if not deleted:
+                        logger.warning(
+                            f"Failed to delete Outlook contact {contact_id} for "
+                            f"profile {instance.pk} ({reason}); keeping the ID so "
+                            f"it can be retried"
+                        )
+                        return
+
                     # Clear the contact ID using update() to avoid infinite recursion
                     CrushProfile.objects.filter(pk=instance.pk).update(
                         outlook_contact_id=""

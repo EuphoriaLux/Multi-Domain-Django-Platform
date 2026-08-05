@@ -491,8 +491,11 @@ class TestDeleteAllScoping:
         service.list_all_contacts_from_outlook = lambda: list(self.CONTACTS)
         service.delete_contact = lambda cid: (deleted.append(cid), True)[1]
 
+        # The loop paces itself between deletes; without this the suite would
+        # spend real seconds asleep here.
         with mock.patch.object(graph_contacts, "is_sync_enabled", return_value=True):
-            stats = service.delete_all_contacts_from_outlook()
+            with mock.patch.object(graph_contacts.time, "sleep"):
+                stats = service.delete_all_contacts_from_outlook()
 
         assert deleted == ["ours-1", "ours-2"]
         assert stats["deleted"] == 2
@@ -504,7 +507,8 @@ class TestDeleteAllScoping:
         service.delete_contact = lambda cid: (deleted.append(cid), True)[1]
 
         with mock.patch.object(graph_contacts, "is_sync_enabled", return_value=True):
-            stats = service.delete_all_contacts_from_outlook(include_foreign=True)
+            with mock.patch.object(graph_contacts.time, "sleep"):
+                stats = service.delete_all_contacts_from_outlook(include_foreign=True)
 
         assert len(deleted) == 4
         assert stats["skipped"] == 0
@@ -523,10 +527,18 @@ class TestDeleteAllEndpointFlagParsing:
     def _post(self, client, body):
         import json as _json
 
+        # The endpoint hands the deletion to a daemon thread (it paces itself
+        # and would otherwise outrun the App Service request ceiling), so the
+        # thread is run inline here to keep the assertion deterministic.
+        def _inline_thread(target, daemon=None):
+            return SimpleNamespace(start=target)
+
         with mock.patch(
             "crush_lu.api_admin_sync._authenticate_admin_request", return_value=True
         ), mock.patch(
             "crush_lu.api_admin_sync.is_sync_enabled", return_value=True
+        ), mock.patch(
+            "crush_lu.api_admin_sync.threading.Thread", side_effect=_inline_thread
         ), mock.patch(
             "crush_lu.api_admin_sync.GraphContactsService"
         ) as service_cls:
@@ -536,12 +548,13 @@ class TestDeleteAllEndpointFlagParsing:
                 "errors": 0,
                 "skipped": 0,
             }
-            client.post(
+            response = client.post(
                 self.URL,
                 data=_json.dumps(body),
                 content_type="application/json",
                 HTTP_HOST="crush.lu",
             )
+        assert response.status_code == 202
         return service_cls.return_value.delete_all_contacts_from_outlook
 
     @pytest.mark.parametrize("body", [{"include_foreign": "false"}, {"include_foreign": "0"}])
@@ -817,6 +830,27 @@ class TestSignalWiring:
                 self._write_bypassing_save(profile, phone_verified=False)
 
         stub.delete_contact.assert_called_once_with("EXISTING")
+
+    def test_a_failed_delete_keeps_the_id_for_retry(
+        self, profile, django_capture_on_commit_callbacks
+    ):
+        """delete_contact() returns False for a throttle that outlasted the
+        retry budget, a 5xx, or an auth failure. Clearing the ID then would
+        discard the only DB handle to a contact still holding PII in the
+        shared mailbox."""
+        from crush_lu.models import CrushProfile
+
+        patcher, stub = self._patched_service()
+        stub.delete_contact.return_value = False
+
+        with patcher:
+            with django_capture_on_commit_callbacks(execute=True):
+                self._write_bypassing_save(profile, phone_verified=False)
+
+        stub.delete_contact.assert_called_once_with("EXISTING")
+        assert (
+            CrushProfile.objects.get(pk=profile.pk).outlook_contact_id == "EXISTING"
+        )
 
 
 # ---------------------------------------------------------------------------

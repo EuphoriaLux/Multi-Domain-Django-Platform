@@ -103,15 +103,14 @@ def delete_all_contacts_endpoint(request):
 
     Authentication: Bearer token via Authorization header
 
+    Runs in a background thread and returns 202 immediately; the resulting
+    counts are logged rather than returned.
+
     Response:
     {
         "success": true,
-        "stats": {
-            "total": 161,
-            "deleted": 161,
-            "errors": 0,
-            "skipped": 3
-        },
+        "message": "Deletion started in background",
+        "include_foreign": false,
         "timestamp": "2026-01-29T17:00:00Z"
     }
     """
@@ -151,37 +150,40 @@ def delete_all_contacts_endpoint(request):
         except (ValueError, AttributeError):
             pass
 
-    try:
-        # Initialize service
-        service = GraphContactsService()
+    # Run in a background thread, like sync_contacts_endpoint above and for the
+    # same reason: the deletion paces itself between contacts to stay inside the
+    # per-mailbox request budget, which on a large mailbox exceeds the App
+    # Service 230s request ceiling on its own -- the caller would lose the
+    # result and the deletion would be left half-done.
+    def _run_delete():
+        try:
+            import django
+            django.db.connections.close_all()
+            service = GraphContactsService()
+            logger.warning(
+                f"Deleting Outlook contacts via admin API (including orphaned; "
+                f"include_foreign={include_foreign})"
+            )
+            stats = service.delete_all_contacts_from_outlook(
+                include_foreign=include_foreign
+            )
+            logger.info(
+                f"Contact deletion completed: "
+                f"total={stats['total']}, deleted={stats['deleted']}, "
+                f"errors={stats['errors']}, skipped={stats.get('skipped', 0)}"
+            )
+        except Exception as e:
+            logger.error(f"Error during contact deletion: {e}", exc_info=True)
 
-        # Delete contacts directly from Outlook (not just database-tracked ones)
-        logger.warning(
-            f"Deleting Outlook contacts via admin API (including orphaned; "
-            f"include_foreign={include_foreign})"
-        )
-        stats = service.delete_all_contacts_from_outlook(
-            include_foreign=include_foreign
-        )
+    thread = threading.Thread(target=_run_delete, daemon=True)
+    thread.start()
 
-        logger.info(
-            f"Contact deletion completed: "
-            f"total={stats['total']}, deleted={stats['deleted']}, "
-            f"errors={stats['errors']}, skipped={stats.get('skipped', 0)}"
-        )
-
-        return JsonResponse({
-            'success': True,
-            'stats': stats,
-            'timestamp': timezone.now().isoformat()
-        })
-
-    except Exception as e:
-        logger.error(f"Error during contact deletion: {e}", exc_info=True)
-        return JsonResponse({
-            'success': False,
-            'error': 'An error occurred during contact deletion'
-        }, status=500)
+    return JsonResponse({
+        'success': True,
+        'message': 'Deletion started in background',
+        'include_foreign': include_foreign,
+        'timestamp': timezone.now().isoformat()
+    }, status=202)
 
 
 @csrf_exempt
