@@ -556,7 +556,8 @@ if not verdict.eligible:
 > viewing an event past its deadline has `eligible=True`, `availability="closed"`
 > and `denial=None` — feeding that into the denial partial renders nothing and
 > silently drops today's "Registration is closed for this event." box
-> (`event_detail.html:558-568`, and four more copies in the ladder). The
+> (`event_detail.html`, **six** copies — lines 565, 623, 685, 755, 805, 844, one
+> per ladder branch). The
 > availability states get their own small partial. A `{% if %}`/`{% else %}` here
 > would be a member-visible regression on every closed event.
 
