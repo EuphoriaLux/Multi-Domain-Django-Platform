@@ -2690,10 +2690,18 @@ def coach_event_sms_invite(request, event_id):
     # at registration and would bounce on click-through if invited.
     age_filter = age_q if has_age_filter else age_q_lenient
 
-    # Age filter through profile__ FK (for ProfileSubmission queries)
-    sub_age_q = Q(
+    # Age filter through profile__ FK (for ProfileSubmission queries).
+    # Mirrors `age_filter` above: on an age-restricted event `event_register`
+    # refuses a NULL date_of_birth outright before registration, so inviting
+    # those profiles spends an SMS on a click-through that always bounces.
+    sub_age_q_strict = Q(
         profile__date_of_birth__gt=min_dob, profile__date_of_birth__lte=max_dob
-    ) | Q(profile__date_of_birth__isnull=True)
+    )
+    sub_age_q = (
+        sub_age_q_strict
+        if has_age_filter
+        else sub_age_q_strict | Q(profile__date_of_birth__isnull=True)
+    )
 
     # --- Language filter ---
     lang_q = Q()
@@ -2768,9 +2776,12 @@ def coach_event_sms_invite(request, event_id):
             )
         )
         if has_language_filter:
-            profile_pool_qs = profile_pool_qs.filter(
-                lang_q | Q(event_languages=[]) | Q(event_languages__isnull=True)
-            )
+            # Strict match, like the other branches: registration calls
+            # user_meets_language_requirement, which refuses a profile with no
+            # overlapping event language — including one that declares none at
+            # all. Admitting empty/NULL here invited exactly those members and
+            # the gate then bounced them.
+            profile_pool_qs = profile_pool_qs.filter(lang_q)
         profile_pool_qs = profile_pool_qs.select_related("user")
         pool_label = _("Incomplete Profiles")
 
@@ -2832,9 +2843,10 @@ def coach_event_sms_invite(request, event_id):
     else:  # "none"
         profile_pool_qs = CrushProfile.objects.filter(phone_q).filter(age_filter)
         if has_language_filter:
-            profile_pool_qs = profile_pool_qs.filter(
-                lang_q | Q(event_languages=[]) | Q(event_languages__isnull=True)
-            )
+            # Strict match — see the `unverified` branch above. `none` waives the
+            # *profile* requirement, not the language one: event_register still
+            # calls user_meets_language_requirement for any event with languages.
+            profile_pool_qs = profile_pool_qs.filter(lang_q)
         profile_pool_qs = profile_pool_qs.select_related("user")
         pool_label = _("All Profiles")
 
