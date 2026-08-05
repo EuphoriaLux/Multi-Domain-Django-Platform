@@ -236,6 +236,58 @@ jobs:
           echo "❌ staging never served ${GITHUB_SHA} in a ready state within 10 minutes"
           exit 1
 
+      - name: Warm every domain
+        # Both gates above are domain-BLIND. HealthCheckMiddleware answers
+        # /healthz/ and /readyz/ and returns before get_response (it is first
+        # in MIDDLEWARE, by design, so a missing Site row can never 500 an
+        # Azure probe) — so neither request ever reaches
+        # DomainURLRoutingMiddleware. Nothing above resolves a urlconf,
+        # compiles a template, or touches a Site row on ANY host.
+        #
+        # That left the smoke test as the first request to exercise all nine
+        # urlconfs, paying every domain's cold-start cost inside its own 30s
+        # timeout, on a plan that runs one instance near its memory ceiling.
+        # test.delegations.lu is ninth in that list and is exactly where the
+        # 2026-08-05 `TimeoutError: The read operation timed out` landed —
+        # its /healthz/ and /readyz/ had just passed, which told us nothing.
+        #
+        # So warm the real entry points here instead, in parallel and with a
+        # budget of their own. Deliberately NOT a gate: it must never become a
+        # second flaky failure point. If a domain is genuinely broken the
+        # smoke test says so next, with a real assertion behind it.
+        continue-on-error: true
+        run: |
+          echo "🔥 Warming each domain's urlconf..."
+          # Keep in sync with SITES in scripts/smoke.py. portal has no root
+          # URL by design, so it warms on its CRM entry point.
+          #
+          # -L is load-bearing: i18n_patterns bounces / to /en/, so without it
+          # this warms the urlconf and stops at the redirect, leaving the view
+          # and its templates as cold as they were. smoke.py uses urlopen,
+          # which follows redirects, so it would still pay that cost — warm
+          # the page the smoke test actually lands on.
+          pids=""
+          for target in \
+            test.crush.lu/ \
+            test.entreprinder.lu/ \
+            test.power-up.lu/ \
+            test.powerup.lu/ \
+            test-portal.powerup.lu/crm/ \
+            test.vinsdelux.com/ \
+            test.tableau.lu/ \
+            test.arborist.lu/ \
+            test.delegations.lu/ ; do
+            (
+              code=$(curl -sL -o /dev/null -w '%{http_code} %{time_total}s' \
+                       --max-time 60 --retry 2 --retry-delay 5 \
+                       --retry-all-errors "https://$target" || echo 000)
+              echo "  $target -> $code"
+            ) &
+            pids="$pids $!"
+          done
+          for pid in $pids; do wait "$pid"; done
+          echo "✅ warm-up pass complete (non-gating)"
+
       - name: Smoke Test
         # Deep checks against the staging slot: /readyz/ (DB, migrations,
         # Redis, storage on the live container), home pages, sitemap, login.
