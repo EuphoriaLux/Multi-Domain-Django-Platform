@@ -262,6 +262,10 @@ def allowed_requirements(profile) -> frozenset[str]:
     The single source of truth. Pure, no queries, no database semantics — the
     per-object check and the queryset filter are both derived from this, so they
     cannot drift apart.
+
+    Presumes an AUTHENTICATED member. `profile=None` means S0 — a logged-in
+    account with no CrushProfile — NOT an anonymous visitor. `evaluate()` must
+    reject anonymous users before calling this; see the warning below.
     """
     if profile is None:
         return frozenset({"none"})  # S0: an account with no CrushProfile
@@ -299,6 +303,18 @@ discipline.
 > I verified this mapping by hand against `EXPECTED`
 > (`test_profile_requirement_gates.py:58-71`) for all 7 states × 6 requirements
 > plus S0 — 43 cells, all match. The audited spec passes **unchanged**.
+
+> ⚠️ **`profile is None` is ambiguous and must be disambiguated by the caller.**
+> `event_detail` (`views_events.py:485`) has **no** login decorator, and
+> `event_list` is public too — so an anonymous visitor also arrives with
+> `profile=None`. Treating that as S0 would make `can_register` true on an open
+> `profile_requirement="none"` event with no age or language restriction, and the
+> page would swap today's "Log in / sign up to register" prompt
+> (`event_detail.html:851-865`) for a Register CTA that bounces off
+> `@crush_login_required`. `evaluate()` must therefore check
+> `user.is_authenticated` **first** and return a dedicated
+> `REASON_LOGIN_REQUIRED` whose unlock is the login route. `allowed_requirements()`
+> itself stays pure and presumes an authenticated member.
 
 ### The other axes
 
@@ -390,11 +406,11 @@ class Reason:
     code: str                          # "profile_missing", "not_verified", …
     message: str                       # gettext_lazy
     unlock_label: str | None = None
-    unlock_path: str | None = None     # literal path, e.g. "/profile/create/"
+    unlock_url_name: str | None = None  # URL *name*, e.g. "crush_lu:create_profile"
 
     @property
     def has_unlock(self) -> bool:
-        return bool(self.unlock_path)
+        return bool(self.unlock_url_name)
 
 
 @dataclass(frozen=True)
@@ -418,18 +434,33 @@ Entry points:
 
 ```python
 def allowed_requirements(profile) -> frozenset[str]: ...
-def evaluate(user, event, *, profile, now, registration=None) -> Eligibility: ...
+def evaluate(
+    user, event, *, profile, now, registration=None, check_requirement=True
+) -> Eligibility: ...
 def eligible_events_q(profile, *, now) -> Q: ...       # events side (member fixed)
 def profile_pool_q(requirement: str) -> Q: ...         # profiles side (event fixed)
 ```
 
-`evaluate()` runs the axes in the gate's existing order — requirement, age,
-language — and returns on the first failure, so the reported reason matches the
-message `event_register` produces today.
+`evaluate()` runs the axes in the gate's existing order — authentication,
+requirement, age, language — and returns on the first failure, so the reported
+reason matches the message `event_register` produces today.
 
 Reasons are module-level constants. `views_events.py` already imports
 `gettext_lazy as _` (line 4), so lifting the existing strings out of the view is
 safe as-is.
+
+> ⚠️ **URL *names*, never literal paths.** The crush URLconf wraps its routes in
+> `i18n_patterns` (`azureproject/urls_crush.py:12`, and `AGENTS.md:88-90`), so a
+> hardcoded `/events/<id>/register/` loses the `/de/` or `/fr/` prefix and sends
+> DE/FR members to the default-language route. The existing code already does
+> this correctly — `event_detail.html:551` uses
+> `{% url 'crush_lu:event_register' event.id %}` and `event_register` uses
+> `redirect("crush_lu:create_profile")` — so `Reason` stores a **URL name** and
+> resolution happens at render/redirect time.
+>
+> Literal paths are correct in exactly one place: **test assertions**, where
+> `_detail_has_register_cta()` greps the rendered body for
+> `/events/<id>/register/`. Do not generalise that to templates or views.
 
 ### Caller: a view
 
@@ -439,18 +470,30 @@ verdict = eligibility.evaluate(
 )
 if not verdict.eligible:
     messages.error(request, verdict.denial.message)
-    return redirect(verdict.denial.unlock_path or f"/events/{event.id}/")
+    if verdict.denial.unlock_url_name:
+        return redirect(verdict.denial.unlock_url_name)
+    return redirect("crush_lu:event_detail", event_id=event.id)
 ```
 
 ### Caller: a template
 
 ```django
 {% if eligibility.can_register %}
-  <a href="/events/{{ event.id }}/register/" class="btn-crush-primary btn-block btn-lg">
+  <a href="{% url 'crush_lu:event_register' event.id %}" class="btn-crush-primary btn-block btn-lg">
     {% if event_full_for_user %}{% trans "Join Waitlist" %}{% else %}{% trans "Register for This Event" %}{% endif %}
   </a>
 {% else %}
   {% include "crush_lu/components/eligibility_notice.html" with verdict=eligibility %}
+{% endif %}
+```
+
+Inside the partial the unlock button resolves the name with `{% url %}`:
+
+```django
+{% if verdict.denial.has_unlock %}
+  <a href="{% url verdict.denial.unlock_url_name %}" class="btn-crush-outline btn-sm">
+    {{ verdict.denial.unlock_label }}
+  </a>
 {% endif %}
 ```
 
@@ -462,16 +505,42 @@ is unconditionally true on any page extending a base template.
 
 ```python
 now = timezone.now()
-events = (
-    MeetupEvent.objects.with_registration_counts()
-    .filter(eligibility.eligible_events_q(profile, now=now))
-    .order_by("date_time")[:12]
+
+# Preload the member's live registrations — one query, not one per event.
+# Without this, `availability` can never become "registered" and an
+# already-registered member is offered a duplicate Register CTA.
+registered = dict(
+    EventRegistration.objects
+    .filter(user=user, event__in=Subquery(candidates.values("pk")))
+    .exclude(status="cancelled")
+    .values_list("event_id", "status")
 )
-joinable = [e for e in events if eligibility.evaluate(
-    user, e, profile=profile, now=now).can_register]
+
+joinable = []
+for event in candidates.iterator():          # NOT sliced yet — see below
+    verdict = eligibility.evaluate(
+        user, event, profile=profile, now=now,
+        registration=registered.get(event.id),
+    )
+    if verdict.can_register:
+        joinable.append((event, verdict))
+    if len(joinable) >= WANTED:
+        break
 ```
 
-One profile load, one event query, then pure Python. No N+1.
+Three things this shape gets right that a naive one does not:
+
+1. **Registrations are preloaded into a dict.** `evaluate()` takes the member's
+   registration status as an argument rather than querying for it, so
+   `availability` can reach `"registered"` without an N+1. Omit it and an
+   already-registered member gets a second Register CTA.
+2. **The slice comes *after* the Python pass, not before.** Language is
+   deliberately evaluated only in Python (§2), so `[:12]` up front can return
+   twelve language-ineligible events and hide the joinable ones behind them.
+   Take from a bounded candidate queryset until `WANTED` survive, with a hard
+   ceiling so a pathological catalogue cannot walk the whole table.
+3. **One profile load, one event query, one registration query** — constant, not
+   per-event.
 
 ### i18n — a real cost, budgeted
 
@@ -503,14 +572,35 @@ The five-branch ladder with its ten `try/except CrushProfile.DoesNotExist` block
 collapses to:
 
 ```python
+    if event.is_private_invitation:
+        ...                                    # unchanged, lines 804-845
     else:
         profile = CrushProfile.objects.filter(user=request.user).first()
 
-    verdict = eligibility.evaluate(request.user, event, profile=profile, now=now)
+    # `check_requirement` is False on the private path: a private event keeps a
+    # dormant `profile_requirement` value that must NOT become live. Age and
+    # language still run for private events today, so they run here too.
+    verdict = eligibility.evaluate(
+        request.user, event, profile=profile, now=now,
+        check_requirement=not event.is_private_invitation,
+    )
     if not verdict.eligible:
         messages.error(request, verdict.denial.message)
-        return redirect(verdict.denial.unlock_path or f"/events/{event.id}/")
+        if verdict.denial.unlock_url_name:
+            return redirect(verdict.denial.unlock_url_name)
+        return redirect("crush_lu:event_detail", event_id=event.id)
 ```
+
+> ⚠️ **The `check_requirement` flag is load-bearing, not decoration.** Today the
+> ladder sits inside the `else` of `if event.is_private_invitation` (846), while
+> age (996) and language (1021) run *after* the whole `if/else` and therefore
+> apply to both paths. Calling `evaluate()` unconditionally with the requirement
+> axis enabled would newly enforce the dormant `profile_requirement` on private
+> events — an invited guest on a private event whose preserved value is the
+> default `completed` would suddenly be refused. The admin deliberately keeps
+> that value dormant (`admin/events.py:151-153`). An earlier draft of this plan
+> had exactly that bug: §8 said "never call `evaluate()` on the private path"
+> while this snippet did. The flag makes the two agree.
 
 **~150 lines → ~8.** The private-invitation branch (804–845) is untouched — it is
 mutually exclusive with the ladder and has its own semantics. The age (996–1019)
@@ -520,9 +610,10 @@ checks stay in the view: the former needs `request.user`, and the latter's
 deliberate silence (no flash, comment at 1037–1038) is view policy, not
 eligibility.
 
-The redirect asymmetry is carried on `Reason.unlock_path`: reasons whose fix is
-"create a profile" point at `/profile/create/`; the rest leave it `None`, and the
-view falls back to the event detail path.
+The redirect asymmetry is carried on `Reason.unlock_url_name`: reasons whose fix
+is "create a profile" carry `"crush_lu:create_profile"`; the rest leave it `None`,
+and the view falls back to `redirect("crush_lu:event_detail", event_id=…)`. Names,
+not paths — see the i18n warning in §3.
 
 ### 4.2 `event_detail.html:522-849`
 
@@ -572,6 +663,32 @@ exclusion stay local — those are legitimately invite-specific, not drift. The 
 is `eligibility ∧ contactable ∧ not-already-asked`, and only the first factor is
 shared.
 
+> ⚠️ **The `unverified` branch renders TWO pools and the split must survive.**
+> This is the one place the swap is not a drop-in. Today `unverified` builds
+> `pending_submissions_qs` (profiles whose latest `ProfileSubmission` is
+> `pending`/`recontact_coach`) *and* `profile_pool_qs`, and it keeps them
+> disjoint with the `latest_submission_status` annotation — the profile pool is
+> filtered to `latest_submission_status IS NULL OR = "expired"`
+> (`views_coach.py:2751-2769`), and the submission pool excludes
+> `profile_latest_status="expired"` (`:2735-2736`). Both `Subquery` annotations
+> exist purely to prevent one member appearing in both lists.
+>
+> `profile_pool_q("unverified")` is deliberately broader — it is the *eligibility*
+> predicate, `verification_status NOT IN (verified, rejected)`, and knows nothing
+> about submissions. Substituting it without re-applying the no-submission/
+> expired-latest filter would list and count the same member twice, and coaches
+> would send them **two invite SMS**. Keep the annotation, or exclude the
+> submission pool's profile ids explicitly:
+>
+> ```python
+> profile_pool_qs = profile_pool_qs.exclude(
+>     pk__in=pending_submissions_qs.values("profile_id")
+> )
+> ```
+>
+> PR5 must carry a test asserting the two pools are disjoint for `unverified` —
+> a plain count check on the rendered page is enough to catch a regression.
+
 **This fixes one genuine drift.** The `unverified` and `none` branches currently
 apply `lang_q | Q(event_languages=[]) | Q(event_languages__isnull=True)` (lines
 2770–2773, 2834–2837), i.e. they invite members with *no* declared languages. But
@@ -604,21 +721,58 @@ cannot be added in one place and forgotten in the other. `apply_registration_aud
 profile is never `None` here** — the S0 case cannot arise on this surface.
 
 The view already scans a bounded upcoming window at lines 549–557 to compute
-`next_event`. That query gains the eligibility filter and a Python pass:
+`next_event`. That window is what the section builds on:
 
 ```python
-upcoming = (
+candidates = (
     MeetupEvent.objects.with_registration_counts()
-    .filter(eligibility.eligible_events_q(profile, now=_now))
-    .order_by("date_time")[:12]
+    .filter(is_published=True, is_cancelled=False,
+            date_time__gte=MeetupEvent.live_lookback_cutoff(_now))
+    .order_by("date_time")
 )
-joinable = [
-    (e, v) for e in upcoming
-    if (v := eligibility.evaluate(request.user, e, profile=profile, now=_now))
-]
+registered = dict(
+    EventRegistration.objects.filter(user=request.user)
+    .exclude(status="cancelled")
+    .values_list("event_id", "status")
+)
+
+shown = []
+for event in candidates[:UPCOMING_SCAN_LIMIT]:
+    verdict = eligibility.evaluate(
+        request.user, event, profile=profile, now=_now,
+        registration=registered.get(event.id),
+    )
+    if verdict.can_register or verdict.one_step_away:
+        shown.append((event, verdict))
+    if len(shown) >= UPCOMING_SHOWN:
+        break
 ```
 
-**No new queries beyond the one already there.**
+**Two queries, both constant** — the events window and one registration lookup.
+No per-event work.
+
+> ⚠️ **Do NOT apply `eligible_events_q()` here.** This is the subtlest trap in
+> the plan, and an earlier draft fell into it. `eligible_events_q()` narrows to
+> requirements the member **already satisfies** — so it excludes, by construction,
+> exactly the *one-step-away* events this section exists to surface. An incomplete
+> member would never fetch a `completed` event, and the planned "Complete your
+> profile" card could never render at all. The narrowing filter is right for a
+> pure "events you can join" list (and for the list page's cheap pre-filter); it
+> is wrong the moment the surface also wants to show near-misses. Fetch the
+> broader upcoming window and let `evaluate()` do the classifying.
+
+> ⚠️ **Filter on the verdict's states, not on the verdict.** `Eligibility` is a
+> plain dataclass with no `__bool__`, so a walrus like
+> `if (v := evaluate(...))` is **always true** and filters nothing — it would push
+> non-actionable denials into the list, contradicting the omission rule below and
+> suppressing the empty state while rendering unusable cards. Test
+> `v.can_register or v.one_step_away` explicitly.
+
+> ⚠️ **Bound the scan, and slice after the Python pass.** Language is evaluated
+> only in Python (§2), so slicing before `evaluate()` can fill the list with
+> language-ineligible events and hide joinable ones behind them. Scan up to
+> `UPCOMING_SCAN_LIMIT` and stop once `UPCOMING_SHOWN` survive — the ceiling keeps
+> a pathological catalogue from walking the table.
 
 The section slots in after `dashboard.html:161` — below "Your next event"
 (section 5), above the counts grid (section 6) — reusing the
@@ -629,8 +783,8 @@ Four render states:
 
 | State | Renders |
 |---|---|
-| **Eligible** | Event card + `.btn-crush-solid` "Register" linking to `/events/<id>/register/`. Waitlist events say "Join Waitlist". |
-| **One-step-away** (`verdict.one_step_away`) | Event card + the **single** unlock CTA from `Reason.unlock_label`/`unlock_path` — "Complete your profile", "Get verified". One action, never a list. |
+| **Eligible** | Event card + `.btn-crush-solid` "Register" via `{% url 'crush_lu:event_register' event.id %}`. Waitlist events say "Join Waitlist". A member already registered has `availability == "registered"` and gets the existing ticket/details treatment, **not** a second Register CTA. |
+| **One-step-away** (`verdict.one_step_away`) | Event card + the **single** unlock CTA from `Reason.unlock_label`/`unlock_url_name` — "Complete your profile", "Get verified". One action, never a list. |
 | **Not eligible at all** (denial with no unlock) | **Omitted from the section.** A rejected profile, or an "unverified members only" event a verified member cannot join, is not actionable — showing it would be the dashboard lecturing. This is deliberate and is the main place the dashboard differs from `event_detail`, which must explain because the member navigated there on purpose. |
 | **Nothing upcoming** | The existing empty-state pattern used elsewhere on the page. |
 
@@ -793,9 +947,27 @@ the existing autouse fixture does, or it will see 429s and read them as denials.
 
 **Private-invitation events.**
 `is_private_invitation` short-circuits before the ladder and never consults
-`profile_requirement`. `evaluate()` must not be called on that path, or a dormant
-requirement value would suddenly become live. The admin already preserves the
-dormant value deliberately (`admin/events.py:151-153`).
+`profile_requirement`. `evaluate()` must be called with `check_requirement=False`
+on that path (§4.1), or a dormant requirement value would suddenly become live and
+refuse invited guests. The admin preserves that dormant value deliberately
+(`admin/events.py:151-153`). Age and language still apply, as they do today.
+
+**Anonymous visitors on public pages.**
+`event_detail` and `event_list` have no login decorator, so `profile=None` there
+can mean "anonymous", not S0. Without the `user.is_authenticated` check in
+`evaluate()` (§2), an open `none` event would show a Register CTA to a logged-out
+visitor in place of the current login prompt. Caught by adding an anonymous case
+to the rendered-page tests in §6.
+
+**A duplicate Register CTA for already-registered members.**
+`availability` can only reach `"registered"` if the member's registration state is
+passed into `evaluate()`. Preload it as a dict (§3); querying per event would
+reintroduce the N+1 the design exists to avoid.
+
+**Double-listing in the coach invite pool (PR5).**
+The `unverified` branch renders two pools that are kept disjoint by submission-status
+annotations. Dropping those in favour of the shared predicate would list a member
+twice and send two invite SMS — real money. PR5 carries a disjointness test (§4.3).
 
 ---
 
