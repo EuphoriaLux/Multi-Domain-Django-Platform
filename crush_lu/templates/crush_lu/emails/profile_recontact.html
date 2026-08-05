@@ -30,7 +30,12 @@
 {% endif %}
 <a href="mailto:{{ coach.user.email }}" class="button" style="background-color: {% if coach_phone_available %}transparent; color: #9B59B6; border: 2px solid #9B59B6{% else %}#9B59B6{% endif %};">{% trans "Email Coach" %}</a>
 
-<p>{% trans "Once you complete the screening call, your profile can be approved and you'll be able to register for events!" %}</p>
+{% comment %}
+Event access is NOT gated on this call -- verification happens at an event or
+via LuxID. This email rides the paid Premium coach-review path, where the call
+is about match quality, not about unlocking the platform.
+{% endcomment %}
+<p>{% trans "You can browse and register for events any time — the call is about your Crush Coach getting to know you, so they can pick better matches for you." %}</p>
 
 <p>
     {% trans "See you soon," %}<br>
