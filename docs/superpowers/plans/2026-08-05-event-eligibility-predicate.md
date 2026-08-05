@@ -35,6 +35,19 @@ Everything below was re-verified against the worktree at
 | Capacity is a gate | It is **not**. Capacity never refuses a registration — it downgrades `status` to `"waitlist"` (`views_events.py:1146-1172`). The only hard stop after the requirement/age/language checks is `is_registration_accepting`. |
 | `docs/plans/` | Does not exist. Repo precedent is `docs/superpowers/plans/` beside `docs/superpowers/specs/`, which is where this file lives. |
 
+**Two live defects in the coach SMS invite pool, both costing real money today.**
+Neither is caused by this refactor and neither needs it — both are independently
+shippable, and PR5 fixes them as a side effect:
+
+1. **Language** — the `unverified`/`none` branches admit profiles with no declared
+   languages (`views_coach.py:2770-2773`, `:2834-2837`), whom
+   `user_meets_language_requirement` then refuses at registration.
+2. **Age** — `sub_age_q` (`:2694-2696`) admits profiles with **no date of birth**
+   via `Q(profile__date_of_birth__isnull=True)`, but `event_register` refuses a
+   missing DOB outright on an age-restricted event (`views_events.py:1001-1009`).
+
+Both send SMS invites to members the gate will bounce. Details in §4.3.
+
 **One more finding the brief did not have.** `event_detail.html` branches on
 `user_profile.is_approved` (lines 539, 644, 729, 777 and 779 — five branches,
 the last nested inside the 777 `elif`) while `event_register`
@@ -326,7 +339,7 @@ semantics allow:
 |---|---|---|
 | **Age** | SQL — but **only for age-restricted events**: `Q(min_age__lte=18, max_age__gte=99) \| Q(min_age__lte=age, max_age__gte=age)` | `min_age`/`max_age` are non-nullable ints with defaults 18/99, so integer comparison is backend-neutral. ⚠️ The range check must **not** be applied unconditionally — see below. If `profile.age is None`, narrow to unrestricted events only (`min_age__lte=18, max_age__gte=99`), mirroring the gate's refusal. |
 | **Deadline / published / cancelled** | SQL, with **`now` passed in from Python** | Never use `Now()` in the filter. Clock skew between the app and the database is a documented divergence; one `now` value feeds both halves. |
-| **Language** | **Python only** | `MeetupEvent.languages` is a `JSONField`. `__contains` semantics on JSON differ across backends, and this is exactly the trap. Reuse the existing `event.user_meets_language_requirement(user)` (`models/events.py:654-686`), which already returns `(bool, message)` — so it already produces our denial message for free. |
+| **Language** | **Python only** | `MeetupEvent.languages` is a `JSONField`. `__contains` semantics on JSON differ across backends, and this is exactly the trap. Reuse the existing `event.user_meets_language_requirement(user)` (`models/events.py:654-686`), which already returns `(bool, message)` — so it already produces our denial message for free. ⚠️ But it re-fetches the profile itself (`profile = user.crushprofile`, line 663), ignoring the one already passed to `evaluate()` — see below. |
 | **Capacity / waitlist** | Python, off `with_registration_counts()` | This is *availability*, not eligibility — and capacity never refuses, it waitlists (`views_events.py:1146-1172`). See the note on `is_registration_accepting` below: a **total-full event still accepts signups**, so `"waitlist"` is the correct availability, not `"closed"`. |
 
 > ⚠️ **The age filter must reproduce the gate's `event_has_age_restriction`
@@ -339,6 +352,29 @@ semantics allow:
 > narrowing would then be *stricter* than the gate, which is the one direction
 > §2's whole argument forbids: it would hide events the member is genuinely
 > allowed to join. Hence the `Q(unrestricted) | Q(in range)` shape.
+
+> ⚠️ **`user_meets_language_requirement` re-fetches the profile.** It does
+> `profile = user.crushprofile` internally (`models/events.py:663`) rather than
+> using the profile `evaluate()` was handed. Two consequences, and the smaller one
+> is the query: Django caches the reverse one-to-one on the `user` instance, so a
+> loop over events issues **one** redundant query, not one per event — this is
+> *not* an N+1. The real hazard is correctness: the method silently evaluates a
+> *different profile object* than the rest of `evaluate()`, so a caller that
+> passes a profile from a bulk fetch, an unsaved edit, or a merge-in-progress gets
+> two different answers from one verdict. Either seed the cache
+> (`user._state.fields_cache`) before the loop, or — better — give the method an
+> optional `profile=` parameter and pass the one already loaded.
+
+> ⚠️ **Capacity is not one number: it is `public_capacity` vs `max_participants`,
+> plus the gender pool.** `is_full_for(is_premium)` (`models/events.py:510-516`)
+> measures a coach-assigned member against `max_participants` and everyone else
+> against `public_capacity = max_participants - reserved_premium_seats`
+> (`:505-508`), and `event_register` calls it with
+> `is_premium=bool(profile.assigned_coach_id)` (line 1150). So availability
+> computed from `with_registration_counts()`'s *totals alone* will show "open" to a
+> non-coach member whose public seats are exhausted while reserved seats remain —
+> and the POST then waitlists them. Availability must carry the same
+> public-vs-total rule as the gate, on top of the gender-pool rule.
 
 > ⚠️ **`is_registration_accepting` does NOT include a capacity check** — a claim
 > worth pinning, because it has been misread in review. The property
@@ -589,7 +625,7 @@ if not verdict.eligible:
 ```django
 {% if eligibility.can_register %}
   <a href="{% url 'crush_lu:event_register' event.id %}" class="btn-crush-primary btn-block btn-lg">
-    {% if event_full_for_user %}{% trans "Join Waitlist" %}{% else %}{% trans "Register for This Event" %}{% endif %}
+    {% if eligibility.availability == "waitlist" %}{% trans "Join Waitlist" %}{% else %}{% trans "Register for This Event" %}{% endif %}
   </a>
 {% elif eligibility.denial %}
   {% include "crush_lu/components/eligibility_notice.html" with verdict=eligibility %}
@@ -598,6 +634,16 @@ if not verdict.eligible:
   {% include "crush_lu/components/availability_notice.html" with verdict=eligibility %}
 {% endif %}
 ```
+
+> ⚠️ **The CTA label comes from `eligibility.availability`, not
+> `event_full_for_user`.** The existing context flag is
+> `event.is_full_for(is_premium=…)` (`views_events.py:671`) — total/public capacity
+> only, blind to the gender pool. On a gender-limited event where this member's
+> pool is full but public seats remain, that flag is `False`, so the old label
+> reads "Register" while the POST immediately waitlists them
+> (`views_events.py:1152-1159`). Driving the label from the verdict is the whole
+> point of centralising availability; leaving it on `event_full_for_user` would
+> keep a mismatch alive in the one place members actually click.
 
 > ⚠️ **Three branches, not two.** `eligible` and `bookable` are separate axes (§2),
 > so `not can_register` does **not** imply a denial exists. An eligible member
@@ -848,6 +894,22 @@ shared.
 >
 > Option 1 is the better trade. Option 2 keeps a JSON `Q` whose correctness CI
 > cannot check, which is the exact failure mode §2 exists to avoid.
+
+> ⚠️ **The `ProfileSubmission` pool has its own age drift — a *second* live
+> defect.** `sub_age_q` (`views_coach.py:2694-2696`) is
+> `Q(profile__date_of_birth__gt=min_dob, profile__date_of_birth__lte=max_dob) |
+> Q(profile__date_of_birth__isnull=True)` — it deliberately **admits profiles with
+> no date of birth**. But `event_register` refuses a missing DOB outright on an
+> age-restricted event: `profile is None or profile.age is None` → error →
+> `create_profile` (`views_events.py:1001-1009`).
+>
+> So for an age-restricted `unverified` event, coaches are texting invites to
+> members with no DOB, and every one of those bounces at the age gate. Same
+> failure as the language drift below, same cost — real SMS spend on invites the
+> gate will refuse. PR5 must apply the strict age filter to the submission rows
+> whenever the event is actually age-restricted (`min_age > 18 or max_age < 99`),
+> keeping the `isnull=True` leg only for unrestricted events, where the gate does
+> not age-check at all.
 
 **This fixes one genuine drift.** The `unverified` and `none` branches currently
 apply `lang_q | Q(event_languages=[]) | Q(event_languages__isnull=True)` (lines
