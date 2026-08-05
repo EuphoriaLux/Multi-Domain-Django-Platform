@@ -12,9 +12,12 @@ English for DE/FR readers:
   2. Seven templates invited a reply to an email sent from noreply@crush.lu.
      They now point at support@crush.lu, matching base_email's footer.
 
-Register follows the existing catalogs, not the style note: DE du, FR tu (see
-e.g. "Nous espérons te voir à un événement futur !"). The address itself is
-kept outside the translatable string so it cannot be mangled in translation.
+Register is DE du, FR vous, measured against the catalogs rather than sampled:
+DE is 88% du-only (1426 vs 195), FR is 90% vous-only overall and 218-vs-24
+vous within the email templates specifically. A handful of FR email strings do
+use tu ("Nous espérons te voir à un événement futur !") -- those are the
+minority and should be migrated, not copied. The address itself is kept
+outside the translatable string so it cannot be mangled in translation.
 
 Compiles .mo directly via polib -- gettext is not installed on this machine and
 a hand-rolled .mo 500s every DE/FR request.
@@ -38,8 +41,8 @@ NEW = {
             "wir melden uns dazu bei dir."
         ),
         "fr": (
-            "Si tu as payé des frais d'inscription, tout remboursement "
-            "éventuel suit notre politique d'annulation — nous te "
+            "Si vous avez payé des frais d'inscription, tout remboursement "
+            "éventuel suit notre politique d'annulation — nous vous "
             "recontacterons à ce sujet."
         ),
     },
@@ -50,27 +53,27 @@ NEW = {
     # --- support contact, replacing "reply to this email" ------------------
     "Email us at": {
         "de": "Schreib uns an",
-        "fr": "Écris-nous à",
+        "fr": "Écrivez-nous à",
     },
     "Questions? Email us at": {
         "de": "Fragen? Schreib uns an",
-        "fr": "Des questions ? Écris-nous à",
+        "fr": "Des questions ? Écrivez-nous à",
     },
     "Questions? We'll help you out — email us at": {
         "de": "Fragen? Wir helfen dir gerne weiter — schreib uns an",
-        "fr": "Des questions ? Nous t'aidons volontiers — écris-nous à",
+        "fr": "Des questions ? Nous vous aidons volontiers — écrivez-nous à",
     },
     "Have questions or need help? Email us at": {
         "de": "Fragen oder brauchst du Hilfe? Schreib uns an",
-        "fr": "Des questions ou besoin d'aide ? Écris-nous à",
+        "fr": "Des questions ou besoin d'aide ? Écrivez-nous à",
     },
     "If you have any questions, email us at": {
         "de": "Bei Fragen schreib uns an",
-        "fr": "Si tu as des questions, écris-nous à",
+        "fr": "Si vous avez des questions, écrivez-nous à",
     },
     "Our team will get back to you — email us at": {
         "de": "Unser Team meldet sich bei dir — schreib uns an",
-        "fr": "Notre équipe te répondra — écris-nous à",
+        "fr": "Notre équipe vous répondra — écrivez-nous à",
     },
 }
 
@@ -92,7 +95,8 @@ for lang in ("de", "fr"):
                 )
             )
             added += 1
-        elif not entry.msgstr or "fuzzy" in entry.flags:
+        elif entry.msgstr != translations[lang] or "fuzzy" in entry.flags:
+            # This script owns these msgids, so it overwrites rather than skips.
             entry.msgstr = translations[lang]
             if "fuzzy" in entry.flags:
                 entry.flags.remove("fuzzy")

@@ -39391,8 +39391,8 @@ msgid ""
 "If you paid a registration fee, any refund is handled under our cancellation"
 " policy and we'll be in touch about it."
 msgstr ""
-"Si tu as payé des frais d'inscription, tout remboursement éventuel suit "
-"notre politique d'annulation — nous te recontacterons à ce sujet."
+"Si vous avez payé des frais d'inscription, tout remboursement éventuel suit "
+"notre politique d'annulation — nous vous recontacterons à ce sujet."
 
 #: crush_lu/templates/crush_lu/emails/event_cancellation.html
 msgid "Read the cancellation policy"
@@ -39400,24 +39400,24 @@ msgstr "Lire la politique d'annulation"
 
 #: crush_lu/templates/crush_lu/emails/event_cancellation.html
 msgid "Email us at"
-msgstr "Écris-nous à"
+msgstr "Écrivez-nous à"
 
 #: crush_lu/templates/crush_lu/emails/event_cancellation.html
 msgid "Questions? Email us at"
-msgstr "Des questions ? Écris-nous à"
+msgstr "Des questions ? Écrivez-nous à"
 
 #: crush_lu/templates/crush_lu/emails/event_cancellation.html
 msgid "Questions? We'll help you out — email us at"
-msgstr "Des questions ? Nous t'aidons volontiers — écris-nous à"
+msgstr "Des questions ? Nous vous aidons volontiers — écrivez-nous à"
 
 #: crush_lu/templates/crush_lu/emails/event_cancellation.html
 msgid "Have questions or need help? Email us at"
-msgstr "Des questions ou besoin d'aide ? Écris-nous à"
+msgstr "Des questions ou besoin d'aide ? Écrivez-nous à"
 
 #: crush_lu/templates/crush_lu/emails/event_cancellation.html
 msgid "If you have any questions, email us at"
-msgstr "Si tu as des questions, écris-nous à"
+msgstr "Si vous avez des questions, écrivez-nous à"
 
 #: crush_lu/templates/crush_lu/emails/event_cancellation.html
 msgid "Our team will get back to you — email us at"
-msgstr "Notre équipe te répondra — écris-nous à"
+msgstr "Notre équipe vous répondra — écrivez-nous à"
