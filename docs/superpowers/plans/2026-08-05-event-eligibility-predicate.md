@@ -350,9 +350,14 @@ diverge from the Python predicate. Two mitigations, both structural:
    non-ASCII, MySQL's case-insensitive default collation, Oracle's `NULL == ''`,
    join duplication — is outside it. **No `icontains`, no `contains`, no
    `iexact`, no JSON lookups, no reverse-relation traversal.**
-2. **Prove equivalence exhaustively.** The state space is finite and tiny —
-   7 states × 6 requirements = 42 cells. This is not property-based sampling; it
-   is a total enumeration, which is strictly stronger.
+2. **Prove equivalence over the whole input space.** The space is finite and tiny,
+   so this can be a total enumeration rather than property-based sampling — but it
+   must be enumerated over the predicate's *actual inputs*
+   (`verification_status` × `phone_verified` × `has_coach` = 16 profiles × 6
+   requirements = 96 cells), **not** over the 7 rows of `STATES`. `STATES` carries
+   a coach on only two rows and omits `incomplete + coach` and `pending + coach`
+   entirely, so a matrix built on it would miss a whole axis. See §6 for why this
+   distinction has teeth.
 
 Mitigation 1 matters because **CI runs the test suite on SQLite**
 (`.github/workflows/test-and-validate.yml:109`, *"Run tests (parallel with
@@ -381,7 +386,14 @@ def profile_pool_q(requirement: str) -> Q:
         return ~Q(verification_status__in=("verified", "rejected"))
     if requirement == "profile_exists":
         return ~Q(verification_status="rejected")
-    return Q()  # "none"
+    if requirement == "none":
+        return Q()
+    # Never fall through to Q(). An unknown code — a typo, a bad row, or a
+    # seventh choice added to the model without updating this function — would
+    # silently mean "everyone" here while `allowed_requirements()` denies it,
+    # breaking the one-predicate invariant in the most dangerous direction:
+    # an over-broad SMS invite pool.
+    raise ValueError(f"unknown profile_requirement: {requirement!r}")
 ```
 
 `~Q(...)` is safe here specifically because `verification_status` is non-nullable
@@ -404,13 +416,19 @@ class Reason:
     """
 
     code: str                          # "profile_missing", "not_verified", …
-    message: str                       # gettext_lazy
+    message: str                       # already interpolated — see below
     unlock_label: str | None = None
     unlock_url_name: str | None = None  # URL *name*, e.g. "crush_lu:create_profile"
+    unlock_query: dict | None = None    # e.g. {"next": request.path} for login
 
     @property
     def has_unlock(self) -> bool:
         return bool(self.unlock_url_name)
+
+    def unlock_href(self) -> str:
+        """Resolve the name, then append the query. i18n prefix preserved."""
+        url = reverse(self.unlock_url_name)
+        return f"{url}?{urlencode(self.unlock_query)}" if self.unlock_query else url
 
 
 @dataclass(frozen=True)
@@ -427,7 +445,16 @@ class Eligibility:
 
     @property
     def one_step_away(self) -> bool:
-        return not self.eligible and self.denial is not None and self.denial.has_unlock
+        # Availability matters here too: an event past its registration deadline
+        # cannot be unlocked by *any* member action, so promising "Complete your
+        # profile" on a closed event is a lie. Only offer an unlock when taking
+        # it would actually lead to a registerable event.
+        return (
+            not self.eligible
+            and self.denial is not None
+            and self.denial.has_unlock
+            and self.availability in ("open", "waitlist")
+        )
 ```
 
 Entry points:
@@ -445,9 +472,26 @@ def profile_pool_q(requirement: str) -> Q: ...         # profiles side (event fi
 requirement, age, language — and returns on the first failure, so the reported
 reason matches the message `event_register` produces today.
 
-Reasons are module-level constants. `views_events.py` already imports
-`gettext_lazy as _` (line 4), so lifting the existing strings out of the view is
-safe as-is.
+**Static reasons are module-level constants; event-specific ones are built inside
+`evaluate()`.** `views_events.py` already imports `gettext_lazy as _` (line 4), so
+lifting the fixed strings out of the view is safe as-is.
+
+But two of the existing denials interpolate event data and **cannot** be
+constants:
+
+- **Age** — `"This event is restricted to ages %(min)d–%(max)d…"`
+  (`views_events.py:1013-1017`), formatted with `event.min_age`/`event.max_age`.
+- **Language** — `user_meets_language_requirement()` already returns
+  `(False, "This event requires one of these languages: %(languages)s…")` with the
+  event's language display names joined in (`models/events.py:676-684`).
+
+Freezing those as constants would ship raw `%(min)d` placeholders to members, or
+silently replace them with a vaguer message than the gate produces today. So
+`Reason.message` holds an **already-interpolated** string: the constants cover the
+fixed reasons (`profile_missing`, `not_verified`, `no_coach`, `rejected`,
+`login_required`), and `evaluate()` constructs the age and language reasons at
+call time — reusing the existing lazy msgids so the DE/FR catalogs still match and
+PRs 1–3 stay at zero `.po` cost.
 
 > ⚠️ **URL *names*, never literal paths.** The crush URLconf wraps its routes in
 > `i18n_patterns` (`azureproject/urls_crush.py:12`, and `AGENTS.md:88-90`), so a
@@ -487,15 +531,25 @@ if not verdict.eligible:
 {% endif %}
 ```
 
-Inside the partial the unlock button resolves the name with `{% url %}`:
+Inside the partial the unlock button uses `unlock_href()`, which resolves the name
+*and* appends any query string:
 
 ```django
 {% if verdict.denial.has_unlock %}
-  <a href="{% url verdict.denial.unlock_url_name %}" class="btn-crush-outline btn-sm">
+  <a href="{{ verdict.denial.unlock_href }}" class="btn-crush-outline btn-sm">
     {{ verdict.denial.unlock_label }}
   </a>
 {% endif %}
 ```
+
+> The query string is not decoration. Today `event_detail.html:859` renders
+> `{% url 'crush_lu:login' %}?next={{ request.path }}` for anonymous visitors — so
+> a `REASON_LOGIN_REQUIRED` carrying only a bare route name would drop `next` and
+> dump the member on the default post-login page instead of back at the event they
+> were trying to join. `evaluate()` populates `unlock_query={"next": request.path}`
+> for that reason. (`{% url verdict.denial.unlock_url_name %}` with an unquoted
+> variable is valid Django and resolves dynamically, but it cannot carry the query
+> — hence `unlock_href()`.)
 
 Note the include parameter is named `verdict`, **not** `block` — Django binds a
 truthy `BlockNode` under that name inside every `{% block %}`, so `{% if block %}`
@@ -689,6 +743,28 @@ shared.
 > PR5 must carry a test asserting the two pools are disjoint for `unverified` —
 > a plain count check on the rendered page is enough to catch a regression.
 
+> ⚠️ **`strict_lang_q` is the one part of this pool the equivalence test does not
+> cover, and §2 forbids it in SQL.** §2 keeps language in Python precisely because
+> `event_languages` is a `JSONField` and containment semantics differ between
+> SQLite (CI) and PostgreSQL (production). But the pool inverts the direction — it
+> filters *profiles* for a fixed event — so it cannot avoid touching that JSON
+> column, and the existing code already does (`views_coach.py:2704-2705`,
+> `event_languages__contains`).
+>
+> Be honest about what this means: `profile_pool_q()` is covered by the exhaustive
+> equivalence test, `strict_lang_q` is **not**. Two options, and PR5 must pick one
+> explicitly rather than leave it implicit:
+> 1. Apply the language filter in **Python** over the already-narrowed pool. The
+>    pool is small (contactable profiles for one event), so the cost is trivial and
+>    it reuses `user_meets_language_requirement` verbatim — no second
+>    implementation, no backend risk.
+> 2. Keep it in SQL and add **PostgreSQL-specific** coverage for the language
+>    filter alone, asserting it agrees with `user_meets_language_requirement` for
+>    profiles with empty, missing, partial and full language overlap.
+>
+> Option 1 is the better trade. Option 2 keeps a JSON `Q` whose correctness CI
+> cannot check, which is the exact failure mode §2 exists to avoid.
+
 **This fixes one genuine drift.** The `unverified` and `none` branches currently
 apply `lang_q | Q(event_languages=[]) | Q(event_languages__isnull=True)` (lines
 2770–2773, 2834–2837), i.e. they invite members with *no* declared languages. But
@@ -724,11 +800,12 @@ The view already scans a bounded upcoming window at lines 549–557 to compute
 `next_event`. That window is what the section builds on:
 
 ```python
-candidates = (
+candidates = _filter_private_events(          # reuse views_events.py:147
     MeetupEvent.objects.with_registration_counts()
     .filter(is_published=True, is_cancelled=False,
             date_time__gte=MeetupEvent.live_lookback_cutoff(_now))
-    .order_by("date_time")
+    .order_by("date_time"),
+    request.user,
 )
 registered = dict(
     EventRegistration.objects.filter(user=request.user)
@@ -756,10 +833,15 @@ No per-event work.
 > requirements the member **already satisfies** — so it excludes, by construction,
 > exactly the *one-step-away* events this section exists to surface. An incomplete
 > member would never fetch a `completed` event, and the planned "Complete your
-> profile" card could never render at all. The narrowing filter is right for a
-> pure "events you can join" list (and for the list page's cheap pre-filter); it
-> is wrong the moment the surface also wants to show near-misses. Fetch the
-> broader upcoming window and let `evaluate()` do the classifying.
+> profile" card could never render at all. Fetch the broader upcoming window and
+> let `evaluate()` do the classifying.
+>
+> **This applies to the list page too** — neither member-facing surface may use it
+> as a pre-filter, because both show near-misses. `eligible_events_q()` is
+> therefore narrower in scope than §2 first implied: it is for callers that want
+> *only* joinable events and will never render a denial — an "events you can join"
+> API, a digest email, a count. Any surface that explains itself must fetch wider
+> and classify in Python.
 
 > ⚠️ **Filter on the verdict's states, not on the verdict.** `Eligibility` is a
 > plain dataclass with no `__bool__`, so a walrus like
@@ -773,6 +855,17 @@ No per-event work.
 > language-ineligible events and hide joinable ones behind them. Scan up to
 > `UPCOMING_SCAN_LIMIT` and stop once `UPCOMING_SHOWN` survive — the ceiling keeps
 > a pathological catalogue from walking the table.
+
+> ⚠️ **Private-invitation events must be filtered out of the candidate set.**
+> `event_list` already routes its querysets through `_filter_private_events`
+> (`views_events.py:147`, applied at 216–217); a raw
+> `is_published=True, is_cancelled=False` scan does not, so a published private
+> event would reach `evaluate()` as if it were ordinary. Two ways that goes wrong:
+> a non-invitee gets a Register CTA for an event `event_register` will refuse at
+> line 813, and an *invitee* gets an unlock card for a requirement that the private
+> path bypasses entirely (§4.1). Reuse the existing helper rather than
+> reimplementing the visibility rule — it is the same "don't advertise what the
+> gate refuses" principle the whole plan is built on.
 
 The section slots in after `dashboard.html:161` — below "Your next event"
 (section 5), above the counts grid (section 6) — reusing the
@@ -799,6 +892,16 @@ its context — yet `event_card.html:54` and `:98` already reference it, so it
 silently resolves falsy for everyone and the card shows canton instead of the full
 address. That is a pre-existing latent bug; fix it in the same PR since the card
 is being touched anyway.
+
+> ⚠️ **The list page must NOT pre-filter with `eligible_events_q()` either.** Same
+> trap as the dashboard: it narrows to requirements the member already satisfies,
+> so an incomplete member would never *fetch* a `completed` event and could never
+> see the "Complete your profile" badge that is the entire point of this change.
+> The list keeps its existing visibility query (published, not cancelled, upcoming,
+> `_filter_private_events`) and `evaluate()` **annotates** each card rather than
+> deciding which cards exist. A catalogue page that hides events is a worse product
+> than one that labels them — and hiding them would also be a member-visible
+> regression, since today every published event is listed.
 
 This is the highest-traffic page and the most member-visible change, so it ships
 last (§7).
@@ -828,11 +931,28 @@ driving four consumers off the same tables.
    }
    ```
 
-   Total enumeration of the finite space, not sampling. **This test must also be
-   run against PostgreSQL before merging PR1 and PR5**, because CI is SQLite and
-   the research documents lookups that differ silently between the two. The
-   `exact`/`in`/`isnull`-only vocabulary from §2 is what makes the SQLite run
-   meaningful; the Postgres run is what confirms it.
+   **This test must also be run against PostgreSQL before merging PR1 and PR5**,
+   because CI is SQLite and the research documents lookups that differ silently
+   between the two. The `exact`/`in`/`isnull`-only vocabulary from §2 is what makes
+   the SQLite run meaningful; the Postgres run is what confirms it.
+
+   > ⚠️ **`STATES` is not the full cross product — extend it for *this* test only.**
+   > `allowed_requirements()` reads three independent inputs
+   > (`verification_status`, `phone_verified`, `assigned_coach_id`), but `STATES`
+   > carries a coach on only two rows, both `verified` or `rejected`. There is no
+   > `incomplete + coach` or `pending + coach` fixture — yet the gate admits **any**
+   > non-rejected profile with a coach under `coach_assigned`. So a regression that
+   > made `profile_pool_q("coach_assigned")` require `verification_status="verified"`
+   > would pass all 42 cells untouched. Calling that matrix "total enumeration"
+   > overstates it: it is exhaustive over `STATES`, not over the input space.
+   >
+   > The fix is **not** to edit `STATES`/`EXPECTED` — those are the audited spec and
+   > must stay byte-identical (§7, PR1). Build the equivalence test on a separate,
+   > wider fixture set: the cross product of the four `verification_status` values ×
+   > `phone_verified` ∈ {T, F} × `has_coach` ∈ {T, F} = **16 profiles**, with the
+   > expectation derived from `allowed_requirements()` itself. The 42-cell gate
+   > matrix keeps proving the *view*; the 16-profile product proves the *two
+   > representations agree* across every input combination that can reach them.
 
 4. **Rendered-page assertions — non-negotiable.** This repo has been bitten
    *precisely* here: the audit spec exists because the gate was fixed and the page
@@ -968,6 +1088,33 @@ reintroduce the N+1 the design exists to avoid.
 The `unverified` branch renders two pools that are kept disjoint by submission-status
 annotations. Dropping those in favour of the shared predicate would list a member
 twice and send two invite SMS — real money. PR5 carries a disjointness test (§4.3).
+
+**Private events leaking onto the dashboard.**
+The dashboard's candidate query must go through `_filter_private_events`
+(`views_events.py:147`) as `event_list` already does, or a published
+private-invitation event is evaluated as ordinary — offering a Register CTA to
+non-invitees and an irrelevant unlock card to invitees (§5).
+
+**An unlock CTA that unlocks nothing.**
+`one_step_away` now requires `availability in ("open", "waitlist")`. Without that,
+a member failing a fixable requirement on an event whose deadline has passed is
+told to "Complete your profile" for an event they still could not join.
+
+**Untranslated placeholders in denial messages.**
+The age and language reasons interpolate event data, so they must be built inside
+`evaluate()`, not frozen as module constants — otherwise members see literal
+`%(min)d` or lose the language names the current gate shows (§3).
+
+**Losing `next` on the login unlock.**
+`event_detail.html:859` carries `?next={{ request.path }}` today. A login unlock
+that drops it strands the member on the default post-login page instead of the
+event they were trying to join. `Reason.unlock_query` preserves it.
+
+**An unknown `profile_requirement` silently meaning "everyone".**
+`profile_pool_q()` raises on unrecognised codes rather than falling through to
+`Q()`. Without that, adding a seventh choice to the model and forgetting this
+function would widen the SMS pool to every contactable profile while the
+per-object check denies them all.
 
 ---
 
