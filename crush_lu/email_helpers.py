@@ -104,6 +104,9 @@ def get_email_base_urls(user, request):
         "settings_url": get_user_language_url(
             user, "crush_lu:account_settings", request
         ),
+        "terms_url": get_user_language_url(
+            user, "crush_lu:terms_of_service", request
+        ),
     }
 
 
@@ -871,7 +874,7 @@ def send_event_cancellation_confirmation(user, event, request):
 
     # Render email in user's preferred language
     with translation.override(lang):
-        subject = _("Event Cancellation Confirmed - {title}").format(title=event.title)
+        subject = _("Registration Cancelled - {title}").format(title=event.title)
         html_message = render_to_string(
             "crush_lu/emails/event_cancellation.html", context
         )
