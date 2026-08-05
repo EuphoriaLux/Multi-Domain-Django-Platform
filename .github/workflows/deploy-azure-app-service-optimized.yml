@@ -266,7 +266,13 @@ jobs:
           # and its templates as cold as they were. smoke.py uses urlopen,
           # which follows redirects, so it would still pay that cost — warm
           # the page the smoke test actually lands on.
-          pids=""
+          #
+          # Sequential, unlike the parallel /healthz/ probes above. Those are
+          # short-circuited and cost nothing; these each import a urlconf and
+          # compile templates on a plan that runs ONE instance near its memory
+          # ceiling, so firing nine at once risks re-creating the contention
+          # this step exists to remove. It also mirrors how smoke.py walks the
+          # list. Wall time is seconds and nothing gates on it.
           for target in \
             test.crush.lu/ \
             test.entreprinder.lu/ \
@@ -277,15 +283,11 @@ jobs:
             test.tableau.lu/ \
             test.arborist.lu/ \
             test.delegations.lu/ ; do
-            (
-              code=$(curl -sL -o /dev/null -w '%{http_code} %{time_total}s' \
-                       --max-time 60 --retry 2 --retry-delay 5 \
-                       --retry-all-errors "https://$target" || echo 000)
-              echo "  $target -> $code"
-            ) &
-            pids="$pids $!"
+            code=$(curl -sL -o /dev/null -w '%{http_code} %{time_total}s' \
+                     --max-time 60 --retry 2 --retry-delay 5 \
+                     --retry-all-errors "https://$target" || echo 000)
+            echo "  $target -> $code"
           done
-          for pid in $pids; do wait "$pid"; done
           echo "✅ warm-up pass complete (non-gating)"
 
       - name: Smoke Test
