@@ -65,10 +65,12 @@
     {% for action in post_event_actions %}
     <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-crush-purple/40 bg-purple-50 dark:bg-purple-900/20 px-4 py-3">
         <p class="text-xs sm:text-sm font-semibold text-crush-purple dark:text-purple-200 mb-0 min-w-0 flex-1">{{ action.event.title }}</p>
-        {# No flex-shrink-0 here: it pins this group to its max-content width, so a
-           flex-wrap container never feels the pressure that makes it wrap and the
-           buttons run past the card edge on mobile (up to three of them + a long
-           localised label). Let it shrink and wrap instead. #}
+        {% comment %}
+        No flex-shrink-0 here: it pins this group to its max-content width, so a
+        flex-wrap container never feels the pressure that makes it wrap and the
+        buttons run past the card edge on mobile (up to three of them + a long
+        localised label). Let it shrink and wrap instead.
+        {% endcomment %}
         <div class="flex flex-wrap gap-2">
             {% include "crush_lu/components/event_lobby_cta.html" with cta=action.lobby_cta event=action.event %}
             {% if action.show_quiz %}
