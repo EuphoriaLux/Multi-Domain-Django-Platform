@@ -324,10 +324,32 @@ semantics allow:
 
 | Axis | Where evaluated | Why |
 |---|---|---|
-| **Age** | SQL — `Q(min_age__lte=age) & Q(max_age__gte=age)` | `min_age`/`max_age` are non-nullable ints with defaults 18/99. Integer comparison is backend-neutral. If `profile.age is None`, narrow to unrestricted events only (`min_age__lte=18, max_age__gte=99`), mirroring the gate's refusal. |
+| **Age** | SQL — but **only for age-restricted events**: `Q(min_age__lte=18, max_age__gte=99) \| Q(min_age__lte=age, max_age__gte=age)` | `min_age`/`max_age` are non-nullable ints with defaults 18/99, so integer comparison is backend-neutral. ⚠️ The range check must **not** be applied unconditionally — see below. If `profile.age is None`, narrow to unrestricted events only (`min_age__lte=18, max_age__gte=99`), mirroring the gate's refusal. |
 | **Deadline / published / cancelled** | SQL, with **`now` passed in from Python** | Never use `Now()` in the filter. Clock skew between the app and the database is a documented divergence; one `now` value feeds both halves. |
 | **Language** | **Python only** | `MeetupEvent.languages` is a `JSONField`. `__contains` semantics on JSON differ across backends, and this is exactly the trap. Reuse the existing `event.user_meets_language_requirement(user)` (`models/events.py:654-686`), which already returns `(bool, message)` — so it already produces our denial message for free. |
-| **Capacity / waitlist** | Python, off `with_registration_counts()` | This is *availability*, not eligibility — and capacity never refuses, it waitlists (`views_events.py:1146-1172`). |
+| **Capacity / waitlist** | Python, off `with_registration_counts()` | This is *availability*, not eligibility — and capacity never refuses, it waitlists (`views_events.py:1146-1172`). See the note on `is_registration_accepting` below: a **total-full event still accepts signups**, so `"waitlist"` is the correct availability, not `"closed"`. |
+
+> ⚠️ **The age filter must reproduce the gate's `event_has_age_restriction`
+> guard, not just its range check.** The gate computes
+> `event_has_age_restriction = event.min_age > 18 or event.max_age < 99`
+> (`views_events.py:999`) and **only then** range-checks `profile.age`. An event
+> left at the defaults is never age-checked at all — so a member aged 100 can
+> register for it today. Applying `max_age__gte=age` unconditionally would filter
+> that same event out of their dashboard, because `99 >= 100` is false. The
+> narrowing would then be *stricter* than the gate, which is the one direction
+> §2's whole argument forbids: it would hide events the member is genuinely
+> allowed to join. Hence the `Q(unrestricted) | Q(in range)` shape.
+
+> ⚠️ **`is_registration_accepting` does NOT include a capacity check** — a claim
+> worth pinning, because it has been misread in review. The property
+> (`models/events.py:451-459`) is `is_published and not is_cancelled and now <
+> registration_deadline`, nothing more. The capacity condition lives in the
+> *separate* `is_registration_open` (`:461-469`), which the registration gate
+> never consults — `event_register` checks `is_registration_accepting` at both
+> line 1036 and line 1068. So a full event still accepts a POST and the seat is
+> downgraded to `waitlist` at 1146-1172. Marking total-full events `"closed"`
+> would make the dashboard refuse what the gate accepts, losing real waitlist
+> signups.
 
 So the queryset filter is a **sound narrowing** over the cheap indexable axes, and
 the Python predicate is authoritative and produces the explanation. The dashboard
@@ -418,7 +440,10 @@ class Reason:
     code: str                          # "profile_missing", "not_verified", …
     message: str                       # already interpolated — see below
     # Where the GATE sends you on a failed POST. Preserves today's behaviour
-    # exactly: create_profile for a missing profile, event_detail otherwise.
+    # exactly — which is NOT simply "create_profile if missing, else
+    # event_detail". The `completed` branch also sends a *wrong-state* profile
+    # (incomplete, or pending without a verified phone) to create_profile, since
+    # finishing the profile is the actual remedy. See §0 and the note below.
     redirect_url_name: str = "crush_lu:event_detail"
     # The ADVISORY unlock shown on a card. Independent of the redirect: an
     # "unverified members only" denial has a redirect but no unlock, while a
@@ -468,7 +493,8 @@ Entry points:
 ```python
 def allowed_requirements(profile) -> frozenset[str]: ...
 def evaluate(
-    user, event, *, profile, now, registration=None, check_requirement=True
+    user, event, *, profile, now, registration=None, check_requirement=True,
+    next_path=None,   # request.path — needed to build the login unlock's ?next=
 ) -> Eligibility: ...
 def eligible_events_q(profile, *, now) -> Q: ...       # events side (member fixed)
 def profile_pool_q(requirement: str) -> Q: ...         # profiles side (event fixed)
@@ -535,6 +561,28 @@ if not verdict.eligible:
 > dashboard has no unlock to render and the one-step-away card disappears.
 > `redirect_url_name` preserves today's behaviour exactly; `unlock_url_name` is
 > new and advisory.
+>
+> **Per-reason redirect targets, exactly as they are today** — the mapping is not
+> a rule of thumb, it is a table PR2 must reproduce:
+>
+> | Reason | `redirect_url_name` | Source |
+> |---|---|---|
+> | profile missing (any requirement) | `create_profile` | 869/877, 899, 932, 963, 989 |
+> | **`completed`, profile exists but not ready** | **`create_profile`** | **869** |
+> | `approved`, not verified | `event_detail` | 891 |
+> | `coach_assigned`, rejected / no coach | `event_detail` | 915, 924 |
+> | `unverified`, verified / rejected | `event_detail` | 946, 955 |
+> | `profile_exists`, rejected | `event_detail` | 981 |
+> | age out of range | `event_detail` | 1019 |
+> | age restricted, no DOB | `create_profile` | 1009 |
+> | language mismatch | `event_detail` | 1026 |
+>
+> The `completed` row is the one that breaks a naive "missing → create_profile,
+> otherwise → event_detail" reading: an incomplete or phone-unverified profile is
+> *not* missing, yet the gate still routes it to the completion flow because that
+> is the remedy. Getting this wrong silently strands those members on the event
+> page. The gate matrix will not catch it — it asserts row creation, not redirect
+> targets — so PR2 needs an explicit assertion per row of this table.
 
 ### Caller: a template
 
@@ -576,10 +624,14 @@ Inside the partial the unlock button uses `unlock_href()`, which resolves the na
 > `{% url 'crush_lu:login' %}?next={{ request.path }}` for anonymous visitors — so
 > a `REASON_LOGIN_REQUIRED` carrying only a bare route name would drop `next` and
 > dump the member on the default post-login page instead of back at the event they
-> were trying to join. `evaluate()` populates `unlock_query={"next": request.path}`
-> for that reason. (`{% url verdict.denial.unlock_url_name %}` with an unquoted
-> variable is valid Django and resolves dynamically, but it cannot carry the query
-> — hence `unlock_href()`.)
+> were trying to join. The service has no `request`, so the caller passes
+> `next_path=request.path` and `evaluate()` puts it in
+> `unlock_query={"next": next_path}`. Without that parameter the login `Reason`
+> could only guess a return URL — the signature has to carry it explicitly, or the
+> login unlock must be built in the view instead.
+> (`{% url verdict.denial.unlock_url_name %}` with an unquoted variable is valid
+> Django and resolves dynamically, but it cannot carry the query — hence
+> `unlock_href()`.)
 
 Note the include parameter is named `verdict`, **not** `block` — Django binds a
 truthy `BlockNode` under that name inside every `{% block %}`, so `{% if block %}`
@@ -869,16 +921,23 @@ the snippet violating it:
    verdict object — `Eligibility` has no `__bool__`, so a bare truthiness test
    passes everything through, including non-actionable denials the omission rule
    below says to drop.
-6. **Respect gender-pool capacity before promising a CTA.** `with_registration_counts()`
-   annotates *total* confirmed/waitlist only, but `event_register` waitlists a
-   member whose **gender pool** is full even when total capacity remains
-   (`views_events.py:1146-1159`, `gender_pool_full and not total_full`). Availability
-   must consult `is_gender_pool_full(user_gender)` for events where
-   `gender_limits_active`, or the section shows "Register" to a member who is
-   immediately waitlisted — the precise "don't advertise what the gate refuses"
-   failure this plan exists to end.
-7. **Two queries, both constant** — the events window and one registration
-   lookup. No per-event work.
+6. **Respect gender-pool capacity before promising a CTA — but annotate it, do
+   not call the model method per event.** `with_registration_counts()` annotates
+   *total* confirmed/waitlist only, while `event_register` waitlists a member
+   whose **gender pool** is full even when total capacity remains
+   (`views_events.py:1146-1159`, `gender_pool_full and not total_full`). So
+   availability must account for the member's pool where `gender_limits_active`.
+   ⚠️ `is_gender_pool_full(user_gender)` calls `get_confirmed_count_for_gender()`,
+   which **issues a query**: calling it inside the loop is an N+1 the moment two
+   gender-capped events are scanned, contradicting requirement 7. Annotate the
+   member's pool count across the bounded window in the same query that fetches
+   the events (the member's gender is fixed, so it is one conditional aggregate,
+   not one per event).
+7. **Two queries, both constant** — the events window (carrying both the total and
+   the member's gender-pool counts) and one registration lookup. No per-event
+   work. If requirement 6 cannot be met with an annotation, relax this budget
+   *explicitly* rather than letting a per-event query hide behind a stale
+   guarantee.
 
 For reference, the shape (illustrative only — PR4 owns the real thing):
 
