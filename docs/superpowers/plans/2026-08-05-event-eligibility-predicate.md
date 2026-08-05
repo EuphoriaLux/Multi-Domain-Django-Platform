@@ -47,6 +47,19 @@ shippable, and PR5 fixes them as a side effect:
    missing DOB outright on an age-restricted event (`views_events.py:1001-1009`).
 
 Both send SMS invites to members the gate will bounce. Details in §4.3.
+**Fixed in PR #791 (2026-08-05)**, shipped separately so it did not wait on this
+refactor; PR5 now inherits both as no-ops.
+
+**A third live defect — a lockout on private events.** `event_detail.html` has no
+`is_private_invitation` guard before the ladder at 522, so the page enforces the
+dormant `profile_requirement` that `event_register` deliberately bypasses
+(804–845). An invited guest with an existing-but-incomplete profile on a private
+event carrying the default dormant `completed` is shown *"Finish your profile to
+register"* with no CTA — while the gate would have registered them. This is the
+same shape as the `profile_exists` lockout the 2026-07-27 audit was written
+about, and it survived that audit because the matrix only exercises non-private
+events. PR3 fixes it via `check_requirement=not event.is_private_invitation`
+(§4.2). **Not yet fixed.**
 
 **One more finding the brief did not have.** `event_detail.html` branches on
 `user_profile.is_approved` (lines 539, 644, 729, 777 and 779 — five branches,
@@ -510,19 +523,37 @@ class Eligibility:
     def can_register(self) -> bool:
         return self.eligible and self.availability in ("open", "waitlist")
 
+    # Every axis that failed, not just the first. `denial` is the first, for
+    # message parity with the gate; this is what makes `one_step_away` honest.
+    failed_axes: frozenset[str] = frozenset()   # {"requirement","age","language"}
+
     @property
     def one_step_away(self) -> bool:
-        # Availability matters here too: an event past its registration deadline
-        # cannot be unlocked by *any* member action, so promising "Complete your
-        # profile" on a closed event is a lie. Only offer an unlock when taking
-        # it would actually lead to a registerable event.
+        # Three conditions, and the third is the subtle one:
+        #  - the denial carries an unlock at all;
+        #  - the event is still open, since no member action unlocks a closed
+        #    event, so "Complete your profile" on one is a lie;
+        #  - exactly ONE axis failed. `evaluate()` short-circuits on the first
+        #    failure, so a verdict that says "get verified" may be hiding an age
+        #    or language failure behind it that verification would not fix.
         return (
             not self.eligible
             and self.denial is not None
             and self.denial.has_unlock
             and self.availability in ("open", "waitlist")
+            and len(self.failed_axes) == 1
         )
 ```
+
+> ⚠️ **"One step away" must mean one step, not "the first of several".**
+> `evaluate()` returns on the first failing axis so its message matches what
+> `event_register` would say — but a card built on that alone over-promises. A
+> pending member aged 24 looking at a verified-only 30+ event fails *both* the
+> requirement and the age gate; a naive `one_step_away` shows "Get verified", and
+> getting verified still would not let them register. Age is not fixable at all,
+> so no card should appear. Hence `failed_axes`: `evaluate()` keeps checking the
+> remaining axes for classification purposes even after it has chosen the denial
+> to report. The gate itself still short-circuits — only the verdict is richer.
 
 Entry points:
 
@@ -816,6 +847,25 @@ new shared 60-line partial that serves three call sites).
 retires the `is_approved` / `verification_status` split noted in §0, because the
 template stops reading profile fields entirely.
 
+> ⚠️ **The detail page needs `check_requirement=False` for private events too —
+> and doing so fixes a third pre-existing lockout.** `event_detail.html` has **no**
+> `is_private_invitation` guard anywhere before the ladder at 522, so the template
+> enforces the dormant `profile_requirement` on private events. The gate does the
+> opposite: `event_register`'s private branch (804–845) never evaluates the
+> requirement and falls straight through to age and language.
+>
+> So today, an invited guest with an existing-but-incomplete profile on a private
+> event carrying the default dormant `completed` sees *"Finish your profile to
+> register"* and no CTA — while `event_register` would have registered them. That
+> is the same failure the 2026-07-27 audit was written about: **the page hides a
+> CTA the gate would honour.** It survived that audit because the audit's matrix
+> only exercises non-private events.
+>
+> PR3 must therefore compute the detail verdict with
+> `check_requirement=not event.is_private_invitation`, matching §4.1. Add a
+> rendered-page test: invited user + incomplete profile + private event with
+> dormant `completed` ⇒ the register CTA **is** present.
+
 **Style constraints.** `event_detail.html` is **not** in the exempt list of
 `crush_lu/scripts/lint_design_tokens.py`, so the new partial must avoid hardcoded
 brand hexes (`#7c3aed`, `#4f46e5`, `#6366f1`). Per `crush_lu/STYLE.md`: exactly
@@ -892,8 +942,22 @@ shared.
 >    filter alone, asserting it agrees with `user_meets_language_requirement` for
 >    profiles with empty, missing, partial and full language overlap.
 >
-> Option 1 is the better trade. Option 2 keeps a JSON `Q` whose correctness CI
-> cannot check, which is the exact failure mode §2 exists to avoid.
+> ⚠️ **Option 1 has an N+1 that the dashboard's version of this does not.**
+> `user_meets_language_requirement` does `profile = user.crushprofile` internally
+> (`models/events.py:663`). On the dashboard that costs one query, because the
+> loop is over events for a **single** user and Django caches the reverse
+> one-to-one on that instance. The invite pool loops over **many different
+> profiles**, so the cache never helps and it is one query per candidate. If PR5
+> takes option 1 it must pass the already-loaded profile in (the `profile=`
+> parameter proposed in §2), not call the helper verbatim.
+>
+> Option 1 is still the better trade — but only with that parameter. Option 2
+> keeps a JSON `Q` whose correctness CI cannot check, which is the exact failure
+> mode §2 exists to avoid.
+>
+> **Update 2026-08-05: PR #791 has shipped the language and DOB fixes** using the
+> SQL route (strict `lang_q`), so this part of PR5 is already a no-op. The
+> trade-off above still applies if PR5 later moves the filter into Python.
 
 > ⚠️ **The `ProfileSubmission` pool has its own age drift — a *second* live
 > defect.** `sub_age_q` (`views_coach.py:2694-2696`) is
@@ -982,7 +1046,13 @@ the snippet violating it:
 5. **Filter on `verdict.can_register or verdict.one_step_away`**, never on the
    verdict object — `Eligibility` has no `__bool__`, so a bare truthiness test
    passes everything through, including non-actionable denials the omission rule
-   below says to drop.
+   below says to drop. ⚠️ Note this filter **excludes events the member is already
+   registered for** (`availability == "registered"` makes both properties false),
+   and that is deliberate: the dashboard already surfaces the member's next seat
+   in section 5 via `next_registration` (`views.py:476-480`). Listing it again
+   here would duplicate a card that is directly above. The render-states table
+   below covers what a registered member sees *in that existing section*, not in
+   this one.
 6. **Respect gender-pool capacity before promising a CTA — but annotate it, do
    not call the model method per event.** `with_registration_counts()` annotates
    *total* confirmed/waitlist only, while `event_register` waitlists a member
