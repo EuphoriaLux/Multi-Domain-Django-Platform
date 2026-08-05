@@ -16,12 +16,23 @@ age-restricted and language-restricted.
 These tests assert against the *rendered page*, not the queryset: the pool is
 only ever observed through it, and a green helper with a broken page is the
 failure mode this app has hit before.
+
+**Backend note.** The language half of the pool uses
+``event_languages__contains`` on a ``JSONField``. That lookup is unsupported on
+SQLite — it raises ``NotSupportedError``, it does not merely differ — so the
+coach SMS invite page 500s on SQLite for *any* event with a language
+requirement. That is pre-existing behaviour, not something this fix introduced,
+and it is invisible in production because prod runs PostgreSQL. CI runs SQLite,
+so the language-dependent tests below are skipped there and only the DOB half is
+enforced automatically. Run this module against PostgreSQL to cover both.
 """
 
+import unittest
 from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
+from django.db import connection
 from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
@@ -34,6 +45,13 @@ CRUSH_LU_URL_SETTINGS = {"ROOT_URLCONF": "azureproject.urls_crush"}
 PHONE_ELIGIBLE = "+352691000001"
 PHONE_NO_DOB = "+352691000002"
 PHONE_NO_LANGS = "+352691000003"
+
+requires_json_contains = unittest.skipUnless(
+    connection.features.supports_json_field_contains,
+    "JSONField __contains is unsupported on this backend (raises "
+    "NotSupportedError on SQLite), so the invite pool's language filter cannot "
+    "run here at all. Production is PostgreSQL; run this module against it.",
+)
 
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
@@ -62,8 +80,9 @@ class SmsInvitePoolGateParityTests(TestCase):
             user=self.coach_user, is_active=True, max_active_reviews=10
         )
 
-        # Mirrors the events live on 2026-08-05: age-restricted AND
-        # language-restricted. Both drifted filters need both to be set.
+        # Age-restricted like every event live on 2026-08-05 (25-38, 40-65,
+        # 45-65). Languages are added per-test so the DOB cases stay runnable on
+        # SQLite — see the backend note in the module docstring.
         self.event = MeetupEvent.objects.create(
             title="Pool Parity Speed Dating",
             description="desc",
@@ -78,7 +97,6 @@ class SmsInvitePoolGateParityTests(TestCase):
             registration_fee=0,
             is_published=True,
             profile_requirement="unverified",
-            languages=["en"],
         )
         self.event.coaches.add(self.coach)
         CrushSiteConfig.get_config()
@@ -86,6 +104,10 @@ class SmsInvitePoolGateParityTests(TestCase):
         self.CrushProfile = CrushProfile
         self.client = Client()
         self.client.login(username="coach@pool.test", password="coachpass")
+
+    def _require_language(self, codes=("en",)):
+        self.event.languages = list(codes)
+        self.event.save(update_fields=["languages"])
 
     def _member(self, name, phone, *, dob, languages):
         """A contactable, unverified member — the pool's target cohort."""
@@ -126,13 +148,14 @@ class SmsInvitePoolGateParityTests(TestCase):
         self.assertIn(
             PHONE_ELIGIBLE,
             self._page(),
-            "an in-range, language-matching member vanished from the invite pool — "
-            "the filters are now stricter than the gate",
+            "an in-range member vanished from the invite pool — the filters are "
+            "now stricter than the gate",
         )
 
     # --- defect 1: missing date of birth on an age-restricted event ---------
 
     def test_profile_without_dob_is_not_invited(self):
+        """The main pool was already strict here; this pins it against regression."""
         self._member("nodob", PHONE_NO_DOB, dob=None, languages=["en"])
         self.assertNotIn(
             PHONE_NO_DOB,
@@ -158,7 +181,9 @@ class SmsInvitePoolGateParityTests(TestCase):
 
     # --- defect 2: no declared languages on a language-restricted event -----
 
+    @requires_json_contains
     def test_profile_without_languages_is_not_invited(self):
+        self._require_language()
         self._member("nolangs", PHONE_NO_LANGS, dob=date(1995, 5, 15), languages=[])
         self.assertNotIn(
             PHONE_NO_LANGS,
@@ -167,8 +192,10 @@ class SmsInvitePoolGateParityTests(TestCase):
             "event; user_meets_language_requirement refuses exactly those",
         )
 
+    @requires_json_contains
     def test_profile_without_languages_is_not_invited_on_open_event(self):
         """`none` waives the profile requirement, not the language one."""
+        self._require_language()
         self.event.profile_requirement = "none"
         self.event.save(update_fields=["profile_requirement"])
         self._member("nolangs", PHONE_NO_LANGS, dob=date(1995, 5, 15), languages=[])
@@ -177,6 +204,19 @@ class SmsInvitePoolGateParityTests(TestCase):
             self._page(),
             "the `none` branch invited a member declaring no languages to a "
             "language-restricted event",
+        )
+
+    @requires_json_contains
+    def test_language_matching_member_is_still_listed(self):
+        """The language control: strict matching must not empty the pool."""
+        self._require_language()
+        self._member(
+            "eligible", PHONE_ELIGIBLE, dob=date(1995, 5, 15), languages=["en"]
+        )
+        self.assertIn(
+            PHONE_ELIGIBLE,
+            self._page(),
+            "a language-matching member vanished once strict lang_q was applied",
         )
 
     # --- the guard rail: unrestricted events must stay permissive -----------
@@ -189,8 +229,7 @@ class SmsInvitePoolGateParityTests(TestCase):
         """
         self.event.min_age = 18
         self.event.max_age = 99
-        self.event.languages = []
-        self.event.save(update_fields=["min_age", "max_age", "languages"])
+        self.event.save(update_fields=["min_age", "max_age"])
         self._member("nodob", PHONE_NO_DOB, dob=None, languages=[])
         self.assertIn(
             PHONE_NO_DOB,
