@@ -100,11 +100,20 @@ class DashboardNextEventTests(TestCase):
         self.assertContains(response, "Next event", count=1)
 
     def test_history_is_not_rendered_on_the_dashboard(self):
-        """Past rows belong to my_events, which splits upcoming from past."""
+        """Past rows belong to my_events, which splits upcoming from past.
+
+        Both spellings of a missed seat are here: the one that stays
+        ``confirmed`` because nobody scanned it, and the one an admin flipped
+        to ``no_show`` via mark_unattended_as_no_show. The list this replaced
+        had to tell them apart to label each honestly (#786); this surface
+        renders neither, so the distinction stops mattering here -- but only
+        as long as BOTH really are absent.
+        """
         self._register(
             _make_event("Attended last year", days_from_now=-300), "attended"
         )
         self._register(_make_event("No-show", days_from_now=-60), "confirmed")
+        self._register(_make_event("Marked absent", days_from_now=-50), "no_show")
         self._register(_make_event("Never got in", days_from_now=-20), "waitlist")
         self._register(_make_event("Coming up", days_from_now=4), "confirmed")
 
@@ -112,6 +121,7 @@ class DashboardNextEventTests(TestCase):
         self.assertContains(response, "Coming up")
         self.assertNotContains(response, "Attended last year")
         self.assertNotContains(response, "No-show")
+        self.assertNotContains(response, "Marked absent")
         self.assertNotContains(response, "Never got in")
 
     def test_cancelled_seat_never_becomes_the_next_event(self):
