@@ -249,12 +249,19 @@ class Command(BaseCommand):
                     success = service.delete_contact(item['id'])
                     if success:
                         deleted += 1
-                        # Clear outlook_contact_id from database if profile exists
+                        # Clear outlook_contact_id from database if profile exists.
+                        #
+                        # Matched on the profile alone, NOT on outlook_contact_id
+                        # == item['id']. list_all_contacts_from_outlook() asks
+                        # for immutable IDs, while a profile written before the
+                        # backfill still stores a legacy restId -- so the ID
+                        # comparison silently matches nothing, the contact is
+                        # deleted in Outlook, and the profile keeps a dangling
+                        # ID pointing at something that no longer exists.
                         if item['profile_id']:
                             try:
                                 CrushProfile.objects.filter(
-                                    pk=item['profile_id'],
-                                    outlook_contact_id=item['id']
+                                    pk=item['profile_id']
                                 ).update(outlook_contact_id="")
                             except Exception:
                                 pass  # Profile might not exist
