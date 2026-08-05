@@ -221,6 +221,26 @@ class DashboardNextEventTests(TestCase):
         self._register(_make_event("Went once", days_from_now=-5), "attended")
         self.assertTrue(self._get().context["has_attended_event"])
 
+    def test_attended_count_matches_what_my_events_will_list(self):
+        """The tile is a link, so its number has to be the destination's number.
+
+        my_events drops unpublished and cancelled events before building a
+        row, so counting them here promised a history the page would not show.
+        """
+        self._register(_make_event("Real one", days_from_now=-10), "attended")
+
+        pulled = _make_event("Pulled from the site", days_from_now=-20)
+        self._register(pulled, "attended")
+        pulled.is_cancelled = True
+        pulled.save(update_fields=["is_cancelled"])
+
+        hidden = _make_event("Unpublished", days_from_now=-30)
+        self._register(hidden, "attended")
+        hidden.is_published = False
+        hidden.save(update_fields=["is_published"])
+
+        self.assertEqual(self._get().context["attended_count"], 1)
+
     # -- the action strip -------------------------------------------------
 
     def test_unpaid_seat_is_surfaced_with_a_way_to_pay(self):
@@ -251,6 +271,24 @@ class DashboardNextEventTests(TestCase):
         self.assertEqual(list(response.context["pending_payment_registrations"]), [])
         self.assertEqual(list(response.context["post_event_actions"]), [])
         self.assertNotContains(response, "Pay now")
+
+    def test_a_pulled_event_leaves_the_action_strip(self):
+        """`connections_open` is purely a clock, so it keeps saying yes.
+
+        An event cancelled or unpublished mid-window would otherwise keep its
+        card -- and event_attendees() does not check either flag, so the CTA
+        would open a roster for an event the site no longer admits to.
+        """
+        event = _make_event("Called off after the fact", days_from_now=-1)
+        self._register(event, "attended")
+        self.assertEqual(len(self._get().context["post_event_actions"]), 1)
+
+        event.is_cancelled = True
+        event.save(update_fields=["is_cancelled"])
+
+        response = self._get()
+        self.assertEqual(list(response.context["post_event_actions"]), [])
+        self.assertNotContains(response, "Called off after the fact")
 
     def test_recent_attendance_keeps_its_my_crush_path(self):
         """The old list carried this on every attended row; the strip carries

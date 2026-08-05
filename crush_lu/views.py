@@ -393,8 +393,23 @@ def dashboard(request):
 
         coach = latest_submission.coach if latest_submission else None
 
+        def _event_is_visible(event):
+            """Whether the member is still shown this event anywhere.
+
+            my_events drops unpublished and cancelled events before it builds
+            a single row (views_events.py), so every dashboard surface that
+            links there has to drop them too -- otherwise a tile counts what
+            the page it opens will not list, and a strip offers a card for an
+            event that has been pulled.
+            """
+            return bool(event) and event.is_published and not event.is_cancelled
+
         # Derived from the list already in memory rather than its own query.
-        attended_count = sum(1 for _r in registrations if _r.status == "attended")
+        attended_count = sum(
+            1
+            for _r in registrations
+            if _r.status == "attended" and _event_is_visible(_r.event)
+        )
         has_attended_event = attended_count > 0
 
         # Premium = active PremiumMembership (paid or comped). Premium unlocks
@@ -451,7 +466,7 @@ def dashboard(request):
             cancelled event, is not something the member still holds.
             """
             event = reg.event
-            if not event or not event.is_published or event.is_cancelled:
+            if not _event_is_visible(event):
                 return False
             if reg.status not in (*SEAT_HOLDING_STATUSES, "waitlist"):
                 return False
@@ -498,7 +513,7 @@ def dashboard(request):
         # with a title and no buttons, in a strip meant to vanish when empty.
         post_event_actions = []
         for _reg in reversed(registrations):
-            if _reg.status != "attended" or not _reg.event:
+            if _reg.status != "attended" or not _event_is_visible(_reg.event):
                 continue
             _event = _reg.event
 
