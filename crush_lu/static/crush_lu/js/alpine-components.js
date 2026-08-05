@@ -208,9 +208,12 @@ document.addEventListener("alpine:init", function () {
                 );
             },
             get isEventsActive() {
+                // The tab points at /my-events/ for a member holding seats and
+                // at /events/ otherwise, so both paths must light it up.
                 return (
                     this.currentPath === "/events/" ||
-                    this.currentPath.indexOf("/events/") === 0
+                    this.currentPath.indexOf("/events/") === 0 ||
+                    this.currentPath.indexOf("/my-events/") === 0
                 );
             },
             get isConnectionsActive() {

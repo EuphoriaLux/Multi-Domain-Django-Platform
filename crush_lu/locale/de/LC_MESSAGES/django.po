@@ -39227,3 +39227,19 @@ msgid ""
 msgstr ""
 "Schreibe eine knappe Entsprechung für Spielende, die einen Screenreader "
 "verwenden, insbesondere wenn das Erkennen des Mediums Teil der Frage ist."
+
+#: templates/crush_lu/dashboard.html
+msgid "Next event"
+msgstr "Nächstes Event"
+
+#: templates/crush_lu/dashboard.html
+msgid "Pay now"
+msgstr "Jetzt bezahlen"
+
+#: templates/crush_lu/dashboard.html
+msgid "Your seat is held until payment is settled."
+msgstr "Dein Platz bleibt reserviert, bis die Zahlung eingegangen ist."
+
+#: templates/crush_lu/dashboard.html
+msgid "in %(countdown)s"
+msgstr "in %(countdown)s"

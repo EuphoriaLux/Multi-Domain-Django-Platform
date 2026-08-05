@@ -190,9 +190,15 @@ class DashboardVerifierDedupeTests(TestCase):
         self.assertNotIn("crush_connect_total", response.context)
 
     def test_events_section_uses_du_form_in_german(self):
-        """ "Your Events" was the formal-Sie straggler on an otherwise
-        informal dashboard ("Ihre" → "Deine")."""
+        """The events surface must not slip back into the formal Sie.
+
+        "Your Events" used to be the formal-Sie straggler on an otherwise
+        informal dashboard ("Ihre" → "Deine"). That heading is gone — the
+        dashboard now shows a single next-event card and links the history to
+        my_events — so what is guarded here is the tone itself, on whichever
+        events wording the page currently carries.
+        """
         response = self.client.get("/de/dashboard/", HTTP_HOST="crush.lu")
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Deine Veranstaltungen")
         self.assertNotContains(response, "Ihre Veranstaltungen")
+        self.assertNotContains(response, "Ihre Events")
