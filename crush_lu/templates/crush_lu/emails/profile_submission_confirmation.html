@@ -32,14 +32,17 @@
 
 <p>{% trans "We verify every member — in person at an event or via LuxID — to keep our community authentic and respectful. This helps create a safe, quality experience for everyone." %}</p>
 
-<p><strong>{% trans "While you wait:" %}</strong></p>
+<p><strong>{% trans "Good next steps:" %}</strong></p>
 <ul>
     <li>{% trans "Check out our" %} <a href="{{ events_url }}" style="color: #9B59B6;">{% trans "upcoming events" %}</a></li>
     <li>{% trans "Read our" %} <a href="{{ how_it_works_url }}" style="color: #9B59B6;">{% trans "how it works" %}</a> {% trans "guide" %}</li>
     <li>{% trans "Follow us on social media for updates" %}</li>
 </ul>
 
-<p>{% trans "We'll be in touch soon!" %}</p>
+{# No one contacts a general-funnel member after submission: verification happens
+   at an event or via LuxID. A coach only reaches out on the paid Premium
+   review path, so "we'll be in touch" was a promise nothing here keeps. #}
+<p>{% trans "See you at an event!" %}</p>
 
 <p>
     {% trans "Best," %}<br>

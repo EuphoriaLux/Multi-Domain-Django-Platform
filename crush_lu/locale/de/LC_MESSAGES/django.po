@@ -39284,3 +39284,58 @@ msgstr "Bei Fragen schreib uns an"
 #: crush_lu/templates/crush_lu/emails/event_cancellation.html
 msgid "Our team will get back to you — email us at"
 msgstr "Unser Team meldet sich bei dir — schreib uns an"
+
+#: crush_lu/templates/crush_lu/emails/profile_submission_confirmation.html
+msgid "Good next steps:"
+msgstr "Gute nächste Schritte:"
+
+#: crush_lu/templates/crush_lu/emails/profile_submission_confirmation.html
+msgid "See you at an event!"
+msgstr "Wir sehen uns auf einem Event!"
+
+#: crush_lu/templates/crush_lu/emails/profile_submission_confirmation.html
+msgid ""
+"You're literally one step away! Just add a photo or two and you're ready to "
+"get verified."
+msgstr ""
+"Du bist buchstäblich einen Schritt entfernt! Füge ein bis zwei Fotos hinzu "
+"und du kannst dich verifizieren lassen."
+
+#: crush_lu/templates/crush_lu/emails/profile_submission_confirmation.html
+msgid ""
+"You've done the hard part! Add your preferences and submit — then get "
+"verified at an event or with LuxID."
+msgstr ""
+"Das Schwerste hast du geschafft! Ergänze deine Präferenzen und reiche ein — "
+"danach lässt du dich auf einem Event oder mit LuxID verifizieren."
+
+#: crush_lu/templates/crush_lu/emails/profile_submission_confirmation.html
+msgid ""
+"3. Complete your profile — verify instantly with LuxID, or in person when "
+"you arrive"
+msgstr ""
+"3. Vervollständige dein Profil — sofort mit LuxID verifizieren oder "
+"persönlich bei deiner Ankunft"
+
+#: crush_lu/templates/crush_lu/emails/profile_submission_confirmation.html
+msgid "4. Register for the event"
+msgstr "4. Melde dich für das Event an"
+
+#: crush_lu/templates/crush_lu/emails/profile_submission_confirmation.html
+msgid ""
+"Crush.lu is Luxembourg's privacy-first dating platform focused on real "
+"connections through in-person events. We prioritize quality over quantity, "
+"with every member verified and exclusive events."
+msgstr ""
+"Crush.lu ist Luxemburgs datenschutzorientierte Dating-Plattform für echte "
+"Begegnungen bei Events vor Ort. Wir setzen auf Qualität statt Quantität — "
+"mit verifizierten Mitgliedern und exklusiven Events."
+
+#: crush_lu/templates/crush_lu/emails/profile_submission_confirmation.html
+msgid ""
+"You can browse and register for events any time — the call is about your "
+"Crush Coach getting to know you, so they can pick better matches for you."
+msgstr ""
+"Du kannst dich jederzeit für Events anmelden — bei dem Gespräch geht es "
+"darum, dass dein Crush Coach dich kennenlernt und dir bessere Matches "
+"aussuchen kann."
