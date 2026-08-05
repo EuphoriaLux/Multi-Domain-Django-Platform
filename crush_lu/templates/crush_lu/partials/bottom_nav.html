@@ -34,8 +34,14 @@
     </a>
     {% endif %}
 
-    {# Events tab #}
-    <a href="{% url 'crush_lu:event_list' %}"
+    {% comment %}
+    Events tab. The badge counts the viewer's OWN upcoming registrations, so for
+    a member who has any it must land on their events, not the public catalogue
+    -- otherwise the badge promises personal content and the tap delivers a
+    general listing. my_events carries a "Browse Events" link for the other
+    direction.
+    {% endcomment %}
+    <a href="{% if upcoming_events_count %}{% url 'crush_lu:my_events' %}{% else %}{% url 'crush_lu:event_list' %}{% endif %}"
        class="bottom-nav-item"
        x-bind:class="eventsActiveClass"
        @click="handleTap"

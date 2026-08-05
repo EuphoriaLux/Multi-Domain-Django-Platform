@@ -94,23 +94,28 @@ def sync_contacts_endpoint(request):
 @require_http_methods(["POST"])
 def delete_all_contacts_endpoint(request):
     """
-    Delete all synced Outlook contacts.
+    Delete the Outlook contacts this service created.
 
-    Use with caution - this removes all contacts that have outlook_contact_id.
+    Use with caution - this removes every contact in the shared mailbox that
+    carries the 'Crush.lu' category, whether or not the database still tracks
+    it. Contacts a human filed in noreply@crush.lu are left alone unless the
+    request explicitly opts in with {"include_foreign": true}.
 
     Authentication: Bearer token via Authorization header
+
+    Runs in a background thread and returns 202 immediately; the resulting
+    counts are logged rather than returned.
 
     Response:
     {
         "success": true,
-        "stats": {
-            "total": 161,
-            "deleted": 161,
-            "errors": 0
-        },
+        "message": "Deletion started in background",
+        "include_foreign": false,
         "timestamp": "2026-01-29T17:00:00Z"
     }
     """
+    import json
+
     from django.utils import timezone
 
     # Authenticate request
@@ -129,32 +134,56 @@ def delete_all_contacts_endpoint(request):
             'error': 'Outlook contact sync is not enabled for this environment'
         }, status=503)
 
-    try:
-        # Initialize service
-        service = GraphContactsService()
+    # Opt-in escape hatch for wiping contacts we did not create. Off by default:
+    # noreply@crush.lu is a shared mailbox and this endpoint is reachable with
+    # nothing but the bearer token.
+    # Compared with `is True` rather than coerced: bool("false") and bool("0")
+    # are both True in Python, so a caller sending a stringified flag from a
+    # templated env var or form value would silently opt into the destructive
+    # path. Only a real JSON `true` enables it.
+    include_foreign = False
+    if request.body:
+        try:
+            include_foreign = (
+                json.loads(request.body).get('include_foreign', False) is True
+            )
+        except (ValueError, AttributeError):
+            pass
 
-        # Delete all contacts directly from Outlook (not just database-tracked ones)
-        logger.warning("Deleting ALL Outlook contacts via admin API (including orphaned)")
-        stats = service.delete_all_contacts_from_outlook()
+    # Run in a background thread, like sync_contacts_endpoint above and for the
+    # same reason: the deletion paces itself between contacts to stay inside the
+    # per-mailbox request budget, which on a large mailbox exceeds the App
+    # Service 230s request ceiling on its own -- the caller would lose the
+    # result and the deletion would be left half-done.
+    def _run_delete():
+        try:
+            import django
+            django.db.connections.close_all()
+            service = GraphContactsService()
+            logger.warning(
+                f"Deleting Outlook contacts via admin API (including orphaned; "
+                f"include_foreign={include_foreign})"
+            )
+            stats = service.delete_all_contacts_from_outlook(
+                include_foreign=include_foreign
+            )
+            logger.info(
+                f"Contact deletion completed: "
+                f"total={stats['total']}, deleted={stats['deleted']}, "
+                f"errors={stats['errors']}, skipped={stats.get('skipped', 0)}"
+            )
+        except Exception as e:
+            logger.error(f"Error during contact deletion: {e}", exc_info=True)
 
-        logger.info(
-            f"Contact deletion completed: "
-            f"total={stats['total']}, deleted={stats['deleted']}, "
-            f"errors={stats['errors']}"
-        )
+    thread = threading.Thread(target=_run_delete, daemon=True)
+    thread.start()
 
-        return JsonResponse({
-            'success': True,
-            'stats': stats,
-            'timestamp': timezone.now().isoformat()
-        })
-
-    except Exception as e:
-        logger.error(f"Error during contact deletion: {e}", exc_info=True)
-        return JsonResponse({
-            'success': False,
-            'error': 'An error occurred during contact deletion'
-        }, status=500)
+    return JsonResponse({
+        'success': True,
+        'message': 'Deletion started in background',
+        'include_foreign': include_foreign,
+        'timestamp': timezone.now().isoformat()
+    }, status=202)
 
 
 @csrf_exempt

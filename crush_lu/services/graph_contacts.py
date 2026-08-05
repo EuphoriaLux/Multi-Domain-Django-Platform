@@ -14,10 +14,29 @@ Graph API endpoints used:
 - PATCH /users/{mailbox}/contacts/{id} - Update contact
 - DELETE /users/{mailbox}/contacts/{id} - Delete contact
 - GET /users/{mailbox}/contacts - List contacts
+- POST /users/{mailbox}/translateExchangeIds - Migrate IDs to immutable format
+
+Exchange constraints this module has to respect:
+- Contact IDs are not stable unless you ask for immutable ones, so every
+  create/read sends Prefer: IdType="ImmutableId". A stale ID 404s and the sync
+  would otherwise recreate the contact as a duplicate. Requests carrying an
+  already-stored ID go through _request_stored_contact(), which re-checks a 404
+  in the legacy dialect first -- rows written before this existed still hold
+  restIds, and believing that 404 would duplicate every one of them.
+  https://learn.microsoft.com/graph/outlook-immutable-id
+- Caller-ID lookup in Outlook/Teams matches mobilePhone only in strict E.164,
+  so numbers are normalized on the way out.
+  https://learn.microsoft.com/microsoftteams/caller-id-policies
+- Per app + mailbox: 10,000 requests / 10 min, 4 concurrent, and 150 MB of
+  PATCH/POST/PUT per 5 min. The upload cap is why photos are only re-sent when
+  they actually change.
+  https://learn.microsoft.com/graph/throttling-limits#outlook-service-limits
 """
 
 import logging
 import os
+import re
+import threading
 import time
 from typing import TYPE_CHECKING, Optional
 
@@ -31,12 +50,110 @@ logger = logging.getLogger(__name__)
 # Graph API endpoint
 GRAPH_API_BASE = "https://graph.microsoft.com/v1.0"
 
+# Category stamped on every contact this service creates. It is the only marker
+# that distinguishes our rows from contacts a human put in the shared mailbox,
+# so bulk deletes filter on it.
+CRUSH_CATEGORY = "Crush.lu"
+
+# Outlook item IDs are NOT stable by default -- they change when the item moves
+# container, or when the mailbox is archived/exported and re-imported. We store
+# the ID in the DB for the lifetime of the profile, so we must opt in to
+# immutable IDs or a moved contact 404s and gets recreated as a duplicate.
+# https://learn.microsoft.com/graph/outlook-immutable-id
+IMMUTABLE_ID_PREFER = 'IdType="ImmutableId"'
+
 # Rate limiting: delay between profiles during bulk sync (seconds)
 SYNC_DELAY_BETWEEN_PROFILES = 0.5
 
 # Retry config for 429 responses
 MAX_RETRIES = 3
 DEFAULT_RETRY_AFTER = 10  # seconds, if Retry-After header is missing
+
+# Total seconds this service is willing to spend asleep waiting out 429s in a
+# single request. Graph's Retry-After can be large; without a ceiling a single
+# throttled call could park the caller for MAX_RETRIES * Retry-After seconds.
+MAX_RETRY_SLEEP_TOTAL = 30.0
+# Signals run on the web request thread, so they get a much tighter budget --
+# a user saving their profile must not wait out Exchange throttling.
+INTERACTIVE_RETRY_SLEEP_TOTAL = 5.0
+
+# (connect, read) timeouts. The read timeout is the real blocking bound on a
+# request thread, so keep it well under the App Service 230s request ceiling.
+REQUEST_TIMEOUT = (5, 15)
+PHOTO_TIMEOUT = (5, 30)
+
+# E.164: '+', a non-zero country code digit, then up to 14 more digits.
+_E164_RE = re.compile(r"^\+[1-9]\d{6,14}$")
+_PHONE_SEPARATORS_RE = re.compile(r"[\s\-().]")
+
+
+def normalize_e164(raw) -> Optional[str]:
+    """
+    Normalize a phone number to strict E.164, or return None if it can't be.
+
+    This matters for the whole point of the sync: Outlook/Teams caller-ID
+    lookup only matches numbers in E.164 format -- '+' followed by digits and
+    nothing else. CrushProfile.phone_number's validator permits spaces, dashes
+    and parentheses (``^\\+[\\d\\s\\-().]{7,20}$``), and LuxID-sourced writes
+    bypass the form's cleaning entirely, so a stored '+352 621 123 456' would
+    be pushed to Outlook verbatim and silently never match an inbound call.
+
+    Args:
+        raw: Phone number in any of the formats we accept at input.
+
+    Returns:
+        str: E.164 number (e.g. '+352621123456'), or None if not normalizable.
+    """
+    if not raw:
+        return None
+
+    cleaned = _PHONE_SEPARATORS_RE.sub("", str(raw))
+
+    # International prefix written the ITU way rather than as '+'.
+    if cleaned.startswith("00"):
+        cleaned = "+" + cleaned[2:]
+
+    if not cleaned.startswith("+"):
+        return None
+
+    return cleaned if _E164_RE.match(cleaned) else None
+
+
+# MSAL's token cache lives on the application object, so a fresh
+# ConfidentialClientApplication per call means acquire_token_silent always
+# misses and every Graph operation pays a round trip to login.microsoftonline.com.
+# Cache one app per (tenant, client) and let MSAL handle expiry.
+_MSAL_APP_CACHE = {}
+_MSAL_APP_LOCK = threading.Lock()
+
+
+def _get_msal_app(tenant_id: str, client_id: str, client_secret: str):
+    """Return a process-wide cached MSAL confidential client application."""
+    key = (tenant_id, client_id)
+    app = _MSAL_APP_CACHE.get(key)
+    if app is not None:
+        return app
+
+    with _MSAL_APP_LOCK:
+        # Re-check: another thread may have built it while we waited.
+        app = _MSAL_APP_CACHE.get(key)
+        if app is None:
+            try:
+                import msal
+            except ImportError:
+                raise ImportError(
+                    "msal package is required for Graph API contact sync. "
+                    "Install with: pip install msal"
+                )
+
+            app = msal.ConfidentialClientApplication(
+                client_id,
+                authority=f"https://login.microsoftonline.com/{tenant_id}",
+                client_credential=client_secret,
+            )
+            _MSAL_APP_CACHE[key] = app
+
+    return app
 
 
 def is_sync_enabled(request=None) -> bool:
@@ -91,8 +208,17 @@ class GraphContactsService:
     the noreply@crush.lu shared mailbox contacts.
     """
 
-    def __init__(self):
-        """Initialize with Graph API credentials from environment or settings."""
+    def __init__(self, retry_budget: float = MAX_RETRY_SLEEP_TOTAL):
+        """
+        Initialize with Graph API credentials from environment or settings.
+
+        Args:
+            retry_budget: Maximum total seconds to spend sleeping between 429
+                retries within a single request. Callers on the web request
+                thread should pass INTERACTIVE_RETRY_SLEEP_TOTAL.
+        """
+        self.retry_budget = retry_budget
+
         # Try environment variables first (for local dev with .env),
         # then fall back to settings (for production)
         self.tenant_id = os.getenv("GRAPH_TENANT_ID") or getattr(
@@ -129,24 +255,12 @@ class GraphContactsService:
             ImportError: If msal package is not installed
             Exception: If token acquisition fails
         """
-        try:
-            import msal
-        except ImportError:
-            raise ImportError(
-                "msal package is required for Graph API contact sync. "
-                "Install with: pip install msal"
-            )
-
-        authority = f"https://login.microsoftonline.com/{self.tenant_id}"
         scope = ["https://graph.microsoft.com/.default"]
 
-        app = msal.ConfidentialClientApplication(
-            self.client_id,
-            authority=authority,
-            client_credential=self.client_secret,
-        )
+        app = _get_msal_app(self.tenant_id, self.client_id, self.client_secret)
 
-        # Try to get token from cache first
+        # Try to get token from cache first. The app object is process-cached,
+        # so this genuinely hits MSAL's token cache rather than always missing.
         result = app.acquire_token_silent(scope, account=None)
         if not result:
             # No cached token, acquire new one
@@ -165,7 +279,10 @@ class GraphContactsService:
         """
         Make an HTTP request with automatic retry on 429 (Too Many Requests).
 
-        Reads the Retry-After header from Graph API and sleeps before retrying.
+        Reads the Retry-After header from Graph API and sleeps before retrying,
+        up to a total of self.retry_budget seconds. The budget matters because
+        this can be called from a signal on the web request thread, where an
+        unbounded Retry-After would hold the thread for the whole wait.
 
         Args:
             method: HTTP method ('get', 'post', 'patch', 'put', 'delete')
@@ -173,12 +290,13 @@ class GraphContactsService:
             **kwargs: Passed to requests.request()
 
         Returns:
-            requests.Response
-
-        Raises:
-            Exception: If all retries are exhausted
+            requests.Response: The final response, which may still be a 429 if
+                retries or the sleep budget were exhausted.
         """
         import requests
+
+        kwargs.setdefault("timeout", REQUEST_TIMEOUT)
+        slept = 0.0
 
         for attempt in range(MAX_RETRIES + 1):
             response = requests.request(method, url, **kwargs)
@@ -195,17 +313,77 @@ class GraphContactsService:
                 except (ValueError, TypeError):
                     pass
 
-            if attempt < MAX_RETRIES:
-                logger.warning(
-                    f"Graph API throttled (429), retry {attempt + 1}/{MAX_RETRIES} "
-                    f"after {retry_after}s"
-                )
-                time.sleep(retry_after)
-            else:
+            if attempt >= MAX_RETRIES:
                 # All retries exhausted, return the 429 response
                 return response
 
+            if slept + retry_after > self.retry_budget:
+                logger.warning(
+                    f"Graph API throttled (429); Retry-After {retry_after}s would "
+                    f"exceed the {self.retry_budget}s sleep budget, giving up after "
+                    f"{attempt} retries"
+                )
+                return response
+
+            logger.warning(
+                f"Graph API throttled (429), retry {attempt + 1}/{MAX_RETRIES} "
+                f"after {retry_after}s"
+            )
+            time.sleep(retry_after)
+            slept += retry_after
+
         return response  # Should not reach here
+
+    def _request_stored_contact(self, method, url, headers, **kwargs):
+        """
+        Request a contact by its stored ID, tolerating the legacy ID dialect.
+
+        A stored outlook_contact_id is only an immutable ID once
+        backfill_outlook_immutable_ids has run against this database. Asserting
+        the immutable dialect on a row that still holds a legacy restId risks a
+        404 for a contact that is perfectly alive -- and every 404 path here
+        clears the stored ID, so the next sync would create a *second* contact
+        for that member. That is precisely the duplication this change exists to
+        prevent, and it would hit every pre-existing profile at once on the
+        first nightly run after deploy.
+
+        Rather than make correctness depend on someone remembering to run a
+        management command, a 404 is re-checked once without the Prefer header
+        before it is believed. Costs nothing when the ID is already immutable
+        (no 404, no second call), and self-heals when it is not.
+
+        Args:
+            method: HTTP method
+            url: Request URL containing the stored contact ID
+            headers: Headers WITHOUT the Prefer header; it is added here
+            **kwargs: Passed through to the request
+
+        Returns:
+            requests.Response: from whichever dialect the contact answered to.
+        """
+        response = self._request_with_retry(
+            method,
+            url,
+            headers={**headers, "Prefer": IMMUTABLE_ID_PREFER},
+            **kwargs,
+        )
+
+        if response.status_code != 404:
+            return response
+
+        legacy_response = self._request_with_retry(
+            method, url, headers=headers, **kwargs
+        )
+
+        if legacy_response.status_code != 404:
+            logger.warning(
+                "Outlook contact answered to the legacy restId dialect but not "
+                "the immutable one. Stored IDs have not been migrated yet -- run "
+                "`manage.py backfill_outlook_immutable_ids` so contacts survive "
+                "being moved between folders."
+            )
+
+        return legacy_response
 
     def _build_contact_payload(self, profile) -> dict:
         """
@@ -284,7 +462,7 @@ class GraphContactsService:
         # Build the contact payload
         payload = {
             "displayName": display_name,
-            "categories": ["Crush.lu"],
+            "categories": [CRUSH_CATEGORY],
             "personalNotes": "\n".join(notes_parts),
             "businessHomePage": admin_url,
         }
@@ -295,9 +473,23 @@ class GraphContactsService:
         if user.last_name:
             payload["surname"] = user.last_name
 
-        # Mobile phone (primary identifier for caller ID)
-        if profile.phone_number:
-            payload["mobilePhone"] = profile.phone_number
+        # Mobile phone (primary identifier for caller ID). Must be strict E.164
+        # or Outlook/Teams will never match it against an inbound call.
+        #
+        # The key is always emitted, as null when there is no usable number.
+        # Graph PATCH is a merge, so *omitting* it would leave whatever was
+        # synced before in place: a member whose number becomes unusable would
+        # keep resolving caller ID from their previous one, which by then may
+        # have been reassigned to somebody else entirely.
+        e164 = normalize_e164(profile.phone_number)
+        payload["mobilePhone"] = e164
+
+        if profile.phone_number and not e164:
+            logger.warning(
+                f"Profile {profile.pk} phone_number is not normalizable to "
+                f"E.164; clearing the Outlook mobile number (caller ID cannot "
+                f"match it)"
+            )
 
         # Email
         if user.email:
@@ -332,19 +524,36 @@ class GraphContactsService:
 
         return payload
 
-    def _upload_contact_photo(self, contact_id: str, profile, token: str) -> bool:
+    def _upload_contact_photo(
+        self, contact_id: str, profile, token: str, force: bool = False
+    ) -> bool:
         """
-        Upload profile photo to an Outlook contact.
+        Upload profile photo to an Outlook contact, if it changed.
+
+        Photos are the only large payload this sync moves, and Exchange caps a
+        mailbox at 150 MB of PATCH/POST/PUT in any 5-minute window. Re-uploading
+        every photo on every nightly pass is the most likely way to hit that
+        ceiling, so uploads are gated on photo_1's storage key changing.
+        user_photo_path() mints a fresh UUID filename per upload, which makes
+        the key a reliable change marker and costs no I/O to compare.
 
         Args:
             contact_id: The Outlook contact ID
             profile: CrushProfile instance with photo_1
             token: Access token for Graph API
+            force: Upload even if the photo key is unchanged
 
         Returns:
-            bool: True if successful, False otherwise
+            bool: True if a photo was uploaded, False if skipped or failed
         """
         if not profile.photo_1:
+            return False
+
+        photo_key = profile.photo_1.name or ""
+        if not force and photo_key and photo_key == profile.outlook_photo_key:
+            logger.debug(
+                f"Profile {profile.pk} photo unchanged, skipping photo upload"
+            )
             return False
 
         try:
@@ -367,14 +576,25 @@ class GraphContactsService:
 
             # Upload photo via Graph API
             endpoint = f"{GRAPH_API_BASE}/users/{self.mailbox}/contacts/{contact_id}/photo/$value"
-            headers = {"Authorization": f"Bearer {token}", "Content-Type": content_type}
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": content_type,
+            }
 
-            response = self._request_with_retry(
-                "put", endpoint, headers=headers, data=photo_content, timeout=60
+            # contact_id may be in either dialect depending on whether the
+            # backfill has run, so the header is applied (and retried without)
+            # by the helper rather than hardcoded here.
+            response = self._request_stored_contact(
+                "put",
+                endpoint,
+                headers,
+                data=photo_content,
+                timeout=PHOTO_TIMEOUT,
             )
 
             if response.status_code in [200, 204]:
                 logger.info(f"Uploaded photo for contact {contact_id}")
+                self._remember_photo_key(profile, photo_key)
                 return True
             else:
                 logger.warning(
@@ -386,6 +606,39 @@ class GraphContactsService:
         except Exception as e:
             logger.warning(f"Error uploading photo for contact {contact_id}: {e}")
             return False
+
+    @staticmethod
+    def _forget_contact_id(profile) -> None:
+        """
+        Drop a contact ID that Outlook no longer recognises.
+
+        Clearing it is what lets sync_profile fall through to create_contact and
+        rebuild the contact. Every 404 path must go through here: leaving a dead
+        ID on the profile strands it permanently, because update_contact keeps
+        being chosen over create_contact and keeps failing.
+        """
+        logger.warning(
+            f"Outlook contact {profile.outlook_contact_id} not found for "
+            f"profile {profile.pk}, will recreate"
+        )
+        profile.outlook_contact_id = ""
+        profile.save(update_fields=["outlook_contact_id"])
+
+    @staticmethod
+    def _remember_photo_key(profile, photo_key: str) -> None:
+        """
+        Record which photo is currently live on the Outlook contact.
+
+        Written with QuerySet.update() rather than save() so it can't re-enter
+        the post_save sync signal.
+        """
+        from crush_lu.models import CrushProfile
+
+        profile.outlook_photo_key = photo_key
+        if profile.pk:
+            CrushProfile.objects.filter(pk=profile.pk).update(
+                outlook_photo_key=photo_key
+            )
 
     def create_contact(self, profile, force: bool = False) -> Optional[str]:
         """
@@ -410,10 +663,13 @@ class GraphContactsService:
             headers = {
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
+                # Ask for an ID that survives the contact being moved between
+                # folders -- we persist it on the profile indefinitely.
+                "Prefer": IMMUTABLE_ID_PREFER,
             }
 
             response = self._request_with_retry(
-                "post", endpoint, headers=headers, json=payload, timeout=30
+                "post", endpoint, headers=headers, json=payload
             )
 
             if response.status_code in [200, 201]:
@@ -423,9 +679,13 @@ class GraphContactsService:
                     f"Created Outlook contact for profile {profile.pk}: {contact_id}"
                 )
 
-                # Upload photo if available
+                # Upload photo if available. force=True because this is a brand
+                # new contact with no photo on it, even if outlook_photo_key is
+                # still set from a previous contact that was deleted.
                 if profile.photo_1:
-                    self._upload_contact_photo(contact_id, profile, token)
+                    self._upload_contact_photo(
+                        contact_id, profile, token, force=True
+                    )
 
                 return contact_id
             else:
@@ -470,20 +730,14 @@ class GraphContactsService:
             auth_header = {"Authorization": f"Bearer {token}"}
 
             # Fetch current ETag to avoid 412 concurrency conflicts
-            get_response = self._request_with_retry(
+            get_response = self._request_stored_contact(
                 "get",
                 endpoint,
-                headers=auth_header,
+                auth_header,
                 params={"$select": "id"},
-                timeout=30,
             )
             if get_response.status_code == 404:
-                logger.warning(
-                    f"Outlook contact {profile.outlook_contact_id} not found for "
-                    f"profile {profile.pk}, will recreate"
-                )
-                profile.outlook_contact_id = ""
-                profile.save(update_fields=["outlook_contact_id"])
+                self._forget_contact_id(profile)
                 return False
             if get_response.status_code == 429:
                 logger.error(
@@ -500,8 +754,8 @@ class GraphContactsService:
             if etag:
                 headers["If-Match"] = etag
 
-            response = self._request_with_retry(
-                "patch", endpoint, headers=headers, json=payload, timeout=30
+            response = self._request_stored_contact(
+                "patch", endpoint, headers, json=payload
             )
 
             if response.status_code in [200, 204]:
@@ -510,7 +764,7 @@ class GraphContactsService:
                     f"{profile.outlook_contact_id}"
                 )
 
-                # Update photo if available
+                # Update photo only if it actually changed
                 if profile.photo_1:
                     self._upload_contact_photo(
                         profile.outlook_contact_id, profile, token
@@ -519,12 +773,7 @@ class GraphContactsService:
                 return True
             elif response.status_code == 404:
                 # Contact no longer exists - clear the ID and try to create
-                logger.warning(
-                    f"Outlook contact {profile.outlook_contact_id} not found for "
-                    f"profile {profile.pk}, will recreate"
-                )
-                profile.outlook_contact_id = ""
-                profile.save(update_fields=["outlook_contact_id"])
+                self._forget_contact_id(profile)
                 return False
             elif response.status_code == 412:
                 # ETag mismatch - contact was modified concurrently, retry once
@@ -532,19 +781,28 @@ class GraphContactsService:
                     f"Concurrency conflict updating contact for profile "
                     f"{profile.pk}, retrying"
                 )
-                get_response = self._request_with_retry(
+                get_response = self._request_stored_contact(
                     "get",
                     endpoint,
-                    headers=auth_header,
+                    auth_header,
                     params={"$select": "id"},
-                    timeout=30,
                 )
+                # The contact can be deleted between the conflicting write and
+                # this retry. Without this the dead ID is never cleared and the
+                # profile is stuck: update is chosen over create forever.
+                if get_response.status_code == 404:
+                    self._forget_contact_id(profile)
+                    return False
+
                 etag = get_response.headers.get("ETag")
                 if etag:
                     headers["If-Match"] = etag
-                response = self._request_with_retry(
-                    "patch", endpoint, headers=headers, json=payload, timeout=30
+                response = self._request_stored_contact(
+                    "patch", endpoint, headers, json=payload
                 )
+                if response.status_code == 404:
+                    self._forget_contact_id(profile)
+                    return False
                 if response.status_code in [200, 204]:
                     logger.info(
                         f"Updated Outlook contact for profile {profile.pk} "
@@ -594,13 +852,16 @@ class GraphContactsService:
             endpoint = (
                 f"{GRAPH_API_BASE}/users/{self.mailbox}/contacts/{outlook_contact_id}"
             )
-            headers = {
-                "Authorization": f"Bearer {token}",
-            }
+            headers = {"Authorization": f"Bearer {token}"}
 
-            response = self._request_with_retry(
-                "delete", endpoint, headers=headers, timeout=30
-            )
+            # Routed through the dialect-tolerant helper for two reasons: the ID
+            # may be immutable (from create/backfill/list) and needs the Prefer
+            # header, or it may still be a legacy restId and must not be given
+            # one. Getting it wrong here is the worst case in this module --
+            # 404 is treated as success below, so a dialect mismatch would
+            # report a clean deletion while leaving the contact and its PII
+            # sitting in the shared mailbox.
+            response = self._request_stored_contact("delete", endpoint, headers)
 
             if response.status_code in [200, 204]:
                 logger.info(f"Deleted Outlook contact: {outlook_contact_id}")
@@ -619,6 +880,68 @@ class GraphContactsService:
         except Exception as e:
             logger.error(f"Error deleting Outlook contact {outlook_contact_id}: {e}")
             return False
+
+    def translate_ids_to_immutable(self, contact_ids: list) -> dict:
+        """
+        Translate default-format Outlook IDs into immutable IDs.
+
+        Used once, to migrate outlook_contact_id values that were stored before
+        this service started sending Prefer: IdType="ImmutableId". Graph accepts
+        up to 1000 IDs per call.
+        https://learn.microsoft.com/graph/outlook-immutable-id#updating-existing-data
+
+        Args:
+            contact_ids: Default-format ("restId") contact IDs, max 1000.
+
+        Returns:
+            dict: {source_id: immutable_id} for the IDs that translated cleanly.
+                IDs Graph reported an error for are omitted and logged -- most
+                often because they are already immutable.
+        """
+        if not contact_ids:
+            return {}
+
+        if len(contact_ids) > 1000:
+            raise ValueError("translateExchangeIds accepts at most 1000 IDs per call")
+
+        token = self.get_access_token()
+        endpoint = f"{GRAPH_API_BASE}/users/{self.mailbox}/translateExchangeIds"
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "inputIds": list(contact_ids),
+            "sourceIdType": "restId",
+            "targetIdType": "restImmutableEntryId",
+        }
+
+        response = self._request_with_retry(
+            "post", endpoint, headers=headers, json=payload
+        )
+
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"translateExchangeIds failed: HTTP {response.status_code} - "
+                f"{response.text}"
+            )
+
+        translated = {}
+        for item in response.json().get("value", []):
+            source_id = item.get("sourceId")
+            target_id = item.get("targetId")
+            error = item.get("errorDetails")
+
+            if error or not target_id or not source_id:
+                logger.warning(
+                    f"Could not translate contact ID {str(source_id)[:24]}...: "
+                    f"{error or 'no targetId returned'}"
+                )
+                continue
+
+            translated[source_id] = target_id
+
+        return translated
 
     def sync_profile(self, profile, force: bool = False) -> Optional[str]:
         """
@@ -752,8 +1075,14 @@ class GraphContactsService:
         """
         List all contacts from Outlook mailbox via Graph API.
 
+        Only the fields the callers actually read are requested -- without
+        $select, Graph returns every property of every contact, which on a
+        mailbox of a few thousand rows is a large multiple of the payload we
+        need and counts fully against the mailbox request budget.
+
         Returns:
-            list: List of contact objects with id and displayName
+            list: List of contact objects with id, displayName, categories,
+                personalNotes, emailAddresses and mobilePhone
         """
         if not is_sync_enabled():
             logger.warning("Outlook contact sync disabled for this environment")
@@ -764,15 +1093,27 @@ class GraphContactsService:
             endpoint = f"{GRAPH_API_BASE}/users/{self.mailbox}/contacts"
             headers = {
                 "Authorization": f"Bearer {token}",
+                "Prefer": IMMUTABLE_ID_PREFER,
+            }
+            params = {
+                "$select": (
+                    "id,displayName,categories,personalNotes,"
+                    "emailAddresses,mobilePhone"
+                ),
+                "$top": "100",
             }
 
             contacts = []
             next_link = endpoint
 
-            # Handle pagination
+            # Handle pagination. Only the first request carries params -- the
+            # nextLink already encodes them.
             while next_link:
                 response = self._request_with_retry(
-                    "get", next_link, headers=headers, timeout=30
+                    "get",
+                    next_link,
+                    headers=headers,
+                    params=params if next_link == endpoint else None,
                 )
 
                 if response.status_code != 200:
@@ -793,29 +1134,53 @@ class GraphContactsService:
             logger.error(f"Error listing Outlook contacts: {e}")
             return []
 
-    def delete_all_contacts_from_outlook(self) -> dict:
+    def delete_all_contacts_from_outlook(self, include_foreign: bool = False) -> dict:
         """
-        Delete ALL contacts from Outlook mailbox via Graph API.
+        Delete the contacts this service created from the Outlook mailbox.
 
         This deletes contacts directly from Outlook, regardless of database state.
         Use with extreme caution - this is a destructive operation!
 
+        By default only contacts carrying the 'Crush.lu' category are removed.
+        noreply@crush.lu is a shared mailbox, so anything a human filed there is
+        collateral damage if we delete indiscriminately -- and this method is
+        reachable over HTTP via delete_all_contacts_endpoint.
+
+        Args:
+            include_foreign: Also delete contacts without the Crush.lu category.
+                Off by default; this is the genuinely unbounded blast radius.
+
         Returns:
             dict: Statistics about the deletion
                 {
-                    'total': int,      # Total contacts found in Outlook
+                    'total': int,      # Contacts considered for deletion
                     'deleted': int,    # Successfully deleted
                     'errors': int,     # Failed deletions
+                    'skipped': int,    # Foreign contacts left alone
                 }
         """
-        stats = {"total": 0, "deleted": 0, "errors": 0}
+        stats = {"total": 0, "deleted": 0, "errors": 0, "skipped": 0}
 
         if not is_sync_enabled():
             logger.warning("Outlook contact sync disabled for this environment")
             return stats
 
         # Get all contacts from Outlook
-        contacts = self.list_all_contacts_from_outlook()
+        all_contacts = self.list_all_contacts_from_outlook()
+
+        if include_foreign:
+            contacts = all_contacts
+        else:
+            contacts = [
+                c for c in all_contacts if CRUSH_CATEGORY in (c.get("categories") or [])
+            ]
+            stats["skipped"] = len(all_contacts) - len(contacts)
+            if stats["skipped"]:
+                logger.warning(
+                    f"Leaving {stats['skipped']} contact(s) without the "
+                    f"'{CRUSH_CATEGORY}' category untouched in {self.mailbox}"
+                )
+
         stats["total"] = len(contacts)
 
         logger.warning(f"Deleting {stats['total']} contacts from Outlook mailbox...")
@@ -836,6 +1201,12 @@ class GraphContactsService:
             except Exception as e:
                 logger.error(f"Error deleting contact {display_name}: {e}")
                 stats["errors"] += 1
+
+            # Same pacing as sync_all_profiles. A mailbox with a lot of stray
+            # contacts would otherwise burst far harder than the nightly sync
+            # against the 10,000-requests-per-10-minutes mailbox budget, and
+            # this is an admin cleanup where wall-clock does not matter.
+            time.sleep(SYNC_DELAY_BETWEEN_PROFILES)
 
         logger.info(
             f"Deletion complete: {stats['deleted']} deleted, "

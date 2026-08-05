@@ -23,6 +23,7 @@ from .models import (
 )
 
 from crush_lu.models.events import SEAT_HOLDING_STATUSES
+
 logger = logging.getLogger(__name__)
 
 # Simple in-memory cache for site config (avoids DB hit on every request)
@@ -274,11 +275,17 @@ def crush_user_context(request):
             .select_related("event")
             .order_by("event__date_time")
         )
-        # Filter precisely: keep events whose end_time hasn't passed
+        # Filter precisely: keep events whose end_time hasn't passed, and drop
+        # any whose event has since been cancelled or unpublished. my_events
+        # skips those rows outright, so counting them here made the nav promise
+        # personal events that the page it links to would not show -- a member
+        # whose only seat was on a cancelled event landed on an empty page.
         upcoming_registrations = [
             reg
             for reg in upcoming_registrations
-            if reg.event.date_time + timedelta(minutes=reg.event.duration_minutes or 0)
+            if reg.event.is_published
+            and not reg.event.is_cancelled
+            and reg.event.date_time + timedelta(minutes=reg.event.duration_minutes or 0)
             >= now
         ][:5]
 

@@ -1435,6 +1435,13 @@ class TestLobbyCta:
         member = _make_member("cta_dashboard", membership=False, luxid=False)
         event = _make_event()
         _attend(member, event)
+        # The event has to be OVER for this action to exist at all: the
+        # attendees page opens only at end_time (decision 2026-07-18, enforced
+        # in event_attendees), so offering it mid-event is a link that lands
+        # back on the event detail page with an info message. _make_event()
+        # defaults to a live event, so without this the dashboard is right to
+        # render nothing and there is no label to assert.
+        _end_event(event)
         _login(client, member)
 
         response = client.get(reverse("crush_lu:dashboard"))
