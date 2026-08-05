@@ -39243,3 +39243,44 @@ msgstr "Dein Platz bleibt reserviert, bis die Zahlung eingegangen ist."
 #: templates/crush_lu/dashboard.html
 msgid "in %(countdown)s"
 msgstr "in %(countdown)s"
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid "Registration Cancelled - {title}"
+msgstr "Anmeldung storniert - {title}"
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid ""
+"If you paid a registration fee, any refund is handled under our cancellation"
+" policy and we'll be in touch about it."
+msgstr ""
+"Falls du eine Teilnahmegebühr bezahlt hast, richtet sich eine mögliche "
+"Rückerstattung nach unseren Stornierungsbedingungen — wir melden uns dazu "
+"bei dir."
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid "Read the cancellation policy"
+msgstr "Stornierungsbedingungen lesen"
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid "Email us at"
+msgstr "Schreib uns an"
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid "Questions? Email us at"
+msgstr "Fragen? Schreib uns an"
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid "Questions? We'll help you out — email us at"
+msgstr "Fragen? Wir helfen dir gerne weiter — schreib uns an"
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid "Have questions or need help? Email us at"
+msgstr "Fragen oder brauchst du Hilfe? Schreib uns an"
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid "If you have any questions, email us at"
+msgstr "Bei Fragen schreib uns an"
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid "Our team will get back to you — email us at"
+msgstr "Unser Team meldet sich bei dir — schreib uns an"
