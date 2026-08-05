@@ -22447,7 +22447,7 @@ msgstr ""
 
 #: templates/crush_lu/dashboard.html:276
 msgid "Membership Card"
-msgstr "Carte de membre de la cave"
+msgstr "Carte de membre"
 
 #: templates/crush_lu/dashboard.html:277
 msgid ""
@@ -29610,7 +29610,7 @@ msgstr ""
 
 #: templates/crush_lu/membership.html:34
 msgid "Your Membership Card"
-msgstr "Carte de membre de la cave"
+msgstr "Votre carte de membre"
 
 #: templates/crush_lu/membership.html:52
 msgid "Points:"
