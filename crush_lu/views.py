@@ -465,16 +465,20 @@ def dashboard(request):
         )
 
         if next_registration:
-            next_registration.can_cancel = next_registration.status in (
-                "confirmed",
-                "pending",
-                "waitlist",
+            # The event must not have STARTED, not merely "not ended".
+            # `upcoming_registrations` keeps a row until end_time, so a
+            # currently-running event can be the next one — and event_cancel()
+            # rejects a started event ("This event has already started"), so
+            # without the date test this is a button that cannot work. Mirrors
+            # the sibling condition in my_events.
+            next_registration.can_cancel = (
+                next_registration.event.date_time > _now
+                # A pending (unpaid) seat can be given up like any other.
+                # Deliberately NOT SEAT_HOLDING_STATUSES: that set includes
+                # "attended", and event_cancel() rejects an attended
+                # registration outright.
+                and next_registration.status in ("confirmed", "pending", "waitlist")
             )
-            # A pending (unpaid) seat can be given up like any other. Deliberately
-            # NOT SEAT_HOLDING_STATUSES: that set includes "attended", and
-            # event_cancel() rejects an attended registration outright, so
-            # offering Cancel to someone who checked in early cannot work.
-            next_registration.is_pending_payment = next_registration.status == "pending"
 
         # Anything that needs the member to act, surfaced above the fold instead
         # of buried at its chronological position in a long list.
@@ -482,29 +486,47 @@ def dashboard(request):
             r for r in upcoming_registrations if r.status == "pending"
         ]
 
-        # Post-event actions, newest first. An attended event stays here only
-        # while something can still be DONE with it — the lobby is open, or the
-        # connection window has not closed. Once both shut, the event becomes
-        # history and belongs on my_events, not on a dashboard strip. The lobby
-        # gate costs queries, so it is only evaluated for those few rows.
+        # Post-event actions, newest first. An attended event appears only while
+        # it still offers something to DO; once every action is spent it becomes
+        # history and belongs on my_events, not on a dashboard strip.
+        #
+        # Each action is resolved BEFORE deciding whether to render the row.
+        # Gating on "the lobby is open" alone is not enough: lobby_cta() denies
+        # for reasons that have nothing to do with timing (coach exclusion, lost
+        # verification, revoked photo consent) and returns "promo_only", which
+        # carries no per-event signal and so renders nothing — leaving a card
+        # with a title and no buttons, in a strip meant to vanish when empty.
         post_event_actions = []
         for _reg in reversed(registrations):
             if _reg.status != "attended" or not _reg.event:
                 continue
-            _lobby_open = event_lobby_phase(_reg.event, _now) != PHASE_CLOSED
-            _crush_open = _reg.event.connection_window_active
-            if not _lobby_open and not _crush_open:
-                continue
+            _event = _reg.event
+
             _cta = None
-            if _lobby_open:
-                _cta = lobby_cta(request.user, _reg.event, registration=_reg, now=_now)
+            if event_lobby_phase(_event, _now) != PHASE_CLOSED:
+                # The gate costs queries, so it runs only for the few rows whose
+                # lobby is actually open.
+                _cta = lobby_cta(request.user, _event, registration=_reg, now=_now)
                 if _cta == "promo_only":
                     _cta = None
+
+            # connections_open, NOT connection_window_active: the latter only
+            # enforces the closing deadline, so mid-event it is already true
+            # while event_attendees still redirects until the event ends.
+            _show_my_crush = _event.connections_open
+
+            if not _cta and not _show_my_crush and not _event.quiz_join_available:
+                continue
+
             post_event_actions.append(
                 {
-                    "event": _reg.event,
+                    "event": _event,
                     "lobby_cta": _cta,
-                    "show_my_crush": _crush_open,
+                    "show_my_crush": _show_my_crush,
+                    # Live quiz entry. The removed list carried this on attended
+                    # rows; without it a checked-in player has no direct route in
+                    # during a time-boxed activity.
+                    "show_quiz": _event.quiz_join_available,
                 }
             )
 

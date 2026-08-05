@@ -18,6 +18,7 @@ What is asserted here:
 """
 
 import re
+from unittest import mock
 from datetime import timedelta
 
 from django.test import TestCase, override_settings
@@ -25,6 +26,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from crush_lu.models import EventRegistration, MeetupEvent
+from crush_lu.services.event_lobby import CTA_PROMO_ONLY, PHASE_LIVE
 from crush_lu.tests.test_profile_edit_connect_card import _make_member
 
 # The bottom nav's Events tab, matched by its data-tab rather than by a bare
@@ -39,6 +41,15 @@ def _events_tab_href(response):
     match = _EVENTS_TAB.search(response.content.decode())
     assert match, "bottom-nav Events tab not found in the response"
     return match.group(1)
+
+
+def _live_event(title="Happening now"):
+    """An event that has started but not ended."""
+    event = _make_event(title, days_from_now=0)
+    event.date_time = timezone.now() - timedelta(minutes=30)
+    event.duration_minutes = 180
+    event.save(update_fields=["date_time", "duration_minutes"])
+    return event
 
 
 def _make_event(title, *, days_from_now):
@@ -132,14 +143,51 @@ class DashboardNextEventTests(TestCase):
 
     def test_event_running_right_now_still_counts_as_upcoming(self):
         """The cutoff is end_time — a live event has not passed."""
-        event = _make_event("Happening now", days_from_now=0)
-        event.date_time = timezone.now() - timedelta(minutes=30)
-        event.duration_minutes = 180
-        event.save(update_fields=["date_time", "duration_minutes"])
+        event = _live_event()
         self._register(event, "confirmed")
 
         response = self._get()
         self.assertEqual(response.context["next_registration"].event, event)
+
+    def test_started_event_offers_no_cancel_button(self):
+        """event_cancel() rejects a started event, so the button cannot work.
+
+        A seat is kept until end_time, so the next event can already be under
+        way — status alone would still say "confirmed".
+        """
+        event = _live_event()
+        self._register(event, "confirmed")
+
+        response = self._get()
+        self.assertFalse(response.context["next_registration"].can_cancel)
+        self.assertNotContains(
+            response, reverse("crush_lu:event_cancel", args=[event.id])
+        )
+
+    def test_unstarted_event_still_offers_cancel(self):
+        event = _make_event("Next week", days_from_now=7)
+        self._register(event, "confirmed")
+
+        response = self._get()
+        self.assertTrue(response.context["next_registration"].can_cancel)
+        self.assertContains(response, reverse("crush_lu:event_cancel", args=[event.id]))
+
+    def test_checked_in_member_sees_live_state_not_a_blank_card(self):
+        """Checking in early flips the seat to "attended" while the event runs.
+
+        That row is still the next event, but it carried no status pill, a
+        "in 0 minutes" countdown, and a ticket for an event already joined.
+        """
+        event = _live_event()
+        self._register(event, "attended")
+
+        response = self._get()
+        self.assertEqual(response.context["next_registration"].event, event)
+        self.assertContains(response, "Live now")
+        self.assertNotContains(response, "in 0&#160;minutes")
+        self.assertNotContains(
+            response, reverse("crush_lu:event_ticket", args=[event.id])
+        )
 
     # -- counts -----------------------------------------------------------
 
@@ -209,6 +257,58 @@ class DashboardNextEventTests(TestCase):
             response, reverse("crush_lu:event_attendees", args=[event.id])
         )
 
+    def test_my_crush_waits_for_the_event_to_end(self):
+        """connection_window_active only enforces the CLOSING deadline.
+
+        Mid-event it is already true, but event_attendees redirects until the
+        event ends — so gating on it alone rendered a CTA that could not open.
+        """
+        event = _live_event()
+        self._register(event, "attended")
+
+        actions = self._get().context["post_event_actions"]
+        self.assertFalse(any(a["show_my_crush"] for a in actions))
+
+    def test_a_row_with_no_usable_action_is_not_rendered(self):
+        """lobby_cta() denies for reasons unrelated to timing.
+
+        Coach exclusion, lost verification and revoked photo consent all return
+        "promo_only", which carries no per-event signal and renders nothing.
+        Deciding visibility before resolving the CTA left a titled card with no
+        buttons, in a strip whose whole premise is vanishing when empty.
+        """
+        event = _make_event("Lobby open, nothing to do", days_from_now=-1)
+        self._register(event, "attended")
+
+        # The view imports these inside the function, so the source module is
+        # the patch point.
+        with mock.patch(
+            "crush_lu.services.event_lobby.event_lobby_phase",
+            return_value=PHASE_LIVE,
+        ), mock.patch(
+            "crush_lu.services.event_lobby.lobby_cta", return_value=CTA_PROMO_ONLY
+        ):
+            # Past the connection window, so My Crush is gone too.
+            event.connection_window_hours = 0
+            event.save(update_fields=["connection_window_hours"])
+            response = self._get()
+
+        self.assertEqual(list(response.context["post_event_actions"]), [])
+        self.assertNotContains(response, "Lobby open, nothing to do")
+
+    def test_live_quiz_keeps_a_direct_entry_point(self):
+        """The removed list carried Join Quiz on attended rows."""
+        event = _make_event("Quiz Night", days_from_now=0)
+        event.event_type = "quiz_night"
+        event.date_time = timezone.now() - timedelta(minutes=30)
+        event.duration_minutes = 180
+        event.save(update_fields=["event_type", "date_time", "duration_minutes"])
+        self._register(event, "attended")
+
+        response = self._get()
+        self.assertTrue(response.context["post_event_actions"][0]["show_quiz"])
+        self.assertContains(response, reverse("crush_lu:quiz_live", args=[event.id]))
+
     def test_old_attendance_drops_out_of_the_strip(self):
         """Once the connection window and the lobby have both closed there is
         nothing left to do, so the event becomes history."""
@@ -257,6 +357,21 @@ class DashboardNextEventTests(TestCase):
 
         self._register(_make_event("Booked", days_from_now=5), "confirmed")
         self.assertEqual(_events_tab_href(self._get()), reverse("crush_lu:my_events"))
+
+    def test_a_cancelled_event_does_not_route_the_tab_to_an_empty_page(self):
+        """The count drives both the badge and the destination.
+
+        my_events skips unpublished and cancelled events, so counting them sent
+        a member with no live seat to a personal page with nothing on it.
+        """
+        event = _make_event("Called off", days_from_now=5)
+        self._register(event, "confirmed")
+        event.is_cancelled = True
+        event.save(update_fields=["is_cancelled"])
+
+        response = self._get()
+        self.assertEqual(response.context["upcoming_events_count"], 0)
+        self.assertEqual(_events_tab_href(response), reverse("crush_lu:event_list"))
 
     # -- template hygiene -------------------------------------------------
 
