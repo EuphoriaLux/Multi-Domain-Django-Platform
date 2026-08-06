@@ -83,6 +83,10 @@ class SocialPostSerializer(serializers.ModelSerializer):
     id = serializers.CharField(read_only=True)
     created_by = serializers.SerializerMethodField()
     featured_profile_id = serializers.CharField(read_only=True)
+    source_event_id = serializers.CharField(read_only=True)
+    source_event_title = serializers.CharField(
+        source="source_event.title", read_only=True
+    )
 
     class Meta:
         model = SocialPost
@@ -90,6 +94,8 @@ class SocialPostSerializer(serializers.ModelSerializer):
             "id",
             "created_by",
             "featured_profile_id",
+            "source_event_id",
+            "source_event_title",
             "pillar",
             "language",
             "platforms",
@@ -109,6 +115,8 @@ class SocialPostSerializer(serializers.ModelSerializer):
             "id",
             "created_by",
             "featured_profile_id",
+            "source_event_id",
+            "source_event_title",
             "buffer_id",
             "article_id",
             "status_history",

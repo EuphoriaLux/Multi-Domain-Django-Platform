@@ -336,11 +336,166 @@ class SocialMediaTests(TestCase):
     def test_upcoming_events_endpoint_reads_published_events(self):
         event = self._event()
         self._event(title="Hidden", is_published=False)
+        self._event(title="Private", is_private_invitation=True)
         response = self.client.get("/hub/social/upcoming-events")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             [item["id"] for item in response.data["items"]], [str(event.pk)]
         )
+        self.assertEqual(response.data["items"][0]["promotion_status"], "not_started")
+        self.assertFalse(response.data["items"][0]["is_promoted"])
+
+    @patch("hub.views_social.generate_social_copy")
+    def test_event_draft_reuses_stored_copy_without_ai(self, generate_copy):
+        event = self._event(
+            title_fr="Rencontre au Casino 2000",
+            description_fr="Le texte existant de la fiche événement.",
+        )
+
+        response = self.client.post(
+            f"/hub/social/upcoming-events/{event.pk}/drafts",
+            {"languages": ["fr"]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["copy_source"], "event")
+        self.assertEqual(response.data["created_count"], 1)
+        generate_copy.assert_not_called()
+        post = SocialPost.objects.get(pk=response.data["posts"][0]["id"])
+        self.assertEqual(post.source_event, event)
+        self.assertEqual(post.pillar, SocialPost.Pillar.PROMO)
+        self.assertEqual(post.platforms, ["facebook"])
+        self.assertIsNone(post.scheduled_for)
+        self.assertIn("Rencontre au Casino 2000", post.content)
+        self.assertIn("Le texte existant de la fiche événement.", post.content)
+        self.assertIn(event.location, post.content)
+        self.assertIn(f"https://crush.lu/fr/events/{event.pk}/", post.content)
+        self.assertIn("without AI generation", post.status_history[0]["note"])
+
+    def test_event_draft_creation_is_idempotent(self):
+        event = self._event(
+            title_fr="Événement idempotent",
+            description_fr="Description idempotente",
+        )
+        endpoint = f"/hub/social/upcoming-events/{event.pk}/drafts"
+
+        first = self.client.post(endpoint, {"languages": ["fr"]}, format="json")
+        second = self.client.post(endpoint, {"languages": ["fr"]}, format="json")
+
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(first.data["posts"][0]["id"], second.data["posts"][0]["id"])
+        self.assertEqual(second.data["created_count"], 0)
+        self.assertEqual(second.data["reused_count"], 1)
+        self.assertEqual(SocialPost.objects.filter(source_event=event).count(), 1)
+
+    def test_upcoming_event_reports_linked_buffer_promotion(self):
+        event = self._event()
+        post = SocialPost.objects.create(
+            user=self.user,
+            source_event=event,
+            language="fr",
+            platforms=["facebook"],
+            content="Texte existant",
+            status=SocialPost.Status.SCHEDULED,
+        )
+
+        response = self.client.get("/hub/social/upcoming-events")
+
+        item = response.data["items"][0]
+        self.assertTrue(item["is_promoted"])
+        self.assertEqual(item["promotion_status"], SocialPost.Status.SCHEDULED)
+        self.assertEqual(item["promotion_post_id"], str(post.pk))
+
+    @patch("hub.views_social.generate_social_copy")
+    def test_legacy_event_generate_route_is_also_deterministic(self, generate_copy):
+        event = self._event(
+            title_fr="Titre stocké",
+            description_fr="Description stockée",
+        )
+
+        response = self.client.post(
+            "/hub/social/generate",
+            {
+                "category": "events",
+                "event_id": str(event.pk),
+                "hook": "Cette accroche ne doit pas remplacer le titre",
+                "pillar": "promo",
+                "platforms": ["facebook"],
+                "languages": ["fr"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["copy_source"], "event")
+        self.assertIn("Titre stocké", response.data["posts"][0]["content"])
+        self.assertNotIn(
+            "Cette accroche ne doit pas remplacer le titre",
+            response.data["posts"][0]["content"],
+        )
+        generate_copy.assert_not_called()
+
+    def test_private_event_cannot_create_social_draft(self):
+        event = self._event(is_private_invitation=True)
+
+        response = self.client.post(
+            f"/hub/social/upcoming-events/{event.pk}/drafts",
+            {"languages": ["fr"]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(SocialPost.objects.filter(source_event=event).exists())
+
+    def test_event_draft_requires_stored_copy_for_requested_language(self):
+        event = self._event(
+            title_fr="Titre français",
+            description_fr="Description française",
+            title_de=None,
+            description_de=None,
+        )
+
+        response = self.client.post(
+            f"/hub/social/upcoming-events/{event.pk}/drafts",
+            {"languages": ["de"]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("de", response.data["languages"])
+        self.assertFalse(SocialPost.objects.filter(source_event=event).exists())
+
+    @patch("hub.views_social.create_buffer_update")
+    def test_linked_event_is_rechecked_before_buffer_scheduling(self, dispatch):
+        event = self._event()
+        post = SocialPost.objects.create(
+            user=self.user,
+            source_event=event,
+            language="fr",
+            platforms=["facebook"],
+            content="Texte de l’événement",
+            status=SocialPost.Status.PENDING_REVIEW,
+        )
+        event.is_cancelled = True
+        event.save(update_fields=["is_cancelled"])
+
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}",
+            {
+                "status": SocialPost.Status.SCHEDULED,
+                "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
+                "buffer_profile_ids": ["facebook_channel"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("no longer public", response.data["error"])
+        dispatch.assert_not_called()
+        post.refresh_from_db()
+        self.assertEqual(post.status, SocialPost.Status.PENDING_REVIEW)
 
     def test_kpis_summary_endpoint_reads_database(self):
         recent_member, _recent_profile, _consent = self._eligible_profile(

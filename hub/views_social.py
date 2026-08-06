@@ -15,6 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from crush_lu.models import CrushProfile, EventConnection, MeetupEvent
+from crush_lu.utils.i18n import build_absolute_url
 
 from .buffer_service import (
     BufferPartialFailure,
@@ -24,7 +25,6 @@ from .buffer_service import (
 )
 from .claude_service import ClaudeServiceError, expand_social_post, generate_social_copy
 from .image_generator import (
-    generate_event_flyer,
     generate_kpi_card,
     generate_profile_card,
 )
@@ -49,10 +49,20 @@ BUFFER_PARTIAL_ERROR = (
 PROFILE_INELIGIBLE_ERROR = (
     "The featured profile is no longer eligible for marketing publication."
 )
+EVENT_INELIGIBLE_ERROR = "The linked event is no longer public, published, or upcoming."
 SCHEDULED_EDIT_ERROR = (
     "Delivery fields cannot be changed after a post has been scheduled in Buffer."
 )
 SCHEDULING_FIELDS = {"content", "scheduled_for", "media_url", "buffer_profile_ids"}
+PROMOTED_STATUSES = {SocialPost.Status.SCHEDULED, SocialPost.Status.PUBLISHED}
+PROMOTION_STATUS_RANK = {
+    SocialPost.Status.PUBLISHED: 6,
+    SocialPost.Status.SCHEDULED: 5,
+    SocialPost.Status.APPROVED: 4,
+    SocialPost.Status.PENDING_REVIEW: 3,
+    SocialPost.Status.DRAFT: 2,
+    SocialPost.Status.FAILED: 1,
+}
 KPI_LABELS = {
     "fr": ("Nouveaux membres", "Connexions créées", "Répartition des profils"),
     "en": ("New members", "Connections made", "Profile distribution"),
@@ -173,6 +183,18 @@ def _event_payload(event: MeetupEvent, request) -> dict:
         image_url = event.image.url
         if image_url.startswith("/"):
             image_url = request.build_absolute_uri(image_url)
+    facebook_posts = [
+        post
+        for post in event.social_promotion_posts.all()
+        if "facebook" in (post.platforms or [])
+    ]
+    promotion_post = max(
+        facebook_posts,
+        key=lambda post: (PROMOTION_STATUS_RANK.get(post.status, 0), post.created_at),
+        default=None,
+    )
+    available_languages = _event_available_languages(event)
+
     return {
         "id": str(event.pk),
         "title": event.title,
@@ -180,7 +202,129 @@ def _event_payload(event: MeetupEvent, request) -> dict:
         "date": event.date_time.isoformat(),
         "location": event.location,
         "image_url": image_url,
+        "event_url": build_absolute_url(
+            "crush_lu:event_detail",
+            lang=available_languages[0],
+            kwargs={"event_id": event.pk},
+        ),
+        "available_languages": available_languages,
+        "promotion_post_id": str(promotion_post.pk) if promotion_post else None,
+        "promotion_status": promotion_post.status if promotion_post else "not_started",
+        "is_promoted": bool(
+            promotion_post and promotion_post.status in PROMOTED_STATUSES
+        ),
     }
+
+
+def _event_available_languages(event: MeetupEvent) -> list[str]:
+    languages = [
+        language
+        for language in (
+            SocialPost.Language.FR,
+            SocialPost.Language.EN,
+            SocialPost.Language.DE,
+        )
+        if str(getattr(event, f"title_{language}", "") or "").strip()
+        and str(getattr(event, f"description_{language}", "") or "").strip()
+    ]
+    return languages or [SocialPost.Language.FR]
+
+
+def _event_value(event: MeetupEvent, field: str, language: str) -> str:
+    """Return stored event copy without generating or paraphrasing it."""
+
+    candidates = (
+        f"{field}_{language}",
+        f"{field}_{SocialPost.Language.FR}",
+        f"{field}_{SocialPost.Language.EN}",
+        f"{field}_{SocialPost.Language.DE}",
+        field,
+    )
+    for candidate in candidates:
+        value = str(getattr(event, candidate, "") or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def _event_post_content(event: MeetupEvent, language: str) -> str:
+    title = _event_value(event, "title", language)
+    description = _event_value(event, "description", language)
+    local_date = timezone.localtime(event.date_time).strftime("%d/%m/%Y · %H:%M")
+    event_url = build_absolute_url(
+        "crush_lu:event_detail",
+        lang=language,
+        kwargs={"event_id": event.pk},
+    )
+    return (
+        f"{title}\n\n{description}\n\n"
+        f"📅 {local_date}\n"
+        f"📍 {event.location}\n\n"
+        f"{event_url}"
+    )
+
+
+def _existing_event_post(
+    event: MeetupEvent, language: str, platforms: list[str]
+) -> SocialPost | None:
+    requested = set(platforms)
+    return next(
+        (
+            post
+            for post in event.social_promotion_posts.all()
+            if post.language == language
+            and requested.issubset(set(post.platforms or []))
+        ),
+        None,
+    )
+
+
+def _event_media_url(event: MeetupEvent, request) -> str | None:
+    if not event.image:
+        return None
+    image_url = event.image.url
+    return (
+        request.build_absolute_uri(image_url)
+        if image_url.startswith("/")
+        else image_url
+    )
+
+
+def _create_event_drafts(
+    *,
+    event: MeetupEvent,
+    languages: list[str],
+    platforms: list[str],
+    request,
+) -> tuple[list[SocialPost], int]:
+    posts = []
+    created_count = 0
+    for language in languages:
+        existing = _existing_event_post(event, language, platforms)
+        if existing:
+            posts.append(existing)
+            continue
+        post = SocialPost.objects.create(
+            user=request.user,
+            source_event=event,
+            hook=_event_value(event, "title", language),
+            pillar=SocialPost.Pillar.PROMO,
+            language=language,
+            platforms=platforms,
+            content=_event_post_content(event, language),
+            media_url=_event_media_url(event, request),
+            status=SocialPost.Status.DRAFT,
+            status_history=[
+                _history_entry(
+                    request,
+                    SocialPost.Status.DRAFT,
+                    note="Created from stored event content without AI generation.",
+                )
+            ],
+        )
+        posts.append(post)
+        created_count += 1
+    return posts, created_count
 
 
 class SocialPostsView(APIView):
@@ -188,7 +332,9 @@ class SocialPostsView(APIView):
 
     def get(self, request):
         status_filter = request.query_params.get("status")
-        queryset = SocialPost.objects.all()
+        queryset = SocialPost.objects.select_related(
+            "user", "featured_profile", "source_event"
+        )
         if status_filter:
             queryset = queryset.filter(status=status_filter)
         return Response({"items": SocialPostSerializer(queryset, many=True).data})
@@ -238,6 +384,20 @@ class SocialPostDetailView(APIView):
             ):
                 return Response(
                     {"error": PROFILE_INELIGIBLE_ERROR},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            if (
+                post.source_event_id
+                and not MeetupEvent.objects.filter(
+                    pk=post.source_event_id,
+                    is_published=True,
+                    is_cancelled=False,
+                    is_private_invitation=False,
+                    date_time__gte=timezone.now(),
+                ).exists()
+            ):
+                return Response(
+                    {"error": EVENT_INELIGIBLE_ERROR},
                     status=status.HTTP_409_CONFLICT,
                 )
             scheduling_errors = {}
@@ -371,32 +531,59 @@ class SocialGenerateView(APIView):
 
         if category == "events":
             event_id = request.data.get("event_id")
-            event = (
-                MeetupEvent.objects.filter(
-                    pk=event_id,
-                    is_published=True,
-                    is_cancelled=False,
-                    date_time__gte=timezone.now(),
-                ).first()
-                if event_id
-                else None
-            )
-            if not event:
-                return Response(
-                    {"event_id": "Select a published upcoming event"},
-                    status=status.HTTP_400_BAD_REQUEST,
+            with transaction.atomic():
+                event = (
+                    MeetupEvent.objects.select_for_update()
+                    .filter(
+                        pk=event_id,
+                        is_published=True,
+                        is_cancelled=False,
+                        is_private_invitation=False,
+                        date_time__gte=timezone.now(),
+                    )
+                    .prefetch_related("social_promotion_posts")
+                    .first()
+                    if event_id
+                    else None
                 )
-            context = _event_payload(event, request)
-            hook = event.title
-            local_date = timezone.localtime(event.date_time)
-            graphic = partial(
-                generate_event_flyer,
-                title=event.title,
-                date_str=local_date.strftime("%d/%m/%Y · %H:%M"),
-                location=event.location,
-                background_url=context["image_url"] or None,
+                if not event:
+                    return Response(
+                        {"event_id": "Select a public, published upcoming event"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                unavailable_languages = set(languages) - set(
+                    _event_available_languages(event)
+                )
+                if unavailable_languages:
+                    return Response(
+                        {
+                            "languages": (
+                                "The event has no stored title and description for: "
+                                + ", ".join(sorted(unavailable_languages))
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                posts, created_count = _create_event_drafts(
+                    event=event,
+                    languages=languages,
+                    platforms=platforms,
+                    request=request,
+                )
+            return Response(
+                {
+                    "posts": SocialPostSerializer(posts, many=True).data,
+                    "warnings": [],
+                    "created_count": created_count,
+                    "reused_count": len(posts) - created_count,
+                    "copy_source": "event",
+                },
+                status=(
+                    status.HTTP_201_CREATED if created_count else status.HTTP_200_OK
+                ),
             )
-        elif category == "kpis":
+
+        if category == "kpis":
             context = _kpi_snapshot()
             graphic = partial(_generate_kpi_graphic, context)
         elif category == "profiles":
@@ -479,12 +666,79 @@ class SocialUpcomingEventsView(APIView):
     permission_classes = [IsAdminUser]
 
     def get(self, request):
-        events = MeetupEvent.objects.filter(
-            is_published=True,
-            is_cancelled=False,
-            date_time__gte=timezone.now(),
-        ).order_by("date_time")[:20]
+        events = (
+            MeetupEvent.objects.filter(
+                is_published=True,
+                is_cancelled=False,
+                is_private_invitation=False,
+                date_time__gte=timezone.now(),
+            )
+            .prefetch_related("social_promotion_posts")
+            .order_by("date_time")[:20]
+        )
         return Response({"items": [_event_payload(event, request) for event in events]})
+
+
+class SocialEventDraftsView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, event_id):
+        languages = list(
+            dict.fromkeys(request.data.get("languages") or [SocialPost.Language.FR])
+        )
+        if not languages or not set(languages).issubset(ALLOWED_LANGUAGES):
+            return Response(
+                {"languages": "Select at least one supported language"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            event = (
+                MeetupEvent.objects.select_for_update()
+                .filter(
+                    pk=event_id,
+                    is_published=True,
+                    is_cancelled=False,
+                    is_private_invitation=False,
+                    date_time__gte=timezone.now(),
+                )
+                .prefetch_related("social_promotion_posts")
+                .first()
+            )
+            if not event:
+                return Response(
+                    {"event_id": "Select a public, published upcoming event"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            unavailable_languages = set(languages) - set(
+                _event_available_languages(event)
+            )
+            if unavailable_languages:
+                return Response(
+                    {
+                        "languages": (
+                            "The event has no stored title and description for: "
+                            + ", ".join(sorted(unavailable_languages))
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            posts, created_count = _create_event_drafts(
+                event=event,
+                languages=languages,
+                platforms=["facebook"],
+                request=request,
+            )
+
+        return Response(
+            {
+                "posts": SocialPostSerializer(posts, many=True).data,
+                "created_count": created_count,
+                "reused_count": len(posts) - created_count,
+                "copy_source": "event",
+            },
+            status=status.HTTP_201_CREATED if created_count else status.HTTP_200_OK,
+        )
 
 
 class SocialKpisSummaryView(APIView):
