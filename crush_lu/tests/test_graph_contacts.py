@@ -258,6 +258,27 @@ class TestImmutableIds:
         # The ID must survive: clearing it is what causes the duplicate.
         assert CrushProfile.objects.get(pk=profile.pk).outlook_contact_id == "LEGACY"
 
+    def test_forgetting_a_contact_also_forgets_its_photo(self, service, profile):
+        """outlook_photo_key describes a photo on the contact that just went
+        away. Left set, a single failed upload during the recreate makes the key
+        equal photo_1.name again, so every later sync reads 'photo unchanged'
+        and skips it -- the contact stays photo-less until the member happens to
+        change their picture."""
+        from crush_lu.models import CrushProfile
+
+        profile.outlook_contact_id = "GONE"
+        profile.outlook_photo_key = "users/1/photos/abc.jpg"
+        profile.save(update_fields=["outlook_contact_id", "outlook_photo_key"])
+
+        with mock.patch(
+            "requests.request", side_effect=[_response(404), _response(404)]
+        ):
+            assert service.update_contact(profile, force=True) is False
+
+        refreshed = CrushProfile.objects.get(pk=profile.pk)
+        assert refreshed.outlook_contact_id == ""
+        assert refreshed.outlook_photo_key == ""
+
     def test_update_still_clears_when_both_dialects_404(self, service, profile):
         """The fallback must not mask a genuinely deleted contact -- that one
         does need clearing so it gets recreated."""
@@ -533,6 +554,14 @@ class TestDeleteAllEndpointFlagParsing:
         def _inline_thread(target, daemon=None):
             return SimpleNamespace(start=target)
 
+        service = mock.Mock()
+        service.delete_all_contacts_from_outlook.return_value = {
+            "total": 0,
+            "deleted": 0,
+            "errors": 0,
+            "skipped": 0,
+        }
+
         with mock.patch(
             "crush_lu.api_admin_sync._authenticate_admin_request", return_value=True
         ), mock.patch(
@@ -540,14 +569,8 @@ class TestDeleteAllEndpointFlagParsing:
         ), mock.patch(
             "crush_lu.api_admin_sync.threading.Thread", side_effect=_inline_thread
         ), mock.patch(
-            "crush_lu.api_admin_sync.GraphContactsService"
-        ) as service_cls:
-            service_cls.return_value.delete_all_contacts_from_outlook.return_value = {
-                "total": 0,
-                "deleted": 0,
-                "errors": 0,
-                "skipped": 0,
-            }
+            "crush_lu.api_admin_sync._validated_service", return_value=service
+        ):
             response = client.post(
                 self.URL,
                 data=_json.dumps(body),
@@ -555,7 +578,7 @@ class TestDeleteAllEndpointFlagParsing:
                 HTTP_HOST="crush.lu",
             )
         assert response.status_code == 202
-        return service_cls.return_value.delete_all_contacts_from_outlook
+        return service.delete_all_contacts_from_outlook
 
     @pytest.mark.parametrize("body", [{"include_foreign": "false"}, {"include_foreign": "0"}])
     def test_stringy_false_does_not_enable_the_destructive_path(self, client, body):
@@ -572,6 +595,37 @@ class TestDeleteAllEndpointFlagParsing:
         called = self._post(client, {})
 
         called.assert_called_once_with(include_foreign=False)
+
+    def test_broken_credentials_are_reported_not_swallowed_by_202(self, client):
+        """The work happens in a daemon thread, so a service that cannot even
+        authenticate would fail after the response. Telling an operator their
+        destructive cleanup 'started' when nothing will be touched is the same
+        succeed-while-doing-nothing silence this module is being cleaned of."""
+        import json as _json
+
+        spawned = []
+
+        with mock.patch(
+            "crush_lu.api_admin_sync._authenticate_admin_request", return_value=True
+        ), mock.patch(
+            "crush_lu.api_admin_sync.is_sync_enabled", return_value=True
+        ), mock.patch(
+            "crush_lu.api_admin_sync.threading.Thread",
+            side_effect=lambda **kw: spawned.append(kw) or mock.Mock(),
+        ), mock.patch(
+            "crush_lu.api_admin_sync._validated_service",
+            side_effect=ValueError("Microsoft Graph credentials not configured"),
+        ):
+            response = client.post(
+                self.URL,
+                data=_json.dumps({}),
+                content_type="application/json",
+                HTTP_HOST="crush.lu",
+            )
+
+        assert response.status_code == 500
+        assert response.json()["success"] is False
+        assert spawned == []  # nothing was started
 
 
 # ---------------------------------------------------------------------------
@@ -830,6 +884,25 @@ class TestSignalWiring:
                 self._write_bypassing_save(profile, phone_verified=False)
 
         stub.delete_contact.assert_called_once_with("EXISTING")
+
+    def test_user_rename_does_not_resurrect_a_contact_being_removed(
+        self, profile, django_capture_on_commit_callbacks
+    ):
+        """Because a failed delete now deliberately keeps outlook_contact_id,
+        a profile mid-removal still looks synced. Without a phone_verified
+        check, a later name change would call sync_profile() -- which does not
+        enforce it -- and update or recreate the contact the other handler is
+        trying to delete."""
+        patcher, stub = self._patched_service()
+
+        self._write_bypassing_save(profile, phone_verified=False)
+
+        with patcher:
+            with django_capture_on_commit_callbacks(execute=True):
+                profile.user.first_name = "Renamed"
+                profile.user.save(update_fields=["first_name"])
+
+        stub.sync_profile.assert_not_called()
 
     def test_a_failed_delete_keeps_the_id_for_retry(
         self, profile, django_capture_on_commit_callbacks

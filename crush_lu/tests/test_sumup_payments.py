@@ -4750,6 +4750,10 @@ class CommunitySupporterBadgeTests(SiteTestMixin, TestCase):
         self.assertIn("Support Crush.lu", body)
         self.assertIn("/payments/sumup/create-donation-checkout/", body)
         self.assertIn('name="csrfmiddlewaretoken"', body)
+        # Pins the marker the suppressed-shell test asserts the absence of --
+        # a negative assertion on its own would still pass if the component
+        # were renamed or misspelled here.
+        self.assertIn('x-data="donationCard"', body)
 
     @override_settings(ANDROID_NATIVE_COMMERCE_ENABLED=False)
     def test_the_card_offers_no_purchase_inside_a_native_shell(self):
@@ -4771,7 +4775,7 @@ class CommunitySupporterBadgeTests(SiteTestMixin, TestCase):
         self.assertIn("Support Crush.lu", body)
         self.assertIn("Available outside the mobile app", body)
         self.assertNotIn("/payments/sumup/create-donation-checkout/", body)
-        self.assertNotIn('id="js-submit-donation"', body)
+        self.assertNotIn('x-data="donationCard"', body)
 
     def test_the_badge_appears_in_the_gdpr_export(self):
         """The export promises all of a member's personal data.

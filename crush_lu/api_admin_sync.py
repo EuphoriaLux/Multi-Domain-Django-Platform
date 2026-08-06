@@ -17,6 +17,23 @@ from crush_lu.services.graph_contacts import GraphContactsService, is_sync_enabl
 logger = logging.getLogger(__name__)
 
 
+def _validated_service():
+    """
+    Build a GraphContactsService and prove it can authenticate.
+
+    Both endpoints below hand their work to a background thread and answer 202.
+    That answer is a lie if the service cannot even start, so the failure modes
+    that are knowable up front -- missing credentials, a broken client secret,
+    no msal package -- are surfaced synchronously as a 500 instead.
+
+    Raises:
+        Exception: if the service cannot be constructed or cannot get a token.
+    """
+    service = GraphContactsService()
+    service.get_access_token()
+    return service
+
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def sync_contacts_endpoint(request):
@@ -64,12 +81,25 @@ def sync_contacts_endpoint(request):
             'error': 'Outlook contact sync is not enabled for this environment'
         }, status=503)
 
+    # Prove the job can actually start before promising 202. Building the
+    # service validates credentials and acquiring a token exercises MSAL and
+    # Graph auth; doing that inside the thread would report "started" for a run
+    # that dies immediately, which is the same 200-while-doing-nothing silence
+    # that hid the dead timers on the sibling function app.
+    try:
+        service = _validated_service()
+    except Exception as e:
+        logger.error(f"Contact sync cannot start: {e}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': 'Outlook contact sync is not operational'
+        }, status=500)
+
     # Run sync in background thread to avoid App Service request timeout (230s)
     def _run_sync():
         try:
             import django
             django.db.connections.close_all()
-            service = GraphContactsService()
             logger.info("Starting scheduled Outlook contact sync via admin API (background)")
             stats = service.sync_all_profiles(dry_run=False)
             logger.info(
@@ -155,11 +185,22 @@ def delete_all_contacts_endpoint(request):
     # per-mailbox request budget, which on a large mailbox exceeds the App
     # Service 230s request ceiling on its own -- the caller would lose the
     # result and the deletion would be left half-done.
+    # Same reasoning as the sync endpoint: an operator running a *destructive*
+    # cleanup must not be told it started when the credentials are broken and
+    # nothing will be touched.
+    try:
+        service = _validated_service()
+    except Exception as e:
+        logger.error(f"Contact deletion cannot start: {e}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': 'Outlook contact sync is not operational'
+        }, status=500)
+
     def _run_delete():
         try:
             import django
             django.db.connections.close_all()
-            service = GraphContactsService()
             logger.warning(
                 f"Deleting Outlook contacts via admin API (including orphaned; "
                 f"include_foreign={include_foreign})"

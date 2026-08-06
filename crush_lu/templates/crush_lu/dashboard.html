@@ -62,28 +62,78 @@
     </div>
     {% endfor %}
 
+    {% comment %}
+    Post-event action card. Three things are load-bearing here:
+
+    1. ONE primary. The lobby CTA (`.btn-crush-solid`, from the component) is the
+       funnel step; Quiz and My Crush are `.btn-crush-outline`. Three solid
+       purple pills gave the eye no entry point, and two of them — "Confirm who
+       you met" and "My Crush" — lead to overlapping attendee surfaces.
+    2. EVERY button sizes with `btn-sm`, never ad-hoc `px-*`/`py-*`.
+       `.btn-crush-outline` is UNLAYERED (STYLE.md §2), so padding utilities on
+       it are silently inert while they DO land on the layered `.btn-crush-solid`
+       next to it — that mismatch is what made the row look ragged. `w-full` is
+       safe on both: neither button rule declares `width`.
+    3. The stack is explicit (`flex-col` → `sm:flex-row`), not a `flex-wrap`
+       accident. Wrapping broke at whatever point the localised label ran out of
+       room, so DE, FR and EN each split the row somewhere different.
+
+    The ghost only animates while the event is genuinely live, so the motion
+    reads as "this is happening now" rather than as decoration. `is_live`, NOT
+    `show_quiz` — the latter stays true for two days after the end, so a moving
+    ghost tied to it would keep claiming the event was running. Note that no
+    ghost include gates its SMIL on `prefers-reduced-motion`, which is why the
+    resting state uses the genuinely static `ghost-logo-icon` rather than
+    `ghost-logo` (whose heart orbits forever).
+
+    `no_heart` on that resting ghost: ghost + heart is the Crush logo itself,
+    and the navbar renders it live on every page. Repeating the mark down in
+    the page content reads as a second, broken logo rather than as artwork, so
+    the card shows the bare ghost. The party ghost needs no such flag — it
+    carries a hat, not a heart.
+    {% endcomment %}
     {% for action in post_event_actions %}
-    <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-crush-purple/40 bg-purple-50 dark:bg-purple-900/20 px-4 py-3">
-        <p class="text-xs sm:text-sm font-semibold text-crush-purple dark:text-purple-200 mb-0 min-w-0 flex-1">{{ action.event.title }}</p>
-        {% comment %}
-        No flex-shrink-0 here: it pins this group to its max-content width, so a
-        flex-wrap container never feels the pressure that makes it wrap and the
-        buttons run past the card edge on mobile (up to three of them + a long
-        localised label). Let it shrink and wrap instead.
-        {% endcomment %}
-        <div class="flex flex-wrap gap-2">
-            {% include "crush_lu/components/event_lobby_cta.html" with cta=action.lobby_cta event=action.event %}
-            {% if action.show_quiz %}
-            <a href="{% url 'crush_lu:quiz_live' action.event.id %}" class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold bg-crush-purple hover:bg-crush-purple-dark text-white rounded-lg transition-all">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-                {% trans "Join Quiz" %}
-            </a>
+    <div class="flex items-start gap-3 rounded-xl border {% if action.event.is_live %}border-crush-pink/60{% else %}border-crush-purple/40{% endif %} bg-purple-50 dark:bg-purple-900/20 px-4 py-3">
+        <div class="shrink-0 pt-0.5">
+            {% if action.event.is_live %}
+            {% include "crush_lu/includes/ghost-story-party.html" with class="w-10 h-10" %}
+            {% else %}
+            {% include "crush_lu/includes/ghost-logo-icon.html" with class="w-10 h-10" no_heart=True %}
             {% endif %}
+        </div>
+        <div class="min-w-0 flex-1">
+            {% if action.event.is_live %}
+            {% comment %}
+            text-pink-900, not text-crush-pink-dark: measured over this tint on
+            `bg-purple-50`, the brand pink gives 2.43:1 and pink-800 gives
+            4.30:1 — both fail WCAG AA for 12px text. pink-900 clears 4.5:1.
+            {% endcomment %}
+            <span class="mb-1 inline-flex items-center gap-1.5 rounded-full bg-crush-pink/20 px-2 py-0.5 text-xs font-semibold tracking-wide text-pink-900 dark:bg-crush-pink/25 dark:text-pink-200">
+                <span class="inline-block h-1.5 w-1.5 rounded-full bg-crush-pink animate-pulse" aria-hidden="true"></span>
+                {% trans "Live now" %}
+            </span>
+            {% endif %}
+            <p class="mb-0 text-sm font-semibold text-crush-purple dark:text-purple-200">{{ action.event.title }}</p>
             {% if action.show_my_crush %}
-            <a href="{% url 'crush_lu:event_attendees' action.event.id %}" class="btn-crush-solid inline-flex items-center justify-center gap-1.5 text-xs sm:text-sm px-3 py-1.5">
-                {% include "shared/icons/users.html" with class="w-4 h-4" %} {% trans "My Crush" %}
-            </a>
+            <p class="mb-0 mt-0.5 text-xs text-crush-purple/70 dark:text-purple-300/70">
+                {% blocktrans with remaining=action.event.connection_window_deadline|timeuntil %}Recap closes in {{ remaining }}{% endblocktrans %}
+            </p>
             {% endif %}
+            <div class="mt-2.5 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                {% include "crush_lu/components/event_lobby_cta.html" with cta=action.lobby_cta event=action.event full_width_mobile=True %}
+                {% if action.show_quiz %}
+                <a href="{% url 'crush_lu:quiz_live' action.event.id %}" class="btn-crush-outline btn-sm inline-flex w-full items-center justify-center gap-2 sm:w-auto">
+                    {% include "shared/icons/light-bulb.html" with class="w-4 h-4 shrink-0" %}
+                    {% trans "Join Quiz" %}
+                </a>
+                {% endif %}
+                {% if action.show_my_crush %}
+                <a href="{% url 'crush_lu:event_attendees' action.event.id %}" class="btn-crush-outline btn-sm inline-flex w-full items-center justify-center gap-2 sm:w-auto">
+                    {% include "shared/icons/users.html" with class="w-4 h-4 shrink-0" %}
+                    {% trans "My Crush" %}
+                </a>
+                {% endif %}
+            </div>
         </div>
     </div>
     {% endfor %}

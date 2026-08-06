@@ -53,21 +53,47 @@
             {% trans "Available outside the mobile app" %}
         </p>
         {% else %}
-        <!-- Donation Amount Options -->
-        <div class="mt-4" id="donation-card-form">
+        {% comment %}
+        Behaviour lives in the named `donationCard` component in
+        alpine-components.js (AGENTS.md / STYLE.md §7): Alpine runs under a CSP
+        build, so bindings are bare method and getter names, and the clicked
+        tier identifies itself through data-amount rather than an argument.
+
+        The strings below are handed over as data- attributes so they stay
+        translatable here. Doing it with gettext() in the component instead
+        would move them to the djangojs catalog, which is not where these
+        already are.
+        {% endcomment %}
+        <div class="mt-4"
+             x-data="donationCard"
+             data-min="2"
+             data-max="500"
+             data-default="10"
+             data-endpoint="/payments/sumup/create-donation-checkout/"
+             data-label-support="{% trans 'Support the Project' %}"
+             data-msg-min="{% trans 'Minimum contribution amount is €2.00.' %}"
+             data-msg-max="{% trans 'Maximum contribution amount is €500. Please contact us for larger contributions.' %}"
+             data-msg-preparing="{% trans 'Preparing secure checkout...' %}"
+             data-msg-unavailable="{% trans 'Unable to initiate payment.' %}"
+             data-msg-failed="{% trans 'Payment initialization failed. Please try again.' %}">
             <label class="block text-xs font-bold uppercase tracking-wider mb-2.5 text-gray-700 dark:text-purple-200">{% trans "Choose Contribution Amount" %}</label>
 
-            <!-- Preset Buttons Tiers -->
+            {% comment %}
+            Server-rendered rather than an x-for over a JS array: the tier
+            labels are translatable, and the CSP build takes no arguments, so
+            each button carries its own amount for selectTier to read off $el.
+            data-default above names the one rendered active here.
+            {% endcomment %}
             <div class="grid grid-cols-3 gap-3 mb-3">
-                <button type="button" data-amount="5" class="js-donation-tier-btn py-2.5 px-3 rounded-xl border border-gray-200 dark:border-white/20 bg-gray-50 dark:bg-white/10 hover:bg-pink-50 dark:hover:bg-pink-600/30 transition-all font-bold text-sm text-center flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer">
+                <button type="button" data-amount="5" @click="selectTier" class="py-2.5 px-3 rounded-xl border border-gray-200 dark:border-white/20 bg-gray-50 dark:bg-white/10 hover:bg-pink-50 dark:hover:bg-pink-600/30 transition-all font-bold text-sm text-center flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer">
                     <span class="tier-amount text-base font-extrabold text-gray-900 dark:text-white">€5</span>
                     <span class="tier-label text-[11px] font-medium text-gray-600 dark:text-purple-200">☕ {% trans "Coffee" %}</span>
                 </button>
-                <button type="button" data-amount="10" class="js-donation-tier-btn active py-2.5 px-3 rounded-xl border-2 border-pink-500 bg-pink-500 shadow-md font-bold text-sm text-center flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer transition-all">
+                <button type="button" data-amount="10" @click="selectTier" class="py-2.5 px-3 rounded-xl border-2 border-pink-500 bg-pink-500 shadow-md font-bold text-sm text-center flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer transition-all">
                     <span class="tier-amount text-base font-extrabold text-white">€10</span>
                     <span class="tier-label text-[11px] font-medium text-pink-100">🌟 {% trans "Supporter" %}</span>
                 </button>
-                <button type="button" data-amount="25" class="js-donation-tier-btn py-2.5 px-3 rounded-xl border border-gray-200 dark:border-white/20 bg-gray-50 dark:bg-white/10 hover:bg-pink-50 dark:hover:bg-pink-600/30 transition-all font-bold text-sm text-center flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer">
+                <button type="button" data-amount="25" @click="selectTier" class="py-2.5 px-3 rounded-xl border border-gray-200 dark:border-white/20 bg-gray-50 dark:bg-white/10 hover:bg-pink-50 dark:hover:bg-pink-600/30 transition-all font-bold text-sm text-center flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer">
                     <span class="tier-amount text-base font-extrabold text-gray-900 dark:text-white">€25</span>
                     <span class="tier-label text-[11px] font-medium text-gray-600 dark:text-purple-200">🚀 {% trans "Sponsor" %}</span>
                 </button>
@@ -78,12 +104,12 @@
                 <div class="relative flex-1">
                     <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none font-bold text-gray-700 dark:text-white">€</span>
                     {# STYLE.md: hand-rolled inputs use .input-crush, not a re-derived box. #}
-                    <input type="number" id="donation-custom-amount" step="0.01" min="2" max="500" placeholder="{% trans 'Custom amount' %}" class="input-crush w-full pl-8">
+                    <input type="number" x-ref="custom" @input="onCustomInput" step="0.01" min="2" max="500" placeholder="{% trans 'Custom amount' %}" class="input-crush w-full pl-8">
                 </div>
             </div>
 
             <!-- Error Message -->
-            <p id="donation-error" class="hidden text-xs font-semibold rounded-xl p-2.5 mb-3 text-center bg-rose-50 dark:bg-rose-950/80 border border-rose-200 dark:border-rose-400/40 text-rose-700 dark:text-rose-200" role="alert"></p>
+            <p x-show="hasError" x-cloak x-text="errorMessage" class="text-xs font-semibold rounded-xl p-2.5 mb-3 text-center bg-rose-50 dark:bg-rose-950/80 border border-rose-200 dark:border-rose-400/40 text-rose-700 dark:text-rose-200" role="alert"></p>
 
             {% comment %}
             .btn-crush-solid, not a hand-rolled gradient. STYLE.md reserves the
@@ -93,11 +119,12 @@
             gradient meaning anything. Solid is the documented class for "any
             other primary action".
             {% endcomment %}
-            <button type="button" id="js-submit-donation" class="btn-crush-solid w-full flex items-center justify-center gap-2">
+            <button type="button" @click="submit" :disabled="busy" class="btn-crush-solid w-full flex items-center justify-center gap-2">
                 <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.684a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
                 </svg>
-                <span id="donation-btn-text">{% trans "Support the Project" %} (€10.00)</span>
+                {# Server-rendered to match the component's opening state, so the label is right before Alpine boots and if it never does. #}
+                <span x-text="buttonLabel">{% trans "Support the Project" %} (€10.00)</span>
             </button>
         </div>
 
@@ -110,161 +137,3 @@
         {% endif %}{# suppress_native_commerce #}
     </div>
 </div>
-
-{% if not suppress_native_commerce %}
-<script nonce="{{ csp_nonce }}">
-    document.addEventListener("DOMContentLoaded", function () {
-        const tierBtns = document.querySelectorAll(".js-donation-tier-btn");
-        const customInput = document.getElementById("donation-custom-amount");
-        const submitBtn = document.getElementById("js-submit-donation");
-        const btnText = document.getElementById("donation-btn-text");
-        const errorEl = document.getElementById("donation-error");
-
-        // The paying half of the card is not rendered on a native session with
-        // commerce suppressed, so there is nothing here to wire up.
-        if (!submitBtn || !customInput) {
-            return;
-        }
-
-        let selectedAmount = 10;
-
-        function setTierState(btn, isActive) {
-            const amountSpan = btn.querySelector('.tier-amount');
-            const labelSpan = btn.querySelector('.tier-label');
-
-            if (isActive) {
-                btn.className = "js-donation-tier-btn active py-2.5 px-3 rounded-xl border-2 border-pink-500 bg-pink-500 shadow-md font-bold text-sm text-center flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer transition-all";
-                if (amountSpan) amountSpan.className = "tier-amount text-base font-extrabold text-white";
-                if (labelSpan) labelSpan.className = "tier-label text-[11px] font-medium text-pink-100";
-            } else {
-                btn.className = "js-donation-tier-btn py-2.5 px-3 rounded-xl border border-gray-200 dark:border-white/20 bg-gray-50 dark:bg-white/10 hover:bg-pink-50 dark:hover:bg-pink-600/30 font-bold text-sm text-center flex flex-col items-center justify-center focus:outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer transition-all";
-                if (amountSpan) amountSpan.className = "tier-amount text-base font-extrabold text-gray-900 dark:text-white";
-                if (labelSpan) labelSpan.className = "tier-label text-[11px] font-medium text-gray-600 dark:text-purple-200";
-            }
-        }
-
-        // Round the decimal the member typed, not its binary float, so this
-        // agrees with the server's Decimal ROUND_HALF_UP on every input.
-        //
-        // toFixed() rounds the float and gets 2.355 wrong (€2.35 shown, €2.36
-        // charged). Nudging by Number.EPSILON first looks like it fixes that
-        // and does for 2.355 -- but it is still float arithmetic and diverges
-        // on 4.6% of half-cent amounts: toCents(10.075) gave 10.07 where the
-        // server says 10.08. Digits are the only representation both sides
-        // agree on, so parse them.
-        //
-        // Half-up needs only "is the remainder >= 0.005", which is true
-        // exactly when the third decimal digit is 5-9 -- later digits cannot
-        // change that, so they are ignored rather than examined.
-        function toCents(value) {
-            const text = String(value).trim();
-            if (!/^\d+(\.\d*)?$|^\.\d+$/.test(text)) {
-                return NaN;   // scientific notation, signs, junk — let the caller reject it
-            }
-            const parts = text.split(".");
-            const whole = parseInt(parts[0] || "0", 10);
-            const frac = parts[1] || "";
-            let cents = whole * 100 + parseInt(frac.slice(0, 2).padEnd(2, "0"), 10);
-            if (frac.length > 2 && frac.charCodeAt(2) >= 53) {
-                cents += 1;
-            }
-            return cents / 100;
-        }
-
-        // Takes the raw text the member typed (or a preset's data-amount), not
-        // a parsed float, so toCents sees the digits themselves.
-        function updateAmountDisplay(raw) {
-            const cents = toCents(raw);
-            selectedAmount = cents;
-            if (!isNaN(cents) && cents > 0) {
-                btnText.textContent = "{% trans 'Support the Project' %} (€" + cents.toFixed(2) + ")";
-            } else {
-                btnText.textContent = "{% trans 'Support the Project' %}";
-            }
-        }
-
-        tierBtns.forEach(function (btn) {
-            btn.addEventListener("click", function () {
-                tierBtns.forEach(b => setTierState(b, false));
-                setTierState(btn, true);
-                customInput.value = "";
-                updateAmountDisplay(btn.getAttribute("data-amount"));
-            });
-        });
-
-        customInput.addEventListener("input", function () {
-            const raw = customInput.value.trim();
-            const cents = toCents(raw);
-            if (!isNaN(cents) && cents >= 2) {
-                tierBtns.forEach(b => setTierState(b, false));
-                updateAmountDisplay(raw);
-            }
-        });
-
-        submitBtn.addEventListener("click", function () {
-            // A non-empty custom field is authoritative, valid or not. Taking
-            // it only when it already passed the minimum meant typing "1" left
-            // finalAmount on the last preset, so the checks below saw a valid
-            // €10 and opened a €10 checkout for someone who asked for €1. The
-            // input is not in a form, so its `min` attribute never intervenes.
-            // To the cent before it is judged or sent, from the typed digits,
-            // so the figure checked here, the figure on the button and the
-            // figure SumUp charges are all the same one.
-            let finalAmount = selectedAmount;
-            const custom = customInput.value.trim();
-            if (custom !== "") {
-                finalAmount = toCents(custom);
-            }
-
-            if (isNaN(finalAmount) || finalAmount < 2) {
-                errorEl.textContent = "{% trans 'Minimum contribution amount is €2.00.' %}";
-                errorEl.classList.remove("hidden");
-                return;
-            }
-
-            // Mirrors DONATION_MAX_EUR in views_payments.py. The server is what
-            // actually enforces this; checking here only saves a round trip on
-            // an obvious slipped decimal point.
-            if (finalAmount > 500) {
-                errorEl.textContent = "{% trans 'Maximum contribution amount is €500. Please contact us for larger contributions.' %}";
-                errorEl.classList.remove("hidden");
-                return;
-            }
-
-            errorEl.classList.add("hidden");
-            submitBtn.disabled = true;
-            btnText.textContent = "{% trans 'Preparing secure checkout...' %}";
-
-            {% comment %}
-            Absolute path, like every other checkout call site (my_events.html,
-            event_detail.html, choose_coach.html). The route is registered
-            un-prefixed on the crush.lu urlconf; reversing it by name here would
-            tie this partial to which urlconf is active and turn a
-            NoReverseMatch into a 500 on the whole page.
-            {% endcomment %}
-            fetch("/payments/sumup/create-donation-checkout/", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRFToken": (document.querySelector("[name=csrfmiddlewaretoken]") || {}).value || ""
-                },
-                body: JSON.stringify({ amount: finalAmount })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success && data.widget_url) {
-                    window.location.href = data.widget_url;
-                } else {
-                    throw new Error(data.error || "{% trans 'Unable to initiate payment.' %}");
-                }
-            })
-            .catch(err => {
-                submitBtn.disabled = false;
-                updateAmountDisplay(finalAmount);
-                errorEl.textContent = err.message || "{% trans 'Payment initialization failed. Please try again.' %}";
-                errorEl.classList.remove("hidden");
-            });
-        });
-    });
-</script>
-{% endif %}{# suppress_native_commerce — nothing purchasable, not even its script #}

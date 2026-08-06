@@ -616,13 +616,21 @@ class GraphContactsService:
         rebuild the contact. Every 404 path must go through here: leaving a dead
         ID on the profile strands it permanently, because update_contact keeps
         being chosen over create_contact and keeps failing.
+
+        outlook_photo_key is cleared alongside it, because it describes a photo
+        on the contact that just went away. Leaving it set means that if the
+        recreate's photo upload fails even once, the key still equals
+        photo_1.name, so every later sync sees "photo unchanged" and skips the
+        upload -- the contact would stay photo-less until the member happened to
+        change their picture.
         """
         logger.warning(
             f"Outlook contact {profile.outlook_contact_id} not found for "
             f"profile {profile.pk}, will recreate"
         )
         profile.outlook_contact_id = ""
-        profile.save(update_fields=["outlook_contact_id"])
+        profile.outlook_photo_key = ""
+        profile.save(update_fields=["outlook_contact_id", "outlook_photo_key"])
 
     @staticmethod
     def _remember_photo_key(profile, photo_key: str) -> None:
