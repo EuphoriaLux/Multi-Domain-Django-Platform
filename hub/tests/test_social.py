@@ -107,6 +107,8 @@ class SocialMediaTests(TestCase):
         response = self.client.get("/hub/social/posts")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["items"][0]["hook"], "Soirée œnologique")
+        self.assertIn("source_event_title", response.data["items"][0])
+        self.assertIsNone(response.data["items"][0]["source_event_title"])
 
     def test_manual_creation_always_starts_as_draft(self):
         response = self.client.post(
@@ -537,6 +539,22 @@ class SocialMediaTests(TestCase):
                 self.assertEqual(response.status_code, 400)
                 self.assertIn("supported language", response.data["languages"])
 
+    def test_event_draft_rejects_copy_over_social_length_limit(self):
+        event = self._event(
+            title_fr="Événement détaillé",
+            description_fr="x" * 1500,
+        )
+
+        response = self.client.post(
+            f"/hub/social/upcoming-events/{event.pk}/drafts",
+            {"languages": ["fr"]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("exceeds 1500", response.data["languages"])
+        self.assertFalse(SocialPost.objects.filter(source_event=event).exists())
+
     def test_upcoming_event_reports_linked_buffer_promotion(self):
         event = self._event()
         post = SocialPost.objects.create(
@@ -812,20 +830,31 @@ class SocialMediaTests(TestCase):
 
     @patch(
         "hub.views_social.create_buffer_update",
-        side_effect=BufferPartialFailure(["buffer_post_1"]),
+        side_effect=BufferPartialFailure(["buffer_post_1"], ["facebook_channel"]),
     )
     def test_partial_buffer_failure_preserves_ids_and_blocks_duplicate_retry(
         self, dispatch
     ):
+        event = self._event(
+            title_fr="Événement multicanal",
+            description_fr="Description multicanale",
+        )
         post = SocialPost.objects.create(
             user=self.user,
+            source_event=event,
             content="Publication prête",
+            language="fr",
+            platforms=["facebook", "linkedin"],
             status=SocialPost.Status.PENDING_REVIEW,
         )
         payload = {
             "status": SocialPost.Status.SCHEDULED,
             "scheduled_for": (timezone.now() + timedelta(days=1)).isoformat(),
-            "buffer_profile_ids": ["channel_1", "channel_2"],
+            "buffer_profile_ids": ["facebook_channel", "linkedin_channel"],
+            "buffer_profile_platforms": {
+                "facebook_channel": "facebook",
+                "linkedin_channel": "linkedin",
+            },
         }
 
         first = self.client.patch(
@@ -841,6 +870,23 @@ class SocialMediaTests(TestCase):
         post.refresh_from_db()
         self.assertEqual(post.status, SocialPost.Status.FAILED)
         self.assertEqual(post.buffer_id, "buffer_post_1")
+        self.assertEqual(post.dispatched_platforms, ["facebook"])
+
+        missing_platform = self.client.post(
+            "/hub/social/generate",
+            {
+                "category": "events",
+                "event_id": str(event.pk),
+                "hook": "Ignored for deterministic event copy",
+                "pillar": "promo",
+                "platforms": ["facebook", "linkedin"],
+                "languages": ["fr"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(missing_platform.status_code, 201)
+        self.assertEqual(missing_platform.data["posts"][0]["platforms"], ["linkedin"])
 
     @patch(
         "hub.views_social.create_buffer_update",
@@ -942,6 +988,7 @@ class BufferServiceTests(SimpleTestCase):
             )
 
         self.assertEqual(raised.exception.created_post_ids, ["buffer_post_1"])
+        self.assertEqual(raised.exception.created_profile_ids, ["channel_1"])
 
     @override_settings(BUFFER_API_KEY="")
     def test_missing_buffer_key_fails_closed(self):

@@ -229,6 +229,8 @@ class SocialPost(models.Model):
     )
     platforms = models.JSONField(default=list, blank=True)
     buffer_profile_ids = models.JSONField(default=list, blank=True)
+    buffer_profile_platforms = models.JSONField(default=dict, blank=True)
+    dispatched_platforms = models.JSONField(default=list, blank=True)
     hook = models.CharField(max_length=255, blank=True, default="")
     content = models.TextField(blank=True, default="")
     media_url = models.URLField(blank=True, null=True, default=None)

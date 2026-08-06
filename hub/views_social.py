@@ -37,6 +37,7 @@ ALLOWED_CATEGORIES = {"events", "kpis", "profiles", "tips", "recaps"}
 ALLOWED_PLATFORMS = {"instagram", "facebook", "linkedin"}
 ALLOWED_LANGUAGES = {choice for choice, _label in SocialPost.Language.choices}
 ALLOWED_PILLARS = {choice for choice, _label in SocialPost.Pillar.choices}
+SOCIAL_CONTENT_MAX_LENGTH = 1500
 
 BUFFER_SCHEDULE_ERROR = "Buffer could not schedule this post. Try again later."
 COPY_GENERATION_ERROR = "Social copy generation is temporarily unavailable."
@@ -54,7 +55,14 @@ EVENT_SCHEDULE_ERROR = "Publication time must be before the linked event starts.
 SCHEDULED_EDIT_ERROR = (
     "Delivery fields cannot be changed after a post has been scheduled in Buffer."
 )
-SCHEDULING_FIELDS = {"content", "scheduled_for", "media_url", "buffer_profile_ids"}
+SCHEDULING_FIELDS = {
+    "content",
+    "scheduled_for",
+    "media_url",
+    "platforms",
+    "buffer_profile_ids",
+    "buffer_profile_platforms",
+}
 PROMOTED_STATUSES = {SocialPost.Status.SCHEDULED, SocialPost.Status.PUBLISHED}
 PROMOTION_STATUS_RANK = {
     SocialPost.Status.PUBLISHED: 6,
@@ -260,8 +268,37 @@ def _event_post_content(event: MeetupEvent, language: str) -> str:
     )
 
 
+def _event_copy_validation_error(
+    event: MeetupEvent, languages: list[str]
+) -> str | None:
+    unavailable_languages = set(languages) - set(_event_available_languages(event))
+    if unavailable_languages:
+        return "The event has no stored title and description for: " + ", ".join(
+            sorted(unavailable_languages)
+        )
+    oversized_languages = [
+        language
+        for language in languages
+        if len(_event_post_content(event, language)) > SOCIAL_CONTENT_MAX_LENGTH
+    ]
+    if oversized_languages:
+        return (
+            f"The stored event copy exceeds {SOCIAL_CONTENT_MAX_LENGTH} characters for: "
+            + ", ".join(oversized_languages)
+        )
+    return None
+
+
 def _event_post_is_dispatched(post: SocialPost) -> bool:
     return post.status in PROMOTED_STATUSES or bool(post.buffer_id)
+
+
+def _event_post_dispatched_platforms(post: SocialPost) -> set[str]:
+    if post.dispatched_platforms:
+        return set(post.dispatched_platforms)
+    if post.status in PROMOTED_STATUSES:
+        return set(post.platforms or [])
+    return set()
 
 
 def _event_media_url(event: MeetupEvent, request) -> str | None:
@@ -293,6 +330,7 @@ def _refresh_event_draft(
     }
     if post.platforms != platforms:
         refreshed["buffer_profile_ids"] = []
+        refreshed["buffer_profile_platforms"] = {}
     changed_fields = [
         field for field, value in refreshed.items() if getattr(post, field) != value
     ]
@@ -338,7 +376,9 @@ def _create_event_drafts(
             post for post in language_posts if _event_post_is_dispatched(post)
         ]
         dispatched_platforms = {
-            platform for post in dispatched_posts for platform in (post.platforms or [])
+            platform
+            for post in dispatched_posts
+            for platform in _event_post_dispatched_platforms(post)
         }
         missing_platforms = [
             platform for platform in platforms if platform not in dispatched_platforms
@@ -489,8 +529,30 @@ class SocialPostDetailView(APIView):
                 scheduling_errors["scheduled_for"] = "Choose a publication time"
             elif linked_event and scheduled_for >= linked_event.date_time:
                 scheduling_errors["scheduled_for"] = EVENT_SCHEDULE_ERROR
-            if not request.data.get("buffer_profile_ids", post.buffer_profile_ids):
+            selected_profile_ids = serializer.validated_data.get(
+                "buffer_profile_ids", post.buffer_profile_ids
+            )
+            profile_platforms = serializer.validated_data.get(
+                "buffer_profile_platforms", post.buffer_profile_platforms
+            )
+            effective_platforms = serializer.validated_data.get(
+                "platforms", post.platforms
+            )
+            if not selected_profile_ids:
                 scheduling_errors["buffer_profile_ids"] = "Select a Buffer channel"
+            elif all(
+                profile_id in profile_platforms for profile_id in selected_profile_ids
+            ):
+                pass
+            elif len(effective_platforms or []) == 1:
+                serializer.validated_data["buffer_profile_platforms"] = {
+                    profile_id: effective_platforms[0]
+                    for profile_id in selected_profile_ids
+                }
+            elif linked_event:
+                scheduling_errors["buffer_profile_platforms"] = (
+                    "Identify the platform for every selected Buffer channel"
+                )
             if not str(request.data.get("content", post.content)).strip():
                 scheduling_errors["content"] = "Post content cannot be empty"
             if scheduling_errors:
@@ -536,6 +598,13 @@ class SocialPostDetailView(APIView):
                 )
                 updated_post.status = SocialPost.Status.FAILED
                 updated_post.buffer_id = ",".join(exc.created_post_ids)
+                updated_post.dispatched_platforms = list(
+                    dict.fromkeys(
+                        updated_post.buffer_profile_platforms[profile_id]
+                        for profile_id in exc.created_profile_ids
+                        if profile_id in updated_post.buffer_profile_platforms
+                    )
+                )
                 history = list(updated_post.status_history or [])
                 history.append(
                     _history_entry(
@@ -546,7 +615,12 @@ class SocialPostDetailView(APIView):
                 )
                 updated_post.status_history = history
                 updated_post.save(
-                    update_fields=["status", "buffer_id", "status_history"]
+                    update_fields=[
+                        "status",
+                        "buffer_id",
+                        "dispatched_platforms",
+                        "status_history",
+                    ]
                 )
                 return Response(
                     {
@@ -579,7 +653,17 @@ class SocialPostDetailView(APIView):
                 )
 
             updated_post.buffer_id = result["buffer_id"]
-            updated_post.save(update_fields=["buffer_id"])
+            successful_profile_ids = result.get(
+                "created_profile_ids", updated_post.buffer_profile_ids
+            )
+            updated_post.dispatched_platforms = list(
+                dict.fromkeys(
+                    updated_post.buffer_profile_platforms[profile_id]
+                    for profile_id in successful_profile_ids
+                    if profile_id in updated_post.buffer_profile_platforms
+                )
+            )
+            updated_post.save(update_fields=["buffer_id", "dispatched_platforms"])
 
         return Response({"post": SocialPostSerializer(updated_post).data})
 
@@ -642,17 +726,10 @@ class SocialGenerateView(APIView):
                         {"event_id": "Select a public, published upcoming event"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
-                unavailable_languages = set(languages) - set(
-                    _event_available_languages(event)
-                )
-                if unavailable_languages:
+                copy_error = _event_copy_validation_error(event, languages)
+                if copy_error:
                     return Response(
-                        {
-                            "languages": (
-                                "The event has no stored title and description for: "
-                                + ", ".join(sorted(unavailable_languages))
-                            )
-                        },
+                        {"languages": copy_error},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 posts, created_count = _create_event_drafts(
@@ -804,17 +881,10 @@ class SocialEventDraftsView(APIView):
                     {"event_id": "Select a public, published upcoming event"},
                     status=status.HTTP_404_NOT_FOUND,
                 )
-            unavailable_languages = set(languages) - set(
-                _event_available_languages(event)
-            )
-            if unavailable_languages:
+            copy_error = _event_copy_validation_error(event, languages)
+            if copy_error:
                 return Response(
-                    {
-                        "languages": (
-                            "The event has no stored title and description for: "
-                            + ", ".join(sorted(unavailable_languages))
-                        )
-                    },
+                    {"languages": copy_error},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             posts, created_count = _create_event_drafts(
