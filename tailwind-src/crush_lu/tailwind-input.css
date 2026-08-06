@@ -6381,10 +6381,17 @@ html.dark .section-card {
         flex-direction: column;
     }
 
-    /* Mobile touch target improvements - ensure minimum 44px touch targets */
+    /* Mobile touch target improvements - ensure minimum 44px touch targets.
+       `a.btn-crush-solid` belongs here for the same reason as its three
+       siblings: it is the in-page primary CTA, and as a link it is not caught
+       by the `button` selector above. It was missing until 2026-08-05, so
+       every solid CTA rendered as an <a> sat at 36px under this breakpoint —
+       below the minimum, and visibly shorter than an .btn-crush-outline
+       sibling in the same button group. */
     button:not(.no-mobile-touch-fix),
     a.btn-crush-primary,
     a.btn-crush-secondary,
+    a.btn-crush-solid,
     a.btn-crush-outline,
     [role="button"] {
         min-height: 44px;

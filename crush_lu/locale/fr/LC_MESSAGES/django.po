@@ -22447,7 +22447,7 @@ msgstr ""
 
 #: templates/crush_lu/dashboard.html:276
 msgid "Membership Card"
-msgstr "Carte de membre de la cave"
+msgstr "Carte de membre"
 
 #: templates/crush_lu/dashboard.html:277
 msgid ""
@@ -29610,7 +29610,7 @@ msgstr ""
 
 #: templates/crush_lu/membership.html:34
 msgid "Your Membership Card"
-msgstr "Carte de membre de la cave"
+msgstr "Votre carte de membre"
 
 #: templates/crush_lu/membership.html:52
 msgid "Points:"
@@ -39192,3 +39192,293 @@ msgstr "Disponible en dehors de l'application mobile."
 
 msgid "SumUp did not return a valid checkout ID."
 msgstr "SumUp n'a pas renvoyé d'identifiant de paiement valide."
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Get ready"
+msgstr "Préparez-vous"
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Question complete"
+msgstr "Question terminée"
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Final results"
+msgstr "Résultats finaux"
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Next round"
+msgstr "Manche suivante"
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+#: crush_lu/templates/crush_lu/quiz_coach.html
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Loading media"
+msgstr "Chargement du média"
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+#: crush_lu/templates/crush_lu/quiz_coach.html
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Media unavailable"
+msgstr "Média indisponible"
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+#: crush_lu/templates/crush_lu/quiz_coach.html
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Quiz media"
+msgstr "Média du quiz"
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Projector display"
+msgstr "Affichage du projecteur"
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "PIN digit"
+msgstr "Chiffre du code PIN"
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Connecting to quiz..."
+msgstr "Connexion au quiz..."
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Crush Quiz Night"
+msgstr "Soirée quiz Crush"
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "QR code to open the quiz"
+msgstr "Code QR pour ouvrir le quiz"
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Join on your phone"
+msgstr "Participez sur votre téléphone"
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Scan to join"
+msgstr "Scannez pour participer"
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid ""
+"Sign in and complete event check-in first. The QR code does not bypass "
+"attendance access."
+msgstr ""
+"Connectez-vous et terminez d'abord l'enregistrement à l'événement. Le code "
+"QR ne contourne pas le contrôle de participation."
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Find your table and meet your teammates."
+msgstr "Trouvez votre table et faites connaissance avec vos coéquipiers."
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Answers locked"
+msgstr "Réponses verrouillées"
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Current standings"
+msgstr "Classement actuel"
+
+#: crush_lu/templates/crush_lu/quiz_coach.html
+msgid "Run of show"
+msgstr "Conduite du quiz"
+
+#: crush_lu/templates/crush_lu/quiz_coach.html
+msgid "Preview loaded here"
+msgstr "Aperçu chargé ici"
+
+#: crush_lu/templates/crush_lu/quiz_coach.html
+#, python-format
+msgid "Mark Table %(table_number)s correct"
+msgstr "Marquer la table %(table_number)s comme correcte"
+
+#: crush_lu/templates/crush_lu/quiz_coach.html
+#, python-format
+msgid "Mark Table %(table_number)s wrong"
+msgstr "Marquer la table %(table_number)s comme incorrecte"
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Ready to preview before saving."
+msgstr "Prêt à être prévisualisé avant l'enregistrement."
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "This file is larger than the 25 MB limit."
+msgstr "Ce fichier dépasse la limite de 25 Mo."
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "This file type does not match the selected media type."
+msgstr "Ce type de fichier ne correspond pas au type de média sélectionné."
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Choose what players should see or hear with this question."
+msgstr ""
+"Choisissez ce que les joueurs doivent voir ou entendre avec cette question."
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Media source"
+msgstr "Source du média"
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Upload"
+msgstr "Téléverser"
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Use a file from this device"
+msgstr "Utiliser un fichier de cet appareil"
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "External link"
+msgstr "Lien externe"
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "YouTube, Vimeo, Spotify, or SoundCloud"
+msgstr "YouTube, Vimeo, Spotify ou SoundCloud"
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Choose an image or a short video/audio clip up to 25 MB."
+msgstr ""
+"Choisissez une image ou un court extrait vidéo/audio de 25 Mo maximum."
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "External media link"
+msgstr "Lien de média externe"
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid ""
+"Paste a watch or share link. Supported links are converted to safe embeds "
+"when the question is shown."
+msgstr ""
+"Collez un lien de lecture ou de partage. Les liens pris en charge sont "
+"convertis en intégrations sécurisées lors de l'affichage de la question."
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Saving an external link replaces the current uploaded file."
+msgstr ""
+"L'enregistrement d'un lien externe remplace le fichier actuellement "
+"téléversé."
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Describe what players need to perceive"
+msgstr "Décrivez ce que les joueurs doivent percevoir"
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid ""
+"Write a concise equivalent for players using a screen reader, especially "
+"when identifying the media is part of the question."
+msgstr ""
+"Rédigez un équivalent concis pour les joueurs utilisant un lecteur d'écran, "
+"en particulier lorsque l'identification du média fait partie de la question."
+
+#: templates/crush_lu/dashboard.html
+msgid "Next event"
+msgstr "Prochain événement"
+
+#: templates/crush_lu/dashboard.html
+msgid "Pay now"
+msgstr "Payer maintenant"
+
+#: templates/crush_lu/dashboard.html
+msgid "Your seat is held until payment is settled."
+msgstr "Votre place est réservée jusqu'au règlement."
+
+#: templates/crush_lu/dashboard.html
+msgid "in %(countdown)s"
+msgstr "dans %(countdown)s"
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid "Registration Cancelled - {title}"
+msgstr "Inscription annulée - {title}"
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid ""
+"If you paid a registration fee, any refund is handled under our cancellation"
+" policy and we'll be in touch about it."
+msgstr ""
+"Si vous avez payé des frais d'inscription, tout remboursement éventuel suit "
+"notre politique d'annulation — nous vous recontacterons à ce sujet."
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid "Read the cancellation policy"
+msgstr "Lire la politique d'annulation"
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid "Email us at"
+msgstr "Écrivez-nous à"
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid "Questions? Email us at"
+msgstr "Des questions ? Écrivez-nous à"
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid "Questions? We'll help you out — email us at"
+msgstr "Des questions ? Nous vous aidons volontiers — écrivez-nous à"
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid "Have questions or need help? Email us at"
+msgstr "Des questions ou besoin d'aide ? Écrivez-nous à"
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid "If you have any questions, email us at"
+msgstr "Si vous avez des questions, écrivez-nous à"
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid "Our team will get back to you — email us at"
+msgstr "Notre équipe vous répondra — écrivez-nous à"
+
+#: crush_lu/templates/crush_lu/emails/profile_submission_confirmation.html
+msgid "Good next steps:"
+msgstr "Prochaines étapes :"
+
+#: crush_lu/templates/crush_lu/emails/profile_submission_confirmation.html
+msgid "See you at an event!"
+msgstr "À bientôt lors d'un événement !"
+
+#: crush_lu/templates/crush_lu/emails/profile_submission_confirmation.html
+msgid ""
+"You're literally one step away! Just add a photo or two and you're ready to "
+"get verified."
+msgstr ""
+"Vous n'êtes qu'à une étape ! Ajoutez une ou deux photos et vous êtes prêt à "
+"vous faire vérifier."
+
+#: crush_lu/templates/crush_lu/emails/profile_submission_confirmation.html
+msgid ""
+"You've done the hard part! Add your preferences and submit — then get "
+"verified at an event or with LuxID."
+msgstr ""
+"Vous avez fait le plus dur ! Ajoutez vos préférences et soumettez votre "
+"profil — ensuite, faites-vous vérifier lors d'un événement ou avec LuxID."
+
+#: crush_lu/templates/crush_lu/emails/profile_submission_confirmation.html
+msgid ""
+"3. Complete your profile — verify instantly with LuxID, or in person when "
+"you arrive"
+msgstr ""
+"3. Complétez votre profil — vérification instantanée avec LuxID, ou en "
+"personne à votre arrivée"
+
+#: crush_lu/templates/crush_lu/emails/profile_submission_confirmation.html
+msgid "4. Register for the event"
+msgstr "4. Inscrivez-vous à l'événement"
+
+#: crush_lu/templates/crush_lu/emails/profile_submission_confirmation.html
+msgid ""
+"Crush.lu is Luxembourg's privacy-first dating platform focused on real "
+"connections through in-person events. We prioritize quality over quantity, "
+"with every member verified and exclusive events."
+msgstr ""
+"Crush.lu est la plateforme de rencontres du Luxembourg axée sur la "
+"confidentialité et les rencontres réelles lors d'événements en personne. "
+"Nous privilégions la qualité à la quantité, avec des membres tous vérifiés "
+"et des événements exclusifs."
+
+#: crush_lu/templates/crush_lu/emails/profile_submission_confirmation.html
+msgid ""
+"You can browse and register for events any time — the call is about your "
+"Crush Coach getting to know you, so they can pick better matches for you."
+msgstr ""
+"Vous pouvez parcourir et réserver des événements à tout moment — l'appel "
+"sert à ce que votre Crush Coach apprenne à vous connaître et vous propose de"
+" meilleurs profils."
+
+#: crush_lu/templates/crush_lu/dashboard.html
+#, python-format
+msgid "Recap closes in %(remaining)s"
+msgstr "Le récap se termine dans %(remaining)s"

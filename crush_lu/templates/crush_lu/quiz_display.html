@@ -7,255 +7,219 @@
     <meta name="robots" content="noindex, nofollow">
     <title>{{ event.title }} - {% trans "Display" %}</title>
     <link rel="stylesheet" href="{% static 'crush_lu/css/tailwind.css' %}">
-    <style>
-        /* Countdown timer bar animation */
-        .timer-bar { transition: width 1s linear; }
-        /* Subtle pulse for waiting state */
-        @keyframes pulse-slow { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        .animate-pulse-slow { animation: pulse-slow 3s ease-in-out infinite; }
-        /* PIN input shake on error */
-        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
-        .animate-shake { animation: shake 0.3s ease-in-out; }
-        /* Reveal stagger */
-        .reveal-card { animation: reveal-pop 0.4s ease-out forwards; opacity: 0; transform: scale(0.8); }
-        @keyframes reveal-pop { to { opacity: 1; transform: scale(1); } }
-        /* Leaderboard entry */
-        .lb-entry { animation: lb-slide 0.3s ease-out forwards; opacity: 0; transform: translateX(-20px); }
-        @keyframes lb-slide { to { opacity: 1; transform: translateX(0); } }
-    </style>
+    <link rel="stylesheet" href="{% static 'crush_lu/css/quiz-experience.css' %}">
 </head>
-<body class="bg-crush-dark min-h-screen overflow-hidden">
-    <div x-data="quizDisplay"
-         data-event-id="{{ event.id }}"
-         data-quiz-id="{{ quiz.id }}"
-         data-quiz-status="{{ quiz.status }}"
-         data-pin-required="{{ pin_required|yesno:'true,false' }}"
-         data-event-title="{{ event.title }}"
-         data-event-date="{{ event.date_time|date:'D, M j \u2014 g:i A' }}"
-         data-num-tables="{{ num_tables }}"
-         data-confirmed-count="{{ confirmed_count }}"
-         data-str-table="{% trans 'Table' %}"
-         data-str-players="{% trans 'players' %}"
-         data-str-waiting="{% trans 'Waiting for attendees...' %}"
-         data-str-anchor="{% trans 'anchor' %}"
-         data-str-rotator="{% trans 'rotator' %}"
-         data-str-pts="{% trans 'pts' %}"
-         data-str-tables-scored="{% trans 'tables scored' %}"
-         class="min-h-screen flex flex-col">
+<body class="quiz-stage-shell quiz-display-shell">
+    <main x-data="quizDisplay"
+          data-event-id="{{ event.id }}"
+          data-quiz-id="{{ quiz.id }}"
+          data-quiz-status="{{ quiz.status }}"
+          data-pin-required="{{ pin_required|yesno:'true,false' }}"
+          data-event-title="{{ event.title }}"
+          data-event-date="{{ event.date_time|date:'D, M j — g:i A' }}"
+          data-num-tables="{{ num_tables }}"
+          data-confirmed-count="{{ confirmed_count }}"
+          data-str-table="{% trans 'Table' %}"
+          data-str-players="{% trans 'players' %}"
+          data-str-waiting="{% trans 'Waiting for attendees...' %}"
+          data-str-anchor="{% trans 'anchor' %}"
+          data-str-rotator="{% trans 'rotator' %}"
+          data-str-pts="{% trans 'pts' %}"
+          data-str-tables-scored="{% trans 'tables scored' %}"
+          data-str-loading-media="{% trans 'Loading media' %}"
+          data-str-media-unavailable="{% trans 'Media unavailable' %}"
+          data-str-media-label="{% trans 'Quiz media' %}"
+          data-str-audio="{% trans 'Audio' %}"
+          class="min-h-screen">
 
-        {# ============================================================ #}
-        {# PIN GATE SCREEN                                               #}
-        {# ============================================================ #}
-        <div x-show="isPinGate" class="flex flex-1 items-center justify-center">
-            <div class="w-full max-w-md px-6 text-center">
-                {# Event branding #}
-                <div class="mb-8">
-                    <div class="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-crush-purple to-crush-pink">
-                        <svg class="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                        </svg>
+        <p class="sr-only" role="status" aria-live="polite" aria-atomic="true" x-text="liveAnnouncement"></p>
+
+        <section x-show="isPinGate" class="quiz-display-screen flex items-center justify-center p-6">
+            <div class="quiz-focus-panel w-full max-w-lg p-8 text-center">
+                <div class="quiz-key-moment__ghost mb-4">
+                    {% include "crush_lu/includes/ghost-story-blushing-reader.html" with class="w-full h-full" %}
+                </div>
+                <p class="quiz-stage-kicker">{% trans "Projector display" %}</p>
+                <h1 class="quiz-stage-title" x-text="eventTitle"></h1>
+                <p class="quiz-stage-subtitle" x-text="eventDate"></p>
+
+                <fieldset class="mt-8">
+                    <legend class="mb-5 text-lg text-slate-300">{% trans "Enter display PIN" %}</legend>
+                    <div class="flex justify-center gap-3" x-bind:class="pinShakeClass">
+                        <input x-ref="pin0" type="tel" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="{% trans 'PIN digit' %} 1"
+                               class="quiz-pin-input h-20 w-16 rounded-xl bg-slate-800 text-center text-3xl font-bold text-white ring-2 ring-slate-600 focus:outline-none focus:ring-crush-purple">
+                        <input x-ref="pin1" type="tel" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="{% trans 'PIN digit' %} 2"
+                               class="quiz-pin-input h-20 w-16 rounded-xl bg-slate-800 text-center text-3xl font-bold text-white ring-2 ring-slate-600 focus:outline-none focus:ring-crush-purple">
+                        <input x-ref="pin2" type="tel" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="{% trans 'PIN digit' %} 3"
+                               class="quiz-pin-input h-20 w-16 rounded-xl bg-slate-800 text-center text-3xl font-bold text-white ring-2 ring-slate-600 focus:outline-none focus:ring-crush-purple">
+                        <input x-ref="pin3" type="tel" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="{% trans 'PIN digit' %} 4"
+                               class="quiz-pin-input h-20 w-16 rounded-xl bg-slate-800 text-center text-3xl font-bold text-white ring-2 ring-slate-600 focus:outline-none focus:ring-crush-purple">
                     </div>
-                    <h1 class="text-3xl font-bold text-white" x-text="eventTitle"></h1>
-                    <p class="mt-2 text-gray-400" x-text="eventDate"></p>
-                </div>
+                </fieldset>
 
-                {# PIN input #}
-                <p class="mb-6 text-lg text-gray-300">{% trans "Enter display PIN" %}</p>
-                <div class="flex justify-center gap-4" x-bind:class="pinShakeClass">
-                    <input x-ref="pin0" type="tel" maxlength="1" inputmode="numeric" pattern="[0-9]"
-                           class="h-20 w-16 rounded-xl bg-slate-800 text-center text-3xl font-bold text-white ring-2 ring-slate-600 focus:ring-crush-purple focus:outline-none">
-                    <input x-ref="pin1" type="tel" maxlength="1" inputmode="numeric" pattern="[0-9]"
-                           class="h-20 w-16 rounded-xl bg-slate-800 text-center text-3xl font-bold text-white ring-2 ring-slate-600 focus:ring-crush-purple focus:outline-none">
-                    <input x-ref="pin2" type="tel" maxlength="1" inputmode="numeric" pattern="[0-9]"
-                           class="h-20 w-16 rounded-xl bg-slate-800 text-center text-3xl font-bold text-white ring-2 ring-slate-600 focus:ring-crush-purple focus:outline-none">
-                    <input x-ref="pin3" type="tel" maxlength="1" inputmode="numeric" pattern="[0-9]"
-                           class="h-20 w-16 rounded-xl bg-slate-800 text-center text-3xl font-bold text-white ring-2 ring-slate-600 focus:ring-crush-purple focus:outline-none">
-                </div>
-
-                <div class="mt-4 h-6">
-                    <p x-show="pinError" class="text-red-400">{% trans "Incorrect PIN. Please try again." %}</p>
-                    <p x-show="pinVerifying" class="text-gray-400">{% trans "Verifying..." %}</p>
+                <div class="mt-4 min-h-6" role="status" aria-live="polite">
+                    <p x-show="pinError" class="text-red-300">{% trans "Incorrect PIN. Please try again." %}</p>
+                    <p x-show="pinVerifying" class="text-slate-400">{% trans "Verifying..." %}</p>
                 </div>
             </div>
-        </div>
+        </section>
 
-        {# ============================================================ #}
-        {# LOADING SCREEN (brief, while WebSocket connects)              #}
-        {# ============================================================ #}
-        <div x-show="isLoading" class="flex flex-1 items-center justify-center">
-            <div class="text-center">
-                <div class="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-crush-purple border-t-transparent"></div>
+        <section x-show="isLoading" x-cloak class="quiz-display-screen flex items-center justify-center">
+            <div class="quiz-status-strip">
+                <span class="quiz-connection-dot animate-pulse text-crush-purple" aria-hidden="true"></span>
+                {% trans "Connecting to quiz..." %}
             </div>
-        </div>
+        </section>
 
-        {# ============================================================ #}
-        {# WAITING SCREEN (pre-quiz)                                     #}
-        {# ============================================================ #}
-        <div x-show="isWaiting" class="flex flex-1 flex-col">
-            {# Header #}
-            <div class="mx-auto w-full max-w-7xl px-6 pt-6 pb-4">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h1 class="text-4xl font-bold text-white" x-text="eventTitle"></h1>
-                        <p class="mt-1 text-xl text-gray-400" x-text="eventDate"></p>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-5xl font-bold text-crush-pink" x-text="attendedDisplay"></p>
-                        <p class="text-lg text-gray-400">{% trans "checked in" %}</p>
-                    </div>
+        <section x-show="isWaiting" x-cloak class="quiz-display-screen flex flex-col p-6 lg:p-10">
+            <header class="quiz-stage-inner quiz-stage-header max-w-7xl">
+                <div>
+                    <p class="quiz-stage-kicker">{% trans "Crush Quiz Night" %}</p>
+                    <h1 class="quiz-stage-title" x-text="eventTitle"></h1>
+                    <p class="quiz-stage-subtitle" x-text="eventDate"></p>
                 </div>
-                {# Progress bar #}
-                <div class="mt-4 h-3 overflow-hidden rounded-full bg-slate-700">
-                    <div class="h-full rounded-full bg-gradient-to-r from-crush-purple to-crush-pink transition-all duration-1000"
-                         x-bind:style="progressBarStyle"></div>
+                <div class="text-right">
+                    <p class="text-5xl font-black tabular-nums text-crush-pink" x-text="attendedDisplay"></p>
+                    <p class="mt-1 text-sm font-semibold uppercase tracking-wider text-slate-400">{% trans "checked in" %}</p>
+                </div>
+            </header>
+
+            <div class="quiz-stage-inner mb-6 max-w-7xl">
+                <div class="quiz-timer-track h-3">
+                    <div class="quiz-timer-fill" x-bind:style="progressBarStyle"></div>
                 </div>
             </div>
 
-            {# Table grid — rendered imperatively via JS (CSP x-for can't access nested props) #}
-            <div class="mx-auto w-full max-w-7xl flex-1 px-6 pb-6">
-                {# minmax(min(360px, 100%), 1fr) lets the card shrink below 360px on narrow viewports (mobile attendees viewing the projector URL) without producing horizontal overflow, while still preferring a 360px-wide card on tablet/desktop/projector. #}
-                <div x-ref="tablegrid" class="grid gap-5" style="grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr));"></div>
-
-                {# Empty state / Quiz starts soon #}
-                <div x-show="hasNoTables" class="flex flex-1 items-center justify-center pt-16">
-                    <div class="text-center">
-                        <div class="animate-pulse-slow text-6xl mb-4">&#127918;</div>
-                        <p class="text-2xl text-gray-400">{% trans "Quiz starts soon..." %}</p>
+            <div class="quiz-display-waiting__body quiz-stage-inner max-w-7xl flex-1 gap-6">
+                <div class="quiz-surface min-h-0 overflow-y-auto p-5">
+                    <div x-ref="tablegrid" class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));"></div>
+                    <div x-show="hasNoTables" class="quiz-key-moment flex h-full min-h-64 flex-col items-center justify-center">
+                        <div class="quiz-key-moment__ghost mb-3">
+                            {% include "crush_lu/includes/ghost-story-blushing-reader.html" with class="w-full h-full" %}
+                        </div>
+                        <p class="text-2xl font-bold text-white">{% trans "Quiz starts soon..." %}</p>
                     </div>
                 </div>
-            </div>
 
-            {# Quiz starts soon indicator #}
-            <div class="pb-6 text-center">
-                <p class="animate-pulse-slow text-xl text-crush-purple font-semibold">{% trans "Waiting for quiz to begin..." %}</p>
-            </div>
-        </div>
+                <aside class="space-y-5">
+                    {% if join_qr_data_url %}
+                    <div class="quiz-join-panel quiz-focus-panel">
+                        <div class="quiz-join-qr">
+                            <img src="{{ join_qr_data_url }}" alt="{% trans 'QR code to open the quiz' %}">
+                        </div>
+                        <div>
+                            <p class="quiz-stage-kicker">{% trans "Join on your phone" %}</p>
+                            <h2 class="text-2xl font-bold text-white">{% trans "Scan to join" %}</h2>
+                            <p class="mt-2 text-sm leading-relaxed text-slate-400">{% trans "Sign in and complete event check-in first. The QR code does not bypass attendance access." %}</p>
+                        </div>
+                    </div>
+                    {% endif %}
 
-        {# ============================================================ #}
-        {# QUESTION SCREEN                                               #}
-        {# ============================================================ #}
-        <div x-show="isQuestion" class="flex flex-1 flex-col">
-            {# Top bar: round + question progress #}
-            <div class="bg-slate-800/80 px-8 py-4">
-                <div class="mx-auto flex max-w-7xl items-center justify-between">
-                    <div class="flex items-center gap-4">
-                        <span class="text-2xl font-bold text-white" x-text="roundLabel"></span>
-                        <span x-show="isBonusRound"
-                              class="rounded-full bg-yellow-500/20 px-4 py-1 text-lg font-bold text-yellow-400"
-                              x-text="bonusLabel"></span>
+                    <div class="quiz-key-moment quiz-utility-panel">
+                        <div class="quiz-key-moment__ghost mb-3">
+                            {% include "crush_lu/includes/ghost-story-blushing-reader.html" with class="w-full h-full" %}
+                        </div>
+                        <p class="text-xl font-bold text-white">{% trans "Waiting for quiz to begin..." %}</p>
+                        <p class="mt-2 text-sm text-slate-400">{% trans "Find your table and meet your teammates." %}</p>
                     </div>
-                    <div class="flex items-center gap-3">
-                        <span class="text-4xl font-bold tabular-nums" x-bind:class="timerBarColorClass" x-text="countdownDisplay"></span>
-                    </div>
+                </aside>
+            </div>
+        </section>
+
+        <section x-show="isQuestion" x-cloak class="quiz-display-screen quiz-display-question" x-bind:class="questionLengthClass">
+            <header class="quiz-display-topbar">
+                <div class="flex items-center gap-4">
+                    <span class="text-xl font-bold text-white" x-text="roundLabel"></span>
+                    <span x-show="isBonusRound" class="rounded-full bg-amber-400/15 px-4 py-1 text-base font-bold text-amber-300" x-text="bonusLabel"></span>
                 </div>
-            </div>
+                <span class="quiz-display-timer" x-bind:class="timerUrgencyClass" x-text="countdownDisplay"></span>
+            </header>
 
-            {# Question text #}
-            <div class="flex flex-1 flex-col items-center justify-center px-8">
-                <div class="max-w-5xl text-center">
-                    <p class="text-5xl font-bold leading-tight text-white" x-text="questionText"></p>
-
-                    {# Points indicator #}
-                    <p class="mt-4 text-xl text-gray-400">
+            <div class="quiz-display-question__body">
+                <div>
+                    <p class="quiz-display-question__copy" x-text="questionText"></p>
+                    <p class="mt-3 text-center text-lg text-slate-400">
                         <span x-text="questionPoints"></span> {% trans "points" %}
-                        <span x-show="isBonusRound" class="text-yellow-400"> (&times;2)</span>
+                        <span x-show="isBonusRound" class="font-semibold text-amber-300"> (&times;2)</span>
                     </p>
                 </div>
 
-                {# Optional media stimulus (image/video/audio) — rendered via JS #}
-                <div x-ref="media" class="mt-8 w-full max-w-4xl"></div>
+                <div x-ref="media" class="mx-auto w-full max-w-5xl"></div>
 
-                {# Answer choices — rendered imperatively via JS #}
-                <div x-show="hasChoices" class="mt-10 w-full max-w-4xl">
-                    <div x-ref="choicesgrid" class="grid grid-cols-2 gap-4"></div>
+                <div x-show="hasChoices" class="w-full">
+                    <div x-ref="choicesgrid" class="quiz-display-choice-grid"></div>
                 </div>
             </div>
 
-            {# Timer bar #}
-            <div class="px-8 pb-6">
-                <div class="mx-auto max-w-7xl">
-                    <div class="h-4 overflow-hidden rounded-full bg-slate-700">
-                        <div class="timer-bar h-full rounded-full" x-bind:class="timerBarColorClass" x-bind:style="timerBarStyle"></div>
+            <footer class="px-8 pb-6">
+                <div class="quiz-stage-inner max-w-7xl">
+                    <div class="quiz-timer-track h-3">
+                        <div class="quiz-timer-fill" x-bind:style="timerBarStyle"></div>
                     </div>
-                    <div class="mt-2 text-right text-sm text-gray-500" x-text="scoringProgressText"></div>
+                    <div class="mt-2 text-right text-xs text-slate-500" x-text="scoringProgressText"></div>
+                </div>
+            </footer>
+        </section>
+
+        <section x-show="isScoring" x-cloak class="quiz-display-screen flex items-center justify-center p-8">
+            <div class="quiz-key-moment quiz-focus-panel w-full max-w-3xl">
+                <p class="quiz-stage-kicker">{% trans "Answers locked" %}</p>
+                <h2 class="text-4xl font-black text-white">{% trans "Scoring in progress..." %}</h2>
+                <p class="mt-5 text-5xl font-black text-crush-pink" x-text="scoringProgressText"></p>
+                <div class="quiz-timer-track mx-auto mt-8 h-3 max-w-xl">
+                    <div class="quiz-timer-fill" x-bind:style="scoringBarStyle"></div>
                 </div>
             </div>
-        </div>
+        </section>
 
-        {# ============================================================ #}
-        {# SCORING SCREEN (waiting for all tables)                       #}
-        {# ============================================================ #}
-        <div x-show="isScoring" class="flex flex-1 items-center justify-center">
-            <div class="text-center">
-                <div class="text-6xl mb-6">&#9997;&#65039;</div>
-                <p class="text-3xl font-bold text-white mb-4">{% trans "Scoring in progress..." %}</p>
-                <p class="text-5xl font-bold text-crush-pink" x-text="scoringProgressText"></p>
-                <div class="mt-8 mx-auto h-3 w-96 overflow-hidden rounded-full bg-slate-700">
-                    <div class="h-full rounded-full bg-gradient-to-r from-crush-purple to-crush-pink transition-all duration-500"
-                         x-bind:style="scoringBarStyle"></div>
-                </div>
-            </div>
-        </div>
-
-        {# ============================================================ #}
-        {# REVEAL SCREEN — rendered imperatively via JS                  #}
-        {# ============================================================ #}
-        <div x-show="isReveal" class="flex flex-1 flex-col items-center justify-center px-8">
+        <section x-show="isReveal" x-cloak class="quiz-display-screen flex flex-col items-center justify-center p-8">
             <div class="mb-6 text-center">
-                <p class="text-lg font-medium text-gray-400" x-text="roundLabel"></p>
-                <h2 class="text-4xl font-bold text-white">{% trans "Results" %}</h2>
+                <p class="quiz-stage-kicker" x-text="roundLabel"></p>
+                <h2 class="text-5xl font-black text-white">{% trans "Results" %}</h2>
             </div>
             <div class="w-full max-w-6xl">
-                <div x-ref="revealgrid" class="grid gap-5" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));"></div>
+                <div x-ref="revealgrid" class="grid gap-5" style="grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));"></div>
             </div>
-        </div>
+        </section>
 
-        {# ============================================================ #}
-        {# LEADERBOARD SCREEN — rendered imperatively via JS             #}
-        {# ============================================================ #}
-        <div x-show="isLeaderboard" class="flex flex-1 flex-col items-center justify-center px-8">
-            <h2 class="mb-8 text-4xl font-bold text-white">&#127942; {% trans "Leaderboard" %}</h2>
-            <div class="flex w-full max-w-5xl gap-8">
-                <div class="flex-1">
-                    <div x-ref="leaderboardlist" class="space-y-3"></div>
-                </div>
-                <div x-show="hasLeaderboardIndividuals" class="w-72">
-                    <h3 class="mb-4 text-xl font-semibold text-gray-400">{% trans "Top Players" %}</h3>
+        <section x-show="isLeaderboard" x-cloak class="quiz-display-screen flex flex-col items-center justify-center p-8">
+            <p class="quiz-stage-kicker">{% trans "Current standings" %}</p>
+            <h2 class="mb-8 text-5xl font-black text-white">{% trans "Leaderboard" %}</h2>
+            <div class="quiz-display-leaderboard-grid w-full max-w-6xl gap-8">
+                <div x-ref="leaderboardlist" class="space-y-3"></div>
+                <div x-show="hasLeaderboardIndividuals">
+                    <h3 class="mb-4 text-lg font-semibold text-slate-400">{% trans "Top Players" %}</h3>
                     <div x-ref="individualslist" class="space-y-2"></div>
                 </div>
             </div>
-        </div>
+        </section>
 
-        {# ============================================================ #}
-        {# FINISHED SCREEN                                               #}
-        {# ============================================================ #}
-        <div x-show="isFinished" class="flex flex-1 flex-col items-center justify-center px-8">
-            <div class="text-center mb-10">
-                <div class="text-7xl mb-4">&#127881;</div>
-                <h2 class="text-5xl font-bold text-white">{% trans "Quiz Complete!" %}</h2>
+        <section x-show="isFinished" x-cloak class="quiz-display-finished quiz-display-screen flex flex-col items-center justify-center overflow-y-auto p-8">
+            <div class="quiz-key-moment quiz-key-moment--celebrate mb-6 w-full max-w-4xl">
+                <div class="quiz-key-moment__ghost mb-2">
+                    {% include "crush_lu/includes/ghost-story-party.html" with class="w-full h-full" %}
+                </div>
+                <p class="quiz-stage-kicker">{% trans "Final results" %}</p>
+                <h2 class="text-5xl font-black text-white">{% trans "Quiz Complete!" %}</h2>
             </div>
 
-            {# Podium: top 3 #}
-            <div class="flex items-end justify-center gap-6 mb-10" x-show="hasPodium">
-                {# 2nd place #}
+            <div class="mb-8 flex items-end justify-center gap-5" x-show="hasPodium">
                 <div class="text-center">
-                    <div class="text-4xl mb-2">&#129352;</div>
+                    <div class="mb-2 text-4xl" aria-hidden="true">&#129352;</div>
                     <div class="flex h-32 w-36 flex-col items-center justify-center rounded-t-xl bg-slate-700">
                         <span class="text-2xl font-bold text-white" x-text="secondPlaceLabel"></span>
                         <span class="text-xl font-bold text-crush-pink" x-text="secondPlaceScore"></span>
                     </div>
                 </div>
-                {# 1st place #}
                 <div class="text-center">
-                    <div class="text-5xl mb-2">&#129351;</div>
-                    <div class="flex h-44 w-40 flex-col items-center justify-center rounded-t-xl bg-gradient-to-b from-yellow-600/30 to-slate-700 ring-2 ring-yellow-500/30">
+                    <div class="mb-2 text-5xl" aria-hidden="true">&#129351;</div>
+                    <div class="flex h-44 w-40 flex-col items-center justify-center rounded-t-xl bg-gradient-to-b from-amber-400/25 to-slate-700 ring-2 ring-amber-400/40">
                         <span class="text-3xl font-bold text-white" x-text="firstPlaceLabel"></span>
                         <span class="text-2xl font-bold text-crush-pink" x-text="firstPlaceScore"></span>
                     </div>
                 </div>
-                {# 3rd place #}
                 <div class="text-center">
-                    <div class="text-4xl mb-2">&#129353;</div>
+                    <div class="mb-2 text-4xl" aria-hidden="true">&#129353;</div>
                     <div class="flex h-24 w-36 flex-col items-center justify-center rounded-t-xl bg-slate-700">
                         <span class="text-2xl font-bold text-white" x-text="thirdPlaceLabel"></span>
                         <span class="text-xl font-bold text-crush-pink" x-text="thirdPlaceScore"></span>
@@ -263,20 +227,16 @@
                 </div>
             </div>
 
-            {# Individual top 5 — rendered imperatively via JS #}
-            <div x-show="hasLeaderboardIndividuals" class="w-full max-w-lg">
-                <h3 class="mb-4 text-center text-xl font-semibold text-gray-400">{% trans "Top Players" %}</h3>
+            <div x-show="hasLeaderboardIndividuals" class="w-full max-w-xl">
+                <h3 class="mb-4 text-center text-lg font-semibold text-slate-400">{% trans "Top Players" %}</h3>
                 <div x-ref="finishedindividuals" class="space-y-2"></div>
             </div>
+            <p class="mt-8 text-xl text-slate-400">{% trans "Thanks for playing!" %}</p>
+        </section>
+    </main>
 
-            <p class="mt-10 text-2xl text-gray-500">{% trans "Thanks for playing!" %}</p>
-        </div>
-
-    </div>
-
-    {# Scripts: quiz-media.js (shared renderer), quiz-display.js (registers Alpine component), then Alpine initializes #}
-    <script nonce="{{ csp_nonce }}" src="{% static 'crush_lu/js/quiz-media.js' %}?v=2"></script>
-    <script nonce="{{ csp_nonce }}" src="{% static 'crush_lu/js/quiz-display.js' %}?v=2"></script>
+    <script nonce="{{ csp_nonce }}" src="{% static 'crush_lu/js/quiz-media.js' %}"></script>
+    <script nonce="{{ csp_nonce }}" src="{% static 'crush_lu/js/quiz-display.js' %}"></script>
     <script nonce="{{ csp_nonce }}" defer src="https://cdn.jsdelivr.net/npm/@alpinejs/csp@3.13.3/dist/cdn.min.js"
             integrity="sha384-EkI5VI1qflXkHKn4NX4W76cYYqh8dAx7UKkCc4QJ10k8jdtauy8Qs3BkF21ZXcZj"
             crossorigin="anonymous"></script>

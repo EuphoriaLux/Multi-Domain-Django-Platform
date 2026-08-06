@@ -19,7 +19,14 @@
     </ul>
 </div>
 
-<p>{% trans "If you paid a registration fee, it will be refunded within 5-7 business days." %}</p>
+{% comment %}
+Do not promise an unconditional refund here: the Terms (section 7.3) grant a
+full refund only more than 48h before the event, 50% between 24h and 48h, and
+none inside 24h. Nothing refunds automatically either, so no timeline is
+quotable -- a human has to action it.
+{% endcomment %}
+<p>{% trans "If you paid a registration fee, any refund is handled under our cancellation policy and we'll be in touch about it." %}
+   <a href="{{ terms_url }}#tos-events" style="color: #9B59B6;">{% trans "Read the cancellation policy" %}</a></p>
 
 <p>{% trans "We hope to see you at a future event!" %}</p>
 

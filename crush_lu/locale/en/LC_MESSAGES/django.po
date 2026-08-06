@@ -26796,8 +26796,163 @@ msgstr ""
 msgid "Choose one audience. The three standard options cover the usual event flows; specialized access rules are grouped under Advanced."
 msgstr ""
 
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Ready to preview before saving."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "This file is larger than the 25 MB limit."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "This file type does not match the selected media type."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Choose what players should see or hear with this question."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Media source"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Upload"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Use a file from this device"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "External link"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "YouTube, Vimeo, Spotify, or SoundCloud"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Choose an image or a short video/audio clip up to 25 MB."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "External media link"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Paste a watch or share link. Supported links are converted to safe embeds when the question is shown."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Saving an external link replaces the current uploaded file."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Describe what players need to perceive"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_quiz_question_form.html
+msgid "Write a concise equivalent for players using a screen reader, especially when identifying the media is part of the question."
+msgstr ""
+
 msgid "Advanced: Private Invitation Settings"
 msgstr ""
 
 msgid "Configure this event as invitation-only. You can invite existing users directly or send external guest invitations (managed via EventInvitation inline below)."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Get ready"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Question complete"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_live.html crush_lu/templates/crush_lu/quiz_display.html
+msgid "Final results"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Next round"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_live.html crush_lu/templates/crush_lu/quiz_coach.html crush_lu/templates/crush_lu/quiz_display.html
+msgid "Loading media"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_live.html crush_lu/templates/crush_lu/quiz_coach.html crush_lu/templates/crush_lu/quiz_display.html
+msgid "Media unavailable"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_live.html crush_lu/templates/crush_lu/quiz_coach.html crush_lu/templates/crush_lu/quiz_display.html
+msgid "Quiz media"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Projector display"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "PIN digit"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Connecting to quiz..."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Crush Quiz Night"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "QR code to open the quiz"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Join on your phone"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Scan to join"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Sign in and complete event check-in first. The QR code does not bypass attendance access."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Find your table and meet your teammates."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Answers locked"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_display.html
+msgid "Current standings"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_coach.html
+msgid "Run of show"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_coach.html
+msgid "Preview loaded here"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_coach.html
+#, python-format
+msgid "Mark Table %(table_number)s correct"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_coach.html
+#, python-format
+msgid "Mark Table %(table_number)s wrong"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/dashboard.html
+#, python-format
+msgid "Recap closes in %(remaining)s"
 msgstr ""

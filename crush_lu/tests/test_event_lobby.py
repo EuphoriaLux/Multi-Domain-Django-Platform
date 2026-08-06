@@ -1414,7 +1414,16 @@ class TestLobbyCta:
         _attend(member, event)
         assert lobby.lobby_cta(member, event) is None
 
-    def test_compact_recap_cta_is_constrained_only_on_mobile(self):
+    def test_compact_recap_cta_stretches_only_when_asked_to(self):
+        """Compact sizes with `btn-sm`; stretching is opt-in per caller.
+
+        It used to be a hardcoded `w-40`, which fixed the overflow by capping
+        the button at 160px and wrapping the label mid-sentence instead. The
+        caller now decides: the dashboard stacks one button per row below `sm`
+        and passes `full_width_mobile`, while my_events and event_attendees sit
+        in max-content rows where stretching would shove siblings onto their
+        own line, so they pass nothing and stay at their natural width.
+        """
         from django.template.loader import render_to_string
 
         event = _make_event()
@@ -1422,19 +1431,73 @@ class TestLobbyCta:
             "crush_lu/components/event_lobby_cta.html",
             {"cta": lobby.CTA_ENTER_RECAP, "event": event},
         )
-        assert "min-w-0 w-40 max-w-full" in compact
-        assert "sm:w-auto sm:max-w-none" in compact
+        assert "btn-crush-solid btn-sm" in compact
+        assert "w-full" not in compact, "compact must not stretch unless asked"
+
+        stacked = render_to_string(
+            "crush_lu/components/event_lobby_cta.html",
+            {
+                "cta": lobby.CTA_ENTER_RECAP,
+                "event": event,
+                "full_width_mobile": True,
+            },
+        )
+        assert "btn-crush-solid btn-sm" in stacked
+        assert "w-full sm:w-auto" in stacked
 
         full_width = render_to_string(
             "crush_lu/components/event_lobby_cta.html",
-            {"cta": lobby.CTA_ENTER_RECAP, "event": event, "block": True},
+            {"cta": lobby.CTA_ENTER_RECAP, "event": event, "hero": True},
         )
         assert "w-full" in full_width
+        assert "bg-gradient-to-r" in full_width
+
+    def test_dashboard_recap_cta_is_the_compact_variant(self, client):
+        """The hero variant must not leak into the dashboard action strip.
+
+        This asserts on the rendered PAGE, not on the component: the flag that
+        selects the variant used to be called `block`, and Django puts a truthy
+        BlockNode in the context under that exact name inside every
+        {% block %}. render_to_string() has no enclosing block, so the
+        component-level test above kept passing while every real surface
+        rendered the full-width hero button and overflowed the card on mobile.
+        """
+        member = _make_member("cta_compact")
+        event = _make_event()
+        _join(member, event)
+        _end_event(event)  # recap phase — this is what yields enter_recap
+        _login(client, member)
+
+        response = client.get(reverse("crush_lu:dashboard"))
+
+        assert response.status_code == 200
+        lobby_url = reverse("crush_lu:event_lobby", kwargs={"event_id": event.pk})
+        anchor = re.search(
+            rf'<a[^>]*href="{re.escape(lobby_url)}"[^>]*>',
+            response.content.decode(),
+        )
+        assert anchor is not None, "recap CTA missing from the dashboard strip"
+        tag = anchor.group(0)
+        # Both variants carry "w-full" on the dashboard now — compact takes it
+        # from `full_width_mobile`. Match on the markers unique to each: the
+        # gradient is hero-only, `btn-sm` is compact-only.
+        assert "btn-crush-solid btn-sm" in tag, f"expected the compact variant: {tag}"
+        assert "w-full sm:w-auto" in tag, f"expected the stacked variant: {tag}"
+        assert (
+            "bg-gradient-to-r" not in tag
+        ), f"hero variant leaked onto the dashboard: {tag}"
 
     def test_dashboard_attendee_action_is_labelled_my_crush(self, client):
         member = _make_member("cta_dashboard", membership=False, luxid=False)
         event = _make_event()
         _attend(member, event)
+        # The event has to be OVER for this action to exist at all: the
+        # attendees page opens only at end_time (decision 2026-07-18, enforced
+        # in event_attendees), so offering it mid-event is a link that lands
+        # back on the event detail page with an info message. _make_event()
+        # defaults to a live event, so without this the dashboard is right to
+        # render nothing and there is no label to assert.
+        _end_event(event)
         _login(client, member)
 
         response = client.get(reverse("crush_lu:dashboard"))

@@ -645,7 +645,6 @@ class TestQuizMedia:
         mock_delete.assert_called_once_with("quiz/to_delete.png")
 
 
-
 class TestQuizQuestionBroadcast:
     """The media key must be present in every broadcast shape."""
 
@@ -705,6 +704,31 @@ class TestCoachQuestionMedia:
             f"round/{quiz_round.id}/question/add/"
         )
 
+    def _edit_url(self, quiz_event, question):
+        return (
+            f"/en/coach/events/{quiz_event.event.id}/quiz/config/"
+            f"question/{question.id}/edit/"
+        )
+
+    def test_authoring_form_uses_visual_media_and_source_choices(
+        self, quiz_event, quiz_round
+    ):
+        coach = self._make_coach("mediaform", quiz_event.event)
+        client = APIClient()
+        client.force_login(coach)
+
+        response = client.get(self._add_url(quiz_event, quiz_round))
+
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert 'name="media_kind"' in content
+        assert 'name="media_source_choice"' in content
+        assert "quiz-media-kind-grid" in content
+        assert "quiz-local-preview" in content
+        assert "quiz-authoring.css" in content
+        assert response.context["media_source_selected"] == "upload"
+        assert response.context["media_file_max_bytes"] == 25 * 1024 * 1024
+
     def test_create_with_embed_url(self, quiz_event, quiz_round):
         coach = self._make_coach("mediaauthor", quiz_event.event)
         client = APIClient()
@@ -716,6 +740,7 @@ class TestCoachQuestionMedia:
                 "question_type": "open_ended",
                 "correct_answer_en": "Never Gonna Give You Up",
                 "media_kind": "video",
+                "media_source_choice": "external",
                 "media_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
             },
         )
@@ -738,22 +763,30 @@ class TestCoachQuestionMedia:
             "q.png", b"\x89PNG\r\n\x1a\n payload", content_type="image/png"
         )
         storage_instance = InMemoryStorage()
-        with mock.patch.object(QuizQuestion._meta.get_field("media_file"), "storage", storage_instance), \
-             mock.patch("crush_lu.views_quiz_config.crush_media_storage", return_value=storage_instance), \
-             mock.patch("crush_lu.models.quiz.crush_media_storage", return_value=storage_instance):
+        with mock.patch.object(
+            QuizQuestion._meta.get_field("media_file"), "storage", storage_instance
+        ), mock.patch(
+            "crush_lu.views_quiz_config.crush_media_storage",
+            return_value=storage_instance,
+        ), mock.patch(
+            "crush_lu.models.quiz.crush_media_storage", return_value=storage_instance
+        ):
             response = client.post(
                 self._add_url(quiz_event, quiz_round),
                 data={
                     "text_en": "What city?",
                     "question_type": "open_ended",
                     "media_kind": "image",
+                    "media_source_choice": "upload",
                     "media_file": img,
+                    "media_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
                 },
             )
         assert response.status_code == 302
         q = QuizQuestion.objects.filter(round=quiz_round, text="What city?").get()
         assert q.media_kind == "image"
         assert bool(q.media_file)
+        assert q.media_url == ""
 
     def test_kind_without_file_or_url_rejected(self, quiz_event, quiz_round):
         coach = self._make_coach("mediabad", quiz_event.event)
@@ -781,11 +814,79 @@ class TestCoachQuestionMedia:
                 "text_en": "Host",
                 "question_type": "open_ended",
                 "media_kind": "video",
+                "media_source_choice": "external",
                 "media_url": "https://evil.example.com/clip",
+                "media_description": "A deliberately invalid clip",
             },
         )
         assert response.status_code == 200
         assert not QuizQuestion.objects.filter(round=quiz_round, text="Host").exists()
+        assert response.context["media_source_selected"] == "external"
+        assert response.context["media_description_post"] == (
+            "A deliberately invalid clip"
+        )
+
+    def test_external_source_replaces_existing_upload(self, quiz_event, quiz_round):
+        from unittest import mock
+
+        coach = self._make_coach("mediareplace", quiz_event.event)
+        question = QuizQuestion.objects.create(
+            round=quiz_round,
+            text="Existing media",
+            question_type="open_ended",
+            media_kind="image",
+            sort_order=10,
+        )
+        question.media_file.name = "quiz/questions/existing.png"
+        question.save(update_fields=["media_file"])
+        storage = mock.Mock()
+        client = APIClient()
+        client.force_login(coach)
+
+        with mock.patch(
+            "crush_lu.views_quiz_config.crush_media_storage",
+            return_value=storage,
+        ):
+            response = client.post(
+                self._edit_url(quiz_event, question),
+                data={
+                    "text_en": "Existing media",
+                    "question_type": "open_ended",
+                    "media_kind": "video",
+                    "media_source_choice": "external",
+                    "media_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                    "media_description": "Music video used as the prompt",
+                },
+            )
+
+        assert response.status_code == 302
+        question.refresh_from_db()
+        assert not question.media_file
+        assert question.media_kind == "video"
+        assert "watch?v=" in question.media_url
+        assert question.media_description == "Music video used as the prompt"
+        storage.delete.assert_called_once_with("quiz/questions/existing.png")
+
+    def test_config_summary_shows_media_badge(self, quiz_event, quiz_round):
+        coach = self._make_coach("mediabadge", quiz_event.event)
+        QuizQuestion.objects.create(
+            round=quiz_round,
+            text="Listen carefully",
+            question_type="open_ended",
+            media_kind="audio",
+            media_url="https://open.spotify.com/track/abc123",
+            sort_order=11,
+        )
+        client = APIClient()
+        client.force_login(coach)
+
+        response = client.get(f"/en/coach/events/{quiz_event.event.id}/quiz/config/")
+
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "quiz-question-media-badge" in content
+        assert ">Audio<" in content
+        assert "quiz-authoring.css" in content
 
     def test_oversized_media_file_rejected(self, quiz_event, quiz_round, mocker):
         from django.core.files.uploadedfile import SimpleUploadedFile
@@ -794,9 +895,7 @@ class TestCoachQuestionMedia:
         coach = self._make_coach("bigfileauthor", quiz_event.event)
         client = APIClient()
         client.force_login(coach)
-        big_file = SimpleUploadedFile(
-            "huge.mp4", b"x" * 100, content_type="video/mp4"
-        )
+        big_file = SimpleUploadedFile("huge.mp4", b"x" * 100, content_type="video/mp4")
         response = client.post(
             self._add_url(quiz_event, quiz_round),
             data={
@@ -810,7 +909,6 @@ class TestCoachQuestionMedia:
         assert not QuizQuestion.objects.filter(
             round=quiz_round, text="Big video question"
         ).exists()
-
 
 
 class TestQuizTableModel:
@@ -2188,6 +2286,37 @@ class TestQuizTableDisplay:
         response = client.get(f"/en/quiz/{quiz_event.event_id}/display/")
         assert response.status_code == 200
         assert b"quizDisplay" in response.content
+
+    @pytest.mark.parametrize("language", ["en", "de", "fr"])
+    def test_display_includes_language_aware_join_qr(
+        self, client, quiz_event, language
+    ):
+        response = client.get(
+            f"/{language}/quiz/{quiz_event.event_id}/display/"
+        )
+
+        assert response.status_code == 200
+        assert f"/{language}/events/{quiz_event.event_id}/quiz/" in response.context[
+            "join_url"
+        ]
+        assert response.context["join_qr_data_url"].startswith(
+            "data:image/png;base64,"
+        )
+        assert response.context["join_qr_data_url"].encode() in response.content
+
+    def test_display_omits_join_qr_when_generation_fails(
+        self, client, quiz_event, mocker
+    ):
+        mocker.patch(
+            "crush_lu.qr_utils.generate_qr_code_base64",
+            side_effect=RuntimeError("QR renderer unavailable"),
+        )
+
+        response = client.get(f"/en/quiz/{quiz_event.event_id}/display/")
+
+        assert response.status_code == 200
+        assert response.context["join_qr_data_url"] is None
+        assert b"quiz-join-panel" not in response.content
 
     def test_legacy_url_redirects_to_language_prefixed(self, client, quiz_event):
         """Legacy /quiz/<id>/display/ redirects to language-prefixed URL."""

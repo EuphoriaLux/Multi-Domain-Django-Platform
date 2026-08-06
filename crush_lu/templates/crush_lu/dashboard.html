@@ -45,13 +45,182 @@
 
 {% include "crush_lu/partials/_verifier_card.html" %}
 
-{# ─── 4. Quick Stats Row (MOVED UP FOR MOBILE) ─── #}
-{% if profile.verification_status == 'verified' %}
-<div class="grid grid-cols-2 gap-3 mb-5">
-    <div class="card-bordered p-3.5 sm:p-4 text-center rounded-xl">
-        <p class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-0.5">{{ registrations|length }}</p>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{% trans "Events" %}</p>
+{# ─── 4. Needs action — hidden entirely when there is nothing to do ─── #}
+{% if pending_payment_registrations or post_event_actions %}
+<div class="flex flex-col gap-2.5 mb-5">
+    {% for registration in pending_payment_registrations %}
+    <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-yellow-300 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-900/20 px-4 py-3">
+        <div class="min-w-0 flex-1">
+            <p class="text-xs sm:text-sm font-semibold text-yellow-900 dark:text-yellow-200 mb-0.5">
+                {% trans "Payment due" %} · <span class="font-normal">{{ registration.event.title }}</span>
+            </p>
+            <p class="text-xs text-yellow-800/80 dark:text-yellow-300/80 mb-0">{% trans "Your seat is held until payment is settled." %}</p>
+        </div>
+        <a href="{% url 'crush_lu:my_events' %}" class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors flex-shrink-0">
+            {% trans "Pay now" %}
+        </a>
     </div>
+    {% endfor %}
+
+    {% comment %}
+    Post-event action card. Three things are load-bearing here:
+
+    1. ONE primary. The lobby CTA (`.btn-crush-solid`, from the component) is the
+       funnel step; Quiz and My Crush are `.btn-crush-outline`. Three solid
+       purple pills gave the eye no entry point, and two of them — "Confirm who
+       you met" and "My Crush" — lead to overlapping attendee surfaces.
+    2. EVERY button sizes with `btn-sm`, never ad-hoc `px-*`/`py-*`.
+       `.btn-crush-outline` is UNLAYERED (STYLE.md §2), so padding utilities on
+       it are silently inert while they DO land on the layered `.btn-crush-solid`
+       next to it — that mismatch is what made the row look ragged. `w-full` is
+       safe on both: neither button rule declares `width`.
+    3. The stack is explicit (`flex-col` → `sm:flex-row`), not a `flex-wrap`
+       accident. Wrapping broke at whatever point the localised label ran out of
+       room, so DE, FR and EN each split the row somewhere different.
+
+    The ghost only animates while the event is genuinely live, so the motion
+    reads as "this is happening now" rather than as decoration. `is_live`, NOT
+    `show_quiz` — the latter stays true for two days after the end, so a moving
+    ghost tied to it would keep claiming the event was running. Note that no
+    ghost include gates its SMIL on `prefers-reduced-motion`, which is why the
+    resting state uses the genuinely static `ghost-logo-icon` rather than
+    `ghost-logo` (whose heart orbits forever).
+
+    `no_heart` on that resting ghost: ghost + heart is the Crush logo itself,
+    and the navbar renders it live on every page. Repeating the mark down in
+    the page content reads as a second, broken logo rather than as artwork, so
+    the card shows the bare ghost. The party ghost needs no such flag — it
+    carries a hat, not a heart.
+    {% endcomment %}
+    {% for action in post_event_actions %}
+    <div class="flex items-start gap-3 rounded-xl border {% if action.event.is_live %}border-crush-pink/60{% else %}border-crush-purple/40{% endif %} bg-purple-50 dark:bg-purple-900/20 px-4 py-3">
+        <div class="shrink-0 pt-0.5">
+            {% if action.event.is_live %}
+            {% include "crush_lu/includes/ghost-story-party.html" with class="w-10 h-10" %}
+            {% else %}
+            {% include "crush_lu/includes/ghost-logo-icon.html" with class="w-10 h-10" no_heart=True %}
+            {% endif %}
+        </div>
+        <div class="min-w-0 flex-1">
+            {% if action.event.is_live %}
+            {% comment %}
+            text-pink-900, not text-crush-pink-dark: measured over this tint on
+            `bg-purple-50`, the brand pink gives 2.43:1 and pink-800 gives
+            4.30:1 — both fail WCAG AA for 12px text. pink-900 clears 4.5:1.
+            {% endcomment %}
+            <span class="mb-1 inline-flex items-center gap-1.5 rounded-full bg-crush-pink/20 px-2 py-0.5 text-xs font-semibold tracking-wide text-pink-900 dark:bg-crush-pink/25 dark:text-pink-200">
+                <span class="inline-block h-1.5 w-1.5 rounded-full bg-crush-pink animate-pulse" aria-hidden="true"></span>
+                {% trans "Live now" %}
+            </span>
+            {% endif %}
+            <p class="mb-0 text-sm font-semibold text-crush-purple dark:text-purple-200">{{ action.event.title }}</p>
+            {% if action.show_my_crush %}
+            <p class="mb-0 mt-0.5 text-xs text-crush-purple/70 dark:text-purple-300/70">
+                {% blocktrans with remaining=action.event.connection_window_deadline|timeuntil %}Recap closes in {{ remaining }}{% endblocktrans %}
+            </p>
+            {% endif %}
+            <div class="mt-2.5 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                {% include "crush_lu/components/event_lobby_cta.html" with cta=action.lobby_cta event=action.event full_width_mobile=True %}
+                {% if action.show_quiz %}
+                <a href="{% url 'crush_lu:quiz_live' action.event.id %}" class="btn-crush-outline btn-sm inline-flex w-full items-center justify-center gap-2 sm:w-auto">
+                    {% include "shared/icons/light-bulb.html" with class="w-4 h-4 shrink-0" %}
+                    {% trans "Join Quiz" %}
+                </a>
+                {% endif %}
+                {% if action.show_my_crush %}
+                <a href="{% url 'crush_lu:event_attendees' action.event.id %}" class="btn-crush-outline btn-sm inline-flex w-full items-center justify-center gap-2 sm:w-auto">
+                    {% include "shared/icons/users.html" with class="w-4 h-4 shrink-0" %}
+                    {% trans "My Crush" %}
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{# ─── 5. Your next event — one card, not the whole history ─── #}
+<div class="status-card rounded-2xl mb-5">
+    <div class="status-card-body p-4 sm:p-5">
+        {% if next_registration %}
+            <div class="flex items-start justify-between gap-3 mb-2">
+                <p class="text-[11px] font-bold uppercase tracking-wider text-crush-purple mb-0">{% trans "Next event" %}</p>
+                {% if next_registration.event.is_live %}
+                    {% comment %}
+                    A seat is kept here until the event ENDS, so the next event
+                    can be one already under way -- including for someone who
+                    has checked in (status "attended"). Without this branch that
+                    card rendered no status at all and counted down "in 0
+                    minutes".
+                    {% endcomment %}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold bg-crush-purple text-white rounded-full flex-shrink-0">
+                        <span class="inline-block w-1.5 h-1.5 rounded-full bg-white animate-pulse" aria-hidden="true"></span>
+                        {% trans "Live now" %}
+                    </span>
+                {% elif next_registration.status == 'attended' %}
+                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300 rounded-full flex-shrink-0">{% trans "Attended" %}</span>
+                {% elif next_registration.status == 'confirmed' %}
+                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full flex-shrink-0">{% trans "Confirmed" %}</span>
+                {% elif next_registration.status == 'pending' %}
+                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded-full flex-shrink-0">{% trans "Payment due" %}</span>
+                {% elif next_registration.status == 'waitlist' %}
+                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded-full flex-shrink-0">{% trans "Waitlist" %}</span>
+                {% endif %}
+            </div>
+
+            <h5 class="font-bold text-lg sm:text-xl mb-1.5">{{ next_registration.event.title }}</h5>
+            <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-0.5">
+                📅 {{ next_registration.event.date_time|date:"D" }}, {{ next_registration.event.date_time|date:"DATE_FORMAT" }} · {{ next_registration.event.date_time|date:"TIME_FORMAT" }}
+            </p>
+            <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-3">
+                📍 {{ next_registration.event.location }}
+                {% if not next_registration.event.is_live %}
+                {# timeuntil is localised by Django, so only the wrapper needs translating. #}
+                · <span class="font-semibold text-crush-purple">{% blocktrans with countdown=next_registration.event.date_time|timeuntil %}in {{ countdown }}{% endblocktrans %}</span>
+                {% endif %}
+            </p>
+
+            <div class="flex flex-wrap gap-2">
+                {% if next_registration.status == 'confirmed' or next_registration.status == 'pending' %}
+                <a href="{% url 'crush_lu:event_ticket' next_registration.event.id %}" class="btn-crush-solid inline-flex items-center justify-center gap-1.5 text-xs sm:text-sm px-3 py-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"/></svg>
+                    {% trans "View Ticket" %}
+                </a>
+                {% endif %}
+                <a href="{% url 'crush_lu:event_detail' next_registration.event.id %}" class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium border border-purple-300 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-lg transition-colors">{% trans "Details" %}</a>
+                {% if next_registration.can_cancel %}
+                <a href="{% url 'crush_lu:event_cancel' next_registration.event.id %}" class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium border border-red-300 dark:border-red-600 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors">{% trans "Cancel" %}</a>
+                {% endif %}
+            </div>
+        {% else %}
+            <h5 class="font-semibold text-base sm:text-lg mb-1.5">{% trans "No upcoming events yet" %}</h5>
+            <p class="text-gray-500 dark:text-gray-400 text-xs sm:text-sm mb-3.5">{% trans "Pick a meetup and get on the list." %}</p>
+            <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-solid inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs sm:text-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/></svg>
+                {% trans "Browse upcoming events" %}
+            </a>
+        {% endif %}
+
+        {% if profile.verification_status == 'verified' and not is_premium %}
+        <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-3.5 mb-0">
+            {% trans "Crush Connect is live: a weekly coach-picked match and a daily Drop of fresh faces." %}
+        </p>
+        {% endif %}
+    </div>
+</div>
+
+{# ─── 6. Counts — each one honest and each one a way into its own page ─── #}
+{% if profile.verification_status == 'verified' %}
+<div class="grid grid-cols-3 gap-3 mb-5">
+    <a href="{% url 'crush_lu:my_events' %}" class="card-bordered p-3.5 sm:p-4 text-center rounded-xl no-underline hover:border-crush-purple/40 transition-colors">
+        <p class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-0.5">{{ upcoming_count|default:0 }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{% trans "Upcoming" %}</p>
+    </a>
+    <a href="{% url 'crush_lu:my_events' %}" class="card-bordered p-3.5 sm:p-4 text-center rounded-xl no-underline hover:border-crush-purple/40 transition-colors">
+        <p class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-0.5">{{ attended_count|default:0 }}</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{% trans "Attended" %}</p>
+    </a>
     <a href="{% url 'crush_lu:my_connections' %}" class="card-bordered p-3.5 sm:p-4 text-center rounded-xl no-underline hover:border-crush-purple/40 transition-colors">
         <p class="text-xl sm:text-2xl font-bold text-crush-purple mb-0.5">{{ connection_count|default:0 }}</p>
         <p class="text-xs text-gray-500 dark:text-gray-400 mb-0">{% trans "Connections" %}</p>
@@ -59,86 +228,10 @@
 </div>
 {% endif %}
 
-{# ─── 5. Your Events Section (MOVED UP - PRIMARY MOBILE USER UTILITY) ─── #}
-<div class="status-card rounded-2xl mb-5">
-    <div class="status-card-body p-4 sm:p-5">
-        <div class="flex items-center justify-between mb-3.5">
-            <h5 class="font-semibold text-base sm:text-lg mb-0">{% trans "Your Events" %}</h5>
-            <a href="{% url 'crush_lu:event_list' %}" class="text-xs font-semibold text-crush-purple hover:text-crush-purple-dark transition-colors">{% trans "Browse all" %} →</a>
-        </div>
-
-        {% if profile.verification_status == 'verified' and not is_premium %}
-        <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-3.5">
-            {% trans "Crush Connect is live: a weekly coach-picked match and a daily Drop of fresh faces." %}
-        </p>
-        {% endif %}
-
-        {% if registrations %}
-            <div class="divide-y divide-gray-100 dark:divide-gray-700">
-                {% for registration in registrations %}
-                <div class="py-3.5 first:pt-0 last:pb-0">
-                    <div class="flex justify-between items-start gap-3">
-                        <div class="flex-1 min-w-0">
-                            <h6 class="font-semibold text-sm sm:text-base mb-1 truncate">{{ registration.event.title }}</h6>
-                            <p class="mb-1 text-gray-500 dark:text-gray-400 text-xs sm:text-sm">
-                                📅 {{ registration.event.date_time|date:"D" }}, {{ registration.event.date_time|date:"DATE_FORMAT" }} · 📍 {{ registration.event.location }}
-                            </p>
-                        </div>
-                        <div class="flex-shrink-0">
-                            {% if registration.status == 'confirmed' %}
-                                <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full">{% trans "Confirmed" %}</span>
-                            {% elif registration.status == 'waitlist' %}
-                                <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 rounded-full">{% trans "Waitlist" %}</span>
-                            {% elif registration.status == 'cancelled' %}
-                                <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full">{% trans "Cancelled" %}</span>
-                            {% elif registration.status == 'attended' %}
-                                <span class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300 rounded-full">
-                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                    {% trans "Attended" %}
-                                </span>
-                            {% endif %}
-                        </div>
-                    </div>
-                    <div class="mt-3 flex flex-wrap gap-2">
-                        <a href="{% url 'crush_lu:event_detail' registration.event.id %}" class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium border border-purple-300 dark:border-purple-600 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-lg transition-colors">{% trans "View" %}</a>
-                        {% if registration.status == 'attended' %}
-                            {% include "crush_lu/components/event_lobby_cta.html" with cta=registration.lobby_cta event=registration.event %}
-                            <a href="{% url 'crush_lu:event_attendees' registration.event.id %}" class="btn-crush-solid inline-flex items-center justify-center gap-1.5 text-xs sm:text-sm px-3 py-1.5">
-                                {% include "shared/icons/users.html" with class="w-4 h-4" %} {% trans "My Crush" %}
-                            </a>
-                            {% if registration.event.quiz_join_available %}
-                            <a href="{% url 'crush_lu:quiz_live' registration.event.id %}" class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold bg-crush-purple hover:bg-crush-purple-dark text-white rounded-lg transition-all">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-                                {% trans "Join Quiz" %}
-                            </a>
-                            {% endif %}
-                        {% elif registration.status == 'confirmed' or registration.status == 'pending' %}
-                            <a href="{% url 'crush_lu:event_ticket' registration.event.id %}" class="btn-crush-solid inline-flex items-center justify-center gap-1.5 text-xs sm:text-sm px-3 py-1.5">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"/></svg>
-                                {% trans "View Ticket" %}
-                            </a>
-                        {% endif %}
-                        {% if registration.can_cancel %}
-                            <a href="{% url 'crush_lu:event_cancel' registration.event.id %}" class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium border border-red-300 dark:border-red-600 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors">{% trans "Cancel" %}</a>
-                        {% endif %}
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <p class="text-gray-500 dark:text-gray-400 text-xs sm:text-sm mb-3.5">{% trans "You haven't registered for any events yet." %}</p>
-            <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-solid inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs sm:text-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/></svg>
-                {% trans "Browse upcoming events" %}
-            </a>
-        {% endif %}
-    </div>
-</div>
-
-{# ─── 6. Support Crush.lu Card ─── #}
+{# ─── 7. Support Crush.lu Card ─── #}
 {% include "crush_lu/components/support_card.html" %}
 
-{# ─── 7. Premium Hero / Crush Connect Unlocked ─── #}
+{# ─── 8. Premium Hero / Crush Connect Unlocked ─── #}
 {% if profile.verification_status == 'verified' and is_premium %}
 <a href="{% url 'crush_lu:crush_connect_hub' %}"
    class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 p-5 mb-5 text-white shadow-lg hover:shadow-xl transition-shadow no-underline group block">
@@ -162,7 +255,7 @@
 </a>
 {% endif %}
 
-{# ─── 8. Coach Section ─── #}
+{# ─── 9. Coach Section ─── #}
 {% if coach %}
 <div class="status-card rounded-2xl mb-5">
     <div class="status-card-body p-4 sm:p-5">
@@ -204,7 +297,7 @@
 </div>
 {% endif %}
 
-{# ─── 9. Secondary: PWA + Wallet ─── #}
+{# ─── 10. Secondary: PWA + Wallet ─── #}
 <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
     {# PWA Install #}
     <div class="status-card rounded-2xl">
@@ -274,7 +367,7 @@
     </div>
 </div>
 
-{# ─── 10. Products & Membership Tiers (MOVED TO BOTTOM AS SECONDARY INFO) ─── #}
+{# ─── 11. Products & Membership Tiers ─── #}
 {% if profile.verification_status == 'verified' and not is_premium %}
 
 {% include "crush_lu/partials/_connect_status_strip.html" %}

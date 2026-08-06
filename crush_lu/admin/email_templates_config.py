@@ -184,10 +184,12 @@ EMAIL_TEMPLATE_METADATA = {
         'context_builder': 'build_event_waitlist_context',
     },
     'event_cancellation': {
-        'name': 'Cancellation Confirmed',
+        'name': 'Registration Cancelled',
         'category': 'events',
         'template': 'crush_lu/emails/event_cancellation.html',
-        'subject': 'Event Cancellation Confirmed',
+        # "Event Cancellation Confirmed" read as though the event itself was
+        # called off. This fires when a member drops their own seat.
+        'subject': 'Registration Cancelled',
         'description': 'Sent when user cancels their event registration',
         'required_context': ['user', 'event'],
         'optional_context': [],

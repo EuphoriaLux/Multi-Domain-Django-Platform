@@ -8,28 +8,53 @@ per-user state computed by services.event_lobby.lobby_cta():
                       the static feature promo is a separate component
                       (event_lobby_promo.html).
   event  (required) — the MeetupEvent (drives the lobby URL).
-  block  (optional) — truthy: full-width hero style for event detail / ticket
+  hero   (optional) — truthy: full-width hero style for event detail / ticket
                       pages; omitted: compact list-card button.
+  full_width_mobile (optional) — compact branch only: stretch to the card width
+                      below `sm`, so a stacked action group has one button per
+                      row instead of wrapping at whatever point the localised
+                      label happens to run out of room. Opt-in, because the
+                      other compact callers (my_events, event_attendees) sit in
+                      max-content rows where stretching would shove siblings on
+                      to their own line.
+
+The compact branch sizes with `btn-sm`, never ad-hoc `px-*`/`py-*`. The variant
+here is layered (`.btn-crush-solid` is `@apply`-based) so utilities would land,
+but the sibling buttons in the dashboard action card are `.btn-crush-outline`,
+which is UNLAYERED and silently eats padding utilities — the row only stays
+even if every button in it sizes the same way. See STYLE.md §2.
+
+NEVER rename `hero` back to `block`. Django's {% block %} tag puts the
+BlockNode itself into the context under the name `block` (that is what makes
+{{ block.super }} work), so inside any {% block content %} — i.e. on every page
+that extends base.html — {% if hero %} is unconditionally TRUE. Under that name
+the compact branch was dead code on every real surface: the hero button rendered
+in the dashboard/my_events/attendees list cards and overflowed the card on
+mobile. Rendering this component standalone via render_to_string() does NOT
+reproduce it, because there is no enclosing {% block %} — so component-level
+tests pass while the page is broken. Assert on the rendered PAGE.
 
 Disclosure rules (§5.3 as amended 2026-07-18) live entirely in the service —
 callers pass the computed state through and never re-derive eligibility.
 {% endcomment %}
+{% with hero_class="flex items-center justify-center gap-2 w-full py-3 sm:py-4 px-4 bg-gradient-to-r from-crush-purple to-crush-pink text-white font-semibold rounded-lg transition-all hover:shadow-lg text-sm sm:text-base" compact_class="btn-crush-solid btn-sm inline-flex items-center justify-center gap-2 text-center" %}
 {% if cta == "enter_live" %}
     <a href="{% url 'crush_lu:event_lobby' event.id %}"
-       class="{% if block %}flex items-center justify-center gap-2 w-full py-3 sm:py-4 px-4 bg-gradient-to-r from-crush-purple to-crush-pink text-white font-semibold rounded-lg transition-all hover:shadow-lg text-sm sm:text-base{% else %}btn-crush-solid inline-flex items-center justify-center gap-2 text-sm px-3 py-2{% endif %}">
-        <span class="inline-block w-2 h-2 rounded-full {% if block %}bg-white{% else %}bg-crush-pink{% endif %} animate-pulse" aria-hidden="true"></span>
-        {% if block %}{% trans "Event Lobby is live" %}{% else %}{% trans "Event Lobby" %}{% endif %}
+       class="{% if hero %}{{ hero_class }}{% else %}{{ compact_class }}{% if full_width_mobile %} w-full sm:w-auto{% endif %}{% endif %}">
+        <span class="inline-block w-2 h-2 shrink-0 rounded-full {% if hero %}bg-white{% else %}bg-crush-pink{% endif %} animate-pulse" aria-hidden="true"></span>
+        {% if hero %}{% trans "Event Lobby is live" %}{% else %}{% trans "Event Lobby" %}{% endif %}
     </a>
 {% elif cta == "enter_recap" %}
     <a href="{% url 'crush_lu:event_lobby' event.id %}"
-       class="{% if block %}flex items-center justify-center gap-2 w-full py-3 sm:py-4 px-4 bg-gradient-to-r from-crush-purple to-crush-pink text-white font-semibold rounded-lg transition-all hover:shadow-lg text-sm sm:text-base{% else %}btn-crush-solid inline-flex min-w-0 w-40 max-w-full items-center justify-center gap-2 px-3 py-2 text-center text-sm sm:w-auto sm:max-w-none{% endif %}">
+       class="{% if hero %}{{ hero_class }}{% else %}{{ compact_class }}{% if full_width_mobile %} w-full sm:w-auto{% endif %}{% endif %}">
         {% include "shared/icons/heart.html" with class="w-4 h-4 shrink-0" %}
         {% trans "Confirm who you met" %}
     </a>
 {% elif cta == "finish_connect" %}
     <a href="{% url 'crush_lu:crush_connect_onboarding' %}?event_id={{ event.pk }}"
-       class="{% if block %}flex items-center justify-center gap-2 w-full py-3 sm:py-4 px-4 bg-gradient-to-r from-crush-purple to-crush-pink text-white font-semibold rounded-lg transition-all hover:shadow-lg text-sm sm:text-base{% else %}btn-crush-solid inline-flex items-center justify-center gap-2 text-sm px-3 py-2{% endif %}">
-        {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
-        {% if block %}{% trans "Finish Crush Connect to join the Event Lobby" %}{% else %}{% trans "Finish Crush Connect" %}{% endif %}
+       class="{% if hero %}{{ hero_class }}{% else %}{{ compact_class }}{% if full_width_mobile %} w-full sm:w-auto{% endif %}{% endif %}">
+        {% include "shared/icons/sparkles.html" with class="w-4 h-4 shrink-0" %}
+        {% if hero %}{% trans "Finish Crush Connect to join the Event Lobby" %}{% else %}{% trans "Finish Crush Connect" %}{% endif %}
     </a>
 {% endif %}
+{% endwith %}
