@@ -3,10 +3,24 @@
   Static, non-animated ghost for tiny badge/icon usage (w-4 / w-8): SMIL is
   invisible at 16px and this inline include picks up the baked outline, unlike
   the old <img src="...ghost-logo-animated.svg"> which could not be restyled.
+
+  Params:
+    no_heart  truthy drops the heart, leaving the bare ghost. Inverted flag for
+              the same reason as ghost-core's `no_outline`: Django's |default:
+              replaces falsy values, so a `heart=False` param would silently
+              flip back on.
+
+              Use it wherever the icon sits on a surface that already shows
+              the brand mark. Ghost + heart IS the Crush logo — `ghost-logo`
+              orbits that heart around the head in the navbar — so a second
+              ghost carrying a heart in page content reads as a broken copy of
+              the logo rather than as its own illustration.
   {% endcomment %}
   {% include "crush_lu/includes/ghost-core.html" with variant="icon" %}
+  {% if not no_heart %}
   <!-- Heart above ghost head (static) -->
   <g transform="translate(248,120)">
     {% include "crush_lu/includes/ghost-heart.html" %}
   </g>
+  {% endif %}
 </svg>

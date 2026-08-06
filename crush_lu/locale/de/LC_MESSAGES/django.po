@@ -39243,3 +39243,8 @@ msgstr "Dein Platz bleibt reserviert, bis die Zahlung eingegangen ist."
 #: templates/crush_lu/dashboard.html
 msgid "in %(countdown)s"
 msgstr "in %(countdown)s"
+
+#: crush_lu/templates/crush_lu/dashboard.html
+#, python-format
+msgid "Recap closes in %(remaining)s"
+msgstr "Rückblick endet in %(remaining)s"

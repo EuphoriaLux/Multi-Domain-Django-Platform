@@ -39381,3 +39381,8 @@ msgstr "Votre place est réservée jusqu'au règlement."
 #: templates/crush_lu/dashboard.html
 msgid "in %(countdown)s"
 msgstr "dans %(countdown)s"
+
+#: crush_lu/templates/crush_lu/dashboard.html
+#, python-format
+msgid "Recap closes in %(remaining)s"
+msgstr "Le récap se termine dans %(remaining)s"
