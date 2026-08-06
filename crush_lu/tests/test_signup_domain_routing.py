@@ -21,7 +21,7 @@ Two separate concerns are covered here:
 
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
-from django.test import Client, RequestFactory, TestCase
+from django.test import Client, RequestFactory, TestCase, override_settings
 
 from azureproject.adapters import (
     MultiDomainAccountAdapter,
@@ -29,7 +29,26 @@ from azureproject.adapters import (
 )
 
 
+@override_settings(
+    ALLOWED_HOSTS=[
+        "crush.lu",
+        ".crush.lu",
+        ".azurewebsites.net",
+        "entreprinder.lu",
+        "www.entreprinder.lu",
+        "vinsdelux.com",
+        "tableau.lu",
+        "arborist.lu",
+        "power-up.lu",
+        "powerup.lu",
+        "portal.powerup.lu",
+        "delegations.lu",
+        "localhost",
+        "127.0.0.1",
+    ]
+)
 class SignupDomainRoutingTest(TestCase):
+
     def test_crush_signup_redirects_to_consent_capturing_view(self):
         """crush.lu's /accounts/signup/ must redirect to the canonical, consent-capturing /signup/."""
         Site.objects.update_or_create(domain="crush.lu", defaults={"name": "Crush.lu"})
@@ -63,7 +82,26 @@ class SignupDomainRoutingTest(TestCase):
         )
 
 
+@override_settings(
+    ALLOWED_HOSTS=[
+        "crush.lu",
+        ".crush.lu",
+        ".azurewebsites.net",
+        "entreprinder.lu",
+        "www.entreprinder.lu",
+        "vinsdelux.com",
+        "tableau.lu",
+        "arborist.lu",
+        "power-up.lu",
+        "powerup.lu",
+        "portal.powerup.lu",
+        "delegations.lu",
+        "localhost",
+        "127.0.0.1",
+    ]
+)
 class SignupAllowlistTest(TestCase):
+
     """Unit-level coverage of the domain allowlist in azureproject.adapters."""
 
     def setUp(self):
@@ -75,11 +113,12 @@ class SignupAllowlistTest(TestCase):
         return self.factory.get("/accounts/signup/", HTTP_HOST=host)
 
     def test_form_signup_open_on_crush_and_its_subdomains(self):
-        for host in ("crush.lu", "www.crush.lu", "test.crush.lu"):
+        for host in ("crush.lu", "www.crush.lu", "test.crush.lu", "crush-staging.azurewebsites.net"):
             with self.subTest(host=host):
                 self.assertTrue(
                     self.account_adapter.is_open_for_signup(self._request(host))
                 )
+
 
     def test_form_signup_closed_on_every_other_domain(self):
         closed = (

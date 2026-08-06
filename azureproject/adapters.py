@@ -101,7 +101,13 @@ def _domain_allows_signup(request, allowed_domains):
     domain = _get_domain(request)
     if not domain:
         return False
-    return domain in allowed_domains or domain.endswith(".crush.lu")
+    return (
+        domain in allowed_domains
+        or domain.endswith(".crush.lu")
+        or domain.endswith(".azurewebsites.net")
+    )
+
+
 
 
 class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
