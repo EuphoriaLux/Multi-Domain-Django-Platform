@@ -39339,3 +39339,8 @@ msgstr ""
 "Du kannst dich jederzeit für Events anmelden — bei dem Gespräch geht es "
 "darum, dass dein Crush Coach dich kennenlernt und dir bessere Matches "
 "aussuchen kann."
+
+#: crush_lu/templates/crush_lu/dashboard.html
+#, python-format
+msgid "Recap closes in %(remaining)s"
+msgstr "Rückblick endet in %(remaining)s"

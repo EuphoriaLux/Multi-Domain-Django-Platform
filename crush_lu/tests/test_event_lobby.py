@@ -1414,7 +1414,16 @@ class TestLobbyCta:
         _attend(member, event)
         assert lobby.lobby_cta(member, event) is None
 
-    def test_compact_recap_cta_is_constrained_only_on_mobile(self):
+    def test_compact_recap_cta_stretches_only_when_asked_to(self):
+        """Compact sizes with `btn-sm`; stretching is opt-in per caller.
+
+        It used to be a hardcoded `w-40`, which fixed the overflow by capping
+        the button at 160px and wrapping the label mid-sentence instead. The
+        caller now decides: the dashboard stacks one button per row below `sm`
+        and passes `full_width_mobile`, while my_events and event_attendees sit
+        in max-content rows where stretching would shove siblings onto their
+        own line, so they pass nothing and stay at their natural width.
+        """
         from django.template.loader import render_to_string
 
         event = _make_event()
@@ -1422,14 +1431,26 @@ class TestLobbyCta:
             "crush_lu/components/event_lobby_cta.html",
             {"cta": lobby.CTA_ENTER_RECAP, "event": event},
         )
-        assert "min-w-0 w-40 max-w-full" in compact
-        assert "sm:w-auto sm:max-w-none" in compact
+        assert "btn-crush-solid btn-sm" in compact
+        assert "w-full" not in compact, "compact must not stretch unless asked"
+
+        stacked = render_to_string(
+            "crush_lu/components/event_lobby_cta.html",
+            {
+                "cta": lobby.CTA_ENTER_RECAP,
+                "event": event,
+                "full_width_mobile": True,
+            },
+        )
+        assert "btn-crush-solid btn-sm" in stacked
+        assert "w-full sm:w-auto" in stacked
 
         full_width = render_to_string(
             "crush_lu/components/event_lobby_cta.html",
             {"cta": lobby.CTA_ENTER_RECAP, "event": event, "hero": True},
         )
         assert "w-full" in full_width
+        assert "bg-gradient-to-r" in full_width
 
     def test_dashboard_recap_cta_is_the_compact_variant(self, client):
         """The hero variant must not leak into the dashboard action strip.
@@ -1457,10 +1478,11 @@ class TestLobbyCta:
         )
         assert anchor is not None, "recap CTA missing from the dashboard strip"
         tag = anchor.group(0)
-        # "w-full" is useless as a discriminator here — the compact variant
-        # carries max-w-full. Match on the markers unique to each variant.
-        assert "btn-crush-solid" in tag, f"expected the compact variant, got: {tag}"
-        assert "w-40" in tag, f"expected the compact variant, got: {tag}"
+        # Both variants carry "w-full" on the dashboard now — compact takes it
+        # from `full_width_mobile`. Match on the markers unique to each: the
+        # gradient is hero-only, `btn-sm` is compact-only.
+        assert "btn-crush-solid btn-sm" in tag, f"expected the compact variant: {tag}"
+        assert "w-full sm:w-auto" in tag, f"expected the stacked variant: {tag}"
         assert (
             "bg-gradient-to-r" not in tag
         ), f"hero variant leaked onto the dashboard: {tag}"
