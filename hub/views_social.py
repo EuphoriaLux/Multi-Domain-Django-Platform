@@ -195,6 +195,7 @@ def _event_payload(event: MeetupEvent, request) -> dict:
         default=None,
     )
     available_languages = _event_available_languages(event)
+    event_url_language = available_languages[0] if available_languages else "fr"
 
     return {
         "id": str(event.pk),
@@ -205,7 +206,7 @@ def _event_payload(event: MeetupEvent, request) -> dict:
         "image_url": image_url,
         "event_url": build_absolute_url(
             "crush_lu:event_detail",
-            lang=available_languages[0],
+            lang=event_url_language,
             kwargs={"event_id": event.pk},
         ),
         "available_languages": available_languages,
@@ -218,7 +219,7 @@ def _event_payload(event: MeetupEvent, request) -> dict:
 
 
 def _event_available_languages(event: MeetupEvent) -> list[str]:
-    languages = [
+    return [
         language
         for language in (
             SocialPost.Language.FR,
@@ -228,24 +229,18 @@ def _event_available_languages(event: MeetupEvent) -> list[str]:
         if str(getattr(event, f"title_{language}", "") or "").strip()
         and str(getattr(event, f"description_{language}", "") or "").strip()
     ]
-    return languages or [SocialPost.Language.FR]
 
 
 def _event_value(event: MeetupEvent, field: str, language: str) -> str:
     """Return stored event copy without generating or paraphrasing it."""
 
-    candidates = (
-        f"{field}_{language}",
-        f"{field}_{SocialPost.Language.FR}",
-        f"{field}_{SocialPost.Language.EN}",
-        f"{field}_{SocialPost.Language.DE}",
-        field,
-    )
-    for candidate in candidates:
-        value = str(getattr(event, candidate, "") or "").strip()
-        if value:
-            return value
-    return ""
+    return str(getattr(event, f"{field}_{language}", "") or "").strip()
+
+
+def _unique_string_list(value) -> list[str] | None:
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        return None
+    return list(dict.fromkeys(value))
 
 
 def _event_post_content(event: MeetupEvent, language: str) -> str:
@@ -296,6 +291,8 @@ def _refresh_event_draft(
         "media_url": _event_media_url(event, request),
         "platforms": platforms,
     }
+    if post.platforms != platforms:
+        refreshed["buffer_profile_ids"] = []
     changed_fields = [
         field for field, value in refreshed.items() if getattr(post, field) != value
     ]
@@ -330,12 +327,13 @@ def _create_event_drafts(
 ) -> tuple[list[SocialPost], int]:
     posts = []
     created_count = 0
+    event_posts = list(
+        SocialPost.objects.select_for_update()
+        .filter(source_event=event)
+        .order_by("created_at")
+    )
     for language in languages:
-        language_posts = [
-            post
-            for post in event.social_promotion_posts.all()
-            if post.language == language
-        ]
+        language_posts = [post for post in event_posts if post.language == language]
         dispatched_posts = [
             post for post in language_posts if _event_post_is_dispatched(post)
         ]
@@ -593,8 +591,8 @@ class SocialGenerateView(APIView):
         category = request.data.get("category", "events")
         hook = str(request.data.get("hook", "")).strip()
         pillar = request.data.get("pillar", SocialPost.Pillar.EVENT_RECAP)
-        platforms = list(dict.fromkeys(request.data.get("platforms") or []))
-        languages = list(dict.fromkeys(request.data.get("languages") or []))
+        platforms = _unique_string_list(request.data.get("platforms"))
+        languages = _unique_string_list(request.data.get("languages"))
 
         errors = {}
         if category not in ALLOWED_CATEGORIES:
@@ -603,9 +601,17 @@ class SocialGenerateView(APIView):
             errors["hook"] = "Provide a hook between 1 and 255 characters"
         if pillar not in ALLOWED_PILLARS:
             errors["pillar"] = "Unsupported pillar"
-        if not platforms or not set(platforms).issubset(ALLOWED_PLATFORMS):
+        if (
+            platforms is None
+            or not platforms
+            or not set(platforms).issubset(ALLOWED_PLATFORMS)
+        ):
             errors["platforms"] = "Select at least one supported platform"
-        if not languages or not set(languages).issubset(ALLOWED_LANGUAGES):
+        if (
+            languages is None
+            or not languages
+            or not set(languages).issubset(ALLOWED_LANGUAGES)
+        ):
             errors["languages"] = "Select at least one supported language"
         if errors:
             return Response(errors, status=status.HTTP_400_BAD_REQUEST)
@@ -627,7 +633,6 @@ class SocialGenerateView(APIView):
                         is_private_invitation=False,
                         date_time__gte=timezone.now(),
                     )
-                    .prefetch_related("social_promotion_posts")
                     .first()
                     if event_id
                     else None
@@ -769,10 +774,14 @@ class SocialEventDraftsView(APIView):
     permission_classes = [IsAdminUser]
 
     def post(self, request, event_id):
-        languages = list(
-            dict.fromkeys(request.data.get("languages") or [SocialPost.Language.FR])
+        languages = _unique_string_list(
+            request.data.get("languages", [SocialPost.Language.FR])
         )
-        if not languages or not set(languages).issubset(ALLOWED_LANGUAGES):
+        if (
+            languages is None
+            or not languages
+            or not set(languages).issubset(ALLOWED_LANGUAGES)
+        ):
             return Response(
                 {"languages": "Select at least one supported language"},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -788,7 +797,6 @@ class SocialEventDraftsView(APIView):
                     is_private_invitation=False,
                     date_time__gte=timezone.now(),
                 )
-                .prefetch_related("social_promotion_posts")
                 .first()
             )
             if not event:

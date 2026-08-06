@@ -215,7 +215,7 @@ class SocialPost(models.Model):
     )
     source_event = models.ForeignKey(
         "crush_lu.MeetupEvent",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="social_promotion_posts",
         blank=True,
         null=True,

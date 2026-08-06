@@ -400,6 +400,9 @@ class SocialMediaTests(TestCase):
             {"languages": ["fr"]},
             format="json",
         )
+        first_post = SocialPost.objects.get(pk=first.data["posts"][0]["id"])
+        first_post.buffer_profile_ids = ["facebook_channel"]
+        first_post.save(update_fields=["buffer_profile_ids"])
 
         expanded = self.client.post(
             "/hub/social/generate",
@@ -419,7 +422,28 @@ class SocialMediaTests(TestCase):
         self.assertEqual(expanded.data["posts"][0]["id"], first.data["posts"][0]["id"])
         post = SocialPost.objects.get(pk=first.data["posts"][0]["id"])
         self.assertEqual(post.platforms, ["facebook", "linkedin"])
+        self.assertEqual(post.buffer_profile_ids, [])
         self.assertEqual(SocialPost.objects.filter(source_event=event).count(), 1)
+
+    def test_event_draft_locks_linked_posts_before_refresh(self):
+        event = self._event(
+            title_fr="Événement verrouillé",
+            description_fr="Description verrouillée",
+        )
+
+        with patch.object(
+            SocialPost.objects,
+            "select_for_update",
+            wraps=SocialPost.objects.select_for_update,
+        ) as select_for_update:
+            response = self.client.post(
+                f"/hub/social/upcoming-events/{event.pk}/drafts",
+                {"languages": ["fr"]},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 201)
+        select_for_update.assert_called_once()
 
     def test_event_draft_refreshes_when_event_details_change(self):
         event = self._event(
@@ -448,19 +472,70 @@ class SocialMediaTests(TestCase):
         self.assertNotIn("Ancien titre", post.content)
         self.assertIn("Refreshed from the event", post.status_history[-1]["note"])
 
-    def test_deleting_event_cascades_to_its_social_drafts(self):
+    def test_deleting_event_removes_drafts_but_preserves_dispatched_history(self):
         event = self._event()
-        post = SocialPost.objects.create(
+        draft = SocialPost.objects.create(
             user=self.user,
             source_event=event,
             language="fr",
             platforms=["facebook"],
             content="Texte de l’événement",
         )
+        dispatched = SocialPost.objects.create(
+            user=self.user,
+            source_event=event,
+            language="fr",
+            platforms=["facebook"],
+            content="Publication envoyée",
+            status=SocialPost.Status.SCHEDULED,
+            buffer_id="buffer_post_1",
+        )
 
         event.delete()
 
-        self.assertFalse(SocialPost.objects.filter(pk=post.pk).exists())
+        self.assertFalse(SocialPost.objects.filter(pk=draft.pk).exists())
+        dispatched.refresh_from_db()
+        self.assertIsNone(dispatched.source_event_id)
+        self.assertEqual(dispatched.buffer_id, "buffer_post_1")
+
+    def test_event_without_explicit_translations_cannot_create_draft(self):
+        event = self._event()
+        MeetupEvent.objects.filter(pk=event.pk).update(
+            title_fr=None,
+            title_en=None,
+            title_de=None,
+            description_fr=None,
+            description_en=None,
+            description_de=None,
+        )
+
+        upcoming = self.client.get("/hub/social/upcoming-events")
+        response = self.client.post(
+            f"/hub/social/upcoming-events/{event.pk}/drafts",
+            {"languages": ["fr"]},
+            format="json",
+        )
+
+        item = next(
+            item for item in upcoming.data["items"] if item["id"] == str(event.pk)
+        )
+        self.assertEqual(item["available_languages"], [])
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("no stored title", response.data["languages"])
+
+    def test_event_draft_rejects_malformed_languages_shape(self):
+        event = self._event()
+
+        for languages in (123, [["fr"]]):
+            with self.subTest(languages=languages):
+                response = self.client.post(
+                    f"/hub/social/upcoming-events/{event.pk}/drafts",
+                    {"languages": languages},
+                    format="json",
+                )
+
+                self.assertEqual(response.status_code, 400)
+                self.assertIn("supported language", response.data["languages"])
 
     def test_upcoming_event_reports_linked_buffer_promotion(self):
         event = self._event()

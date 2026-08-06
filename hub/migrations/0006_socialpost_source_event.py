@@ -18,7 +18,7 @@ class Migration(migrations.Migration):
                     "Published Crush event whose existing copy was reused for this post."
                 ),
                 null=True,
-                on_delete=django.db.models.deletion.CASCADE,
+                on_delete=django.db.models.deletion.SET_NULL,
                 related_name="social_promotion_posts",
                 to="crush_lu.meetupevent",
             ),
