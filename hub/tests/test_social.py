@@ -390,6 +390,78 @@ class SocialMediaTests(TestCase):
         self.assertEqual(second.data["reused_count"], 1)
         self.assertEqual(SocialPost.objects.filter(source_event=event).count(), 1)
 
+    def test_event_draft_expands_platforms_without_duplicate_publication(self):
+        event = self._event(
+            title_fr="Événement multicanal",
+            description_fr="Description multicanale",
+        )
+        first = self.client.post(
+            f"/hub/social/upcoming-events/{event.pk}/drafts",
+            {"languages": ["fr"]},
+            format="json",
+        )
+
+        expanded = self.client.post(
+            "/hub/social/generate",
+            {
+                "category": "events",
+                "event_id": str(event.pk),
+                "hook": "Ignored for deterministic event copy",
+                "pillar": "promo",
+                "platforms": ["facebook", "linkedin"],
+                "languages": ["fr"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(expanded.status_code, 200)
+        self.assertEqual(expanded.data["created_count"], 0)
+        self.assertEqual(expanded.data["posts"][0]["id"], first.data["posts"][0]["id"])
+        post = SocialPost.objects.get(pk=first.data["posts"][0]["id"])
+        self.assertEqual(post.platforms, ["facebook", "linkedin"])
+        self.assertEqual(SocialPost.objects.filter(source_event=event).count(), 1)
+
+    def test_event_draft_refreshes_when_event_details_change(self):
+        event = self._event(
+            title_fr="Ancien titre",
+            description_fr="Ancienne description",
+        )
+        endpoint = f"/hub/social/upcoming-events/{event.pk}/drafts"
+        first = self.client.post(endpoint, {"languages": ["fr"]}, format="json")
+        post = SocialPost.objects.get(pk=first.data["posts"][0]["id"])
+        post.status = SocialPost.Status.APPROVED
+        post.save(update_fields=["status"])
+        event.title_fr = "Nouveau titre"
+        event.description_fr = "Nouvelle description"
+        event.location = "Nouveau lieu"
+        event.save(update_fields=["title_fr", "description_fr", "location"])
+
+        refreshed = self.client.post(endpoint, {"languages": ["fr"]}, format="json")
+
+        self.assertEqual(refreshed.status_code, 200)
+        self.assertEqual(refreshed.data["posts"][0]["id"], str(post.pk))
+        post.refresh_from_db()
+        self.assertEqual(post.status, SocialPost.Status.DRAFT)
+        self.assertIn("Nouveau titre", post.content)
+        self.assertIn("Nouvelle description", post.content)
+        self.assertIn("Nouveau lieu", post.content)
+        self.assertNotIn("Ancien titre", post.content)
+        self.assertIn("Refreshed from the event", post.status_history[-1]["note"])
+
+    def test_deleting_event_cascades_to_its_social_drafts(self):
+        event = self._event()
+        post = SocialPost.objects.create(
+            user=self.user,
+            source_event=event,
+            language="fr",
+            platforms=["facebook"],
+            content="Texte de l’événement",
+        )
+
+        event.delete()
+
+        self.assertFalse(SocialPost.objects.filter(pk=post.pk).exists())
+
     def test_upcoming_event_reports_linked_buffer_promotion(self):
         event = self._event()
         post = SocialPost.objects.create(
@@ -493,6 +565,34 @@ class SocialMediaTests(TestCase):
 
         self.assertEqual(response.status_code, 409)
         self.assertIn("no longer public", response.data["error"])
+        dispatch.assert_not_called()
+        post.refresh_from_db()
+        self.assertEqual(post.status, SocialPost.Status.PENDING_REVIEW)
+
+    @patch("hub.views_social.create_buffer_update")
+    def test_event_post_must_be_scheduled_before_event_starts(self, dispatch):
+        event = self._event()
+        post = SocialPost.objects.create(
+            user=self.user,
+            source_event=event,
+            language="fr",
+            platforms=["facebook"],
+            content="Texte de l’événement",
+            status=SocialPost.Status.PENDING_REVIEW,
+        )
+
+        response = self.client.patch(
+            f"/hub/social/posts/{post.pk}",
+            {
+                "status": SocialPost.Status.SCHEDULED,
+                "scheduled_for": (event.date_time + timedelta(hours=1)).isoformat(),
+                "buffer_profile_ids": ["facebook_channel"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("before the linked event", response.data["scheduled_for"])
         dispatch.assert_not_called()
         post.refresh_from_db()
         self.assertEqual(post.status, SocialPost.Status.PENDING_REVIEW)

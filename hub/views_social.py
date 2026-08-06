@@ -50,6 +50,7 @@ PROFILE_INELIGIBLE_ERROR = (
     "The featured profile is no longer eligible for marketing publication."
 )
 EVENT_INELIGIBLE_ERROR = "The linked event is no longer public, published, or upcoming."
+EVENT_SCHEDULE_ERROR = "Publication time must be before the linked event starts."
 SCHEDULED_EDIT_ERROR = (
     "Delivery fields cannot be changed after a post has been scheduled in Buffer."
 )
@@ -264,19 +265,8 @@ def _event_post_content(event: MeetupEvent, language: str) -> str:
     )
 
 
-def _existing_event_post(
-    event: MeetupEvent, language: str, platforms: list[str]
-) -> SocialPost | None:
-    requested = set(platforms)
-    return next(
-        (
-            post
-            for post in event.social_promotion_posts.all()
-            if post.language == language
-            and requested.issubset(set(post.platforms or []))
-        ),
-        None,
-    )
+def _event_post_is_dispatched(post: SocialPost) -> bool:
+    return post.status in PROMOTED_STATUSES or bool(post.buffer_id)
 
 
 def _event_media_url(event: MeetupEvent, request) -> str | None:
@@ -290,6 +280,47 @@ def _event_media_url(event: MeetupEvent, request) -> str | None:
     )
 
 
+def _refresh_event_draft(
+    post: SocialPost,
+    *,
+    event: MeetupEvent,
+    language: str,
+    platforms: list[str],
+    request,
+) -> SocialPost:
+    """Synchronize a reusable draft with the event's current stored content."""
+
+    refreshed = {
+        "hook": _event_value(event, "title", language),
+        "content": _event_post_content(event, language),
+        "media_url": _event_media_url(event, request),
+        "platforms": platforms,
+    }
+    changed_fields = [
+        field for field, value in refreshed.items() if getattr(post, field) != value
+    ]
+    if not changed_fields:
+        return post
+
+    for field, value in refreshed.items():
+        setattr(post, field, value)
+    if post.status != SocialPost.Status.DRAFT:
+        post.status = SocialPost.Status.DRAFT
+        changed_fields.append("status")
+    history = list(post.status_history or [])
+    history.append(
+        _history_entry(
+            request,
+            SocialPost.Status.DRAFT,
+            note="Refreshed from the event's current stored content.",
+        )
+    )
+    post.status_history = history
+    changed_fields.append("status_history")
+    post.save(update_fields=[*dict.fromkeys(changed_fields), "updated_at"])
+    return post
+
+
 def _create_event_drafts(
     *,
     event: MeetupEvent,
@@ -300,17 +331,67 @@ def _create_event_drafts(
     posts = []
     created_count = 0
     for language in languages:
-        existing = _existing_event_post(event, language, platforms)
-        if existing:
-            posts.append(existing)
+        language_posts = [
+            post
+            for post in event.social_promotion_posts.all()
+            if post.language == language
+        ]
+        dispatched_posts = [
+            post for post in language_posts if _event_post_is_dispatched(post)
+        ]
+        dispatched_platforms = {
+            platform for post in dispatched_posts for platform in (post.platforms or [])
+        }
+        missing_platforms = [
+            platform for platform in platforms if platform not in dispatched_platforms
+        ]
+        if not missing_platforms:
+            posts.extend(
+                post
+                for post in dispatched_posts
+                if set(post.platforms or []).intersection(platforms)
+            )
             continue
+
+        reusable = next(
+            (
+                post
+                for post in language_posts
+                if not _event_post_is_dispatched(post)
+                and set(missing_platforms).issubset(set(post.platforms or []))
+            ),
+            None,
+        ) or next(
+            (post for post in language_posts if not _event_post_is_dispatched(post)),
+            None,
+        )
+        if reusable:
+            reusable_platforms = [
+                platform
+                for platform in (reusable.platforms or [])
+                if platform not in dispatched_platforms
+            ]
+            merged_platforms = list(
+                dict.fromkeys([*reusable_platforms, *missing_platforms])
+            )
+            posts.append(
+                _refresh_event_draft(
+                    reusable,
+                    event=event,
+                    language=language,
+                    platforms=merged_platforms,
+                    request=request,
+                )
+            )
+            continue
+
         post = SocialPost.objects.create(
             user=request.user,
             source_event=event,
             hook=_event_value(event, "title", language),
             pillar=SocialPost.Pillar.PROMO,
             language=language,
-            platforms=platforms,
+            platforms=missing_platforms,
             content=_event_post_content(event, language),
             media_url=_event_media_url(event, request),
             status=SocialPost.Status.DRAFT,
@@ -365,6 +446,8 @@ class SocialPostDetailView(APIView):
             )
 
         requested_status = request.data.get("status", post.status)
+        serializer = SocialPostSerializer(post, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
         if requested_status == SocialPost.Status.SCHEDULED:
             if post.buffer_id and post.status != SocialPost.Status.SCHEDULED:
                 return Response(
@@ -386,23 +469,28 @@ class SocialPostDetailView(APIView):
                     {"error": PROFILE_INELIGIBLE_ERROR},
                     status=status.HTTP_409_CONFLICT,
                 )
-            if (
-                post.source_event_id
-                and not MeetupEvent.objects.filter(
+            linked_event = None
+            if post.source_event_id:
+                linked_event = MeetupEvent.objects.filter(
                     pk=post.source_event_id,
                     is_published=True,
                     is_cancelled=False,
                     is_private_invitation=False,
                     date_time__gte=timezone.now(),
-                ).exists()
-            ):
+                ).first()
+            if post.source_event_id and not linked_event:
                 return Response(
                     {"error": EVENT_INELIGIBLE_ERROR},
                     status=status.HTTP_409_CONFLICT,
                 )
             scheduling_errors = {}
-            if not request.data.get("scheduled_for", post.scheduled_for):
+            scheduled_for = serializer.validated_data.get(
+                "scheduled_for", post.scheduled_for
+            )
+            if not scheduled_for:
                 scheduling_errors["scheduled_for"] = "Choose a publication time"
+            elif linked_event and scheduled_for >= linked_event.date_time:
+                scheduling_errors["scheduled_for"] = EVENT_SCHEDULE_ERROR
             if not request.data.get("buffer_profile_ids", post.buffer_profile_ids):
                 scheduling_errors["buffer_profile_ids"] = "Select a Buffer channel"
             if not str(request.data.get("content", post.content)).strip():
@@ -411,8 +499,6 @@ class SocialPostDetailView(APIView):
                 return Response(scheduling_errors, status=status.HTTP_400_BAD_REQUEST)
 
         old_status = post.status
-        serializer = SocialPostSerializer(post, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
         if post.status == SocialPost.Status.SCHEDULED:
             changed_delivery_fields = sorted(
                 field
