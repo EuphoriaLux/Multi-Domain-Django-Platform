@@ -39382,6 +39382,102 @@ msgstr "Votre place est réservée jusqu'au règlement."
 msgid "in %(countdown)s"
 msgstr "dans %(countdown)s"
 
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid "Registration Cancelled - {title}"
+msgstr "Inscription annulée - {title}"
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid ""
+"If you paid a registration fee, any refund is handled under our cancellation"
+" policy and we'll be in touch about it."
+msgstr ""
+"Si vous avez payé des frais d'inscription, tout remboursement éventuel suit "
+"notre politique d'annulation — nous vous recontacterons à ce sujet."
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid "Read the cancellation policy"
+msgstr "Lire la politique d'annulation"
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid "Email us at"
+msgstr "Écrivez-nous à"
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid "Questions? Email us at"
+msgstr "Des questions ? Écrivez-nous à"
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid "Questions? We'll help you out — email us at"
+msgstr "Des questions ? Nous vous aidons volontiers — écrivez-nous à"
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid "Have questions or need help? Email us at"
+msgstr "Des questions ou besoin d'aide ? Écrivez-nous à"
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid "If you have any questions, email us at"
+msgstr "Si vous avez des questions, écrivez-nous à"
+
+#: crush_lu/templates/crush_lu/emails/event_cancellation.html
+msgid "Our team will get back to you — email us at"
+msgstr "Notre équipe vous répondra — écrivez-nous à"
+
+#: crush_lu/templates/crush_lu/emails/profile_submission_confirmation.html
+msgid "Good next steps:"
+msgstr "Prochaines étapes :"
+
+#: crush_lu/templates/crush_lu/emails/profile_submission_confirmation.html
+msgid "See you at an event!"
+msgstr "À bientôt lors d'un événement !"
+
+#: crush_lu/templates/crush_lu/emails/profile_submission_confirmation.html
+msgid ""
+"You're literally one step away! Just add a photo or two and you're ready to "
+"get verified."
+msgstr ""
+"Vous n'êtes qu'à une étape ! Ajoutez une ou deux photos et vous êtes prêt à "
+"vous faire vérifier."
+
+#: crush_lu/templates/crush_lu/emails/profile_submission_confirmation.html
+msgid ""
+"You've done the hard part! Add your preferences and submit — then get "
+"verified at an event or with LuxID."
+msgstr ""
+"Vous avez fait le plus dur ! Ajoutez vos préférences et soumettez votre "
+"profil — ensuite, faites-vous vérifier lors d'un événement ou avec LuxID."
+
+#: crush_lu/templates/crush_lu/emails/profile_submission_confirmation.html
+msgid ""
+"3. Complete your profile — verify instantly with LuxID, or in person when "
+"you arrive"
+msgstr ""
+"3. Complétez votre profil — vérification instantanée avec LuxID, ou en "
+"personne à votre arrivée"
+
+#: crush_lu/templates/crush_lu/emails/profile_submission_confirmation.html
+msgid "4. Register for the event"
+msgstr "4. Inscrivez-vous à l'événement"
+
+#: crush_lu/templates/crush_lu/emails/profile_submission_confirmation.html
+msgid ""
+"Crush.lu is Luxembourg's privacy-first dating platform focused on real "
+"connections through in-person events. We prioritize quality over quantity, "
+"with every member verified and exclusive events."
+msgstr ""
+"Crush.lu est la plateforme de rencontres du Luxembourg axée sur la "
+"confidentialité et les rencontres réelles lors d'événements en personne. "
+"Nous privilégions la qualité à la quantité, avec des membres tous vérifiés "
+"et des événements exclusifs."
+
+#: crush_lu/templates/crush_lu/emails/profile_submission_confirmation.html
+msgid ""
+"You can browse and register for events any time — the call is about your "
+"Crush Coach getting to know you, so they can pick better matches for you."
+msgstr ""
+"Vous pouvez parcourir et réserver des événements à tout moment — l'appel "
+"sert à ce que votre Crush Coach apprenne à vous connaître et vous propose de"
+" meilleurs profils."
+
 #: crush_lu/templates/crush_lu/dashboard.html
 #, python-format
 msgid "Recap closes in %(remaining)s"
