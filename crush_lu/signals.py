@@ -3989,8 +3989,19 @@ def sync_user_to_outlook_on_name_change(
     except CrushProfile.DoesNotExist:
         return
 
-    # Only sync if profile has phone number and is already synced
-    if not profile.phone_number or not profile.outlook_contact_id:
+    # Only sync if profile has a *verified* phone number and is already synced.
+    #
+    # phone_verified matters here specifically because a failed delete now keeps
+    # outlook_contact_id on purpose, so it can be retried. Without this check, a
+    # profile mid-removal still looks synced, and a later name or email change
+    # would call sync_profile() -- which does not enforce phone_verified -- and
+    # cheerfully update or recreate the very contact the other handler is trying
+    # to delete.
+    if (
+        not profile.phone_number
+        or not profile.phone_verified
+        or not profile.outlook_contact_id
+    ):
         return
 
     def _sync():
