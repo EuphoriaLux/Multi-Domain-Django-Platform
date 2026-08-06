@@ -426,6 +426,30 @@ def create_sumup_donation_checkout(request):
             {"error": _("Available outside the mobile app.")}, status=403
         )
 
+    # Refuse the money we cannot deliver against. The Community Supporter badge
+    # is a CrushProfile field, and this card renders on my_events, which is
+    # login-only -- so a coach without a dating profile, or anyone who signed up
+    # and never finished onboarding, could reach it and pay for a badge with
+    # nowhere to live. _apply_paid_checkout used to log that at error level and
+    # move on, which meant a real charge with nothing granted and no automatic
+    # repair: a profile created afterwards starts at is_community_supporter
+    # False, and the callback will not run again because it returns early on an
+    # already-paid transaction.
+    #
+    # Refusing here rather than granting retroactively is deliberate. There is
+    # no refund path anywhere in this codebase -- PaymentTransaction.REFUNDED is
+    # a status nothing sets -- so "charge now, reconcile later" has no way back
+    # if the reconciliation never happens. The only safe moment to say no is
+    # before SumUp is ever asked for a checkout.
+    #
+    # Ordered before the amount parsing so the answer does not depend on what
+    # the member typed: this is about who they are, not how much they offered.
+    if not CrushProfile.objects.filter(user=request.user).exists():
+        return JsonResponse(
+            {"error": _("Please complete your profile before contributing.")},
+            status=400,
+        )
+
     try:
         if request.body:
             data = json.loads(request.body.decode("utf-8"))
@@ -839,18 +863,20 @@ def _apply_paid_checkout(tx_obj, data):
             if profile is None:
                 # Paid, and there is nowhere to put what it bought. The badge
                 # lives on CrushProfile, and my_events -- which renders the
-                # donation card -- only requires a login, so a coach (who may
-                # not hold a dating profile) or anyone who signed up without
-                # finishing onboarding can reach the card and pay.
+                # donation card -- only requires a login.
                 #
-                # The money stays recorded; that is not in question. What must
-                # not happen is this passing in silence, which is what it did:
-                # every other "charged but not granted" path in this file is an
-                # error-level line naming what a human has to do, and this was
-                # the one exception. Whether such a donor should be refused up
-                # front, or granted the badge later if a profile appears, is a
-                # product decision -- until it is made, at least nobody has to
-                # discover it from a complaint.
+                # The product question this used to leave open is now answered:
+                # create_sumup_donation_checkout refuses a member without a
+                # profile before SumUp is ever asked for a checkout, so the
+                # ordinary route into this branch is closed. What remains is the
+                # narrow race -- a checkout opened while the profile existed and
+                # paid after it was deleted -- plus any transaction created
+                # before that gate shipped.
+                #
+                # So this stays, and stays at error level. The money is
+                # recorded; what must not happen is it passing in silence, and
+                # a branch that should now be unreachable is exactly the kind
+                # that must say so loudly when it is not.
                 logger.error(
                     "SumUp donation %s completed for user %s but they have no "
                     "CrushProfile — payment recorded, Community Supporter NOT "
@@ -1114,6 +1140,7 @@ def _append_widget_note(tx_obj, note):
         locked.failure_reason = _join_failure_reason(provider, notes[-1000:])
         locked.save(update_fields=["failure_reason", "updated_at"])
         return True
+
 
 def _sync_checkout_with_sumup(tx_obj):
     """Re-read the checkout from SumUp and apply whatever it reports.
@@ -1495,6 +1522,22 @@ def _sumup_return_response(request, tx_obj):
                     ),
                 )
             return redirect("crush_lu:crush_connect_hub")
+        elif tx_obj.purpose == PaymentTransaction.Purpose.DONATION:
+            # A donation has neither an event_registration nor a
+            # premium_membership, so before this branch existed it fell past
+            # both and landed on the public home page -- the one page that
+            # shows a donor nothing about what they just bought, and not a page
+            # any of them was on when they started.
+            #
+            # my_events, not dashboard. Both render the support card, but
+            # dashboard is @crush_login_required *and* redirects to
+            # create_profile when the profile is missing, which is the same
+            # trap the Premium branch above documents: bounced off the landing
+            # page before the thing you paid for is rendered. my_events needs
+            # only a login, so it holds for every donor the checkout gate lets
+            # through -- and it is where the freshly granted Community
+            # Supporter badge and thank-you state now show.
+            return redirect("crush_lu:my_events")
     else:
         messages.warning(request, _("Payment is pending or was not completed."))
 

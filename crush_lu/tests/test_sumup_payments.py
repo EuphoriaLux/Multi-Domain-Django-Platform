@@ -4403,6 +4403,12 @@ class DonationCheckoutTests(SiteTestMixin, TestCase):
             user=self.user,
             defaults={"powerup_consent_given": True, "crushlu_consent_given": True},
         )
+        # The badge a donation grants is a CrushProfile field, so the view now
+        # refuses a member who has no profile to put it on. Every test below is
+        # about what the *amount* does, so they all need a donor who clears that
+        # gate; the gate itself is asserted in
+        # test_a_member_without_a_profile_is_refused_before_sumup.
+        CrushProfile.objects.create(user=self.user, verification_status="verified")
         # The literal path, not reverse(). On crush.lu the routing middleware
         # swaps in the urls_crush urlconf, where this route is registered
         # un-prefixed -- so the namespaced /crush/... form reverse() builds
@@ -4451,6 +4457,73 @@ class DonationCheckoutTests(SiteTestMixin, TestCase):
         response = self._post("10.00")
 
         self.assertIn(response.status_code, (302, 403))
+        mock_create.assert_not_called()
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_a_member_without_a_profile_is_refused_before_sumup(self, mock_create):
+        """The one case where the badge would have nowhere to go.
+
+        my_events renders the donation card and only requires a login, so a
+        coach or a half-onboarded member can reach it. Granting is impossible
+        without a CrushProfile and there is no refund path in this codebase, so
+        the refusal has to happen before any money moves — asserted on
+        create_checkout, not just on the status code.
+        """
+        CrushProfile.objects.filter(user=self.user).delete()
+
+        response = self._post("10.00")
+
+        self.assertEqual(response.status_code, 400)
+        mock_create.assert_not_called()
+        self.assertFalse(PaymentTransaction.objects.exists())
+
+    @patch("crush_lu.views_payments.SumUpClient.get_checkout")
+    def test_a_paid_donation_lands_on_an_authenticated_page(self, mock_get_checkout):
+        """A donation has no registration and no membership.
+
+        It therefore fell past both branches of the return handler and landed on
+        the public home page — which shows a donor nothing about what they just
+        bought, and is not a page any of them was on when they started. It must
+        land on my_events, which renders the support card and its freshly
+        granted supporter state.
+        """
+        PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-DON-RET-1",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK_DON_RET_1",
+            amount=Decimal("10.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.DONATION,
+            user=self.user,
+        )
+        mock_get_checkout.return_value = {"id": "CHK_DON_RET_1", "status": "PAID"}
+
+        response = self.client.get(
+            "/payments/sumup/return/", {"ref": "CRUSH-DON-RET-1"}
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            response["Location"].endswith("/my-events/"),
+            f"donation return went to {response['Location']}, not my_events",
+        )
+
+    @patch("crush_lu.views_payments.SumUpClient.create_checkout")
+    def test_the_refusal_does_not_depend_on_the_amount(self, mock_create):
+        """A profile-less member is refused for who they are, not what they typed.
+
+        The gate sits ahead of the amount parsing, so an amount that would
+        itself have been rejected must still produce the profile error rather
+        than an amount error — otherwise the member fixes the number, retries,
+        and hits a wall they were never told about.
+        """
+        CrushProfile.objects.filter(user=self.user).delete()
+
+        response = self._post("1.00")  # below DONATION_MIN_EUR
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("profile", response.json()["error"].lower())
         mock_create.assert_not_called()
         self.assertFalse(PaymentTransaction.objects.exists())
 
