@@ -26951,3 +26951,8 @@ msgstr ""
 #, python-format
 msgid "Mark Table %(table_number)s wrong"
 msgstr ""
+
+#: crush_lu/templates/crush_lu/dashboard.html
+#, python-format
+msgid "Recap closes in %(remaining)s"
+msgstr ""

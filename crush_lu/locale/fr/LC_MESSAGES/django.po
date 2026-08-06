@@ -39477,3 +39477,8 @@ msgstr ""
 "Vous pouvez parcourir et réserver des événements à tout moment — l'appel "
 "sert à ce que votre Crush Coach apprenne à vous connaître et vous propose de"
 " meilleurs profils."
+
+#: crush_lu/templates/crush_lu/dashboard.html
+#, python-format
+msgid "Recap closes in %(remaining)s"
+msgstr "Le récap se termine dans %(remaining)s"
