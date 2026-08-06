@@ -75,6 +75,41 @@ def _is_delegation_domain(request):
     return domain == "delegations.lu"
 
 
+# Domains where a visitor may create their own account.
+#
+# Signup is CLOSED by default. `base_patterns` mounts allauth on all nine
+# domains, so every platform exposes /accounts/signup/ whether or not signup
+# is a feature there -- the unmaintained brochure sites (entreprinder,
+# vinsdelux, tableau, arborist) were collecting bot registrations, and
+# power-up/portal accounts are staff-created. Add a domain here only when
+# self-service registration is a deliberate product decision.
+FORM_SIGNUP_DOMAINS = frozenset({"crush.lu", "localhost", "127.0.0.1"})
+
+# delegations.lu has no signup form (see MultiDomainAccountAdapter below) but
+# does onboard through Microsoft OAuth, so social signup stays open for it.
+SOCIAL_SIGNUP_DOMAINS = FORM_SIGNUP_DOMAINS | {"delegations.lu"}
+
+
+def _domain_allows_signup(request, allowed_domains):
+    """
+    Whether new accounts may be created for this request's domain.
+
+    Unknown/missing hosts are refused: requests that don't resolve to a
+    configured domain fall back to PRODUCTION_DEFAULT's urlconf, and that
+    fallback must not be a way to register.
+    """
+    domain = _get_domain(request)
+    if not domain:
+        return False
+    return (
+        domain in allowed_domains
+        or domain.endswith(".crush.lu")
+        or domain.endswith(".azurewebsites.net")
+    )
+
+
+
+
 class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
     """
     Multi-domain social account adapter.
@@ -235,10 +270,15 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
 
     def is_open_for_signup(self, request, sociallogin):
         """
-        Allow OAuth signup on all domains, including delegation.
-        This overrides the AccountAdapter's is_open_for_signup for social logins.
+        Control OAuth signup per domain.
+
+        Overrides the AccountAdapter's gate for social logins so delegations.lu
+        can onboard via Microsoft OAuth while its signup form stays disabled.
+        Existing users are unaffected: allauth links a social login to an
+        account with a matching verified email rather than creating one, and
+        that path never consults this hook.
         """
-        return True
+        return _domain_allows_signup(request, SOCIAL_SIGNUP_DOMAINS)
 
     def populate_user(self, request, sociallogin, data):
         """Populate user with data from social provider."""
@@ -656,12 +696,12 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
     def is_open_for_signup(self, request):
         """
         Control signup availability per domain.
-        Delegation domain only allows Microsoft OAuth, not form signup.
+
+        Closed unless the domain is in FORM_SIGNUP_DOMAINS. delegations.lu is
+        excluded deliberately -- it onboards through Microsoft OAuth, which is
+        gated by MultiDomainSocialAccountAdapter.is_open_for_signup instead.
         """
-        if _is_delegation_domain(request):
-            # Disable traditional signup form on delegation domain
-            return False
-        return True
+        return _domain_allows_signup(request, FORM_SIGNUP_DOMAINS)
 
     def get_login_url(self, request):
         """
