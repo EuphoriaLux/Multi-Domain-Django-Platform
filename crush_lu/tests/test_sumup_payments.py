@@ -4458,6 +4458,7 @@ class DonationCheckoutTests(SiteTestMixin, TestCase):
 
         self.assertIn(response.status_code, (302, 403))
         mock_create.assert_not_called()
+        self.assertFalse(PaymentTransaction.objects.exists())
 
     @patch("crush_lu.views_payments.SumUpClient.create_checkout")
     def test_a_member_without_a_profile_is_refused_before_sumup(self, mock_create):
