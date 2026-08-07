@@ -925,6 +925,36 @@ def refresh_apple_tickets_on_event_change(sender, instance, created, **kwargs):
 
 
 @receiver(post_save, sender=MeetupEvent)
+def sync_event_to_echo_lu(sender, instance, created, **kwargs):
+    """Mirror the event onto echo.lu whenever it is saved.
+
+    No change detection here, deliberately. The service fingerprints the
+    payload it would send and compares it with the one echo.lu last accepted,
+    so an unrelated save costs a hash and no HTTP request — which makes a
+    snapshot receiver (a second SELECT on every event save, kept in sync with a
+    field list by hand) pure overhead. It also means the receiver cannot get
+    the field list *wrong*: publishing, cancelling, going private, retitling,
+    moving venue and re-pricing all reach echo.lu through the same one check.
+
+    Enqueued rather than called inline, and on_commit rather than immediately:
+    the admin's save path would otherwise wait on a third-party HTTP round trip
+    before rendering, and a task that beat the transaction would read the
+    pre-save row (or, for a new event, no row at all).
+    """
+    from .services import echo_lu
+
+    if not echo_lu.is_sync_enabled():
+        return
+
+    from .tasks import sync_event_to_echo_task
+
+    event_id = instance.pk
+    transaction.on_commit(
+        lambda: sync_event_to_echo_task.enqueue(event_id=event_id)
+    )
+
+
+@receiver(post_save, sender=MeetupEvent)
 def promote_waitlist_on_capacity_increase(sender, instance, created, **kwargs):
     """
     Auto-promote waitlisted users when event capacity is increased.

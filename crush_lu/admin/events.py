@@ -37,6 +37,28 @@ from .quiz import QuizEventInline
 logger = logging.getLogger(__name__)
 
 
+def _enqueue_echo_sync(event_ids):
+    """Queue an echo.lu reconcile for events changed by a bulk action.
+
+    The publish/unpublish/cancel actions all go through ``queryset.update()``,
+    which does not fire post_save — so the receiver that normally mirrors an
+    event onto echo.lu never runs for them. Publishing an event in bulk is the
+    single most likely way for one to reach the public site, so without this
+    the portal would only catch up on the next scheduled sweep.
+    """
+    from crush_lu.services import echo_lu
+
+    if not echo_lu.is_sync_enabled() or not event_ids:
+        return
+
+    from crush_lu.tasks import sync_event_to_echo_task
+
+    ids = list(event_ids)
+    transaction.on_commit(
+        lambda: [sync_event_to_echo_task.enqueue(event_id=pk) for pk in ids]
+    )
+
+
 class RegistrationAudienceWidget(forms.RadioSelect):
     """Card-style audience picker with explicit standard and advanced groups."""
 
@@ -324,6 +346,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         "get_voting_status",
         "is_published",
         "is_cancelled",
+        "get_echo_lu_status",
     )
     list_filter = (
         "event_type",
@@ -347,6 +370,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         "get_revenue",
         "get_voting_status",
         "get_presentation_status",
+        "get_echo_lu_detail",
     )
     inlines = [
         QuizEventInline,
@@ -361,8 +385,13 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         "cancel_events",
         "send_event_reminders",
         "export_attendees_csv",
+        "sync_to_echo_lu",
+        "withdraw_from_echo_lu",
     ]
     filter_horizontal = ("invited_users", "coaches")
+    # get_echo_lu_status renders one column per row; without this the changelist
+    # would issue a query per event to resolve the OneToOne.
+    list_select_related = ["echo_sync"]
 
     fieldsets = (
         (
@@ -472,6 +501,17 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             },
         ),
         ("Status", {"fields": ("is_published", "is_cancelled")}),
+        (
+            "🌍 echo.lu",
+            {
+                "fields": ("get_echo_lu_detail",),
+                "description": (
+                    "Published, public, upcoming events are mirrored to echo.lu, "
+                    "Luxembourg's national events portal. Private invitation "
+                    "events are never sent. See docs/integrations/echo-lu-sync.md."
+                ),
+            },
+        ),
         ("Metadata", {"fields": ("created_at", "updated_at")}),
     )
 
@@ -582,16 +622,142 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
 
     @admin.action(description=_("✅ Publish selected events"))
     def publish_events(self, request, queryset):
+        # Snapshot before .update(): the queryset is lazy and may well filter on
+        # is_published=False, which matches nothing once the update lands.
+        event_ids = list(queryset.values_list("pk", flat=True))
         updated = queryset.update(is_published=True)
+        _enqueue_echo_sync(event_ids)
         django_messages.success(
             request, _("Published {count} event(s)").format(count=updated)
         )
 
     @admin.action(description=_("❌ Unpublish selected events"))
     def unpublish_events(self, request, queryset):
+        event_ids = list(queryset.values_list("pk", flat=True))
         updated = queryset.update(is_published=False)
+        _enqueue_echo_sync(event_ids)
         django_messages.success(
             request, _("Unpublished {count} event(s)").format(count=updated)
+        )
+
+    # --- echo.lu ---------------------------------------------------------
+
+    @admin.display(description=_("echo.lu"))
+    def get_echo_lu_status(self, obj):
+        """Compact listing state for the changelist."""
+        sync = getattr(obj, "echo_sync", None)
+        if sync is None:
+            return "—"
+        icons = {
+            "synced": "✅",
+            "pending": "⏳",
+            "failed": "⚠️",
+            "withdrawn": "🚫",
+        }
+        return f"{icons.get(sync.status, '')} {sync.get_status_display()}".strip()
+
+    @admin.display(description=_("echo.lu listing"))
+    def get_echo_lu_detail(self, obj):
+        """Full sync state on the change form, including the last error.
+
+        The error text is the whole point of surfacing this: echo.lu rejects an
+        experience wholesale on one unknown category slug, and without the
+        message here the only symptom is an event that quietly never appears on
+        the portal.
+        """
+        from crush_lu.services import echo_lu
+
+        if not obj.pk:
+            return _("Save the event first.")
+
+        sync = getattr(obj, "echo_sync", None)
+        if sync is None:
+            if not echo_lu.is_sync_enabled():
+                return _("echo.lu sync is disabled for this environment.")
+            if not echo_lu.should_publish(obj):
+                return _("Not eligible: only published, public, upcoming events sync.")
+            return _("Not synced yet — saves on the next sync run.")
+
+        rows = [
+            format_html("<strong>{}</strong>", sync.get_status_display()),
+            format_html("Experience id: {}", sync.experience_id or "—"),
+        ]
+        if sync.last_synced_at:
+            rows.append(
+                format_html("Last synced: {}", sync.last_synced_at.strftime("%Y-%m-%d %H:%M"))
+            )
+        if sync.last_error:
+            rows.append(
+                format_html(
+                    '<span style="color:#b91c1c">Last error: {}</span>', sync.last_error
+                )
+            )
+        return mark_safe("<br>".join(rows))
+
+    @admin.action(description=_("🌍 Sync selected events to echo.lu"))
+    def sync_to_echo_lu(self, request, queryset):
+        from crush_lu.services import echo_lu
+
+        if not echo_lu.is_sync_enabled():
+            django_messages.warning(
+                request,
+                _(
+                    "echo.lu sync is disabled. Set ECHO_LU_SYNC_ENABLED=true and "
+                    "ECHO_LU_API_KEY in the environment."
+                ),
+            )
+            return
+
+        # Run inline rather than enqueued so the coach sees the outcome — this
+        # action exists precisely to retry after a rejection and read the error,
+        # which an enqueued task cannot report back. Bounded by the admin page
+        # size, so the request stays short enough.
+        client = echo_lu.EchoLuClient()
+        succeeded, failed = 0, 0
+        for event in queryset.select_related("echo_sync"):
+            try:
+                echo_lu.sync_event(event, client=client, force=True)
+                succeeded += 1
+            except echo_lu.EchoLuError as exc:
+                failed += 1
+                django_messages.error(request, f"[{event.pk}] {event.title}: {exc}")
+
+        if succeeded:
+            django_messages.success(
+                request, _("Synced {count} event(s) to echo.lu").format(count=succeeded)
+            )
+        if failed:
+            django_messages.warning(
+                request,
+                _(
+                    "{count} event(s) were rejected — the reason is saved on each "
+                    "event and shown on its change form."
+                ).format(count=failed),
+            )
+
+    @admin.action(description=_("🚫 Remove selected events from echo.lu"))
+    def withdraw_from_echo_lu(self, request, queryset):
+        """Take listings down without unpublishing the event on crush.lu."""
+        from crush_lu.services import echo_lu
+
+        if not echo_lu.is_sync_enabled():
+            django_messages.warning(
+                request, _("echo.lu sync is disabled for this environment.")
+            )
+            return
+
+        client = echo_lu.EchoLuClient()
+        withdrawn = 0
+        for event in queryset.select_related("echo_sync"):
+            try:
+                if echo_lu.withdraw_event(event, client=client) == "withdrawn":
+                    withdrawn += 1
+            except echo_lu.EchoLuError as exc:
+                django_messages.error(request, f"[{event.pk}] {event.title}: {exc}")
+
+        django_messages.success(
+            request,
+            _("Removed {count} listing(s) from echo.lu").format(count=withdrawn),
         )
 
     @staticmethod
@@ -722,6 +888,12 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             updated = MeetupEvent.objects.filter(pk__in=event_ids).update(
                 is_cancelled=True
             )
+
+        # Same reason as the wallet refreshes below: .update() emits no signals,
+        # so nothing tells echo.lu either. A cancelled event left on the
+        # national portal keeps advertising itself to the whole country, which
+        # is the most visible way this action can go wrong.
+        _enqueue_echo_sync(event_ids)
 
         # .update() emits no signals, so nothing else tells Apple Wallet these
         # tickets are dead. Without this, a cancelled event's installed passes

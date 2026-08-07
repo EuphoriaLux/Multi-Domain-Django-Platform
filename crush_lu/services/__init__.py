@@ -17,11 +17,29 @@ from .blocking import (
 )
 from .crush_connect import get_eligible_pool, get_or_create_daily_drop
 from .crush_leads import call_by, coach_action_queue, reminder_due
+from .echo_lu import (
+    EchoLuClient,
+    EchoLuError,
+    build_experience_payload,
+    events_needing_sync,
+    should_publish,
+    sync_event,
+    withdraw_event,
+)
+from .echo_lu import is_sync_enabled as is_echo_sync_enabled
 from .graph_contacts import GraphContactsService, is_sync_enabled
 
 __all__ = [
     'GraphContactsService',
     'is_sync_enabled',
+    'EchoLuClient',
+    'EchoLuError',
+    'build_experience_payload',
+    'events_needing_sync',
+    'is_echo_sync_enabled',
+    'should_publish',
+    'sync_event',
+    'withdraw_event',
     'get_eligible_pool',
     'get_or_create_daily_drop',
     'call_by',

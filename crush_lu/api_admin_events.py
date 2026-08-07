@@ -109,3 +109,28 @@ def event_feedback_sweep(request):
     that a daily cadence cannot miss an event.
     """
     return _run(request, "event_feedback", "send_event_feedback_requests")
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def echo_lu_sync_sweep(request):
+    """POST /api/admin/echo-sync/
+
+    Reconcile published events with echo.lu, Luxembourg's national events
+    portal. Invoked hourly by the ``EchoLuSync`` Azure Function timer.
+
+    A sweep is needed even though a post_save receiver already mirrors most
+    edits live, because three transitions reach echo.lu no other way:
+
+    - an event simply *ending* — nothing saves the row when it does, so the
+      finished listing would sit on the portal until someone touched it;
+    - a failed write — the receiver's task swallows API errors (an echo.lu
+      outage must not fail an event edit), and this is what retries them;
+    - anything changed by a path that bypasses signals, chiefly the admin's
+      bulk actions, which use ``queryset.update()``.
+
+    Idempotent: the service fingerprints each payload and skips events whose
+    listing already matches, so the hourly cadence costs one hash per event
+    and no API calls in the steady state.
+    """
+    return _run(request, "echo_lu_sync", "sync_events_to_echo")
