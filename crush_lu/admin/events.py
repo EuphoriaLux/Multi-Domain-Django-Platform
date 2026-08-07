@@ -1498,9 +1498,9 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                 if best is None or _key(row) < best:
                     by_user[row.user_id] = _key(row)
             displayed = get_next_event_registrations(list(by_user), now=now)
-            candidates = CrushProfile.objects.filter(user_id__in=list(by_user)).exclude(
-                google_wallet_object_id=""
-            )
+            candidates = CrushProfile.objects.filter(
+                user_id__in=list(by_user)
+            ).exclude(google_wallet_object_id="")
             for profile in candidates:
                 showing = displayed.get(profile.user_id)
                 if showing is None or by_user[profile.user_id] < _key(showing):
