@@ -861,11 +861,21 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             # message below is true. The coach asked for all of these to come
             # down; without this the sweep would find their events still
             # eligible and republish instead.
+            #
+            # Per event with get_or_create, matching what withdraw_event does:
+            # an event whose first sync is still pending has no sync row at
+            # all, and one whose create was refused has a row with a blank id.
+            # A bulk update over existing rows with an id would skip both —
+            # and those are exactly the events with nothing on echo.lu yet, so
+            # "removed" for them means "never create it", which is the only
+            # instruction that can be lost here.
             from crush_lu.models.echo_lu import EchoExperienceSync
 
-            EchoExperienceSync.objects.filter(
-                event__in=deferred
-            ).exclude(experience_id="").update(removal_requested=True)
+            for event in deferred:
+                sync, _created = EchoExperienceSync.objects.get_or_create(event=event)
+                if not sync.removal_requested:
+                    sync.removal_requested = True
+                    sync.save(update_fields=["removal_requested", "updated_at"])
             django_messages.warning(
                 request,
                 _(
@@ -1488,9 +1498,9 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                 if best is None or _key(row) < best:
                     by_user[row.user_id] = _key(row)
             displayed = get_next_event_registrations(list(by_user), now=now)
-            candidates = CrushProfile.objects.filter(
-                user_id__in=list(by_user)
-            ).exclude(google_wallet_object_id="")
+            candidates = CrushProfile.objects.filter(user_id__in=list(by_user)).exclude(
+                google_wallet_object_id=""
+            )
             for profile in candidates:
                 showing = displayed.get(profile.user_id)
                 if showing is None or by_user[profile.user_id] < _key(showing):

@@ -1824,3 +1824,58 @@ class AdoptionClashTests(TestCase):
             EchoExperienceSync.objects.get(event=orphan).status,
             EchoExperienceSync.Status.ORPHANED,
         )
+
+
+@override_settings(**ENABLED)
+class RemoveActionDeferralTests(TestCase):
+    """The action's own fallback has to keep the promise its message makes."""
+
+    def _run_remove(self, events, budget):
+        from django.contrib.admin.sites import AdminSite
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        from django.test import RequestFactory
+
+        from crush_lu.admin.events import MeetupEventAdmin
+
+        request = RequestFactory().post("/crush-admin/")
+        request.session = {}
+        request._messages = FallbackStorage(request)
+
+        model_admin = MeetupEventAdmin(MeetupEvent, AdminSite())
+        queryset = MeetupEvent.objects.filter(pk__in=[e.pk for e in events])
+        with override_settings(ECHO_LU_ADMIN_BUDGET_SECONDS=budget), mock.patch.object(
+            echo_lu, "EchoLuClient"
+        ), mock.patch.object(echo_lu, "withdraw_event", return_value="skipped"):
+            model_admin.withdraw_from_echo_lu(request, queryset)
+        return [str(message) for message in request._messages]
+
+    def test_a_deferred_event_with_no_listing_still_records_the_removal(self):
+        # The events with nothing on echo.lu yet are exactly the ones a bulk
+        # update over rows-with-an-id skips — and for them "removed" means
+        # "never create it", the one instruction that can still be lost.
+        event = make_event()
+        self.assertFalse(EchoExperienceSync.objects.filter(event=event).exists())
+
+        # Budget of 0 defers everything without attempting any of it.
+        messages = self._run_remove([event], budget=0)
+
+        sync = EchoExperienceSync.objects.get(event=event)
+        self.assertTrue(sync.removal_requested)
+        self.assertTrue(any("not attempted here" in m for m in messages))
+
+        # And the promise holds: the next sync does not create the listing.
+        event.refresh_from_db()
+        client = FakeClient()
+        self.assertEqual(echo_lu.sync_event(event, client=client), "suppressed")
+        self.assertEqual(client.calls, [])
+
+    def test_a_deferred_event_with_a_blank_id_records_the_removal(self):
+        # A previously refused create leaves a row with no experience_id.
+        event = make_event()
+        EchoExperienceSync.objects.create(
+            event=event, status=EchoExperienceSync.Status.FAILED
+        )
+
+        self._run_remove([event], budget=0)
+
+        self.assertTrue(EchoExperienceSync.objects.get(event=event).removal_requested)
